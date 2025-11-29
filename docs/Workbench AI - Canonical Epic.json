@@ -1,1 +1,456 @@
-
+{
+  "type": "canonical_epic",
+  "version": 1,
+  "metadata": {
+    "product_name": "Workbench AI",
+    "created_at": "2024-11-29",
+    "status": "approved"
+  },
+  "sections": {
+    "vision": {
+      "title": "Vision Statement",
+      "content": "Workbench AI is a conversational AI-powered workspace that transforms product ideas into comprehensive, implementation-ready definitions through an orchestrated multi-agent workflow. Users describe their idea in natural language, answer clarifying questions, and receive a validated Epic, technical Architecture, and actionable Backlog—all generated through structured AI collaboration with human approval gates at each stage.\n\nThe platform serves solo founders, product managers, and small teams who need to rapidly validate and define product concepts without hiring a full product team. By combining PM discovery, architectural planning, and backlog generation into a single conversational experience, Workbench AI compresses weeks of definition work into hours while maintaining professional quality and traceability."
+    },
+    "problem": {
+      "title": "Problem Statement / Opportunity",
+      "current_pain_points": [
+        "Product definition is slow, expensive, and requires specialized expertise",
+        "Solo founders and small teams face painful choice: spend weeks learning PM best practices or hire expensive consultants ($150-300/hour)",
+        "Existing tools (Jira, Linear, Notion) provide storage but no intelligence—blank canvases assuming you know what to build",
+        "Most early-stage ideas never get properly defined, leading to expensive rewrites, scope creep, abandoned projects",
+        "Even experienced PMs struggle with repetitive mechanics of writing user stories, acceptance criteria, traceability matrices"
+      ],
+      "market_opportunity": {
+        "market_size": "$2.3B product management software market growing 14% annually",
+        "gap": "Current tools are purely organizational—none offer AI-powered product definition",
+        "addressable_market": "4.3M software developers worldwide and 50K+ new startups launched annually",
+        "timing": [
+          "LLM capabilities (Claude Opus 4, GPT-4) enable conversational product discovery at near-human quality",
+          "No-code/low-code movement creates demand for faster ideation-to-implementation cycles",
+          "Remote work normalizes asynchronous, tool-based product collaboration",
+          "Developers increasingly work independently without access to PM resources"
+        ]
+      }
+    },
+    "business_goals": {
+      "title": "Business Goals & Success Metrics",
+      "primary_goals": [
+        {
+          "goal": "Enable rapid product definition",
+          "target": "Reduce idea-to-backlog time from weeks to <2 hours for complete workflow"
+        },
+        {
+          "goal": "Deliver professional quality",
+          "target": "Generate Epics, Architectures, Backlogs matching or exceeding junior PM output"
+        },
+        {
+          "goal": "Achieve sustainable unit economics",
+          "target": "Maintain LLM costs below 20% of revenue ($5.80/month cost at $29/month price)"
+        }
+      ],
+      "success_metrics": [
+        {
+          "metric": "Engagement",
+          "target": "60% workflow completion rate (workspace → approved backlog)"
+        },
+        {
+          "metric": "Quality",
+          "target": "80% first-attempt Epic approval (AI quality meets expectations)"
+        },
+        {
+          "metric": "Retention",
+          "target": "40% monthly active user retention"
+        },
+        {
+          "metric": "Time-to-Value",
+          "target": "Median <90 minutes from workspace creation to Backlog approval"
+        },
+        {
+          "metric": "Economics",
+          "target": "Gross margin >60% (revenue minus LLM API costs)"
+        }
+      ],
+      "business_model": {
+        "pricing": "$29/month subscription (unlimited workspaces within fair use limits)",
+        "target_market": "Solo founders, indie hackers, freelance developers, early-stage startup teams (1-3 people)",
+        "gtm_strategy": "Product-led growth via developer communities (Indie Hackers, Reddit, Twitter), content marketing (case studies showing idea → production timelines)"
+      }
+    },
+    "in_scope": {
+      "title": "In Scope (Phase 1: Months 1-3)",
+      "features": [
+        {
+          "category": "Core Workflow",
+          "items": [
+            "Workspace creation for product ideas (name + description)",
+            "PM Discovery: Multi-agent question generation, user answers, Canonical Epic with approval",
+            "Architecture Generation: Multi-agent proposals, Architect Mentor consolidation, Canonical Architecture with approval",
+            "Backlog Generation: Multi-agent user story generation, BA Mentor consolidation, Canonical Backlog with approval",
+            "Export: Markdown and JSON (Jira-compatible) downloads"
+          ]
+        },
+        {
+          "category": "Agent Orchestration",
+          "items": [
+            "State machine for PM → Architect → BA pipeline with approval gates",
+            "Parallel agent execution (3 agents per stage + Mentor consolidation)",
+            "Real-time streaming feedback via Server-Sent Events (SSE)",
+            "Manual stage re-run (regenerate Epic, Architecture, or Backlog)",
+            "Ad-hoc Q&A within Architecture stage"
+          ]
+        },
+        {
+          "category": "Data & Persistence",
+          "items": [
+            "Canonical document storage (validated JSON schemas)",
+            "Schema validation via Pydantic (CanonicalEpicV1, CanonicalArchitectureV1, CanonicalBacklogV1)",
+            "Soft versioning (draft/approved/superseded status)",
+            "Agent logging (prompts, responses, tokens, duration, errors)"
+          ]
+        },
+        {
+          "category": "Authentication & Security",
+          "items": [
+            "Magic link authentication (email-only, no third-party OAuth)",
+            "Session-based auth with secure HttpOnly cookies",
+            "Row-level security (users access only their workspaces)",
+            "Rate limiting (60 requests/minute per user)"
+          ]
+        },
+        {
+          "category": "User Experience",
+          "items": [
+            "Server-side rendered UI (Jinja2 + HTMX, no React SPA)",
+            "Inline editing of Epic/Architecture/Backlog sections",
+            "Workspace list (active/archived filtering)",
+            "Archive and soft delete for workspaces"
+          ]
+        },
+        {
+          "category": "Repository Introspection (Read-Only)",
+          "items": [
+            "List repo files endpoint (GET /repo/files with allow-listed roots)",
+            "Fetch file content endpoint (GET /repo/file for text files only)",
+            "Strict read-only access (no write operations, no .git/.env access)"
+          ]
+        }
+      ]
+    },
+    "out_of_scope": {
+      "title": "Out of Scope (Deferred to Phase 2+)",
+      "phase_1_exclusions": [
+        "Drift detection (warning when manual edits conflict with artifacts)",
+        "Version history with rollback UI",
+        "Idea library with search",
+        "PDF export (only Markdown and JSON in Phase 1)",
+        "PostgreSQL (SQLite sufficient for MVP)",
+        "Third-party authentication (Auth0/Clerk deferred to Phase 2)",
+        "Multi-user collaboration (read-only sharing deferred to Phase 3)",
+        "API access for developers (Phase 3)",
+        "User-selectable LLM models (hardcoded in Phase 1)",
+        "Real-time collaboration features",
+        "Mobile native apps (web-responsive only)",
+        "Bi-directional sync with Jira/Linear",
+        "Custom agent prompts or user-editable system prompts",
+        "Template system for different product types",
+        "Analytics dashboard",
+        "Repository write operations (code generation, git commits)"
+      ]
+    },
+    "requirements": {
+      "title": "High-Level Requirements",
+      "functional": [
+        {
+          "requirement": "Workspace Management",
+          "details": [
+            "Create workspaces (idea name + description)",
+            "View list of all workspaces (sorted by last updated)",
+            "Archive workspaces (hide from default view)",
+            "Soft delete workspaces (remove from views, retain for audit)"
+          ]
+        },
+        {
+          "requirement": "PM Discovery Workflow",
+          "details": [
+            "Generate 8-12 clarifying questions via 3 PM agents + PM Mentor",
+            "User answers all questions (validated: min 10 chars per answer)",
+            "Generate Canonical Epic via 3 PM agents + PM Mentor",
+            "Approve or regenerate Epic",
+            "Inline-edit Epic sections before approval"
+          ]
+        },
+        {
+          "requirement": "Architecture Generation",
+          "details": [
+            "Generate architecture proposals via 3 Architect agents + Architect Mentor",
+            "Enforce Python/FastAPI/SQLite/HTMX stack (per supplemental guidance)",
+            "Validate against CanonicalArchitectureV1 schema",
+            "Approve or regenerate Architecture",
+            "Ask ad-hoc questions during review"
+          ]
+        },
+        {
+          "requirement": "Backlog Generation",
+          "details": [
+            "Generate 20-40 INVEST-compliant user stories via 3 BA agents + BA Mentor",
+            "Group stories by Epic phase (Phase 1, 2, 3)",
+            "Validate against CanonicalBacklogV1 schema",
+            "Approve or regenerate Backlog"
+          ]
+        },
+        {
+          "requirement": "Export",
+          "details": [
+            "Markdown export: Epic + Architecture + Backlog in single .md file",
+            "JSON export: Jira-compatible structure with traceability fields",
+            "Immediate synchronous download (no background jobs)"
+          ]
+        },
+        {
+          "requirement": "Real-Time Feedback",
+          "details": [
+            "SSE streaming for all agent stages (PM, Architecture, BA)",
+            "Progress messages: 'PM Agent 1 working... PM Agent 2 complete...'",
+            "Stream closes when stage completes"
+          ]
+        },
+        {
+          "requirement": "Error Handling",
+          "details": [
+            "Automatic retry with exponential backoff for LLM API failures",
+            "Schema validation with Mentor rewrite loop (max 3 attempts)",
+            "User-friendly error messages with retry buttons"
+          ]
+        },
+        {
+          "requirement": "Repository Introspection",
+          "details": [
+            "List files in allow-listed directories (app, tests, templates)",
+            "Fetch content of text files (UTF-8 only, max 16KB)",
+            "Strictly read-only (no write operations)"
+          ]
+        }
+      ],
+      "non_functional": [
+        {
+          "category": "Performance",
+          "targets": [
+            "Epic generation: <90 seconds end-to-end",
+            "Ad-hoc Q&A: <15 seconds",
+            "Export generation: <5 seconds",
+            "Schema validation: <5ms per document"
+          ]
+        },
+        {
+          "category": "Scalability",
+          "targets": [
+            "Target: 750 active users (Phase 1)",
+            "Workload: 3-4 ideas per user per month = 2,500 workflows/month",
+            "SQLite capacity: ~10 concurrent writes (sufficient for MVP)",
+            "Single FastAPI instance handles target load via async I/O"
+          ]
+        },
+        {
+          "category": "Cost Structure",
+          "breakdown": {
+            "llm_api": "$1,875-3,750/month (Anthropic Claude)",
+            "infrastructure": "$15-40/month (managed container + SQLite)",
+            "total": "<$4,000/month",
+            "revenue": "$21,750/month ($29/month × 750 users)",
+            "gross_margin": "45-75%"
+          }
+        },
+        {
+          "category": "Reliability",
+          "measures": [
+            "LLM API retry logic: 2-3 attempts with exponential backoff",
+            "Schema validation: Pre-save validation prevents corrupt data",
+            "Soft deletes: No data loss, all versions retained as 'superseded'",
+            "Daily automated backups: SQLite file backups"
+          ]
+        },
+        {
+          "category": "Security",
+          "measures": [
+            "Magic link authentication with secure session tokens",
+            "HttpOnly cookies (prevent XSS)",
+            "Row-level security (user_id filtering on all queries)",
+            "Rate limiting (60 requests/minute per user)",
+            "Secrets management via environment variables"
+          ]
+        }
+      ]
+    },
+    "risks": {
+      "title": "Risks & Constraints",
+      "technical_risks": [
+        {
+          "risk": "LLM API Instability",
+          "likelihood": "Medium",
+          "impact": "High",
+          "description": "Anthropic Claude API downtime or rate limiting blocks workflows",
+          "mitigation": [
+            "Retry logic (2 attempts) with exponential backoff",
+            "User notification with retry button",
+            "agent_logs captures errors for debugging",
+            "Phase 2: Cached responses for common patterns"
+          ]
+        },
+        {
+          "risk": "Schema Validation Failures",
+          "likelihood": "Medium",
+          "impact": "Medium",
+          "description": "Architect Mentor produces invalid CanonicalArchitectureV1, blocks pipeline",
+          "mitigation": [
+            "Mentor rewrite loop (max 3 attempts)",
+            "Detailed ValidationError feedback",
+            "Manual override for admin to fix and approve"
+          ]
+        },
+        {
+          "risk": "SQLite Concurrent Write Limits",
+          "likelihood": "Low",
+          "impact": "Medium",
+          "description": "SQLite supports ~10 concurrent writes; exceeding causes SQLITE_BUSY errors",
+          "mitigation": [
+            "Acceptable for MVP (<100 concurrent users)",
+            "PostgreSQL migration ready",
+            "Monitor error rates, trigger migration at >1% failure rate"
+          ]
+        }
+      ],
+      "business_risks": [
+        {
+          "risk": "Cost Overrun - LLM Usage",
+          "likelihood": "Medium",
+          "impact": "High",
+          "description": "Users generate excessive workflows, driving LLM costs above revenue",
+          "mitigation": [
+            "Per-user workflow limits (10 concurrent)",
+            "Token usage monitoring and budget alerts",
+            "Usage-based pricing tiers ($49/month unlimited, $19/month 5 workflows)"
+          ]
+        },
+        {
+          "risk": "Quality Perception",
+          "likelihood": "Medium",
+          "impact": "High",
+          "description": "AI-generated artifacts perceived as generic vs. human PMs",
+          "mitigation": [
+            "Quality metrics (80% first-attempt approval target)",
+            "User feedback loops and prompt refinement",
+            "Hybrid model with human PM review service ($99/month tier)"
+          ]
+        }
+      ],
+      "constraints": [
+        {
+          "type": "Technology Stack",
+          "details": [
+            "Must use Python/FastAPI backend",
+            "Must use canonical document storage with Pydantic validation",
+            "Must avoid TypeScript/NestJS, React SPA, microservices, job queues"
+          ]
+        },
+        {
+          "type": "Budget",
+          "details": [
+            "Infrastructure budget: <$50/month for MVP",
+            "LLM API budget: <$4,000/month at scale",
+            "No funding for external dependencies until Phase 2"
+          ]
+        },
+        {
+          "type": "Timeline",
+          "details": [
+            "Phase 1 MVP must ship in 3 months (hard constraint)",
+            "Single developer or small team (2-3 engineers)"
+          ]
+        },
+        {
+          "type": "Operational",
+          "details": [
+            "No 24/7 support for MVP (best-effort email support)",
+            "No SLA guarantees (free tier or early adopter pricing)",
+            "Single-region deployment (US)"
+          ]
+        }
+      ]
+    },
+    "roadmap": {
+      "title": "Product Roadmap",
+      "phases": [
+        {
+          "phase": "Phase 1: Core Platform / MVP",
+          "timeline": "Months 1-3",
+          "goal": "Ship functional product definition workflow with human-in-the-loop approval gates",
+          "scope": "22 stories, 117 story points",
+          "deliverables": [
+            "Magic link authentication",
+            "Workspace CRUD with archive/delete",
+            "PM Discovery (questions + Epic generation)",
+            "Architecture generation (Python/FastAPI stack enforced)",
+            "Backlog generation (INVEST stories)",
+            "Markdown + JSON export",
+            "Real-time SSE streaming",
+            "Repository introspection (read-only)"
+          ],
+          "success_criteria": [
+            "100 beta users onboarded",
+            "60% workflow completion rate",
+            "<90s Epic generation latency (P95)",
+            "80% first-attempt Epic approval rate"
+          ]
+        },
+        {
+          "phase": "Phase 2: Workflow Intelligence",
+          "timeline": "Months 4-6",
+          "goal": "Add intelligence features that detect drift and enable version control",
+          "scope": "7 stories, 52 story points",
+          "deliverables": [
+            "Drift detection (warn when edits conflict)",
+            "Version history with rollback UI",
+            "Idea library with full-text search",
+            "PDF export generation",
+            "PostgreSQL migration (when >100 concurrent users)",
+            "Repository content search (read-only)",
+            "Third-party authentication (Auth0/Clerk migration)"
+          ],
+          "success_criteria": [
+            "750 active users",
+            "40% monthly retention",
+            "<2% drift-related confusion (support tickets)"
+          ]
+        },
+        {
+          "phase": "Phase 3: Growth & Expansion",
+          "timeline": "Months 7-9",
+          "goal": "Enable team collaboration and developer integrations",
+          "scope": "3 stories, 29 story points",
+          "deliverables": [
+            "Read-only workspace sharing",
+            "API key authentication for programmatic access",
+            "User-selectable LLM models (Opus/Sonnet/Haiku per agent role)"
+          ],
+          "success_criteria": [
+            "2,000 active users",
+            "20% of users share workspaces with teammates",
+            "10% of users use API for automation"
+          ]
+        },
+        {
+          "phase": "Future Phases",
+          "timeline": "Months 10+",
+          "features": [
+            "Real-time collaboration",
+            "Bi-directional Jira/Linear sync",
+            "Custom agent prompts and templates",
+            "Analytics dashboard",
+            "Repository write operations (code generation, git commits)",
+            "Mobile native apps"
+          ]
+        }
+      ]
+    }
+  }
+}
