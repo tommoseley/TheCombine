@@ -1,0 +1,60 @@
+{% set is_selected = (selected_workspace_id == workspace.id) %}
+<li
+  id="workspace-item-{{ workspace.id }}"
+  class="group relative px-4 py-2 text-sm flex items-center justify-between hover:bg-slate-50 cursor-pointer"
+>
+  <!-- Left: click to load workspace details -->
+  <button
+    type="button"
+    class="w-full flex items-center justify-between px-4 py-2 text-left text-sm
+           hover:bg-slate-50"
+    hx-get="/workspaces/{{ workspace.id }}"
+    hx-target="#workspace-main"
+    hx-swap="innerHTML"
+  >
+    <div class="flex flex-col items-start">
+      <span class="font-medium text-slate-900 truncate">
+        {{ workspace.name }}
+      </span>
+      {% if workspace.description %}
+        <span class="text-xs text-slate-500 truncate">
+          {{ workspace.description }}
+        </span>
+      {% endif %}
+      <span class="text-[11px] text-slate-400">
+        {{ workspace.created_at }}
+      </span>
+    </div>
+  </button>
+
+  <!-- Right: ellipsis menu trigger -->
+  <div class="relative flex-shrink-0 ml-2">
+    <button
+      type="button"
+      class="hidden group-hover:inline-flex items-center justify-center w-6 h-6 rounded-full
+             text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+      onclick="toggleWorkspaceMenu('{{ workspace.id }}')"
+    >
+      &#x22EE;
+    </button>
+
+    <!-- Context menu -->
+    <div
+      id="workspace-menu-{{ workspace.id }}"
+      class="hidden absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-20"
+    >
+      <button
+        type="button"
+        class="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+        hx-delete="/workspaces/{{ workspace.id }}"
+        hx-target="#workspace-item-{{ workspace.id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Delete this workspace? This cannot be undone."
+        onclick="hideWorkspaceMenu('{{ workspace.id }}')"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+</li>
+

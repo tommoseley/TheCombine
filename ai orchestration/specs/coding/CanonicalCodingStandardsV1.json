@@ -1,0 +1,475 @@
+{
+  "type": "CanonicalCodeStandardsV1",
+  "version": 1,
+  "metadata": {
+    "name": "Canonical Code Standards",
+    "description": "Code standards for the Document Machine MVP, used to guide human and AI developers.",
+    "created_at": "2025-11-29",
+    "language": "python",
+    "backend": "fastapi",
+    "db": "sqlite_phase1_postgres_phase2",
+    "ui": "jinja2_htmx"
+  },
+  "sections": {
+    "scope": {
+      "id": "scope",
+      "title": "Scope",
+      "rules": [
+        {
+          "id": "C-SCOPE-001",
+          "category": "scope",
+          "summary": "Standards apply to all code in the Document Machine MVP.",
+          "details": [
+            "Language: Python 3.11+",
+            "Backend: FastAPI",
+            "Templates/UI: Jinja2 + HTMX + minimal vanilla JS",
+            "Database: SQLite in Phase 1, PostgreSQL in Phase 2+",
+            "Agents: Anthropic models via dedicated Agent Service"
+          ]
+        }
+      ]
+    },
+    "structure": {
+      "id": "structure",
+      "title": "Project & Module Structure",
+      "rules": [
+        {
+          "id": "C-STR-001",
+          "category": "structure",
+          "summary": "Standard top-level project layout.",
+          "details": [
+            "Top-level layout:",
+            "app/core/          # settings, security, base deps",
+            "app/models/        # SQLAlchemy models & Pydantic schemas",
+            "app/services/      # business logic & integrations",
+            "app/orchestrator/  # agent orchestration, pipelines",
+            "app/api/           # FastAPI routers (HTTP endpoints)",
+            "app/templates/     # Jinja2 templates",
+            "app/static/        # CSS, JS, images",
+            "app/db/            # migrations, seed scripts",
+            "tests/             # pytest tests",
+            "pyproject.toml or requirements.txt",
+            "README.md"
+          ]
+        },
+        {
+          "id": "C-STR-002",
+          "category": "structure",
+          "summary": "Module boundaries for clear separation of concerns.",
+          "details": [
+            "Routers in app/api/ call services, not the database directly.",
+            "Services in app/services/ contain business logic and talk to models, external APIs, and orchestrator.",
+            "Orchestrator in app/orchestrator/ coordinates agents and writes canonical documents, not UI.",
+            "Templates in app/templates/ render data passed in from routers/services."
+          ]
+        },
+        {
+          "id": "C-STR-003",
+          "category": "structure",
+          "summary": "File naming conventions.",
+          "details": [
+            "Python files MUST use snake_case e.g. workspace_service.py.",
+            "Templates SHOULD use kebab-case e.g. workspace-detail.html.",
+            "Tests MUST mirror code modules: tests/test_<module_name>.py."
+          ]
+        }
+      ]
+    },
+    "python_style": {
+      "id": "python_style",
+      "title": "Python Style & Type Hints",
+      "rules": [
+        {
+          "id": "C-PY-001",
+          "category": "python_style",
+          "summary": "PEP8-compliant Python with moderate line length.",
+          "details": [
+            "Follow PEP8 style conventions.",
+            "Soft line length limit of 100 characters per line.",
+            "Prefer explicit, readable code over clever one-liners."
+          ]
+        },
+        {
+          "id": "C-PY-002",
+          "category": "python_style",
+          "summary": "All public functions and methods must be fully typed.",
+          "details": [
+            "All public functions and class methods MUST have type hints for parameters and return types.",
+            "Avoid typing.Any unless strictly necessary; when used, add a brief justification comment.",
+            "Use type aliases for repeated complex types."
+          ]
+        },
+        {
+          "id": "C-PY-003",
+          "category": "python_style",
+          "summary": "Import organization and restrictions.",
+          "details": [
+            "Group imports: standard library, third-party, then local imports; separate groups by a blank line.",
+            "Wildcard imports (from x import *) are forbidden.",
+            "Relative imports SHOULD be avoided in favor of absolute imports within the app package."
+          ]
+        },
+        {
+          "id": "C-PY-004",
+          "category": "python_style",
+          "summary": "Docstring conventions.",
+          "details": [
+            "Public modules, classes, and functions SHOULD include a short docstring.",
+            "Use a single-sentence summary plus optional detail lines.",
+            "Docstrings explain behavior and important constraints, not obvious line-by-line commentary."
+          ]
+        }
+      ]
+    },
+    "configuration": {
+      "id": "configuration",
+      "title": "Configuration & Secrets",
+      "rules": [
+        {
+          "id": "C-CONF-001",
+          "category": "configuration",
+          "summary": "Configuration via environment and central Settings class.",
+          "details": [
+            "All environment-dependent configuration MUST come from environment variables.",
+            "A central Settings class (e.g., Pydantic BaseSettings) in app/core/config.py MUST be used.",
+            "Application code accesses configuration only through this Settings object."
+          ]
+        },
+        {
+          "id": "C-CONF-002",
+          "category": "configuration",
+          "summary": "No hard-coded secrets in code or templates.",
+          "details": [
+            "API keys, tokens, passwords, and similar secrets MUST NOT appear in source code, tests, or templates.",
+            "Local development uses .env files or environment variables loaded via Settings.",
+            "Sample configuration values in docs MUST be obviously fake."
+          ]
+        },
+        {
+          "id": "C-CONF-003",
+          "category": "configuration",
+          "summary": "Environment modes and branching.",
+          "details": [
+            "At minimum, support ENVIRONMENT in {local, dev, prod}.",
+            "Logging level and debug features MUST branch on ENVIRONMENT.",
+            "Dangerous operations (destructive migrations, debug UIs) MUST be disabled in prod mode."
+          ]
+        }
+      ]
+    },
+    "fastapi": {
+      "id": "fastapi",
+      "title": "FastAPI Conventions",
+      "rules": [
+        {
+          "id": "C-API-001",
+          "category": "fastapi",
+          "summary": "Router layout and organization.",
+          "details": [
+            "Routers live in app/api/ and are grouped by domain (e.g., workspaces.py, auth.py, orchestrator.py, repo_view.py).",
+            "Each router MUST be included in the main FastAPI app with a clear prefix and tags.",
+            "Router functions SHOULD remain thin and delegate to services."
+          ]
+        },
+        {
+          "id": "C-API-002",
+          "category": "fastapi",
+          "summary": "HTTP verb and path usage.",
+          "details": [
+            "GET for reads and page renders.",
+            "POST for create operations and actions with side effects.",
+            "PATCH for partial updates, including status changes and archive operations.",
+            "DELETE for soft-delete endpoints.",
+            "Paths SHOULD be resource-oriented (e.g., /workspaces/{id}/archive)."
+          ]
+        },
+        {
+          "id": "C-API-003",
+          "category": "fastapi",
+          "summary": "Use Pydantic models for request and response bodies.",
+          "details": [
+            "Non-trivial JSON payloads MUST use Pydantic models for input validation.",
+            "Reusable response models SHOULD be defined for common shapes.",
+            "Form posts rendered via Jinja2 MAY omit Pydantic models if they are simple and server-validated."
+          ]
+        },
+        {
+          "id": "C-API-004",
+          "category": "fastapi",
+          "summary": "Use FastAPI dependencies for common concerns.",
+          "details": [
+            "DB session dependencies MUST be used instead of creating sessions manually.",
+            "Authentication/session resolution MUST be handled via dependency injection.",
+            "Shared services (AgentService, ExportService) SHOULD be injected via dependencies, not instantiated directly in routers."
+          ]
+        },
+        {
+          "id": "C-API-005",
+          "category": "fastapi",
+          "summary": "Error handling and HTTPException usage.",
+          "details": [
+            "Known client errors (validation, not found, forbidden) MUST map to appropriate 4xx status codes.",
+            "Internal errors SHOULD log details server-side and return a generic 500 message to clients.",
+            "Exceptions MUST NOT leak secrets or stack traces in HTTP responses."
+          ]
+        }
+      ]
+    },
+    "database": {
+      "id": "database",
+      "title": "Database & Models",
+      "rules": [
+        {
+          "id": "C-DB-001",
+          "category": "database",
+          "summary": "SQLAlchemy ORM baseline.",
+          "details": [
+            "Use SQLAlchemy ORM with a shared Base in app/models/base.py.",
+            "All tables MUST have explicit primary keys and created_at/updated_at timestamps where relevant.",
+            "Relationships SHOULD be explicit and named."
+          ]
+        },
+        {
+          "id": "C-DB-002",
+          "category": "database",
+          "summary": "Soft delete strategy for user-facing entities.",
+          "details": [
+            "User-facing entities (e.g., workspaces) MUST use soft delete (status or deleted_at) instead of hard deletes.",
+            "Default ORM queries MUST exclude soft-deleted rows unless explicitly overridden.",
+            "Deletion endpoints MUST update soft-delete flags rather than removing rows."
+          ]
+        },
+        {
+          "id": "C-DB-003",
+          "category": "database",
+          "summary": "Schema evolution via migrations.",
+          "details": [
+            "Schema changes MUST be handled via a migration tool (e.g., Alembic).",
+            "No ad hoc DDL statements scattered in code.",
+            "Migrations SHOULD be additive and backward compatible where possible."
+          ]
+        },
+        {
+          "id": "C-DB-004",
+          "category": "database",
+          "summary": "Canonical documents stored as JSON with validation.",
+          "details": [
+            "Canonical documents (epic, architecture, backlog, PM questions) MUST be stored as JSON fields.",
+            "JSON content MUST be validated via Pydantic models before persistence.",
+            "Invalid canonical documents MUST NOT be saved; errors MUST be logged and surfaced appropriately."
+          ]
+        }
+      ]
+    },
+    "orchestrator": {
+      "id": "orchestrator",
+      "title": "Orchestrator & Agents",
+      "rules": [
+        {
+          "id": "C-ORCH-001",
+          "category": "orchestrator",
+          "summary": "Orchestrator-module separation.",
+          "details": [
+            "Orchestrator logic lives in app/orchestrator/ and coordinates pipeline stages.",
+            "Agent-specific code (e.g., calls to Anthropic) lives in app/services/agents.py or submodules.",
+            "UI and HTTP concerns MUST NOT appear in orchestrator modules."
+          ]
+        },
+        {
+          "id": "C-ORCH-002",
+          "category": "orchestrator",
+          "summary": "Async and parallel agent execution.",
+          "details": [
+            "Agent calls SHOULD be async and use asyncio.gather for parallel execution within a stage.",
+            "Blocking operations MUST NOT be executed directly in async functions.",
+            "Long-running tasks SHOULD stream status updates via SSE where appropriate."
+          ]
+        },
+        {
+          "id": "C-ORCH-003",
+          "category": "orchestrator",
+          "summary": "Deterministic pipeline state transitions.",
+          "details": [
+            "Pipeline stages MUST be explicitly enumerated (e.g., pm_questions, epic_generation, architecture_approval, backlog_approval).",
+            "All state transitions MUST go through a single pipeline-state update function or service.",
+            "Pipeline logic MUST be idempotent where possible (re-running stages should not corrupt existing data)."
+          ]
+        },
+        {
+          "id": "C-ORCH-004",
+          "category": "orchestrator",
+          "summary": "Validation of agent outputs before persistence.",
+          "details": [
+            "Agent outputs MUST be parsed into specific Pydantic models (CanonicalEpicV1, CanonicalArchitectureV1, CanonicalBacklogV1, etc.).",
+            "On validation failure, orchestrator MUST log the error and request a Mentor rewrite up to a configured retry limit.",
+            "No canonical_documents row is created until validation passes."
+          ]
+        }
+      ]
+    },
+    "frontend": {
+      "id": "frontend",
+      "title": "Templates, HTMX, and Frontend",
+      "rules": [
+        {
+          "id": "C-UI-001",
+          "category": "frontend",
+          "summary": "Jinja2 template structure and layout.",
+          "details": [
+            "Templates live in app/templates/ and use base layouts with Jinja2 block inheritance.",
+            "Common chrome (header, nav, flash messages) SHOULD reside in base.html.",
+            "Domain-specific templates (workspaces, orchestrator views) SHOULD extend base.html."
+          ]
+        },
+        {
+          "id": "C-UI-002",
+          "category": "frontend",
+          "summary": "HTMX usage guidelines.",
+          "details": [
+            "Use HTMX for partial updates (forms, lists, detail panes) instead of heavy client-side frameworks.",
+            "HTMX requests SHOULD return server-rendered HTML fragments.",
+            "Avoid complex client-side business logic; keep logic on the server."
+          ]
+        },
+        {
+          "id": "C-UI-003",
+          "category": "frontend",
+          "summary": "No SPA frameworks in MVP.",
+          "details": [
+            "React, Vue, Angular, and other SPA frameworks MUST NOT be introduced in Phase 1.",
+            "Routing remains server-side via FastAPI.",
+            "Any future SPA discussion belongs in a later phase and must be explicit."
+          ]
+        },
+        {
+          "id": "C-UI-004",
+          "category": "frontend",
+          "summary": "Progressive enhancement where reasonable.",
+          "details": [
+            "Core flows SHOULD function with basic HTML form submissions when possible.",
+            "HTMX enhances UX but should not be the only path for critical actions.",
+            "Error messages MUST be user-readable and visible in the rendered UI."
+          ]
+        }
+      ]
+    },
+    "logging": {
+      "id": "logging",
+      "title": "Logging & Observability",
+      "rules": [
+        {
+          "id": "C-LOG-001",
+          "category": "logging",
+          "summary": "Centralized logging configuration.",
+          "details": [
+            "Use the standard logging module with a central configuration in app/core/logging.py or similar.",
+            "Log level depends on ENVIRONMENT (DEBUG for local, INFO for dev, WARNING/ERROR for prod).",
+            "Print statements in production code are forbidden."
+          ]
+        },
+        {
+          "id": "C-LOG-002",
+          "category": "logging",
+          "summary": "Structured logging for key events.",
+          "details": [
+            "Key operations (orchestrator steps, agent retries, exports, auth events) SHOULD include structured fields.",
+            "At minimum, log event name, workspace_id, pipeline stage, and relevant identifiers.",
+            "Logs SHOULD make it easy to reconstruct a single workspace's lifecycle."
+          ]
+        },
+        {
+          "id": "C-LOG-003",
+          "category": "logging",
+          "summary": "No sensitive data in logs.",
+          "details": [
+            "Do not log secrets, full tokens, or passwords.",
+            "Avoid logging full user emails; log hashed or partial when needed.",
+            "Do not log full raw LLM prompts and responses if they may contain sensitive user data."
+          ]
+        }
+      ]
+    },
+    "testing": {
+      "id": "testing",
+      "title": "Testing",
+      "rules": [
+        {
+          "id": "C-TEST-001",
+          "category": "testing",
+          "summary": "Use pytest as the testing framework.",
+          "details": [
+            "All tests MUST use pytest.",
+            "Fixtures SHOULD be used for DB setup, test clients, and common scenarios.",
+            "Tests SHOULD live under tests/ with subfolders mirroring app/ structure."
+          ]
+        },
+        {
+          "id": "C-TEST-002",
+          "category": "testing",
+          "summary": "Coverage expectations for critical paths.",
+          "details": [
+            "Auth flows, pipeline transitions, and canonical document validation SHOULD have automated tests.",
+            "Services and orchestrator logic SHOULD be tested with LLM calls mocked.",
+            "New features MUST include tests for success and main failure paths where practical."
+          ]
+        },
+        {
+          "id": "C-TEST-003",
+          "category": "testing",
+          "summary": "Fast, isolated tests.",
+          "details": [
+            "Tests MUST be runnable using an in-memory or local SQLite database.",
+            "External integrations (LLMs, email, etc.) MUST be mocked in tests.",
+            "Tests SHOULD be able to run in CI without access to external services."
+          ]
+        }
+      ]
+    },
+    "ai_safety": {
+      "id": "ai_safety",
+      "title": "Safety & AI-Agent Constraints",
+      "rules": [
+        {
+          "id": "C-AI-001",
+          "category": "ai_safety",
+          "summary": "No destructive operations by AI-generated code.",
+          "details": [
+            "AI-generated changes MUST NOT drop tables, truncate data, or alter .env, secrets, or .git configuration.",
+            "Refactors MUST preserve behavior unless a story explicitly calls for a behavior change.",
+            "Destructive maintenance tasks (e.g., cleanup scripts) MUST be reviewed manually before execution."
+          ]
+        },
+        {
+          "id": "C-AI-002",
+          "category": "ai_safety",
+          "summary": "Locality and minimality of changes.",
+          "details": [
+            "Each change set SHOULD be constrained to the smallest set of files needed to implement a story.",
+            "When modifying shared infrastructure (config, models, settings), changes MUST be clearly justified.",
+            "Large sweeping refactors by AI SHOULD be avoided in MVP unless explicitly requested."
+          ]
+        },
+        {
+          "id": "C-AI-003",
+          "category": "ai_safety",
+          "summary": "Idempotent and safe schema migrations.",
+          "details": [
+            "Schema migrations proposed by AI MUST be additive or safely reversible.",
+            "Migrations MUST be reviewed before running in any environment with important data.",
+            "Migrations MUST NOT drop or rename tables without a clear data migration path."
+          ]
+        },
+        {
+          "id": "C-AI-004",
+          "category": "ai_safety",
+          "summary": "Strict adherence to stack and standards.",
+          "details": [
+            "AI agents MUST NOT introduce alternate web frameworks (Django, Flask, NestJS, etc.) or SPA stacks into this repo.",
+            "When standards are violated, the Dev Mentor MUST instruct the agents to refactor.",
+            "New modules MUST conform to these standards by default, without requiring human correction."
+          ]
+        }
+      ]
+    }
+  }
+}

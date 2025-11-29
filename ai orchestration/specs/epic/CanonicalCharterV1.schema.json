@@ -1,0 +1,13 @@
+{
+  "type": "canonical_charter",
+  "version": 1,
+  "sections": {
+      "mission_statement": [...blocks],
+      "target_users": [...blocks],
+      "value_proposition": [...blocks],
+      "success_metrics": [...blocks],
+      "constraints": [...blocks],
+      "risks": [...blocks],
+      "non_goals": [...blocks]
+  }
+}

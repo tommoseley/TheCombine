@@ -1,0 +1,12 @@
+{
+  "type": "canonical_epic",
+  "version": 1,
+  "sections": {
+      "summary": [...blocks],
+      "objectives": [...blocks],
+      "scope": [...blocks],
+      "non_scope": [...blocks],
+      "phases": [...blocks],
+      "acceptance_criteria": [...blocks]
+  }
+}

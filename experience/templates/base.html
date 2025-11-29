@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Workbench MVP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind CDN for now -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+      summary::-webkit-details-marker { display: none; }
+      summary::marker { display: none; }
+    </style>
+
+  </head>
+
+  <script>
+  function toggleWorkspaceMenu(id) {
+    const menuId = "workspace-menu-" + id;
+    const menu = document.getElementById(menuId);
+    if (!menu) return;
+
+    // Close any other open menus
+    document
+      .querySelectorAll("[id^='workspace-menu-']")
+      .forEach((el) => {
+        if (el.id !== menuId) el.classList.add("hidden");
+      });
+
+    menu.classList.toggle("hidden");
+  }
+
+  function hideWorkspaceMenu(id) {
+    const menu = document.getElementById("workspace-menu-" + id);
+    if (menu) menu.classList.add("hidden");
+  }
+
+  // Optional: close menus when clicking outside
+  document.addEventListener("click", (e) => {
+    const isMenuOrButton = e.target.closest("[id^='workspace-menu-']") ||
+                           e.target.closest("[onclick^='toggleWorkspaceMenu']");
+    if (!isMenuOrButton) {
+      document
+        .querySelectorAll("[id^='workspace-menu-']")
+        .forEach((el) => el.classList.add("hidden"));
+    }
+  });
+</script>
+
+
+  <body class="h-screen flex flex-col bg-slate-100">
+    <header class="h-12 border-b bg-white flex items-center px-4 text-sm">
+      <div class="font-semibold">Workbench</div>
+      <div class="ml-4 text-xs text-slate-500">
+        AI-assisted product & architecture workbench
+      </div>
+    </header>
+    <main class="flex-1 flex overflow-hidden">
+      {% block main %}{% endblock %}
+      <div id="dialog"></div>
+    </main>
+  </body>
+</html>

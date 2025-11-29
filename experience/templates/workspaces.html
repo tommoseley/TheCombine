@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block main %}
+
+<div id="workspace-layout" class="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-slate-50">
+
+  <!-- LEFT: Sidebar / navigation -->
+  <aside class="w-64 border-r border-slate-200 bg-white flex flex-col">
+
+    <!-- Global -->
+    <section class="border-b border-slate-200">
+      <div class="px-4 py-3">
+        <h2 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+          Global
+        </h2>
+      </div>
+
+      <div id="new-workspace-slot" class="px-4 pb-3">
+        <a
+          href="#"
+          hx-get="/workspaces/new"
+          hx-target="#new-workspace-slot"
+          hx-swap="innerHTML"
+          class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800"
+        >
+          <span class="mr-1 text-base">＋</span> New workspace
+        </a>
+      </div>
+    </section>
+
+    <!-- Workspace History -->
+    <section class="flex-1 flex flex-col">
+
+      <div class="px-4 py-3 border-b border-slate-200">
+        <h2 class="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+          Workspace History
+        </h2>
+      </div>
+
+      <ul id="workspace-list"
+          class="flex-1 overflow-y-auto divide-y divide-gray-100">
+        {% for ws in workspaces %}
+          {% set workspace = ws %}
+          {% include "workspace_row.html" %}
+        {% else %}
+          <li class="px-4 py-6 text-sm text-gray-500">
+            No workspaces yet. Click <span class="font-medium">New workspace</span> above to begin.
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+  </aside>
+
+  <!-- CENTER + RIGHT goes here -->
+  <div id="workspace-main" class="flex flex-1 overflow-hidden">
+    <!-- Initially blank. Will be replaced entirely via HTMX -->
+  </div>
+
+</div>
+
+{% endblock %}
