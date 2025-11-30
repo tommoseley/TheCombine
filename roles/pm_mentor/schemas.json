@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PM Mentor Schemas",
+  "type": "object",
+  "properties": {
+    "ReviewFeedback": {
+      "type": "object",
+      "required": ["target_ticket_id", "comments"],
+      "properties": {
+        "target_ticket_id": { "type": "string" },
+        "comments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["severity", "message"],
+            "properties": {
+              "severity": { "type": "string", "enum": ["info", "suggestion", "issue", "blocker"] },
+              "message": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
