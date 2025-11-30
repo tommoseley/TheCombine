@@ -5,7 +5,7 @@ Implements passwordless authentication via email magic links.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, Form, Cookie
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone  
@@ -55,7 +55,7 @@ async def login_form(request: Request):
 async def send_magic_link(
     request: Request,
     email: str = Form(...),
-    db: Session = Depends(get_db)  # ← Fixed
+    db: Session = Depends(get_db)
 ):
     """
     Generate magic link token and send email.
@@ -223,6 +223,70 @@ async def logout(
     response.delete_cookie("session_id")
     
     return RedirectResponse(url="/login", status_code=303)
+
+
+@router.get("/me")
+async def get_me(
+    session_id: Optional[str] = Cookie(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get information about the currently authenticated user.
+    
+    GET /me
+    
+    Returns:
+        JSON with user email and session information
+        
+    Raises:
+        HTTPException 401: If no valid session exists or session is expired
+    
+    Example response:
+        {
+            "email": "user@example.com",
+            "session_id": "uuid-here",
+            "expires_at": "2024-12-07T10:30:00Z",
+            "created_at": "2024-11-30T15:30:00Z"
+        }
+    """
+    if not session_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated"
+        )
+    
+    # Lookup session
+    session = db.query(SessionModel).filter(
+        SessionModel.id == session_id
+    ).first()
+    
+    if not session:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid session"
+        )
+    
+    # Check expiration
+    if session.is_expired():
+        # Delete expired session
+        db.delete(session)
+        db.commit()
+        logger.info(f"Expired session {session_id} deleted")
+        raise HTTPException(
+            status_code=401,
+            detail="Session expired. Please log in again."
+        )
+    
+    # Return user information
+    return JSONResponse(
+        status_code=200,
+        content={
+            "email": session.email,
+            "session_id": session.id,
+            "expires_at": session.expires_at,
+            "created_at": session.created_at
+        }
+    )
 
 
 async def get_current_user(

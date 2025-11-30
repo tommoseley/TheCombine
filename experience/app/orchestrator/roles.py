@@ -238,11 +238,11 @@ https://raw.githubusercontent.com/tommoseley/Workbench-AI/refs/heads/main/docs/W
 
 # Canonical Architecture (JSON)
 
-{canonical_architecture}
+https://raw.githubusercontent.com/tommoseley/Workbench-AI/refs/heads/main/shared/canonical_architecture.json
 
 # Canonical Epic (JSON)
 
-{canonical_epic}
+https://raw.githubusercontent.com/tommoseley/Workbench-AI/refs/heads/main/shared/canonical_epic.json
 
 # Architecture Overview
 
