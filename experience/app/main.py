@@ -6,14 +6,17 @@ from uuid import uuid4
 from datetime import datetime
 
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey, Boolean, Integer, select, JSON
-
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
-
-from pipeline import PipelineStateMachine, PipelineStage, InvalidPipelineTransition
 
 from typing import List, Optional
 
+from app.services.pipeline import PipelineStateMachine, PipelineStage, InvalidPipelineTransition
+from app.routers import repo_view
+
 app = FastAPI()
+
+# Mount routers
+app.include_router(repo_view.router, prefix="/repo", tags=["repo"])
 
 templates = Jinja2Templates(directory="templates")
 
