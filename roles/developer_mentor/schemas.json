@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Developer Mentor Schemas",
+  "type": "object",
+  "properties": {
+    "FileChange": {
+      "type": "object",
+      "required": ["path", "content"],
+      "properties": {
+        "path": { "type": "string" },
+        "content": { "type": "string" }
+      }
+    },
+    "CommitPlan": {
+      "type": "object",
+      "required": ["ticket_id", "message", "changes"],
+      "properties": {
+        "ticket_id": { "type": "string" },
+        "message": { "type": "string" },
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "#/properties/FileChange" }
+        }
+      }
+    },
+    "IntegrationNotes": {
+      "type": "object",
+      "required": ["ticket_id", "summary"],
+      "properties": {
+        "ticket_id": { "type": "string" },
+        "summary": { "type": "string" },
+        "file_decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "decision"],
+            "properties": {
+              "path": { "type": "string" },
+              "decision": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
