@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Architect Schemas",
+  "type": "object",
+  "properties": {
+    "ArchitectureDecision": {
+      "type": "object",
+      "required": ["ticket_id", "title", "status", "decision", "consequences"],
+      "properties": {
+        "ticket_id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["proposed", "accepted", "rejected"] },
+        "context": { "type": "string" },
+        "decision": { "type": "string" },
+        "consequences": { "type": "string" }
+      }
+    },
+    "ComponentDesign": {
+      "type": "object",
+      "required": ["ticket_id", "components"],
+      "properties": {
+        "ticket_id": { "type": "string" },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "changes"],
+            "properties": {
+              "name": { "type": "string" },
+              "changes": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

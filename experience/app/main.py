@@ -7,16 +7,25 @@ from datetime import datetime
 
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey, Boolean, Integer, select, JSON
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
+from app.workforce.workforce_api import router as workforce_router
 
 from typing import List, Optional
 
 from app.services.pipeline import PipelineStateMachine, PipelineStage, InvalidPipelineTransition
 from app.routers import repo_view
+from app.models.sessions import create_sessions_table
+from app.routers import auth
+from app import dependencies
+import os
 
 app = FastAPI()
 
 # Mount routers
 app.include_router(repo_view.router, prefix="/repo", tags=["repo"])
+# Mount auth router
+app.include_router(auth.router, tags=["auth"])
+# Workforce router
+app.include_router(workforce_router)
 
 templates = Jinja2Templates(directory="templates")
 
@@ -33,11 +42,16 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Configure shared dependencies
+dependencies.set_session_local(SessionLocal)
+
 Base = declarative_base()
+
+# Create session models
+Session, PendingToken = create_sessions_table(Base)
 
 def _now_iso() -> str:
     return datetime.utcnow().isoformat(timespec="seconds") + "Z"
-
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -85,6 +99,8 @@ class CanonicalDocument(Base):
 # Create tables on startup (simple for MVP)
 Base.metadata.create_all(bind=engine)
 
+# Configure auth router
+auth.set_auth_models(Session, PendingToken)
 
 # Dependency to get a DB session per request
 def get_db() -> Session:
