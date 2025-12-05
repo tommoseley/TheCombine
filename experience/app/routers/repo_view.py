@@ -109,7 +109,7 @@ async def list_repo_files(
         )
     
     except Exception as e:
-        logger.error(f"Error listing files: {e}", exc_info=True)
+        logger.error(f"Error listing files: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Error listing files: {str(e)}",
@@ -216,7 +216,7 @@ async def get_repo_file(
         )
     
     except Exception as e:
-        logger.error(f"Error reading file: {e}", exc_info=True)
+        logger.error(f"Error reading file: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Error reading file: {str(e)}",

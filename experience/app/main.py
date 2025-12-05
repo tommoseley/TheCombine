@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime,timezone
 
 from sqlalchemy import create_engine, Column, String, Text, ForeignKey, Boolean, Integer, select, JSON
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, relationship
@@ -51,7 +51,7 @@ Base = declarative_base()
 Session, PendingToken = create_sessions_table(Base)
 
 def _now_iso() -> str:
-    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    return datetime.now(timezone.utc).isoformat(timespec="seconds") + "Z"
 
 class Workspace(Base):
     __tablename__ = "workspaces"

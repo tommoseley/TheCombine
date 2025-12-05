@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "architecture_id": "workbench-canonical-v1.2",
+  "version": "1.2",
+  "previous_version": "1.1",
+  "status": "superseded",
+  "created_date": "2024-11-01",
+  "updated_date": "2024-11-15",
+  "owner": "Architect",
+  "revision_notes": "Added repository introspection API for reading repository structure and file contents. Enables AI agents to understand codebase context.",
+  
+  "system_overview": {
+    "description": "Workbench AI is a development environment with a FastAPI backend that provides authentication, repository introspection, and core infrastructure for AI workforce integration.",
+    "core_principles": [
+      "Separation of Concerns: Clear boundaries between application layers",
+      "RESTful API Design: Standard HTTP methods and status codes",
+      "Type Safety: Pydantic schemas for request/response validation",
+      "Passwordless Authentication: Magic link email-based login for security",
+      "Read-Only Repository Access: AI agents can read but not modify repository"
+    ],
+    "architectural_patterns": [
+      "Layered Architecture: Router → Service → Model separation",
+      "Dependency Injection: FastAPI dependencies for shared resources",
+      "Session-Based Authentication: Server-side session management",
+      "Repository Abstraction: Service layer for file system operations"
+    ]
+  },
+  
+  "repository_introspection_architecture": {
+    "description": "API for reading repository structure and file contents",
+    "purpose": "Enable AI agents to understand codebase context without direct file system access",
+    "components": {
+      "repo_reader_service": {
+        "location": "app/services/repo_reader.py",
+        "responsibilities": [
+          "Read repository directory structure",
+          "Read file contents (text files)",
+          "Filter hidden files and sensitive directories",
+          "Validate file paths (prevent directory traversal)"
+        ],
+        "security": [
+          "Read-only access",
+          "Path validation to prevent directory traversal",
+          "Ignore hidden files and .git directory",
+          "Authentication required"
+        ]
+      },
+      "repo_view_router": {
+        "location": "app/routers/repo_view.py",
+        "endpoints": {
+          "GET /repo/structure": "Get repository directory structure",
+          "GET /repo/file": "Get file contents by path"
+        }
+      },
+      "repo_view_schemas": {
+        "location": "app/schemas/repo_view.py",
+        "schemas": {
+          "DirectoryNode": "Recursive directory structure",
+          "FileNode": "File metadata (name, path, size)",
+          "FileContent": "File contents with metadata",
+          "RepositoryStructure": "Complete repository tree"
+        }
+      }
+    }
+  },
+  
+  "authentication_architecture": {
+    "description": "Magic link authentication system with email-based login",
+    "components": {
+      "magic_link_flow": {
+        "steps": [
+          "User enters email address",
+          "System generates secure token and stores in database",
+          "System sends email with magic link containing token",
+          "User clicks link, token validated",
+          "Session created, user authenticated"
+        ]
+      },
+      "session_management": {
+        "storage": "SQLite database (sessions table)",
+        "expiration": "Configurable session timeout",
+        "security": "Secure session tokens with HTTPS-only cookies"
+      },
+      "endpoint_protection": {
+        "pattern": "Dependency injection for authentication",
+        "implementation": "get_current_user dependency protects endpoints",
+        "unauthenticated_response": "401 Unauthorized"
+      }
+    }
+  },
+  
+  "application_architecture": {
+    "description": "FastAPI application with authentication and repository introspection",
+    "components": {
+      "routers": {
+        "description": "API endpoint definitions",
+        "pattern": "FastAPI APIRouter for modular route organization",
+        "location": "app/routers/",
+        "routers": {
+          "auth.py": "Authentication endpoints (login, logout, magic link validation)",
+          "repo_view.py": "Repository introspection endpoints (structure, file contents)"
+        }
+      },
+      "services": {
+        "description": "Business logic layer",
+        "pattern": "Service classes encapsulate business operations",
+        "location": "app/services/",
+        "services": {
+          "email_service.py": "Email sending (magic links)",
+          "repo_reader.py": "Repository file system operations (read-only)"
+        }
+      },
+      "schemas": {
+        "description": "Pydantic models for request/response validation",
+        "pattern": "Type-safe data models with validation",
+        "location": "app/schemas/",
+        "schemas": {
+          "auth.py": "Authentication request/response models",
+          "repo_view.py": "Repository introspection models (DirectoryNode, FileContent, etc.)"
+        }
+      },
+      "models": {
+        "description": "Database models (SQLAlchemy ORM)",
+        "pattern": "SQLAlchemy declarative models",
+        "location": "app/models/",
+        "models": {
+          "sessions.py": "User session model"
+        }
+      }
+    }
+  },
+  
+  "repository_structure": {
+    "description": "Project structure with authentication and repository introspection",
+    "structure": {
+      "app": {
+        "path": "app/",
+        "description": "FastAPI application",
+        "subdirectories": {
+          "routers": "API route definitions (auth.py, repo_view.py)",
+          "services": "Business logic (email_service.py, repo_reader.py)",
+          "schemas": "Pydantic models (auth.py, repo_view.py)",
+          "models": "Database models (sessions.py)",
+          "templates": "Jinja2 templates (auth/)"
+        }
+      },
+      "tests": {
+        "path": "tests/",
+        "description": "Test suite",
+        "files": {
+          "conftest.py": "pytest fixtures",
+          "test_auth.py": "Authentication tests",
+          "test_repo_view.py": "Repository introspection tests"
+        }
+      }
+    }
+  },
+  
+  "tech_stack": {
+    "language": "Python 3.11+",
+    "framework": "FastAPI",
+    "validation": "Pydantic",
+    "database": "SQLite (development)",
+    "orm": "SQLAlchemy",
+    "testing": "pytest",
+    "templating": "Jinja2",
+    "email": "SMTP (production) / Console (development)"
+  },
+  
+  "security_considerations": {
+    "authentication": {
+      "pattern": "Passwordless magic link",
+      "token_expiration": "15 minutes for magic link tokens",
+      "session_security": "Secure, HTTP-only cookies",
+      "https_required": "Production environment"
+    },
+    "repository_access": {
+      "read_only": "AI agents cannot modify files",
+      "authentication_required": "All repo endpoints require authentication",
+      "path_validation": "Prevent directory traversal attacks",
+      "sensitive_files_hidden": "Ignore .git, .env, __pycache__, etc."
+    }
+  },
+  
+  "architectural_decisions": [],
+  
+  "future_considerations": [
+    "AI workforce integration patterns",
+    "Multi-agent collaboration framework",
+    "Artifact-driven workflows",
+    "Code generation and proposal system"
+  ]
+}
