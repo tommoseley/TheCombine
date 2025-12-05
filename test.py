@@ -23,5 +23,5 @@ Acceptance Criteria:
 
 registry = build_role_registry()
 print("Roles found:", list(registry.keys()))
-pm_prompt = build_role_prompt("developer_mentor", ticket_context, registry)
+pm_prompt = build_role_prompt("orchestrator", ticket_context, registry)
 print(pm_prompt)
