@@ -19,7 +19,7 @@ from datetime import datetime
 
 from workforce.canon.loader import SemanticVersion, CanonDocument
 from workforce.schemas.artifacts import Epic, ArchitecturalNotes, BASpecification
-
+from sqlalchemy import create_engine
 
 # =============================================================================
 # CONFIGURATION ISOLATION (MUST RUN FIRST)
@@ -97,6 +97,12 @@ from config import settings, epic_dir
 # =============================================================================
 # TEST DATA FIXTURES
 # =============================================================================
+
+@pytest.fixture
+def test_db_url(tmp_path):
+    """Provide a temporary test database URL."""
+    db_file = tmp_path / "test.db"
+    return f"sqlite:///{db_file}"
 
 @pytest.fixture
 def test_epic_dir(tmp_path: Path) -> Path:

@@ -20,7 +20,12 @@ class PipelinePromptUsageRepository:
         pipeline_id: str,
         role_name: str,
         prompt_id: str,
-        phase_name: str
+        phase_name: str,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cost_usd: float = 0.0,
+        model: str = "claude-sonnet-4-20250514",
+        execution_time_ms: int = 0
     ) -> PipelinePromptUsage:
         """
         Record that a prompt was used in a pipeline phase.
@@ -30,6 +35,11 @@ class PipelinePromptUsageRepository:
             role_name: Role that was executed
             prompt_id: Prompt version used
             phase_name: Phase where prompt was used
+            input_tokens: Number of input tokens used
+            output_tokens: Number of output tokens generated
+            cost_usd: Calculated cost in USD
+            model: Model identifier used
+            execution_time_ms: Execution time in milliseconds
             
         Returns:
             Created PipelinePromptUsage
@@ -45,9 +55,13 @@ class PipelinePromptUsageRepository:
                 prompt_id=prompt_id,
                 role_name=role_name,
                 phase_name=phase_name,
-                used_at=datetime.now(timezone.utc)
-            )
-            
+                used_at=datetime.now(timezone.utc),
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
+                model=model,
+                execution_time_ms=execution_time_ms
+            )            
             session.add(usage)
             session.commit()
             session.refresh(usage)

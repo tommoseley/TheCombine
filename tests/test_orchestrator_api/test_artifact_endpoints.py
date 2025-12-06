@@ -5,6 +5,7 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Old orchestrator - replaced by data-driven in 175A/B")
 async def test_submit_artifact_success(client: AsyncClient, auth_headers):
     """AC-4: Happy path."""
     # Create pipeline first
