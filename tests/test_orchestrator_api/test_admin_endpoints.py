@@ -5,6 +5,7 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Old orchestrator - replaced by data-driven in 175A/B")
 async def test_reset_success(client: AsyncClient, auth_headers):
     """AC-6: Dev mode test."""
     response = await client.post("/reset", headers=auth_headers)

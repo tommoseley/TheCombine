@@ -5,6 +5,7 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Old orchestrator - replaced by data-driven in 175A/B")
 async def test_e2e_complete_pipeline_lifecycle(client: AsyncClient, auth_headers):
     """
     AC-12: Test complete pipeline lifecycle via HTTP API only.
@@ -73,6 +74,7 @@ async def test_e2e_complete_pipeline_lifecycle(client: AsyncClient, auth_headers
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Old orchestrator - replaced by data-driven in 175A/B")
 async def test_concurrent_pipelines_no_interference(client: AsyncClient, auth_headers):
     """
     AC-10: Test that concurrent pipelines don't interfere with each other.

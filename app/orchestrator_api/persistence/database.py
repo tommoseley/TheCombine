@@ -2,7 +2,7 @@
 
 import os
 from contextlib import contextmanager
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.pool import StaticPool  # ← ADD THIS IMPORT
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
@@ -78,7 +78,7 @@ def check_database_connection() -> bool:
     """Check if database is accessible."""
     try:
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False

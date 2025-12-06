@@ -13,6 +13,7 @@ import logging
 from app.orchestrator_api.persistence.repositories.pipeline_prompt_usage_repository import (
     PipelinePromptUsageRepository
 )
+from app.orchestrator_api.utils.pricing import calculate_cost   
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,11 @@ class UsageRecord:
     prompt_id: str
     role_name: str
     phase_name: str
-
+# NEW: Add token tracking fields
+    input_tokens: int = 0
+    output_tokens: int = 0
+    execution_time_ms: int = 0
+    model: str = "claude-sonnet-4-20250514"
 
 class UsageRecorder:
     """Record prompt usage to audit trail."""
@@ -52,11 +57,31 @@ class UsageRecorder:
             Never raises - logs errors and returns False
         """
         try:
+            # Calculate cost from tokens
+            cost_usd = calculate_cost(
+                usage.input_tokens,
+                usage.output_tokens,
+               usage.model
+            )
+
+            # Store with token data
             usage_id = self._repo.record_usage(
                 pipeline_id=usage.pipeline_id,
-                prompt_id=usage.prompt_id
+                prompt_id=usage.prompt_id,
+                role_name=usage.role_name,
+                phase_name=usage.phase_name,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cost_usd=cost_usd,
+                model=usage.model,
+                execution_time_ms=usage.execution_time_ms
             )
-            logger.debug(f"Recorded usage: usage_id={usage_id}")
+            logger.debug(
+                f"Recorded usage: {usage_id}, "
+                f"tokens={usage.input_tokens + usage.output_tokens}, "
+                f"cost=${cost_usd:.6f}"
+            )
+
             return True
             
         except Exception as e:
@@ -69,6 +94,8 @@ class UsageRecorder:
                     "phase_name": usage.phase_name,
                     "role_name": usage.role_name,
                     "prompt_id": usage.prompt_id,
+                    "input_tokens": usage.input_tokens,  # NEW
+                    "output_tokens": usage.output_tokens,  # NEW
                     "error": str(e)
                 }
             )

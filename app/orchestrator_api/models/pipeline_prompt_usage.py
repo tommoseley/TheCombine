@@ -4,10 +4,9 @@ PipelinePromptUsage model for audit trail of prompt usage.
 Part of PIPELINE-175A: Data-Described Pipeline Infrastructure.
 """
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, Index, Integer, Numeric  # Add Integer, Numeric
 from sqlalchemy.orm import relationship
 from app.orchestrator_api.persistence.database import Base
-
 
 class PipelinePromptUsage(Base):
     """
@@ -25,7 +24,15 @@ class PipelinePromptUsage(Base):
     phase_name = Column(String(64), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     
+    # NEW: Token tracking columns
+    input_tokens = Column(Integer, default=0)
+    output_tokens = Column(Integer, default=0)
+    cost_usd = Column(Numeric(10, 6), default=0.0)
+    model = Column(String(64), default="claude-sonnet-4-20250514")
+    execution_time_ms = Column(Integer, default=0)
+
     # Relationships
+
     pipeline = relationship("Pipeline", back_populates="prompt_usages")
     prompt = relationship("RolePrompt", back_populates="pipeline_usages")
     

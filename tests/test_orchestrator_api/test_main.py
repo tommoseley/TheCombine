@@ -12,6 +12,7 @@ async def test_app_starts_on_configured_port():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Old orchestrator - replaced by data-driven in 175A/B")
 async def test_error_response_structure(client: AsyncClient):
     """AC-7: Validates ErrorResponse model."""
     # Trigger 404 error

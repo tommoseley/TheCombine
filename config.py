@@ -91,7 +91,15 @@ ANTHROPIC_API_KEY: Optional[str] = Field(
     default=None,
     description="Anthropic API key for LLM calls"
 )
+# Anthropic API configuration (for data-driven mode)
+ANTHROPIC_API_KEY: Optional[str] = Field(
+    default=None,
+    description="Anthropic API key for LLM calls"
+)
 
+# NEW: Anthropic API Pricing (USD per million tokens)
+ANTHROPIC_INPUT_PRICE_PER_MTK = float(os.getenv("ANTHROPIC_INPUT_PRICE_PER_MTK", "3.0"))
+ANTHROPIC_OUTPUT_PRICE_PER_MTK = float(os.getenv("ANTHROPIC_OUTPUT_PRICE_PER_MTK", "15.0"))
 class Settings:
     """Settings class for configuration."""
     
@@ -112,7 +120,9 @@ class Settings:
         self.DATABASE_URL = DATABASE_URL
         self.DATA_DRIVEN_ORCHESTRATION = DATA_DRIVEN_ORCHESTRATION
         self.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY
-            # --- NEW ---
+    # NEW: Pricing configuration
+        self.ANTHROPIC_INPUT_PRICE_PER_MTK = ANTHROPIC_INPUT_PRICE_PER_MTK
+        self.ANTHROPIC_OUTPUT_PRICE_PER_MTK = ANTHROPIC_OUTPUT_PRICE_PER_MTK            # --- NEW ---
         # The unified root for all Workbench/Workforce data.
         # roles.py and the orchestration layer will use this.
         self.workbench_data_root = self.PROJECT_ROOT
