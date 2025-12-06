@@ -2,6 +2,7 @@
 
 from typing import Optional, Dict, Any
 from datetime import datetime
+import os
 
 from workforce.orchestrator import Orchestrator
 from workforce.state import PipelineState, validate_transition
@@ -14,8 +15,39 @@ from app.orchestrator_api.schemas.responses import (
     PhaseAdvancedResponse
 )
 from app.orchestrator_api.services.role_prompt_service import RolePromptService
-from workforce.utils.logging import log_info, log_error
+from workforce.utils.logging import log_info, log_error, log_warning
 from workforce.utils.errors import InvalidStateTransitionError
+
+# PIPELINE-175B: Data-driven orchestration imports
+from app.orchestrator_api.services.phase_execution_orchestrator import (
+    PhaseExecutionOrchestrator,
+    ExecutionError,
+    PhaseExecutionResult
+)
+from app.orchestrator_api.services.llm_response_parser import LLMResponseParser
+from app.orchestrator_api.services.llm_caller import LLMCaller
+from app.orchestrator_api.services.configuration_loader import (
+    ConfigurationLoader,
+    ConfigurationError
+)
+from app.orchestrator_api.services.usage_recorder import UsageRecorder
+from app.orchestrator_api.persistence.repositories.phase_configuration_repository import (
+    PhaseConfigurationRepository
+)
+from app.orchestrator_api.persistence.repositories.pipeline_prompt_usage_repository import (
+    PipelinePromptUsageRepository
+)
+
+# Anthropic SDK import (optional - for data-driven mode)
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    anthropic = None
+    ANTHROPIC_AVAILABLE = False
+
+# Feature flag (default: disabled for safety)
+DATA_DRIVEN_ORCHESTRATION = os.getenv('DATA_DRIVEN_ORCHESTRATION', 'false').lower() == 'true'
 
 
 class PipelineService:
@@ -115,10 +147,139 @@ class PipelineService:
         """
         Advance pipeline to next phase.
         
+        PIPELINE-175B: Routes to data-driven execution when feature flag enabled.
+        
         Validates transition, updates database, records transition.
         
         Note: For MVP, state == current_phase (both store phase value).
         """
+        # Check feature flag
+        if DATA_DRIVEN_ORCHESTRATION:
+            if not ANTHROPIC_AVAILABLE:
+                log_error("DATA_DRIVEN_ORCHESTRATION enabled but anthropic SDK not available")
+                raise RuntimeError(
+                    "Data-driven orchestration requires anthropic SDK. "
+                    "Install with: pip install anthropic"
+                )
+            return self._advance_phase_data_driven(pipeline_id)
+        else:
+            return self._advance_phase_legacy(pipeline_id)
+    
+    def _advance_phase_data_driven(self, pipeline_id: str) -> PhaseAdvancedResponse:
+        """
+        Data-driven phase advancement (PIPELINE-175B).
+        
+        Uses PhaseExecutionOrchestrator with configuration from database.
+        """
+        log_info(f"Using data-driven orchestration for pipeline {pipeline_id}")
+        
+        # Load pipeline
+        pipeline = self.pipeline_repo.get_by_id(pipeline_id)
+        if not pipeline:
+            raise ValueError(f"Pipeline not found: {pipeline_id}")
+        
+        # Instantiate dependencies
+        parser = LLMResponseParser()  # Default strategy ordering
+        
+        # Get Anthropic API key from environment
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY environment variable not set")
+        
+        anthropic_client = anthropic.Anthropic(api_key=api_key)
+        llm_caller = LLMCaller(anthropic_client)
+        
+        config_loader = ConfigurationLoader(PhaseConfigurationRepository())
+        usage_recorder = UsageRecorder(PipelinePromptUsageRepository())
+        prompt_builder = RolePromptService()
+        
+        # Instantiate orchestrator with all dependencies
+        orchestrator = PhaseExecutionOrchestrator(
+            config_loader=config_loader,
+            prompt_builder=prompt_builder,
+            llm_caller=llm_caller,
+            parser=parser,
+            usage_recorder=usage_recorder
+        )
+        
+        # Get current phase from pipeline
+        current_phase = pipeline.current_phase
+        
+        # Execute phase
+        try:
+            result = orchestrator.execute_phase(
+                pipeline_id=pipeline.pipeline_id,
+                phase_name=current_phase,
+                epic_context=pipeline.initial_context.get("epic_description", "") if pipeline.initial_context else "",
+                pipeline_state=pipeline.state or {},
+                artifacts=pipeline.state.get("artifacts", {}) if pipeline.state else {}
+            )
+            
+            # QA Issue #5: State mutation happens HERE, not in orchestrator
+            # Atomic update: either full success or no change
+            if pipeline.state is None:
+                pipeline.state = {}
+            if "artifacts" not in pipeline.state:
+                pipeline.state["artifacts"] = {}
+            
+            pipeline.state["artifacts"][result.artifact_type] = result.artifact
+            previous_phase = pipeline.current_phase
+            pipeline.current_phase = result.next_phase
+            
+            # QA Issue #8: Validate next_phase if not None
+            if result.next_phase is not None:
+                try:
+                    config_loader.load_config(result.next_phase)
+                except ConfigurationError as ce:
+                    log_error(f"Invalid next_phase: {result.next_phase} does not exist")
+                    raise ExecutionError(
+                        f"Invalid next_phase configuration: {result.next_phase}",
+                        previous_phase,
+                        pipeline_id
+                    )
+            
+            # Update pipeline state
+            updated_pipeline = self.pipeline_repo.update_state(
+                pipeline_id=pipeline_id,
+                new_state=result.next_phase if result.next_phase else "complete",
+                new_phase=result.next_phase if result.next_phase else "complete"
+            )
+            
+            # Record transition
+            self.transition_repo.create(
+                pipeline_id=pipeline_id,
+                from_state=previous_phase,
+                to_state=result.next_phase if result.next_phase else "complete",
+                reason="Data-driven phase execution"
+            )
+            
+            log_info(f"Pipeline {pipeline_id} advanced from {previous_phase} to {result.next_phase}")
+            
+            return PhaseAdvancedResponse(
+                pipeline_id=updated_pipeline.pipeline_id,
+                previous_phase=previous_phase,
+                current_phase=updated_pipeline.current_phase,
+                state=updated_pipeline.state,
+                updated_at=updated_pipeline.updated_at
+            )
+            
+        except ExecutionError as e:
+            log_error(f"Execution failed for pipeline {pipeline_id}: {e}")
+            # Pipeline state unchanged (atomic operation)
+            raise
+    
+    def _advance_phase_legacy(self, pipeline_id: str) -> PhaseAdvancedResponse:
+        """
+        Legacy phase advancement (PIPELINE-150 baseline).
+        
+        Uses hardcoded phase sequence and execution methods.
+        Preserved for backward compatibility and safe rollback.
+        """
+        log_warning(
+            f"Using legacy orchestration for pipeline {pipeline_id}. "
+            "Consider enabling DATA_DRIVEN_ORCHESTRATION for enhanced capabilities."
+        )
+        
         pipeline = self.pipeline_repo.get_by_id(pipeline_id)
         if not pipeline:
             raise ValueError(f"Pipeline not found: {pipeline_id}")
@@ -146,7 +307,7 @@ class PipelineService:
             pipeline_id=pipeline_id,
             from_state=previous_phase,
             to_state=next_state.value,
-            reason="Phase advancement"
+            reason="Phase advancement (legacy)"
         )
         
         log_info(f"Pipeline {pipeline_id} transitioned from {previous_phase} to {next_state.value}")
@@ -160,7 +321,7 @@ class PipelineService:
         )
     
     def _get_next_phase(self, current_phase: PipelineState) -> PipelineState:
-        """Get next phase in sequence."""
+        """Get next phase in sequence (legacy logic)."""
         phase_sequence = {
             PipelineState.IDLE: PipelineState.PM_PHASE,
             PipelineState.PM_PHASE: PipelineState.ARCH_PHASE,
@@ -176,5 +337,3 @@ class PipelineService:
             raise ValueError(f"Cannot advance from {current_phase.value}")
         
         return next_phase
-    
-    

@@ -5,7 +5,8 @@
 import os
 import sys
 from pathlib import Path
-
+from typing import Optional
+from pydantic import Field
 # Detect if running in pytest
 _IN_PYTEST = "pytest" in sys.modules
 
@@ -79,6 +80,18 @@ ALLOW_RESET_IN_CRITICAL_PHASES = os.getenv("ALLOW_RESET_IN_CRITICAL_PHASES", "fa
 # Request Size Limits (QA-Blocker #1)
 MAX_REQUEST_BODY_SIZE = int(os.getenv("MAX_REQUEST_BODY_SIZE", 10 * 1024 * 1024))  # 10MB default
 
+# PIPELINE-175B: Data-driven orchestration feature flag
+DATA_DRIVEN_ORCHESTRATION: bool = Field(
+    default=False,
+    description="Enable data-driven pipeline orchestration (PIPELINE-175B)"
+)
+
+# Anthropic API configuration (for data-driven mode)
+ANTHROPIC_API_KEY: Optional[str] = Field(
+    default=None,
+    description="Anthropic API key for LLM calls"
+)
+
 class Settings:
     """Settings class for configuration."""
     
@@ -97,7 +110,9 @@ class Settings:
         # --- DATABASE (NEW) ---
         self.DB_PATH = DB_PATH
         self.DATABASE_URL = DATABASE_URL
-        # --- NEW ---
+        self.DATA_DRIVEN_ORCHESTRATION = DATA_DRIVEN_ORCHESTRATION
+        self.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY
+            # --- NEW ---
         # The unified root for all Workbench/Workforce data.
         # roles.py and the orchestration layer will use this.
         self.workbench_data_root = self.PROJECT_ROOT
