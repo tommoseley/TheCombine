@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "architecture_id": "workbench-canonical-v1.1",
+  "version": "1.1",
+  "previous_version": "1.0",
+  "status": "superseded",
+  "created_date": "2024-11-01",
+  "updated_date": "2024-11-10",
+  "owner": "Architect",
+  "revision_notes": "Added authentication system with magic link email-based login. No password storage.",
+  
+  "system_overview": {
+    "description": "Workbench AI is a development environment with a FastAPI backend that provides authentication and core infrastructure for future AI workforce integration.",
+    "core_principles": [
+      "Separation of Concerns: Clear boundaries between application layers",
+      "RESTful API Design: Standard HTTP methods and status codes",
+      "Type Safety: Pydantic schemas for request/response validation",
+      "Passwordless Authentication: Magic link email-based login for security"
+    ],
+    "architectural_patterns": [
+      "Layered Architecture: Router → Service → Model separation",
+      "Dependency Injection: FastAPI dependencies for shared resources",
+      "Session-Based Authentication: Server-side session management"
+    ]
+  },
+  
+  "authentication_architecture": {
+    "description": "Magic link authentication system with email-based login",
+    "components": {
+      "magic_link_flow": {
+        "steps": [
+          "User enters email address",
+          "System generates secure token and stores in database",
+          "System sends email with magic link containing token",
+          "User clicks link, token validated",
+          "Session created, user authenticated"
+        ]
+      },
+      "session_management": {
+        "storage": "SQLite database (sessions table)",
+        "expiration": "Configurable session timeout",
+        "security": "Secure session tokens with HTTPS-only cookies"
+      },
+      "email_service": {
+        "backend": "Configurable (console for dev, SMTP for production)",
+        "templates": "Jinja2 templates for email content",
+        "location": "app/services/email_service.py"
+      }
+    }
+  },
+  
+  "application_architecture": {
+    "description": "FastAPI application with authentication and API structure",
+    "components": {
+      "routers": {
+        "description": "API endpoint definitions",
+        "pattern": "FastAPI APIRouter for modular route organization",
+        "location": "app/routers/",
+        "routers": {
+          "auth.py": "Authentication endpoints (login, logout, magic link validation)"
+        }
+      },
+      "services": {
+        "description": "Business logic layer",
+        "pattern": "Service classes encapsulate business operations",
+        "location": "app/services/",
+        "services": {
+          "email_service.py": "Email sending (magic links)"
+        }
+      },
+      "schemas": {
+        "description": "Pydantic models for request/response validation",
+        "pattern": "Type-safe data models with validation",
+        "location": "app/schemas/",
+        "schemas": {
+          "auth.py": "Authentication request/response models"
+        }
+      },
+      "models": {
+        "description": "Database models (SQLAlchemy ORM)",
+        "pattern": "SQLAlchemy declarative models",
+        "location": "app/models/",
+        "models": {
+          "sessions.py": "User session model"
+        }
+      },
+      "templates": {
+        "description": "Jinja2 templates",
+        "location": "app/templates/",
+        "templates": {
+          "auth/login.html": "Login page",
+          "auth/magic_link_email.txt": "Magic link email template"
+        }
+      }
+    }
+  },
+  
+  "repository_structure": {
+    "description": "Project structure with authentication",
+    "structure": {
+      "app": {
+        "path": "app/",
+        "description": "FastAPI application",
+        "subdirectories": {
+          "routers": "API route definitions (auth.py added)",
+          "services": "Business logic (email_service.py added)",
+          "schemas": "Pydantic models (auth.py added)",
+          "models": "Database models (sessions.py added)",
+          "templates": "Jinja2 templates (auth/ added)"
+        }
+      },
+      "tests": {
+        "path": "tests/",
+        "description": "Test suite",
+        "files": {
+          "conftest.py": "pytest fixtures",
+          "test_auth.py": "Authentication tests"
+        }
+      }
+    }
+  },
+  
+  "tech_stack": {
+    "language": "Python 3.11+",
+    "framework": "FastAPI",
+    "validation": "Pydantic",
+    "database": "SQLite (development)",
+    "orm": "SQLAlchemy",
+    "testing": "pytest",
+    "templating": "Jinja2",
+    "email": "SMTP (production) / Console (development)"
+  },
+  
+  "security_considerations": {
+    "authentication": {
+      "pattern": "Passwordless magic link",
+      "token_expiration": "15 minutes for magic link tokens",
+      "session_security": "Secure, HTTP-only cookies",
+      "https_required": "Production environment"
+    }
+  },
+  
+  "architectural_decisions": [],
+  
+  "future_considerations": [
+    "Repository introspection API",
+    "AI workforce integration patterns",
+    "Multi-agent collaboration framework",
+    "Artifact-driven workflows"
+  ]
+}

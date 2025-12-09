@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "architecture_id": "workbench-canonical-v1.0",
+  "version": "1.0",
+  "previous_version": null,
+  "status": "superseded",
+  "created_date": "2024-11-01",
+  "updated_date": "2024-11-01",
+  "owner": "Architect",
+  "revision_notes": "Initial canonical architecture for Workbench AI. Basic FastAPI application structure with foundational patterns.",
+  
+  "system_overview": {
+    "description": "Workbench AI is a development environment with a FastAPI backend that provides core infrastructure for future AI workforce integration.",
+    "core_principles": [
+      "Separation of Concerns: Clear boundaries between application layers",
+      "RESTful API Design: Standard HTTP methods and status codes",
+      "Type Safety: Pydantic schemas for request/response validation"
+    ],
+    "architectural_patterns": [
+      "Layered Architecture: Router → Service → Model separation",
+      "Dependency Injection: FastAPI dependencies for shared resources"
+    ]
+  },
+  
+  "application_architecture": {
+    "description": "FastAPI application with basic CRUD operations and API structure",
+    "components": {
+      "routers": {
+        "description": "API endpoint definitions",
+        "pattern": "FastAPI APIRouter for modular route organization",
+        "location": "app/routers/"
+      },
+      "services": {
+        "description": "Business logic layer",
+        "pattern": "Service classes encapsulate business operations",
+        "location": "app/services/"
+      },
+      "schemas": {
+        "description": "Pydantic models for request/response validation",
+        "pattern": "Type-safe data models with validation",
+        "location": "app/schemas/"
+      },
+      "models": {
+        "description": "Database models (SQLAlchemy ORM)",
+        "pattern": "SQLAlchemy declarative models",
+        "location": "app/models/"
+      }
+    }
+  },
+  
+  "repository_structure": {
+    "description": "Initial project structure",
+    "structure": {
+      "app": {
+        "path": "app/",
+        "description": "FastAPI application",
+        "files": {
+          "main.py": "FastAPI application entry point",
+          "dependencies.py": "Shared dependencies",
+          "routers": "API route definitions",
+          "services": "Business logic",
+          "schemas": "Pydantic models",
+          "models": "Database models"
+        }
+      },
+      "tests": {
+        "path": "tests/",
+        "description": "Test suite",
+        "files": {
+          "conftest.py": "pytest fixtures",
+          "test_*.py": "Test modules"
+        }
+      }
+    }
+  },
+  
+  "tech_stack": {
+    "language": "Python 3.11+",
+    "framework": "FastAPI",
+    "validation": "Pydantic",
+    "database": "SQLite (development)",
+    "orm": "SQLAlchemy",
+    "testing": "pytest"
+  },
+  
+  "architectural_decisions": [],
+  
+  "future_considerations": [
+    "Authentication and authorization system",
+    "AI workforce integration patterns",
+    "Multi-agent collaboration framework",
+    "Artifact-driven workflows"
+  ]
+}

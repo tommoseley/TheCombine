@@ -7,7 +7,7 @@ Defines request/response models for:
 """
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
 # Magic Link Schemas (AUTH-100)
@@ -45,7 +45,7 @@ class UserResponse(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
     created_at: datetime = Field(..., description="Account creation timestamp")
 
-    class Config:
+    model_config = ConfigDict(
         """Pydantic configuration."""
         from_attributes = True  # Allows creation from ORM models
         json_schema_extra = {
@@ -55,3 +55,4 @@ class UserResponse(BaseModel):
                 "created_at": "2024-01-15T10:30:00Z"
             }
         }
+    )

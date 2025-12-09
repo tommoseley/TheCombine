@@ -1,0 +1,830 @@
+{
+  "type": "canonical_architecture",
+  "version": 1,
+  "sections": {
+    "summary": {
+      "blocks": [
+        {
+          "id": "summary-1",
+          "type": "paragraph",
+          "content": "The canonical architecture is a Python-based MVP optimized for rapid delivery (3 months) with FastAPI backend, minimal HTMX UI, and canonical document storage as the authoritative source of truth. The architecture enforces schema validation at every stage via Pydantic models, ensuring all artifacts conform to standardized structures before persistence."
+        },
+        {
+          "id": "summary-2",
+          "type": "paragraph",
+          "content": "The system uses FastAPI for async API endpoints, Jinja2 for server-side HTML rendering, HTMX for dynamic interactions without JavaScript framework overhead, and SQLite for zero-configuration data persistence with a clear migration path to PostgreSQL. All AI agent outputs are validated against Pydantic schemas before storage in the canonical_documents table, which serves as the single source of truth for all downstream operations."
+        },
+        {
+          "id": "summary-3",
+          "type": "paragraph",
+          "content": "Key architectural decisions prioritize operational simplicity: single Docker container deployment, synchronous orchestration via Python asyncio for concurrent agent execution, local filesystem for ephemeral exports, and managed authentication via third-party providers. The architecture avoids SPA frameworks, microservices, and job queues in favor of Python-native solutions that enable faster iteration and lower operational complexity."
+        }
+      ]
+    },
+    "diagram": {
+      "blocks": [
+        {
+          "id": "diagram-1",
+          "type": "code",
+          "language": "text",
+          "content": "┌──────────────────────────────────────────────────────┐\n│              User Browser                            │\n│  Jinja2 HTML + HTMX + EventSource (SSE)              │\n└────────────────────┬─────────────────────────────────┘\n                     │ HTTPS\n                     │\n┌────────────────────▼─────────────────────────────────┐\n│            FastAPI Application                       │\n│                                                      │\n│  ┌──────────────────────────────────────────────┐   │\n│  │         API Layer (FastAPI)                  │   │\n│  │  - REST endpoints (/workspaces, /approve)    │   │\n│  │  - SSE streaming (/stream)                   │   │\n│  │  - Pydantic validation                       │   │\n│  └────────────────┬─────────────────────────────┘   │\n│                   │                                  │\n│  ┌────────────────▼─────────────────────────────┐   │\n│  │      Orchestration Core (Python)             │   │\n│  │  - State machine (PM → Arch → BA)            │   │\n│  │  - Agent dispatcher (asyncio.gather)         │   │\n│  │  - Approval gate manager                     │   │\n│  └────────────────┬─────────────────────────────┘   │\n│                   │                                  │\n│  ┌────────────────▼─────────────────────────────┐   │\n│  │       Agent Service (Anthropic SDK)          │   │\n│  │  - anthropic.AsyncAnthropic                  │   │\n│  │  - Prompt management                         │   │\n│  │  - Streaming responses                       │   │\n│  └────────────────┬─────────────────────────────┘   │\n│                   │                                  │\n│  ┌────────────────▼─────────────────────────────┐   │\n│  │    Schema Validation (Pydantic)              │   │\n│  │  - CanonicalArchitectureV1 model             │   │\n│  │  - Block type enforcement                    │   │\n│  │  - ID uniqueness validation                  │   │\n│  └────────────────┬─────────────────────────────┘   │\n│                   │                                  │\n│  ┌────────────────▼─────────────────────────────┐   │\n│  │  Canonical Document Store (SQLite/SQLAlchemy)│   │\n│  │  - workspaces                                │   │\n│  │  - canonical_documents (JSON)                │   │\n│  │  - pipeline_state (JSON)                     │   │\n│  │  - agent_logs                                │   │\n│  └──────────────────────────────────────────────┘   │\n│                                                      │\n│  Anthropic API (HTTPS) ─────────────────────────────→│\n└──────────────────────────────────────────────────────┘\n           Single Docker Container\n       (Deployed on managed platform)"
+        }
+      ]
+    },
+    "components": {
+      "blocks": [
+        {
+          "id": "component-presentation",
+          "type": "component",
+          "data": {
+            "name": "Presentation Layer",
+            "technology": "Jinja2 Templates + HTMX + Tailwind CSS (CDN) + EventSource API",
+            "responsibilities": [
+              "Server-side HTML rendering via Jinja2 templates",
+              "Dynamic interactions via HTMX (hx-get, hx-post, hx-swap)",
+              "Real-time agent streaming via EventSource (SSE)",
+              "Styling via Tailwind CSS (CDN, no build step)",
+              "Form submissions and approval gate UI",
+              "Export download links"
+            ],
+            "rationale": "Server-side rendering eliminates build pipeline complexity. HTMX provides SPA-like interactions with minimal JavaScript payload. EventSource API handles SSE streaming natively. Tailwind CSS via CDN avoids compilation step. This approach delivers interactive UI functionality with significantly reduced frontend complexity compared to SPA frameworks."
+          }
+        },
+        {
+          "id": "component-api",
+          "type": "component",
+          "data": {
+            "name": "API Layer",
+            "technology": "FastAPI + Pydantic + Uvicorn",
+            "responsibilities": [
+              "RESTful endpoints: POST /workspaces, GET /workspaces/{id}, POST /workspaces/{id}/submit",
+              "Approval endpoints: POST /workspaces/{id}/approve?stage=epic|architecture|backlog",
+              "SSE streaming endpoint: GET /workspaces/{id}/stream (yields agent outputs via StreamingResponse with text/event-stream content type and proper event framing)",
+              "Request/response validation via Pydantic models",
+              "JWT authentication via dependency injection",
+              "Rate limiting per user",
+              "CORS middleware for future API clients",
+              "Automatic OpenAPI documentation"
+            ],
+            "rationale": "FastAPI provides async support for concurrent LLM calls, automatic Pydantic validation, and built-in OpenAPI docs. Dependency injection simplifies auth and database session management. Uvicorn ASGI server handles SSE streaming efficiently. SSE implemented via FastAPI StreamingResponse with text/event-stream content type and proper event framing (data: prefix, double newline delimiters). Python's async/await syntax simplifies concurrent operations compared to callback-based approaches."
+          }
+        },
+        {
+          "id": "component-orchestration",
+          "type": "component",
+          "data": {
+            "name": "Orchestration Core",
+            "technology": "Python + asyncio",
+            "responsibilities": [
+              "Finite state machine for pipeline stages (pm_questions → epic_approval → architecture_start → architecture_approval → ba_start → backlog_approval)",
+              "Agent dispatcher: spawns 3 agents in parallel via asyncio.gather",
+              "Approval gate manager: pauses pipeline until user approves or rejects",
+              "Re-run coordinator: fetches Epic/Architecture from canonical_documents and replays stage",
+              "Error handler: implements retry with exponential backoff",
+              "Context management: stores user inputs in pipeline_state.context (JSON)"
+            ],
+            "rationale": "Python's asyncio enables concurrent agent execution without threading complexity. Finite state machine prevents invalid transitions. Orchestration Core implemented as pure Python module (no FastAPI dependencies). FastAPI routes act as thin adapters that call orchestrator functions. This separation enables unit testing without web stack and future extraction to worker processes if async job queues are needed in later phases."
+          }
+        },
+        {
+          "id": "component-agent",
+          "type": "component",
+          "data": {
+            "name": "Agent Service",
+            "technology": "anthropic Python SDK (AsyncAnthropic)",
+            "responsibilities": [
+              "Async API calls to Anthropic Claude API via anthropic.AsyncAnthropic",
+              "Model configuration: claude-sonnet-4-20250514 (hardcoded for MVP)",
+              "Prompt management: loads from file-based prompt library",
+              "Streaming response handler: yields tokens to SSE endpoint",
+              "Retry logic: multiple attempts with exponential backoff on API failures",
+              "Token usage logging: captures tokens_used for cost tracking in agent_logs table",
+              "Response parsing: validates agent output against expected schemas"
+            ],
+            "rationale": "Official Anthropic SDK provides async support and streaming API. File-based prompts enable version control and updates without code changes. Token logging enables cost monitoring (critical for subscription pricing model). Retry logic handles transient API failures without user intervention. Streaming responses provide real-time feedback to users during long-running operations."
+          }
+        },
+        {
+          "id": "component-validation",
+          "type": "component",
+          "data": {
+            "name": "Schema Validation Layer",
+            "technology": "Pydantic + Custom Validators",
+            "responsibilities": [
+              "CanonicalArchitectureV1 Pydantic model enforces: fixed section keys, block type validation, no extra keys (extra='forbid')",
+              "Block-level validation: paragraph, heading, code, list_item, component, entity, decision, risk, table, key_value",
+              "Custom validators: block ID uniqueness per section, table row length matches headers, risk likelihood/impact enums",
+              "Pre-save validation: all canonical documents validated before INSERT into database",
+              "Mentor rewrite loop: if validation fails, Architect Mentor rewrites until valid",
+              "Schema versioning: schema_version field enables future migrations"
+            ],
+            "rationale": "Pydantic provides runtime schema enforcement that mirrors JSON Schema specification. Custom validators catch complex constraints (ID uniqueness, table consistency). Pre-save validation prevents corrupt data from entering canonical store. Schema versioning enables backward compatibility when schemas evolve in later phases. Validation errors provide detailed feedback for debugging and mentor rewriting."
+          }
+        },
+        {
+          "id": "component-storage",
+          "type": "component",
+          "data": {
+            "name": "Canonical Document Store",
+            "technology": "SQLite (MVP) / PostgreSQL (Phase 2+) + SQLAlchemy ORM",
+            "responsibilities": [
+              "Durable storage for workspaces, canonical documents, pipeline state, agent logs",
+              "JSON column for canonical_documents.content (validated schemas)",
+              "Status tracking: draft / approved / superseded (enables soft versioning)",
+              "SQLAlchemy ORM provides database-agnostic queries (SQLite → PostgreSQL migration requires only connection string change)",
+              "Indexes on workspace_id, doc_type, status for fast queries",
+              "Foreign key constraints enforce referential integrity"
+            ],
+            "rationale": "SQLite provides zero-configuration persistence for MVP (suitable for hundreds of concurrent users). JSON column support stores validated canonical documents. SQLAlchemy ORM abstracts database differences, enabling seamless PostgreSQL migration when scale requires it (no application code changes). Soft versioning (status field) prepares for version history feature without schema changes. Foreign key constraints prevent orphaned records."
+          }
+        },
+        {
+          "id": "component-export",
+          "type": "component",
+          "data": {
+            "name": "Export Service",
+            "technology": "Jinja2 Templates + Python JSON Serialization",
+            "responsibilities": [
+              "Markdown export: reads canonical_documents.content → applies Jinja2 template → generates .md file",
+              "JSON export: serializes canonical document with Jira-compatible metadata (Epic → Feature → Story traceability)",
+              "Derives from canonical store: never regenerates content from scratch",
+              "Local filesystem storage with time-limited retention",
+              "Download endpoints: GET /workspaces/{id}/export?format=markdown|json"
+            ],
+            "rationale": "Template-based generation ensures consistent formatting. Deriving from canonical store (not regenerating) guarantees exports match approved artifacts. Local filesystem avoids cloud storage costs and complexity for MVP. Jinja2 templates enable customization without code changes. Time-limited retention acceptable because exports are ephemeral (users download immediately). Future migration to cloud storage requires only storage backend abstraction."
+          }
+        }
+      ]
+    },
+    "data_model": {
+      "blocks": [
+        {
+          "id": "data-intro",
+          "type": "paragraph",
+          "content": "The data model uses SQLAlchemy ORM with SQLite for MVP and PostgreSQL-ready schema design. The canonical_documents table is the authoritative store for all validated artifacts (Epics, Architectures, Backlogs), with JSON columns storing schema-compliant documents."
+        },
+        {
+          "id": "schema-registry",
+          "type": "paragraph",
+          "content": "The system defines multiple canonical document schemas, all stored in the canonical_documents table with schema validation via corresponding Pydantic models: CanonicalArchitectureV1 (doc_type='architecture'), CanonicalEpicV1 (doc_type='epic'), CanonicalBacklogV1 (doc_type='backlog'), PMQuestionsV1 (doc_type='pm_questions'). All schemas follow the pattern: {type, version, sections} with section-specific block structures. Each schema has a corresponding Pydantic model for validation."
+        },
+        {
+          "id": "entity-workspaces",
+          "type": "entity",
+          "data": {
+            "name": "workspaces",
+            "fields": [
+              {
+                "name": "id",
+                "type": "TEXT PRIMARY KEY",
+                "description": "UUID as string"
+              },
+              {
+                "name": "user_id",
+                "type": "TEXT NOT NULL",
+                "description": "User identifier"
+              },
+              {
+                "name": "name",
+                "type": "TEXT NOT NULL",
+                "description": "Workspace name"
+              },
+              {
+                "name": "description",
+                "type": "TEXT",
+                "description": "Workspace description"
+              },
+              {
+                "name": "status",
+                "type": "TEXT NOT NULL DEFAULT 'active'",
+                "description": "active | archived | deleted"
+              },
+              {
+                "name": "created_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              },
+              {
+                "name": "updated_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              }
+            ],
+            "relationships": [
+              "One-to-many with canonical_documents",
+              "One-to-one with pipeline_state",
+              "One-to-many with agent_logs"
+            ],
+            "indexes": [
+              "user_id (for user workspace queries)"
+            ]
+          }
+        },
+        {
+          "id": "entity-canonical-documents",
+          "type": "entity",
+          "data": {
+            "name": "canonical_documents",
+            "fields": [
+              {
+                "name": "id",
+                "type": "TEXT PRIMARY KEY",
+                "description": "UUID as string"
+              },
+              {
+                "name": "workspace_id",
+                "type": "TEXT NOT NULL REFERENCES workspaces(id)",
+                "description": "Parent workspace"
+              },
+              {
+                "name": "doc_type",
+                "type": "TEXT NOT NULL",
+                "description": "epic | architecture | backlog | pm_questions"
+              },
+              {
+                "name": "status",
+                "type": "TEXT NOT NULL",
+                "description": "draft | approved | superseded"
+              },
+              {
+                "name": "schema_version",
+                "type": "INTEGER NOT NULL",
+                "description": "e.g., 1 for CanonicalArchitectureV1"
+              },
+              {
+                "name": "content",
+                "type": "JSON NOT NULL",
+                "description": "Validated canonical document"
+              },
+              {
+                "name": "created_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              },
+              {
+                "name": "updated_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              }
+            ],
+            "relationships": [
+              "Belongs to workspace"
+            ],
+            "indexes": [
+              "workspace_id (for workspace document queries)",
+              "doc_type + status (for current document queries)",
+              "created_at (for version history)"
+            ]
+          }
+        },
+        {
+          "id": "entity-pipeline-state",
+          "type": "entity",
+          "data": {
+            "name": "pipeline_state",
+            "fields": [
+              {
+                "name": "id",
+                "type": "TEXT PRIMARY KEY",
+                "description": "UUID as string"
+              },
+              {
+                "name": "workspace_id",
+                "type": "TEXT NOT NULL UNIQUE REFERENCES workspaces(id)",
+                "description": "Parent workspace (one-to-one)"
+              },
+              {
+                "name": "stage",
+                "type": "TEXT NOT NULL",
+                "description": "pm_questions | awaiting_user_answers | epic_approval | architecture_start | etc."
+              },
+              {
+                "name": "approved",
+                "type": "INTEGER NOT NULL DEFAULT 0",
+                "description": "boolean: 0 or 1"
+              },
+              {
+                "name": "context",
+                "type": "JSON",
+                "description": "User inputs, intermediate state for re-runs"
+              },
+              {
+                "name": "created_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              },
+              {
+                "name": "updated_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              }
+            ],
+            "relationships": [
+              "Belongs to workspace (one-to-one)"
+            ],
+            "indexes": []
+          }
+        },
+        {
+          "id": "entity-agent-logs",
+          "type": "entity",
+          "data": {
+            "name": "agent_logs",
+            "fields": [
+              {
+                "name": "id",
+                "type": "TEXT PRIMARY KEY",
+                "description": "UUID as string"
+              },
+              {
+                "name": "workspace_id",
+                "type": "TEXT NOT NULL REFERENCES workspaces(id)",
+                "description": "Parent workspace"
+              },
+              {
+                "name": "role",
+                "type": "TEXT NOT NULL",
+                "description": "pm | architect | ba | pm_mentor | architect_mentor | ba_mentor"
+              },
+              {
+                "name": "stage",
+                "type": "TEXT NOT NULL",
+                "description": "Pipeline stage when invoked"
+              },
+              {
+                "name": "prompt",
+                "type": "TEXT",
+                "description": "System prompt + user input"
+              },
+              {
+                "name": "response",
+                "type": "TEXT",
+                "description": "Agent output"
+              },
+              {
+                "name": "tokens_used",
+                "type": "INTEGER",
+                "description": "For cost tracking"
+              },
+              {
+                "name": "duration_ms",
+                "type": "INTEGER",
+                "description": "For performance monitoring"
+              },
+              {
+                "name": "error",
+                "type": "TEXT",
+                "description": "Captures failures"
+              },
+              {
+                "name": "created_at",
+                "type": "TEXT NOT NULL",
+                "description": "ISO 8601 timestamp"
+              }
+            ],
+            "relationships": [
+              "Belongs to workspace"
+            ],
+            "indexes": [
+              "workspace_id + created_at (for chronological log queries)",
+              "role + stage (for agent performance analysis)"
+            ]
+          }
+        },
+        {
+          "id": "data-notes",
+          "type": "paragraph",
+          "content": "The canonical_documents table is the single source of truth. All downstream operations (BA story generation, exports) read from this table. Schema validation via Pydantic occurs before INSERT. Status field enables soft versioning: approved documents are current, superseded documents are historical, draft documents are pending approval. SQLite to PostgreSQL migration path: SQLAlchemy ORM enables database-agnostic queries. To migrate, update connection string and run schema migration. PostgreSQL JSONB columns replace SQLite JSON columns, enabling GIN indexes for faster JSON queries. No application code changes required."
+        }
+      ]
+    },
+    "key_decisions": {
+      "blocks": [
+        {
+          "id": "decision-python-fastapi",
+          "type": "decision",
+          "data": {
+            "title": "Python + FastAPI Backend",
+            "decision": "Use Python with FastAPI framework for backend API",
+            "alternatives": [
+              "Node.js + Express or NestJS",
+              "Go + Gin or Fiber"
+            ],
+            "rationale": [
+              "FastAPI provides async/await support for concurrent LLM calls via asyncio.gather",
+              "Native Pydantic integration enables automatic request/response validation and matches schema validation requirements",
+              "Anthropic Python SDK is official and provides async streaming support",
+              "Python ecosystem simplifies schema validation (Pydantic mirrors JSON Schema patterns)",
+              "Automatic OpenAPI documentation generation reduces API documentation overhead",
+              "Simpler async syntax for concurrent operations compared to callback-based approaches"
+            ],
+            "tradeoffs": [
+              "Python's GIL limits CPU-bound parallelism, but not relevant for I/O-bound LLM API calls",
+              "FastAPI's async I/O handles concurrency effectively for MVP scale",
+              "Performance sufficient for target load of hundreds of concurrent users"
+            ]
+          }
+        },
+        {
+          "id": "decision-ssr-htmx",
+          "type": "decision",
+          "data": {
+            "title": "Server-Side Rendering with HTMX",
+            "decision": "Use server-side rendering (Jinja2) with HTMX for dynamic interactions",
+            "alternatives": [
+              "React + Vite SPA",
+              "Vue.js or Svelte SPA"
+            ],
+            "rationale": [
+              "Eliminates build pipeline complexity (no package managers, bundlers, transpilers)",
+              "HTMX provides SPA-like interactions with minimal JavaScript payload",
+              "Server controls all state, eliminating client-side state management libraries",
+              "Faster initial page loads (no large JavaScript bundle download)",
+              "Simplified debugging (HTML returned from server, not client-rendered)",
+              "Lower operational complexity (no separate frontend/backend deployments)"
+            ],
+            "tradeoffs": [
+              "Less responsive than full SPA (some full-page reloads)",
+              "Acceptable for linear workflow (submit idea → approve stages → export)",
+              "Users tolerate minor UX trade-off for faster MVP delivery and simpler architecture"
+            ]
+          }
+        },
+        {
+          "id": "decision-sqlite",
+          "type": "decision",
+          "data": {
+            "title": "SQLite for MVP with PostgreSQL Migration Path",
+            "decision": "Use SQLite for MVP with clear PostgreSQL migration path",
+            "alternatives": [
+              "PostgreSQL from day 1",
+              "MongoDB or other document databases"
+            ],
+            "rationale": [
+              "SQLite provides zero-configuration persistence (file-based, no separate database server)",
+              "JSON column support stores validated canonical documents",
+              "Sufficient for MVP scale (hundreds of concurrent users with read-heavy workload)",
+              "SQLAlchemy ORM abstracts database differences (migration requires only connection string change)",
+              "Eliminates managed database costs for MVP",
+              "Faster local development (no database server setup)"
+            ],
+            "tradeoffs": [
+              "SQLite has concurrent write limitations and lacks advanced JSON indexing (PostgreSQL GIN indexes)",
+              "Migration to PostgreSQL required when exceeding hundreds of concurrent users or needing complex JSON queries",
+              "Migration path is straightforward via SQLAlchemy abstraction"
+            ]
+          }
+        },
+        {
+          "id": "decision-canonical-store",
+          "type": "decision",
+          "data": {
+            "title": "Canonical Document Store as Single Source of Truth",
+            "decision": "Store all validated artifacts in canonical_documents table; all downstream operations read from this table",
+            "alternatives": [
+              "Regenerate artifacts from agent outputs on-demand",
+              "Store raw agent outputs and validate on read"
+            ],
+            "rationale": [
+              "Schema validation (Pydantic) occurs before INSERT, preventing corrupt data from entering system",
+              "Downstream phases (BA, Export) operate ONLY on validated canonical documents, ensuring consistency",
+              "Traceability: all approved artifacts versioned via status field (draft/approved/superseded)",
+              "Human + machine readable: JSON structure enables both API consumption and template-based rendering",
+              "Audit trail: agent_logs table preserves raw agent outputs for debugging and analysis"
+            ],
+            "tradeoffs": [
+              "Requires strict schema enforcement and validation logic",
+              "Mentor agents must rewrite proposals until they pass schema validation",
+              "Adds processing time but ensures data quality and consistency across all phases"
+            ]
+          }
+        },
+        {
+          "id": "decision-pydantic",
+          "type": "decision",
+          "data": {
+            "title": "Pydantic Schema Enforcement for All Canonical Documents",
+            "decision": "Use Pydantic models to enforce all canonical document schemas (CanonicalArchitectureV1, CanonicalEpic, CanonicalBacklog)",
+            "alternatives": [
+              "JSON Schema validation via external library",
+              "Manual validation logic"
+            ],
+            "rationale": [
+              "Pydantic provides runtime schema enforcement that mirrors JSON Schema specification",
+              "extra='forbid' configuration prevents unknown keys at all levels (root, sections, blocks, data objects)",
+              "Custom validators handle complex constraints (block ID uniqueness, table row consistency, enum validation)",
+              "Type hints provide IDE autocomplete and enable static type checking during development",
+              "Native FastAPI integration enables automatic API request/response validation and documentation"
+            ],
+            "tradeoffs": [
+              "Pydantic validation adds processing overhead, but negligible compared to LLM API latency",
+              "Schema evolution requires Pydantic model updates, but schema_version field enables backward compatibility and gradual migrations"
+            ]
+          }
+        },
+        {
+          "id": "decision-asyncio",
+          "type": "decision",
+          "data": {
+            "title": "Synchronous Orchestration via Asyncio",
+            "decision": "Use Python asyncio.gather for concurrent agent execution; no separate job queue system",
+            "alternatives": [
+              "Background job queue (Celery, RQ) with message broker",
+              "Threading or multiprocessing"
+            ],
+            "rationale": [
+              "asyncio.gather spawns 3 agents in parallel with straightforward code",
+              "Non-blocking I/O for LLM API calls (most time spent waiting for network responses)",
+              "Acceptable latency for synchronous execution (per Epic acceptance criteria)",
+              "Eliminates operational complexity (no message broker, worker processes, or job monitoring)",
+              "Simpler error handling (exceptions raised in same execution context)"
+            ],
+            "tradeoffs": [
+              "User must wait for pipeline completion (no background jobs)",
+              "API endpoint blocks until agents finish",
+              "Acceptable for MVP given latency targets and conversational UI expectations",
+              "Can migrate to job queue in later phases if requirements change"
+            ]
+          }
+        },
+        {
+          "id": "decision-filesystem",
+          "type": "decision",
+          "data": {
+            "title": "Local Filesystem for Export Storage",
+            "decision": "Store exports in local filesystem with time-limited retention; no cloud storage",
+            "alternatives": [
+              "Cloud object storage (AWS S3, GCS, Azure Blob) from day 1"
+            ],
+            "rationale": [
+              "Exports are ephemeral (users download immediately, no long-term storage requirement)",
+              "Derived from canonical documents (not regenerated), ensures consistency",
+              "Zero cost compared to cloud storage fees",
+              "Simpler deployment (no cloud credentials or SDK integration)",
+              "Time-limited retention sufficient for MVP usage patterns"
+            ],
+            "tradeoffs": [
+              "Local filesystem not horizontally scalable (exports tied to specific container instance)",
+              "Migration to cloud storage required when deploying multiple instances in later phases",
+              "Migration straightforward via storage backend abstraction pattern"
+            ]
+          }
+        }
+      ]
+    },
+    "non_functional_requirements": {
+      "blocks": [
+        {
+          "id": "nfr-performance",
+          "type": "paragraph",
+          "content": "Performance: Architecture generation completes within Epic acceptance criteria via parallel agent execution using asyncio.gather. Ad-hoc Q&A responses complete within Epic acceptance criteria using single agent calls. Export generation is fast via template rendering from canonical JSON. Schema validation has minimal overhead via Pydantic validation. Database queries are optimized via indexes on workspace_id, doc_type, and status fields."
+        },
+        {
+          "id": "nfr-scalability",
+          "type": "paragraph",
+          "content": "Scalability (MVP): Target of 750 active users per Epic requirements. Workload of 3-4 ideas per user per month per Epic requirements. LLM API calls volume determined by workflow design (multiple agents per stage). SQLite capacity suitable for hundreds of concurrent users with read-heavy workload. Single FastAPI instance handles target load via async I/O (non-blocking). PostgreSQL migration trigger: exceeding hundreds of concurrent users or complex JSON query requirements."
+        },
+        {
+          "id": "nfr-cost",
+          "type": "paragraph",
+          "content": "Cost Structure (MVP): LLM API (Anthropic) is primary cost driver based on workflow token usage ($1,875-3,750/month). Infrastructure via managed container platform with SQLite has minimal cost ($15-40/month). Export storage via local filesystem has zero additional cost. Total costs dominated by LLM API usage per workflow (<$4,000/month). Revenue target of $21,750/month ($29/month × 750 users). Gross Margin of 45-75% per Epic financial targets. Unit Economics: Infrastructure costs minimized via SQLite and single container deployment. Cost structure enables healthy margins per Epic financial model. LLM API costs scale linearly with usage, requiring monitoring and alerting."
+        },
+        {
+          "id": "nfr-security",
+          "type": "paragraph",
+          "content": "Security: Authentication via JWT from third-party authentication provider, verified via FastAPI dependency injection. Authorization via row-level security using SQLAlchemy filters (all queries scoped to user_id). SQL Injection prevented via SQLAlchemy parameterized queries (no raw SQL execution). Rate Limiting per-user request rate limiting to prevent abuse. Secret Management via environment variables for sensitive configuration (no secrets in code). HTTPS enforced via managed platform (automatic TLS certificate management)."
+        },
+        {
+          "id": "nfr-observability",
+          "type": "paragraph",
+          "content": "Monitoring & Observability: Logging via agent_logs table captures all LLM interactions (prompt, response, tokens, duration, errors). Log Format uses structured logging for parsing and analysis. Retention via time-based retention policy in agent_logs table. Metrics (Phase 2) via metrics endpoint for time-to-architecture, agent failure rates, cost per workflow. Error Tracking via error capture and reporting integration. Health Check via health endpoint for platform monitoring."
+        }
+      ]
+    },
+    "deployment": {
+      "blocks": [
+        {
+          "id": "deploy-diagram",
+          "type": "code",
+          "language": "text",
+          "content": "┌────────────────────────────────────────────┐\n│           User Browser                     │\n│   (HTML + HTMX + EventSource)              │\n└─────────────────┬──────────────────────────┘\n                  │ HTTPS (TLS)\n                  │\n┌─────────────────▼──────────────────────────┐\n│       Managed Container Platform           │\n│                                            │\n│  ┌──────────────────────────────────────┐ │\n│  │   Docker Container                   │ │\n│  │                                      │ │\n│  │  ┌────────────────────────────────┐ │ │\n│  │  │  FastAPI Application           │ │ │\n│  │  │  - API endpoints               │ │ │\n│  │  │  - SSE streaming               │ │ │\n│  │  │  - Template rendering          │ │ │\n│  │  └────────────────────────────────┘ │ │\n│  │                                      │ │\n│  │  ┌────────────────────────────────┐ │ │\n│  │  │  SQLite Database               │ │ │\n│  │  │  (Persistent Volume)           │ │ │\n│  │  └────────────────────────────────┘ │ │\n│  │                                      │ │\n│  │  /prompts (system prompts)          │ │\n│  │  /templates (Jinja2 HTML)           │ │\n│  │  /exports (local filesystem)        │ │\n│  └──────────────────────────────────────┘ │\n│                                            │\n│  Anthropic API (HTTPS) ────────────────────→\n└────────────────────────────────────────────┘"
+        },
+        {
+          "id": "deploy-hosting",
+          "type": "paragraph",
+          "content": "Hosting Platforms: Container via single Docker image containing FastAPI application, prompts, and templates. Platform via managed container platform with Docker support and persistent volumes. Database via SQLite file on persistent volume. TLS/HTTPS automatic via platform (managed certificate provisioning). Domain with custom domain support."
+        },
+        {
+          "id": "deploy-environments",
+          "type": "paragraph",
+          "content": "Environments: Development uses local environment with hot-reloading for rapid iteration. Staging uses platform preview environment (auto-created on pull requests, isolated database). Production uses platform production environment (main branch auto-deploy)."
+        },
+        {
+          "id": "deploy-cicd",
+          "type": "paragraph",
+          "content": "CI/CD Pipeline: Git push to main branch triggers deployment. Platform builds Docker image automatically. Image deployed to container runtime (zero downtime via health checks). Database migrations via schema migration tool runs on container startup."
+        }
+      ]
+    },
+    "tech_stack_summary": {
+      "blocks": [
+        {
+          "id": "tech-stack-table",
+          "type": "table",
+          "data": {
+            "headers": [
+              "Layer",
+              "Technology",
+              "Justification"
+            ],
+            "rows": [
+              [
+                "Frontend",
+                "Jinja2 + HTMX + Tailwind CSS",
+                "Server-side rendering, minimal JS, no build step"
+              ],
+              [
+                "API",
+                "FastAPI + Pydantic",
+                "Async, automatic validation, OpenAPI docs"
+              ],
+              [
+                "ORM",
+                "SQLAlchemy",
+                "Database-agnostic (SQLite → PostgreSQL)"
+              ],
+              [
+                "Database",
+                "SQLite (MVP) / PostgreSQL (Phase 2+)",
+                "Zero-config → production-ready"
+              ],
+              [
+                "LLM",
+                "anthropic Python SDK",
+                "Official SDK, async support, streaming"
+              ],
+              [
+                "Validation",
+                "Pydantic",
+                "Schema enforcement, canonical document validation"
+              ],
+              [
+                "Streaming",
+                "Server-Sent Events",
+                "Unidirectional, HTTP-based, EventSource API"
+              ],
+              [
+                "Authentication",
+                "Third-party provider",
+                "Managed auth, JWT tokens"
+              ],
+              [
+                "Rate Limiting",
+                "Per-user rate limiting",
+                "Prevent abuse and control costs"
+              ],
+              [
+                "Deployment",
+                "Docker + Managed Platform",
+                "Single container, automated deployment"
+              ],
+              [
+                "Export Storage",
+                "Local Filesystem",
+                "Zero cost, time-limited retention"
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    "roadmap_implications": {
+      "blocks": [
+        {
+          "id": "roadmap-phase1",
+          "type": "paragraph",
+          "content": "Phase 1: Core Platform / MVP (Months 1-3) - Architecture fully supports Phase 1 requirements with Python/FastAPI stack: Orchestration engine via Python asyncio finite state machine for PM → Architect → BA pipeline. Approval gates via FastAPI endpoints pause pipeline at Epic, Architecture, Backlog stages. Basic artifact editing via HTMX forms submit updates to canonical_documents table. Manual stage re-run via API reads Epic from canonical_documents and replays Architect agents. Export service via template rendering from canonical JSON, direct JSON serialization. Ad-hoc Q&A via SSE endpoint streams single agent response to user queries."
+        },
+        {
+          "id": "roadmap-phase2",
+          "type": "paragraph",
+          "content": "Phase 2: Workflow Intelligence (Months 4-6) - Architecture prepares for Phase 2 features with minimal changes: Drift Detection via compare canonical_documents versions (status='approved' vs. 'superseded'), flag conflicts in UI. Version History via query canonical_documents WHERE status='superseded' ORDER BY created_at DESC for rollback UI. Idea Library via add full-text search on workspaces.name + description via database full-text search capabilities. PDF Export via add PDF generation library, render template to PDF format. PostgreSQL Migration via update connection string, run schema migration tool."
+        },
+        {
+          "id": "roadmap-phase3",
+          "type": "paragraph",
+          "content": "Phase 3: Growth & Expansion (Months 7-9) - Architecture supports Phase 3 scaling with moderate refactoring: Multi-User (Read-Only) via add workspace_shares table with permission field, query filters for shared access. API Access via add api_keys table, API key authentication, expose REST endpoints for programmatic access. User-Selectable Models via add model_config JSON field to workspaces, Agent Service reads configuration. Horizontal Scaling via deploy multiple FastAPI containers behind load balancer, shared PostgreSQL database. Cloud Storage Migration via replace local filesystem with cloud object storage, environment variable toggles backend."
+        }
+      ]
+    },
+    "risks_and_mitigations": {
+      "blocks": [
+        {
+          "id": "risk-llm-api",
+          "type": "risk",
+          "data": {
+            "risk": "LLM API Instability",
+            "likelihood": "Medium",
+            "impact": "High",
+            "description": "Anthropic Claude API may experience downtime, rate limiting, or inconsistent output quality, blocking user workflows.",
+            "mitigation": [
+              "Retry logic with exponential backoff for transient failures",
+              "User notification on final failure with retry option",
+              "agent_logs table captures all errors for debugging (prompt, response, error field)",
+              "Phase 2: Add response caching for common questions to reduce API dependency"
+            ]
+          }
+        },
+        {
+          "id": "risk-cost-overrun",
+          "type": "risk",
+          "data": {
+            "risk": "Cost Overrun (LLM Usage)",
+            "likelihood": "Medium",
+            "impact": "High",
+            "description": "Users generate excessive workflows, driving LLM costs above revenue targets.",
+            "mitigation": [
+              "Per-user workflow limits enforced in pipeline_state queries",
+              "Token usage monitoring via agent_logs.tokens_used field enables cost dashboards",
+              "Alert when monthly cost exceeds budget threshold",
+              "Future: Usage-based pricing tiers or workflow limits per subscription level"
+            ]
+          }
+        },
+        {
+          "id": "risk-schema-validation",
+          "type": "risk",
+          "data": {
+            "risk": "Schema Validation Failures",
+            "likelihood": "Medium",
+            "impact": "Medium",
+            "description": "Mentor agents produce outputs that fail canonical schema validation, blocking pipeline progression.",
+            "mitigation": [
+              "Mentor rewrite loop: If Pydantic validation fails, Mentor receives error details and regenerates",
+              "Maximum rewrite attempts before escalating to user with error message",
+              "Detailed validation errors logged to agent_logs.error for debugging",
+              "Phase 2: Refine Mentor prompts based on validation failure patterns"
+            ]
+          }
+        },
+        {
+          "id": "risk-sqlite-limits",
+          "type": "risk",
+          "data": {
+            "risk": "SQLite Concurrent Write Limits",
+            "likelihood": "Low",
+            "impact": "Medium",
+            "description": "SQLite has concurrent write limitations that may cause errors under heavy concurrent load.",
+            "mitigation": [
+              "Acceptable for MVP scale with read-heavy workload pattern",
+              "Database connection pooling and write-ahead logging improve concurrency",
+              "Monitor database errors in logs, trigger PostgreSQL migration if error rate exceeds threshold",
+              "PostgreSQL migration ready via SQLAlchemy abstraction"
+            ]
+          }
+        },
+        {
+          "id": "risk-slow-generation",
+          "type": "risk",
+          "data": {
+            "risk": "Slow Architecture Generation",
+            "likelihood": "Low",
+            "impact": "Medium",
+            "description": "Pipeline exceeds target latency due to LLM response times or network issues.",
+            "mitigation": [
+              "Parallel agent execution: asyncio.gather spawns 3 agents concurrently",
+              "Optimize prompts to reduce token count (fewer input tokens = faster response)",
+              "Monitor agent_logs.duration_ms to identify performance bottlenecks",
+              "Phase 3: If persistent issues, migrate to async job queue for background processing"
+            ]
+          }
+        },
+        {
+          "id": "risk-data-loss",
+          "type": "risk",
+          "data": {
+            "risk": "Data Loss (User Edits)",
+            "likelihood": "Low",
+            "impact": "High",
+            "description": "User loses work due to database corruption, accidental deletion, or application bugs.",
+            "mitigation": [
+              "Soft deletes: status='superseded' prevents hard deletion of canonical_documents",
+              "Automated database backups via platform or scheduled jobs",
+              "Transaction isolation: Database sessions with COMMIT on success, ROLLBACK on error",
+              "Phase 2: Version history UI enables rollback to any approved checkpoint"
+            ]
+          }
+        }
+      ]
+    },
+    "out_of_scope": {
+      "blocks": [
+        {
+          "id": "out-of-scope-list",
+          "type": "list_item",
+          "content": "Per Epic requirements, the following features are NOT included in MVP: Client-side SPA frameworks (React, Vue, Svelte), Microservices architecture, Background job queues (Celery, RQ, Redis-based systems), Drift detection and resync UI (Phase 2), Version history with rollback UI (Phase 2), Idea library with search and indexing (Phase 2), PDF export generation (Phase 2), Multi-user real-time collaboration (Phase 3), Bi-directional Jira/Linear sync (Phase 3), User-editable agent prompts or custom agents (Phase 3+), Mobile native apps (web-responsive UI only)."
+        }
+      ]
+    }
+  }
+}

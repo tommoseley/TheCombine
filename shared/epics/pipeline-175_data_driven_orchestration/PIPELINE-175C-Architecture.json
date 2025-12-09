@@ -1,0 +1,477 @@
+{
+  "epic_id": "PIPELINE-175C",
+  "components": [
+    {
+      "name": "EnvironmentSetup",
+      "purpose": "Automated environment initialization and verification",
+      "file_path": "scripts/setup.py",
+      "responsibilities": [
+        "Create Python virtual environment",
+        "Install dependencies from requirements.txt",
+        "Initialize SQLite database via DatabaseInitializer",
+        "Run database migrations",
+        "Execute seed scripts",
+        "Verify installation completeness",
+        "Report setup status"
+      ],
+      "dependencies": [
+        "venv (stdlib)",
+        "subprocess (stdlib)",
+        "pathlib (stdlib)",
+        "scripts.init_db.DatabaseInitializer"
+      ],
+      "public_interface": [
+        {
+          "name": "main",
+          "purpose": "CLI entry point for setup",
+          "params": [],
+          "returns": "int",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Exit with status code on failure",
+        "Print clear error messages to stderr",
+        "Log all operations to setup.log"
+      ],
+      "test_count": 5
+    },
+    {
+      "name": "DatabaseInitializer",
+      "purpose": "Initialize and seed database for first execution",
+      "file_path": "scripts/init_db.py",
+      "responsibilities": [
+        "Create SQLite database file",
+        "Run 175A migrations",
+        "Run 175C migration for token tracking",
+        "Execute seed scripts for role prompts",
+        "Execute seed scripts for phase configurations",
+        "Verify schema correctness"
+      ],
+      "dependencies": [
+        "sqlalchemy",
+        "app.orchestrator_api.persistence.models",
+        "config.Settings"
+      ],
+      "public_interface": [
+        {
+          "name": "initialize",
+          "purpose": "Create database and run all migrations",
+          "params": [],
+          "returns": "bool",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Transaction rollback on migration failure",
+        "Print SQL errors clearly",
+        "Exit with status code on failure"
+      ],
+      "test_count": 4
+    },
+    {
+      "name": "ServerBootstrap",
+      "purpose": "Start FastAPI server with correct configuration",
+      "file_path": "scripts/run.py",
+      "responsibilities": [
+        "Load environment variables from .env file",
+        "Validate required configuration present",
+        "Set DATA_DRIVEN_ORCHESTRATION to true",
+        "Start uvicorn server",
+        "Print startup URLs"
+      ],
+      "dependencies": [
+        "uvicorn",
+        "dotenv",
+        "config.Settings"
+      ],
+      "public_interface": [
+        {
+          "name": "main",
+          "purpose": "CLI entry point for server startup",
+          "params": [],
+          "returns": "int",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Exit with clear message if config missing",
+        "Print configuration errors to stderr",
+        "Never start server with invalid config"
+      ],
+      "test_count": 3
+    },
+    {
+      "name": "HealthRouter",
+      "purpose": "Provide health check endpoint for server verification",
+      "file_path": "app/orchestrator_api/routers/health.py",
+      "responsibilities": [
+        "Return 200 OK on GET /health",
+        "Return service status as JSON"
+      ],
+      "dependencies": [
+        "fastapi.APIRouter"
+      ],
+      "public_interface": [
+        {
+          "name": "health_check",
+          "purpose": "GET /health endpoint",
+          "params": [],
+          "returns": "dict",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Never raise exceptions",
+        "Always return 200"
+      ],
+      "test_count": 2
+    },
+    {
+      "name": "ArtifactSchemas",
+      "purpose": "Pydantic models for all pipeline artifacts",
+      "file_path": "app/orchestrator_api/schemas/artifacts.py",
+      "responsibilities": [
+        "Define EpicSpec with Story nested model",
+        "Define ArchitectureSpec with ComponentSpec nested model",
+        "Define CodeDeliverable with FileSpec nested model",
+        "Define QAReport with IssueSpec nested model",
+        "Provide model_json_schema for LLM prompts",
+        "Validate artifact JSON"
+      ],
+      "dependencies": [
+        "pydantic.BaseModel",
+        "pydantic.Field",
+        "typing"
+      ],
+      "public_interface": [
+        {
+          "name": "EpicSpec",
+          "purpose": "PM phase output schema",
+          "params": [],
+          "returns": "BaseModel",
+          "raises": ["ValidationError"]
+        },
+        {
+          "name": "ArchitectureSpec",
+          "purpose": "Architect phase output schema",
+          "params": [],
+          "returns": "BaseModel",
+          "raises": ["ValidationError"]
+        },
+        {
+          "name": "CodeDeliverable",
+          "purpose": "Developer phase output schema",
+          "params": [],
+          "returns": "BaseModel",
+          "raises": ["ValidationError"]
+        },
+        {
+          "name": "QAReport",
+          "purpose": "QA phase output schema",
+          "params": [],
+          "returns": "BaseModel",
+          "raises": ["ValidationError"]
+        }
+      ],
+      "error_handling": [
+        "Pydantic ValidationError includes field paths",
+        "Schema validation before database storage",
+        "Clear messages for missing required fields"
+      ],
+      "test_count": 12
+    },
+    {
+      "name": "PricingUtility",
+      "purpose": "Calculate LLM API costs from token counts",
+      "file_path": "app/orchestrator_api/utils/pricing.py",
+      "responsibilities": [
+        "Pure function to calculate cost from token counts",
+        "Use Anthropic pricing from config",
+        "Return cost in USD to 6 decimal places",
+        "Support future model-specific pricing"
+      ],
+      "dependencies": [
+        "config.Settings"
+      ],
+      "public_interface": [
+        {
+          "name": "calculate_cost",
+          "purpose": "Calculate USD cost from token usage",
+          "params": [
+            {"name": "input_tokens", "type": "int"},
+            {"name": "output_tokens", "type": "int"},
+            {"name": "model", "type": "str"}
+          ],
+          "returns": "float",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Return 0.0 for invalid inputs",
+        "Log warning if model pricing unknown",
+        "Use default pricing for unknown models"
+      ],
+      "test_count": 4
+    },
+    {
+      "name": "MigrationScript002",
+      "purpose": "Add token tracking columns to pipeline_prompt_usage",
+      "file_path": "app/orchestrator_api/persistence/migrations/002_add_token_tracking.py",
+      "responsibilities": [
+        "Add input_tokens INTEGER column",
+        "Add output_tokens INTEGER column",
+        "Add cost_usd DECIMAL column",
+        "Add model VARCHAR column",
+        "Add execution_time_ms INTEGER column",
+        "Create index on pipeline_id and phase_name",
+        "Provide downgrade function"
+      ],
+      "dependencies": [
+        "sqlalchemy",
+        "config.Settings"
+      ],
+      "public_interface": [
+        {
+          "name": "upgrade",
+          "purpose": "Apply migration",
+          "params": [],
+          "returns": "None",
+          "raises": []
+        },
+        {
+          "name": "downgrade",
+          "purpose": "Rollback migration",
+          "params": [],
+          "returns": "None",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Check if columns exist before adding",
+        "Exit with error message on SQL failure",
+        "Log all SQL operations"
+      ],
+      "test_count": 3
+    },
+    {
+      "name": "UpdatedUsageRecorder",
+      "purpose": "Record prompt usage with token counts and costs",
+      "file_path": "app/orchestrator_api/services/usage_recorder.py",
+      "responsibilities": [
+        "Accept UsageRecord with token fields",
+        "Calculate cost using pricing utility",
+        "Store in pipeline_prompt_usage table",
+        "Never raise exceptions",
+        "Use structured logging on failure"
+      ],
+      "dependencies": [
+        "app.orchestrator_api.persistence.repositories.PipelinePromptUsageRepository",
+        "app.orchestrator_api.utils.pricing.calculate_cost",
+        "dataclasses",
+        "logging"
+      ],
+      "public_interface": [
+        {
+          "name": "record_usage",
+          "purpose": "Record usage with token data",
+          "params": [
+            {"name": "usage", "type": "UsageRecord"}
+          ],
+          "returns": "bool",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Never raise exceptions",
+        "Return False on any error",
+        "Log structured failure data"
+      ],
+      "test_count": 5
+    },
+    {
+      "name": "ShellWrappers",
+      "purpose": "Platform-specific setup and run scripts",
+      "file_path": "setup.sh and setup.ps1 and run.sh and run.ps1",
+      "responsibilities": [
+        "Thin wrappers calling Python scripts",
+        "Platform-specific path handling",
+        "Exit with script status codes"
+      ],
+      "dependencies": [
+        "python3 (system)",
+        "scripts/setup.py",
+        "scripts/run.py"
+      ],
+      "public_interface": [
+        {
+          "name": "setup.sh",
+          "purpose": "Unix setup wrapper",
+          "params": [],
+          "returns": "exit_code",
+          "raises": []
+        },
+        {
+          "name": "setup.ps1",
+          "purpose": "Windows setup wrapper",
+          "params": [],
+          "returns": "exit_code",
+          "raises": []
+        },
+        {
+          "name": "run.sh",
+          "purpose": "Unix server wrapper",
+          "params": [],
+          "returns": "exit_code",
+          "raises": []
+        },
+        {
+          "name": "run.ps1",
+          "purpose": "Windows server wrapper",
+          "params": [],
+          "returns": "exit_code",
+          "raises": []
+        }
+      ],
+      "error_handling": [
+        "Print errors to stderr",
+        "Exit with non-zero on failure"
+      ],
+      "test_count": 4
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR-006",
+      "title": "JSON-First Architecture for All Roles",
+      "decision": "All LLM outputs must be valid JSON matching Pydantic schemas",
+      "rationale": "Reduces token costs 77-90% and enables deterministic validation",
+      "consequences": {
+        "positive": [
+          "Token cost reduction of 77-90%",
+          "Deterministic Pydantic validation",
+          "Machine-readable artifacts",
+          "Consistent structure across phases"
+        ],
+        "negative": [
+          "Schema changes require coordination",
+          "LLM prompts must include schemas",
+          "Human docs deferred to 175D"
+        ]
+      }
+    },
+    {
+      "id": "ADR-007",
+      "title": "Split Bootstrap into Setup Server Execution Layers",
+      "decision": "Three independent layers for environment, server, and validation",
+      "rationale": "Enables independent testing and replacement of each concern",
+      "consequences": {
+        "positive": [
+          "Each layer testable in isolation",
+          "Clear error boundaries",
+          "Easy to replace components"
+        ],
+        "negative": [
+          "Multiple entry points",
+          "Potential config duplication"
+        ]
+      }
+    },
+    {
+      "id": "ADR-008",
+      "title": "Minimal Token Tracking Without Computed Columns",
+      "decision": "Store input_tokens and output_tokens as plain integers, calculate totals in service layer",
+      "rationale": "Computed columns differ across SQLite and PostgreSQL, creating portability issues",
+      "consequences": {
+        "positive": [
+          "Simple cross-database migration",
+          "No dialect-specific syntax",
+          "Service layer owns calculation logic"
+        ],
+        "negative": [
+          "Totals computed on read not storage",
+          "Slightly more query complexity"
+        ]
+      }
+    },
+    {
+      "id": "ADR-009",
+      "title": "Extract Pricing as Pure Utility",
+      "decision": "Create standalone pricing utility used by both UsageRecorder and future metrics service",
+      "rationale": "Prevents circular dependencies and keeps write path thin",
+      "consequences": {
+        "positive": [
+          "UsageRecorder stays simple",
+          "Pricing logic reusable",
+          "No circular dependencies",
+          "Easy to test in isolation"
+        ],
+        "negative": [
+          "One more file to maintain"
+        ]
+      }
+    },
+    {
+      "id": "ADR-010",
+      "title": "Defer Template Rendering and Metrics API to 175D",
+      "decision": "Exclude TemplateRenderer and TokenMetricsRouter from 175C scope",
+      "rationale": "Bootstrap requires only JSON storage and basic server, not reporting or documentation",
+      "consequences": {
+        "positive": [
+          "Smaller 175C scope reduces risk",
+          "Faster to complete and validate",
+          "Token tracking data stored for future use",
+          "Can inspect database directly"
+        ],
+        "negative": [
+          "No human-readable docs from JSON yet",
+          "No API endpoints for metrics yet",
+          "Must query database directly for token data"
+        ]
+      }
+    }
+  ],
+  "test_strategy": {
+    "unit_tests": [
+      "ArtifactSchemas validate correct JSON",
+      "ArtifactSchemas reject invalid JSON",
+      "PricingUtility calculates costs correctly",
+      "PricingUtility handles unknown models",
+      "UsageRecorder stores token data",
+      "HealthRouter returns 200",
+      "DatabaseInitializer creates tables",
+      "Migration 002 adds columns correctly"
+    ],
+    "integration_tests": [
+      "setup.py completes successfully",
+      "run.py starts server on port 8000",
+      "POST /pipelines creates pipeline",
+      "POST /pipelines/{id}/advance executes PM phase",
+      "Artifact validates against EpicSpec",
+      "Token data recorded in database",
+      "Full execution from create to complete"
+    ],
+    "fixtures": [
+      "test_database with 175A and 175C schema",
+      "sample_epic_json matching EpicSpec",
+      "mock_llm_caller with known token counts"
+    ]
+  },
+  "acceptance_criteria": [
+    "setup.sh completes on fresh Mac or Linux system",
+    "setup.ps1 completes on fresh Windows system",
+    "Database has all 175A and 175C tables",
+    "Role prompts and phase configs seeded",
+    "run.sh starts server on localhost:8000",
+    "GET /health returns 200",
+    "GET /docs shows Swagger UI",
+    "POST /pipelines creates pipeline",
+    "POST /pipelines/{id}/advance executes PM phase",
+    "Artifact is valid EpicSpec JSON",
+    "Token usage stored with input_tokens output_tokens cost_usd",
+    "Can query database for token data",
+    "All 38 tests pass",
+    "Setup completes in under 5 minutes",
+    "Test execution uses under 5000 tokens"
+  ]
+}
