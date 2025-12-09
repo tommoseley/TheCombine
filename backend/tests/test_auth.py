@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch, MagicMock
 
-from app.main import app, Base, Session as SessionModel, PendingToken as PendingTokenModel
+from app.orchestrator_api.main import app, Base, Session as SessionModel, PendingToken as PendingTokenModel
 from app.dependencies import get_db
 
 # Create test database

@@ -1,0 +1,161 @@
+{
+  "epic_id": "PIPELINE-175D",
+  "title": "Metrics Dashboard",
+  "goal": "Provide a lightweight operator dashboard that surfaces token usage, cost data, and system health from existing audit tables to validate end-to-end functionality and build confidence in platform operations.",
+  "success_criteria": [
+    "Operator can view total cost and token usage across all pipelines in under 3 seconds",
+    "Per-pipeline cost breakdown is visible with phase-level detail",
+    "Dashboard confirms UsageRecorder is writing data (live spend validation)",
+    "Operator gains confidence that LLM calls are being tracked and costed accurately",
+    "Zero changes to orchestrator logic or pipeline execution flow"
+  ],
+  "stories": [
+    {
+      "id": "PIPELINE-175D-1",
+      "title": "Metrics aggregation endpoint",
+      "user_story": "As an operator, I want a REST endpoint that returns aggregated metrics so I can programmatically access system-wide usage data.",
+      "acceptance_criteria": [
+        "GET /metrics/summary returns JSON with: total_pipelines, total_cost_usd, total_input_tokens, total_output_tokens, success_count, failure_count",
+        "Response shape: {\"total_pipelines\": int, \"total_cost_usd\": float, \"total_input_tokens\": int, \"total_output_tokens\": int, \"success_count\": int, \"failure_count\": int}",
+        "Queries pipeline_prompt_usage table for aggregates",
+        "Response time under 2 seconds for up to 1000 pipeline records",
+        "Returns empty values (0.0, 0) if no data exists",
+        "Endpoint does not require authentication (operator tool)"
+      ],
+      "estimate_hours": 2,
+      "priority": "high"
+    },
+    {
+      "id": "PIPELINE-175D-2",
+      "title": "Per-pipeline metrics endpoint",
+      "user_story": "As an operator, I want to retrieve detailed metrics for a specific pipeline so I can investigate cost and token usage at the phase level.",
+      "acceptance_criteria": [
+        "GET /metrics/pipelines/{pipeline_id} returns JSON with: pipeline_id, status, current_phase, total_cost_usd, total_input_tokens, total_output_tokens, phase_breakdown array",
+        "Response shape: {\"pipeline_id\": str, \"status\": str, \"current_phase\": str, \"total_cost_usd\": float, \"total_input_tokens\": int, \"total_output_tokens\": int, \"phase_breakdown\": [{\"phase_name\": str, \"role_name\": str, \"input_tokens\": int, \"output_tokens\": int, \"cost_usd\": float, \"execution_time_ms\": int|null, \"timestamp\": str}]}",
+        "phase_breakdown includes: phase_name, role_name, input_tokens, output_tokens, cost_usd, execution_time_ms (if available, otherwise null), timestamp",
+        "Returns pipeline status and current_phase from pipelines table",
+        "If pipeline is running and usage records are incomplete, service still returns status + empty phase_breakdown",
+        "Returns 404 if pipeline_id does not exist",
+        "Returns empty phase_breakdown if no usage records found"
+      ],
+      "estimate_hours": 2,
+      "priority": "high"
+    },
+    {
+      "id": "PIPELINE-175D-3",
+      "title": "Metrics service layer",
+      "user_story": "As a developer, I want a TokenMetricsService that encapsulates query logic so endpoints remain thin and testable.",
+      "acceptance_criteria": [
+        "TokenMetricsService.get_summary() returns aggregated metrics",
+        "TokenMetricsService.get_pipeline_metrics(pipeline_id) returns per-pipeline breakdown",
+        "Service uses existing PipelinePromptUsageRepository for data access",
+        "Service handles missing data gracefully (returns zeros, empty arrays, null for optional fields)",
+        "Service retrieves pipeline status from pipelines table",
+        "Unit tests verify query logic without database"
+      ],
+      "estimate_hours": 2,
+      "priority": "high"
+    },
+    {
+      "id": "PIPELINE-175D-4",
+      "title": "Metrics overview HTML page",
+      "user_story": "As an operator, I want a simple web page showing system-wide metrics so I can quickly assess overall usage without using curl or Postman.",
+      "acceptance_criteria": [
+        "Page accessible at /metrics or /operator/metrics",
+        "Displays: total pipelines, total cost (USD), total tokens (input + output), success/failure counts",
+        "Shows recent pipelines table with: pipeline_id, epic description (or '(no epic available)' if not present), cost, tokens, status",
+        "Table limited to 20 most recent pipelines",
+        "Page renders within 2 seconds for up to 1000 pipelines",
+        "Renders using Jinja2 template with Tailwind CSS (CDN)",
+        "Auto-refreshes every 30 seconds or manual refresh button"
+      ],
+      "estimate_hours": 3,
+      "priority": "medium"
+    },
+    {
+      "id": "PIPELINE-175D-5",
+      "title": "Per-pipeline detail page",
+      "user_story": "As an operator, I want to click a pipeline ID and see phase-by-phase cost breakdown so I can understand where tokens are being spent.",
+      "acceptance_criteria": [
+        "Page accessible at /metrics/pipelines/{pipeline_id}",
+        "Displays pipeline summary: ID, epic description (or '(no epic available)'), total cost, total tokens, status, current phase",
+        "Shows phase breakdown table: phase name, role, input tokens, output tokens, cost, execution time (or '-' if null)",
+        "Includes link back to metrics overview",
+        "Returns user-friendly 404 page if pipeline not found",
+        "Renders using Jinja2 + Tailwind CSS"
+      ],
+      "estimate_hours": 2,
+      "priority": "medium"
+    },
+    {
+      "id": "PIPELINE-175D-6",
+      "title": "Live spend validation indicator",
+      "user_story": "As an operator, I want to see a live indicator confirming UsageRecorder is writing data so I know the tracking system is functional.",
+      "acceptance_criteria": [
+        "Metrics overview page shows indicator: 'Last usage record: X minutes ago'",
+        "Indicator queries MAX(created_at) from pipeline_prompt_usage table",
+        "Shows green checkmark if record within last 10 minutes",
+        "Shows yellow warning if record within last hour",
+        "Shows red alert if no records or older than 1 hour",
+        "If query fails, display 'Last usage record: unavailable' with grey indicator",
+        "Indicator does not block page load if query fails"
+      ],
+      "estimate_hours": 1,
+      "priority": "low"
+    },
+    {
+      "id": "PIPELINE-175D-7",
+      "title": "Simple cost trend visualization",
+      "user_story": "As an operator, I want to see a basic chart of daily cost trends so I can quickly spot usage spikes or patterns.",
+      "acceptance_criteria": [
+        "Metrics overview page displays bar chart of cost per day (last 7 days)",
+        "Chart uses Chart.js or similar lightweight library (CDN)",
+        "X-axis: date, Y-axis: total cost USD",
+        "Chart gracefully handles days with zero usage",
+        "Chart does not require build step or npm packages",
+        "If Chart.js fails to load (detected via missing global `Chart`), client-side script hides the chart container and displays a table with same data",
+        "Fallback table shows: date, total cost USD"
+      ],
+      "estimate_hours": 2,
+      "priority": "low"
+    },
+    {
+      "id": "PIPELINE-175D-8",
+      "title": "Metrics integration tests",
+      "user_story": "As a developer, I want integration tests verifying metrics endpoints return correct data so I can confidently deploy the dashboard.",
+      "acceptance_criteria": [
+        "Test: GET /metrics/summary returns expected structure and types",
+        "Test: GET /metrics/pipelines/{id} returns phase breakdown for seeded pipeline",
+        "Test: GET /metrics/pipelines/{id} handles missing epic description gracefully",
+        "Test: GET /metrics/pipelines/{id} handles in-flight pipeline with incomplete usage records",
+        "Test: Metrics pages render without errors (status 200)",
+        "Test: Service layer correctly aggregates usage records",
+        "All tests pass in CI without flakiness"
+      ],
+      "estimate_hours": 2,
+      "priority": "medium"
+    }
+  ],
+  "out_of_scope": [
+    "User authentication or authorization",
+    "Multi-tenant filtering or data isolation",
+    "Real-time streaming updates (WebSockets, SSE)",
+    "Export to CSV or external analytics tools",
+    "Historical data retention policies or archival",
+    "Custom date range filtering beyond 'recent'",
+    "Alerting or notifications on cost thresholds",
+    "Performance optimization for >10K pipelines",
+    "Mobile-responsive design",
+    "Internationalization or localization"
+  ],
+  "risks_and_assumptions": [
+    "Assumes pipeline_prompt_usage table contains sufficient data for meaningful metrics",
+    "Assumes existing database schema supports efficient aggregation queries without indexes",
+    "Risk: If no pipelines have run, dashboard will show zeros (acceptable for operator tool)",
+    "Risk: Large datasets (>1000 pipelines) may cause slow page loads (defer optimization to 175E if needed)",
+    "Assumption: Operator accesses dashboard from trusted network (no auth required)",
+    "Assumption: Tailwind CSS and Chart.js CDNs are available (fallback to unstyled HTML/table acceptable)",
+    "Assumption: execution_time_ms may not be present in all usage records; service returns null when missing"
+  ],
+  "total_estimate_hours": 16
+}

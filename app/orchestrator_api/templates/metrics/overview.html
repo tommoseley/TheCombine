@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html>
+<head><title>Metrics Dashboard</title></head>
+<body>
+    <h1>Metrics Overview</h1>
+    <p>Total Pipelines: {{ summary.total_pipelines }}</p>
+    <p>Total Cost: ${{ "%.2f"|format(summary.total_cost_usd) }}</p>
+</body>
+</html>

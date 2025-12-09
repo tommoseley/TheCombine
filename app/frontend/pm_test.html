@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM Mentor Test - Release 1</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Main Layout - Three Panes */
+        .layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Left Pane */
+        .left-pane {
+            background: #2c3e50;
+            color: white;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .left-pane h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #3498db;
+        }
+
+        .left-pane .subtitle {
+            font-size: 14px;
+            color: #bdc3c7;
+            margin-bottom: 24px;
+        }
+
+        .caution-box {
+            background: #e74c3c;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .caution-box h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .caution-box p {
+            font-size: 13px;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+
+        .info-section {
+            margin-bottom: 24px;
+        }
+
+        .info-section h3 {
+            font-size: 14px;
+            color: #3498db;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-section p {
+            font-size: 13px;
+            line-height: 1.6;
+            color: #ecf0f1;
+            margin-bottom: 8px;
+        }
+
+        /* Right Pane */
+        .right-pane {
+            background: #34495e;
+            color: white;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .right-pane h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #3498db;
+        }
+
+        .model-selector {
+            margin-bottom: 32px;
+        }
+
+        .model-selector label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #bdc3c7;
+        }
+
+        .model-selector select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #2c3e50;
+            background: #2c3e50;
+            color: white;
+            font-size: 14px;
+        }
+
+        .metadata-box {
+            background: #2c3e50;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .metadata-box h3 {
+            font-size: 14px;
+            margin-bottom: 16px;
+            color: #3498db;
+        }
+
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #34495e;
+            font-size: 13px;
+        }
+
+        .metadata-item:last-child {
+            border-bottom: none;
+        }
+
+        .metadata-label {
+            color: #bdc3c7;
+        }
+
+        .metadata-value {
+            font-weight: 500;
+            color: white;
+        }
+
+        .validation-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .validation-badge.valid {
+            background: #27ae60;
+            color: white;
+        }
+
+        .validation-badge.invalid {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* Center Pane */
+        .center-pane {
+            background: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Fixed Query Panel */
+        .query-panel {
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 24px;
+            flex-shrink: 0;
+        }
+
+        .query-panel h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #2c3e50;
+        }
+
+        .query-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .query-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-preview {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-preview:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-execute {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-execute:hover {
+            background: #2980b9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Scrollable Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .section h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-icon {
+            font-size: 20px;
+        }
+
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .json-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .error {
+            background: #fff5f5;
+            border: 1px solid #fc8181;
+            color: #c53030;
+            padding: 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <!-- Left Pane -->
+        <div class="left-pane">
+            <h1>PM Mentor Test</h1>
+            <div class="subtitle">Release 1 - Development Tool</div>
+
+            <div class="caution-box">
+                <h3>⚠️ Development Tool</h3>
+                <p>This is a development testing interface. Each execution costs real API tokens (~$0.03 per call).</p>
+            </div>
+
+            <div class="info-section">
+                <h3>Purpose</h3>
+                <p>Test PM Mentor integration with full transparency. See exactly what's sent to the LLM and what comes back.</p>
+            </div>
+
+            <div class="info-section">
+                <h3>Workflow</h3>
+                <p><strong>Preview:</strong> See the prompt without calling the API (free, instant)</p>
+                <p><strong>Execute:</strong> Actually call Anthropic and get results (costs tokens)</p>
+            </div>
+
+            <div class="info-section">
+                <h3>Features</h3>
+                <p>✓ Database-driven prompts</p>
+                <p>✓ Real-time validation</p>
+                <p>✓ Token tracking</p>
+                <p>✓ Error transparency</p>
+            </div>
+        </div>
+
+        <!-- Center Pane -->
+        <div class="center-pane">
+            <!-- Fixed Query Panel -->
+            <div class="query-panel">
+                <h2>📝 Epic Query</h2>
+                <textarea 
+                    id="userQuery" 
+                    class="query-input" 
+                    placeholder="Describe the epic you want to create...&#10;&#10;Example: I want to build a REST API for user authentication with email/password login and password reset."
+                >I want to create a simple command line call to add two numbers and return a result.</textarea>
+                
+                <div class="button-group">
+                    <button class="btn btn-preview" onclick="previewRequest()">
+                        👁️ Preview
+                    </button>
+                    <button class="btn btn-execute" onclick="executeRequest()">
+                        🚀 Execute
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scrollable Content Area -->
+            <div class="content-area" id="contentArea">
+                <div style="text-align: center; padding: 60px 20px; color: #95a5a6;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
+                    <h3 style="margin-bottom: 8px;">Ready to Test</h3>
+                    <p>Enter your epic query above and click Preview or Execute</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Pane -->
+        <div class="right-pane">
+            <h2>⚙️ Configuration</h2>
+            
+            <div class="model-selector">
+                <label for="modelSelect">LLM Model</label>
+                <select id="modelSelect">
+                    <option value="claude-sonnet-4-20250514" selected>Claude Sonnet 4 (Default)</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                    <option value="claude-sonnet-3-5-20241022">Claude Sonnet 3.5</option>
+                </select>
+            </div>
+
+            <div class="metadata-box" id="metadataBox" style="display: none;">
+                <h3>📊 Execution Metadata</h3>
+                <div id="metadataContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentResponse = null;
+
+        async function previewRequest() {
+            const userQuery = document.getElementById('userQuery').value.trim();
+            
+            if (!userQuery) {
+                alert('Please enter an epic query');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/pm/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_query: userQuery })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                displayPreview(data);
+            } catch (error) {
+                displayError('Preview Error', error.message);
+            }
+        }
+
+        async function executeRequest() {
+            const userQuery = document.getElementById('userQuery').value.trim();
+            
+            if (!userQuery) {
+                alert('Please enter an epic query');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/pm/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ user_query: userQuery })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+
+                const data = await response.json();
+                currentResponse = data;
+                displayExecution(data);
+            } catch (error) {
+                displayError('Execution Error', error.message);
+            }
+        }
+
+        function showLoading() {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Processing...</p>
+                </div>
+            `;
+        }
+
+        function displayPreview(data) {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="section">
+                    <h3><span class="section-icon">📋</span> System Prompt</h3>
+                    <div class="code-block">${escapeHtml(data.system_prompt)}</div>
+                </div>
+
+                <div class="section">
+                    <h3><span class="section-icon">💬</span> User Message</h3>
+                    <div class="code-block">${escapeHtml(data.user_message)}</div>
+                </div>
+
+                <div class="section">
+                    <h3><span class="section-icon">📐</span> Expected Schema</h3>
+                    <div class="json-block">${JSON.stringify(data.expected_schema, null, 2)}</div>
+                </div>
+
+                <div class="section">
+                    <h3><span class="section-icon">🔧</span> Model Configuration</h3>
+                    <div class="code-block">Model: ${data.model}
+Max Tokens: ${data.max_tokens}
+Temperature: ${data.temperature}
+Estimated Input Tokens: ~${data.estimated_input_tokens}</div>
+                </div>
+            `;
+
+            // Clear metadata box
+            document.getElementById('metadataBox').style.display = 'none';
+        }
+
+        function displayExecution(data) {
+            const contentArea = document.getElementById('contentArea');
+            
+            // Display content
+            contentArea.innerHTML = `
+                <div class="section">
+                    <h3><span class="section-icon">📥</span> Raw LLM Response</h3>
+                    <div class="code-block">${escapeHtml(data.raw_response)}</div>
+                </div>
+
+                <div class="section">
+                    <h3><span class="section-icon">🔍</span> Parsed JSON</h3>
+                    ${data.parsed_json 
+                        ? `<div class="json-block">${JSON.stringify(data.parsed_json, null, 2)}</div>`
+                        : '<div class="error">Failed to parse JSON from response</div>'
+                    }
+                </div>
+
+                <div class="section">
+                    <h3><span class="section-icon">✅</span> Validation Results</h3>
+                    ${displayValidation(data.validation_result)}
+                </div>
+            `;
+
+            // Display metadata in right pane
+            displayMetadata(data);
+        }
+
+        function displayValidation(validation) {
+            if (validation.valid) {
+                return `
+                    <div style="padding: 16px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; color: #155724;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">
+                            <span class="validation-badge valid">✓ VALID</span>
+                        </div>
+                        <p>The Epic JSON is valid and matches the expected schema.</p>
+                    </div>
+                    <div style="margin-top: 16px;">
+                        <strong>Validated Data:</strong>
+                        <div class="json-block">${JSON.stringify(validation.validated_data, null, 2)}</div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div style="padding: 16px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; color: #721c24;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">
+                            <span class="validation-badge invalid">✗ INVALID</span>
+                        </div>
+                        <p><strong>Error Type:</strong> ${validation.error_type}</p>
+                        <p><strong>Message:</strong> ${validation.error_message}</p>
+                        ${validation.validation_errors ? `
+                            <div style="margin-top: 12px;">
+                                <strong>Validation Errors:</strong>
+                                <pre style="background: white; padding: 12px; border-radius: 4px; margin-top: 8px; overflow-x: auto;">${JSON.stringify(validation.validation_errors, null, 2)}</pre>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+        }
+
+        function displayMetadata(data) {
+            const metadataBox = document.getElementById('metadataBox');
+            const metadataContent = document.getElementById('metadataContent');
+            
+            const validationBadge = data.validation_result.valid
+                ? '<span class="validation-badge valid">✓ VALID</span>'
+                : '<span class="validation-badge invalid">✗ INVALID</span>';
+
+            metadataContent.innerHTML = `
+                <div class="metadata-item">
+                    <span class="metadata-label">Model</span>
+                    <span class="metadata-value">${data.model}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Execution Time</span>
+                    <span class="metadata-value">${data.execution_time_ms}ms</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Input Tokens</span>
+                    <span class="metadata-value">${data.input_tokens}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Output Tokens</span>
+                    <span class="metadata-value">${data.output_tokens}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Total Tokens</span>
+                    <span class="metadata-value">${data.total_tokens}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Validation</span>
+                    <span class="metadata-value">${validationBadge}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Timestamp</span>
+                    <span class="metadata-value" style="font-size: 11px;">${data.timestamp}</span>
+                </div>
+            `;
+
+            metadataBox.style.display = 'block';
+        }
+
+        function displayError(title, message) {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="section">
+                    <h3><span class="section-icon">❌</span> ${title}</h3>
+                    <div class="error">
+                        <strong>Error:</strong><br>
+                        ${escapeHtml(message)}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('metadataBox').style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

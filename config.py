@@ -7,9 +7,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 from pydantic import Field
+from dotenv import load_dotenv
 # Detect if running in pytest
 _IN_PYTEST = "pytest" in sys.modules
-
+load_dotenv()
 # Project root directory
 if _IN_PYTEST:
     # In tests, use WORKBENCH_DATA_ROOT from environment (set by conftest.py)
@@ -87,15 +88,7 @@ DATA_DRIVEN_ORCHESTRATION: bool = Field(
 )
 
 # Anthropic API configuration (for data-driven mode)
-ANTHROPIC_API_KEY: Optional[str] = Field(
-    default=None,
-    description="Anthropic API key for LLM calls"
-)
-# Anthropic API configuration (for data-driven mode)
-ANTHROPIC_API_KEY: Optional[str] = Field(
-    default=None,
-    description="Anthropic API key for LLM calls"
-)
+ANTHROPIC_API_KEY = os.getenv("WORKBENCH_ANTHROPIC_API_KEY", "false")
 
 # NEW: Anthropic API Pricing (USD per million tokens)
 ANTHROPIC_INPUT_PRICE_PER_MTK = float(os.getenv("ANTHROPIC_INPUT_PRICE_PER_MTK", "3.0"))

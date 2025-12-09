@@ -1,0 +1,243 @@
+📐 Architect Mentor Resolution: PIPELINE-180A Open Questions & Architectural Policy Decisions
+
+The following decisions formalize the architectural policies for PIPELINE-180A.
+These are now binding requirements for Developer teams and must be reflected in:
+
+the PromptRepository design
+
+the QueryEngineService behavior
+
+the AnthropicClientAdapter
+
+the router contract
+
+the Pydantic envelopes
+
+all test plans
+
+0. HTTP Semantics for Anthropic Errors — Finalized
+
+A previous ambiguity existed between returning 200 or 503 for Anthropic-level failures.
+
+✅ Final Rule
+
+If we successfully reach Anthropic → Always return HTTP 200
+
+even if the model returns invalid JSON
+
+even if parse fails
+
+even if output seems truncated
+
+If we fail to reach Anthropic (timeout, rate limit, connection error, etc.) → Return HTTP 503
+
+with a QueryErrorResponse envelope
+
+If input is invalid → HTTP 400
+
+If configuration is broken (missing prompt placeholder, bad DB state, etc.) → HTTP 500
+
+This gives us clean operability:
+
+Condition	HTTP	Envelope
+Anthropic returned a string	200	success envelope (parse_error optional)
+Anthropic unreachable	503	error envelope
+Prompt missing for role	400	error envelope
+Config/programming issue	500	error envelope
+1. Prompt Caching — Required
+
+To reduce DB load and avoid unnecessary latency, implement an internal, per-process prompt cache:
+
+Cache key: role
+
+Value: the active prompt object
+
+Invalidate manually only via PromptRepository.clear_cache() (used by tests)
+
+No distributed caches or TTL logic required in v1.
+
+2. Expected Volume / Rate Limiting — Deferred
+
+No built-in rate limiting for v1
+
+No concurrency guard required
+
+Default SQLAlchemy pooling is sufficient
+
+Anthropic’s own throttling acts as the outer safeguard
+
+This keeps the Query Engine minimal while we validate usage patterns.
+
+3. correlation_id — Mandatory
+
+Query Engine must support correlated tracing.
+
+Decision:
+
+Router always generates a correlation_id (UUIDv4)
+
+If caller provides X-Correlation-Id, validate and use it
+
+Include correlation_id in:
+
+success envelope
+
+error envelope
+
+logs
+
+This is required for all pipelines and future observability.
+
+4. Prompt & Response Logging — Safe Defaults
+Required defaults:
+
+Never log full prompts or Anthropic responses (privacy & PII)
+
+Logs MUST only contain:
+
+correlation_id
+
+role
+
+model
+
+latency_ms
+
+token counts
+
+error_type (if any)
+
+Optional (controlled by config flag):
+
+LOG_PROMPT_BODIES=true allows:
+
+Truncated prompt (max 2000 chars)
+
+Truncated response (max 2000 chars)
+
+Never log API keys
+
+This allows productive debugging while preventing accidental data exposure.
+
+5. Template Placeholder Validation — Mandatory
+
+Before calling Anthropic, the service must validate:
+
+The prompt template contains {input_payload}
+
+If missing:
+
+Log ERROR
+
+Raise controlled ConfigurationError
+
+Return HTTP 500 with error envelope
+
+This prevents empty or incorrect prompts from silently hitting the model.
+
+6. Handling Truncated or Invalid JSON Responses — Final Behavior
+
+Always preserve Anthropic’s output in raw_response_text
+
+Try json.loads(), but:
+
+If parsing fails:
+
+parsed_json = null
+
+parse_error = "<exception message> (+ maybe 'truncated')".
+
+HTTP status = 200
+
+The goal: model errors never break the transport or envelope format.
+
+7. Circuit Breaker — Deferred
+
+Useful but out of scope for 180A.
+
+Future epic will define:
+
+retry/backoff
+
+consecutive failure thresholds
+
+degraded mode
+
+8. Health Check Endpoint — Added to 180A
+
+Add:
+
+GET /health
+
+Returns:
+
+{
+  "status": "ok",
+  "service": "anthropic-query-engine"
+}
+
+
+This endpoint:
+
+does not check Anthropic
+
+does not touch the DB
+
+is suitable for load balancers
+
+Deeper dependency checks belong in a later observability epic.
+
+9. correlation_id Added to Envelopes
+
+Update schemas so both envelopes include:
+
+"correlation_id": { "type": "string" }
+
+
+This is mandatory for all responses.
+
+10. Prompt Migration Strategy — Defined for 180A
+
+Prompt lifecycle for now:
+
+Insert new row with role, version, is_active=false
+
+Test in non-prod environments
+
+Promote by:
+
+setting old version is_active=false
+
+setting new version is_active=true
+
+Repository must:
+
+enforce at runtime that if multiple prompts are active for a role:
+
+log ERROR
+
+choose the highest version
+
+Admin UI / promotion API comes in a later epic.
+
+✅ Summary for the Architect Mentor
+
+All open questions are resolved. Architectural rules are now stable, deterministic, and enforceable in code and tests.
+
+The Query Engine will now operate with:
+
+clear transport semantics
+
+predictable JSON envelopes
+
+layered error classification
+
+safe logging
+
+runtime template validation
+
+structured tracing
+
+DB-backed, cached prompts
+
+These decisions should be treated as architectural invariants moving forward
