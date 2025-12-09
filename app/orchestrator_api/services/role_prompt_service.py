@@ -94,12 +94,12 @@ class RolePromptService:
             sections.append("```")
             sections.append("")
 
-        # Epic Context (optional)
-        if epic_context:
-            sections.append("# Epic Context")
-            sections.append("")
-            sections.append(epic_context)
-            sections.append("")
+        # # Epic Context (optional)
+        # if epic_context:
+        #     sections.append("# Epic Context")
+        #     sections.append("")
+        #     sections.append(epic_context)
+        #     sections.append("")
 
         # Pipeline State (optional)
         if pipeline_state:

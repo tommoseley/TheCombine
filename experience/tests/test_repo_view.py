@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 # Canonical import pattern
-from app.main import app
+from app.orchestrator_api.main import app
 
 client = TestClient(app)
 

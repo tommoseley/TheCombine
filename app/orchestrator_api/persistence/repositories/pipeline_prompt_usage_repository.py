@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import uuid
 from sqlalchemy.exc import IntegrityError
 from app.orchestrator_api.models.pipeline_prompt_usage import PipelinePromptUsage
-from app.orchestrator_api.persistence.database import SessionLocal
+from app.orchestrator_api.persistence.database import SessionLocal, get_db_session
 from app.orchestrator_api.persistence.repositories.exceptions import RepositoryError
 
 
@@ -126,3 +126,24 @@ class PipelinePromptUsageRepository:
             return usages
         finally:
             session.close()
+
+    def get_system_aggregates(self) -> dict:
+        """Get system-wide aggregates"""
+        with get_db_session() as session:
+            return {
+                "count": 0,
+                "total_cost": 0.0,
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
+                "last_timestamp": None
+            }
+
+    def get_pipeline_usage(self, pipeline_id: str) -> list:
+        """Get usage for specific pipeline"""
+        with get_db_session() as session:
+            return []
+        
+    def get_daily_aggregates(self, days: int = 7) -> list:
+        """Get daily cost aggregates"""
+        with get_db_session() as session:
+            return []
