@@ -3,7 +3,7 @@ import pytest
 from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from app.orchestrator_api.persistence.database import SessionLocal, engine
+from database import SessionLocal, engine
 from app.orchestrator_api.models.pipeline import Pipeline
 from app.orchestrator_api.models.pipeline_prompt_usage import PipelinePromptUsage
 

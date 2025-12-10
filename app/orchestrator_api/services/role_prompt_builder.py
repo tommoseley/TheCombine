@@ -39,12 +39,12 @@ def build_role_prompt(
             f"```json\n{schemas_json}\n```"
         ])
     
-    if epic_context:
-        sections.extend([
-            "",
-            "# Epic Context",
-            epic_context
-        ])
+    # if epic_context:
+    #     sections.extend([
+    #         "",
+    #         "# Epic Context",
+    #         epic_context
+    #     ])
     
     if pipeline_context:
         context_json = json.dumps(pipeline_context, indent=2)

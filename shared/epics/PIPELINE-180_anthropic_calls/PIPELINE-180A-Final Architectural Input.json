@@ -1,0 +1,551 @@
+```json
+{
+  "epic_analysis": "PIPELINE-180A is now architecturally stable following the Open Questions resolution. All ambiguities have been resolved with binding architectural policies. The Epic requires a clean separation between prompt management (DB-backed with in-memory caching), API execution (Anthropic client with strict error classification), and envelope structure (standardized JSON responses with correlation tracking). Critical resolved items: (1) HTTP semantics now use 200 for all successful Anthropic calls regardless of parse outcome, 503 for Anthropic unreachability, 400 for input errors, 500 for config errors; (2) Prompt caching is mandatory (in-memory, per-process, no TTL); (3) correlation_id is required in all responses and logs; (4) Template placeholder validation is mandatory before Anthropic calls; (5) Logging excludes full prompts/responses by default with optional truncated logging via config flag; (6) Health check endpoint required for load balancer integration. Major architectural risks mitigated: Prompt placeholder validation prevents empty API calls, HTTP status code policy enables clean retry logic, correlation_id enables distributed tracing, prompt caching reduces DB load. The three-worker architecture remains optimal with enhanced responsibilities: Worker A adds health endpoint and correlation_id support, Worker B adds prompt caching layer, Worker C adds template validation and enhanced error classification.",
+
+  "system_architecture": "The system follows a layered architecture with caching: API Layer (FastAPI router with correlation_id injection) → Service Layer (QueryEngineService orchestrator with template validation) → Repository Layer (PromptRepository with in-memory cache) + Client Layer (AnthropicClientAdapter with strict error classification) → External Systems (PostgreSQL DB + Anthropic API). Request flow: HTTP POST with role/payload → Router generates or validates correlation_id → Router validates request → Service loads prompt template from cache/DB → Service validates {input_payload} placeholder exists → Service renders prompt with payload → Service calls Anthropic via adapter → Adapter classifies all errors (connection, rate limit, timeout → 503; success → 200) → Service attempts JSON parse → Service constructs envelope with correlation_id → Router returns JSON response with appropriate HTTP status. Caching strategy: PromptRepository maintains per-process dict cache keyed by role, invalidated only via explicit clear_cache() call (testing). Error classification: Four-tier HTTP semantics (200/400/500/503) with structured error envelopes. Logging policy: Structured JSON logs with correlation_id, never full prompts/responses unless LOG_PROMPT_BODIES=true (truncated to 2000 chars). Health monitoring: Lightweight /health endpoint for load balancer (no dependencies checked). Configuration: Environment variables for ANTHROPIC_API_KEY, model name, timeout, and optional LOG_PROMPT_BODIES flag. Database schema supports multi-version prompts with is_active flag; repository enforces single active prompt per role at runtime.",
+
+  "api_contracts": {
+    "primary_endpoint": {
+      "method": "POST",
+      "path": "/anthropic/query",
+      "description": "Execute a role-based query against Anthropic API using DB-backed prompt templates with correlation tracking",
+      "request_headers": {
+        "X-Correlation-Id": {
+          "type": "string",
+          "format": "uuid",
+          "required": false,
+          "description": "Optional correlation ID for distributed tracing. If not provided, router generates one."
+        }
+      },
+      "request_schema": {
+        "type": "object",
+        "required": ["role", "input_format", "payload"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Mentor role identifier (e.g., 'pm_mentor', 'architect_mentor', 'developer_mentor', 'qa_mentor', 'ba_mentor')",
+            "pattern": "^[a-z0-9_]{1,50}$",
+            "examples": ["pm_mentor", "architect_mentor"]
+          },
+          "input_format": {
+            "type": "string",
+            "enum": ["plain_text", "json"],
+            "description": "Format of the payload: 'plain_text' for PM role, 'json' for all other roles"
+          },
+          "payload": {
+            "type": "string",
+            "description": "Input content - either raw text (PM role) or JSON-serialized string (other roles)",
+            "maxLength": 51200,
+            "minLength": 1
+          },
+          "options": {
+            "type": "object",
+            "required": false,
+            "properties": {
+              "model": {
+                "type": "string",
+                "description": "Override default Claude model",
+                "default": "claude-sonnet-4.5-20250929",
+                "examples": ["claude-sonnet-4.5-20250929"]
+              },
+              "temperature": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Sampling temperature",
+                "default": 0.7
+              },
+              "max_tokens": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8192,
+                "description": "Maximum tokens in response",
+                "default": 4096
+              }
+            }
+          }
+        }
+      },
+      "response_schema_success": {
+        "type": "object",
+        "required": ["correlation_id", "role", "prompt_id", "prompt_version", "input_format", "input_payload", "raw_response_text", "parsed_json", "parse_error", "token_usage", "latency_ms", "model", "timestamp"],
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Correlation ID for distributed tracing (from X-Correlation-Id header or generated)"
+          },
+          "role": {
+            "type": "string",
+            "description": "The role that was queried"
+          },
+          "prompt_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Database ID of the prompt template used"
+          },
+          "prompt_version": {
+            "type": "integer",
+            "description": "Version number of the prompt template"
+          },
+          "input_format": {
+            "type": "string",
+            "enum": ["plain_text", "json"],
+            "description": "Format of input that was provided"
+          },
+          "input_payload": {
+            "type": "string",
+            "description": "Original payload that was sent (for reference/debugging)"
+          },
+          "raw_response_text": {
+            "type": "string",
+            "description": "Unmodified response text from Anthropic API"
+          },
+          "parsed_json": {
+            "type": ["object", "null"],
+            "description": "Parsed JSON object if response was valid JSON, null otherwise"
+          },
+          "parse_error": {
+            "type": ["string", "null"],
+            "description": "Error message if JSON parsing failed, null if successful"
+          },
+          "token_usage": {
+            "type": "object",
+            "required": ["input_tokens", "output_tokens", "total_tokens"],
+            "properties": {
+              "input_tokens": {
+                "type": "integer",
+                "description": "Tokens consumed by input (prompt)"
+              },
+              "output_tokens": {
+                "type": "integer",
+                "description": "Tokens generated in response"
+              },
+              "total_tokens": {
+                "type": "integer",
+                "description": "Sum of input and output tokens"
+              }
+            }
+          },
+          "latency_ms": {
+            "type": "integer",
+            "description": "End-to-end latency in milliseconds for Anthropic API call only"
+          },
+          "model": {
+            "type": "string",
+            "description": "Actual Claude model used (e.g., 'claude-sonnet-4.5-20250929')"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when query was executed"
+          }
+        }
+      },
+      "response_schema_error": {
+        "type": "object",
+        "required": ["correlation_id", "error_type", "error_message", "role", "timestamp"],
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Correlation ID for distributed tracing"
+          },
+          "error_type": {
+            "type": "string",
+            "enum": ["prompt_not_found", "anthropic_unreachable", "anthropic_rate_limited", "anthropic_timeout", "anthropic_auth_failed", "invalid_input", "configuration_error", "template_validation_failed"],
+            "description": "Category of error that occurred"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Human-readable error description"
+          },
+          "role": {
+            "type": ["string", "null"],
+            "description": "Role that was requested (null if not parseable from request)"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when error occurred"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error context (optional, never includes sensitive data)"
+          }
+        }
+      },
+      "http_status_codes": {
+        "200": "Success - Anthropic was reached and returned a response (includes parse failures with parse_error populated)",
+        "400": "Bad Request - invalid input format, missing role, oversized payload, prompt_not_found, or invalid JSON in payload when input_format='json'",
+        "500": "Internal Server Error - configuration errors (missing placeholder, broken DB state), unexpected system failures",
+        "503": "Service Unavailable - Anthropic API unreachable (timeout, rate limit, connection error) - retry-able"
+      }
+    },
+    "health_endpoint": {
+      "method": "GET",
+      "path": "/health",
+      "description": "Lightweight health check for load balancers (does not check dependencies)",
+      "response_schema": {
+        "type": "object",
+        "required": ["status", "service"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok"],
+            "description": "Always 'ok' if service is running"
+          },
+          "service": {
+            "type": "string",
+            "const": "anthropic-query-engine",
+            "description": "Service identifier"
+          }
+        }
+      },
+      "http_status_codes": {
+        "200": "Service is running (does not validate Anthropic API or DB connectivity)"
+      }
+    },
+    "validation_rules": {
+      "role": "Must be non-empty string, max 50 characters, alphanumeric plus underscore only (pattern: ^[a-z0-9_]{1,50}$)",
+      "input_format": "Must be exactly 'plain_text' or 'json', case-sensitive",
+      "payload": "Must be non-empty string (min 1 byte), max 50KB (51200 bytes) to prevent token explosion",
+      "payload_json_validation": "If input_format='json', payload must be valid JSON string (validated at router before service call, returns 400 on parse failure)",
+      "correlation_id_header": "If X-Correlation-Id provided, must be valid UUIDv4 format (validated at router, returns 400 if invalid)",
+      "options": "All optional fields use system defaults if not provided"
+    },
+    "pydantic_models": {
+      "QueryRequest": "Request model with role, input_format, payload, optional options dict",
+      "QueryOptions": "Nested model for model, temperature, max_tokens overrides",
+      "TokenUsage": "Model with input_tokens, output_tokens, total_tokens (all non-negative integers)",
+      "QueryResponseEnvelope": "Success response matching response_schema_success exactly, includes correlation_id",
+      "QueryErrorResponse": "Error response matching response_schema_error exactly, includes correlation_id",
+      "HealthResponse": "Simple model with status='ok' and service='anthropic-query-engine'"
+    },
+    "json_only_enforcement": "All responses MUST be valid JSON. Router never returns HTML, plain text, or markdown. Even catastrophic errors return JSON error envelope. Content-Type always 'application/json'.",
+    "correlation_id_handling": "Router checks for X-Correlation-Id header. If present and valid UUID, use it. If present but invalid, return 400. If absent, generate new UUIDv4. Include in all responses (success and error) and all logs."
+  },
+
+  "repository_design": {
+    "database_schema": {
+      "table_name": "prompts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "constraints": "PRIMARY KEY DEFAULT gen_random_uuid()",
+          "description": "Unique identifier for each prompt record"
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(50)",
+          "constraints": "NOT NULL, INDEX",
+          "description": "Role identifier (e.g., 'pm_mentor', 'architect_mentor')"
+        },
+        {
+          "name": "version",
+          "type": "INTEGER",
+          "constraints": "NOT NULL DEFAULT 1",
+          "description": "Version number for this prompt template"
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "constraints": "NOT NULL DEFAULT true, INDEX",
+          "description": "Whether this is the currently active version for this role"
+        },
+        {
+          "name": "template",
+          "type": "TEXT",
+          "constraints": "NOT NULL",
+          "description": "Full prompt template with {input_payload} placeholder (validated at insertion)"
+        },
+        {
+          "name": "input_mode",
+          "type": "VARCHAR(20)",
+          "constraints": "NOT NULL CHECK (input_mode IN ('plain_text', 'json'))",
+          "description": "Expected format of input payload"
+        },
+        {
+          "name": "output_contract",
+          "type": "TEXT",
+          "constraints": "NULL",
+          "description": "Optional JSON schema or description of expected output structure"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "constraints": "NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "description": "When this prompt was created"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "constraints": "NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "description": "Last modification timestamp"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_prompts_role_active ON prompts(role, is_active) WHERE is_active = true",
+        "CREATE UNIQUE INDEX idx_prompts_role_version ON prompts(role, version)"
+      ],
+      "constraints": [
+        "Only one is_active=true per role enforced via application logic (repository layer runtime check)",
+        "Version numbers must be positive integers, gaps allowed",
+        "Template must contain {input_payload} placeholder (validated at seed/insertion time)"
+      ]
+    },
+    "sqlalchemy_model": {
+      "class_name": "Prompt",
+      "file_path": "app/orchestrator_api/persistence/models/prompt.py",
+      "relationships": "None in v1 (standalone model)",
+      "notes": "Uses declarative base, includes __repr__ for debugging, created_at/updated_at use server_default"
+    },
+    "repository_interface": {
+      "class_name": "PromptRepository",
+      "file_path": "app/orchestrator_api/persistence/repositories/prompt_repository.py",
+      "caching_policy": "MANDATORY: Repository maintains in-memory dict cache of active prompts keyed by role. Cache populated on first access. Cache invalidated only via explicit clear_cache() method (for testing). No TTL or distributed cache.",
+      "methods": [
+        {
+          "name": "get_active_prompt",
+          "signature": "def get_active_prompt(self, role: str) -> Prompt | None",
+          "description": "Fetch the currently active prompt for a given role (cache-backed)",
+          "behavior": "Checks cache first. If miss, queries DB and populates cache. Returns None if no active prompt exists. If multiple active prompts found (data integrity issue), logs ERROR, selects highest version, returns it. Raises exception on DB errors.",
+          "query": "SELECT * FROM prompts WHERE role = :role AND is_active = true ORDER BY version DESC LIMIT 1",
+          "caching": "Cache hit: return immediately. Cache miss: query DB, cache result (even if None), return."
+        },
+        {
+          "name": "get_prompt_by_id",
+          "signature": "def get_prompt_by_id(self, prompt_id: UUID) -> Prompt | None",
+          "description": "Fetch specific prompt by ID (for audit/debugging, bypasses cache)",
+          "behavior": "Always queries DB directly. Returns None if ID not found. Raises exception on DB errors.",
+          "query": "SELECT * FROM prompts WHERE id = :id",
+          "caching": "Does not use cache, does not populate cache"
+        },
+        {
+          "name": "list_prompts_for_role",
+          "signature": "def list_prompts_for_role(self, role: str) -> list[Prompt]",
+          "description": "Fetch all versions of prompts for a role (for future version management, bypasses cache)",
+          "behavior": "Always queries DB directly. Returns empty list if no prompts exist. Ordered by version DESC.",
+          "query": "SELECT * FROM prompts WHERE role = :role ORDER BY version DESC",
+          "caching": "Does not use cache, does not populate cache"
+        },
+        {
+          "name": "clear_cache",
+          "signature": "def clear_cache(self) -> None",
+          "description": "Clear the in-memory prompt cache (for testing only)",
+          "behavior": "Empties the internal cache dict. Does not touch DB. Used by test fixtures to reset state between tests.",
+          "caching": "Clears entire cache"
+        }
+      ],
+      "cache_implementation": {
+        "structure": "Private instance variable _cache: dict[str, Prompt | None]",
+        "initialization": "Empty dict at repository construction",
+        "thread_safety": "Not required in v1 (single-threaded per process assumed). Future: add threading.Lock if needed.",
+        "memory_overhead": "Negligible (5 roles × ~5KB per prompt = ~25KB total)"
+      },
+      "dependencies": "Requires SQLAlchemy session (injected via constructor or dependency injection)",
+      "error_handling": "DB connection errors propagate as SQLAlchemyError (caught by service layer). Missing prompt returns None (not an exception). Multiple active prompts logs ERROR but returns highest version (graceful degradation).",
+      "testability": "Repository is mockable. Tests use in-memory SQLite or DB fixtures. Tests must call clear_cache() between test cases to reset state."
+    },
+    "seeding_strategy": {
+      "approach": "Alembic migration with inline seed data",
+      "seed_data": "Five mentor roles (pm_mentor, architect_mentor, ba_mentor, developer_mentor, qa_mentor) with is_active=true, version=1",
+      "template_format": "Templates stored as plain text with {input_payload} placeholder. Example: 'You are the PM Mentor. Given this Epic:\\n\\n{input_payload}\\n\\nProduce...'",
+      "placeholder_validation": "Seed script validates that each template contains {input_payload} before insertion. Fails migration if any template missing placeholder.",
+      "location": "Inline in Alembic migration file (not separate seed script)",
+      "notes": "Templates must match PM Mentor document structure. PM role uses plain_text input_mode, others use json. Migration is idempotent (checks if seeds already exist)."
+    },
+    "prompt_migration_strategy": {
+      "insertion": "Insert new row with role, version, is_active=false",
+      "testing": "Test in non-prod environments while is_active=false",
+      "promotion": "Two-step update: (1) SET is_active=false WHERE role=:role AND is_active=true; (2) SET is_active=true WHERE id=:new_id",
+      "rollback": "Reverse the two-step update to revert to previous version",
+      "cache_invalidation": "After promotion, call PromptRepository.clear_cache() to force reload",
+      "future_admin_ui": "Deferred to later epic. Current strategy uses direct DB updates or scripts."
+    },
+    "zero_hardcoded_prompts": "No prompt text appears in Python code outside of seed migration. All runtime prompt retrieval goes through PromptRepository with caching. Service layer never constructs prompts from literals."
+  },
+
+  "anthropic_integration": {
+    "client_adapter": {
+      "class_name": "AnthropicClientAdapter",
+      "file_path": "app/orchestrator_api/clients/anthropic_client.py",
+      "responsibilities": [
+        "Wrap Anthropic SDK (anthropic Python library)",
+        "Manage API key from environment/config",
+        "Execute single-turn message calls",
+        "Capture response metadata (tokens, latency, model)",
+        "Classify all errors into standardized error types",
+        "Return structured result object (not raw SDK response)"
+      ],
+      "interface": {
+        "method": "call",
+        "signature": "async def call(self, *, prompt: str, system: str | None = None, model: str, temperature: float, max_tokens: int) -> AnthropicCallResult",
+        "parameters": {
+          "prompt": "User message content (the rendered prompt with payload injected)",
+          "system": "Optional system message (future use for role-level instructions)",
+          "model": "Claude model identifier (e.g., 'claude-sonnet-4.5-20250929')",
+          "temperature": "Sampling temperature (0.0-1.0)",
+          "max_tokens": "Maximum tokens to generate"
+        },
+        "returns": "AnthropicCallResult object with content, usage, model, latency_ms",
+        "raises": "AnthropicClientError for all error conditions (connection, rate limit, timeout, auth, bad request)"
+      }
+    },
+    "result_structure": {
+      "class_name": "AnthropicCallResult",
+      "fields": [
+        {
+          "name": "content",
+          "type": "str",
+          "description": "Raw text response from Claude (unmodified)"
+        },
+        {
+          "name": "model",
+          "type": "str",
+          "description": "Actual model used (may differ from request if fallback occurs)"
+        },
+        {
+          "name": "input_tokens",
+          "type": "int",
+          "description": "Tokens consumed by prompt"
+        },
+        {
+          "name": "output_tokens",
+          "type": "int",
+          "description": "Tokens generated in response"
+        },
+        {
+          "name": "latency_ms",
+          "type": "int",
+          "description": "Milliseconds elapsed for API call (measured by adapter)"
+        }
+      ]
+    },
+    "configuration": {
+      "api_key": "Loaded from environment variable ANTHROPIC_API_KEY, fails fast at startup if missing",
+      "default_model": "claude-sonnet-4.5-20250929 (configurable via ANTHROPIC_MODEL_NAME env var)",
+      "default_timeout": "60 seconds for API call (configurable via ANTHROPIC_TIMEOUT_SECONDS)",
+      "logging_flag": "LOG_PROMPT_BODIES=false by default. If true, logs truncated prompts/responses (max 2000 chars).",
+      "retry_policy": "No retries in v1 (fail fast). Caller decides retry strategy based on error_type.",
+      "notes": "SDK handles connection pooling and keepalive. Adapter does not cache results."
+    },
+    "json_enforcement": {
+      "strategy": "System prompt instructs Claude to return ONLY valid JSON with no markdown fences",
+      "implementation": "Adapter includes JSON instruction in system message: 'You must respond with valid JSON only. Do not include markdown code fences or any text outside the JSON object.'",
+      "fallback": "Adapter does NOT attempt to strip markdown fences or fix malformed JSON. Service layer handles parsing and reports parse_error if needed.",
+      "validation": "Adapter does not validate JSON structure, only returns raw content. Service layer attempts parse."
+    },
+    "error_handling": {
+      "anthropic_sdk_errors": [
+        {
+          "error_type": "anthropic.APIConnectionError",
+          "handling": "Catch and re-raise as AnthropicClientError with error_type='anthropic_unreachable'",
+          "http_mapping": "503 Service Unavailable"
+        },
+        {
+          "error_type": "anthropic.RateLimitError",
+          "handling": "Catch and re-raise as AnthropicClientError with error_type='anthropic_rate_limited'",
+          "http_mapping": "503 Service Unavailable (retry-able with backoff)"
+        },
+        {
+          "error_type": "anthropic.AuthenticationError",
+          "handling": "Catch and re-raise as AnthropicClientError with error_type='anthropic_auth_failed'",
+          "http_mapping": "500 Internal Server Error (configuration issue, not user error)"
+        },
+        {
+          "error_type": "anthropic.APITimeoutError",
+          "handling": "Catch and re-raise as AnthropicClientError with error_type='anthropic_timeout'",
+          "http_mapping": "503 Service Unavailable (retry-able)"
+        },
+        {
+          "error_type": "anthropic.BadRequestError",
+          "handling": "Catch and re-raise as AnthropicClientError with error_type='anthropic_bad_request'",
+          "http_mapping": "500 Internal Server Error (indicates prompt construction bug or invalid parameters)"
+        }
+      ],
+      "custom_exception": {
+        "class_name": "AnthropicClientError",
+        "fields": ["error_type: str", "message: str", "original_exception: Exception | None"],
+        "purpose": "Isolate SDK exceptions from service layer, enable consistent error handling, allow testing without SDK mocks",
+        "error_types": ["anthropic_unreachable", "anthropic_rate_limited", "anthropic_auth_failed", "anthropic_timeout", "anthropic_bad_request"]
+      },
+      "http_status_mapping": {
+        "anthropic_unreachable": 503,
+        "anthropic_rate_limited": 503,
+        "anthropic_auth_failed": 500,
+        "anthropic_timeout": 503,
+        "anthropic_bad_request": 500
+      }
+    },
+    "logging": {
+      "log_on_call_start": "role, model, correlation_id, timestamp",
+      "log_on_call_success": "role, model, correlation_id, input_tokens, output_tokens, latency_ms, timestamp. If LOG_PROMPT_BODIES=true, also log truncated prompt (first 2000 chars) and truncated response (first 2000 chars).",
+      "log_on_call_error": "role, model, correlation_id, error_type, error_message, timestamp",
+      "exclude_from_logs": "NEVER log: API key (even redacted), full prompt text (unless LOG_PROMPT_BODIES=true, then truncated), full response text (unless LOG_PROMPT_BODIES=true, then truncated)",
+      "log_level": "INFO for success, WARNING for rate limit/timeout (retry-able), ERROR for auth failure/bad request/unreachable",
+      "log_format": "Structured JSON logs with consistent field names for easy parsing and aggregation"
+    },
+    "token_cost_instrumentation": {
+      "capture_fields": "input_tokens, output_tokens from Anthropic SDK usage object",
+      "calculation": "total_tokens = input_tokens + output_tokens (computed in service layer, included in envelope)",
+      "future_enhancement": "Cost calculation based on model pricing (deferred to observability epic)"
+    },
+    "testability": {
+      "mock_strategy": "AnthropicClientAdapter accepts optional client parameter for injection of mock Anthropic SDK client",
+      "test_fixtures": "Provide sample AnthropicCallResult objects for common scenarios (success, rate limit, timeout, auth failure, bad request)",
+      "error_simulation": "Tests can inject AnthropicClientError with specific error_type to validate service layer error handling",
+      "notes": "Unit tests should not call real Anthropic API. Integration tests may call real API with test API key. Use pytest fixtures or mocks for unit tests."
+    }
+  },
+
+  "data_flow": "Request enters via POST /anthropic/query with role/payload → Router extracts or generates correlation_id from X-Correlation-Id header (validates if present, generates UUIDv4 if absent, returns 400 if invalid) → Router validates request schema (Pydantic) and payload size → Router validates JSON parseability if input_format='json' (returns 400 if invalid) → Router calls QueryEngineService.execute(role, input_format, payload, options, correlation_id) → Service calls PromptRepository.get_active_prompt(role) → Repository checks cache first → If cache hit: return cached Prompt → If cache miss: query DB → If multiple active prompts found: log ERROR, select highest version → Cache result (even if None) → Return Prompt or None → Service receives Prompt (if None, raises PromptNotFoundError → 400) → Service validates template contains {input_payload} placeholder (if missing, raises ConfigurationError → 500) → Service renders template using template.replace('{input_payload}', payload) → Service calls AnthropicClientAdapter.call(prompt=rendered, model=..., temperature=..., max_tokens=...) → Adapter measures start time → Adapter constructs Anthropic SDK message request with user message and JSON-only system instruction → Adapter executes API call with timeout → If SDK raises exception: catch, classify error_type, raise AnthropicClientError → Service catches AnthropicClientError: log error, construct QueryErrorResponse with correlation_id, return HTTP 503 (if unreachable/rate_limited/timeout) or 500 (if auth_failed/bad_request) → If API succeeds: Adapter captures response content, usage metadata, measures latency → Adapter returns AnthropicCallResult → Service receives result → Service attempts json.loads(result.content) → If parse succeeds: parsed_json populated, parse_error=None → If parse fails: parsed_json=None, parse_error contains exception message → Service constructs QueryResponseEnvelope with all fields including correlation_id → Service returns envelope to router → Router serializes envelope to JSON and returns HTTP 200 → Client receives JSON response. Health endpoint flow: GET /health → Router returns static HealthResponse JSON with status='ok' and service='anthropic-query-engine' → HTTP 200 (no dependencies checked).",
+
+  "non_functional_requirements": {
+    "performance": {
+      "latency_target": "P95 end-to-end latency < 5 seconds for typical queries (driven by Anthropic API ~2-4s, not our code)",
+      "throughput": "Support 10 concurrent requests without degradation (FastAPI async handles concurrency)",
+      "database_query_time": "PromptRepository.get_active_prompt() < 10ms with cache hit, < 50ms with cache miss (indexed query)",
+      "cache_hit_rate": "Expected >99% after initial warmup (5 roles, rarely change)",
+      "notes": "Prompt caching eliminates DB as bottleneck. Anthropic API latency dominates. No further optimization needed in v1."
+    },
+    "reliability": {
+      "error_rate_target": "< 1% error rate excluding Anthropic API failures (our code should not fail)",
+      "anthropic_api_availability": "Dependent on Anthropic SLA (99.9% typical), we do not control this",
+      "database_availability": "Assumes PostgreSQL is highly available (RDS multi-AZ or equivalent)",
+      "graceful_degradation": "If DB unavailable at startup, fail fast. If DB fails during runtime, cached prompts keep service operational. If Anthropic unavailable, return 503 with clear retry guidance.",
+      "cache_resilience": "Cache never invalidates except via explicit clear_cache(). Stale prompts acceptable (updated prompts require restart or explicit cache clear)."
+    },
+    "security": {
+      "api_key_protection": "ANTHROPIC_API_KEY stored in environment, never logged (even with LOG_PROMPT_BODIES=true), never returned in responses or error messages",
+      "input_validation": "Max payload size 50KB enforced at router to prevent abuse. Role pattern validated (alphanumeric + underscore only). JSON payload validated if input_format='json'.",
+      "output_sanitization": "Error messages do not expose internal paths, DB schemas, stack traces, or API keys. Error details only include safe context.",
+      "audit_logging": "All queries logged with correlation_id, role, timestamp, token usage. Full prompts/responses excluded unless LOG_PROMPT_BODIES=true (and truncated to 2000 chars).",
+      "notes": "No authentication on /anthropic/query or /health endpoints in v1 (assumes internal service behind API gateway/auth layer). Authentication deferred to future epic."
+    },
+    "observability": {
+      "structured_logging": "JSON-formatted logs with fields: timestamp, level, correlation_id, role, latency_ms, input_tokens, output_tokens, total_tokens, error_type (if error)",
+      "metrics": "Expose via future observability system: query_count, error_count_by_type, p50/p95/p99_latency, token_usage_by_role, cache_hit_rate",
+      "tracing": "correlation_id included in all logs and responses for distributed tracing. Enables request tracking across services.",
+      "log_retention": "Logs stored for 30 days minimum (configurable)",
+      "health_monitoring": "GET /health endpoint for load balancer (lightweight, no dependency checks). Future: add GET /health/deep for dependency validation."
+    },
+    "maintainability": {
+      "code_organization": "Clear separation: routers/ for API, services/ for orchestration, repositories/ for DB (with caching), clients/ for external APIs, schemas/ for Pydantic models",
+      "type_safety": "All functions fully type-annotated (Python 3.11+ with strict mypy)",
+      "test_coverage": "> 80% line coverage, 100% coverage of critical paths (prompt loading with cache, template validation, envelope construction, error classification)",
+      "documentation": "Inline docstrings for all public methods, README with architecture diagram, architectural decision records for key policies"
+    },
+    "scalability": {
+      "horizontal_scaling": "Service is stateless except for per-process prompt cache. Multiple instances behind load balancer work independently. No shared cache coordination needed.",
+      "database_connection_pooling": "SQLAlchemy connection pool sized for expected concurrency (10-20 connections). Cache reduces DB load to ~0.01 queries/request after warmup.",
+      "anthropic_rate_limits": "Respect Anthropic tier limits (no built-in rate limiting in v1, assumes low traffic). 503 responses guide retry behavior.",
+      "cache_per_instance": "Each service instance has independent prompt cache. No cache invalidation coordination between instances. Acceptable staleness for rare prompt updates.",
+      "future_considerations": "Add request queuing if Anthropic rate limits become bottleneck. Add distributed cache (Redis) if prompt updates become frequent."
+    }
+  },
+
+  "open_questions": []
+}
+```

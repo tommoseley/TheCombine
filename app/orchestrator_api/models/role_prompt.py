@@ -1,43 +1,57 @@
 """
-RolePrompt model for storing AI role prompts with versioning.
+RolePrompt model for The Combine.
 
-Part of PIPELINE-175A: Data-Described Pipeline Infrastructure.
+Stores prompt templates for PM, Architect, BA, Developer, and QA mentors.
+Zero hard-coded prompts - all externalized to database.
 """
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Text, JSON, Boolean, DateTime, Index
-from sqlalchemy.orm import relationship
-from app.orchestrator_api.persistence.database import Base
+from sqlalchemy import Column, String, Text, DateTime, Boolean, Index, JSON
+from sqlalchemy.sql import func
+
+from database import Base
 
 
 class RolePrompt(Base):
     """
-    Role prompt with versioning and activation control.
+    Prompt templates for mentor roles.
     
-    Stores prompt templates for AI roles (PM, Architect, BA, Dev, QA, Commit).
-    Only one active version per role enforced by repository logic.
+    Each role (pm, architect, ba, developer, qa) can have multiple versions,
+    with one marked as active at any time.
     """
     __tablename__ = "role_prompts"
     
-    id = Column(String(64), primary_key=True)  # Format: rp_<ulid>
-    role_name = Column(String(64), nullable=False, index=True)
-    version = Column(String(16), nullable=False)
-    starting_prompt = Column(Text, nullable=True)
-    bootstrapper = Column(Text, nullable=False)
-    instructions = Column(Text, nullable=False)
-    working_schema = Column(JSON, nullable=True)
+    id = Column(String(64), primary_key=True)  # e.g., "pm-v1", "architect-v2"
+    role_name = Column(String(64), nullable=False, index=True)  # pm, architect, ba, developer, qa
+    version = Column(String(16), nullable=False)  # "1", "2", "2.1", etc.
+    instructions = Column(Text, nullable=False)  # The prompt template
+    expected_schema = Column(JSON)  # JSON schema for validation
     is_active = Column(Boolean, nullable=False, default=True, index=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    created_by = Column(String(128), nullable=True)
-    notes = Column(Text, nullable=True)
     
-    # Relationships
-    pipeline_usages = relationship("PipelinePromptUsage", back_populates="prompt")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    created_by = Column(String(128))
+    notes = Column(Text)
     
-    # Composite index for fast active prompt lookups
+    # Indexes
     __table_args__ = (
-        Index('idx_role_prompts_role_active', 'role_name', 'is_active'),
+        Index('idx_role_prompts_role_name', 'role_name'),
+        Index('idx_role_prompts_active', 'is_active'),
+        Index('idx_role_prompts_version', 'role_name', 'version'),
     )
     
     def __repr__(self):
-        return f"<RolePrompt(id={self.id}, role={self.role_name}, version={self.version}, active={self.is_active})>"
+        return f"<RolePrompt {self.role_name} v{self.version} (active={self.is_active})>"
+    
+    def to_dict(self):
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'id': self.id,
+            'role_name': self.role_name,
+            'version': self.version,
+            'instructions': self.instructions,
+            'expected_schema': self.expected_schema,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_by': self.created_by,
+            'notes': self.notes
+        }

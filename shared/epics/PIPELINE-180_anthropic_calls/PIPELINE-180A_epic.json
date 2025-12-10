@@ -1,0 +1,329 @@
+{
+  "epic_summary": {
+    "title": "DB-Backed Anthropic Query Engine for Role-Based Prompt Execution",
+    "refined_description": "Build a backend service that executes role-specific prompts against the Anthropic API. The service loads mentor prompts from the database, constructs properly formatted API calls, executes them against Claude, and returns structured JSON responses with usage metrics. Supports text input for PM role and JSON input for all other roles.",
+    "business_value": "Enables consistent, versioned, and traceable AI-powered work product generation across all Workbench roles without hard-coding prompts in application code. Provides foundation for pipeline automation and prompt governance.",
+    "primary_users": ["Backend services", "Pipeline orchestration components", "Development scripts"],
+    "success_metrics": ["100% of prompts loaded from database (zero hard-coded prompts)", "All responses returned as valid JSON envelopes", "Token usage captured for every API call", "Sub-2-second p95 latency for typical queries"]
+  },
+  "goals": [
+    "Create a role-agnostic query engine that works for any mentor role",
+    "Load all prompt content from the database, never from code",
+    "Support both plain-text input (PM role) and JSON input (all other roles)",
+    "Return all responses as parseable JSON envelopes with metadata",
+    "Capture and return token usage and timing metrics for every call",
+    "Provide configuration points for model selection and API parameters",
+    "Enable future pipeline integration without refactoring core logic"
+  ],
+  "non_goals": [
+    "Building any user interface or operator console",
+    "Implementing pipeline orchestration or workflow sequencing",
+    "Creating complex prompt versioning or approval workflows",
+    "Validating role-specific JSON schemas (beyond basic parseability)",
+    "Implementing retry logic or advanced error recovery",
+    "Supporting streaming responses or multi-turn conversations",
+    "Building authentication or authorization for the query engine itself"
+  ],
+  "constraints": [
+    "All prompt content must be loaded from the existing database schema",
+    "All outputs must be valid JSON (no markdown, no plain text responses)",
+    "Must use existing Anthropic API client infrastructure",
+    "PM role input is plain text; all other roles require JSON input",
+    "No changes to database schema allowed in this epic",
+    "Must work with current Claude Sonnet 4.5 model",
+    "Backend-only implementation with no UI dependencies"
+  ],
+  "acceptance_criteria": [
+    "Engine successfully loads prompts for any valid role from database",
+    "Engine constructs complete Anthropic prompts without hard-coded text",
+    "Engine handles plain-text input for PM role and JSON input for other roles",
+    "Engine calls Anthropic API and receives valid responses",
+    "All responses wrapped in JSON envelope with role, input reference, work product, and metrics",
+    "Token counts (input and output) captured and returned for every call",
+    "Request timing and model metadata captured in response envelope",
+    "Engine returns error responses as structured JSON (not exceptions)",
+    "Configuration accepts model name, temperature, and max_tokens overrides",
+    "Zero hard-coded prompt text exists in the engine implementation"
+  ],
+  "known_unknowns": [
+    "Exact error message formats from Anthropic API under various failure conditions",
+    "Optimal default values for temperature and max_tokens across different roles",
+    "Whether current database query performance is adequate under concurrent load",
+    "How large typical input payloads will be for non-PM roles"
+  ],
+  "open_questions": [
+    "Should the engine validate that response is parseable JSON before returning, or pass through raw API response?",
+    "What should happen if a role is requested that doesn't exist in the database?",
+    "Should we log full prompts and responses for debugging, and if so, where?",
+    "Do we need request IDs or correlation IDs in the response envelope?",
+    "Should timeouts be configurable or use Anthropic client defaults?"
+  ],
+  "risks": [
+    "Anthropic API rate limits or quota exhaustion could cause cascading failures",
+    "Large input payloads could exceed token limits and cause silent truncation",
+    "Malformed JSON in input_payload could cause unclear error messages",
+    "Missing or corrupt prompt data in database could break specific roles",
+    "Token usage metrics might not match billing if Anthropic changes calculation methodology",
+    "Response parsing could fail if Anthropic returns unexpected formats despite prompt instructions"
+  ],
+  "pm_perspectives": {
+    "delivery_pm": {
+      "key_concerns": [
+        "This must ship as a single vertical slice with no partial deliveries",
+        "Dependencies on existing DB schema and Anthropic client must be verified before starting",
+        "Testing requires either Anthropic API access or sophisticated mocking",
+        "Integration testing across multiple roles could become time-intensive",
+        "Configuration management needs to be simple enough to avoid scope creep"
+      ],
+      "suggested_slices": [
+        "Slice 1: Core engine with single-role happy path (PM role only, minimal envelope)",
+        "Slice 2: Multi-role support and input type handling (JSON vs text)",
+        "Slice 3: Complete response envelope with all metadata and metrics",
+        "Slice 4: Configuration layer and error handling",
+        "Slice 5: Integration tests across all mentor roles"
+      ]
+    },
+    "experience_pm": {
+      "key_concerns": [
+        "Calling code needs clear, self-documenting API with minimal cognitive load",
+        "Error messages must clearly distinguish between input errors, DB errors, and API errors",
+        "Response envelope should be consistent and predictable across all roles",
+        "Configuration defaults should work for 90% of cases without customization",
+        "Debugging failed calls should be straightforward without deep system knowledge"
+      ],
+      "usage_flows": [
+        "Script calls engine with role='pm_mentor' and text Epic description, gets back refined Epic JSON",
+        "Pipeline calls engine with role='architect_mentor' and Epic JSON, gets back architecture JSON",
+        "Service calls engine with custom model/temperature for specialized use case",
+        "Developer examines response envelope to understand token usage and optimize costs",
+        "Error occurs and calling code receives structured error JSON with actionable message"
+      ]
+    },
+    "risk_compliance_pm": {
+      "key_concerns": [
+        "Full prompts sent to Anthropic should be logged for audit trail",
+        "Token usage must be accurately captured for cost tracking and billing",
+        "API keys and credentials must never appear in logs or response envelopes",
+        "Large or malicious input payloads could cause excessive API costs",
+        "Prompt injection attacks could occur if input_payload contains adversarial content",
+        "Database prompt content could be modified maliciously to alter system behavior"
+      ],
+      "required_controls": [
+        "Log every API call with role, timestamp, and token counts (but not full prompts initially)",
+        "Implement input size limits to prevent excessive token usage",
+        "Return sanitized error messages that don't expose internal system details",
+        "Validate that loaded prompts are non-empty before making API calls",
+        "Include request tracing IDs in response envelope for debugging",
+        "Document that this engine assumes trusted input and trusted DB content (no adversarial protection in v1)"
+      ]
+    }
+  },
+  "stories": [
+    {
+      "id": "QUERY-001",
+      "title": "Implement core query engine with DB prompt lookup",
+      "description": "Create the main query engine class/module that accepts role and input_payload, loads the corresponding mentor prompt from the database, and returns the prompt text. No Anthropic call yet, just the lookup and retrieval logic.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine accepts role parameter as string",
+        "Engine queries database for prompt template matching the role",
+        "Engine returns loaded prompt text when role exists",
+        "Engine raises/returns clear error when role not found in database",
+        "Unit tests cover valid role lookup and missing role scenarios",
+        "No prompt text is hard-coded in the implementation"
+      ],
+      "notes": [
+        "Use existing database connection and ORM infrastructure",
+        "Consider caching strategy for prompt lookups if needed",
+        "Error handling should distinguish between DB errors and missing roles"
+      ]
+    },
+    {
+      "id": "QUERY-002",
+      "title": "Implement prompt composition with input payload injection",
+      "description": "Extend the engine to compose the full Anthropic prompt by embedding the input_payload into the loaded prompt template. Handle plain-text injection for PM role and JSON injection for other roles.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine accepts input_payload parameter (string or dict/object)",
+        "For role='pm_mentor', engine injects plain-text payload into prompt",
+        "For all other roles, engine serializes JSON payload and injects into prompt",
+        "Composed prompt includes role guidelines from DB and input payload",
+        "Composed prompt includes any shared system guidance (e.g., JSON-only output instruction)",
+        "Unit tests cover both text and JSON payload injection",
+        "Composed prompts are syntactically valid and complete"
+      ],
+      "notes": [
+        "Prompt template format needs to support clear injection points",
+        "Consider whether templates use placeholders or concatenation",
+        "JSON serialization should be deterministic and readable"
+      ]
+    },
+    {
+      "id": "QUERY-003",
+      "title": "Integrate Anthropic API client and execute queries",
+      "description": "Wire the engine to call the existing Anthropic API client with the composed prompt. Execute the API call and capture the raw response from Claude.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine calls Anthropic API with composed prompt",
+        "Engine uses configured Claude model (default: claude-sonnet-4.5)",
+        "Engine captures raw response text from API",
+        "Engine captures HTTP response status and any error codes",
+        "Integration test successfully calls real Anthropic API (or mocked equivalent)",
+        "Engine handles API timeouts and connection errors gracefully"
+      ],
+      "notes": [
+        "Use existing Anthropic client infrastructure",
+        "May need API key configuration for testing",
+        "Consider whether to mock API calls in unit tests or require integration tests"
+      ]
+    },
+    {
+      "id": "QUERY-004",
+      "title": "Implement configuration layer for API parameters",
+      "description": "Add configuration support for model selection, temperature, max_tokens, and other Anthropic API parameters. Provide sensible defaults that work for typical mentor queries.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine accepts optional model_name parameter (default: claude-sonnet-4.5)",
+        "Engine accepts optional temperature parameter (default: defined per role or 0.7)",
+        "Engine accepts optional max_tokens parameter (default: 4000 or appropriate limit)",
+        "Configuration can be passed per-query or set as engine-level defaults",
+        "Unit tests verify that custom parameters are passed to API client",
+        "Defaults are documented and align with typical use cases"
+      ],
+      "notes": [
+        "Research optimal defaults for different roles if patterns exist",
+        "Configuration should be simple dict/object, not complex config files",
+        "Consider whether different roles need different default parameters"
+      ]
+    },
+    {
+      "id": "QUERY-005",
+      "title": "Build JSON response envelope with metadata",
+      "description": "Wrap all engine responses in a structured JSON envelope that includes the role, input reference, work product from Claude, and diagnostic metadata.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Response envelope includes 'role' field with the queried role",
+        "Response envelope includes 'input_payload' or reference to original input",
+        "Response envelope includes 'work_product' field with Claude's JSON response",
+        "Response envelope includes 'model' field with the Claude model used",
+        "Response envelope includes 'input_tokens' and 'output_tokens' counts",
+        "Response envelope includes 'latency_ms' or similar timing metric",
+        "Response envelope includes 'timestamp' of when query was executed",
+        "All responses are valid JSON with no markdown formatting",
+        "Unit tests verify envelope structure and all required fields present"
+      ],
+      "notes": [
+        "Token counts should come from Anthropic API response metadata",
+        "Consider including request ID or correlation ID for tracing",
+        "Timing should measure end-to-end latency of the query"
+      ]
+    },
+    {
+      "id": "QUERY-006",
+      "title": "Implement structured error handling and error envelope",
+      "description": "Ensure all error conditions return structured JSON error responses instead of raising exceptions. Cover database errors, API errors, invalid input, and missing roles.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Database connection errors return JSON error envelope",
+        "Missing role in database returns JSON error envelope with clear message",
+        "Anthropic API errors (rate limit, invalid key, timeout) return JSON error envelope",
+        "Invalid input_payload format returns JSON error envelope",
+        "Error envelope includes 'error' field with error type/code",
+        "Error envelope includes 'message' field with human-readable description",
+        "Error envelope includes 'role' and 'timestamp' for debugging context",
+        "Unit tests cover all major error scenarios",
+        "Error messages do not expose sensitive internal details (API keys, DB connection strings)"
+      ],
+      "notes": [
+        "Distinguish between transient errors (retry-able) and permanent errors",
+        "Consider error codes or error types for programmatic handling by callers",
+        "Balance between helpful debugging info and security/privacy"
+      ]
+    },
+    {
+      "id": "QUERY-007",
+      "title": "Add input validation and size limits",
+      "description": "Implement validation on input parameters and enforce size limits to prevent excessive token usage or malformed requests.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine validates that role parameter is non-empty string",
+        "Engine validates that input_payload is provided and non-null",
+        "Engine enforces maximum input size limit (e.g., 50KB or 10000 tokens)",
+        "Engine validates JSON parseability for non-PM roles",
+        "Oversized inputs return clear error message with size limit",
+        "Invalid JSON inputs return clear error message with parsing details",
+        "Unit tests cover validation edge cases"
+      ],
+      "notes": [
+        "Size limits should prevent accidental cost overruns but not block legitimate use",
+        "Consider token estimation vs byte size for input limits",
+        "PM role text input needs same size validation as JSON inputs"
+      ]
+    },
+    {
+      "id": "QUERY-008",
+      "title": "Create integration tests across all mentor roles",
+      "description": "Build comprehensive integration tests that exercise the query engine with each mentor role, validating end-to-end behavior from DB lookup through API call to JSON response.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Integration test calls engine with PM role and text Epic description",
+        "Integration test calls engine with Architect role and Epic JSON",
+        "Integration test calls engine with BA role and appropriate JSON input",
+        "Integration test calls engine with Developer role and appropriate JSON input",
+        "Integration test calls engine with QA role and appropriate JSON input",
+        "All integration tests verify response envelope structure",
+        "All integration tests verify token counts are present and non-zero",
+        "Integration tests can run against real API or high-fidelity mock",
+        "Tests validate that returned work_product is parseable JSON"
+      ],
+      "notes": [
+        "May need sample input data for each role",
+        "Real API tests will consume tokens and cost money",
+        "Consider CI/CD implications of tests that call external APIs",
+        "Validate that prompts in database are working as expected"
+      ]
+    },
+    {
+      "id": "QUERY-009",
+      "title": "Add basic logging and observability",
+      "description": "Implement logging for query execution, capturing key events and metrics without logging full prompts or responses initially.",
+      "type": "feature",
+      "acceptance_criteria": [
+        "Engine logs each query with role, timestamp, and request ID",
+        "Engine logs token usage (input and output) after each API call",
+        "Engine logs query latency after each API call",
+        "Engine logs errors with error type and message",
+        "Logs do not include full prompt text or response text (GDPR/privacy)",
+        "Logs do not include API keys or credentials",
+        "Log format is structured (JSON) for easy parsing and aggregation",
+        "Log level configuration allows verbose debugging when needed"
+      ],
+      "notes": [
+        "Consider whether to log full prompts/responses in debug mode only",
+        "Structured logging helps with future monitoring and alerting",
+        "Request IDs enable tracing across distributed components"
+      ]
+    },
+    {
+      "id": "QUERY-010",
+      "title": "Document query engine API and usage patterns",
+      "description": "Create developer documentation covering how to call the query engine, what inputs it expects, what outputs it returns, and common usage patterns.",
+      "type": "chore",
+      "acceptance_criteria": [
+        "Documentation explains query engine purpose and scope",
+        "Documentation shows example calls for each mentor role",
+        "Documentation describes response envelope structure and all fields",
+        "Documentation describes error envelope structure and common error scenarios",
+        "Documentation explains configuration options and defaults",
+        "Documentation includes code examples in primary implementation language",
+        "Documentation notes assumptions (trusted input, trusted DB content)",
+        "Documentation explains how to interpret token counts and latency metrics"
+      ],
+      "notes": [
+        "Consider adding architecture diagram showing engine in context",
+        "Examples should be copy-paste runnable where possible",
+        "Document differences between PM role (text) and other roles (JSON)"
+      ]
+    }
+  ]
+}

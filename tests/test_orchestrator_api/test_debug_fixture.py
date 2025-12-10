@@ -4,7 +4,7 @@ Run with: pytest tests/test_orchestrator_api/test_debug_fixture.py -v -s
 """
 import pytest
 from sqlalchemy import text
-from app.orchestrator_api.persistence.database import SessionLocal, engine
+from database import SessionLocal, engine
 from app.orchestrator_api.models.pipeline import Pipeline
 
 

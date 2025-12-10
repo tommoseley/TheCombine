@@ -58,7 +58,7 @@ async def list_repo_files(
     
     **Forbidden paths:**
     - `.env`, `.git`, `__pycache__`, `secrets`, etc. (case-insensitive)
-    - Binary files: `.pyc`, `.db`, `.sqlite`, images, etc.
+    - Binary files: `.pyc`, `.db`, images, etc.
     
     **Security:**
     - Strictly read-only (no write operations)

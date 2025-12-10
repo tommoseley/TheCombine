@@ -58,7 +58,6 @@ def main():
             print("Next steps:")
             print("  • API docs: http://localhost:8000/docs")
             print("  • Create pipeline: POST /pipelines")
-            print("  • Check database: sqlite3 data/workbench_ai.db")
             print()
             return 0
         else:
