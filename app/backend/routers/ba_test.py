@@ -1,17 +1,17 @@
 """
-Architect Mentor Test API - Release 1
+BA Mentor Test API - Release 1
 
-Test Architect Mentor integration with full transparency.
+Test BA Mentor integration with full transparency.
 
 Endpoints:
-- POST /api/architect/preview - Show what will be sent (no API call)
-- POST /api/architect/execute - Call LLM and return architecture
-- GET /api/architect/health - Health check
+- POST /api/ba/preview - Show what will be sent (no API call)
+- POST /api/ba/execute - Call LLM and return BA stories
+- GET /api/ba/health - Health check
 """
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ValidationError, Field
-from typing import List, Literal, Dict, Any, Optional
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
 import logging
@@ -24,6 +24,7 @@ from config import settings
 # Import models from common
 from app.common.models.epic_models import EpicSchema
 from app.common.models.architecture_models import ArchitectureDocument
+from app.common.models.ba_models import BAStorySet
 
 try:
     import anthropic
@@ -31,15 +32,38 @@ except ImportError:
     anthropic = None
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/architect", tags=["Architect Mentor Test"])
+router = APIRouter(prefix="/api/ba", tags=["BA Mentor Test"])
 
 
 # ============================================================================
-# RESPONSE MODELS (No request model needed - we accept EpicSchema directly)
+# REQUEST/RESPONSE MODELS
 # ============================================================================
 
-class ArchitectPreviewResponse(BaseModel):
-    """Preview of what will be sent to Architect Mentor"""
+class BATestRequest(BaseModel):
+    """Request to test BA Mentor - requires both PM Epic and Architecture"""
+    pm_epic: Dict[str, Any] = Field(..., description="Complete PM Epic from PM Mentor")
+    architecture: Dict[str, Any] = Field(..., description="Complete Architecture from Architect Mentor")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "pm_epic": {
+                    "project_name": "Auth System",
+                    "epic_id": "AUTH-001",
+                    "goals": ["Secure user authentication"],
+                    "stories": []
+                },
+                "architecture": {
+                    "project_name": "Auth System",
+                    "epic_id": "AUTH-001",
+                    "components": []
+                }
+            }
+        }
+
+
+class BAPreviewResponse(BaseModel):
+    """Preview of what will be sent to BA Mentor"""
     system_prompt: str
     user_message: str
     expected_schema: Dict[str, Any]
@@ -58,8 +82,8 @@ class ValidationResult(BaseModel):
     validated_data: Optional[Dict[str, Any]] = None
 
 
-class ArchitectExecuteResponse(BaseModel):
-    """Result of actually calling Architect Mentor"""
+class BAExecuteResponse(BaseModel):
+    """Result of actually calling BA Mentor"""
     system_prompt: str
     user_message: str
     expected_schema: Dict[str, Any]
@@ -113,9 +137,9 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-def validate_architecture(data: Dict[str, Any]) -> ValidationResult:
+def validate_ba_stories(data: Dict[str, Any]) -> ValidationResult:
     """
-    Validate parsed data against ArchitectureDocument.
+    Validate parsed data against BAStorySet.
     
     NOTE: Uses hardcoded Pydantic model for validation.
     Schema displayed to users comes from database (single source of truth).
@@ -123,10 +147,10 @@ def validate_architecture(data: Dict[str, Any]) -> ValidationResult:
     TODO (Release 3+): Generate Pydantic model dynamically from database schema.
     """
     try:
-        arch = ArchitectureDocument(**data)
+        ba_story_set = BAStorySet(**data)
         return ValidationResult(
             valid=True,
-            validated_data=arch.model_dump()
+            validated_data=ba_story_set.model_dump()
         )
     except ValidationError as ve:
         errors = json.loads(ve.json())
@@ -149,27 +173,36 @@ def validate_architecture(data: Dict[str, Any]) -> ValidationResult:
 # ENDPOINTS
 # ============================================================================
 
-@router.post("/preview", response_model=ArchitectPreviewResponse)
-async def preview_architect_request(
-    pm_epic: EpicSchema,  # Accept PM Epic directly
-    prompt_service: RolePromptService = Depends(get_role_prompt_service)
-) -> ArchitectPreviewResponse:
+@router.get("/health")
+async def health_check():
+    """Health check for BA Mentor API"""
+    return {
+        "status": "healthy",
+        "service": "BA Mentor Test API",
+        "version": "1.0",
+        "anthropic_available": anthropic is not None,
+        "api_key_configured": bool(settings.ANTHROPIC_API_KEY and settings.ANTHROPIC_API_KEY != "false")
+    }
+
+
+@router.post("/preview", response_model=BAPreviewResponse)
+async def preview_ba_request(
+    request: BATestRequest,
+    role_prompt_service: RolePromptService = Depends(get_role_prompt_service)
+):
     """
-    Preview what will be sent to Architect Mentor WITHOUT calling the LLM.
-    Shows the system prompt, user message with PM Epic, and expected schema.
+    Preview what will be sent to BA Mentor (no actual LLM call).
     
-    Accepts: Complete PM Epic JSON (same format as PM Mentor output)
+    Shows the exact prompt, schema, and configuration that would be used.
+    Useful for debugging and understanding BA Mentor behavior.
     """
     try:
-        # Convert Epic to dict
-        epic_dict = pm_epic.model_dump()
-        
-        # Build Architect prompt from database
-        system_prompt, prompt_id = prompt_service.build_prompt(
-            role_name="architect",
+        # Build BA Mentor prompt from database
+        system_prompt, prompt_id = role_prompt_service.build_prompt(
+            role_name="ba",
             pipeline_id="preview",
-            phase="arch_phase",
-            epic_context=None,  # Not used for Architect
+            phase="ba_phase",
+            epic_context=None,  # Not used for BA
             pipeline_state=None,
             artifacts=None
         )
@@ -184,58 +217,70 @@ async def preview_architect_request(
         
         schema = prompt_record.expected_schema or {}
         
-        # Build user message with PM Epic
-        user_message = f"""Transform the following PM Epic into a complete architectural specification:
+        # Construct user message with both PM Epic and Architecture
+        user_message = f"""Please analyze this PM Epic and Architecture to generate implementation-ready BA stories.
 
-{json.dumps(epic_dict, indent=2)}
+PM EPIC:
+{json.dumps(request.pm_epic, indent=2)}
 
-Output ONLY valid JSON matching the architecture schema. No markdown, no prose."""
+ARCHITECTURE:
+{json.dumps(request.architecture, indent=2)}
+
+Generate BA stories that:
+1. Map PM stories to specific architectural components
+2. Include detailed, testable acceptance criteria
+3. Reference both PM story IDs and architecture component IDs
+4. Are atomic and implementable by developers
+
+Output ONLY valid JSON matching the BA Story Set schema."""
         
         estimated_tokens = estimate_tokens(system_prompt + user_message)
         
-        return ArchitectPreviewResponse(
+        return BAPreviewResponse(
             system_prompt=system_prompt,
             user_message=user_message,
             expected_schema=schema,
             model="claude-sonnet-4-20250514",
-            max_tokens=8192,  # Larger for architecture
-            temperature=0.7,
+            max_tokens=16384,
+            temperature=1.0,
             estimated_input_tokens=estimated_tokens
         )
-        
+    
     except HTTPException:
         raise
-    except ValidationError as ve:
-        # PM Epic validation failed
-        raise HTTPException(422, f"Invalid PM Epic format: {ve}")
     except Exception as e:
-        logger.error(f"Error previewing Architect request: {e}", exc_info=True)
-        raise HTTPException(500, f"Failed to preview request: {str(e)}")
+        logger.error(f"Preview failed: {e}", exc_info=True)
+        raise HTTPException(500, f"Preview failed: {str(e)}")
 
 
-@router.post("/execute", response_model=ArchitectExecuteResponse)
-async def execute_architect_request(
-    pm_epic: EpicSchema,  # Accept PM Epic directly
-    prompt_service: RolePromptService = Depends(get_role_prompt_service),
+@router.post("/execute", response_model=BAExecuteResponse)
+async def execute_ba_request(
+    request: BATestRequest,
     llm_caller: LLMCaller = Depends(get_llm_caller),
-    llm_parser: LLMResponseParser = Depends(get_llm_parser)
-) -> ArchitectExecuteResponse:
+    llm_parser: LLMResponseParser = Depends(get_llm_parser),
+    role_prompt_service: RolePromptService = Depends(get_role_prompt_service)
+):
     """
-    Actually execute Architect Mentor request with Anthropic API.
-    This COSTS MONEY - each call uses API tokens (~$0.05-0.10 per call).
+    Execute BA Mentor request with full transparency.
     
-    Accepts: Complete PM Epic JSON (same format as PM Mentor output)
-    Returns: Complete Architecture Document
+    1. Fetches BA Mentor prompt from database
+    2. Constructs user message with PM Epic + Architecture
+    3. Calls Claude API
+    4. Parses JSON response
+    5. Validates against BAStorySet schema
+    6. Returns everything (prompt, response, validation)
     """
+    start_time = datetime.now()
+    
     try:
-        # Convert Epic to dict
-        epic_dict = pm_epic.model_dump()
-        
-        # Build Architect prompt
-        system_prompt, prompt_id = prompt_service.build_prompt(
-            role_name="architect",
-            pipeline_id="test_execution",
-            phase="arch_phase"
+        # Build BA Mentor prompt from database
+        system_prompt, prompt_id = role_prompt_service.build_prompt(
+            role_name="ba",
+            pipeline_id="execute",
+            phase="ba_phase",
+            epic_context=None,
+            pipeline_state=None,
+            artifacts=None
         )
         
         # Get schema from database
@@ -248,24 +293,35 @@ async def execute_architect_request(
         
         schema = prompt_record.expected_schema or {}
         
-        # Build user message
-        user_message = f"""Transform the following PM Epic into a complete architectural specification:
+        # Construct user message with both inputs
+        user_message = f"""Please analyze this PM Epic and Architecture to generate implementation-ready BA stories.
 
-{json.dumps(epic_dict, indent=2)}
+PM EPIC:
+{json.dumps(request.pm_epic, indent=2)}
 
-Output ONLY valid JSON matching the architecture schema. No markdown, no prose."""
+ARCHITECTURE:
+{json.dumps(request.architecture, indent=2)}
+
+Generate BA stories that:
+1. Map PM stories to specific architectural components
+2. Include detailed, testable acceptance criteria
+3. Reference both PM story IDs and architecture component IDs
+4. Are atomic and implementable by developers
+
+Output ONLY valid JSON matching the BA Story Set schema."""
         
         # Call LLM
-        logger.info(f"Calling Anthropic API for Architect request (Epic: {epic_dict.get('epic_id', 'unknown')})")
+        logger.info(f"Calling BA Mentor with {estimate_tokens(system_prompt + user_message)} estimated tokens")
         
         llm_result = llm_caller.call(
             system_prompt=system_prompt,
             user_message=user_message,
             model="claude-sonnet-4-20250514",
             max_tokens=16384,
-            temperature=0.7
+            temperature=1.0
         )
         
+        # Check if LLM call succeeded
         if not llm_result.success:
             raise HTTPException(500, f"LLM call failed: {llm_result.error}")
         
@@ -273,33 +329,26 @@ Output ONLY valid JSON matching the architecture schema. No markdown, no prose."
         input_tokens = llm_result.token_usage["input_tokens"]
         output_tokens = llm_result.token_usage["output_tokens"]
         total_tokens = input_tokens + output_tokens
-        execution_time_ms = llm_result.execution_time_ms
         
-        logger.info(f"Architect LLM call completed: {input_tokens} in / {output_tokens} out / {total_tokens} total")
-        
-        # Parse JSON
+        # Parse JSON using LLMResponseParser
         parse_result = llm_parser.parse(raw_response)
         parsed_json = parse_result.data if parse_result.success else None
         
         # Validate
         if parsed_json:
-            validation_result = validate_architecture(parsed_json)
-            if validation_result.valid:
-                logger.info(f"Architecture validation passed for Epic {epic_dict.get('epic_id', 'unknown')}")
-            else:
-                logger.warning(f"Architecture validation failed: {validation_result.error_message}")
+            validation_result = validate_ba_stories(parsed_json)
         else:
             validation_result = ValidationResult(
                 valid=False,
-                error_type="json_parse_error",
+                error_type="parse_error",
                 error_message="Failed to parse JSON from LLM response",
-                validation_errors=[
-                    {"error": msg} for msg in parse_result.error_messages
-                ]
+                validation_errors=None
             )
-            logger.error(f"Failed to parse Architect response: {parse_result.error_messages}")
         
-        return ArchitectExecuteResponse(
+        # Calculate execution time
+        execution_time_ms = llm_result.execution_time_ms
+        
+        return BAExecuteResponse(
             system_prompt=system_prompt,
             user_message=user_message,
             expected_schema=schema,
@@ -311,22 +360,12 @@ Output ONLY valid JSON matching the architecture schema. No markdown, no prose."
             output_tokens=output_tokens,
             total_tokens=total_tokens,
             execution_time_ms=execution_time_ms,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now().isoformat(),
             prompt_id=prompt_id
         )
-        
+    
     except HTTPException:
         raise
-    except ValidationError as ve:
-        # PM Epic validation failed
-        logger.error(f"Invalid PM Epic format: {ve}")
-        raise HTTPException(422, f"Invalid PM Epic format: {ve}")
     except Exception as e:
-        logger.error(f"Error executing Architect request: {e}", exc_info=True)
-        raise HTTPException(500, f"Failed to execute request: {str(e)}")
-
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "ok", "service": "architect_test"}
+        logger.error(f"BA Mentor execution failed: {e}", exc_info=True)
+        raise HTTPException(500, f"Execution failed: {str(e)}")

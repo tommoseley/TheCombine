@@ -1,23 +1,26 @@
-"""Artifact service: validation and storage."""
+"""
+Artifact service for The Combine.
 
-from typing import Dict, Any
+Handles artifact validation, storage, and retrieval using the new
+RSP-1 canonical path architecture with PostgreSQL JSONB storage.
+"""
 
-from pydantic import ValidationError
-from workforce.state import PipelineState
-from workforce.schemas.artifacts import Epic, ArchitecturalNotes, BASpecification, ProposedChangeSet, QAResult
-from app.orchestrator_api.persistence.repositories import ArtifactRepository, PipelineRepository
-from app.orchestrator_api.schemas.responses import ArtifactSubmittedResponse
-from workforce.utils.logging import log_info, log_error
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+import logging
+import uuid
 
+from pydantic import ValidationError, BaseModel
 
-# QA-Blocker #2: Artifact schema version tracking
-# These schemas MUST match workforce/schemas/artifacts.py definitions
-# Schema version: PIPELINE-100 v1.1 (December 2025)
-# If schemas evolve, update this version and validate compatibility
+from app.orchestrator_api.persistence.repositories import ArtifactRepository
+from app.orchestrator_api.models import Artifact, Project
+
+logger = logging.getLogger(__name__)
 
 
 class ArtifactValidationError(Exception):
     """Artifact validation failed."""
+    
     def __init__(self, message: str, details: Dict[str, Any]):
         self.message = message
         self.details = details
@@ -28,133 +31,251 @@ class ArtifactService:
     """
     Service for artifact validation and storage.
     
-    QA-Blocker #2: Schemas validated against workforce/schemas/artifacts.py
+    Uses the new data-driven architecture:
+    - RSP-1 canonical paths (HMP/E001/F003/S007)
+    - PostgreSQL with JSONB storage
+    - No hard-coded phases or workflows
     """
     
-    # Map artifact types to Pydantic models
-    # QA-Blocker #2: These MUST match canonical schema definitions
-    ARTIFACT_SCHEMAS = {
-        "epic": Epic,
-        "arch_notes": ArchitecturalNotes,
-        "ba_spec": BASpecification,
-        "proposed_change_set": ProposedChangeSet,
-        "qa_result": QAResult,
-    }
+    def __init__(self, db_session):
+        """
+        Initialize artifact service.
+        
+        Args:
+            db_session: SQLAlchemy database session
+        """
+        self.db = db_session
+        self.artifact_repo = ArtifactRepository(db_session)
     
-    # Map phases to expected artifact types
-    PHASE_ARTIFACTS = {
-        "pm_phase": "epic",
-        "arch_phase": "arch_notes",
-        "ba_phase": "ba_spec",
-        "dev_phase": "proposed_change_set",
-        "qa_phase": "qa_result",
-    }
-    
-    def __init__(self):
-        self.artifact_repo = ArtifactRepository()
-        self.pipeline_repo = PipelineRepository()
-    
-    def submit_artifact(
+    def create_artifact(
         self,
-        pipeline_id: str,
-        phase: str,
-        mentor_role: str,
+        artifact_path: str,
         artifact_type: str,
-        payload: Dict[str, Any]
-    ) -> ArtifactSubmittedResponse:
+        title: str,
+        content: Dict[str, Any],
+        breadcrumbs: Optional[Dict[str, Any]] = None,
+        status: str = "draft",
+        created_by: Optional[str] = None
+    ) -> Artifact:
         """
-        Submit and validate artifact for a pipeline phase.
+        Create a new artifact.
         
-        Validates:
-        1. Pipeline exists
-        2. Phase is valid PipelineState enum value
-        3. Phase matches pipeline's current phase
-        4. Artifact type matches expected type for phase
-        5. Payload conforms to artifact schema (QA-Blocker #2)
-        6. Artifact epicId matches pipeline epic_id (if applicable)
+        Args:
+            artifact_path: RSP-1 path (e.g., "HMP/E001/F003/S007")
+            artifact_type: Type of artifact (epic, feature, story, code, etc.)
+            title: Human-readable title
+            content: JSONB content
+            breadcrumbs: Optional context chain
+            status: Artifact status (draft, active, completed)
+            created_by: Optional creator identifier
+            
+        Returns:
+            Created Artifact
+            
+        Raises:
+            ArtifactValidationError: If validation fails
         """
-        # Check pipeline exists
-        pipeline = self.pipeline_repo.get_by_id(pipeline_id)
-        if not pipeline:
-            raise ValueError(f"Pipeline not found: {pipeline_id}")
+        # Parse the path to extract components
+        path_parts = artifact_path.split('/')
         
-        # Validate phase is valid enum value
+        if len(path_parts) < 1:
+            raise ArtifactValidationError(
+                "Invalid artifact path",
+                {"artifact_path": artifact_path}
+            )
+        
+        project_id = path_parts[0]
+        epic_id = path_parts[1] if len(path_parts) > 1 else None
+        feature_id = path_parts[2] if len(path_parts) > 2 else None
+        story_id = path_parts[3] if len(path_parts) > 3 else None
+        
+        # Determine parent path
+        parent_path = None
+        if len(path_parts) > 1:
+            parent_path = '/'.join(path_parts[:-1])
+        
+        # Create artifact
         try:
-            phase_enum = PipelineState(phase)
-        except ValueError:
-            raise ArtifactValidationError(
-                f"Invalid phase: {phase}",
-                {"valid_phases": [p.value for p in PipelineState]}
+            artifact = Artifact(
+                id=uuid.uuid4(),
+                artifact_path=artifact_path,
+                artifact_type=artifact_type,
+                project_id=project_id,
+                epic_id=epic_id,
+                feature_id=feature_id,
+                story_id=story_id,
+                title=title,
+                content=content,
+                breadcrumbs=breadcrumbs or {},
+                status=status,
+                version=1,
+                created_by=created_by,
+                parent_path=parent_path
             )
+            
+            self.db.add(artifact)
+            self.db.commit()
+            self.db.refresh(artifact)
+            
+            logger.info(f"Created artifact: {artifact_path} ({artifact_type})")
+            return artifact
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to create artifact {artifact_path}: {e}")
+            raise ArtifactValidationError(
+                f"Failed to create artifact: {str(e)}",
+                {"artifact_path": artifact_path, "error": str(e)}
+            )
+    
+    def get_artifact(self, artifact_path: str) -> Optional[Artifact]:
+        """
+        Get artifact by path.
         
-        # Validate phase matches current phase
-        if phase_enum.value != pipeline.current_phase:
-            raise ArtifactValidationError(
-                f"Cannot submit {phase} artifact when pipeline is in {pipeline.current_phase}",
-                {
-                    "artifact_phase": phase,
-                    "current_phase": pipeline.current_phase
-                }
-            )
+        Args:
+            artifact_path: RSP-1 path (e.g., "HMP/E001/F003/S007")
+            
+        Returns:
+            Artifact if found, None otherwise
+        """
+        return self.artifact_repo.get_by_path(artifact_path)
+    
+    def update_artifact(
+        self,
+        artifact_path: str,
+        content: Optional[Dict[str, Any]] = None,
+        title: Optional[str] = None,
+        status: Optional[str] = None,
+        breadcrumbs: Optional[Dict[str, Any]] = None
+    ) -> Optional[Artifact]:
+        """
+        Update an existing artifact.
         
-        # Validate artifact type matches phase
-        expected_type = self.PHASE_ARTIFACTS.get(phase)
-        if artifact_type != expected_type:
-            raise ArtifactValidationError(
-                f"Phase {phase} expects artifact type '{expected_type}', got '{artifact_type}'",
-                {
-                    "expected_type": expected_type,
-                    "actual_type": artifact_type
-                }
-            )
-        
-        # Validate payload against schema (QA-Blocker #2)
-        schema = self.ARTIFACT_SCHEMAS.get(artifact_type)
-        if not schema:
-            raise ArtifactValidationError(
-                f"Unknown artifact type: {artifact_type}",
-                {"artifact_type": artifact_type}
-            )
+        Args:
+            artifact_path: RSP-1 path
+            content: New content (optional)
+            title: New title (optional)
+            status: New status (optional)
+            breadcrumbs: New breadcrumbs (optional)
+            
+        Returns:
+            Updated Artifact if found, None otherwise
+        """
+        artifact = self.get_artifact(artifact_path)
+        if not artifact:
+            return None
         
         try:
-            # Validate with Pydantic against canonical schema
-            validated = schema(**payload)
-            log_info(f"Artifact {artifact_type} validated against schema version PIPELINE-100 v1.1")
-        except ValidationError as e:
-            log_error(f"Artifact validation failed: {e}")
+            if content is not None:
+                artifact.content = content
+            if title is not None:
+                artifact.title = title
+            if status is not None:
+                artifact.status = status
+            if breadcrumbs is not None:
+                artifact.breadcrumbs = breadcrumbs
+            
+            artifact.version += 1
+            
+            self.db.commit()
+            self.db.refresh(artifact)
+            
+            logger.info(f"Updated artifact: {artifact_path} (v{artifact.version})")
+            return artifact
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to update artifact {artifact_path}: {e}")
             raise ArtifactValidationError(
-                f"Artifact does not match {artifact_type} schema",
-                {"validation_errors": e.errors()}  # ← Line 127: Make sure it says e.errors()
+                f"Failed to update artifact: {str(e)}",
+                {"artifact_path": artifact_path, "error": str(e)}
             )
+    
+    def list_artifacts(
+        self,
+        project_id: Optional[str] = None,
+        artifact_type: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Artifact]:
+        """
+        List artifacts with optional filters.
         
-        # Validate epicId matches pipeline epic_id (if artifact has epicId)
-        if "epicId" in payload:
-            if payload["epicId"] != pipeline.epic_id:
-                raise ArtifactValidationError(
-                    f"Artifact epicId '{payload['epicId']}' does not match pipeline epic_id '{pipeline.epic_id}'",
-                    {
-                        "artifact_epic_id": payload["epicId"],
-                        "pipeline_epic_id": pipeline.epic_id
-                    }
-                )
+        Args:
+            project_id: Filter by project
+            artifact_type: Filter by type
+            status: Filter by status
+            limit: Maximum number to return
+            
+        Returns:
+            List of Artifacts
+        """
+        query = self.db.query(Artifact)
         
-        # Store artifact
-        artifact = self.artifact_repo.create(
-            pipeline_id=pipeline_id,
-            artifact_type=artifact_type,
-            phase=phase,
-            payload=payload,
-            mentor_role=mentor_role,
-            validation_status="valid"
-        )
+        if project_id:
+            query = query.filter(Artifact.project_id == project_id)
+        if artifact_type:
+            query = query.filter(Artifact.artifact_type == artifact_type)
+        if status:
+            query = query.filter(Artifact.status == status)
         
-        log_info(f"Artifact {artifact.artifact_id} stored for pipeline {pipeline_id}")
+        query = query.order_by(Artifact.created_at.desc())
+        query = query.limit(limit)
         
-        return ArtifactSubmittedResponse(
-            artifact_id=artifact.artifact_id,
-            pipeline_id=artifact.pipeline_id,
-            artifact_type=artifact.artifact_type,
-            phase=artifact.phase,
-            validation_status=artifact.validation_status,
-            stored_at=artifact.created_at
-        )
+        return query.all()
+    
+    def get_children(self, artifact_path: str) -> List[Artifact]:
+        """
+        Get all child artifacts of a given artifact.
+        
+        Args:
+            artifact_path: Parent artifact path
+            
+        Returns:
+            List of child Artifacts
+        """
+        return self.db.query(Artifact).filter(
+            Artifact.parent_path == artifact_path
+        ).order_by(Artifact.created_at).all()
+    
+    def delete_artifact(self, artifact_path: str) -> bool:
+        """
+        Delete an artifact.
+        
+        Args:
+            artifact_path: RSP-1 path
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        artifact = self.get_artifact(artifact_path)
+        if not artifact:
+            return False
+        
+        try:
+            self.db.delete(artifact)
+            self.db.commit()
+            logger.info(f"Deleted artifact: {artifact_path}")
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to delete artifact {artifact_path}: {e}")
+            raise ArtifactValidationError(
+                f"Failed to delete artifact: {str(e)}",
+                {"artifact_path": artifact_path, "error": str(e)}
+            )
+    
+    def validate_path(self, artifact_path: str) -> bool:
+        """
+        Validate RSP-1 path format.
+        
+        Args:
+            artifact_path: Path to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        import re
+        # Pattern: PROJECT/EPIC/FEATURE/STORY (e.g., HMP/E001/F003/S007)
+        pattern = r'^[A-Z]{2,8}(/[A-Z0-9-]+)*$'
+        return bool(re.match(pattern, artifact_path))

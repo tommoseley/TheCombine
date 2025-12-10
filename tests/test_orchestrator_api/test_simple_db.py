@@ -1,7 +1,7 @@
 """Simple test to verify database state without repositories."""
 import pytest
 from sqlalchemy import text
-from app.orchestrator_api.persistence.database import SessionLocal, engine
+from database import SessionLocal, engine
 
 
 def test_simple_database_write_and_read(test_db):

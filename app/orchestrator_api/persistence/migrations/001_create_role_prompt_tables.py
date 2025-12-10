@@ -11,7 +11,7 @@ Creates:
 Run: python -m app.orchestrator_api.persistence.migrations.001_create_role_prompt_tables
 """
 from sqlalchemy import create_engine, inspect
-from app.orchestrator_api.persistence.database import Base
+from database import Base
 from app.orchestrator_api.models.role_prompt import RolePrompt
 from app.orchestrator_api.models.phase_configuration import PhaseConfiguration
 from app.orchestrator_api.models.pipeline_prompt_usage import PipelinePromptUsage

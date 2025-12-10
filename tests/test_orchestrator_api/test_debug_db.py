@@ -1,7 +1,7 @@
 """Debug test to verify database state."""
 import pytest
 from sqlalchemy import text
-from app.orchestrator_api.persistence.database import SessionLocal, engine
+from database import SessionLocal, engine
 
 
 def test_debug_database_state(test_db, sample_pipeline):
