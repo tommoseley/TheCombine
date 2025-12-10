@@ -29,6 +29,13 @@ from .architecture_models import (
     ArchitectureStory,
 )
 
+from .ba_models import (
+    BAStory,
+    BAStorySet,
+    BAStorySetDict,
+    BAStoryDict,
+)
+
 __all__ = [
     # Epic models
     "EpicSchema",
@@ -51,4 +58,9 @@ __all__ = [
     "QualityAttribute",
     "RiskItem",
     "ArchitectureStory",
+    # BA models
+    "BAStory",
+    "BAStorySet",
+    "BAStorySetDict",
+    "BAStoryDict",
 ]

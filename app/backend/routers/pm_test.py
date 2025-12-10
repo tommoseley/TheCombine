@@ -144,7 +144,7 @@ def validate_epic(data: Dict[str, Any]) -> ValidationResult:
     
     TODO (Release 3+): Generate Pydantic model dynamically from database schema
     to eliminate this duplication. For now, manually keep EpicSchema in sync
-    with role_prompts.working_schema in the database.
+    with role_prompts.expected_schema in the database.
     
     Returns:
         ValidationResult with details
@@ -204,7 +204,7 @@ async def preview_pm_request(
             artifacts=None
         )
         
-        # Get the prompt record to access working_schema
+        # Get the prompt record to access expected_schema
         from app.orchestrator_api.persistence.repositories.role_prompt_repository import RolePromptRepository
         prompt_repo = RolePromptRepository()
         prompt_record = prompt_repo.get_by_id(prompt_id)
@@ -213,7 +213,7 @@ async def preview_pm_request(
             raise HTTPException(404, f"Prompt not found: {prompt_id}")
         
         # Get schema from database (single source of truth)
-        schema = prompt_record.working_schema or {}
+        schema = prompt_record.expected_schema or {}
         
         # Build user message
         user_message = f"""Create an Epic definition for the following user request:
@@ -274,7 +274,7 @@ async def execute_pm_request(
             artifacts=None
         )
         
-        # Get the prompt record to access working_schema
+        # Get the prompt record to access expected_schema
         from app.orchestrator_api.persistence.repositories.role_prompt_repository import RolePromptRepository
         prompt_repo = RolePromptRepository()
         prompt_record = prompt_repo.get_by_id(prompt_id)
@@ -283,7 +283,7 @@ async def execute_pm_request(
             raise HTTPException(404, f"Prompt not found: {prompt_id}")
         
         # Get schema from database (single source of truth)
-        schema = prompt_record.working_schema or {}
+        schema = prompt_record.expected_schema or {}
         
         # Build user message (same as preview)
         user_message = f"""Create an Epic definition for the following user request:

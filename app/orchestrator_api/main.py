@@ -17,11 +17,11 @@ from app.orchestrator_api.middleware.error_handling import add_exception_handler
 from app.orchestrator_api.middleware.logging import RequestLoggingMiddleware
 from app.orchestrator_api.middleware.request_id import RequestIDMiddleware
 from app.orchestrator_api.middleware.body_size import BodySizeLimitMiddleware
-from app.orchestrator_api.routers import pipelines, artifacts, admin, health, metrics
+from app.orchestrator_api.routers import artifacts, health
 from app.orchestrator_api.routers import anthropic_pm_test  # Ensure this router is imported    
-from app.orchestrator_api.persistence.database import init_database, close_database
+from database import init_database, close_database
 from app.orchestrator_api.dependencies import set_orchestrator, set_startup_time
-from app.backend.routers import pm_test, architect_test
+from app.backend.routers import pm_test, architect_test, ba_test
 from config import settings
 
 @asynccontextmanager
@@ -94,13 +94,11 @@ add_exception_handlers(app)
 
 # Include routers (reorganized for clarity)
 app.include_router(health.router, tags=["health"])
-app.include_router(pipelines.router, prefix="/pipelines", tags=["pipelines"])
 app.include_router(artifacts.router, prefix="/pipelines", tags=["artifacts"])
-app.include_router(admin.router, tags=["admin"])
-app.include_router(metrics.router, tags=["metrics"])  # ← ADDED: Metrics dashboard
 app.include_router(anthropic_pm_test.router, tags=["anthropic"])
 app.include_router(pm_test.router)
 app.include_router(architect_test.router)  # Add this
+app.include_router(ba_test.router)  # And this
 app.mount("/web", StaticFiles(directory="app/frontend"), name="web")
 
 if __name__ == "__main__":

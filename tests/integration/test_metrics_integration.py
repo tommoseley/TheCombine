@@ -17,7 +17,7 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 
 from app.orchestrator_api.main import app
-from app.orchestrator_api.persistence.database import get_db_session
+from database import get_db_session
 from app.orchestrator_api.models import (
     Pipeline,
     PipelinePromptUsage,

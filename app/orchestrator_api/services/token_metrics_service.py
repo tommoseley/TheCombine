@@ -13,7 +13,7 @@ from app.orchestrator_api.persistence.repositories.pipeline_prompt_usage_reposit
 from app.orchestrator_api.persistence.repositories.pipeline_repository import (
     PipelineRepository,
 )
-from app.orchestrator_api.persistence.database import get_db_session
+from database import get_db_session
 from app.orchestrator_api.services.token_metrics_types import (
     MetricsSummary,
     PipelineMetrics,

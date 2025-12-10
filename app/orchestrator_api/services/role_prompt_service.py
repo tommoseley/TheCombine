@@ -21,8 +21,8 @@ class RolePromptService:
     def build_prompt(
         self,
         role_name: str,
-        pipeline_id: str,
-        phase: str,
+        pipeline_id: str = None,
+        phase: str = None,
         epic_context: Optional[str] = None,
         pipeline_state: Optional[Dict[str, Any]] = None,
         artifacts: Optional[Dict[str, Any]] = None,
@@ -30,15 +30,12 @@ class RolePromptService:
         """
         Build complete role prompt with all sections.
 
-        NOTE: Does NOT record usage - that happens in 175B when PhaseExecutorService
-        actually uses the prompt. 175A is infrastructure-only.
-
         Args:
-            role_name: Role identifier (pm, architect, ba, dev, qa, commit)
-            pipeline_id: Pipeline identifier
-            phase: Current phase
+            role_name: Role identifier (pm, architect, ba, developer, qa)
+            pipeline_id: Optional pipeline/artifact identifier (for legacy compatibility)
+            phase: Optional phase (for legacy compatibility)
             epic_context: Epic description (optional)
-            pipeline_state: Pipeline state as dict (optional)
+            pipeline_state: State data (optional)
             artifacts: Previous artifacts as dict (optional)
 
         Returns:
@@ -53,9 +50,9 @@ class RolePromptService:
             raise ValueError(f"No active prompt found for role: {role_name}")
 
         # Warn if prompt is stale (>1 year old)
-        # Make created_at timezone-aware if it's naive (SQLite stores naive datetimes)
         created_at = prompt.created_at
         if created_at.tzinfo is None:
+            # PostgreSQL TIMESTAMPTZ is always timezone-aware, but handle legacy SQLite
             created_at = created_at.replace(tzinfo=timezone.utc)
         
         age_days = (datetime.now(timezone.utc) - created_at).days
@@ -68,49 +65,36 @@ class RolePromptService:
         # Build sections
         sections = []
 
-        # Starting prompt (optional)
-        if prompt.starting_prompt:
-            sections.append(prompt.starting_prompt)
-            sections.append("")  # Blank line
-
-        # Role Bootstrap (required)
-        sections.append("# Role Bootstrap")
-        sections.append("")
-        sections.append(prompt.bootstrapper)
-        sections.append("")
-
-        # Instructions (required)
-        sections.append("# Instructions")
-        sections.append("")
+        # Instructions (required) - this is the main prompt
         sections.append(prompt.instructions)
         sections.append("")
 
-        # Working Schema (optional)
-        if prompt.working_schema:
-            sections.append("# Working Schema")
+        # Expected Schema (optional)
+        if prompt.expected_schema:
+            sections.append("# Expected Output Schema")
             sections.append("")
             sections.append("```json")
-            sections.append(json.dumps(prompt.working_schema, indent=2))
+            sections.append(json.dumps(prompt.expected_schema, indent=2))
             sections.append("```")
             sections.append("")
 
-        # # Epic Context (optional)
-        # if epic_context:
-        #     sections.append("# Epic Context")
-        #     sections.append("")
-        #     sections.append(epic_context)
-        #     sections.append("")
+        # Epic Context (optional)
+        if epic_context:
+            sections.append("# Epic Context")
+            sections.append("")
+            sections.append(epic_context)
+            sections.append("")
 
-        # Pipeline State (optional)
+        # Pipeline/Artifact State (optional)
         if pipeline_state:
-            sections.append("# Pipeline State")
+            sections.append("# Context State")
             sections.append("")
             sections.append("```json")
             sections.append(json.dumps(pipeline_state, indent=2))
             sections.append("```")
             sections.append("")
 
-        # Previous Artifacts (optional, skip if empty dict)
+        # Previous Artifacts (optional)
         if artifacts:
             sections.append("# Previous Artifacts")
             sections.append("")

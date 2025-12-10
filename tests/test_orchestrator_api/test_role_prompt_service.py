@@ -118,7 +118,7 @@ class TestRolePromptService:
         )
         
         # Manually set created_at to >365 days ago (directly in database)
-        from app.orchestrator_api.persistence.database import SessionLocal
+        from database import SessionLocal
         session = SessionLocal()
         try:
             db_prompt = session.query(type(prompt)).filter_by(id=prompt.id).first()
