@@ -4,7 +4,7 @@ from datetime import datetime,timezone
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.orchestrator_api.dependencies import get_orchestrator, get_startup_time  
-from app.orchestrator_api.persistence.database import check_database_connection
+from database import check_database_connection
 from workforce.utils.logging import log_warning
 
 class HealthResponse(BaseModel):

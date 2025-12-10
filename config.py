@@ -7,9 +7,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 from pydantic import Field
+from dotenv import load_dotenv
 # Detect if running in pytest
 _IN_PYTEST = "pytest" in sys.modules
-
+load_dotenv()
 # Project root directory
 if _IN_PYTEST:
     # In tests, use WORKBENCH_DATA_ROOT from environment (set by conftest.py)
@@ -59,9 +60,22 @@ GUIDES_DIR = DOCUMENT_DIR / "guides"
 TESTS_ROOT = PROJECT_ROOT / "tests"
 
 # --- DATABASE CONFIGURATION (NEW) ---
-DB_PATH = DATA_ROOT / "workbench_ai.db"
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Load .env file
+load_dotenv()
 
+# Get DATABASE_URL from environment (PostgreSQL)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL not found in environment!\n"
+        "Add to your .env file:\n"
+        "DATABASE_URL=postgresql://combine_user:password@localhost:5432/combine"
+    )
+
+# Optional settings
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 # Ensure test directories exist when in pytest
 if _IN_PYTEST and not data_root_env:
     EPICS_ROOT.mkdir(parents=True, exist_ok=True)
@@ -80,22 +94,8 @@ ALLOW_RESET_IN_CRITICAL_PHASES = os.getenv("ALLOW_RESET_IN_CRITICAL_PHASES", "fa
 # Request Size Limits (QA-Blocker #1)
 MAX_REQUEST_BODY_SIZE = int(os.getenv("MAX_REQUEST_BODY_SIZE", 10 * 1024 * 1024))  # 10MB default
 
-# PIPELINE-175B: Data-driven orchestration feature flag
-DATA_DRIVEN_ORCHESTRATION: bool = Field(
-    default=False,
-    description="Enable data-driven pipeline orchestration (PIPELINE-175B)"
-)
-
 # Anthropic API configuration (for data-driven mode)
-ANTHROPIC_API_KEY: Optional[str] = Field(
-    default=None,
-    description="Anthropic API key for LLM calls"
-)
-# Anthropic API configuration (for data-driven mode)
-ANTHROPIC_API_KEY: Optional[str] = Field(
-    default=None,
-    description="Anthropic API key for LLM calls"
-)
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "false")
 
 # NEW: Anthropic API Pricing (USD per million tokens)
 ANTHROPIC_INPUT_PRICE_PER_MTK = float(os.getenv("ANTHROPIC_INPUT_PRICE_PER_MTK", "3.0"))
@@ -116,9 +116,7 @@ class Settings:
         self.DOCUMENT_DIR = DOCUMENT_DIR
         self.GUIDES_DIR = GUIDES_DIR
         # --- DATABASE (NEW) ---
-        self.DB_PATH = DB_PATH
         self.DATABASE_URL = DATABASE_URL
-        self.DATA_DRIVEN_ORCHESTRATION = DATA_DRIVEN_ORCHESTRATION
         self.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY
     # NEW: Pricing configuration
         self.ANTHROPIC_INPUT_PRICE_PER_MTK = ANTHROPIC_INPUT_PRICE_PER_MTK

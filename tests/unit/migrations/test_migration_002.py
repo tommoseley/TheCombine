@@ -2,7 +2,7 @@
 import pytest
 from sqlalchemy import create_engine, inspect, text
 from app.orchestrator_api.persistence.migrations.migration_002_add_token_tracking import upgrade, downgrade
-from app.orchestrator_api.persistence.database import Base
+from database import Base
 
 class TestMigration002:
     def test_upgrade_adds_columns(self, test_db_url):

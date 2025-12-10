@@ -22,7 +22,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text
 
 from app.orchestrator_api.main import app
-from app.orchestrator_api.persistence.database import init_database, Base, engine, close_database
+from database import init_database, Base, engine, close_database
 from workforce.orchestrator import Orchestrator
 from workforce.canon_version_manager import CanonVersionManager
 from app.orchestrator_api.dependencies import set_orchestrator, set_startup_time

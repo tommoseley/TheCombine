@@ -33,10 +33,8 @@ def load_env():
 def print_config():
     """Print server configuration."""
     db_url = os.getenv("WORKBENCH_DATABASE_URL", "sqlite:///./data/workbench_ai.db")
-    data_driven = os.getenv("WORKBENCH_DATA_DRIVEN_ORCHESTRATION", "true")
     
     print(f"   Database: {db_url}")
-    print(f"   Feature flag: DATA_DRIVEN_ORCHESTRATION={data_driven}")
     print(f"   API docs: http://localhost:8000/docs")
     print(f"   Health: http://localhost:8000/health")
     print()

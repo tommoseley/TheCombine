@@ -1,5 +1,5 @@
 """Routers package."""
 
-from app.orchestrator_api.routers import health, pipelines, artifacts, admin
+from app.orchestrator_api.routers import health, artifacts
 
-__all__ = ["health", "pipelines", "artifacts", "admin"]
+__all__ = ["health", "artifacts"]

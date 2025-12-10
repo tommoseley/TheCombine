@@ -36,7 +36,7 @@ def create_tables(database_url: str) -> bool:
     print("Creating tables...")
     try:
         # Import after sys.path is set
-        from app.orchestrator_api.persistence.database import Base
+        from database import Base
         
         engine = create_engine(database_url)
         Base.metadata.create_all(engine)
