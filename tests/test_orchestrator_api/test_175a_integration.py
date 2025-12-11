@@ -6,9 +6,9 @@ Tests end-to-end workflows with all components.
 import pytest
 from scripts.seed_role_prompts import seed_role_prompts
 from scripts.seed_phase_configuration import seed_phase_configuration
-from app.orchestrator_api.services.role_prompt_service import RolePromptService
-from app.orchestrator_api.persistence.repositories.role_prompt_repository import RolePromptRepository
-from app.orchestrator_api.persistence.repositories.phase_configuration_repository import PhaseConfigurationRepository
+from app.combine.services.role_prompt_service import RolePromptService
+from app.combine.persistence.repositories.role_prompt_repository import RolePromptRepository
+from app.combine.persistence.repositories.phase_configuration_repository import PhaseConfigurationRepository
 
 
 class TestPipeline175AIntegration:

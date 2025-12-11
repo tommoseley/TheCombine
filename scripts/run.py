@@ -32,7 +32,7 @@ def load_env():
 
 def print_config():
     """Print server configuration."""
-    db_url = os.getenv("WORKBENCH_DATABASE_URL", "sqlite:///./data/workbench_ai.db")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./data/workbench_ai.db")
     
     print(f"   Database: {db_url}")
     print(f"   API docs: http://localhost:8000/docs")
@@ -53,7 +53,7 @@ def main():
     import uvicorn
     
     uvicorn.run(
-        "app.orchestrator_api.main:app",
+        "app.api.main:app",
         host="127.0.0.1",
         port=8000,
         reload=True

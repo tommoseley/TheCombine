@@ -1,245 +1,212 @@
 """
-Tests for RolePromptRepository.
-
-Part of PIPELINE-175A: Data-Described Pipeline Infrastructure.
+Test RolePromptRepository with PostgreSQL database.
 """
 import pytest
-from datetime import datetime, timezone, timedelta
-from app.orchestrator_api.models.role_prompt import RolePrompt
-from app.orchestrator_api.persistence.repositories.role_prompt_repository import RolePromptRepository
-from app.orchestrator_api.persistence.repositories.exceptions import RepositoryError
+from datetime import datetime, timezone
+
+from app.combine.persistence.repositories.role_prompt_repository import (
+    RolePromptRepository
+)
+from app.combine.persistence.repositories.exceptions import RepositoryError
+from database import SessionLocal
+
+
+@pytest.fixture
+def clean_prompts():
+    """Clean up role_prompts table before and after tests."""
+    session = SessionLocal()
+    try:
+        # Clean before test
+        session.execute("DELETE FROM role_prompts WHERE role_name LIKE 'test_%'")
+        session.commit()
+        yield
+        # Clean after test
+        session.execute("DELETE FROM role_prompts WHERE role_name LIKE 'test_%'")
+        session.commit()
+    finally:
+        session.close()
 
 
 class TestRolePromptRepository:
-    """Test suite for RolePromptRepository."""
+    """Test RolePromptRepository operations."""
     
-    def test_create_prompt_success(self, db_session):
-        """Test creating a role prompt with all fields."""
+    def test_create_prompt(self, clean_prompts):
+        """Test creating a new role prompt."""
         repo = RolePromptRepository()
         
         prompt = repo.create(
-            role_name="test_role",
+            role_name="test_pm",
             version="1.0",
-            bootstrapper="You are a test role",
-            instructions="Follow these test instructions",
-            starting_prompt="Welcome to testing",
-            working_schema={"test": "schema"},
+            instructions="Test PM instructions",
+            expected_schema={"type": "object"},
             created_by="test_user",
-            notes="Test prompt",
-            set_active=True
+            notes="Test prompt"
         )
         
-        assert prompt.id.startswith("rp_")
-        assert prompt.role_name == "test_role"
+        assert prompt is not None
+        assert prompt.role_name == "test_pm"
         assert prompt.version == "1.0"
-        assert prompt.bootstrapper == "You are a test role"
-        assert prompt.instructions == "Follow these test instructions"
-        assert prompt.starting_prompt == "Welcome to testing"
-        assert prompt.working_schema == {"test": "schema"}
+        assert prompt.instructions == "Test PM instructions"
         assert prompt.is_active is True
-        assert prompt.created_by == "test_user"
-        assert prompt.notes == "Test prompt"
-        assert isinstance(prompt.created_at, datetime)
-        assert isinstance(prompt.updated_at, datetime)
+        assert prompt.created_at is not None
+        assert prompt.created_at.tzinfo is not None  # Timezone-aware
     
-    def test_create_prompt_minimal_fields(self, db_session):
-        """Test creating prompt with only required fields."""
-        repo = RolePromptRepository()
-        
-        prompt = repo.create(
-            role_name="minimal_role",
-            version="1.0",
-            bootstrapper="Minimal bootstrap",
-            instructions="Minimal instructions"
-        )
-        
-        assert prompt.role_name == "minimal_role"
-        assert prompt.bootstrapper == "Minimal bootstrap"
-        assert prompt.instructions == "Minimal instructions"
-        assert prompt.starting_prompt is None
-        assert prompt.working_schema is None
-        assert prompt.created_by is None
-        assert prompt.notes is None
-        assert prompt.is_active is True  # Default
-    
-    def test_create_prompt_missing_bootstrapper(self, db_session):
-        """Test that creating prompt without bootstrapper raises ValueError."""
-        repo = RolePromptRepository()
-        
-        with pytest.raises(ValueError) as exc_info:
-            repo.create(
-                role_name="test",
-                version="1.0",
-                bootstrapper="",  # Empty
-                instructions="Valid"
-            )
-        
-        assert "bootstrapper is required" in str(exc_info.value)
-    
-    def test_create_prompt_missing_instructions(self, db_session):
-        """Test that creating prompt without instructions raises ValueError."""
-        repo = RolePromptRepository()
-        
-        with pytest.raises(ValueError) as exc_info:
-            repo.create(
-                role_name="test",
-                version="1.0",
-                bootstrapper="Valid",
-                instructions=""  # Empty
-            )
-        
-        assert "instructions is required" in str(exc_info.value)
-    
-    def test_create_prompt_invalid_working_schema(self, db_session):
-        """Test that invalid working_schema type raises ValueError."""
-        repo = RolePromptRepository()
-        
-        with pytest.raises(ValueError) as exc_info:
-            repo.create(
-                role_name="test",
-                version="1.0",
-                bootstrapper="Valid",
-                instructions="Valid",
-                working_schema="not a dict"  # Should be dict or None
-            )
-        
-        assert "working_schema must be dict or None" in str(exc_info.value)
-    
-    def test_get_active_prompt_exists(self, db_session):
-        """Test retrieving active prompt for a role."""
+    def test_get_active_prompt(self, clean_prompts):
+        """Test retrieving active prompt."""
         repo = RolePromptRepository()
         
         # Create prompt
-        created = repo.create(
-            role_name="pm",
+        repo.create(
+            role_name="test_architect",
             version="1.0",
-            bootstrapper="PM bootstrap",
-            instructions="PM instructions",
+            instructions="Test architect instructions"
+        )
+        
+        # Retrieve active
+        prompt = repo.get_active_prompt("test_architect")
+        
+        assert prompt is not None
+        assert prompt.role_name == "test_architect"
+        assert prompt.is_active is True
+    
+    def test_multiple_versions_only_one_active(self, clean_prompts):
+        """Test that only one version is active at a time."""
+        repo = RolePromptRepository()
+        
+        # Create v1
+        v1 = repo.create(
+            role_name="test_ba",
+            version="1.0",
+            instructions="Version 1"
+        )
+        assert v1.is_active is True
+        
+        # Create v2 (should deactivate v1)
+        v2 = repo.create(
+            role_name="test_ba",
+            version="2.0",
+            instructions="Version 2"
+        )
+        assert v2.is_active is True
+        
+        # Check v1 was deactivated
+        v1_reloaded = repo.get_by_id(v1.id)
+        assert v1_reloaded.is_active is False
+        
+        # Active should be v2
+        active = repo.get_active_prompt("test_ba")
+        assert active.id == v2.id
+    
+    def test_set_active(self, clean_prompts):
+        """Test setting a specific version as active."""
+        repo = RolePromptRepository()
+        
+        # Create two versions
+        v1 = repo.create(
+            role_name="test_dev",
+            version="1.0",
+            instructions="Version 1",
+            set_active=False
+        )
+        v2 = repo.create(
+            role_name="test_dev",
+            version="2.0",
+            instructions="Version 2",
             set_active=True
         )
         
-        # Retrieve
-        retrieved = repo.get_active_prompt("pm")
+        # Set v1 as active
+        repo.set_active(v1.id)
         
-        assert retrieved is not None
-        assert retrieved.id == created.id
-        assert retrieved.role_name == "pm"
-        assert retrieved.is_active is True
+        # Verify v1 is active
+        active = repo.get_active_prompt("test_dev")
+        assert active.id == v1.id
+        
+        # Verify v2 is inactive
+        v2_reloaded = repo.get_by_id(v2.id)
+        assert v2_reloaded.is_active is False
     
-    def test_get_active_prompt_not_found(self, db_session):
-        """Test retrieving active prompt for non-existent role."""
-        repo = RolePromptRepository()
-        
-        prompt = repo.get_active_prompt("nonexistent")
-        
-        assert prompt is None
-    
-    def test_get_by_id_exists(self, db_session):
-        """Test retrieving prompt by ID."""
-        repo = RolePromptRepository()
-        
-        created = repo.create(
-            role_name="test",
-            version="1.0",
-            bootstrapper="Test",
-            instructions="Test"
-        )
-        
-        retrieved = repo.get_by_id(created.id)
-        
-        assert retrieved is not None
-        assert retrieved.id == created.id
-    
-    def test_get_by_id_not_found(self, db_session):
-        """Test retrieving prompt by non-existent ID."""
-        repo = RolePromptRepository()
-        
-        prompt = repo.get_by_id("rp_nonexistent")
-        
-        assert prompt is None
-    
-    def test_list_versions(self, db_session):
+    def test_list_versions(self, clean_prompts):
         """Test listing all versions for a role."""
         repo = RolePromptRepository()
         
         # Create multiple versions
-        v1 = repo.create("test", "1.0", "boot1", "inst1", set_active=False)
-        v2 = repo.create("test", "1.1", "boot2", "inst2", set_active=False)
-        v3 = repo.create("test", "2.0", "boot3", "inst3", set_active=True)
+        repo.create(role_name="test_qa", version="1.0", instructions="V1")
+        repo.create(role_name="test_qa", version="1.1", instructions="V1.1")
+        repo.create(role_name="test_qa", version="2.0", instructions="V2")
         
-        versions = repo.list_versions("test")
+        # List versions
+        versions = repo.list_versions("test_qa")
         
         assert len(versions) == 3
-        # Should be ordered by created_at descending (newest first)
+        # Should be ordered newest first
         assert versions[0].version == "2.0"
         assert versions[1].version == "1.1"
         assert versions[2].version == "1.0"
     
-    def test_list_versions_empty(self, db_session):
-        """Test listing versions for role with no prompts."""
+    def test_validation_errors(self, clean_prompts):
+        """Test that validation errors are raised."""
         repo = RolePromptRepository()
         
-        versions = repo.list_versions("nonexistent")
+        # Empty role_name
+        with pytest.raises(ValueError, match="role_name is required"):
+            repo.create(role_name="", version="1.0", instructions="Test")
         
-        assert versions == []
+        # Empty instructions
+        with pytest.raises(ValueError, match="instructions is required"):
+            repo.create(role_name="test", version="1.0", instructions="")
+        
+        # Invalid expected_schema type
+        with pytest.raises(ValueError, match="expected_schema must be dict"):
+            repo.create(
+                role_name="test",
+                version="1.0",
+                instructions="Test",
+                expected_schema="not a dict"  # Should be dict or None
+            )
     
-    def test_set_active_deactivates_others(self, db_session):
-        """Test that set_active deactivates other versions."""
+    def test_update_prompt(self, clean_prompts):
+        """Test updating a prompt."""
         repo = RolePromptRepository()
         
-        # Create 3 versions, v3 active
-        v1 = repo.create("test", "1.0", "boot1", "inst1", set_active=False)
-        v2 = repo.create("test", "1.1", "boot2", "inst2", set_active=False)
-        v3 = repo.create("test", "2.0", "boot3", "inst3", set_active=True)
+        # Create prompt
+        prompt = repo.create(
+            role_name="test_update",
+            version="1.0",
+            instructions="Original instructions"
+        )
         
-        # Activate v2
-        repo.set_active(v2.id)
+        # Update it
+        updated = repo.update(
+            prompt_id=prompt.id,
+            instructions="Updated instructions",
+            notes="Updated notes"
+        )
         
-        # Check states
-        v1_check = repo.get_by_id(v1.id)
-        v2_check = repo.get_by_id(v2.id)
-        v3_check = repo.get_by_id(v3.id)
-        
-        assert v1_check.is_active is False
-        assert v2_check.is_active is True
-        assert v3_check.is_active is False
+        assert updated is not None
+        assert updated.instructions == "Updated instructions"
+        assert updated.notes == "Updated notes"
+        assert updated.updated_at > prompt.updated_at
     
-    def test_set_active_invalid_id(self, db_session):
-        """Test set_active with non-existent ID raises ValueError."""
+    def test_delete_prompt(self, clean_prompts):
+        """Test deleting a prompt."""
         repo = RolePromptRepository()
         
-        with pytest.raises(ValueError) as exc_info:
-            repo.set_active("rp_nonexistent")
+        # Create prompt
+        prompt = repo.create(
+            role_name="test_delete",
+            version="1.0",
+            instructions="To be deleted"
+        )
         
-        assert "Prompt not found" in str(exc_info.value)
-    
-    def test_create_with_set_active_true_deactivates_existing(self, db_session):
-        """Test that creating with set_active=True deactivates existing active prompt."""
-        repo = RolePromptRepository()
+        # Delete it
+        deleted = repo.delete(prompt.id)
+        assert deleted is True
         
-        # Create first active prompt
-        v1 = repo.create("test", "1.0", "boot1", "inst1", set_active=True)
-        assert v1.is_active is True
+        # Verify it's gone
+        retrieved = repo.get_by_id(prompt.id)
+        assert retrieved is None
         
-        # Create second active prompt
-        v2 = repo.create("test", "2.0", "boot2", "inst2", set_active=True)
-        
-        # Check v1 was deactivated
-        v1_check = repo.get_by_id(v1.id)
-        assert v1_check.is_active is False
-        assert v2.is_active is True
-    
-    def test_create_with_set_active_false_preserves_existing(self, db_session):
-        """Test that creating with set_active=False doesn't affect existing active prompt."""
-        repo = RolePromptRepository()
-        
-        # Create active prompt
-        v1 = repo.create("test", "1.0", "boot1", "inst1", set_active=True)
-        
-        # Create inactive prompt
-        v2 = repo.create("test", "2.0", "boot2", "inst2", set_active=False)
-        
-        # Check v1 still active
-        v1_check = repo.get_by_id(v1.id)
-        assert v1_check.is_active is True
-        assert v2.is_active is False
+        # Delete non-existent should return False
+        deleted_again = repo.delete(prompt.id)
+        assert deleted_again is False

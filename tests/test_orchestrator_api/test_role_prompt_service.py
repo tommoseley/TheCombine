@@ -6,8 +6,8 @@ Part of PIPELINE-175A: Data-Described Pipeline Infrastructure.
 import pytest
 import json
 from datetime import datetime, timezone, timedelta
-from app.orchestrator_api.services.role_prompt_service import RolePromptService
-from app.orchestrator_api.persistence.repositories.role_prompt_repository import RolePromptRepository
+from app.combine.services.role_prompt_service import RolePromptService
+from app.combine.persistence.repositories.role_prompt_repository import RolePromptRepository
 
 
 class TestRolePromptService:

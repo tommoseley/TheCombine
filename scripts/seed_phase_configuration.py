@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.orchestrator_api.persistence.repositories.phase_configuration_repository import PhaseConfigurationRepository
+from app.combine.persistence.repositories.phase_configuration_repository import PhaseConfigurationRepository
 
 
 def seed_phase_configuration():
