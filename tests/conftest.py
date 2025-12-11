@@ -219,7 +219,7 @@ def db_session(test_db):
 @pytest.fixture
 def sample_pipeline(db_session):
     """Create sample pipeline for testing."""
-    from app.orchestrator_api.models import Pipeline
+    from app.combine.models import Pipeline
     from datetime import datetime, timezone
     
     pipeline = Pipeline(
@@ -240,7 +240,7 @@ def sample_pipeline(db_session):
 @pytest.fixture
 def sample_pipeline_2(db_session):
     """Create second sample pipeline for testing."""
-    from app.orchestrator_api.models import Pipeline
+    from app.combine.models import Pipeline
     from datetime import datetime, timezone
     
     pipeline = Pipeline(

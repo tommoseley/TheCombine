@@ -1,12 +1,17 @@
-"""Database configuration and session management."""
+"""
+Database configuration and session management.
+
+PostgreSQL database with SQLAlchemy ORM.
+"""
 
 import os
+import logging
 from contextlib import contextmanager
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
-from workforce.utils.logging import log_info, log_error
 
+logger = logging.getLogger(__name__)
 
 # Database URL from config
 DATABASE_URL = settings.DATABASE_URL
@@ -41,23 +46,23 @@ def init_database():
     Uses SQLAlchemy's Base.metadata.create_all() which is idempotent
     (only creates tables that don't exist).
     """
-    log_info(f"Initializing database: {DATABASE_URL[:30]}...")
+    logger.info(f"Initializing database: {DATABASE_URL[:30]}...")
     try:
         # Import models to ensure they're registered with Base
-        from app.orchestrator_api import models
+        from app.combine import models
         
         # Create all tables (idempotent - only creates if missing)
         Base.metadata.create_all(bind=engine)
-        log_info("✅ Database initialized successfully")
+        logger.info("✅ Database initialized successfully")
     except Exception as e:
-        log_error(f"❌ Database initialization failed: {e}")
+        logger.error(f"❌ Database initialization failed: {e}")
         raise
 
 
 def close_database():
     """Close database connections and dispose of connection pool."""
     engine.dispose()
-    log_info("✅ Database connections closed")
+    logger.info("✅ Database connections closed")
 
 
 def check_database_connection() -> bool:
@@ -72,7 +77,7 @@ def check_database_connection() -> bool:
             result = conn.execute(text("SELECT 1"))
             return result.scalar() == 1
     except Exception as e:
-        log_error(f"Database connection check failed: {e}")
+        logger.error(f"Database connection check failed: {e}")
         return False
 
 
@@ -103,7 +108,7 @@ def get_db():
     FastAPI dependency for database sessions.
     
     Usage in FastAPI:
-        from app.orchestrator_api.persistence.database import get_db
+        from database import get_db
         
         @router.get("/users")
         def get_users(db: Session = Depends(get_db)):
@@ -140,15 +145,15 @@ def test_postgres_extensions():
             
             for ext in required_extensions:
                 if ext not in installed:
-                    log_error(f"Missing PostgreSQL extension: {ext}")
-                    log_error(f"Run: CREATE EXTENSION IF NOT EXISTS \"{ext}\";")
+                    logger.error(f"Missing PostgreSQL extension: {ext}")
+                    logger.error(f"Run: CREATE EXTENSION IF NOT EXISTS \"{ext}\";")
                     return False
             
-            log_info(f"✅ All required PostgreSQL extensions installed")
+            logger.info(f"✅ All required PostgreSQL extensions installed")
             return True
             
     except Exception as e:
-        log_error(f"Extension check failed: {e}")
+        logger.error(f"Extension check failed: {e}")
         return False
 
 
@@ -163,18 +168,17 @@ def verify_database_ready():
     Raises:
         RuntimeError if database not ready
     """
-    log_info("Verifying database readiness...")
+    logger.info("Verifying database readiness...")
     
     # Check connection
     if not check_database_connection():
         raise RuntimeError("Cannot connect to database")
     
-    log_info("✅ Database connection successful")
+    logger.info("✅ Database connection successful")
     
     # Check extensions
     if not test_postgres_extensions():
         raise RuntimeError("Missing required PostgreSQL extensions")
     
-    log_info("✅ PostgreSQL extensions verified")
-    log_info("✅ Database ready for use")
-    
+    logger.info("✅ PostgreSQL extensions verified")
+    logger.info("✅ Database ready for use")

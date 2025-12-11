@@ -52,7 +52,7 @@ def run_migrations(database_url: str) -> bool:
     print("Running migrations...")
     try:
         # Import after sys.path is set
-        from app.orchestrator_api.persistence.migrations import migration_002_add_token_tracking
+        from app.combine.persistence.migrations import migration_002_add_token_tracking
         
         migration_002_add_token_tracking.upgrade(database_url)
         print("Migrations complete")
