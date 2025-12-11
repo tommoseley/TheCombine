@@ -1,7 +1,7 @@
 """Tests for health router."""
 from fastapi.testclient import TestClient
 
-from app.orchestrator_api.main import app
+from app.api.main import app
 
 client = TestClient(app)
 
