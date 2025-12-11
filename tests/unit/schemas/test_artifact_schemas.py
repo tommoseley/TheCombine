@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.orchestrator_api.schemas.artifacts import (
+from app.combine.schemas.artifacts import (
     EpicSpec,
     Story,
     ArchitectureSpec,
