@@ -1261,12 +1261,12 @@
             // Title
             html += `<h1>📋 ${escapeHtml(baStorySet.project_name || 'BA Stories')}</h1>`;
             html += `<p><strong>Epic ID:</strong> <code>${escapeHtml(baStorySet.epic_id || 'N/A')}</code></p>`;
-            html += `<p><strong>Total Stories:</strong> ${baStorySet.ba_stories ? baStorySet.ba_stories.length : 0}</p>`;
+            html += `<p><strong>Total Stories:</strong> ${baStorySet.stories ? baStorySet.stories.length : 0}</p>`;
 
             // BA Stories
-            if (baStorySet.ba_stories && baStorySet.ba_stories.length > 0) {
-                html += `<h2>📖 BA Stories (${baStorySet.ba_stories.length})</h2>`;
-                baStorySet.ba_stories.forEach((story, index) => {
+            if (baStorySet.stories && baStorySet.stories.length > 0) {
+                html += `<h2>📖 BA Stories (${baStorySet.stories.length})</h2>`;
+                baStorySet.stories.forEach((story, index) => {
                     const badge = story.mvp_phase === 'mvp' ? 
                         '<span class="badge badge-mvp">MVP</span>' : 
                         '<span class="badge badge-later">Later</span>';
