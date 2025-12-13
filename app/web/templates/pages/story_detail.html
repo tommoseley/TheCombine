@@ -1,0 +1,133 @@
+<div class="p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-600 mb-2">
+            <span>{{ story.project_name }}</span>
+            <span class="mx-2">/</span>
+            <span>{{ story.epic_name }}</span>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">{{ story.title }}</span>
+        </nav>
+        
+        <div class="flex items-center justify-between mb-2">
+            <h1 class="text-4xl font-bold text-gray-900">{{ story.title }}</h1>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if story.status == 'complete' %}bg-green-100 text-green-800
+                {% elif story.status == 'in_progress' %}bg-blue-100 text-blue-800
+                {% elif story.status == 'blocked' %}bg-red-100 text-red-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ story.status | replace('_', ' ') | title }}
+            </span>
+        </div>
+        {% if story.description %}
+        <p class="text-gray-600 text-lg">{{ story.description }}</p>
+        {% endif %}
+    </div>
+    
+    <!-- Deliverables -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-3 bg-indigo-100 rounded-lg">
+                    <i data-lucide="code" class="w-6 h-6 text-indigo-600"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">
+                        {% if story.has_code %}Available{% else %}Not Available{% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">Code Deliverables</div>
+                </div>
+            </div>
+            {% if story.has_code %}
+            <a 
+                href="/ui/stories/{{ story.story_uuid }}/code"
+                hx-get="/ui/stories/{{ story.story_uuid }}/code"
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="flex items-center justify-center gap-2 w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                <span>View Code</span>
+            </a>
+            {% endif %}
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i data-lucide="flask-conical" class="w-6 h-6 text-green-600"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">
+                        {% if story.has_tests %}Available{% else %}Not Available{% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">Test Results</div>
+                </div>
+            </div>
+            {% if story.has_tests %}
+            <button class="flex items-center justify-center gap-2 w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+                <span>View Tests</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Acceptance Criteria -->
+    {% if story.acceptance_criteria %}
+    <div class="bg-white rounded-lg shadow mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Acceptance Criteria</h2>
+        </div>
+        <div class="p-6">
+            <ul class="space-y-3">
+                {% for criterion in story.acceptance_criteria %}
+                <li class="flex items-start gap-3">
+                    <i data-lucide="check-circle" class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5"></i>
+                    <span class="text-gray-700">{{ criterion }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Story Details -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Artifact Details</h2>
+        </div>
+        
+        <div class="p-6">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Created</dt>
+                    <dd class="text-sm text-gray-900">{{ story.created_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Last Updated</dt>
+                    <dd class="text-sm text-gray-900">{{ story.updated_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Artifact UUID</dt>
+                    <dd class="text-sm text-gray-900 font-mono">{{ story.story_uuid }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Workflow</dt>
+                    <dd class="text-sm">
+                        <a 
+                            href="/ui/epics/{{ story.epic_uuid }}"
+                            hx-get="/ui/epics/{{ story.epic_uuid }}"
+                            hx-target="#main-content"
+                            hx-push-url="true"
+                            class="text-blue-600 hover:text-blue-800">
+                            {{ story.epic_name }}
+                        </a>
+                    </dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>

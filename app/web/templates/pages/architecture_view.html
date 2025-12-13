@@ -1,0 +1,314 @@
+<!-- Architecture View Content (No Layout) -->
+<div class="p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-600 mb-2">
+            <span>{{ architecture.project_name }}</span>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">Architecture</span>
+        </nav>
+        
+        <div class="flex items-center gap-3">
+            <i data-lucide="building-2" class="w-10 h-10 text-purple-600"></i>
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900">Architecture</h1>
+                <p class="text-gray-600">System design and technical decisions</p>
+            </div>
+        </div>
+    </div>
+    
+    {% if architecture.architecture_uuid %}
+    {% set arch_data = architecture.detailed_view %}
+    
+    <!-- Architecture Summary -->
+    {% if arch_data.architecture_summary %}
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">{{ arch_data.architecture_summary.title or 'Architecture Overview' }}</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            {% if arch_data.architecture_summary.refined_description %}
+            <p class="text-gray-700">{{ arch_data.architecture_summary.refined_description }}</p>
+            {% endif %}
+            
+            {% if arch_data.architecture_summary.architectural_style %}
+            <div class="bg-blue-50 rounded-lg p-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Architectural Style</h3>
+                <p class="text-sm text-gray-700">{{ arch_data.architecture_summary.architectural_style }}</p>
+            </div>
+            {% endif %}
+            
+            {% if arch_data.architecture_summary.key_decisions %}
+            <div>
+                <h3 class="font-semibold text-gray-900 mb-2">Key Decisions</h3>
+                <ul class="space-y-2">
+                    {% for decision in arch_data.architecture_summary.key_decisions %}
+                    <li class="flex items-start gap-2">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0"></i>
+                        <span class="text-sm text-gray-700">{{ decision }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="space-y-6">
+        <!-- System Components -->
+        {% if arch_data.components %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="box" class="w-5 h-5 text-green-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">System Components</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ arch_data.components|length }} components</span>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {% for component in arch_data.components %}
+                    <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="font-semibold text-gray-900">{{ component.name }}</h3>
+                            {% if component.layer %}
+                            <span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">{{ component.layer }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        {% if component.purpose %}
+                        <p class="text-sm text-gray-600 mb-3">{{ component.purpose }}</p>
+                        {% endif %}
+                        
+                        {% if component.responsibilities %}
+                        <div class="text-xs text-gray-500">
+                            <span class="font-medium">Responsibilities:</span>
+                            <ul class="list-disc list-inside mt-1 space-y-1">
+                                {% for resp in component.responsibilities[:3] %}
+                                <li>{{ resp }}</li>
+                                {% endfor %}
+                                {% if component.responsibilities|length > 3 %}
+                                <li class="text-gray-400">+ {{ component.responsibilities|length - 3 }} more...</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        {% if component.technology_choices %}
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <div class="flex flex-wrap gap-1">
+                                {% for tech in component.technology_choices[:3] %}
+                                <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700">{{ tech }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Data Models -->
+        {% if arch_data.data_model %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="database" class="w-5 h-5 text-purple-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Data Models</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ arch_data.data_model|length }} models</span>
+            </div>
+            <div class="p-6 space-y-4">
+                {% for model in arch_data.data_model %}
+                <div class="border-l-4 border-purple-500 pl-4 bg-gray-50 rounded-r p-4">
+                    <h3 class="font-semibold text-gray-900 mb-2">{{ model.name }}</h3>
+                    {% if model.description %}
+                    <p class="text-sm text-gray-600 mb-3">{{ model.description }}</p>
+                    {% endif %}
+                    
+                    {% if model.fields %}
+                    <div class="mt-2 space-y-1">
+                        <span class="text-xs font-medium text-gray-500">Fields:</span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {% for field in model.fields %}
+                            <div class="text-xs font-mono bg-white rounded px-2 py-1 border border-gray-200">
+                                <span class="text-blue-600">{{ field.name }}</span>
+                                <span class="text-gray-400">: {{ field.type }}</span>
+                                {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- API Interfaces -->
+        {% if arch_data.interfaces %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="plug" class="w-5 h-5 text-orange-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">API Interfaces</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ arch_data.interfaces|length }} interfaces</span>
+            </div>
+            <div class="p-6 space-y-6">
+                {% for interface in arch_data.interfaces %}
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">{{ interface.name }}</h3>
+                            <p class="text-sm text-gray-600 mt-1">{{ interface.description }}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded bg-orange-50 text-orange-700">{{ interface.protocol }}</span>
+                    </div>
+                    
+                    {% if interface.endpoints %}
+                    <div class="space-y-2 mt-4">
+                        {% for endpoint in interface.endpoints %}
+                        <div class="bg-gray-50 rounded p-3 font-mono text-sm">
+                            <div class="flex items-center gap-3 mb-1">
+                                <span class="px-2 py-0.5 rounded text-xs font-semibold
+                                    {% if endpoint.method == 'GET' %}bg-blue-100 text-blue-800
+                                    {% elif endpoint.method == 'POST' %}bg-green-100 text-green-800
+                                    {% elif endpoint.method == 'PUT' or endpoint.method == 'PATCH' %}bg-yellow-100 text-yellow-800
+                                    {% elif endpoint.method == 'DELETE' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ endpoint.method }}
+                                </span>
+                                <span class="text-gray-900">{{ endpoint.path }}</span>
+                            </div>
+                            {% if endpoint.description %}
+                            <p class="text-xs text-gray-600 font-sans mt-2">{{ endpoint.description }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Workflows -->
+        {% if arch_data.workflows %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="workflow" class="w-5 h-5 text-indigo-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Key Workflows</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ arch_data.workflows|length }} workflows</span>
+            </div>
+            <div class="p-6 space-y-4">
+                {% for workflow in arch_data.workflows %}
+                <details class="border border-gray-200 rounded-lg">
+                    <summary class="p-4 cursor-pointer hover:bg-gray-50 font-semibold text-gray-900">
+                        {{ workflow.name }}
+                    </summary>
+                    <div class="p-4 pt-0">
+                        {% if workflow.description %}
+                        <p class="text-sm text-gray-600 mb-4">{{ workflow.description }}</p>
+                        {% endif %}
+                        
+                        {% if workflow.steps %}
+                        <div class="space-y-3">
+                            {% for step in workflow.steps %}
+                            <div class="flex gap-3">
+                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-semibold">
+                                    {{ step.order }}
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-gray-900">{{ step.action }}</div>
+                                    <div class="text-xs text-gray-500">Actor: {{ step.actor }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Quality Attributes -->
+        {% if arch_data.quality_attributes %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="target" class="w-5 h-5 text-green-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Quality Attributes</h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for qa in arch_data.quality_attributes %}
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-semibold text-gray-900 mb-2">{{ qa.name }}</h3>
+                        <p class="text-sm text-gray-600 mb-2">{{ qa.rationale }}</p>
+                        {% if qa.target %}
+                        <div class="text-xs bg-green-50 text-green-700 rounded px-2 py-1 inline-block">
+                            Target: {{ qa.target }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Risks -->
+        {% if arch_data.risks %}
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Risks & Mitigation</h2>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for risk in arch_data.risks %}
+                <div class="border-l-4 rounded-r p-3
+                    {% if risk.likelihood == 'high' %}border-red-500 bg-red-50
+                    {% elif risk.likelihood == 'medium' %}border-yellow-500 bg-yellow-50
+                    {% else %}border-green-500 bg-green-50{% endif %}">
+                    <div class="flex items-start justify-between mb-2">
+                        <h3 class="font-semibold text-gray-900">{{ risk.description }}</h3>
+                        <span class="text-xs px-2 py-1 rounded
+                            {% if risk.likelihood == 'high' %}bg-red-200 text-red-800
+                            {% elif risk.likelihood == 'medium' %}bg-yellow-200 text-yellow-800
+                            {% else %}bg-green-200 text-green-800{% endif %}">
+                            {{ risk.likelihood }}
+                        </span>
+                    </div>
+                    {% if risk.mitigation %}
+                    <p class="text-sm text-gray-700"><strong>Mitigation:</strong> {{ risk.mitigation }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Raw JSON (collapsible) -->
+        <details class="bg-white rounded-lg shadow">
+            <summary class="px-6 py-4 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                <i data-lucide="code" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Raw Data (JSON)</h2>
+            </summary>
+            <div class="p-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <pre class="text-sm text-gray-700 overflow-x-auto"><code>{{ arch_data | tojson(indent=2) }}</code></pre>
+                </div>
+            </div>
+        </details>
+    </div>
+    
+    {% else %}
+    <!-- No Architecture Defined -->
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <i data-lucide="building-2" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No Architecture Defined</h2>
+        <p class="text-gray-600 mb-6">{{ architecture.summary }}</p>
+    </div>
+    {% endif %}
+</div>

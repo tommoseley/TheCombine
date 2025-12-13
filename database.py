@@ -1,14 +1,15 @@
 """
-Database configuration and session management.
+Database configuration and session management (ASYNC VERSION).
 
-PostgreSQL database with SQLAlchemy ORM.
+PostgreSQL database with SQLAlchemy ORM + asyncpg.
 """
 
 import os
 import logging
-from contextlib import contextmanager
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,12 @@ if not DATABASE_URL.startswith("postgresql"):
         f"Set DATABASE_URL=postgresql://user:pass@localhost/combine in your .env"
     )
 
-# Create PostgreSQL engine with connection pooling
-engine = create_engine(
-    DATABASE_URL,
+# Convert to async driver (asyncpg)
+ASYNC_DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
+
+# Create async PostgreSQL engine with connection pooling
+engine = create_async_engine(
+    ASYNC_DATABASE_URL,
     pool_size=10,           # Number of connections to maintain
     max_overflow=20,        # Additional connections when pool is full
     pool_pre_ping=True,     # Verify connections before using
@@ -32,14 +36,18 @@ engine = create_engine(
     echo=False              # Set to True for SQL query logging
 )
 
-# Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Async session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 # Base class for ORM models
 Base = declarative_base()
 
 
-def init_database():
+async def init_database():
     """
     Initialize database: create tables if they don't exist.
     
@@ -52,20 +60,22 @@ def init_database():
         from app.combine import models
         
         # Create all tables (idempotent - only creates if missing)
-        Base.metadata.create_all(bind=engine)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        
         logger.info("✅ Database initialized successfully")
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
         raise
 
 
-def close_database():
+async def close_database():
     """Close database connections and dispose of connection pool."""
-    engine.dispose()
+    await engine.dispose()
     logger.info("✅ Database connections closed")
 
 
-def check_database_connection() -> bool:
+async def check_database_connection() -> bool:
     """
     Check if database is accessible.
     
@@ -73,59 +83,60 @@ def check_database_connection() -> bool:
         True if connection successful, False otherwise
     """
     try:
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1"))
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT 1"))
             return result.scalar() == 1
     except Exception as e:
         logger.error(f"Database connection check failed: {e}")
         return False
 
 
-@contextmanager
-def get_db_session():
+@asynccontextmanager
+async def get_db_session():
     """
-    Get database session (context manager).
+    Get database session (async context manager).
     
     Usage:
-        with get_db_session() as session:
-            user = session.query(User).first()
+        async with get_db_session() as session:
+            result = await session.execute(select(User))
+            user = result.scalar_one()
     
     Automatically commits on success, rolls back on error.
     """
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
-def get_db():
+async def get_db():
     """
-    FastAPI dependency for database sessions.
+    FastAPI dependency for database sessions (ASYNC).
     
     Usage in FastAPI:
         from database import get_db
+        from sqlalchemy.ext.asyncio import AsyncSession
         
         @router.get("/users")
-        def get_users(db: Session = Depends(get_db)):
-            return db.query(User).all()
+        async def get_users(db: AsyncSession = Depends(get_db)):
+            result = await db.execute(select(User))
+            return result.scalars().all()
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 
 # ============================================================================
 # PostgreSQL-Specific Utilities
 # ============================================================================
 
-def test_postgres_extensions():
+async def test_postgres_extensions():
     """
     Verify required PostgreSQL extensions are installed.
     
@@ -135,8 +146,8 @@ def test_postgres_extensions():
     required_extensions = ["uuid-ossp", "btree_gin"]
     
     try:
-        with engine.connect() as conn:
-            result = conn.execute(text("""
+        async with engine.connect() as conn:
+            result = await conn.execute(text("""
                 SELECT extname FROM pg_extension 
                 WHERE extname IN ('uuid-ossp', 'btree_gin')
             """))
@@ -157,7 +168,7 @@ def test_postgres_extensions():
         return False
 
 
-def verify_database_ready():
+async def verify_database_ready():
     """
     Comprehensive database readiness check.
     
@@ -171,13 +182,13 @@ def verify_database_ready():
     logger.info("Verifying database readiness...")
     
     # Check connection
-    if not check_database_connection():
+    if not await check_database_connection():
         raise RuntimeError("Cannot connect to database")
     
     logger.info("✅ Database connection successful")
     
     # Check extensions
-    if not test_postgres_extensions():
+    if not await test_postgres_extensions():
         raise RuntimeError("Missing required PostgreSQL extensions")
     
     logger.info("✅ PostgreSQL extensions verified")

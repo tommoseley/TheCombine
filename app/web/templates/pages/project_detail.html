@@ -1,0 +1,92 @@
+<!-- Project Detail Content (No Layout) -->
+<div class="p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <h1 class="text-4xl font-bold text-gray-900">{{ project.name }}</h1>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if project.status == 'active' %}bg-green-100 text-green-800
+                {% elif project.status == 'archived' %}bg-gray-100 text-gray-800
+                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ project.status | capitalize }}
+            </span>
+        </div>
+        <p class="text-gray-600 text-lg">{{ project.description }}</p>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i data-lucide="list-todo" class="w-6 h-6 text-blue-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ project.epic_count }}</div>
+                    <div class="text-sm text-gray-600">Workflows</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i data-lucide="file-text" class="w-6 h-6 text-green-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ project.story_count }}</div>
+                    <div class="text-sm text-gray-600">Artifacts</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-purple-100 rounded-lg">
+                    <i data-lucide="building-2" class="w-6 h-6 text-purple-600"></i>
+                </div>
+                <div>
+                    <div class="text-lg font-bold text-gray-900">
+                        {% if project.has_architecture %}Defined{% else %}Not Defined{% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">Architecture</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Project Details -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Project Details</h2>
+        </div>
+        
+        <div class="p-6">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Created</dt>
+                    <dd class="text-sm text-gray-900">{{ project.created_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Last Updated</dt>
+                    <dd class="text-sm text-gray-900">{{ project.updated_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Project UUID</dt>
+                    <dd class="text-sm text-gray-900 font-mono">{{ project.project_uuid }}</dd>
+                </div>
+            </dl>
+            
+            {% if project.parameters %}
+            <div class="mt-6">
+                <h3 class="text-sm font-medium text-gray-500 mb-3">Configuration</h3>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <pre class="text-sm text-gray-700"><code>{{ project.parameters | tojson(indent=2) }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

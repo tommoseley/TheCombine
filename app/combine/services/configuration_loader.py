@@ -11,7 +11,7 @@ Epic: PIPELINE-175B
 from dataclasses import dataclass
 from typing import Optional
 import logging
-from app.combine.persistence.repositories.phase_configuration_repository import (
+from app.combine.repositories.phase_configuration_repository import (
     PhaseConfigurationRepository
 )
 

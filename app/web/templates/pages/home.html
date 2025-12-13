@@ -1,0 +1,47 @@
+<div class="p-8 max-w-7xl mx-auto">
+    <div class="text-center py-20">
+        <h1 class="text-5xl font-bold text-gray-900 mb-4">Welcome to The Combine</h1>
+        <p class="text-xl text-gray-600 mb-8">AI-driven pipeline automation for software development</p>
+        
+        <div class="flex items-center justify-center gap-4">
+            <button 
+                hx-get="/ui/projects/new" 
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                Create New Project
+            </button>
+            
+            <button class="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-lg border border-gray-300 transition-colors">
+                View Documentation
+            </button>
+        </div>
+    </div>
+    
+    <!-- Feature Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                <i data-lucide="brain" class="w-6 h-6 text-blue-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">AI-Powered Mentors</h3>
+            <p class="text-gray-600">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                <i data-lucide="git-branch" class="w-6 h-6 text-green-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Structured Pipeline</h3>
+            <p class="text-gray-600">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                <i data-lucide="dollar-sign" class="w-6 h-6 text-purple-600"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Cost Tracking</h3>
+            <p class="text-gray-600">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
+        </div>
+    </div>
+</div>

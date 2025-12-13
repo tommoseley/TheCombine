@@ -11,7 +11,7 @@ from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 
-from database import get_db_session
+from database import get_db
 
 logger = logging.getLogger(__name__)
 

@@ -22,7 +22,7 @@ from app.combine.services.llm_response_parser import LLMResponseParser
 from app.combine.services.role_prompt_service import RolePromptService
 from app.combine.services.artifact_service import ArtifactService
 from app.combine.models import Artifact
-from app.combine.persistence.repositories.role_prompt_repository import RolePromptRepository
+from app.combine.repositories.role_prompt_repository import RolePromptRepository
 from database import get_db
 from config import settings
 

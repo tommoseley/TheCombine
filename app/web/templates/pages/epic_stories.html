@@ -1,0 +1,113 @@
+
+<div class="p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-600 mb-2">
+            <span>{{ project_name }}</span>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">{{ epic_name }}</span>
+        </nav>
+        <h1 class="text-4xl font-bold text-gray-900">Artifacts</h1>
+        <p class="text-gray-600 mt-2">{{ total_count }} artifact{{ total_count|pluralize }} in this workflow</p>
+    </div>
+    
+    {% if stories %}
+    <!-- Stories Table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Artifact
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Deliverables
+                    </th>
+                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for story in stories %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <a 
+                            href="/ui/stories/{{ story.story_uuid }}"
+                            hx-get="/ui/stories/{{ story.story_uuid }}"
+                            hx-target="#main-content"
+                            hx-push-url="true"
+                            class="text-blue-600 hover:text-blue-800 font-medium">
+                            {{ story.title }}
+                        </a>
+                        {% if story.description %}
+                        <p class="text-sm text-gray-500 mt-1">{{ story.description[:100] }}{% if story.description|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if story.status == 'complete' %}bg-green-100 text-green-800
+                            {% elif story.status == 'in_progress' %}bg-blue-100 text-blue-800
+                            {% elif story.status == 'blocked' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ story.status | replace('_', ' ') | title }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            {% if story.has_code %}
+                            <span class="inline-flex items-center text-xs text-green-600">
+                                <i data-lucide="code" class="w-4 h-4 mr-1"></i>
+                                Code
+                            </span>
+                            {% endif %}
+                            {% if story.has_tests %}
+                            <span class="inline-flex items-center text-xs text-blue-600">
+                                <i data-lucide="flask-conical" class="w-4 h-4 mr-1"></i>
+                                Tests
+                            </span>
+                            {% endif %}
+                            {% if not story.has_code and not story.has_tests %}
+                            <span class="text-xs text-gray-400">None</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div class="flex items-center justify-end gap-2">
+                            {% if story.has_code %}
+                            <a 
+                                href="/ui/stories/{{ story.story_uuid }}/code"
+                                hx-get="/ui/stories/{{ story.story_uuid }}/code"
+                                hx-target="#main-content"
+                                hx-push-url="true"
+                                class="text-indigo-600 hover:text-indigo-900"
+                                title="View Code">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </a>
+                            <a 
+                                href="/ui/stories/{{ story.story_uuid }}/code/download"
+                                download
+                                class="text-green-600 hover:text-green-900"
+                                title="Download Code">
+                                <i data-lucide="download" class="w-4 h-4"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <!-- No Stories -->
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <i data-lucide="file-text" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No Artifacts Yet</h2>
+        <p class="text-gray-600">This workflow doesn't have any artifacts defined yet.</p>
+    </div>
+    {% endif %}
+</div>
