@@ -1,5 +1,5 @@
 """
-PM Mentor - Release 1
+PM Mentor - Release 1 (ASYNC VERSION)
 
 PM Mentor that transforms user requests into Epic artifacts.
 
@@ -13,7 +13,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ValidationError, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import json
 import logging
 
@@ -21,8 +22,8 @@ from app.combine.services.llm_caller import LLMCaller
 from app.combine.services.llm_response_parser import LLMResponseParser
 from app.combine.services.role_prompt_service import RolePromptService
 from app.combine.services.artifact_service import ArtifactService
-from app.combine.models import Artifact
-from app.combine.persistence.repositories.role_prompt_repository import RolePromptRepository
+from app.combine.models import Artifact, Project
+from app.combine.repositories.role_prompt_repository import RolePromptRepository
 from database import get_db
 from config import settings
 
@@ -134,7 +135,7 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-def ensure_project_exists(project_id: str, db: Session) -> None:
+async def ensure_project_exists(project_id: str, db: AsyncSession) -> None:
     """
     Ensure project exists, create if it doesn't.
     
@@ -142,10 +143,11 @@ def ensure_project_exists(project_id: str, db: Session) -> None:
         project_id: Project identifier
         db: Database session
     """
-    from app.combine.models import Project
-    
     # Check if project exists
-    existing = db.query(Project).filter(Project.project_id == project_id).first()
+    result = await db.execute(
+        select(Project).where(Project.project_id == project_id)
+    )
+    existing = result.scalar_one_or_none()
     
     if not existing:
         # Create new project
@@ -156,11 +158,11 @@ def ensure_project_exists(project_id: str, db: Session) -> None:
             status="active"
         )
         db.add(project)
-        db.commit()
+        await db.commit()
         logger.info(f"Auto-created project: {project_id}")
 
 
-def generate_epic_id(project_id: str, db: Session) -> str:
+async def generate_epic_id(project_id: str, db: AsyncSession) -> str:
     """
     Generate next epic ID for project.
     
@@ -169,7 +171,7 @@ def generate_epic_id(project_id: str, db: Session) -> str:
     artifact_service = ArtifactService(db)
     
     # Find highest epic number for this project
-    existing_epics = artifact_service.list_artifacts(
+    existing_epics = await artifact_service.list_artifacts(
         artifact_type="epic",
         project_id=project_id
     )
@@ -225,13 +227,13 @@ def validate_epic_schema(data: Dict[str, Any], expected_schema: Dict[str, Any]) 
     except Exception as e:
         return ValidationResult(
             valid=False,
-            error_type="validation_error",
+            error_type="validation_exception",
             error_message=str(e)
         )
 
 
 # ============================================================================
-# ENDPOINTS
+# ROUTES
 # ============================================================================
 
 @router.post("/preview", response_model=PMPreviewResponse)
@@ -240,14 +242,14 @@ async def preview_pm_request(
     prompt_service: RolePromptService = Depends(get_role_prompt_service)
 ) -> PMPreviewResponse:
     """
-    Preview what will be sent to PM Mentor WITHOUT calling the LLM.
+    Preview what will be sent to LLM (NO API CALL - FREE).
     
-    Shows the system prompt, user message, and expected schema.
-    Use this to validate prompt construction before burning tokens.
+    Shows the exact system prompt, user message, and schema that would be used.
+    Useful for debugging and understanding what the PM Mentor does.
     """
     try:
         # Build PM prompt from database
-        system_prompt, prompt_id = prompt_service.build_prompt(
+        system_prompt, prompt_id = await prompt_service.build_prompt(
             role_name="pm",
             pipeline_id="preview",
             phase="pm_phase",
@@ -255,7 +257,7 @@ async def preview_pm_request(
         )
         
         # Get schema from database
-        prompt_record = RolePromptRepository.get_by_id(prompt_id)
+        prompt_record = await RolePromptRepository.get_by_id(prompt_id)
         
         if not prompt_record:
             raise HTTPException(404, f"Prompt not found: {prompt_id}")
@@ -293,7 +295,7 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
 @router.post("/execute", response_model=PMExecuteResponse)
 async def execute_pm_request(
     request: PMRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     prompt_service: RolePromptService = Depends(get_role_prompt_service),
     llm_caller: LLMCaller = Depends(get_llm_caller),
     llm_parser: LLMResponseParser = Depends(get_llm_parser)
@@ -307,7 +309,7 @@ async def execute_pm_request(
     """
     try:
         # Build PM prompt from database
-        system_prompt, prompt_id = prompt_service.build_prompt(
+        system_prompt, prompt_id = await prompt_service.build_prompt(
             role_name="pm",
             pipeline_id="execution",
             phase="pm_phase",
@@ -315,7 +317,7 @@ async def execute_pm_request(
         )
         
         # Get schema from database
-        prompt_record = RolePromptRepository.get_by_id(prompt_id)
+        prompt_record = await RolePromptRepository.get_by_id(prompt_id)
         
         if not prompt_record:
             raise HTTPException(404, f"Prompt not found: {prompt_id}")
@@ -363,10 +365,10 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
                 logger.info(f"Epic validation passed for project {request.project_id}")
                 
                 # Ensure project exists (auto-create if needed)
-                ensure_project_exists(request.project_id, db)
+                await ensure_project_exists(request.project_id, db)
                 
                 # Generate epic ID
-                epic_id = generate_epic_id(request.project_id, db)
+                epic_id = await generate_epic_id(request.project_id, db)
                 epic_path = f"{request.project_id}/{epic_id}"
                 
                 # Extract title from content or use default
@@ -374,7 +376,7 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
                 
                 # Create Epic artifact
                 artifact_service = ArtifactService(db)
-                epic_artifact = artifact_service.create_artifact(
+                epic_artifact = await artifact_service.create_artifact(
                     artifact_path=epic_path,
                     artifact_type="epic",
                     title=title,
@@ -393,12 +395,12 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
                 logger.warning(f"Epic validation failed: {validation_result.error_message}")
                 
                 # Still create artifact with validation failure status
-                ensure_project_exists(request.project_id, db)
-                epic_id = generate_epic_id(request.project_id, db)
+                await ensure_project_exists(request.project_id, db)
+                epic_id = await generate_epic_id(request.project_id, db)
                 epic_path = f"{request.project_id}/{epic_id}"
                 
                 artifact_service = ArtifactService(db)
-                epic_artifact = artifact_service.create_artifact(
+                epic_artifact = await artifact_service.create_artifact(
                     artifact_path=epic_path,
                     artifact_type="epic",
                     title=f"Epic {epic_id} (validation failed)",
@@ -422,12 +424,12 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
             logger.error(f"Failed to parse PM response: {parse_result.error_messages}")
             
             # Create artifact with parse error
-            ensure_project_exists(request.project_id, db)
-            epic_id = generate_epic_id(request.project_id, db)
+            await ensure_project_exists(request.project_id, db)
+            epic_id = await generate_epic_id(request.project_id, db)
             epic_path = f"{request.project_id}/{epic_id}"
             
             artifact_service = ArtifactService(db)
-            epic_artifact = artifact_service.create_artifact(
+            epic_artifact = await artifact_service.create_artifact(
                 artifact_path=epic_path,
                 artifact_type="epic",
                 title=f"Epic {epic_id} (parse failed)",

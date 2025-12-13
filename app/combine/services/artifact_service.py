@@ -12,7 +12,7 @@ import uuid
 
 from pydantic import ValidationError, BaseModel
 
-from app.combine.persistence.repositories import ArtifactRepository
+from app.combine.repositories import ArtifactRepository
 from app.combine.models import Artifact, Project
 
 logger = logging.getLogger(__name__)

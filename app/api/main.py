@@ -7,6 +7,7 @@ The Combine: AI-driven pipeline automation system.
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
 from datetime import datetime
 import logging
 
@@ -14,10 +15,11 @@ from config import settings
 from database import init_database
 
 # Import API dependencies
-from app.api.dependencies import set_startup_time
+from app.dependencies import set_startup_time
 
 # Import routers
-from app.api.routers import health
+from app.api.routers import health, artifacts, auth
+from app.web import routes as web_routes
 from app.combine.mentors import pm_mentor, architect_mentor, ba_mentor, dev_mentor
 
 # Import middleware
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="The Combine API",
+    title="The Combine",
     description="AI-driven pipeline automation system",
     version="1.0.0",
     docs_url="/docs",
@@ -61,7 +63,7 @@ async def startup_event():
     
     # Initialize database
     try:
-        init_database()
+        await init_database()
         logger.info("✅ Database initialized")
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
@@ -109,7 +111,8 @@ app.include_router(pm_mentor.router, tags=["pm_mentor"])
 app.include_router(architect_mentor.router, tags=["architect_mentor"])
 app.include_router(ba_mentor.router, tags=["ba_mentor"])
 app.include_router(dev_mentor.router, tags=["developer_mentor"])
-
+# ADD THIS LINE
+app.include_router(web_routes.router)
 
 # ============================================================================
 # ROOT ENDPOINT

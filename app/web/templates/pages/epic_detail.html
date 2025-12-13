@@ -1,0 +1,146 @@
+<!-- Template Content (No Layout) -->
+<div class="p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-600 mb-2">
+            <span>{{ epic.project_name }}</span>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">{{ epic.name }}</span>
+        </nav>
+        
+        <div class="flex items-center justify-between mb-2">
+            <h1 class="text-4xl font-bold text-gray-900">{{ epic.name }}</h1>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                {% if epic.status == 'complete' %}bg-green-100 text-green-800
+                {% elif epic.status == 'in_progress' %}bg-blue-100 text-blue-800
+                {% elif epic.status == 'blocked' %}bg-red-100 text-red-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ epic.status | replace('_', ' ') | title }}
+            </span>
+        </div>
+        <p class="text-gray-600 text-lg">{{ epic.description }}</p>
+    </div>
+    
+    <!-- Story Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-gray-100 rounded-lg">
+                    <i data-lucide="list-todo" class="w-6 h-6 text-gray-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ epic.total_stories }}</div>
+                    <div class="text-sm text-gray-600">Total Artifacts</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-green-100 rounded-lg">
+                    <i data-lucide="check-circle" class="w-6 h-6 text-green-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ epic.completed_stories }}</div>
+                    <div class="text-sm text-gray-600">Completed</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-blue-100 rounded-lg">
+                    <i data-lucide="clock" class="w-6 h-6 text-blue-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ epic.in_progress_stories }}</div>
+                    <div class="text-sm text-gray-600">In Progress</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center gap-3">
+                <div class="p-3 bg-gray-100 rounded-lg">
+                    <i data-lucide="circle-dashed" class="w-6 h-6 text-gray-600"></i>
+                </div>
+                <div>
+                    <div class="text-3xl font-bold text-gray-900">{{ epic.pending_stories }}</div>
+                    <div class="text-sm text-gray-600">Pending</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    {% if epic.total_stories > 0 %}
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-lg font-semibold text-gray-900">Progress</h3>
+            <span class="text-sm text-gray-600">
+                {{ ((epic.completed_stories / epic.total_stories) * 100) | round | int }}% Complete
+            </span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-3">
+            <div 
+                class="bg-green-600 h-3 rounded-full transition-all duration-300" 
+                style="width: {{ ((epic.completed_stories / epic.total_stories) * 100) | round }}%">
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Quick Actions -->
+    <div class="flex gap-4 mb-8">
+        <a 
+            href="/ui/epics/{{ epic.epic_uuid }}/stories"
+            hx-get="/ui/epics/{{ epic.epic_uuid }}/stories"
+            hx-target="#main-content"
+            hx-push-url="true"
+            class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+            <span>View Artifacts</span>
+        </a>
+        
+        <a 
+            href="/ui/epics/{{ epic.epic_uuid }}/code"
+            hx-get="/ui/epics/{{ epic.epic_uuid }}/code"
+            hx-target="#main-content"
+            hx-push-url="true"
+            class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+            <i data-lucide="code" class="w-5 h-5"></i>
+            <span>View Code</span>
+        </a>
+    </div>
+    
+    <!-- Epic Details -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Workflow Details</h2>
+        </div>
+        
+        <div class="p-6">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Created</dt>
+                    <dd class="text-sm text-gray-900">{{ epic.created_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Last Updated</dt>
+                    <dd class="text-sm text-gray-900">{{ epic.updated_at }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Workflow UUID</dt>
+                    <dd class="text-sm text-gray-900 font-mono">{{ epic.epic_uuid }}</dd>
+                </div>
+                
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 mb-1">Project</dt>
+                    <dd class="text-sm text-gray-900">{{ epic.project_name }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+</div>

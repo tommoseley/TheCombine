@@ -1,0 +1,29 @@
+<li class="tree-node" data-node-id="project-{{ project.project_uuid }}">
+    <div class="flex items-center gap-1 group">
+        <!-- Expand Button -->
+        <button 
+            class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            hx-get="/ui/projects/{{ project.project_uuid }}/expand"
+            hx-target="closest .tree-node"
+            hx-swap="outerHTML"
+            title="Expand">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+        
+        <!-- Project Link -->
+        <a 
+        href="/projects/{{ project.id }}"
+        hx-get="/projects/{{ project.id }}/partial"
+        hx-target="#main-content"
+        hx-push-url="true"
+        hx-swap="innerHTML"
+        class="block p-3 hover:bg-gray-100 rounded cursor-pointer"
+        >
+        <div class="flex items-center justify-between">
+            <span class="font-medium">{{ project.name }}</span>
+            <span class="text-sm text-gray-500">{{ project.epic_count }} workflows</span>
+        </div>
+        </div>
+        </a>
+    </div>
+</li>

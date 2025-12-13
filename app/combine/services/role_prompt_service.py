@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
-from app.combine.persistence.repositories.role_prompt_repository import (
+from app.combine.repositories.role_prompt_repository import (
     RolePromptRepository,
 )
 

@@ -1,5 +1,5 @@
 """
-Authentication router for magic link flow.
+Authentication router for magic link flow (ASYNC VERSION).
 
 Implements passwordless authentication via email magic links.
 """
@@ -7,16 +7,17 @@ Implements passwordless authentication via email magic links.
 from fastapi import APIRouter, HTTPException, Depends, Response, Request, Form, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from datetime import datetime, timedelta, timezone  
 from typing import Optional
 import secrets
 import bcrypt
 import logging
 from uuid import uuid4
-from app.dependencies import get_db
+from database import get_db
 
-from app.services.email_service import email_service
+from app.api.services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,6 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace('+00:00', 'Z')
 
 
-
 @router.get("/login", response_class=HTMLResponse)
 async def login_form(request: Request):
     """Display magic link login form."""
@@ -55,7 +55,7 @@ async def login_form(request: Request):
 async def send_magic_link(
     request: Request,
     email: str = Form(...),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Generate magic link token and send email.
@@ -86,10 +86,10 @@ async def send_magic_link(
     token_hash = bcrypt.hashpw(token.encode(), bcrypt.gensalt()).decode()
     
     # Delete any existing pending tokens for this email (cleanup)
-    db.query(PendingTokenModel).filter(
-        PendingTokenModel.email == email
-    ).delete()
-    db.commit()
+    await db.execute(
+        delete(PendingTokenModel).where(PendingTokenModel.email == email)
+    )
+    await db.commit()
     
     # Create pending token
     now = _now_iso()
@@ -102,7 +102,7 @@ async def send_magic_link(
         created_at=now
     )
     db.add(pending_token)
-    db.commit()
+    await db.commit()
     
     # Build magic link URL
     base_url = str(request.base_url).rstrip('/')
@@ -130,10 +130,11 @@ async def send_magic_link(
         }
     )
 
+
 @router.get("/magic-login")
 async def validate_magic_link(
     token: str,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Validate magic link token and create session.
@@ -146,9 +147,11 @@ async def validate_magic_link(
     now = datetime.now(timezone.utc)
     now_iso = _now_iso()
     
-    pending_tokens = db.query(PendingTokenModel).filter(
-        PendingTokenModel.expires_at > now_iso
-    ).all()
+    # Get all non-expired tokens
+    result = await db.execute(
+        select(PendingTokenModel).where(PendingTokenModel.expires_at > now_iso)
+    )
+    pending_tokens = result.scalars().all()
     
     valid_token = None
     for pending in pending_tokens:
@@ -180,8 +183,8 @@ async def validate_magic_link(
     db.add(session)
     
     # Delete used token (single-use enforcement)
-    db.delete(valid_token)
-    db.commit()
+    await db.delete(valid_token)
+    await db.commit()
     
     logger.info(f"Session created for {valid_token.email}")
     
@@ -198,11 +201,12 @@ async def validate_magic_link(
     
     return response
 
+
 @router.post("/logout")
 async def logout(
     response: Response,
     session_id: Optional[str] = Cookie(None),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Logout user by deleting session and clearing cookie.
@@ -211,12 +215,12 @@ async def logout(
     """
     if session_id:
         # Delete session from database
-        deleted_count = db.query(SessionModel).filter(
-            SessionModel.id == session_id
-        ).delete()
-        db.commit()
+        result = await db.execute(
+            delete(SessionModel).where(SessionModel.id == session_id)
+        )
+        await db.commit()
         
-        if deleted_count > 0:
+        if result.rowcount > 0:
             logger.info(f"Session {session_id} deleted")
     
     # Clear session cookie
@@ -228,7 +232,7 @@ async def logout(
 @router.get("/me")
 async def get_me(
     session_id: Optional[str] = Cookie(None),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get information about the currently authenticated user.
@@ -240,14 +244,6 @@ async def get_me(
         
     Raises:
         HTTPException 401: If no valid session exists or session is expired
-    
-    Example response:
-        {
-            "email": "user@example.com",
-            "session_id": "uuid-here",
-            "expires_at": "2024-12-07T10:30:00Z",
-            "created_at": "2024-11-30T15:30:00Z"
-        }
     """
     if not session_id:
         raise HTTPException(
@@ -256,9 +252,10 @@ async def get_me(
         )
     
     # Lookup session
-    session = db.query(SessionModel).filter(
-        SessionModel.id == session_id
-    ).first()
+    result = await db.execute(
+        select(SessionModel).where(SessionModel.id == session_id)
+    )
+    session = result.scalar_one_or_none()
     
     if not session:
         raise HTTPException(
@@ -269,8 +266,8 @@ async def get_me(
     # Check expiration
     if session.is_expired():
         # Delete expired session
-        db.delete(session)
-        db.commit()
+        await db.delete(session)
+        await db.commit()
         logger.info(f"Expired session {session_id} deleted")
         raise HTTPException(
             status_code=401,
@@ -291,18 +288,13 @@ async def get_me(
 
 async def get_current_user(
     session_id: Optional[str] = Cookie(None),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ) -> str:
     """
     FastAPI dependency to get current authenticated user.
     
     Returns user's email address.
     Raises HTTPException(401) if not authenticated.
-    
-    Usage:
-        @router.get("/protected")
-        async def protected_route(user_email: str = Depends(get_current_user)):
-            return {"user": user_email}
     """
     if not session_id:
         raise HTTPException(
@@ -311,9 +303,10 @@ async def get_current_user(
         )
     
     # Lookup session
-    session = db.query(SessionModel).filter(
-        SessionModel.id == session_id
-    ).first()
+    result = await db.execute(
+        select(SessionModel).where(SessionModel.id == session_id)
+    )
+    session = result.scalar_one_or_none()
     
     if not session:
         raise HTTPException(
@@ -324,8 +317,8 @@ async def get_current_user(
     # Check expiration
     if session.is_expired():
         # Delete expired session
-        db.delete(session)
-        db.commit()
+        await db.delete(session)
+        await db.commit()
         logger.info(f"Expired session {session_id} deleted")
         raise HTTPException(
             status_code=401,

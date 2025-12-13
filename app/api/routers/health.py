@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import text
 import logging
 
-from app.api.dependencies import get_startup_time
+from app.dependencies import get_startup_time
 from database import engine
 
 logger = logging.getLogger(__name__)
