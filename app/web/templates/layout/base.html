@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}The Combine{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Tree indentation */
+        .tree-level-1 { padding-left: 1rem; }
+        .tree-level-2 { padding-left: 2rem; }
+        .tree-level-3 { padding-left: 3rem; }
+        
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-bold">The Combine</h1>
+            </div>
+            
+            <!-- Global Search -->
+            <div class="flex-1 max-w-2xl mx-8">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="global-search"
+                        name="q"
+                        placeholder="Search projects, workflows, artifacts..."
+                        hx-get="/ui/search"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#search-results"
+                        hx-include="#global-search"
+                        class="w-full px-4 py-2 pl-10 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                </div>
+                
+                <!-- Search Results Dropdown -->
+                <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white rounded-lg shadow-xl max-h-96 overflow-y-auto hidden"></div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i data-lucide="bell" class="w-5 h-5"></i>
+                </button>
+                <button class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Layout: Sidebar + Content -->
+    <div class="flex h-[calc(100vh-72px)]">
+        <!-- Sidebar -->
+        <aside class="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+            {% include "components/sidebar.html" %}
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main id="main-content" class="flex-1 overflow-y-auto">
+            {% block content %}
+            <!-- Default content when page first loads -->
+            <div class="p-8 max-w-7xl mx-auto">
+                <div class="text-center py-20">
+                    <h1 class="text-5xl font-bold text-gray-900 mb-4">Welcome to The Combine</h1>
+                    <p class="text-xl text-gray-600 mb-8">AI-driven pipeline automation for software development</p>
+                    
+                    <p class="text-gray-500">Select a project from the sidebar to get started</p>
+                </div>
+                
+                <!-- Feature Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="brain" class="w-6 h-6 text-blue-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">AI-Powered Mentors</h3>
+                        <p class="text-gray-600">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="git-branch" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Structured Pipeline</h3>
+                        <p class="text-gray-600">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                            <i data-lucide="dollar-sign" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Cost Tracking</h3>
+                        <p class="text-gray-600">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
+                    </div>
+                </div>
+            </div>
+            {% endblock %}
+        </main>
+    </div>
+    
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+        
+        // Re-initialize icons after HTMX content swaps
+        document.body.addEventListener('htmx:afterSwap', () => {
+            lucide.createIcons();
+            
+            // Initialize code highlighting if present
+            if (typeof hljs !== 'undefined') {
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+        });
+        
+        // Show/hide search results
+        const searchInput = document.getElementById('global-search');
+        const searchResults = document.getElementById('search-results');
+        
+        if (searchInput) {
+            searchInput.addEventListener('focus', () => {
+                if (searchResults.children.length > 0) {
+                    searchResults.classList.remove('hidden');
+                }
+            });
+            
+            searchInput.addEventListener('input', (e) => {
+                if (e.target.value.length > 0) {
+                    searchResults.classList.remove('hidden');
+                } else {
+                    searchResults.classList.add('hidden');
+                }
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Store/restore tree state
+        document.body.addEventListener('htmx:beforeSwap', (event) => {
+            // Save expanded state to localStorage
+            const expandedNodes = [];
+            document.querySelectorAll('[data-expanded="true"]').forEach(node => {
+                const id = node.dataset.nodeId;
+                if (id) expandedNodes.push(id);
+            });
+            localStorage.setItem('treeState', JSON.stringify(expandedNodes));
+        });
+        
+        document.body.addEventListener('htmx:afterSwap', () => {
+            // Restore expanded state from localStorage
+            const savedState = localStorage.getItem('treeState');
+            if (savedState) {
+                const expandedNodes = JSON.parse(savedState);
+                // You can implement tree restoration logic here if needed
+            }
+        });
+    </script>
+</body>
+</html>

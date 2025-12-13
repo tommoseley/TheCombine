@@ -1,0 +1,112 @@
+{% if has_results %}
+<div class="p-4">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-700">Search Results</h3>
+        <button 
+            onclick="document.getElementById('search-results').classList.add('hidden'); document.getElementById('global-search').value = '';"
+            class="text-gray-400 hover:text-gray-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+    </div>
+    
+    {% if results.projects %}
+    <div class="mb-4">
+        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Projects</h4>
+        <div class="space-y-1">
+            {% for project in results.projects %}
+            <a 
+                href="/ui/projects/{{ project.project_uuid }}"
+                hx-get="/ui/projects/{{ project.project_uuid }}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                onclick="document.getElementById('search-results').classList.add('hidden')"
+                class="block px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="folder" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-900 truncate">{{ project.name }}</div>
+                        {% if project.description %}
+                        <div class="text-xs text-gray-500 truncate">{{ project.description }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if results.epics %}
+    <div class="mb-4">
+        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Workflows</h4>
+        <div class="space-y-1">
+            {% for epic in results.epics %}
+            <a 
+                href="/ui/epics/{{ epic.epic_uuid }}"
+                hx-get="/ui/epics/{{ epic.epic_uuid }}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                onclick="document.getElementById('search-results').classList.add('hidden')"
+                class="block px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="list-todo" class="w-4 h-4 text-green-500 flex-shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-900 truncate">{{ epic.name }}</div>
+                        <div class="text-xs text-gray-500 truncate">in {{ epic.project_name }}</div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if results.stories %}
+    <div>
+        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Artifacts</h4>
+        <div class="space-y-1">
+            {% for story in results.stories %}
+            <a 
+                href="/ui/stories/{{ story.story_uuid }}"
+                hx-get="/ui/stories/{{ story.story_uuid }}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                onclick="document.getElementById('search-results').classList.add('hidden')"
+                class="block px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-900 truncate">{{ story.title }}</div>
+                        <div class="text-xs text-gray-500 truncate">{{ story.epic_name }} • {{ story.project_name }}</div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Highlight matched nodes in tree
+    const paths = {{ affected_paths | tojson }};
+    
+    // Remove existing highlights
+    document.querySelectorAll('.search-match').forEach(el => {
+        el.classList.remove('search-match');
+    });
+    
+    // Add highlights to matched nodes
+    paths.forEach(path => {
+        const node = document.querySelector(`[data-node-id="${path}"]`);
+        if (node) {
+            node.classList.add('search-match');
+        }
+    });
+</script>
+{% else %}
+<div class="p-4 text-center">
+    <i data-lucide="search-x" class="w-12 h-12 text-gray-300 mx-auto mb-2"></i>
+    <p class="text-sm text-gray-500">No results found for "{{ query }}"</p>
+</div>
+{% endif %}

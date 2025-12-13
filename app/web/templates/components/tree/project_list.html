@@ -1,0 +1,10 @@
+{% for project in projects %}
+    {% include 'components/tree/project_collapsed.html' %}
+{% endfor %}
+
+{% if has_more %}
+<!-- Update scroll trigger for next page -->
+<script>
+    document.getElementById('scroll-trigger').setAttribute('hx-vals', JSON.stringify({offset: {{ next_offset }}}));
+</script>
+{% endif %}

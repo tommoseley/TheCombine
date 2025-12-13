@@ -7,10 +7,10 @@ from typing import Optional
 
 from sqlalchemy import text
 
-from app.combine.persistence.repositories.pipeline_prompt_usage_repository import (
+from app.combine.repositories.pipeline_prompt_usage_repository import (
     PipelinePromptUsageRepository,
 )
-from app.combine.persistence.repositories.pipeline_repository import (
+from app.combine.repositories.pipeline_repository import (
     PipelineRepository,
 )
 from database import get_db_session

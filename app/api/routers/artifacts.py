@@ -2,11 +2,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 
-from app.api.dependencies import require_api_key
+from app.dependencies import require_api_key
 from app.api.schemas.requests import ArtifactSubmissionRequest
 from app.api.schemas.responses import ArtifactSubmittedResponse, ErrorResponse
 from app.combine.services.artifact_service import ArtifactService, ArtifactValidationError
-from app.api.dependencies import require_api_key  # ← No change neededvvvvvvvvvvvvvv
+from app.dependencies import require_api_key  # ← No change needed
 
 router = APIRouter()
 
