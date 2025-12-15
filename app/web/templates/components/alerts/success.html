@@ -1,0 +1,33 @@
+<div class="bg-green-50 border border-green-200 rounded-lg p-6">
+    <div class="flex items-start">
+        <i data-lucide="check-circle" class="w-6 h-6 text-green-600 mr-3 flex-shrink-0"></i>
+        <div>
+            <h3 class="text-lg font-medium text-gray-900 mb-1">{{ title }}</h3>
+            <p class="text-gray-700 mb-4">{{ message }}</p>
+            <div class="flex gap-3">
+                {% if primary_action %}
+                <a 
+                    href="{{ primary_action.url }}" 
+                    hx-get="{{ primary_action.url }}"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                    {{ primary_action.label }}
+                </a>
+                {% endif %}
+                {% if secondary_action %}
+                <a 
+                    href="{{ secondary_action.url }}"
+                    hx-get="{{ secondary_action.url }}"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                    {{ secondary_action.label }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

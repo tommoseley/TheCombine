@@ -13,6 +13,26 @@ from starlette.responses import Response
 logger = logging.getLogger(__name__)
 
 
+def get_logger(name: str) -> logging.Logger:
+    """
+    Get a logger instance for the given module name.
+    
+    This is the standard way to get loggers throughout The Combine.
+    
+    Args:
+        name: Module name, typically __name__
+        
+    Returns:
+        Configured logger instance
+        
+    Example:
+        from app.api.middleware.logging import get_logger
+        logger = get_logger(__name__)
+        logger.info("Something happened")
+    """
+    return logging.getLogger(name)
+
+
 class LoggingMiddleware(BaseHTTPMiddleware):
     """
     Middleware to log all HTTP requests and responses.

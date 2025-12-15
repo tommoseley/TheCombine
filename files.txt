@@ -1,0 +1,3102 @@
+ Volume in drive C is Firecuda
+ Volume Serial Number is 0493-D99C
+
+ Directory of C:\dev\The Combine
+
+12/14/2025  11:04 AM    <DIR>          .
+12/12/2025  12:00 PM    <DIR>          ..
+12/10/2025  04:36 PM               269 .env
+12/04/2025  09:29 AM               150 .gitignore
+12/04/2025  11:06 AM    <DIR>          .pytest_cache
+12/13/2025  04:32 PM    <DIR>          .vscode
+12/12/2025  11:15 AM    <DIR>          app
+12/10/2025  04:36 PM             4,893 config.py
+12/12/2025  02:51 PM             6,079 database.py
+12/05/2025  02:13 AM            24,428 Develop Mentor.md
+12/15/2025  10:50 AM                 0 files.txt
+12/04/2025  11:57 AM                36 QAM.md
+12/04/2025  09:29 AM                34 README.md
+12/04/2025  09:29 AM                35 README_WORKFORCE.md
+12/12/2025  03:36 PM               172 requirements.txt
+12/11/2025  11:51 AM             5,217 restructure.ps1
+12/10/2025  04:37 PM               158 run.ps1
+12/11/2025  11:45 AM    <DIR>          scripts
+12/06/2025  06:06 PM               127 setup.ps1
+12/13/2025  03:13 PM    <DIR>          shared
+12/10/2025  04:32 PM             1,032 stage.bat
+12/10/2025  04:08 PM             1,714 test.py
+12/11/2025  05:39 PM    <DIR>          tests
+12/07/2025  03:12 PM             2,007 test_anthropic.py
+12/06/2025  04:42 PM    <DIR>          venv
+12/12/2025  02:51 PM    <DIR>          __pycache__
+              16 File(s)         46,351 bytes
+
+ Directory of C:\dev\The Combine\.git
+
+12/14/2025  11:04 AM    <DIR>          ..
+12/05/2025  07:17 PM            12,288 .MERGE_MSG.swp
+12/12/2025  07:03 PM                22 COMMIT_EDITMSG
+12/11/2025  05:46 PM               613 config
+12/04/2025  09:29 AM                73 description
+12/15/2025  10:47 AM               220 FETCH_HEAD
+12/11/2025  05:46 PM                28 HEAD
+12/04/2025  09:29 AM    <DIR>          hooks
+12/12/2025  07:03 PM            19,095 index
+12/04/2025  09:29 AM    <DIR>          info
+12/04/2025  09:29 AM    <DIR>          logs
+12/15/2025  10:47 AM    <DIR>          objects
+12/12/2025  07:03 PM                41 ORIG_HEAD
+12/04/2025  09:29 AM               191 packed-refs
+12/04/2025  09:29 AM    <DIR>          refs
+               9 File(s)         32,571 bytes
+
+ Directory of C:\dev\The Combine\.git\hooks
+
+12/04/2025  09:29 AM    <DIR>          .
+12/04/2025  09:29 AM               478 applypatch-msg.sample
+12/04/2025  09:29 AM               896 commit-msg.sample
+12/04/2025  09:29 AM             4,726 fsmonitor-watchman.sample
+12/04/2025  09:29 AM               189 post-update.sample
+12/04/2025  09:29 AM               424 pre-applypatch.sample
+12/04/2025  09:29 AM             1,649 pre-commit.sample
+12/04/2025  09:29 AM               416 pre-merge-commit.sample
+12/04/2025  09:29 AM             1,374 pre-push.sample
+12/04/2025  09:29 AM             4,898 pre-rebase.sample
+12/04/2025  09:29 AM               544 pre-receive.sample
+12/04/2025  09:29 AM             1,492 prepare-commit-msg.sample
+12/04/2025  09:29 AM             2,783 push-to-checkout.sample
+12/04/2025  09:29 AM             2,308 sendemail-validate.sample
+12/04/2025  09:29 AM             3,650 update.sample
+              14 File(s)         25,827 bytes
+
+ Directory of C:\dev\The Combine\.git\info
+
+12/04/2025  09:29 AM    <DIR>          .
+12/04/2025  09:29 AM               240 exclude
+               1 File(s)            240 bytes
+
+ Directory of C:\dev\The Combine\.git\logs
+
+12/04/2025  09:29 AM    <DIR>          .
+12/12/2025  07:03 PM             3,283 HEAD
+12/04/2025  09:29 AM    <DIR>          refs
+               1 File(s)          3,283 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs
+
+12/04/2025  09:29 AM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/11/2025  05:46 PM    <DIR>          heads
+12/04/2025  09:29 AM    <DIR>          remotes
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs\heads
+
+12/11/2025  05:46 PM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/12/2025  07:03 PM               503 development
+12/05/2025  03:01 PM    <DIR>          feature
+12/04/2025  09:29 AM               193 main
+               2 File(s)            696 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs\heads\feature
+
+12/05/2025  03:01 PM    <DIR>          .
+12/11/2025  05:46 PM    <DIR>          ..
+12/11/2025  05:33 PM             2,502 pipeline-175a-data-infrastructure
+               1 File(s)          2,502 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs\remotes
+
+12/04/2025  09:29 AM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/11/2025  05:42 PM    <DIR>          origin
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs\remotes\origin
+
+12/11/2025  05:42 PM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/12/2025  07:04 PM               458 development
+12/05/2025  03:08 PM    <DIR>          feature
+12/04/2025  09:29 AM               193 HEAD
+12/12/2025  07:15 PM             1,706 main
+               3 File(s)          2,357 bytes
+
+ Directory of C:\dev\The Combine\.git\logs\refs\remotes\origin\feature
+
+12/05/2025  03:08 PM    <DIR>          .
+12/11/2025  05:42 PM    <DIR>          ..
+12/11/2025  05:33 PM               906 pipeline-175a-data-infrastructure
+               1 File(s)            906 bytes
+
+ Directory of C:\dev\The Combine\.git\objects
+
+12/15/2025  10:47 AM    <DIR>          .
+12/05/2025  03:02 PM    <DIR>          00
+12/11/2025  05:46 PM    <DIR>          01
+12/10/2025  06:05 PM    <DIR>          02
+12/05/2025  03:05 PM    <DIR>          03
+12/06/2025  06:47 PM    <DIR>          04
+12/08/2025  10:50 PM    <DIR>          06
+12/11/2025  05:11 PM    <DIR>          07
+12/06/2025  06:47 PM    <DIR>          08
+12/11/2025  05:11 PM    <DIR>          09
+12/10/2025  06:05 PM    <DIR>          0a
+12/05/2025  03:02 PM    <DIR>          0b
+12/11/2025  05:11 PM    <DIR>          0c
+12/06/2025  06:47 PM    <DIR>          0e
+12/11/2025  05:11 PM    <DIR>          0f
+12/11/2025  05:11 PM    <DIR>          10
+12/11/2025  05:11 PM    <DIR>          11
+12/08/2025  10:51 PM    <DIR>          12
+12/10/2025  06:05 PM    <DIR>          13
+12/12/2025  07:03 PM    <DIR>          15
+12/05/2025  03:02 PM    <DIR>          16
+12/05/2025  07:15 PM    <DIR>          17
+12/10/2025  06:05 PM    <DIR>          18
+12/12/2025  07:03 PM    <DIR>          19
+12/10/2025  06:05 PM    <DIR>          1a
+12/08/2025  10:51 PM    <DIR>          1b
+12/05/2025  03:02 PM    <DIR>          1c
+12/08/2025  10:49 PM    <DIR>          1d
+12/06/2025  06:47 PM    <DIR>          1e
+12/10/2025  06:05 PM    <DIR>          20
+12/12/2025  07:03 PM    <DIR>          22
+12/11/2025  05:11 PM    <DIR>          23
+12/11/2025  05:11 PM    <DIR>          24
+12/08/2025  10:51 PM    <DIR>          25
+12/12/2025  07:03 PM    <DIR>          26
+12/11/2025  05:11 PM    <DIR>          27
+12/10/2025  06:05 PM    <DIR>          28
+12/12/2025  07:03 PM    <DIR>          29
+12/11/2025  05:11 PM    <DIR>          2a
+12/05/2025  03:02 PM    <DIR>          2b
+12/12/2025  07:03 PM    <DIR>          2c
+12/06/2025  06:47 PM    <DIR>          2d
+12/12/2025  07:03 PM    <DIR>          2e
+12/12/2025  07:15 PM    <DIR>          2f
+12/06/2025  06:47 PM    <DIR>          30
+12/06/2025  06:47 PM    <DIR>          31
+12/05/2025  07:14 PM    <DIR>          32
+12/11/2025  05:11 PM    <DIR>          33
+12/10/2025  06:05 PM    <DIR>          34
+12/10/2025  06:05 PM    <DIR>          35
+12/08/2025  10:50 PM    <DIR>          36
+12/06/2025  06:47 PM    <DIR>          37
+12/12/2025  07:03 PM    <DIR>          38
+12/12/2025  07:03 PM    <DIR>          39
+12/12/2025  07:03 PM    <DIR>          3a
+12/05/2025  03:02 PM    <DIR>          3b
+12/08/2025  10:50 PM    <DIR>          3c
+12/12/2025  07:03 PM    <DIR>          3d
+12/11/2025  05:11 PM    <DIR>          3e
+12/11/2025  05:11 PM    <DIR>          40
+12/12/2025  07:03 PM    <DIR>          41
+12/05/2025  03:02 PM    <DIR>          42
+12/10/2025  06:05 PM    <DIR>          43
+12/12/2025  07:03 PM    <DIR>          44
+12/10/2025  06:05 PM    <DIR>          45
+12/11/2025  05:11 PM    <DIR>          46
+12/11/2025  05:11 PM    <DIR>          47
+12/06/2025  06:47 PM    <DIR>          48
+12/11/2025  05:11 PM    <DIR>          49
+12/10/2025  06:05 PM    <DIR>          4a
+12/08/2025  10:50 PM    <DIR>          4b
+12/08/2025  10:50 PM    <DIR>          4c
+12/05/2025  03:15 PM    <DIR>          4d
+12/12/2025  07:03 PM    <DIR>          4e
+12/05/2025  03:02 PM    <DIR>          4f
+12/08/2025  10:50 PM    <DIR>          50
+12/12/2025  07:03 PM    <DIR>          51
+12/12/2025  07:03 PM    <DIR>          52
+12/10/2025  06:05 PM    <DIR>          53
+12/12/2025  07:03 PM    <DIR>          54
+12/12/2025  07:03 PM    <DIR>          55
+12/05/2025  03:05 PM    <DIR>          56
+12/09/2025  09:56 AM    <DIR>          57
+12/12/2025  07:03 PM    <DIR>          58
+12/05/2025  03:02 PM    <DIR>          59
+12/08/2025  10:51 PM    <DIR>          5b
+12/12/2025  07:03 PM    <DIR>          5e
+12/11/2025  05:11 PM    <DIR>          5f
+12/11/2025  05:12 PM    <DIR>          60
+12/08/2025  10:51 PM    <DIR>          62
+12/11/2025  05:11 PM    <DIR>          63
+12/12/2025  07:03 PM    <DIR>          64
+12/12/2025  07:03 PM    <DIR>          65
+12/08/2025  10:51 PM    <DIR>          66
+12/08/2025  10:51 PM    <DIR>          67
+12/06/2025  06:47 PM    <DIR>          68
+12/08/2025  10:51 PM    <DIR>          69
+12/10/2025  06:05 PM    <DIR>          6a
+12/08/2025  10:50 PM    <DIR>          6b
+12/08/2025  10:49 PM    <DIR>          6c
+12/12/2025  07:03 PM    <DIR>          6d
+12/05/2025  03:02 PM    <DIR>          6e
+12/11/2025  05:11 PM    <DIR>          6f
+12/08/2025  10:51 PM    <DIR>          70
+12/05/2025  07:14 PM    <DIR>          71
+12/12/2025  07:03 PM    <DIR>          73
+12/06/2025  06:47 PM    <DIR>          74
+12/11/2025  05:11 PM    <DIR>          77
+12/11/2025  05:11 PM    <DIR>          78
+12/11/2025  05:11 PM    <DIR>          79
+12/08/2025  10:50 PM    <DIR>          7a
+12/11/2025  05:33 PM    <DIR>          7c
+12/11/2025  05:33 PM    <DIR>          7e
+12/05/2025  03:02 PM    <DIR>          7f
+12/11/2025  05:11 PM    <DIR>          81
+12/11/2025  05:11 PM    <DIR>          82
+12/05/2025  03:02 PM    <DIR>          83
+12/11/2025  05:11 PM    <DIR>          84
+12/12/2025  07:03 PM    <DIR>          85
+12/10/2025  06:05 PM    <DIR>          86
+12/11/2025  05:11 PM    <DIR>          87
+12/12/2025  07:03 PM    <DIR>          88
+12/11/2025  09:29 AM    <DIR>          89
+12/11/2025  05:38 PM    <DIR>          8a
+12/05/2025  03:02 PM    <DIR>          8b
+12/06/2025  06:47 PM    <DIR>          8c
+12/06/2025  06:47 PM    <DIR>          8d
+12/10/2025  06:05 PM    <DIR>          8e
+12/10/2025  06:05 PM    <DIR>          8f
+12/11/2025  05:11 PM    <DIR>          90
+12/11/2025  05:11 PM    <DIR>          91
+12/11/2025  05:11 PM    <DIR>          92
+12/12/2025  07:03 PM    <DIR>          93
+12/08/2025  10:51 PM    <DIR>          94
+12/10/2025  06:05 PM    <DIR>          95
+12/05/2025  07:15 PM    <DIR>          96
+12/12/2025  07:03 PM    <DIR>          97
+12/05/2025  03:05 PM    <DIR>          98
+12/12/2025  07:03 PM    <DIR>          99
+12/11/2025  05:11 PM    <DIR>          9a
+12/12/2025  07:03 PM    <DIR>          9b
+12/11/2025  05:11 PM    <DIR>          9c
+12/11/2025  05:11 PM    <DIR>          9d
+12/11/2025  05:11 PM    <DIR>          9e
+12/10/2025  06:05 PM    <DIR>          9f
+12/10/2025  06:05 PM    <DIR>          a0
+12/06/2025  06:47 PM    <DIR>          a1
+12/12/2025  07:03 PM    <DIR>          a2
+12/05/2025  07:14 PM    <DIR>          a3
+12/11/2025  05:11 PM    <DIR>          a4
+12/05/2025  03:05 PM    <DIR>          a5
+12/08/2025  10:51 PM    <DIR>          a6
+12/10/2025  06:05 PM    <DIR>          a7
+12/11/2025  05:11 PM    <DIR>          a8
+12/12/2025  07:03 PM    <DIR>          a9
+12/11/2025  05:11 PM    <DIR>          aa
+12/05/2025  03:05 PM    <DIR>          ac
+12/11/2025  05:11 PM    <DIR>          ad
+12/05/2025  03:05 PM    <DIR>          ae
+12/06/2025  06:47 PM    <DIR>          af
+12/11/2025  05:11 PM    <DIR>          b0
+12/05/2025  03:02 PM    <DIR>          b1
+12/10/2025  06:05 PM    <DIR>          b2
+12/05/2025  03:02 PM    <DIR>          b3
+12/11/2025  05:11 PM    <DIR>          b4
+12/06/2025  06:47 PM    <DIR>          b5
+12/05/2025  03:02 PM    <DIR>          b6
+12/12/2025  07:03 PM    <DIR>          b7
+12/10/2025  06:05 PM    <DIR>          b8
+12/12/2025  07:03 PM    <DIR>          b9
+12/12/2025  07:03 PM    <DIR>          ba
+12/05/2025  07:15 PM    <DIR>          bb
+12/12/2025  07:03 PM    <DIR>          bc
+12/06/2025  06:47 PM    <DIR>          bd
+12/08/2025  10:50 PM    <DIR>          be
+12/11/2025  05:11 PM    <DIR>          c0
+12/11/2025  05:11 PM    <DIR>          c1
+12/05/2025  03:02 PM    <DIR>          c2
+12/11/2025  05:11 PM    <DIR>          c4
+12/11/2025  05:11 PM    <DIR>          c5
+12/08/2025  10:50 PM    <DIR>          c6
+12/06/2025  06:47 PM    <DIR>          c7
+12/12/2025  07:03 PM    <DIR>          c8
+12/11/2025  05:11 PM    <DIR>          c9
+12/12/2025  07:03 PM    <DIR>          ca
+12/11/2025  05:11 PM    <DIR>          cb
+12/12/2025  07:03 PM    <DIR>          cc
+12/10/2025  06:05 PM    <DIR>          ce
+12/12/2025  07:03 PM    <DIR>          cf
+12/06/2025  06:47 PM    <DIR>          d0
+12/10/2025  06:05 PM    <DIR>          d1
+12/11/2025  05:11 PM    <DIR>          d2
+12/05/2025  03:02 PM    <DIR>          d3
+12/10/2025  06:05 PM    <DIR>          d4
+12/06/2025  06:47 PM    <DIR>          d5
+12/10/2025  06:05 PM    <DIR>          d7
+12/08/2025  10:51 PM    <DIR>          d8
+12/12/2025  07:03 PM    <DIR>          d9
+12/10/2025  06:05 PM    <DIR>          da
+12/05/2025  03:05 PM    <DIR>          db
+12/05/2025  03:05 PM    <DIR>          dc
+12/10/2025  06:05 PM    <DIR>          dd
+12/05/2025  03:02 PM    <DIR>          de
+12/12/2025  07:03 PM    <DIR>          df
+12/08/2025  10:50 PM    <DIR>          e0
+12/08/2025  10:50 PM    <DIR>          e1
+12/11/2025  05:11 PM    <DIR>          e2
+12/12/2025  07:03 PM    <DIR>          e3
+12/12/2025  07:03 PM    <DIR>          e4
+12/11/2025  05:11 PM    <DIR>          e5
+12/10/2025  06:05 PM    <DIR>          e6
+12/10/2025  06:05 PM    <DIR>          e7
+12/12/2025  07:03 PM    <DIR>          e8
+12/12/2025  07:03 PM    <DIR>          e9
+12/05/2025  03:02 PM    <DIR>          eb
+12/12/2025  07:03 PM    <DIR>          ec
+12/12/2025  07:03 PM    <DIR>          ed
+12/11/2025  05:33 PM    <DIR>          ee
+12/11/2025  05:11 PM    <DIR>          ef
+12/12/2025  07:03 PM    <DIR>          f0
+12/11/2025  05:11 PM    <DIR>          f1
+12/12/2025  07:03 PM    <DIR>          f2
+12/12/2025  07:03 PM    <DIR>          f3
+12/05/2025  07:15 PM    <DIR>          f4
+12/06/2025  06:47 PM    <DIR>          f5
+12/08/2025  10:50 PM    <DIR>          f7
+12/10/2025  06:05 PM    <DIR>          f8
+12/12/2025  07:03 PM    <DIR>          f9
+12/10/2025  06:05 PM    <DIR>          fa
+12/05/2025  03:02 PM    <DIR>          fc
+12/12/2025  07:03 PM    <DIR>          fd
+12/06/2025  06:47 PM    <DIR>          fe
+12/04/2025  09:29 AM    <DIR>          info
+12/04/2025  09:29 AM    <DIR>          pack
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\00
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               730 b8e1b2210d8818afffc8cb12a129a6229afa23
+               1 File(s)            730 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\01
+
+12/11/2025  05:46 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:46 PM               166 0d14d3bd0561284cbd8161afcc67fd19dc76c7
+12/05/2025  03:02 PM               593 554ff35e77f1e16536e209bfafa99902a66c6d
+12/05/2025  03:05 PM               596 b5a670960cbef377142e01302f636439c43a28
+12/05/2025  03:02 PM               920 f1368bcb22f97b0f3217fd99731a5b87589f1a
+               4 File(s)          2,275 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\02
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               601 9d2446b05b9bf6282e9b40e267fd74c166aeca
+12/08/2025  10:50 PM             3,746 a220534766fc84a436f0ea7a2e86b9a5fb4935
+12/11/2025  05:11 PM               815 b681e595c6b4346121f171a20eec0abb24ed7b
+12/08/2025  10:51 PM               913 b9439d0e00497bbf7fb8cf4d706ddcf114d098
+               4 File(s)          6,075 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\03
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                66 bc1eaf1e696ea76ba6c11aa4e2702b82e148ba
+               1 File(s)             66 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\04
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM                92 bcfa6c14899777d81687978fc5c42a15e59743
+               1 File(s)             92 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\06
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             2,751 1f90f1ffc4324ac7dcc5cdd74f5927277061c5
+12/08/2025  10:50 PM            12,814 bf77e654285a3d97a38466bb9adb82e7285c0c
+               2 File(s)         15,565 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\07
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               809 2822e121cc5a2ba3a66d8d961daadfde7bb7a7
+12/11/2025  05:11 PM               196 2bbb655e0131a6ce09ca16243a65b6be4c6cf2
+12/05/2025  03:02 PM               662 c4ca2bef9a4379f168d06aab7a05ba2d0bd582
+               3 File(s)          1,667 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\08
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               740 ca4cf27b7d4ba3ba0b8c5ddc9ee443c16076b8
+               1 File(s)            740 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\09
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             2,426 006cd88aaa4d50977cc62f1af54c094973d060
+12/11/2025  05:11 PM             1,016 02179e8a0bd56ec5170233f0de813aa7f1e303
+12/10/2025  06:05 PM             3,847 34ee11f469eab622891f8ee3c1a97d30835a97
+12/05/2025  03:02 PM               610 c39a0f8ba00b6c9cbbbbf0a59a871c2619c151
+12/05/2025  03:02 PM               568 ca232fe098dbee26bd69e540a966aecfe9c52f
+               5 File(s)          8,467 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\0a
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             1,067 10e7f6558a6c990a5653caee3f01730358336a
+12/08/2025  10:50 PM             1,585 394f710d9e5ff04e8b431bdb27bc1980099a8d
+               2 File(s)          2,652 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\0b
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               592 dc3258bb79c29487895136cbfafdd1dcc0d4a1
+               1 File(s)            592 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\0c
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             4,703 d23846549846def6584acb39b7271c409233ad
+12/11/2025  05:11 PM               130 f0f8a5d750e42298f0c398851c0b38e0fdc2ea
+               2 File(s)          4,833 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\0e
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             7,589 60a126af40db63db5d0bbea624e9f81a556634
+12/11/2025  05:11 PM                55 cf0dbf1156825fac8b9b1780986f97bcd910ab
+               2 File(s)          7,644 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\0f
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               652 6e171d3b0e814452d130fa301beb7e5ddb0090
+12/05/2025  03:02 PM             7,055 8e344a7765625f891cbac7c79499439482ea29
+12/11/2025  05:11 PM             1,375 c450547b40f6c463b4a9e60241b348c54aea9e
+               3 File(s)          9,082 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\10
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               954 55f5ce7c4add66dd174b51cc43338391580495
+12/11/2025  05:11 PM             1,708 968956a0185cd64a6ebecfa733f89eb7b50cf9
+               2 File(s)          2,662 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\11
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,432 7074c63dfda37b71be796f89a8a58a3cf4bc9a
+12/11/2025  05:11 PM             2,883 9241d593885249d58c94317fc1a2d14d3cd569
+               2 File(s)          5,315 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\12
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             1,396 6298a371bded462a16399e7ead09b286e1a36a
+12/06/2025  06:47 PM               738 984f6b4ece9c72d3a3ff4a015fa591b00d2428
+12/08/2025  10:51 PM               200 e7683d6653125684614bd5b9af69d06bdeb3b4
+               3 File(s)          2,334 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\13
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               595 09889897bdc24f96ba30477a0425b1bf23b8c6
+12/08/2025  10:50 PM               117 1395d41d6d902365bcb057d5f75d55bbd51406
+12/05/2025  03:05 PM               269 80e43f198c31b05d4a279c6df30b9b263f44b7
+12/11/2025  05:11 PM               800 d467b10955a11d9e94bd5f18a1d6246ef0af66
+               4 File(s)          1,781 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\15
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               640 b38873973de5213df4642e008b64b42325c8ef
+12/10/2025  06:05 PM             1,472 f2ca6f4977bb1177b1f16c3895d7e9cde2c8d9
+               2 File(s)          2,112 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\16
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,954 3395b61ff9b1d66b2ff7a3a184d3f56aef7081
+12/05/2025  03:02 PM             1,351 d8e8ddfecdc66a61f873c9d5dbe9af37992d82
+               2 File(s)          3,305 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\17
+
+12/05/2025  07:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM               291 d873b6c11c94c61fe959320d0bd48a3490d984
+               1 File(s)            291 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\18
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             1,021 6da787614330cce159e620892ab28613510263
+12/10/2025  06:05 PM                57 7f69527a371db5f1ce7a51ab912e65338001f0
+12/05/2025  03:02 PM             1,576 e13121c1ad29e7292f11f7ac9c51132531a82f
+               3 File(s)          2,654 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\19
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             4,767 a8ffbeccea5c2d7c0129f182edbcea6cd52fa7
+12/05/2025  03:02 PM               845 fb0504f6bc530b2cf61e9d1648dfaf4d4ca600
+12/11/2025  05:33 PM            10,840 fe779ef680829f0f5fcf30235c72a2ec2cc640
+               3 File(s)         16,452 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\1a
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               135 c7a349639ac9d6636c5dc4577893035e2b3637
+               1 File(s)            135 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\1b
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               998 49f46a6b5fadc1a7905edc0aa6e62cd92f188e
+12/08/2025  10:50 PM               687 e6714e0bb44584737571addc29680de42b36f6
+               2 File(s)          1,685 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\1c
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               522 68dfea1bbb8897079ecf867a0d42c4be50b04d
+12/05/2025  03:02 PM             1,246 6e3425a3c0836c7e3700d9e863d2307e7acb07
+               2 File(s)          1,768 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\1d
+
+12/08/2025  10:49 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM               653 c9c1708894f87f69d8eb7b5013228d8904ec77
+12/05/2025  03:05 PM               346 fdd603dfce9eb02129208b62c6d1ee3b503518
+               2 File(s)            999 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\1e
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             4,297 00eb13a02c5e09548d1dda63b57cb9d75b6aba
+               1 File(s)          4,297 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\20
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               268 8b31d089bba0dfd38625edab305afde6fe8115
+12/10/2025  06:05 PM               235 b1182fed28cab093ba8e66851d8e59a2dd9cf7
+               2 File(s)            503 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\22
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,931 61107fe4392920350c2af46cf1b0de1702ebd1
+12/12/2025  07:03 PM               147 9a4017da055dd55f0862d143db90eeaa7d0070
+12/05/2025  03:02 PM               618 c6e9d84f16c297bebe9ea2216e9d5cb0574227
+12/11/2025  05:11 PM               778 e89f623775fd69efc741b343f62f0116fc02b9
+               4 File(s)          3,474 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\23
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               873 2778f8d40fe761e64224b60c69921530a8d97a
+12/05/2025  03:02 PM               808 4d314b6cdba3d991ab67b4887105aedd38c032
+12/11/2025  05:11 PM             3,953 75703043b3d99fb4520136975b0c159adbf590
+               3 File(s)          5,634 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\24
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               654 648e1c13d3429a3ffa6482900727edc4d2b9f7
+12/05/2025  03:02 PM               634 9406e0416b733fd937e0038668d1fae2235a30
+12/05/2025  03:05 PM               208 bcdaa51f9cadcfca7872ac135a14114397ae5a
+               3 File(s)          1,496 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\25
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM               762 8e4983089f9daaa66af1c423e3892f862e841a
+               1 File(s)            762 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\26
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               253 419b0c0ab3284d9932ccfd76412b2d429c86be
+12/12/2025  07:03 PM               848 8d3c3c3f4e5225e71f8afdd995c7d1a69ff200
+               2 File(s)          1,101 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\27
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               850 10f0371d0be6c58d8f0af1926fa8a40cb6f2da
+12/08/2025  10:51 PM               154 7adcd5ad2874b6a112932b762862406f7e551c
+               2 File(s)          1,004 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\28
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               893 215fb47194d541f975f32fb5b3b8d9c882e6b6
+12/10/2025  06:05 PM             2,769 a018ebe3215a1634cb888b48a3402d84951a84
+12/05/2025  03:02 PM               541 b95433a8899db42fddcf7a2e96353acc93c012
+12/10/2025  06:05 PM               291 e5b1c62ec1d33892290eb5de41f9f97ce229c5
+               4 File(s)          4,494 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\29
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               172 74c213e5ad749abdad5cf683abe88c91f5a7c3
+12/11/2025  05:33 PM               192 7def4e10a38253edf1a99e5a2dbc56949fcdae
+               2 File(s)            364 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2a
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,019 4a6f0fe055e99c0e4c7aeb13d3855f10f2eac5
+12/12/2025  07:03 PM               287 dbc14a892f134fc8746516b2fde96ef4c9ac45
+               2 File(s)          1,306 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2b
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               436 0021a7f177ea4fc343bf35fb8dfbc05896b172
+               1 File(s)            436 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2c
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,623 3a07d5b41e1db42d7446802a45c934141b6b61
+               1 File(s)          1,623 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2d
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               235 dcc3d76c851a68931c4a5c78363573b13b6eb7
+               1 File(s)            235 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2e
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM            18,050 31407f7d3ea5b0ea653109db7fa435b35624d4
+12/10/2025  06:05 PM               149 7eb6f684e2c384c63176e34495df035b4c7337
+12/12/2025  07:03 PM             2,882 e596f1f87ab01850f625803a073699002078d9
+               3 File(s)         21,081 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\2f
+
+12/12/2025  07:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               163 1d898757fcc84da0e636e96daa8d6d9b2bbe36
+12/12/2025  07:15 PM               900 3e2a234cfd304dc86d37165e61497d1d2c7194
+12/05/2025  03:02 PM             3,856 3f6481f04f6ac10e203925dcf9e3da593ece0e
+12/10/2025  06:05 PM               981 7931dc76865632d800c956ae8292bb23a2c9b8
+               4 File(s)          5,900 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\30
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               127 1e7b7a2653b7609e35ddd1b28292eaa35309f7
+               1 File(s)            127 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\31
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             1,030 66e4ee706b95fa79b39d1c2f3498606d3bea23
+               1 File(s)          1,030 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\32
+
+12/05/2025  07:14 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:14 PM             1,804 faf301755d593defd93fe93706a3da57ad9cdd
+               1 File(s)          1,804 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\33
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               235 845eb2a1d2c4d6c26c312596e17d10ea23b7e8
+12/11/2025  05:11 PM             1,973 b28f546a2a894d93913d48a54b60a0984f8827
+12/06/2025  06:47 PM               291 b70a61e6ed75aad06317a7557c1b48ec6c227d
+               3 File(s)          2,499 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\34
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               117 43aa07cab72421cc9046b090c377ec4af3b053
+               1 File(s)            117 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\35
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:14 PM             3,770 02bfcbe3d9d1d5ea3cd82d940269e0f0adb3e7
+12/10/2025  06:05 PM               163 1a5b5f724cc20ab29597e94a5af577b9be67b4
+12/10/2025  06:05 PM               796 508212c23bb7feabb891a2cecb1d747a62552e
+12/06/2025  06:47 PM               396 ec2060a27da2c6bb9ab74e15aee5a37f8d0648
+               4 File(s)          5,125 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\36
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             3,324 c6a884bc57d23680010d4f893c6b596dbd7e13
+               1 File(s)          3,324 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\37
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,515 01f2cde65a266be6f9f1847ee9938ef8e15849
+12/05/2025  03:02 PM               575 51ced376a8b7bbd6d1badaf2b5f24dd2274989
+12/06/2025  06:47 PM             1,185 7519f8a8e28af707d25865559b4be3e051bf10
+12/05/2025  03:02 PM             1,244 ce41359bb75b3aa872786bcf3b271828256939
+               4 File(s)          4,519 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\38
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,204 3e7696e7230c0288e640a69f9f8d54241b0ae9
+               1 File(s)          1,204 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\39
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,050 0efdd74ec7fe04a5a02ee889455e598dd0a141
+12/05/2025  03:02 PM             1,142 4181ac39a3e30baee9f27d18a8d9e5fc930463
+               2 File(s)          2,192 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\3a
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             4,239 204fd7fc4e868149c94c7980beca8e14fea361
+12/05/2025  03:05 PM               185 63d1bb9bbe0ef8a29391d035c6f03bf09e0190
+12/05/2025  03:05 PM               130 6ae863338e6ad164e0e7263d3332a0caa87220
+12/12/2025  07:03 PM             2,150 f86adff68f9a7a3183992e1d2975b6ee3b1667
+               4 File(s)          6,704 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\3b
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               720 1c4db51951a6971b1e7a8ae71e45409aea3124
+               1 File(s)            720 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\3c
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM            27,518 38c20cef3dc60418f19535ce893c9823ebedb9
+12/08/2025  10:50 PM             2,796 ecc54d062d75ff9f6858e931be3cd1301b465a
+               2 File(s)         30,314 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\3d
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               995 0912e2ca89ba9f54201d06379ee539e1a8a921
+12/11/2025  05:11 PM             2,027 09d97225f57bddc73422e42a8c5a37ee65935f
+12/08/2025  10:50 PM             3,247 1e703fdd22194807a83014d46ed6d79fb65a87
+12/08/2025  10:50 PM             2,486 5b426016d22307ad116166dfb17759dda64bca
+12/12/2025  07:03 PM             1,870 f6fbb82d80eae1a5b71853e21ca3caf694b1e7
+               5 File(s)         10,625 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\3e
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               217 247aebbaf7665422eb73d9be9574fe5114a4cd
+12/11/2025  05:11 PM             1,120 24f0c363a93bf69ef5937fb5da1939f6f4b29f
+12/11/2025  05:11 PM               103 59cd3d9c45291c2d01a8d612d2bc9c6b92ff5e
+               3 File(s)          1,440 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\40
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               122 e44cef686eeee8541c55dbee7cc94bb77da3ff
+               1 File(s)            122 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\41
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               160 07dcbef340fb62d5fdf1df4f8bad34cd18149c
+12/11/2025  05:11 PM                59 12a21116e2dbad2947b6f17bb870eb275fbc5b
+12/10/2025  06:05 PM             2,174 15a6a4a3cd545e0879f8b091d0fda903c3af9b
+12/10/2025  06:05 PM                66 30567b36161d1fbc4bcbbd8dca0971440220be
+12/06/2025  06:47 PM               262 5bd25c38297b748105542cd582bd072e19b5ab
+12/08/2025  10:51 PM               466 74e888d790b22b892faeab074e53a0e4d954eb
+               6 File(s)          3,187 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\42
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             3,326 d606b033764e92d549c80aa8901942b7399120
+               1 File(s)          3,326 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\43
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                60 643cb305a0fc6c68bd4b329c83a8bd0a7e3c7f
+12/10/2025  06:05 PM             1,020 d770846dc8230ba816f323be1197af126d2e76
+               2 File(s)          1,080 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\44
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               190 00aaf28b3f56374e1e714c14b0426f9bf65ab8
+12/08/2025  10:51 PM               125 8a64e976397ec6807508a3955da7999bf976ce
+               2 File(s)            315 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\45
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             3,600 8534f7ccad9f1e19e5d925f60adac1d70691dd
+               1 File(s)          3,600 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\46
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               197 259d8fb87d2963583dfa600d2dcd0ad2a721f9
+               1 File(s)            197 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\47
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,797 11377f9595029231b2b307a08ab108b3d93a49
+12/05/2025  03:02 PM             1,236 bc01a5efe85401b3005e028084e11bb86996ff
+               2 File(s)          3,033 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\48
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,577 a4a793695020c01e4acc3fd827125ced5c7219
+12/06/2025  06:47 PM               741 a680bea82da6168ee391955bcf4c4bb388f831
+12/05/2025  07:14 PM             1,493 be9cee07283e76141ffc10004ac88cebba579c
+12/05/2025  03:02 PM                49 e284c872f02df6f59e292f94737df608d8dd8a
+               4 File(s)          4,860 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\49
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM               366 c1c76b2a029de574378be3e47bee5e762de186
+12/11/2025  05:11 PM                57 d2771f636480f3f9cb298509fd64ab7f54e6c7
+               2 File(s)            423 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4a
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               184 593757d4fcddf06f32995dfa52a392fc746493
+12/10/2025  06:05 PM               155 ace3dd67cfe2bf5148165ccb789a517095c1ac
+12/05/2025  03:05 PM                77 e6a3415ae3b944ebcac5f251eda7502a435e92
+               3 File(s)            416 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4b
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             9,155 dd6f5423efd58ae361c37a6b3190cae58778bf
+               1 File(s)          9,155 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4c
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               501 0235fa2d723c30dbb8f6f0c86ff09ba7615ff5
+12/08/2025  10:50 PM             2,794 110ae05e2af9e783796fc4164ed75833d15940
+12/05/2025  03:02 PM             1,533 69e920dd9ef23a34505fa180049adab0abe049
+12/11/2025  05:11 PM                78 7cfc385b94bad48183a6d7e14635bede6a13ca
+12/05/2025  03:02 PM               888 bb588a3058fafcf1b0628b446d3278cf4477a1
+               5 File(s)          5,794 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4d
+
+12/05/2025  03:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               195 7df57f1f62aa6b7ebdddcec6ff19a06ae71e2f
+12/05/2025  03:15 PM               943 c25ba44fff89d7919a329e6044be858bad6d4f
+               2 File(s)          1,138 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4e
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:46 PM               605 1f7dbd0eb2fb9db9177b237578ade65efe483f
+12/12/2025  07:03 PM             1,589 2825e7d77bd37a01d6d0bace32224663ee9f0f
+12/11/2025  05:11 PM               371 96414edb077dd681960d3de3e5f03c342007c9
+               3 File(s)          2,565 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\4f
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               783 6f86b4cef7369534a9aa35c65571fff144b22f
+12/05/2025  03:02 PM               515 a6651b92ddfac663d7e875abeb21a31c28ea31
+12/05/2025  03:02 PM             2,545 e71bab9f484d674d4e6a81577e82262ff0495a
+               3 File(s)          3,843 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\50
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM               876 f4203b11d3f2fa6c4c07083c5dc0d1d9dcf701
+               1 File(s)            876 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\51
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             4,034 306e5e4719a7100c17b5c62e25f58b202ef51a
+               1 File(s)          4,034 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\52
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               297 0a68c0f58b5e64e93cb21be20c70de075bf00c
+12/11/2025  05:11 PM               147 32c4ab99a2ba14092010ee775ac823c8a34956
+12/08/2025  10:50 PM             4,299 cdb8da5943833578095afbce81d35d6f9e6b42
+12/05/2025  03:02 PM               651 d56acf0a220f1bb150f0ddbfe5ac59bcf6ffea
+               4 File(s)          5,394 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\53
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               283 30d5d8f31f983af78ad3dd78eb2101b5ca52d8
+12/05/2025  03:05 PM               312 35b0c4c936565a136f5d375f2e9f624350ff94
+12/11/2025  05:11 PM             2,018 63d3696f4ef75525156de6c546c5bb07c5d2a7
+               3 File(s)          2,613 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\54
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM               317 18bb41429675a6266745e261421175df9a6662
+12/10/2025  06:05 PM               241 7bb5661e2a484f5fcb6e20b07e5e7a629501f0
+12/06/2025  06:47 PM             3,929 89c635405ad2e7109ae3bc49b8097da11d9164
+12/12/2025  07:03 PM               339 c0b8e475531ac1b601800084a920570be63b83
+               4 File(s)          4,826 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\55
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM                74 357424013fe9d83db92d8722efa32f4d1c7fff
+               1 File(s)             74 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\56
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               404 bfa9100144d9bc8783c89a318692ea4727e638
+12/05/2025  03:02 PM                70 edf39e8def90e2c0241731f398ad03eca6233e
+               2 File(s)            474 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\57
+
+12/09/2025  09:56 AM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               682 054bdfeff55b330df28495e5c8878d89c23041
+12/09/2025  09:56 AM               919 7d52ea37be1e217bfb96612abc50774875f4f2
+               2 File(s)          1,601 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\58
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,143 0deb1ef3ff1bc494f0c7cf448a81bfcfe2dc58
+12/12/2025  07:03 PM               113 769167ee5f5ec12bccc1ae1b7d4f67a5e386b5
+               2 File(s)          1,256 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\59
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               726 04c5edad8c60653c2b75aa7b2fca77983ecf5b
+12/05/2025  03:02 PM               127 6dfbf0ee9d6b2e63fffd1e0063fb81313d8e63
+               2 File(s)            853 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\5b
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM               406 5bbfe7056c2aaa1d7907476548c54311288de3
+12/05/2025  07:15 PM            15,857 60f7d633706f9592ec87da6333177bf6d825ee
+               2 File(s)         16,263 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\5e
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               318 1a7f90b867b40762011b61653261b9b25cb2c4
+12/08/2025  10:50 PM             1,241 505d5ea230f17176af90180c2101befb0a9a42
+12/12/2025  07:03 PM               307 c5eabfe424a3bf9cfc4820793f02cdde5c47ef
+               3 File(s)          1,866 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\5f
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             3,956 afe4b224cc5f63374b3eb4e679fd1502bc17b2
+12/10/2025  06:05 PM             1,981 ff0f72504aa2ca62e835296e27e89327bfb385
+               2 File(s)          5,937 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\60
+
+12/11/2025  05:12 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                56 20264bdc682aa5a4297853350557b6e84bd4e9
+12/05/2025  03:02 PM               642 809fc21befbf99c6107ef6d6bfc2a1c8d64240
+12/11/2025  05:12 PM               917 a5711053da11dace4d70bc3671b972a5091131
+12/10/2025  06:05 PM             3,994 b1d4df4e9bc9abf5bd0ef1b3bd2a891aa4cf39
+12/11/2025  05:11 PM             1,487 c5edd999f3943f3bb1ff8236d9e4499da5d014
+12/05/2025  03:02 PM             1,363 cc7c34d751cde3b3bef60d8e4e223541b7fa5c
+               6 File(s)          8,459 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\62
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               707 0368a2def8dbd7b48c902ffed384b3de68be75
+12/10/2025  06:05 PM               370 2e67be5dd0bbf6bf39f8a7c9e2f252a1d8217d
+12/05/2025  03:02 PM             2,302 5707f4c04dd546c33cfa0ebd3d0dca2e9692b6
+12/05/2025  03:05 PM                92 832b3f5d3b2e48e521c827a49ff90b91b11be2
+12/05/2025  03:02 PM             1,178 9826fd42feaed4421527c5765ea0dbf01c2c19
+               5 File(s)          4,649 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\63
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,119 7a46cb82c734d9907ba32507c71a789885b20d
+               1 File(s)          1,119 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\64
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               880 08dd698505e9aa30dee9a738fc5c6e05aed37b
+12/08/2025  10:50 PM             3,362 eba6ee702165c29878beb88468fbbc50d9e11b
+               2 File(s)          4,242 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\65
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM                56 c647925f928bcbb2e9eab7a62185cc43e7a155
+               1 File(s)             56 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\66
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  03:41 PM               918 42baca17f48b10237f3f16a37c5535b07a0f78
+12/08/2025  10:51 PM                89 7b10353101c675d3ff52b9e822138b19fd4828
+               2 File(s)          1,007 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\67
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             5,214 175c7722930c41bee064e75e52be503c6d8005
+12/11/2025  05:11 PM                50 1c344c04742f6e2ef5a474750afad8a8836284
+               2 File(s)          5,264 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\68
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               447 0741f0f66dc4189a7c65c9676ec1ecb4d7c68f
+12/06/2025  06:47 PM               174 d6f11fed5103c2189e23ae0ba256c337b96e0d
+               2 File(s)            621 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\69
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             4,204 43fd79608a6f8073e1dcfa34123a57723cc231
+12/06/2025  06:47 PM               312 7e9e415df1721a727afc200be3b4d9ddbe0064
+12/08/2025  10:51 PM               130 902827699c0df12066ac197425bca8900e5908
+               3 File(s)          4,646 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6a
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               337 111807bd0a7a283c6425ea0b2f32c7725d0d49
+12/12/2025  07:03 PM               857 b56f8e9c2d78873ec52874d5c8ba61fe77e2bd
+               2 File(s)          1,194 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6b
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             2,467 f90acafc9e3abfc43b8e6e24015b0e46c0936a
+               1 File(s)          2,467 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6c
+
+12/08/2025  10:49 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               305 e1c70370183cb3e457cf6fd8a9ffea0cb82658
+12/08/2025  10:50 PM             1,859 f7b3a74e086b3fe71359ac391a1fef9989ac55
+               2 File(s)          2,164 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6d
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               605 d8d5e566d5983a5f41f0491bdbef3f03a403bb
+               1 File(s)            605 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6e
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,079 6a822f68187d868be97694c32f279da7037697
+               1 File(s)          1,079 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\6f
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               182 4f325f93218aca00af1ad7fe1ab176cd364b1d
+12/05/2025  03:02 PM               302 5b7a98ee278adf2bbf91995cfc9935f0293fab
+12/10/2025  06:05 PM                50 5ff571e119370344a4db4a5bd13ad15ac193a8
+12/11/2025  05:11 PM             2,024 c77abc7067031f045ac04768c630ead6df5136
+12/11/2025  05:11 PM             4,248 f4411e82d7f98f31131106f818d71a1d89f67f
+12/05/2025  03:02 PM               612 f49a02dc173a42550c75a1fb43d5e3505a507b
+               6 File(s)          7,418 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\70
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM                68 216dcf9d8f15e413d9b9ea344f5ff56afa1077
+12/08/2025  10:51 PM                88 9992df9b8e99b73a4c47ecb26148913ed09375
+               2 File(s)            156 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\71
+
+12/05/2025  07:14 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               634 75b59661a221b4319cdbe3642bb92f77e0e461
+12/05/2025  07:14 PM               831 e9bd2b3e526b1a4fc6ee11d5c6fe1717e7ad1b
+               2 File(s)          1,465 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\73
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             3,407 41483fa2025fd17f92fba5e8e3f21f6d4161df
+12/12/2025  07:03 PM             1,419 ac7cc4dff954eadaaa12b5f73f50b1f5730d47
+               2 File(s)          4,826 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\74
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                56 2266eb865fe0b0e35b2a47b4e40e4f777dccd3
+12/06/2025  06:47 PM               163 5b7647d1f6e95a1976bdaebeec674df83f19a9
+12/05/2025  03:02 PM               628 da7b4568d18f55b0d1beeed0414c22466aa077
+               3 File(s)            847 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\77
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM               256 2ca9309c55476c8ff142b618ec14343e202569
+12/11/2025  05:11 PM               814 3d2459282de0971ddf1ef0f85f1e6a6e78bdbb
+               2 File(s)          1,070 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\78
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             4,273 703ad82fb01a34fb01214fbf1a6b54a4ab2907
+               1 File(s)          4,273 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\79
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               194 94d8b91ee85e4f481a3036d17e0a888e7e3595
+               1 File(s)            194 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\7a
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             4,003 6f01dc07478e7b6c2c9110564fddc005450b59
+               1 File(s)          4,003 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\7c
+
+12/11/2025  05:33 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               210 0f9a8bf8f1547824dd03cc8449136323183cda
+12/05/2025  03:02 PM                95 11114a87f65da2fb6f2ea62e6392e78d78cef8
+12/06/2025  06:47 PM               114 6309e37e51df99496abd7f0a6bb68df7b40e28
+12/11/2025  05:33 PM               196 78fbd8f58aac4f32ed8ec7470239f1fc9322e5
+12/08/2025  10:50 PM             1,227 c8f363bc56e523ce7d548c53e96956e1eaeaad
+               5 File(s)          1,842 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\7e
+
+12/11/2025  05:33 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               352 119854b0e183d059be461f449b7c3c7a1d6a4c
+12/06/2025  06:47 PM             7,688 4ee00375760149ebeffa8fb1449c998618e096
+12/08/2025  10:50 PM             3,385 c8767c4039e150d8028a2ed1f6b2dbb84e6006
+12/11/2025  05:33 PM               637 f72a15b99fe3a9d5031a390f239d21da6c8bca
+               4 File(s)         12,062 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\7f
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               575 f096aef1796414a16e9f678483ed7cf68e721d
+12/05/2025  03:02 PM               771 f5a04b87713750733acf5cf1540086481273f9
+               2 File(s)          1,346 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\81
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               388 be29967d3202217df67335170d1110559efddf
+               1 File(s)            388 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\82
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM                57 0454d8795d6e53617133439c71a9b05dc0d3e1
+12/11/2025  05:11 PM               911 2cc8b2ba951eeab3b4f271384c6ed42dbb4e5a
+12/05/2025  03:02 PM               329 5ebac9a288eae0704fd3d69abccda1aaae79fa
+12/11/2025  05:11 PM             4,044 9b81006d970bdc879f4ab0f636c77d60d3ba43
+12/08/2025  10:51 PM               268 ca6da1096f776fa090b7a3d0ff4df1570dea3e
+12/10/2025  06:05 PM               108 d52fc7834399dc2ac9cdbf3347e3a766db2184
+12/08/2025  10:50 PM             8,854 fc7a0798a02c20f94a22ff5d889e04ef8cf665
+               7 File(s)         14,571 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\83
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               532 0c00e824f07a4c91c59314e8c592ab72423b8a
+12/05/2025  03:02 PM             1,640 66ed503cde883cf3c4d572a2ce6efe3002da72
+12/05/2025  03:02 PM               852 cc0fff25d7456f72b8ccd6f9b2679a5e426207
+               3 File(s)          3,024 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\84
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM            22,182 05bfbe971077a14011388a38add453ca103228
+12/11/2025  05:11 PM             3,355 0ebf508cfe1c08cfdd116f0abb96b8dc7de375
+12/10/2025  06:05 PM             1,896 72c981df5867aa80c42ffe9d32c685c3649e60
+12/06/2025  06:47 PM                60 a6a785d5ad4166f7bca327312617cf20536f85
+12/06/2025  06:47 PM               291 aee6cc5aba9c66ac0195ff1f4fba9bcb205264
+12/06/2025  06:47 PM             1,309 ee91dc069d20b639c8dbbd9b61a6a35dfb40f7
+12/11/2025  05:11 PM                56 f14b77b62e1f375ddfb3be8b995d94b78be442
+               7 File(s)         29,149 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\85
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               537 55404d939151b798f45de3c6f5a3732ec5d1bd
+12/12/2025  07:03 PM             1,446 947b418afd673e698ff774263769eb1f733ccf
+12/06/2025  06:47 PM               845 fe09af6e7738a642ec5b37015d7f3a256303a7
+               3 File(s)          2,828 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\86
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM               346 1610e0ddc77be2d0a83141e31342cd2f2b0e8f
+12/10/2025  06:05 PM               129 d359a9655ff533c9c388468125fe6b0a5d5654
+               2 File(s)            475 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\87
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               538 21a65e8aaa8f0347f171cced13f3d821d7aebc
+12/06/2025  07:06 PM               920 2f6df88f7c4fa2a2fbe33d77b7f4a7438114f9
+12/11/2025  05:11 PM               113 5a3f0dd12170bb1ad83aeb5e77da97a4c02f30
+12/05/2025  07:15 PM             4,740 7af506f1321d1731257ea705b9dad299698412
+12/06/2025  06:47 PM             2,514 b171915cd759d733e9dbb2f96151a39b57e062
+               5 File(s)          8,825 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\88
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               771 1d620d233dd68b837743b4016f768b54e38106
+12/12/2025  07:03 PM             2,302 755d9297a1c39608a7c0a90ada038d2605d6cf
+               2 File(s)          3,073 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\89
+
+12/11/2025  09:29 AM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               564 3cd53446ad809e04d3592605ef8ec16c0f3ad3
+12/11/2025  09:29 AM               924 d13ee24c556f17ec47409be7ae67a8f9fc7ee9
+               2 File(s)          1,488 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8a
+
+12/11/2025  05:38 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:38 PM               942 313d3b5162e161097e78903a8402da64a65606
+12/11/2025  05:11 PM               792 a4ce03fbf462b0902d0c3e51d2efdac7111386
+12/05/2025  03:02 PM               201 a7bbad96efee0e739e638772891d28caabce8e
+12/05/2025  03:02 PM             3,630 b62e9d4dc7285ada85b1b99cb67c63162d33b2
+12/06/2025  06:47 PM               127 bf5e66abe6860f049ff7912d9108547ac4fb54
+12/11/2025  05:11 PM               479 e7438b1066a68b80b0d74b7f2145aa0799963c
+               6 File(s)          6,171 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8b
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,907 4cb3466b3db44ba012bbfa5502241582ca4002
+               1 File(s)          1,907 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8c
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               317 199df4bc261a07d1a176efd2ad07d84d3da2bf
+               1 File(s)            317 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8d
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             6,061 5d59d4a6e62fa2537a7a538082f72f4a9f9571
+12/06/2025  06:47 PM               754 df2cb583f707d2901d8b698cdbbc3fefb947f6
+               2 File(s)          6,815 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8e
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             2,433 65c25047c859007f44a37fa3a2d88cef77a2ac
+12/08/2025  10:50 PM             3,404 9262baf550dfc93253b97bad06bf024692634e
+12/10/2025  06:05 PM             2,507 b0455f35d00d7f92c1d9e2844e95d5db3bb30c
+               3 File(s)          8,344 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\8f
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             5,103 0de9b5e41d96dba07932806281ccc7484ddecc
+12/10/2025  06:05 PM             3,956 1118fdf87a1c6309423917c7a1ebc08f7aff38
+               2 File(s)          9,059 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\90
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,507 d303e182544d59860fe2d8dc7d7c192fcfdf69
+12/05/2025  03:02 PM             1,929 d3bcf55928f9e00bca4f8fa500cb19d83cf679
+               2 File(s)          3,436 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\91
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             2,891 4c86a6cc2edc6333ac46d04717fafef17d4a05
+12/11/2025  05:11 PM               204 ecfb80953f3aff5ec3bce6180595f0add98171
+               2 File(s)          3,095 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\92
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                87 07073a7c93c125fb3beead8abc1ae4e125cd70
+12/06/2025  06:47 PM               627 7713c0c95ec516c7b1844527b781d9bdc0265b
+12/11/2025  05:11 PM               100 e6cac8c5f56b8d145c29d8696e71b74db77123
+               3 File(s)            814 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\93
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               746 0288e8f174bdbed18cf2662ce14cebab545cad
+12/12/2025  07:03 PM             1,117 3bf43187232d67a7f9cbad2012c6674d12b2b8
+12/05/2025  03:02 PM               713 4f8b26ce7505f5220895ef8e41433cf777b50b
+12/05/2025  03:02 PM               934 83ce2464673122239beafb59d151c27b50c7f8
+               4 File(s)          3,510 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\94
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM                57 60a1fd9505a14eea4a6a8f3a1ac8f0b52b9616
+12/05/2025  07:15 PM                74 7b720b5008b8198752be9eaf4236bb9475cfd1
+12/05/2025  03:05 PM               230 80e55ae6da2c78cb06afdb440a41e76e99dc8f
+               3 File(s)            361 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\95
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM                89 3ca6233cbe9f90148c23505e431fd88df67e5d
+12/08/2025  10:50 PM             3,653 8f1986507257a8bc2b64ab0cf49d98a7aca1a0
+               2 File(s)          3,742 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\96
+
+12/05/2025  07:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,347 454415510f00c2c547b298018f994ee333ec69
+12/10/2025  06:05 PM             9,676 cb22ade98c840fc4e8c7eb234622f1fa58b2ef
+               2 File(s)         11,023 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\97
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               486 5bdbcce282cc615ccfd8ec6646e7f2b139786d
+12/12/2025  07:03 PM               188 95880d5202ca57df29ad4080a2f851da7907ad
+12/05/2025  03:02 PM               934 b20636b93f64c503431a88daa3d492d36b694b
+               3 File(s)          1,608 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\98
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               343 669891574676ba60712449cb791d1a65bb00ab
+12/05/2025  03:02 PM               547 bd52013445075c24011d30f197755b511496d8
+               2 File(s)            890 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\99
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               484 b2c09c8064ffee9a9317197e7017daea5793bd
+12/12/2025  07:03 PM             1,435 f7f262aff0e8c02bcf8244f110e033b9158276
+               2 File(s)          1,919 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9a
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             1,125 84e2ec6023cc320a507c5b9881dcdddc3cfcb7
+12/11/2025  05:11 PM               189 cd28fe7bc1411db0357b237d9ad2c00e827cfc
+               2 File(s)          1,314 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9b
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               185 78b504c2398fd8d12267ad9dca91de0323ea98
+12/05/2025  07:15 PM            11,014 df0a07fc90004fd84ba71a62a95971bae55419
+12/11/2025  05:11 PM                60 e812d773b1a5e8e598124571abd1deb1737895
+               3 File(s)         11,259 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9c
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM                57 5aaeb9759a369be7c67081ade221b768501902
+12/08/2025  10:50 PM             1,382 5b8fa63ecb8d78e9c84d52b8542ee2f59d2d1d
+12/11/2025  05:11 PM               879 8f9fed06a30c4e0648914eb1e3e1b490090313
+12/11/2025  05:11 PM               134 c9b38e0b638813a75769fb1d7b1014e96072f1
+12/10/2025  06:05 PM               288 f0043c07a4fdb7bdc1e834ed347fbb88c04bff
+               5 File(s)          2,740 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9d
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               885 0d12071c110a67db43620ae7b691a5e48ce613
+12/05/2025  03:02 PM             1,045 a95083c1c0f809b31bed145e17ed0bbbab42ac
+               2 File(s)          1,930 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9e
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               285 07c208b1ffd7620a029786f6f20f9c88860957
+12/05/2025  03:02 PM               638 40c83c7cea11b96293810a6f2e47b0ded2ffba
+12/05/2025  03:05 PM               230 a4df29fd24121a742cc75ac65918ff640f5b11
+12/05/2025  03:02 PM               379 bf05fdb795cf6d021d84596878ac520ca3c947
+               4 File(s)          1,532 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\9f
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               400 0d48120c51154c9ac7b3d9c4041eebcded9dac
+12/11/2025  05:11 PM               174 2d2077dea4e78909fc28d8797a980b06515f27
+12/10/2025  06:05 PM               892 c2da0433cd3cde6e55b34524bd7917a9e3ba79
+               3 File(s)          1,466 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a0
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               965 000917011cdad6180bf5d4cf9572081fa1d724
+12/05/2025  03:02 PM             1,032 56ec3c079777d09e227a9c43d147b3b6e54053
+12/05/2025  07:14 PM             2,297 ee117caba96d926adc138a05bd8d4e21e87470
+12/05/2025  07:15 PM            13,562 f1dcb21f353339c76a2670b5a46733bfee707f
+               4 File(s)         17,856 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a1
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               965 91d72b39962ff86f288a6322f8ac4b50f1d0ab
+12/05/2025  07:14 PM             1,148 f026aec7bcf282b0e08d020c95c97828d5f747
+               2 File(s)          2,113 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a2
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,775 61dffeee979ec5d431adab99ce03a667b4dd23
+12/08/2025  10:50 PM             1,535 647ec2ac93f2ebba57d4f5266676cc7f86a619
+               2 File(s)          3,310 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a3
+
+12/05/2025  07:14 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:14 PM             1,033 209210a65faf0647ef600a06993a1e8b016678
+               1 File(s)          1,033 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a4
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,356 1d55cc36d1a7ebf3e456f4656080e6aad26ad6
+12/11/2025  05:11 PM                69 2a88d18216d9cb620eab51cbecb161b899a5f4
+12/08/2025  10:51 PM               321 70d9962ffeabd3536d59a11df3c126a7d96226
+12/10/2025  06:05 PM             2,235 a40f654b00e3876a336a2f5848ccdaf52ec735
+12/05/2025  07:15 PM               429 b14d8acedcdea3104f8f3e741aa7c60f082d92
+12/10/2025  06:05 PM             2,570 bfcec26f5bf257b89d8dc50c6b2fabfecd68f8
+12/05/2025  07:15 PM               466 cfc32ab27c175c446f2ea4ab36d45872d86f51
+12/11/2025  05:11 PM               935 f671dbebec6f87af16995648e25e626909defc
+               8 File(s)          8,381 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a5
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               120 b7e8e47349fc5a5b1c0e76eb30fd6a0575e377
+               1 File(s)            120 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a6
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM               312 3a5774241e813e844c8640bd5acede486337ab
+12/12/2025  07:03 PM               153 bee0ddaff1e878c09a1fffbe505c6dfc20a62d
+               2 File(s)            465 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a7
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             2,148 ae6fcf9bd9d44463cd1812516c2351c9ecdc1a
+               1 File(s)          2,148 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a8
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               466 86c6ca5f66038e36c0356df15206afa0ee42e6
+12/11/2025  05:11 PM             1,335 c52f09310b2b7dafca67e41540ee64e9f110af
+12/05/2025  03:05 PM               741 ff0717b2cf6b5b4136c04eee4fd5f61a63e06e
+               3 File(s)          2,542 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\a9
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,578 0a861b8cfafd8a7ee26541522aede08b3a01cf
+12/05/2025  03:02 PM               726 82dc6c1b9acbe792c12ed61363a7702acefcf2
+12/10/2025  06:05 PM               411 86cc4208a9168b7ec3e441d1656ae00b6abe2c
+12/12/2025  07:03 PM               388 ee0dd193a0c1684000367fb6d437ccd4afc026
+               4 File(s)          3,103 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\aa
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               557 3477b9e2f102e3dd79ac7b1d607eae36c82b76
+12/08/2025  10:50 PM             3,960 4f1d338447910f4722133936e5ad65a3aa24f4
+               2 File(s)          4,517 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ac
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                57 4e27f207ecec92a0cee071205eba3b37107818
+12/05/2025  03:02 PM               850 6a8cbbe8050918a71dc2aa15377190ee89dac0
+12/05/2025  03:02 PM               505 945f278a53e146914710be2f244d5bc4f7661a
+               3 File(s)          1,412 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ad
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               217 2a41da107649459e12fb9f1e80b39f04b38292
+               1 File(s)            217 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ae
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               164 659f3bea7df80234396213255ce613d874ade4
+12/05/2025  03:05 PM                82 71c215acfd836b639ceb08bc37a8ad97cef458
+12/05/2025  03:02 PM                52 f680424525e3547abb0b458bfaa21fd7bb7065
+               3 File(s)            298 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\af
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               321 3c1d5e1abd56c9b4b373f955abd39bd41fae46
+12/06/2025  06:47 PM               375 d6202e410c89831a77d8396b570ba6e67a72bb
+12/05/2025  03:05 PM               466 e61d94f305564ddd22715a17196e879ad9bf7e
+               3 File(s)          1,162 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b0
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:14 PM             1,757 4daaa0fa1b4f628a6150c31a707fb88637b674
+12/11/2025  05:11 PM               262 9ebb50f5a65d2bde6a96220c9586ec05fbceb2
+               2 File(s)          2,019 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b1
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM               822 37b7456baea9938a214346ceecb746c9131678
+               1 File(s)            822 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b2
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               320 32461cc797eda6842bf945a26cde08c15609d9
+12/05/2025  03:02 PM               848 82fb16ae442f7abe221bf62d668b2f44fefe12
+12/05/2025  03:02 PM             3,699 a98bf3a0a6380858246905635887afb8a6d485
+               3 File(s)          4,867 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b3
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               272 518f21db74af10bc9c0f185a8f22a32e9db943
+12/05/2025  03:02 PM               409 5c4071515a236d24e23cfe0ac22786dd58c2ce
+               2 File(s)            681 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b4
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               157 0ccffee7158cbac2fff05195592c6260ebc240
+12/11/2025  05:11 PM             1,230 222443347c35186f74172ca7d6ea4e882e36a4
+12/10/2025  06:05 PM               173 7ce869c88f9c82abad8d5b8a775b70c8223222
+               3 File(s)          1,560 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b5
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               677 3c286f4145f62704b44afb44d6bfc8983e2dfb
+12/05/2025  03:02 PM             2,927 98ac146d649177f8e4376d37cf8a4c4f30de82
+               2 File(s)          3,604 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b6
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM                40 4293119d4f1b85e9c366e1307f070e527a24e3
+               1 File(s)             40 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b7
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,376 01789b6b767663bfd19f398fb8f5288f81e211
+12/05/2025  03:05 PM               110 733e039a2d00b0e094e3afbf7ee0e90d6ed559
+12/05/2025  03:02 PM             2,489 87d7036d4c681c6aa1bd74940f65d7d49a9c4b
+12/12/2025  07:03 PM               175 9b29671751a07992129a470745cf9a05fceb0a
+               4 File(s)          4,150 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b8
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               153 1f519472682d5f3d524c752e2670dbd296122e
+12/10/2025  06:05 PM               815 3ca56c0aa2add94784c178f2f94dd85284a5f2
+               2 File(s)            968 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\b9
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,961 18de7d2d4c02cfb795d2c27fcefff0333058b1
+12/05/2025  03:05 PM               171 5cbf23035331abf8069c583c4e7133f3275cc2
+12/08/2025  10:50 PM             6,807 7ef56f03c65fa036aec4fcc0c3308bd3184c4a
+12/05/2025  03:05 PM               354 a536aefb612a4a9de3979adab104bbc35cb731
+12/05/2025  07:15 PM               228 a83530fee184abb2a6a4ae1e50ef6cd55b9a76
+               5 File(s)          9,521 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ba
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               317 41f57e8736fbb8b3912579383198750724522b
+12/12/2025  07:03 PM                61 470a697eeb6cbf4d6440fcecc624b12e5d7ad5
+12/11/2025  05:11 PM               851 d5fb2c7178bff535df3a5ef8aefe6926825637
+12/05/2025  03:02 PM             1,024 d78a7f30c7b8e31f2e9dba030d6f94bae30351
+12/06/2025  06:47 PM             1,317 e3fd0f554ad9c3b534e21f57d9e463cb930441
+12/05/2025  03:02 PM               613 e94783bc30d50977a245c6c9d6c62abae58ad9
+               6 File(s)          4,183 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\bb
+
+12/05/2025  07:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:17 PM               627 ce73a36f109e0520859589b0ae851daaedf46f
+               1 File(s)            627 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\bc
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               307 49cda8e8f243499ab876521b0f23ed014ca507
+12/12/2025  07:03 PM             1,017 f513233b2d0a1dbf4289a174976a909ba1981a
+12/05/2025  03:02 PM            10,304 f650f788b4821f551f26e4e1db68e630790638
+               3 File(s)         11,628 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\bd
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               776 0b6446ad4a3314ced0a3891f15cbd4f2f09d6b
+               1 File(s)            776 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\be
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:50 PM             2,486 8e3b1bca533286dc9ec5b7b5ac96fcbcde9cc1
+               1 File(s)          2,486 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c0
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               730 dcfcb1ac81dc03caba51180c4482724f5e49cc
+               1 File(s)            730 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c1
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,019 0364b7e411df57c0d03135f12d79ad0693187c
+               1 File(s)          1,019 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c2
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               684 3cdd338573781532415e1f5db15eca3fff97fa
+               1 File(s)            684 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c4
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/08/2025  10:51 PM               497 0f1c1034fee292e46a51971da749fd80d7291e
+12/10/2025  06:05 PM               539 1299b30106b8c35a02c1edf8b7062e96b9f960
+12/05/2025  03:02 PM               579 468e6d2366f1186167b98fb77c365a4cc21181
+12/08/2025  10:50 PM             2,891 7e9c16d99c31ab61a2893548788aba16cb7d4d
+12/08/2025  10:51 PM                57 c5294118809608baaf3e80c59215b5f604f92d
+12/10/2025  06:05 PM             1,130 c658e3730913141849d3fbde5654edb7e4737e
+12/11/2025  05:11 PM            10,846 f0405e644e125649ada13a8470f46926842ee0
+               7 File(s)         16,539 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c5
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,792 92446e3df005d74b0261dbebf4a959133e3a3c
+12/11/2025  05:11 PM             2,009 ca41c3615c02228f6a3feddaa063cdc48ae29f
+               2 File(s)          3,801 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c6
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,014 355ca3771a3a6556e4310ebee2ed52ac51c7b9
+12/05/2025  07:15 PM                51 4550f2a6f798184dc6c31f2605c95602b6506a
+12/05/2025  03:02 PM               940 822f97f4b75dd5f3271ffe7706b2f4a28d00c6
+12/08/2025  10:50 PM            21,431 ddf973139645507d6ff4acf6e1589bba8c01f5
+               4 File(s)         24,436 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c7
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:14 PM             2,288 3748998359c3c7f52ad3ca5e97843259cbd3f6
+12/05/2025  03:02 PM               344 dd69e5f83150c1d1901507c7621fdaebbad6f4
+12/05/2025  03:05 PM               502 f4e41d51a077d96eb48b4dd62d8ade6f850296
+12/06/2025  06:47 PM                98 f9d480f5dcf8f08bb9a52ac19ce5af771f94d0
+               4 File(s)          3,232 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c8
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               241 1356063eacc06d25a37247f8f50961edb15a38
+12/11/2025  05:11 PM             2,447 1b1c3c489eebfb545cce997c18a69b3464248e
+12/12/2025  07:03 PM               182 9fb88ea83ae5336df2c0594a4698ffa81b98f5
+               3 File(s)          2,870 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\c9
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             1,511 7fdbedea638e46cfcf30191993e370ba5b31b7
+               1 File(s)          1,511 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ca
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               234 1083c449c807df12cfd6103624be6c163e610e
+12/05/2025  03:02 PM             1,732 399b137da46269438e2ceacb07031adc636413
+12/12/2025  07:03 PM                57 fb036a287a9f868c4bd0c6f6e1db45c0a2f498
+               3 File(s)          2,023 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\cb
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             2,168 26b65d578a190ea8108ba19e5d87611472ef49
+12/08/2025  10:51 PM               201 9fd26faafb75ff23b8d295d03ecd92f736e633
+12/05/2025  03:02 PM                39 a2c6ca71a0995fed2eafffe056ff886261b0f1
+               3 File(s)          2,408 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\cc
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               846 0fe193b6d1da2e1fc729072a823e8e4fb3a1a2
+12/12/2025  07:03 PM                81 15aec310f93d12b8ca2385f5a571bada841b06
+12/06/2025  06:47 PM             1,879 71c26db14f1a16c4a25a082708f2206f76bc62
+12/05/2025  07:15 PM               512 dcd6970469d80e56726cba2d67ef845d7400eb
+12/08/2025  10:51 PM               191 e8725f2cddbddf20935aee09860d192fa2229b
+               5 File(s)          3,509 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ce
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               498 f496915d61965ca5083b7d869e38cf74d1c3cf
+               1 File(s)            498 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\cf
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             2,503 b0286c8a7f1db8f85397ce1f33ece90c858ec0
+               1 File(s)          2,503 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d0
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               580 77c28f4e8bf2d67351aa38239621a3fa2d3e42
+12/05/2025  03:05 PM                62 cc05c8edf9a7aa090adc680f9ce9a6348caaf5
+12/06/2025  06:47 PM               650 ccd6314c08fa8187d694ae9b086eb04eb5985a
+12/05/2025  03:02 PM             7,299 de4436708312504a6ed32f19ff7ffe82ceba88
+               4 File(s)          8,591 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d1
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,013 0d05f619dad14fac76c83195738ba951310f68
+12/10/2025  06:05 PM               806 da510c9ae8d37f6ce1dfe346bfb401bb9e03ba
+               2 File(s)          2,819 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d2
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM             4,291 7f7b7966d4143921a14b74a6d195d1fc5f529d
+12/08/2025  10:50 PM             2,421 b2dc1c35b75d2aa7da88ec2dd01b70b7bc4597
+               2 File(s)          6,712 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d3
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               974 5c9297a779248efa52cc2cba9119fd76258250
+               1 File(s)            974 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d4
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               172 0fc53704e9b98487a781fb98c4c070a7a37e9f
+12/05/2025  03:02 PM             1,506 3153c93d8aac4d21fee03bf76d3cb4bd7dcef8
+12/05/2025  03:02 PM             1,340 ff54e0df609356a7aea5f205a6b2f5e65a178a
+               3 File(s)          3,018 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d5
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM                66 041d396f361611068f6c1f61bc45bbd4ac203a
+               1 File(s)             66 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d7
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM            10,624 88d2b20a8b0d0ab73a44c5ce7a2ca6b1be30cd
+12/06/2025  06:47 PM               134 ac5200eeeaba71f94922ac9206d33fc98ab568
+               2 File(s)         10,758 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d8
+
+12/08/2025  10:51 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM                89 5a11b0b828ba90c9f5d0476fb4cc2133694b98
+               1 File(s)             89 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\d9
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  09:52 AM               896 0063a127d92ca8c178a6994a79b0ed1ea6403e
+12/12/2025  07:03 PM             2,418 18262477616e3113f48cb67f94e31ba0f6f34b
+12/11/2025  05:11 PM               172 caeadbaf84c2e29da43e8f584338411ec46885
+               3 File(s)          3,486 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\da
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             1,236 5fc2107c6edde01c99277cc9ade78925970f46
+12/05/2025  03:02 PM             1,845 b447ab81873fd5b2112230112284f790db025c
+               2 File(s)          3,081 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\db
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               120 b71f53ae918539e0fbb98153184fe05d57c038
+12/05/2025  03:05 PM               317 d8f98f0274c1e833bce2e62d4204f291c8e292
+               2 File(s)            437 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\dc
+
+12/05/2025  03:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               121 b4e25d9ff490118714854dc1042d6e6b58f95a
+               1 File(s)            121 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\dd
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM                66 3108566cf0daba03bc45ac271874d0bdad6b63
+12/10/2025  06:05 PM               120 6d7ead8c8aae504df3d42dc8f694bd881e7686
+               2 File(s)            186 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\de
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               624 3710c24ff51bf3bc8576da8b30860bdcd46765
+               1 File(s)            624 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\df
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               297 51cd45d832276bfafe1a154269250c910903d7
+12/10/2025  06:05 PM               388 afa18c74cc761d2b45494c1eac23f2b591f866
+12/12/2025  07:03 PM             1,222 c2cc72f32e45221bca118e49a7d1927d518aa1
+12/05/2025  03:02 PM             1,702 e8373149e607e108bce1e661cfd91ac37175f7
+               4 File(s)          3,609 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e0
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:18 PM               197 01eb3ccc925575b9cbb1f5bdb612da7e92525a
+12/05/2025  03:02 PM             2,176 4f5248db0c223864e7a677508d22ecf8ef137c
+12/08/2025  10:50 PM             1,563 c301f8d93ea2f73b7ba68a7f963b399beb3151
+               3 File(s)          3,936 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e1
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               428 009e4dc26ff748a4d16284c108c499ef24b7d4
+12/05/2025  03:02 PM             1,473 08b17d3d9be66d49a78e2e4d79ac7465e3aec0
+12/05/2025  03:05 PM                98 655f88b861720297a8a427aec615ba609153e1
+12/08/2025  10:50 PM            12,132 f8b6d362902f5f5b535630bdcbb98f0f8fa71f
+               4 File(s)         14,131 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e2
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM               126 5acbd637f54ce60e4e38cd1f4b0211688ff137
+12/11/2025  05:11 PM               868 9ab825b3c30344f584dcaacf363cefb4b18e7e
+12/11/2025  05:11 PM             2,140 a2bb75fe927464aa58a4dae4e72d190e6811a3
+               3 File(s)          3,134 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e3
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM               990 01bf319dfa0255c0c8a558a79a8cad97fb1631
+12/12/2025  07:03 PM             2,932 6706e1dab8c5dc3aeacb4dd68731b21aca9a4c
+12/05/2025  03:02 PM               785 8742288f5ea49ad095ef4b788469722fbaae49
+12/12/2025  07:03 PM               719 a1c35fd696cc65ad8e7c3db95df2988da92dda
+12/05/2025  03:05 PM               283 df6690671b5e45b8ea3592b793ee9394324879
+               5 File(s)          5,709 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e4
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               149 a48dd0c026e4cb4f721dfb468a273e69c888a0
+12/05/2025  07:15 PM               229 e242d9549e6996326fa9a785b811e2feef5544
+               2 File(s)            378 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e5
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               637 0a511ebec8b759347a673fb8e63b83a511486c
+12/10/2025  06:05 PM               406 0fff092f89dc2061f778df74a774ff7dffd5e5
+12/08/2025  10:51 PM                49 f73d766c5fbdff4d9a18f12bbb8ca828770d05
+               3 File(s)          1,092 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e6
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/06/2025  06:47 PM             3,416 2e4994481ac466a9a145847dec9b93c029935e
+12/05/2025  03:05 PM               171 a54c7744cba5c7bc847fe9564bb27e682d9fd8
+12/10/2025  06:05 PM               845 a8c54250648f45f3d0a4ea3bf8371ad3fd93d6
+12/05/2025  03:02 PM             1,900 ad9b841da69a4ea2d5346d3a46912123fdf9fb
+               4 File(s)          6,332 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e7
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               227 d0488ccda171b8d1ecf7e58b6691e36a3db37e
+               1 File(s)            227 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e8
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               514 88d9f0fca73330691b7b5ff7117d54f0d250e3
+12/05/2025  03:02 PM             1,192 c315172eac8ca54cf50ef939469b9e13629672
+               2 File(s)          1,706 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\e9
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               163 227f38560d46c88347e3f62550a79fb015dbdc
+12/12/2025  07:03 PM             3,476 34c31a1e9a817e65567fae6d9cf5852b2c36b6
+12/12/2025  07:03 PM                54 f870001c875419de18fd09f212e10787c380eb
+               3 File(s)          3,693 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\eb
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,370 491475f3a830998f510dd38bbae1d4b9c785ab
+               1 File(s)          2,370 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ec
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               255 4745c3d0e5c28e2aa0fcaa1540d710f7ac4410
+12/08/2025  10:51 PM               291 779680886a88cf9bc9f32e41e431d3187a6262
+12/05/2025  03:02 PM             1,202 ece1cc79e668031b0c8fbb8226f2688d74cc92
+               3 File(s)          1,748 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ed
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             4,263 4c13aef2886c94f7d2bfec043101a0d583545a
+12/12/2025  07:03 PM             2,874 fd4ebbfb6ac888303dd0f092c59c81a0e216c7
+               2 File(s)          7,137 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ee
+
+12/11/2025  05:33 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:33 PM                57 e048758bc366ac10ed206c8b3e379fd42f56d7
+               1 File(s)             57 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\ef
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM               427 572eff5639975e6143abba5dbc98edfd677335
+12/05/2025  07:15 PM            10,040 5b0cdafdd265517630bb340bd0e091a958cc42
+12/08/2025  10:51 PM                74 85660a7f77e30908bc5e8bbce0188e2ce502e5
+12/05/2025  03:02 PM               514 92e52a8cd57e722561b21b0131fb8a06d62cba
+12/11/2025  05:11 PM                91 b215383097af7717d9eafc32d794dff42a6c71
+12/05/2025  03:02 PM             2,210 b3614c53cc7b1ecf42039576238d03063da0ff
+               6 File(s)         13,356 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f0
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               135 50675c3369126ca8ccfc7f99268dea9e77c108
+12/05/2025  03:02 PM               995 71263eac4157cc52643daedf4cc9114f998a2e
+12/05/2025  03:02 PM               707 8b09699a9216c9978155bb0501b0d3b7b5db9f
+12/05/2025  07:14 PM             3,014 cfa00dd645ebb18b22bca911705544fe8690c5
+               4 File(s)          4,851 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f1
+
+12/11/2025  05:11 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM               129 0c8f8b3c279bfd3749ece57d39f20c24a4ecaf
+12/11/2025  05:11 PM             1,074 1b7ced4f8caad53a64352e2aba8f98c5cf7c50
+               2 File(s)          1,203 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f2
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM               237 65286be4a96d8607a095058e390677f3a67589
+               1 File(s)            237 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f3
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             1,891 19ca65c5952674efd8e0adfc3c25065662a2ef
+12/12/2025  07:03 PM             1,136 f76ec2e79f1059bb90c8cc55d42872a9b23759
+               2 File(s)          3,027 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f4
+
+12/05/2025  07:15 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  07:15 PM                98 90a209fb27e2c06a19c5e840d2a10ebef05f74
+               1 File(s)             98 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f5
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:05 PM                50 4ef9a87b1756bf1127fa47939d35ee59e1f660
+12/06/2025  06:47 PM                59 7e68ddcb62bf310f718d12de2f6adc787b970c
+               2 File(s)            109 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f7
+
+12/08/2025  10:50 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/11/2025  05:11 PM               184 22e49ae5b15cf0d274af67acae0b983b716aa9
+               1 File(s)            184 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f8
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM               914 b0da10a1786d7b035d7accfa341c84012b2b69
+               1 File(s)            914 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\f9
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,900 14d0339af668d1297b9fffa28746102f2c12d7
+12/08/2025  10:51 PM               163 9b85f0334b893933a5bd94898bffbb7bff8282
+12/12/2025  07:03 PM               722 b1ce9f9ff6ecc5c7f08eae012c301191bcd10a
+12/11/2025  05:11 PM             1,343 e63200c7335072e1728be19f8079b1052993ed
+12/05/2025  07:14 PM             1,050 fccc147b0e7292a5f72540665e6c5e93dc6b55
+               5 File(s)          5,178 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\fa
+
+12/10/2025  06:05 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/10/2025  06:05 PM             3,651 b47269c9cc9e87855e2516de1358de5dfa43cb
+12/05/2025  03:02 PM             2,305 f8bbdfb082df18491d2bbd0acbfa3f61b86f60
+12/05/2025  03:02 PM               878 ff5135c1c05cee2d7c5230365830f51ab80e27
+               3 File(s)          6,834 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\fc
+
+12/05/2025  03:02 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             1,168 1c9db6d1a721a554821d5861b68341b35db5fa
+12/05/2025  03:02 PM               340 61fef994569160dc7aaec908ec321cfae0beca
+12/05/2025  03:02 PM             1,078 73fa21744a9436de66fb3644c0a7abbb59eeb2
+               3 File(s)          2,586 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\fd
+
+12/12/2025  07:03 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/12/2025  07:03 PM             1,017 3ad594518c468c6a905b5a46ea1bbaa33d8899
+12/08/2025  10:51 PM               185 83c74dd4e0a8c39b4ab2233fe2779f276b3710
+12/10/2025  06:05 PM             1,293 a2191a9bbc01c8d7a2cb1091bc939bb025aab9
+               3 File(s)          2,495 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\fe
+
+12/06/2025  06:47 PM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/05/2025  03:02 PM             2,041 39dfe22a1c46c1acbd9dc0c2c5a8a29559cc5f
+12/06/2025  06:47 PM               218 9ac2845eca6fe6da8a63cd096d9cf9e24ece10
+               2 File(s)          2,259 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\info
+
+12/04/2025  09:29 AM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\objects\pack
+
+12/04/2025  09:29 AM    <DIR>          .
+12/15/2025  10:47 AM    <DIR>          ..
+12/04/2025  09:29 AM             7,260 pack-d08e5126fda833a5bfb779253e6dbaefa1a10e59.idx
+12/12/2025  07:03 PM           231,344 pack-d08e5126fda833a5bfb779253e6dbaefa1a10e59.pack
+12/04/2025  09:29 AM               936 pack-d08e5126fda833a5bfb779253e6dbaefa1a10e59.rev
+               3 File(s)        239,540 bytes
+
+ Directory of C:\dev\The Combine\.git\refs
+
+12/04/2025  09:29 AM    <DIR>          .
+12/12/2025  07:03 PM    <DIR>          heads
+12/04/2025  09:29 AM    <DIR>          remotes
+12/06/2025  06:47 PM    <DIR>          tags
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\heads
+
+12/12/2025  07:03 PM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/12/2025  07:03 PM                41 development
+12/11/2025  05:33 PM    <DIR>          feature
+12/04/2025  09:29 AM                41 main
+               2 File(s)             82 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\heads\feature
+
+12/11/2025  05:33 PM    <DIR>          .
+12/12/2025  07:03 PM    <DIR>          ..
+12/11/2025  05:33 PM                41 pipeline-175a-data-infrastructure
+               1 File(s)             41 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\remotes
+
+12/04/2025  09:29 AM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/12/2025  07:15 PM    <DIR>          origin
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\remotes\origin
+
+12/12/2025  07:15 PM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/12/2025  07:04 PM                41 development
+12/11/2025  05:33 PM    <DIR>          feature
+12/04/2025  09:29 AM                30 HEAD
+12/12/2025  07:15 PM                41 main
+               3 File(s)            112 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\remotes\origin\feature
+
+12/11/2025  05:33 PM    <DIR>          .
+12/12/2025  07:15 PM    <DIR>          ..
+12/11/2025  05:33 PM                41 pipeline-175a-data-infrastructure
+               1 File(s)             41 bytes
+
+ Directory of C:\dev\The Combine\.git\refs\tags
+
+12/06/2025  06:47 PM    <DIR>          .
+12/04/2025  09:29 AM    <DIR>          ..
+12/06/2025  06:47 PM                41 v175c-token-tracking
+               1 File(s)             41 bytes
+
+ Directory of C:\dev\The Combine\.pytest_cache
+
+12/04/2025  11:06 AM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/04/2025  11:06 AM                39 .gitignore
+12/04/2025  11:06 AM               191 CACHEDIR.TAG
+12/04/2025  11:06 AM               310 README.md
+12/04/2025  11:06 AM    <DIR>          v
+               3 File(s)            540 bytes
+
+ Directory of C:\dev\The Combine\.pytest_cache\v
+
+12/04/2025  11:06 AM    <DIR>          .
+12/04/2025  11:06 AM    <DIR>          ..
+12/04/2025  11:30 AM    <DIR>          cache
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\.pytest_cache\v\cache
+
+12/04/2025  11:30 AM    <DIR>          .
+12/04/2025  11:06 AM    <DIR>          ..
+12/07/2025  03:56 PM             4,129 lastfailed
+12/11/2025  11:09 AM            42,265 nodeids
+               2 File(s)         46,394 bytes
+
+ Directory of C:\dev\The Combine\.vscode
+
+12/13/2025  04:32 PM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/13/2025  04:35 PM             1,370 launch.json
+12/11/2025  05:39 PM               153 settings.json
+               2 File(s)          1,523 bytes
+
+ Directory of C:\dev\The Combine\app
+
+12/12/2025  11:15 AM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/12/2025  11:44 AM    <DIR>          api
+12/10/2025  12:10 PM             9,395 artifact_repository_fastapi.py
+12/12/2025  11:46 AM    <DIR>          combine
+12/12/2025  11:46 AM             2,904 dependencies.py
+12/14/2025  05:25 PM    <DIR>          web
+12/04/2025  10:24 AM                37 __init__.py
+12/12/2025  11:46 AM    <DIR>          __pycache__
+               3 File(s)         12,336 bytes
+
+ Directory of C:\dev\The Combine\app\api
+
+12/12/2025  11:44 AM    <DIR>          .
+12/12/2025  11:15 AM    <DIR>          ..
+12/14/2025  03:47 PM             4,349 main.py
+12/11/2025  02:12 PM    <DIR>          middleware
+12/12/2025  11:50 AM    <DIR>          routers
+12/11/2025  02:11 PM    <DIR>          schemas
+12/12/2025  12:00 PM    <DIR>          services
+12/14/2025  03:47 PM    <DIR>          __pycache__
+               1 File(s)          4,349 bytes
+
+ Directory of C:\dev\The Combine\app\api\middleware
+
+12/11/2025  02:12 PM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/11/2025  03:05 PM             1,831 body_size.py
+12/11/2025  03:02 PM             2,130 error_handling.py
+12/13/2025  03:04 PM             2,880 logging.py
+12/04/2025  10:26 AM               777 request_id.py
+12/04/2025  10:26 AM                25 __init__.py
+12/13/2025  03:04 PM    <DIR>          __pycache__
+               5 File(s)          7,643 bytes
+
+ Directory of C:\dev\The Combine\app\api\middleware\__pycache__
+
+12/13/2025  03:04 PM    <DIR>          .
+12/11/2025  02:12 PM    <DIR>          ..
+12/11/2025  03:05 PM             2,049 body_size.cpython-313.pyc
+12/11/2025  03:02 PM             3,397 error_handling.cpython-313.pyc
+12/13/2025  03:04 PM             4,096 logging.cpython-313.pyc
+12/11/2025  02:28 PM             1,183 request_id.cpython-313.pyc
+12/11/2025  02:12 PM               180 __init__.cpython-313.pyc
+               5 File(s)         10,905 bytes
+
+ Directory of C:\dev\The Combine\app\api\routers
+
+12/12/2025  11:50 AM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/12/2025  11:20 AM             2,980 artifacts.py
+12/12/2025  03:45 PM             9,399 auth.py
+12/12/2025  11:20 AM             2,501 health.py
+12/11/2025  12:01 PM               136 __init__.py
+12/12/2025  03:45 PM    <DIR>          __pycache__
+               4 File(s)         15,016 bytes
+
+ Directory of C:\dev\The Combine\app\api\routers\__pycache__
+
+12/12/2025  03:45 PM    <DIR>          .
+12/12/2025  11:50 AM    <DIR>          ..
+12/12/2025  11:20 AM             2,760 artifacts.cpython-313.pyc
+12/12/2025  03:45 PM            11,908 auth.cpython-313.pyc
+12/12/2025  11:20 AM             3,445 health.cpython-313.pyc
+12/12/2025  11:46 AM             6,935 repo_view.cpython-313.pyc
+12/11/2025  01:15 PM               296 __init__.cpython-313.pyc
+               5 File(s)         25,344 bytes
+
+ Directory of C:\dev\The Combine\app\api\schemas
+
+12/11/2025  02:11 PM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/04/2025  02:34 PM             2,495 requests.py
+12/04/2025  10:31 AM             2,607 responses.py
+12/04/2025  10:30 AM                51 __init__.py
+12/11/2025  02:11 PM    <DIR>          __pycache__
+               3 File(s)          5,153 bytes
+
+ Directory of C:\dev\The Combine\app\api\schemas\__pycache__
+
+12/11/2025  02:11 PM    <DIR>          .
+12/11/2025  02:11 PM    <DIR>          ..
+12/11/2025  02:11 PM             2,872 requests.cpython-313.pyc
+12/11/2025  02:11 PM             4,467 responses.cpython-313.pyc
+12/11/2025  02:11 PM               203 __init__.cpython-313.pyc
+               3 File(s)          7,542 bytes
+
+ Directory of C:\dev\The Combine\app\api\services
+
+12/12/2025  12:00 PM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/12/2025  11:41 AM             6,425 email_service.py
+12/12/2025  11:54 AM    <DIR>          __pycache__
+               1 File(s)          6,425 bytes
+
+ Directory of C:\dev\The Combine\app\api\services\__pycache__
+
+12/12/2025  11:54 AM    <DIR>          .
+12/12/2025  12:00 PM    <DIR>          ..
+12/12/2025  11:46 AM             9,790 email_service.cpython-313.pyc
+12/12/2025  11:54 AM             6,943 repo_view.cpython-313.pyc
+               2 File(s)         16,733 bytes
+
+ Directory of C:\dev\The Combine\app\api\__pycache__
+
+12/14/2025  03:47 PM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/11/2025  04:01 PM             3,294 dependencies.cpython-313.pyc
+12/14/2025  03:47 PM             4,536 main.cpython-313.pyc
+               2 File(s)          7,830 bytes
+
+ Directory of C:\dev\The Combine\app\combine
+
+12/12/2025  11:46 AM    <DIR>          .
+12/12/2025  11:15 AM    <DIR>          ..
+12/13/2025  02:41 PM    <DIR>          mentors
+12/11/2025  01:54 PM    <DIR>          models
+12/13/2025  03:11 PM    <DIR>          repositories
+12/11/2025  02:09 PM    <DIR>          routers
+12/11/2025  01:15 PM    <DIR>          schemas
+12/12/2025  11:44 AM    <DIR>          services
+12/07/2025  10:25 AM    <DIR>          templates
+12/13/2025  03:10 PM    <DIR>          utils
+12/04/2025  10:25 AM                78 __init__.py
+12/11/2025  01:42 PM    <DIR>          __pycache__
+               1 File(s)             78 bytes
+
+ Directory of C:\dev\The Combine\app\combine\mentors
+
+12/13/2025  02:41 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/13/2025  03:59 PM            10,013 architect_mentor.py
+12/13/2025  03:52 PM            11,279 base_mentor.py
+12/13/2025  03:20 PM            12,648 ba_mentor.py
+12/13/2025  02:49 PM            14,371 dev_mentor.py
+12/13/2025  03:12 PM             6,525 pm_mentor.py
+12/13/2025  02:48 PM            14,742 routes.py
+12/13/2025  03:59 PM    <DIR>          __pycache__
+               6 File(s)         69,578 bytes
+
+ Directory of C:\dev\The Combine\app\combine\mentors\__pycache__
+
+12/13/2025  03:59 PM    <DIR>          .
+12/13/2025  02:41 PM    <DIR>          ..
+12/13/2025  03:59 PM            10,790 architect_mentor.cpython-313.pyc
+12/13/2025  03:52 PM            12,405 base_mentor.cpython-313.pyc
+12/13/2025  03:20 PM            13,495 ba_mentor.cpython-313.pyc
+12/13/2025  03:11 PM            15,754 dev_mentor.cpython-313.pyc
+12/13/2025  03:12 PM             7,271 pm_mentor.cpython-313.pyc
+12/13/2025  03:19 PM            13,293 routes.cpython-313.pyc
+               6 File(s)         73,008 bytes
+
+ Directory of C:\dev\The Combine\app\combine\models
+
+12/11/2025  01:54 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/11/2025  04:37 PM             3,999 artifact.py
+12/10/2025  03:59 PM             2,270 artifact_version.py
+12/10/2025  03:52 PM             2,024 breadcrumb_file.py
+12/10/2025  04:00 PM             2,099 file.py
+12/12/2025  01:01 PM             2,151 project.py
+12/10/2025  03:49 PM             2,294 role_prompt.py
+12/10/2025  04:41 PM             2,679 workflow.py
+12/11/2025  12:01 PM               561 __init__.py
+12/12/2025  01:01 PM    <DIR>          __pycache__
+               8 File(s)         18,077 bytes
+
+ Directory of C:\dev\The Combine\app\combine\models\__pycache__
+
+12/12/2025  01:01 PM    <DIR>          .
+12/11/2025  01:54 PM    <DIR>          ..
+12/11/2025  04:37 PM             4,592 artifact.cpython-313.pyc
+12/11/2025  01:54 PM             3,142 artifact_version.cpython-313.pyc
+12/11/2025  01:54 PM             2,789 breadcrumb_file.cpython-313.pyc
+12/11/2025  01:54 PM             2,930 file.cpython-313.pyc
+12/12/2025  01:01 PM             3,111 project.cpython-313.pyc
+12/11/2025  01:54 PM             3,037 role_prompt.cpython-313.pyc
+12/11/2025  01:54 PM             3,609 workflow.cpython-313.pyc
+12/11/2025  01:54 PM               706 __init__.cpython-313.pyc
+               8 File(s)         23,916 bytes
+
+ Directory of C:\dev\The Combine\app\combine\repositories
+
+12/13/2025  03:11 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/11/2025  12:01 PM            17,355 artifact_repository.py
+12/05/2025  11:34 AM               204 exceptions.py
+12/13/2025  07:28 PM             6,876 project_repository.py
+12/12/2025  03:44 PM            11,188 role_prompt_repository.py
+12/12/2025  11:54 AM               579 __init__.py
+12/13/2025  07:28 PM    <DIR>          __pycache__
+               5 File(s)         36,202 bytes
+
+ Directory of C:\dev\The Combine\app\combine\repositories\__pycache__
+
+12/13/2025  07:28 PM    <DIR>          .
+12/13/2025  03:11 PM    <DIR>          ..
+12/11/2025  01:54 PM            20,501 artifact_repository.cpython-313.pyc
+12/11/2025  01:54 PM               579 exceptions.cpython-313.pyc
+12/13/2025  07:28 PM             8,892 project_repository.cpython-313.pyc
+12/12/2025  03:44 PM            14,404 role_prompt_repository.cpython-313.pyc
+12/12/2025  11:54 AM               585 __init__.cpython-313.pyc
+               5 File(s)         44,961 bytes
+
+ Directory of C:\dev\The Combine\app\combine\routers
+
+12/11/2025  02:09 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/12/2025  11:20 AM             3,002 artifacts.py
+               1 File(s)          3,002 bytes
+
+ Directory of C:\dev\The Combine\app\combine\schemas
+
+12/11/2025  01:15 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/06/2025  03:46 PM             2,470 artifacts.py
+12/07/2025  10:02 AM             5,409 metrics.py
+12/04/2025  10:30 AM                51 __init__.py
+12/11/2025  01:15 PM    <DIR>          __pycache__
+               3 File(s)          7,930 bytes
+
+ Directory of C:\dev\The Combine\app\combine\schemas\__pycache__
+
+12/11/2025  01:15 PM    <DIR>          .
+12/11/2025  01:15 PM    <DIR>          ..
+12/11/2025  01:15 PM               207 __init__.cpython-313.pyc
+               1 File(s)            207 bytes
+
+ Directory of C:\dev\The Combine\app\combine\services
+
+12/12/2025  11:44 AM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/12/2025  11:50 AM             9,048 artifact_service.py
+12/12/2025  11:50 AM             3,821 configuration_loader.py
+12/05/2025  06:17 PM             3,796 llm_caller.py
+12/05/2025  06:16 PM             6,354 llm_response_parser.py
+12/11/2025  12:01 PM             1,566 role_prompt_builder.py
+12/12/2025  11:51 AM             3,789 role_prompt_service.py
+12/12/2025  11:51 AM            11,546 token_metrics_service.py
+12/07/2025  09:18 AM             1,409 token_metrics_types.py
+12/11/2025  12:01 PM             3,226 usage_recorder.py
+12/04/2025  10:32 AM                45 __init__.py
+12/12/2025  12:01 PM    <DIR>          __pycache__
+              10 File(s)         44,600 bytes
+
+ Directory of C:\dev\The Combine\app\combine\services\__pycache__
+
+12/12/2025  12:01 PM    <DIR>          .
+12/12/2025  11:44 AM    <DIR>          ..
+12/12/2025  11:50 AM            10,325 artifact_service.cpython-313.pyc
+12/11/2025  01:54 PM             4,259 llm_caller.cpython-313.pyc
+12/11/2025  01:54 PM             7,947 llm_response_parser.cpython-313.pyc
+12/12/2025  12:01 PM             4,637 role_prompt_service.cpython-313.pyc
+12/11/2025  01:54 PM               202 __init__.cpython-313.pyc
+               5 File(s)         27,370 bytes
+
+ Directory of C:\dev\The Combine\app\combine\templates
+
+12/07/2025  10:25 AM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/07/2025  10:26 AM    <DIR>          metrics
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\combine\templates\metrics
+
+12/07/2025  10:26 AM    <DIR>          .
+12/07/2025  10:25 AM    <DIR>          ..
+12/07/2025  10:31 AM               251 detail.html
+12/07/2025  10:26 AM               255 overview.html
+               2 File(s)            506 bytes
+
+ Directory of C:\dev\The Combine\app\combine\utils
+
+12/13/2025  03:10 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/13/2025  03:10 PM             6,769 id_generators.py
+12/06/2025  05:27 PM             1,672 pricing.py
+12/13/2025  03:10 PM                 0 __init__.py
+12/13/2025  03:10 PM    <DIR>          __pycache__
+               3 File(s)          8,441 bytes
+
+ Directory of C:\dev\The Combine\app\combine\utils\__pycache__
+
+12/13/2025  03:10 PM    <DIR>          .
+12/13/2025  03:10 PM    <DIR>          ..
+12/13/2025  03:10 PM             7,776 id_generators.cpython-313.pyc
+12/13/2025  03:10 PM               145 __init__.cpython-313.pyc
+               2 File(s)          7,921 bytes
+
+ Directory of C:\dev\The Combine\app\combine\__pycache__
+
+12/11/2025  01:42 PM    <DIR>          .
+12/12/2025  11:46 AM    <DIR>          ..
+12/11/2025  01:42 PM             3,601 dependencies.cpython-313.pyc
+12/11/2025  01:15 PM               226 __init__.cpython-313.pyc
+               2 File(s)          3,827 bytes
+
+ Directory of C:\dev\The Combine\app\web
+
+12/14/2025  05:25 PM    <DIR>          .
+12/12/2025  11:15 AM    <DIR>          ..
+12/11/2025  05:13 PM            60,464 pm_test.html
+12/14/2025  05:48 PM    <DIR>          routes
+12/14/2025  03:48 PM            28,663 routes.py
+12/12/2025  10:57 AM    <DIR>          services
+12/12/2025  10:15 AM    <DIR>          static
+12/12/2025  10:15 AM    <DIR>          templates
+12/12/2025  10:54 AM                70 __init__.py
+12/14/2025  03:48 PM    <DIR>          __pycache__
+               3 File(s)         89,197 bytes
+
+ Directory of C:\dev\The Combine\app\web\routes
+
+12/14/2025  05:48 PM    <DIR>          .
+12/14/2025  05:25 PM    <DIR>          ..
+12/15/2025  10:49 AM             4,886 architecture_routes.py
+12/14/2025  05:42 PM             3,048 debug_routes.py
+12/14/2025  05:41 PM             4,080 epic_routes.py
+12/14/2025  05:40 PM               707 home_routes.py
+12/14/2025  05:42 PM             1,071 mentor_routes.py
+12/14/2025  05:40 PM             8,240 project_routes.py
+12/14/2025  05:41 PM             1,276 search_routes.py
+12/14/2025  05:39 PM             1,204 shared.py
+12/14/2025  05:41 PM             3,279 story_routes.py
+12/14/2025  05:26 PM             1,146 __init__.py
+12/15/2025  10:49 AM    <DIR>          __pycache__
+              10 File(s)         28,937 bytes
+
+ Directory of C:\dev\The Combine\app\web\routes\__pycache__
+
+12/15/2025  10:49 AM    <DIR>          .
+12/14/2025  05:48 PM    <DIR>          ..
+12/15/2025  10:49 AM             5,008 architecture_routes.cpython-313.pyc
+12/14/2025  05:48 PM             3,936 debug_routes.cpython-313.pyc
+12/14/2025  05:48 PM             4,402 epic_routes.cpython-313.pyc
+12/14/2025  05:48 PM             1,140 home_routes.cpython-313.pyc
+12/14/2025  05:48 PM             1,480 mentor_routes.cpython-313.pyc
+12/14/2025  05:48 PM             8,682 project_routes.cpython-313.pyc
+12/14/2025  05:48 PM             1,762 search_routes.cpython-313.pyc
+12/14/2025  05:48 PM             1,701 shared.cpython-313.pyc
+12/14/2025  05:48 PM             4,218 story_routes.cpython-313.pyc
+12/14/2025  05:48 PM             1,308 __init__.cpython-313.pyc
+              10 File(s)         33,637 bytes
+
+ Directory of C:\dev\The Combine\app\web\services
+
+12/12/2025  10:57 AM    <DIR>          .
+12/14/2025  05:25 PM    <DIR>          ..
+12/12/2025  02:57 PM             9,603 epic_service.py
+12/13/2025  07:16 PM            10,352 project_service.py
+12/12/2025  02:38 PM             6,607 search_service.py
+12/12/2025  02:36 PM             6,574 story_service.py
+12/12/2025  12:56 PM               170 __init__.py
+12/13/2025  07:16 PM    <DIR>          __pycache__
+               5 File(s)         33,306 bytes
+
+ Directory of C:\dev\The Combine\app\web\services\__pycache__
+
+12/13/2025  07:16 PM    <DIR>          .
+12/12/2025  10:57 AM    <DIR>          ..
+12/12/2025  03:44 PM            12,764 epic_service.cpython-313.pyc
+12/13/2025  07:16 PM            12,386 project_service.cpython-313.pyc
+12/12/2025  02:38 PM             8,929 search_service.cpython-313.pyc
+12/12/2025  02:36 PM             7,785 story_service.cpython-313.pyc
+12/12/2025  12:56 PM               296 __init__.cpython-313.pyc
+               5 File(s)         42,160 bytes
+
+ Directory of C:\dev\The Combine\app\web\static
+
+12/12/2025  10:15 AM    <DIR>          .
+12/14/2025  05:25 PM    <DIR>          ..
+12/12/2025  10:15 AM    <DIR>          css
+12/12/2025  10:15 AM    <DIR>          images
+12/12/2025  10:15 AM    <DIR>          js
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\css
+
+12/12/2025  10:15 AM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\images
+
+12/12/2025  10:15 AM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\js
+
+12/12/2025  10:15 AM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates
+
+12/12/2025  10:15 AM    <DIR>          .
+12/14/2025  05:25 PM    <DIR>          ..
+12/14/2025  06:11 PM    <DIR>          components
+12/12/2025  10:18 AM    <DIR>          layout
+12/14/2025  04:53 PM    <DIR>          pages
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components
+
+12/14/2025  06:11 PM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+12/14/2025  06:11 PM    <DIR>          alerts
+12/14/2025  03:17 PM               591 code_file.html
+12/14/2025  03:16 PM             4,881 search_results.html
+12/14/2025  06:32 PM             1,816 sidebar.html
+12/12/2025  10:20 AM    <DIR>          tree
+               3 File(s)          7,288 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components\alerts
+
+12/14/2025  06:11 PM    <DIR>          .
+12/14/2025  06:11 PM    <DIR>          ..
+12/14/2025  06:11 PM               637 error.html
+12/14/2025  06:11 PM             1,506 success.html
+               2 File(s)          2,143 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components\tree
+
+12/12/2025  10:20 AM    <DIR>          .
+12/14/2025  06:11 PM    <DIR>          ..
+12/14/2025  06:23 PM             1,177 epic_collapsed.html
+12/14/2025  06:20 PM             2,568 epic_expanded.html
+12/14/2025  06:21 PM             1,176 project_collapsed.html
+12/14/2025  06:19 PM             2,046 project_expanded.html
+12/14/2025  06:19 PM               362 project_list.html
+               5 File(s)          7,329 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\layout
+
+12/12/2025  10:18 AM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+12/14/2025  06:31 PM             6,817 base.html
+               1 File(s)          6,817 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages
+
+12/14/2025  04:53 PM    <DIR>          .
+12/12/2025  10:15 AM    <DIR>          ..
+12/14/2025  05:47 PM               192 architecture_view.html
+12/14/2025  05:46 PM               189 epic_detail.html
+12/14/2025  05:46 PM               198 epic_stories.html
+12/14/2025  05:45 PM               164 home.html
+12/14/2025  05:44 PM    <DIR>          partials
+12/14/2025  05:02 PM               195 project_detail.html
+12/14/2025  05:45 PM               185 project_new.html
+12/14/2025  05:47 PM               195 story_code.html
+12/14/2025  05:46 PM               192 story_detail.html
+               8 File(s)          1,510 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\partials
+
+12/14/2025  05:44 PM    <DIR>          .
+12/14/2025  04:53 PM    <DIR>          ..
+12/14/2025  06:09 PM            16,551 _architecture_view_content.html
+12/14/2025  06:08 PM             6,477 _epic_detail_content.html
+12/14/2025  06:08 PM             5,988 _epic_stories_content.html
+12/14/2025  05:48 PM             2,601 _home_content.html
+12/14/2025  06:07 PM            10,213 _project_detail_content.html
+12/14/2025  06:07 PM             2,536 _project_new_content.html
+12/14/2025  06:09 PM             4,828 _story_code_content.html
+12/14/2025  06:09 PM             6,057 _story_detail_content.html
+               8 File(s)         55,251 bytes
+
+ Directory of C:\dev\The Combine\app\web\__pycache__
+
+12/14/2025  03:48 PM    <DIR>          .
+12/14/2025  05:25 PM    <DIR>          ..
+12/14/2025  03:48 PM            28,675 routes.cpython-313.pyc
+12/12/2025  10:57 AM               234 __init__.cpython-313.pyc
+               2 File(s)         28,909 bytes
+
+ Directory of C:\dev\The Combine\app\__pycache__
+
+12/12/2025  11:46 AM    <DIR>          .
+12/12/2025  11:15 AM    <DIR>          ..
+12/12/2025  11:46 AM             3,282 dependencies.cpython-313.pyc
+12/11/2025  12:40 PM               177 __init__.cpython-313.pyc
+               2 File(s)          3,459 bytes
+
+ Directory of C:\dev\The Combine\scripts
+
+12/11/2025  11:45 AM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/10/2025  05:08 PM             2,378 check_health.py
+12/11/2025  11:59 AM             2,550 init_db.py
+12/14/2025  03:42 PM             1,689 run.py
+12/11/2025  11:59 AM             3,158 seed_phase_configuration.py
+12/11/2025  11:59 AM             4,124 seed_role_prompts.py
+12/06/2025  04:59 PM             3,030 setup.py
+               6 File(s)         16,929 bytes
+
+ Directory of C:\dev\The Combine\shared
+
+12/13/2025  03:13 PM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/04/2025  09:29 AM               950 architecture_overview.md
+12/04/2025  09:29 AM               946 backlog_overview.md
+12/04/2025  09:29 AM            75,339 canonical_architecture.json
+12/04/2025  09:29 AM            51,117 canonical_architecture_v1_0.json
+12/04/2025  09:29 AM            65,325 canonical_architecture_v1_1.json
+12/04/2025  02:29 PM            74,381 canonical_backlog.json
+12/04/2025  09:29 AM            52,016 canonical_backlog_v1_0.json
+12/04/2025  09:29 AM            19,583 canonical_epic.json
+12/04/2025  09:29 AM            81,836 complete product definition.md
+12/04/2025  09:29 AM             1,209 domain_overview.md
+12/07/2025  05:01 PM    <DIR>          epics
+12/04/2025  09:29 AM             1,180 glossary.md
+12/09/2025  05:32 PM             5,657 RSP-1-routing.md
+12/04/2025  09:29 AM             1,427 style_guide.md
+12/09/2025  05:56 PM             4,792 trackback
+12/13/2025  03:13 PM             8,435 UTILITY-MODULES.md
+              15 File(s)        444,193 bytes
+
+ Directory of C:\dev\The Combine\shared\epics
+
+12/07/2025  05:01 PM    <DIR>          .
+12/13/2025  03:13 PM    <DIR>          ..
+12/04/2025  02:09 PM    <DIR>          connector-100_combine_connector_v1_document_ingestion_agent
+12/04/2025  02:14 PM    <DIR>          llm-300_pluggable_llmprovider_abstraction
+12/07/2025  09:46 AM    <DIR>          pipeline-175_data_driven_orchestration
+12/07/2025  05:28 PM    <DIR>          PIPELINE-180_anthropic_calls
+12/04/2025  02:16 PM             2,945 pipeline-200 pull_request_only_commit_phase.md
+12/04/2025  02:16 PM             3,533 repo-200_pluggable_repoprovider_abstraction.md
+               2 File(s)          6,478 bytes
+
+ Directory of C:\dev\The Combine\shared\epics\connector-100_combine_connector_v1_document_ingestion_agent
+
+12/04/2025  02:09 PM    <DIR>          .
+12/07/2025  05:01 PM    <DIR>          ..
+12/04/2025  01:59 PM             1,405 connector-100_prompt.md
+               1 File(s)          1,405 bytes
+
+ Directory of C:\dev\The Combine\shared\epics\llm-300_pluggable_llmprovider_abstraction
+
+12/04/2025  02:14 PM    <DIR>          .
+12/07/2025  05:01 PM    <DIR>          ..
+12/04/2025  02:15 PM             1,137 llm-300_prompt.md
+               1 File(s)          1,137 bytes
+
+ Directory of C:\dev\The Combine\shared\epics\pipeline-175_data_driven_orchestration
+
+12/07/2025  09:46 AM    <DIR>          .
+12/07/2025  05:01 PM    <DIR>          ..
+12/04/2025  04:59 PM                 0 epic.md
+12/10/2025  04:35 PM            27,710 PIPELINE-150-Baseline.md
+12/04/2025  10:44 PM            31,519 PIPELINE-175A-Architecture.md
+12/04/2025  10:45 PM            60,155 PIPELINE-175A-BA-Backlog.md
+12/05/2025  02:59 PM            12,037 PIPELINE-175A-COMPLETION-SUMMARY.md
+12/04/2025  10:47 PM            29,287 PIPELINE-175A-Data-Described-Pipeline-Infrastructure.md
+12/05/2025  05:34 PM            87,769 PIPELINE-175B-Architecture-Phase-Complete.md
+12/04/2025  10:47 PM            41,955 PIPELINE-175B-Data-Driven-Pipeline-Execution.md
+12/05/2025  03:58 PM            34,424 PIPELINE-175B-PM-Phase-Deliverable.md
+12/06/2025  03:24 PM            15,406 PIPELINE-175C-Architecture.json
+12/06/2025  02:30 PM            14,576 PIPELINE-175C-Bootstrap-Analysis (1).md
+12/06/2025  06:45 PM            11,609 PIPELINE-175C-COMPLETION.json
+12/06/2025  03:40 PM            31,383 PIPELINE-175C-Developer.json
+12/06/2025  02:38 PM             9,514 PIPELINE-175C-PM-Phase (1).md
+12/06/2025  02:38 PM            25,230 PIPELINE-175C-Story5-Token-Tracking.md
+12/06/2025  02:39 PM             5,392 PIPELINE-175C-UPDATED-SUMMARY.md
+12/06/2025  07:15 PM            44,902 PIPELINE-175D Architecture documentation.md
+12/06/2025  07:14 PM             5,200 PIPELINE-175D Architecture QA Review.md
+12/06/2025  07:07 PM             9,531 PIPELINE-175D-ba-backlog.json
+12/06/2025  07:37 PM            32,997 PIPELINE-175D-CodeDeliverable.json
+12/07/2025  09:45 AM             8,791 PIPELINE-175D-Deliverables.md
+12/06/2025  07:32 PM            76,575 pipeline-175D-implementation-plan.md
+12/07/2025  09:44 AM            15,725 PIPELINE-175D-Test-Execution-Guide.md
+12/07/2025  09:44 AM            10,597 PIPELINE-175D-Test-Summary.md
+12/04/2025  04:53 PM             6,618 prompt
+12/07/2025  09:46 AM             6,419 README-PIPELINE-175D-Tests.md
+              26 File(s)        655,321 bytes
+
+ Directory of C:\dev\The Combine\shared\epics\PIPELINE-180_anthropic_calls
+
+12/07/2025  05:28 PM    <DIR>          .
+12/07/2025  05:01 PM    <DIR>          ..
+12/07/2025  05:19 PM            26,375 PIPELINE-180A-Architecture.json
+12/07/2025  05:28 PM            35,616 PIPELINE-180A-Final Architectural Input.json
+12/07/2025  05:01 PM            19,686 PIPELINE-180A_epic.json
+12/07/2025  05:26 PM             5,024 PIPELINE-180A_open_architectural_question response.json
+               4 File(s)         86,701 bytes
+
+ Directory of C:\dev\The Combine\tests
+
+12/11/2025  05:39 PM    <DIR>          .
+12/14/2025  11:04 AM    <DIR>          ..
+12/11/2025  11:15 AM    <DIR>          backend
+12/11/2025  11:59 AM            11,493 conftest.py
+12/12/2025  12:00 PM    <DIR>          experience
+12/02/2025  05:11 PM             5,303 readme.md
+12/11/2025  11:08 AM             2,247 test_database.py
+12/11/2025  11:45 AM    <DIR>          test_orchestrator_api
+12/11/2025  10:31 AM    <DIR>          unit
+12/02/2025  05:14 PM                59 __init__.py
+12/11/2025  05:39 PM    <DIR>          __pycache__
+               4 File(s)         19,102 bytes
+
+ Directory of C:\dev\The Combine\tests\backend
+
+12/11/2025  11:15 AM    <DIR>          .
+12/11/2025  05:39 PM    <DIR>          ..
+12/11/2025  11:59 AM            17,203 test_auth.py
+               1 File(s)         17,203 bytes
+
+ Directory of C:\dev\The Combine\tests\experience
+
+12/12/2025  12:00 PM    <DIR>          .
+12/11/2025  05:39 PM    <DIR>          ..
+12/04/2025  09:29 AM            17,197 test_auth.py
+               1 File(s)         17,197 bytes
+
+ Directory of C:\dev\The Combine\tests\test_orchestrator_api
+
+12/11/2025  11:45 AM    <DIR>          .
+12/11/2025  05:39 PM    <DIR>          ..
+12/11/2025  12:01 PM             8,774 conftest.py
+12/11/2025  12:01 PM             4,629 test_175a_integration.py
+12/06/2025  05:51 PM             1,951 test_artifact_endpoints.py
+12/11/2025  12:00 PM             8,370 test_artifact_repository.py
+12/11/2025  10:10 AM             1,659 test_main.py
+12/11/2025  12:00 PM             8,570 test_persistence.py
+12/11/2025  12:00 PM             7,019 test_role_prompt_repository.py
+12/11/2025  12:00 PM             9,905 test_role_prompt_service.py
+12/11/2025  03:54 PM             8,863 test_services.py
+12/04/2025  10:45 AM                24 __init__.py
+              10 File(s)         59,764 bytes
+
+ Directory of C:\dev\The Combine\tests\unit
+
+12/11/2025  10:31 AM    <DIR>          .
+12/11/2025  05:39 PM    <DIR>          ..
+12/11/2025  11:45 AM    <DIR>          routers
+12/11/2025  11:45 AM    <DIR>          schemas
+12/11/2025  11:45 AM    <DIR>          services
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\tests\unit\routers
+
+12/11/2025  11:45 AM    <DIR>          .
+12/11/2025  10:31 AM    <DIR>          ..
+12/11/2025  12:00 PM               582 test_health.py
+               1 File(s)            582 bytes
+
+ Directory of C:\dev\The Combine\tests\unit\schemas
+
+12/11/2025  11:45 AM    <DIR>          .
+12/11/2025  10:31 AM    <DIR>          ..
+12/11/2025  12:00 PM             4,263 test_artifact_schemas.py
+               1 File(s)          4,263 bytes
+
+ Directory of C:\dev\The Combine\tests\unit\services
+
+12/11/2025  11:45 AM    <DIR>          .
+12/11/2025  10:31 AM    <DIR>          ..
+12/11/2025  12:00 PM             5,637 test_llm_caller.py
+12/11/2025  12:00 PM             7,977 test_llm_response_parser.py
+               2 File(s)         13,614 bytes
+
+ Directory of C:\dev\The Combine\tests\__pycache__
+
+12/11/2025  05:39 PM    <DIR>          .
+12/11/2025  05:39 PM    <DIR>          ..
+12/11/2025  05:39 PM            19,410 conftest.cpython-313-pytest-8.4.2.pyc
+12/11/2025  05:39 PM               180 __init__.cpython-313.pyc
+               2 File(s)         19,590 bytes
+

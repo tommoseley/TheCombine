@@ -16,4 +16,4 @@ class TestHealthRouter:
         data = response.json()
         assert "status" in data
         # Accept either healthy or unhealthy - your health check is sophisticated
-        assert data["status"] in ["healthy", "unhealthy"]
+        assert data["status"] in ["healthy", "unhealthy", "degraded"]

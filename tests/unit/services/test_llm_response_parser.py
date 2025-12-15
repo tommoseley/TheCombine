@@ -10,8 +10,8 @@ Epic: PIPELINE-175B
 
 import pytest
 from app.combine.services.llm_response_parser import (
-    LLMResponseParser,
     ParseResult,
+    LLMResponseParser,
     DirectParseStrategy,
     MarkdownFenceStrategy,
     FuzzyBoundaryStrategy
