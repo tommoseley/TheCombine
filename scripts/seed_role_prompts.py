@@ -15,7 +15,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.combine.persistence.repositories.role_prompt_repository import RolePromptRepository
+from app.combine.repositories import RolePromptRepository
 
 
 def load_prompt_from_file(role_name: str) -> dict:

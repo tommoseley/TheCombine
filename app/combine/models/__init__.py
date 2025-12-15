@@ -1,7 +1,6 @@
 """
 Models for The Combine.
 """
-
 from app.combine.models.project import Project
 from app.combine.models.artifact import Artifact
 from app.combine.models.artifact_version import ArtifactVersion
@@ -19,5 +18,3 @@ __all__ = [
     'BreadcrumbFile',
     'RolePrompt',
 ]
-
-

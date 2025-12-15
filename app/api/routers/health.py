@@ -5,7 +5,7 @@ Provides system health status and uptime information.
 """
 
 from fastapi import APIRouter, HTTPException
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import text
 import logging
 
@@ -25,7 +25,7 @@ async def health_check():
     """
     try:
         startup_time = get_startup_time()
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         uptime_seconds = (current_time - startup_time).total_seconds()
         
         # Check database connectivity

@@ -57,7 +57,7 @@ async def init_database():
     logger.info(f"Initializing database: {DATABASE_URL[:30]}...")
     try:
         # Import models to ensure they're registered with Base
-        from app.combine import models
+        from app.api import models
         
         # Create all tables (idempotent - only creates if missing)
         async with engine.begin() as conn:

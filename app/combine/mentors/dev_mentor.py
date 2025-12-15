@@ -1,38 +1,15 @@
 """
-Developer Mentor - Release 1
+Developer Mentor - Extends StreamingMentor with Developer-specific logic
 
-Developer Mentor that transforms User Stories into code implementation artifacts.
-
-Endpoints:
-- POST /api/developer/preview - Show what will be sent (no API call)
-- POST /api/developer/execute - Call LLM and return code artifacts
-- GET /api/developer/health - Health check
+Transforms User Stories into code implementation with streaming progress updates.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, ValidationError, Field
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-from sqlalchemy.orm import Session
-import json
-import logging
+from typing import Dict, Any, List
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 
-from app.combine.services.llm_caller import LLMCaller
-from app.combine.services.llm_response_parser import LLMResponseParser
-from app.combine.services.role_prompt_service import RolePromptService
-from app.combine.services.artifact_service import ArtifactService
+from app.combine.mentors.base_mentor import StreamingMentor, ProgressStep
 from app.combine.models import Artifact
-from app.combine.repositories.role_prompt_repository import RolePromptRepository
-from database import get_db
-from config import settings
-
-try:
-    import anthropic
-except ImportError:
-    anthropic = None
-
-logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/developer", tags=["Developer Mentor"])
 
 
 # ============================================================================
@@ -40,30 +17,18 @@ router = APIRouter(prefix="/api/developer", tags=["Developer Mentor"])
 # ============================================================================
 
 class DeveloperRequest(BaseModel):
-    """Request to Developer Mentor - requires story artifact"""
+    """Request to Developer Mentor"""
     story_artifact_path: str = Field(..., description="RSP-1 path to Story (e.g., 'PROJ/E001/S001')")
-
-
-class DeveloperPreviewResponse(BaseModel):
-    """Preview of what will be sent to Developer Mentor"""
-    story_artifact_path: str
-    story_content: Dict[str, Any]
-    system_prompt: str
-    user_message: str
-    expected_schema: Dict[str, Any]
-    model: str
-    max_tokens: int
-    temperature: float
-    estimated_input_tokens: int
-
-
-class ValidationResult(BaseModel):
-    """Result of schema validation"""
-    valid: bool
-    error_type: Optional[str] = None
-    error_message: Optional[str] = None
-    validation_errors: Optional[List[Dict[str, Any]]] = None
-    validated_data: Optional[Dict[str, Any]] = None
+    model: str = Field(default="claude-sonnet-4-20250514", description="Model to use")
+    max_tokens: int = Field(default=16384, description="Maximum tokens (very high for code)")
+    temperature: float = Field(default=0.3, description="Temperature (low for deterministic code)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "story_artifact_path": "AUTH/E001/S001"
+            }
+        }
 
 
 class CodeArtifact(BaseModel):
@@ -74,365 +39,340 @@ class CodeArtifact(BaseModel):
     file_path: str
 
 
-class DeveloperExecuteResponse(BaseModel):
-    """Result of actually calling Developer Mentor"""
-    story_artifact_path: str
-    code_artifacts_created: List[CodeArtifact]
-    
-    system_prompt: str
-    user_message: str
-    expected_schema: Dict[str, Any]
-    model: str
-    
-    raw_response: str
-    parsed_json: Optional[Dict[str, Any]]
-    validation_result: ValidationResult
-    
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
-    execution_time_ms: int
-    timestamp: str
-    prompt_id: str
-
-
 # ============================================================================
-# DEPENDENCIES
+# DEVELOPER MENTOR IMPLEMENTATION
 # ============================================================================
 
-def get_llm_caller() -> LLMCaller:
-    """Get LLM caller instance with Anthropic client"""
-    if anthropic is None:
-        raise HTTPException(500, "anthropic package not installed")
-    
-    api_key = settings.ANTHROPIC_API_KEY
-    if not api_key or api_key == "false":
-        raise HTTPException(500, "WORKBENCH_ANTHROPIC_API_KEY not configured")
-    
-    client = anthropic.Anthropic(api_key=api_key)
-    return LLMCaller(client)
-
-
-def get_llm_parser() -> LLMResponseParser:
-    """Get LLM response parser instance"""
-    return LLMResponseParser()
-
-
-def get_role_prompt_service() -> RolePromptService:
-    """Get role prompt service instance"""
-    return RolePromptService()
-
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
-
-def estimate_tokens(text: str) -> int:
-    """Rough token estimate (~4 chars per token)"""
-    return len(text) // 4
-
-
-def validate_code_schema(data: Dict[str, Any], expected_schema: Dict[str, Any]) -> ValidationResult:
+class DeveloperMentor(StreamingMentor):
     """
-    Validate parsed data against expected schema.
+    Developer Mentor - Creates implementation code from user stories
     
-    For now, does basic validation that required fields exist.
-    TODO: Implement full JSON schema validation
+    Progress Steps:
+    1. Reading development guidelines (5%)
+    2. Loading code schema (8%)
+    3. Loading story context (12%)
+    4. Loading architecture context (18%)
+    5. Analyzing technical requirements (25%)
+    6. Planning implementation approach (32%)
+    7. Writing production code (48%)
+    8. Adding unit tests (62%)
+    9. Creating documentation (76%)
+    10. Parsing code artifacts (84%)
+    11. Validating code structure (90%)
+    12. Saving implementation (95%)
+    13. Code ready for review! (100%)
     """
-    try:
-        # Basic validation - check that we have code files array
-        if "files" not in data:
-            return ValidationResult(
-                valid=False,
-                error_type="missing_files",
-                error_message="Response must contain 'files' array"
-            )
+    
+    @property
+    def role_name(self) -> str:
+        return "developer"
+    
+    @property
+    def pipeline_id(self) -> str:
+        return "execution"
+    
+    @property
+    def phase_name(self) -> str:
+        return "dev_phase"
+    
+    @property
+    def progress_steps(self) -> List[ProgressStep]:
+        """Developer-specific progress steps"""
+        return [
+            ProgressStep("building_prompt", "Reading development guidelines", "📋", 5),
+            ProgressStep("loading_schema", "Loading code schema", "🔍", 8),
+            ProgressStep("loading_story", "Loading story context", "📖", 12),
+            ProgressStep("loading_architecture", "Loading architecture context", "🏗️", 18),
+            ProgressStep("calling_llm", "Analyzing technical requirements", "🤖", 25),
+            ProgressStep("generating", "Planning implementation approach", "✨", 32),
+            ProgressStep("streaming", "Writing production code", "💻", 48),
+            ProgressStep("adding_tests", "Adding unit tests", "🧪", 62),
+            ProgressStep("documenting", "Creating documentation", "📝", 76),
+            ProgressStep("parsing", "Parsing code artifacts", "🔧", 84),
+            ProgressStep("validating", "Validating code structure", "✅", 90),
+            ProgressStep("saving", "Saving implementation", "💾", 95),
+            ProgressStep("complete", "Code ready for review!", "🎉", 100),
+            ProgressStep("error", "Something went wrong", "❌", 0),
+            ProgressStep("validation_failed", "Validation issues detected", "⚠️", 90)
+        ]
+    
+    async def build_user_message(self, request_data: Dict[str, Any]) -> str:
+        """
+        Build Developer-specific user message with story and architecture context
+        """
+        story_content = request_data.get("story_content", {})
+        architecture_content = request_data.get("architecture_content", {})
         
-        files = data.get("files", [])
-        if not isinstance(files, list):
-            return ValidationResult(
-                valid=False,
-                error_type="invalid_files",
-                error_message="'files' must be an array"
-            )
+        # Extract story details
+        story_title = story_content.get("title", "Story")
+        user_story = story_content.get("user_story", "")
+        acceptance_criteria = story_content.get("acceptance_criteria", [])
+        technical_considerations = story_content.get("technical_considerations", [])
+        dependencies = story_content.get("dependencies", [])
         
-        # Check each file has required fields
-        for idx, file_data in enumerate(files):
-            if not isinstance(file_data, dict):
-                return ValidationResult(
-                    valid=False,
-                    error_type="invalid_file_format",
-                    error_message=f"File {idx} is not an object"
-                )
+        # Extract architecture details
+        arch_summary = architecture_content.get("architecture_summary", {})
+        tech_stack = arch_summary.get("technology_stack", {})
+        components = architecture_content.get("components", [])
+        data_model = architecture_content.get("data_model", {})
+        interfaces = architecture_content.get("interfaces", [])
+        
+        # Format acceptance criteria
+        criteria_text = "\n".join([f"{i+1}. {crit}" for i, crit in enumerate(acceptance_criteria)])
+        
+        # Format technical considerations
+        tech_considerations_text = "\n".join([f"- {tc}" for tc in technical_considerations]) if technical_considerations else "None specified"
+        
+        # Format dependencies
+        dependencies_text = "\n".join([f"- {dep}" for dep in dependencies]) if dependencies else "None"
+        
+        # Format technology stack
+        tech_stack_text = "\n".join([f"- {k}: {v}" for k, v in tech_stack.items()]) if tech_stack else "Use best practices"
+        
+        # Format relevant components
+        components_text = "\n".join([
+            f"- {comp.get('name', 'Component')}: {comp.get('technologies', [])[0] if comp.get('technologies') else 'N/A'}" 
+            for comp in components[:5]
+        ]) if components else "See architecture"
+        
+        # Format data entities (if relevant)
+        entities = data_model.get("entities", [])
+        entities_text = "\n".join([
+            f"- {entity.get('name', 'Entity')}: {', '.join(entity.get('key_attributes', []))}" 
+            for entity in entities[:5]
+        ]) if entities else "See architecture"
+        
+        return f"""Implement the following user story:
+
+Story: {story_title}
+{user_story}
+
+Acceptance Criteria:
+{criteria_text}
+
+Technical Considerations:
+{tech_considerations_text}
+
+Dependencies:
+{dependencies_text}
+
+Technology Stack:
+{tech_stack_text}
+
+Relevant Components:
+{components_text}
+
+Data Model:
+{entities_text}
+
+Provide a complete implementation including:
+1. **Production Code**: Clean, well-structured, production-ready code
+   - Follow SOLID principles
+   - Use design patterns where appropriate
+   - Include proper error handling
+   - Add logging and monitoring hooks
+
+2. **Unit Tests**: Comprehensive test coverage
+   - Test all acceptance criteria
+   - Include edge cases
+   - Mock external dependencies
+   - Aim for 80%+ coverage
+
+3. **Documentation**:
+   - Inline code comments for complex logic
+   - Docstrings for public functions/classes
+   - README with setup and usage instructions
+
+4. **Database Migrations** (if needed):
+   - Schema changes
+   - Seed data (if applicable)
+
+5. **API Endpoints** (if applicable):
+   - Request/response models
+   - Validation
+   - Error handling
+
+Code Quality Requirements:
+- Type hints for all functions
+- Proper exception handling
+- Security best practices (input validation, SQL injection prevention, etc.)
+- Performance considerations (caching, query optimization)
+- Follow the project's coding standards
+
+Remember: Output ONLY valid JSON matching the schema. No markdown, no prose.
+The JSON should contain a "code_files" array with objects containing "file_path" and "content" fields."""
+    
+    async def validate_response(
+        self, 
+        parsed_json: Dict[str, Any], 
+        schema: Dict[str, Any]
+    ) -> tuple[bool, str]:
+        """
+        Validate Developer code response
+        
+        Checks for:
+        - code_files array exists
+        - Each file has required fields
+        - At least one production code file
+        """
+        # Check for code_files array
+        if "code_files" not in parsed_json:
+            return False, "Response must contain 'code_files' array"
+        
+        code_files = parsed_json.get("code_files", [])
+        
+        if not isinstance(code_files, list):
+            return False, "Field 'code_files' must be an array"
+        
+        if len(code_files) == 0:
+            return False, "Must provide at least one code file"
+        
+        # Validate each code file structure
+        for idx, code_file in enumerate(code_files):
+            file_num = idx + 1
             
-            required = ["file_path", "content"]
-            missing = [f for f in required if f not in file_data]
-            if missing:
-                return ValidationResult(
-                    valid=False,
-                    error_type="missing_file_fields",
-                    error_message=f"File {idx} missing: {', '.join(missing)}"
-                )
-        
-        return ValidationResult(
-            valid=True,
-            validated_data=data
-        )
-        
-    except Exception as e:
-        return ValidationResult(
-            valid=False,
-            error_type="validation_error",
-            error_message=str(e)
-        )
-
-
-# ============================================================================
-# ENDPOINTS
-# ============================================================================
-
-@router.post("/preview", response_model=DeveloperPreviewResponse)
-async def preview_developer_request(
-    request: DeveloperRequest,
-    db: Session = Depends(get_db),
-    prompt_service: RolePromptService = Depends(get_role_prompt_service)
-) -> DeveloperPreviewResponse:
-    """
-    Preview what will be sent to Developer Mentor WITHOUT calling the LLM.
-    Shows the system prompt with Story content.
-    """
-    try:
-        # Get Story artifact
-        artifact_service = ArtifactService(db)
-        
-        story_artifact = artifact_service.get_artifact(request.story_artifact_path)
-        if not story_artifact:
-            raise HTTPException(404, f"Story artifact not found: {request.story_artifact_path}")
-        
-        if story_artifact.artifact_type != "story":
-            raise HTTPException(400, f"Artifact is not a story: {story_artifact.artifact_type}")
-        
-        # Build Developer prompt from database
-        system_prompt, prompt_id = prompt_service.build_prompt(
-            role_name="developer",
-            pipeline_id="preview",
-            phase="dev_phase"
-        )
-        
-        # Get schema from database
-        prompt_record = RolePromptRepository.get_by_id(prompt_id)
-        
-        if not prompt_record:
-            raise HTTPException(404, f"Prompt not found: {prompt_id}")
-        
-        schema = prompt_record.expected_schema or {}
-        
-        # Build user message with Story
-        user_message = f"""Implement the following User Story with complete, production-ready code:
-
-Story: {story_artifact.title}
-Path: {story_artifact.artifact_path}
-
-{json.dumps(story_artifact.content, indent=2)}
-
-Generate implementation that:
-1. Includes all necessary files (code, tests, configs)
-2. Follows best practices and coding standards
-3. Is complete and ready to run
-4. Includes inline documentation
-
-Output ONLY valid JSON matching the code files schema. No markdown, no prose."""
-        
-        estimated_tokens = estimate_tokens(system_prompt + user_message)
-        
-        return DeveloperPreviewResponse(
-            story_artifact_path=request.story_artifact_path,
-            story_content=story_artifact.content,
-            system_prompt=system_prompt,
-            user_message=user_message,
-            expected_schema=schema,
-            model="claude-sonnet-4-20250514",
-            max_tokens=32000,
-            temperature=0.7,
-            estimated_input_tokens=estimated_tokens
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Preview failed: {e}", exc_info=True)
-        raise HTTPException(500, f"Preview failed: {str(e)}")
-
-
-@router.post("/execute", response_model=DeveloperExecuteResponse)
-async def execute_developer_request(
-    request: DeveloperRequest,
-    db: Session = Depends(get_db),
-    prompt_service: RolePromptService = Depends(get_role_prompt_service),
-    llm_caller: LLMCaller = Depends(get_llm_caller),
-    llm_parser: LLMResponseParser = Depends(get_llm_parser)
-) -> DeveloperExecuteResponse:
-    """
-    Execute Developer Mentor request with full transparency.
-    This COSTS MONEY - each call uses API tokens (~$0.20-0.50 per call).
-    
-    Accepts: Path to Story artifact
-    Returns: Creates Code artifacts at {story_path}/CODE001, CODE002, etc.
-    """
-    try:
-        # Get Story artifact
-        artifact_service = ArtifactService(db)
-        
-        story_artifact = artifact_service.get_artifact(request.story_artifact_path)
-        if not story_artifact:
-            raise HTTPException(404, f"Story artifact not found: {request.story_artifact_path}")
-        
-        if story_artifact.artifact_type != "story":
-            raise HTTPException(400, f"Artifact is not a story: {story_artifact.artifact_type}")
-        
-        # Build Developer prompt from database
-        system_prompt, prompt_id = prompt_service.build_prompt(
-            role_name="developer",
-            pipeline_id="execution",
-            phase="dev_phase"
-        )
-        
-        # Get schema from database
-        prompt_record = RolePromptRepository.get_by_id(prompt_id)
-        
-        if not prompt_record:
-            raise HTTPException(404, f"Prompt not found: {prompt_id}")
-        
-        schema = prompt_record.expected_schema or {}
-        
-        # Build user message
-        user_message = f"""Implement the following User Story with complete, production-ready code:
-
-Story: {story_artifact.title}
-Path: {story_artifact.artifact_path}
-
-{json.dumps(story_artifact.content, indent=2)}
-
-Generate implementation that:
-1. Includes all necessary files (code, tests, configs)
-2. Follows best practices and coding standards
-3. Is complete and ready to run
-4. Includes inline documentation
-
-Output ONLY valid JSON matching the code files schema. No markdown, no prose."""
-        
-        # Call LLM
-        logger.info(f"Calling Anthropic API for Developer Mentor")
-        
-        llm_result = llm_caller.call(
-            system_prompt=system_prompt,
-            user_message=user_message,
-            model="claude-sonnet-4-20250514",
-            max_tokens=32000,
-            temperature=0.7
-        )
-        
-        if not llm_result.success:
-            raise HTTPException(500, f"LLM call failed: {llm_result.error}")
-        
-        raw_response = llm_result.response_text
-        input_tokens = llm_result.token_usage["input_tokens"]
-        output_tokens = llm_result.token_usage["output_tokens"]
-        total_tokens = input_tokens + output_tokens
-        execution_time_ms = llm_result.execution_time_ms
-        
-        logger.info(f"Developer LLM call completed: {input_tokens} in / {output_tokens} out / {total_tokens} total")
-        
-        # Parse JSON
-        parse_result = llm_parser.parse(raw_response)
-        parsed_json = parse_result.data if parse_result.success else None
-        
-        # Validate
-        code_artifacts_created = []
-        
-        if parsed_json:
-            validation_result = validate_code_schema(parsed_json, schema)
+            if not isinstance(code_file, dict):
+                return False, f"File {file_num} must be an object"
             
-            if validation_result.valid:
-                logger.info(f"Developer validation passed")
-                
-                # Create Code artifacts
-                files_data = parsed_json.get("files", [])
-                
-                for idx, file_data in enumerate(files_data, start=1):
-                    code_id = f"CODE{idx:03d}"
-                    code_path = f"{request.story_artifact_path}/{code_id}"
-                    
-                    # Extract file info
-                    file_path = file_data.get("file_path", f"unknown_{idx}")
-                    title = f"Code: {file_path}"
-                    
-                    code_artifact = artifact_service.create_artifact(
-                        artifact_path=code_path,
-                        artifact_type="code",
-                        title=title,
-                        content=file_data,
-                        breadcrumbs={
-                            "created_by": "developer_mentor",
-                            "prompt_id": prompt_id,
-                            "story_path": request.story_artifact_path,
-                            "file_path": file_path
-                        }
-                    )
-                    
-                    code_artifacts_created.append(CodeArtifact(
-                        artifact_path=code_artifact.artifact_path,
-                        artifact_id=str(code_artifact.id),
-                        title=code_artifact.title,
-                        file_path=file_path
-                    ))
-                    
-                    logger.info(f"Created code artifact: {code_path}")
-                
-            else:
-                logger.warning(f"Developer validation failed: {validation_result.error_message}")
-                validation_result = validation_result
-        else:
-            validation_result = ValidationResult(
-                valid=False,
-                error_type="json_parse_error",
-                error_message="Failed to parse JSON from LLM response",
-                validation_errors=[
-                    {"error": msg} for msg in parse_result.error_messages
-                ]
-            )
-            logger.error(f"Failed to parse Developer response: {parse_result.error_messages}")
+            # Check required fields
+            if "file_path" not in code_file:
+                return False, f"File {file_num} missing 'file_path'"
+            
+            if "content" not in code_file:
+                return False, f"File {file_num} missing 'content'"
+            
+            # Validate file_path is not empty
+            file_path = code_file.get("file_path", "").strip()
+            if not file_path:
+                return False, f"File {file_num} has empty 'file_path'"
+            
+            # Validate content is not empty
+            content = code_file.get("content", "").strip()
+            if not content:
+                return False, f"File {file_num} has empty 'content'"
         
-        return DeveloperExecuteResponse(
-            story_artifact_path=request.story_artifact_path,
-            code_artifacts_created=code_artifacts_created,
-            system_prompt=system_prompt,
-            user_message=user_message,
-            expected_schema=schema,
-            model="claude-sonnet-4-20250514",
-            raw_response=raw_response,
-            parsed_json=parsed_json,
-            validation_result=validation_result,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=total_tokens,
-            execution_time_ms=execution_time_ms,
-            timestamp=datetime.now().isoformat(),
-            prompt_id=prompt_id
-        )
+        return True, ""
     
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Developer Mentor execution failed: {e}", exc_info=True)
-        raise HTTPException(500, f"Execution failed: {str(e)}")
-
-
-@router.get("/health")
-async def health_check():
-    """Health check for Developer Mentor API"""
-    return {
-        "status": "healthy",
-        "service": "developer_mentor",
-        "version": "1.0"
-    }
+    async def create_artifact(
+        self,
+        request_data: Dict[str, Any],
+        parsed_json: Dict[str, Any],
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Create Developer code artifacts
+        
+        Creates artifacts for the implementation.
+        
+        Returns:
+            Dictionary with:
+            - story_artifact_path: Source story path
+            - code_artifacts_created: List of created code artifacts
+            - project_id: Extracted project ID
+            - epic_id: Extracted epic ID
+            - story_id: Extracted story ID
+            - total_files: Number of code files
+        """
+        story_artifact_path = request_data.get("story_artifact_path")
+        
+        # Parse project, epic, and story from path (e.g., "PROJ/E001/S001")
+        path_parts = story_artifact_path.split("/")
+        if len(path_parts) != 3:
+            raise ValueError(
+                f"Invalid story path: {story_artifact_path}. Expected format: PROJECT/EPIC/STORY"
+            )
+        
+        project_id, epic_id, story_id = path_parts
+        
+        # Get code files array
+        code_files = parsed_json.get("code_files", [])
+        
+        # Create a single "code" artifact containing all files
+        # (Alternative: create one artifact per file)
+        implementation_path = story_artifact_path  # Same path as story
+        
+        # Extract title from story or use default
+        story_content = request_data.get("story_content", {})
+        title = f"Implementation: {story_content.get('title', story_id)}"
+        
+        # Create breadcrumbs
+        breadcrumbs = {
+            "created_by": "developer_mentor",
+            "story_id": story_id,
+            "epic_id": epic_id,
+            "story_artifact_path": story_artifact_path,
+            "total_files": len(code_files),
+            "file_types": list(set([
+                cf.get("file_path", "").split(".")[-1] 
+                for cf in code_files 
+                if "." in cf.get("file_path", "")
+            ])),
+            **metadata
+        }
+        
+        # Create artifact with all code files
+        artifact = await self.artifact_service.create_artifact(
+            artifact_path=implementation_path,
+            artifact_type="code",
+            title=title,
+            content=parsed_json,  # Entire response with code_files array
+            breadcrumbs=breadcrumbs
+        )
+        
+        # Build list of created artifacts
+        created_artifacts = [{
+            "artifact_path": implementation_path,
+            "artifact_id": str(artifact.id),
+            "title": title,
+            "file_path": cf.get("file_path")
+        } for cf in code_files]
+        
+        return {
+            "story_artifact_path": story_artifact_path,
+            "code_artifacts_created": created_artifacts,
+            "project_id": project_id,
+            "epic_id": epic_id,
+            "story_id": story_id,
+            "total_files": len(code_files),
+            "implementation_artifact_path": implementation_path,
+            "implementation_artifact_id": str(artifact.id)
+        }
+    
+    async def _load_story_content(self, story_artifact_path: str) -> Dict[str, Any]:
+        """
+        Helper method to load story content from database
+        """
+        query = (
+            select(Artifact)
+            .where(Artifact.artifact_path == story_artifact_path)
+            .where(Artifact.artifact_type == "story")
+        )
+        
+        result = await self.db.execute(query)
+        story_artifact = result.scalar_one_or_none()
+        
+        if not story_artifact:
+            raise ValueError(f"Story not found at path: {story_artifact_path}")
+        
+        return story_artifact.content or {}
+    
+    async def _load_architecture_content(self, epic_path: str) -> Dict[str, Any]:
+        """
+        Helper method to load architecture content from database
+        
+        Architecture is stored at epic level (e.g., "PROJ/E001")
+        """
+        query = (
+            select(Artifact)
+            .where(Artifact.artifact_path == epic_path)
+            .where(Artifact.artifact_type == "architecture")
+        )
+        
+        result = await self.db.execute(query)
+        arch_artifact = result.scalar_one_or_none()
+        
+        if not arch_artifact:
+            # Architecture might not exist yet - return empty dict
+            return {}
+        
+        return arch_artifact.content or {}
