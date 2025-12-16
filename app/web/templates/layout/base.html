@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="text-[14px]">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,25 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontSize: {
+                        'xs': ['0.75rem', { lineHeight: '1rem' }],
+                        'sm': ['0.8125rem', { lineHeight: '1.25rem' }],
+                        'base': ['0.875rem', { lineHeight: '1.5rem' }],
+                        'lg': ['1rem', { lineHeight: '1.5rem' }],
+                        'xl': ['1.125rem', { lineHeight: '1.75rem' }],
+                        '2xl': ['1.25rem', { lineHeight: '1.75rem' }],
+                        '3xl': ['1.5rem', { lineHeight: '2rem' }],
+                        '4xl': ['1.875rem', { lineHeight: '2.25rem' }],
+                        '5xl': ['2.25rem', { lineHeight: '2.5rem' }],
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -21,18 +40,18 @@
     <style>
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: #f1f1f1;
         }
         ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
+            background: #c1c1c1;
+            border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #999;
         }
         
         /* Tree indentation */
@@ -42,65 +61,101 @@
         
         /* Smooth transitions */
         .transition-all {
-            transition: all 0.15s ease-in-out;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        /* Tighter spacing for dense UI */
+        .compact-card {
+            padding: 1rem 1.25rem;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900">
+<body class="bg-gray-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-gray-900 text-white sticky top-0 z-50">
-        <div class="flex items-center h-16">
-            <!-- Logo section - matches sidebar width (w-80 = 320px) -->
-            <div class="w-80 flex-shrink-0 px-4 flex items-center border-r border-gray-800">
+    <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-4">
                 <h1 class="text-xl font-bold">The Combine</h1>
             </div>
             
-            <!-- Rest of header -->
-            <div class="flex-1 flex items-center justify-between px-6">
-                <!-- Global Search -->
-                <div class="flex-1 max-w-2xl">
-                    <div class="relative">
-                        <input 
-                            type="text" 
-                            id="global-search"
-                            name="q"
-                            placeholder="Search projects, workflows, artifacts..."
-                            hx-get="/ui/search"
-                            hx-trigger="keyup changed delay:300ms"
-                            hx-target="#search-results"
-                            hx-include="#global-search"
-                            class="w-full px-4 py-2 pl-10 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                        />
-                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
-                    </div>
-                    
-                    <!-- Search Results Dropdown -->
-                    <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white rounded-lg border border-gray-200 max-h-96 overflow-y-auto hidden"></div>
+            <!-- Global Search -->
+            <div class="flex-1 max-w-2xl mx-8">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="global-search"
+                        name="q"
+                        placeholder="Search projects, workflows, artifacts..."
+                        hx-get="/ui/search"
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#search-results"
+                        hx-include="#global-search"
+                        class="w-full px-4 py-1.5 pl-9 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
                 </div>
                 
-                <!-- Header Actions -->
-                <div class="flex items-center gap-2 ml-6">
-                    <button class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-                        <i data-lucide="bell" class="w-5 h-5"></i>
-                    </button>
-                    <button class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-                        <i data-lucide="settings" class="w-5 h-5"></i>
-                    </button>
-                </div>
+                <!-- Search Results Dropdown -->
+                <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white rounded-lg shadow-xl max-h-96 overflow-y-auto hidden"></div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                </button>
+                <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
+                    <i data-lucide="settings" class="w-4 h-4"></i>
+                </button>
             </div>
         </div>
     </header>
     
     <!-- Main Layout: Sidebar + Content -->
-    <div class="flex h-[calc(100vh-64px)]">
+    <div class="flex h-[calc(100vh-56px)]">
         <!-- Sidebar -->
-        <aside class="w-80 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+        <aside class="w-72 bg-white border-r border-gray-200 overflow-y-auto">
             {% include "components/sidebar.html" %}
         </aside>
         
         <!-- Main Content Area -->
         <main id="main-content" class="flex-1 overflow-y-auto">
             {% block content %}
+            <!-- Default content when page first loads -->
+            <div class="p-6 max-w-7xl mx-auto">
+                <div class="text-center py-16">
+                    <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to The Combine</h1>
+                    <p class="text-lg text-gray-600 mb-8">AI-driven pipeline automation for software development</p>
+                    
+                    <p class="text-gray-500">Select a project from the sidebar to get started</p>
+                </div>
+                
+                <!-- Feature Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+                    <div class="bg-white rounded-lg shadow-lg p-5">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                            <i data-lucide="brain" class="w-5 h-5 text-blue-600"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">AI-Powered Mentors</h3>
+                        <p class="text-sm text-gray-600">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-lg p-5">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
+                            <i data-lucide="git-branch" class="w-5 h-5 text-green-600"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">Structured Pipeline</h3>
+                        <p class="text-sm text-gray-600">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-lg p-5">
+                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                            <i data-lucide="dollar-sign" class="w-5 h-5 text-purple-600"></i>
+                        </div>
+                        <h3 class="text-base font-semibold text-gray-900 mb-2">Cost Tracking</h3>
+                        <p class="text-sm text-gray-600">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
+                    </div>
+                </div>
+            </div>
             {% endblock %}
         </main>
     </div>
@@ -151,6 +206,7 @@
         
         // Store/restore tree state
         document.body.addEventListener('htmx:beforeSwap', (event) => {
+            // Save expanded state to localStorage
             const expandedNodes = [];
             document.querySelectorAll('[data-expanded="true"]').forEach(node => {
                 const id = node.dataset.nodeId;
@@ -160,9 +216,11 @@
         });
         
         document.body.addEventListener('htmx:afterSwap', () => {
+            // Restore expanded state from localStorage
             const savedState = localStorage.getItem('treeState');
             if (savedState) {
                 const expandedNodes = JSON.parse(savedState);
+                // You can implement tree restoration logic here if needed
             }
         });
     </script>

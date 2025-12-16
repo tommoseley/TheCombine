@@ -1,0 +1,5 @@
+{% extends "layout/base.html" %}
+{% block title %}Architecture - {{ project.name if project.name is defined else project['name'] }} - The Combine{% endblock %}
+{% block content %}
+{% include "pages/partials/_architecture_summary.html" %}
+{% endblock %}

@@ -34,20 +34,45 @@
         {% endif %}
     </div>
 
-    <!-- Preliminary Architecture (when done) -->
-    {% if preliminary_architecture %}
-    {% include "pages/partials/_preliminary_architecture.html" %}
-    {% endif %}
-
-    <!-- Final Architecture (when done) -->
-    {% if final_architecture %}
-    <div class="mb-8 bg-gray-50 rounded-lg border border-gray-200 p-6">
-        <div class="flex items-center mb-4">
-            <i data-lucide="building-2" class="w-6 h-6 mr-3 text-gray-600"></i>
-            <h2 class="text-2xl font-bold text-gray-900">Final Architecture</h2>
+    <!-- Architecture Summary (when any architecture exists) -->
+    {% if preliminary_architecture or final_architecture %}
+    <div class="mb-8 bg-white rounded-lg border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+                <i data-lucide="building-2" class="w-6 h-6 mr-3 text-gray-600"></i>
+                <h2 class="text-2xl font-bold text-gray-900">Architecture</h2>
+            </div>
+            <a href="/ui/projects/{{ project.id }}/architecture"
+               hx-get="/ui/projects/{{ project.id }}/architecture"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                View Details →
+            </a>
         </div>
-        <div class="prose max-w-none text-gray-700">
-            {{ final_architecture.content | safe }}
+        
+        <div class="flex gap-4">
+            <!-- Discovery Status -->
+            <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+                {% if preliminary_architecture %}
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                <span class="text-sm text-gray-700">Discovery Complete</span>
+                {% else %}
+                <i data-lucide="circle" class="w-5 h-5 text-gray-300"></i>
+                <span class="text-sm text-gray-500">Discovery Pending</span>
+                {% endif %}
+            </div>
+            
+            <!-- Final Status -->
+            <div class="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+                {% if final_architecture %}
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                <span class="text-sm text-gray-700">Specification Complete</span>
+                {% else %}
+                <i data-lucide="circle" class="w-5 h-5 text-gray-300"></i>
+                <span class="text-sm text-gray-500">Specification Pending</span>
+                {% endif %}
+            </div>
         </div>
     </div>
     {% endif %}
@@ -78,8 +103,8 @@
                 onclick="startArchitectMentor('preliminary', '{{ project.id }}', '{{ project.project_id }}')"
                 class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 {% if preliminary_architecture %}disabled{% endif %}>
-                <i data-lucide="git-branch" class="w-5 h-5 mr-2"></i>
-                <span>{{ 'Preliminary Architecture ✓' if preliminary_architecture else 'Create Preliminary Architecture' }}</span>
+                <i data-lucide="search" class="w-5 h-5 mr-2"></i>
+                <span>{{ 'Discovery ✓' if preliminary_architecture else 'Create Discovery' }}</span>
             </button>
 
             <!-- Start PM Button -->
@@ -99,8 +124,8 @@
                 onclick="startArchitectMentor('detailed', '{{ project.id }}', '{{ project.project_id }}')"
                 class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 {% if final_architecture %}disabled{% endif %}>
-                <i data-lucide="building-2" class="w-5 h-5 mr-2"></i>
-                <span>{{ 'Final Architecture ✓' if final_architecture else 'Create Final Architecture' }}</span>
+                <i data-lucide="landmark" class="w-5 h-5 mr-2"></i>
+                <span>{{ 'Final Spec ✓' if final_architecture else 'Create Final Spec' }}</span>
             </button>
         </div>
     </div>
@@ -210,7 +235,7 @@ function startArchitectMentor(mode, projectUuid, projectId) {
     // Show progress
     progressDiv.classList.remove('hidden');
     progressBar.style.width = '0%';
-    progressTitle.textContent = mode === 'preliminary' ? 'Creating Preliminary Architecture...' : 'Creating Final Architecture...';
+    progressTitle.textContent = mode === 'preliminary' ? 'Creating Discovery Architecture...' : 'Creating Final Architecture...';
     progressMessage.textContent = 'Initializing...';
     
     // Determine endpoint and artifact path based on mode
