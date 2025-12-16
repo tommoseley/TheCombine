@@ -31,37 +31,48 @@ async def get_project_architecture(
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get architecture view - detects preliminary vs final"""
-    # First get the project to get project_id
+    """Get architecture summary view - aggregates Discovery and Final"""
+    # First get the project
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Try to load preliminary architecture first
+    # Handle both dict and ORM object
+    proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
+    
+    # Load architecture artifacts
     preliminary = await get_artifact_by_path(
-        db, f"{project.project_id}/ARCH/DISCOVERY"
+        db, f"{proj_id}/ARCH/DISCOVERY"
     )
-    
-    # Then try final architecture
     final = await get_artifact_by_path(
-        db, f"{project.project_id}/ARCH/FINAL"
+        db, f"{proj_id}/ARCH/FINAL"
     )
     
-    # Also get via legacy method for backward compatibility
-    architecture = await project_service.get_architecture(db, project_id)
+    # Extract content from artifacts
+    preliminary_content = preliminary.content if preliminary else None
+    final_content = final.content if final else None
+    
+    # Determine last updated
+    last_updated = None
+    if final:
+        last_updated = final.updated_at.strftime('%b %d, %Y') if hasattr(final, 'updated_at') and final.updated_at else None
+    elif preliminary:
+        last_updated = preliminary.updated_at.strftime('%b %d, %Y') if hasattr(preliminary, 'updated_at') and preliminary.updated_at else None
     
     context = {
         "request": request,
         "project": project,
-        "architecture": architecture,
-        "preliminary_architecture": preliminary,
-        "final_architecture": final,
+        "has_preliminary": preliminary is not None,
+        "has_final": final is not None,
+        "preliminary_content": preliminary_content,
+        "final_content": final_content,
+        "last_updated": last_updated,
     }
     
     template = get_template(
         request,
-        wrapper="pages/architecture_view.html",
-        partial="pages/partials/_architecture_view_content.html"
+        wrapper="pages/architecture_summary.html",
+        partial="pages/partials/_architecture_summary.html"
     )
     
     return templates.TemplateResponse(template, context)

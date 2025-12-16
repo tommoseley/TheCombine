@@ -16,13 +16,13 @@
             hx-get="/ui/projects/{{ project.id }}/architecture"
             hx-target="#main-content"
             hx-push-url="true"
-            class="flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
+            class="tree-link flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
             <i data-lucide="building-2" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
             <span class="text-sm text-gray-700">Architecture</span>
             {% if has_preliminary or has_final %}
             <span class="ml-auto flex gap-1">
                 {% if has_preliminary %}
-                <span class="w-2 h-2 bg-blue-400 rounded-full" title="Discovery"></span>
+                <span class="w-2 h-2 bg-green-400 rounded-full" title="Discovery"></span>
                 {% endif %}
                 {% if has_final %}
                 <span class="w-2 h-2 bg-green-400 rounded-full" title="Final"></span>

@@ -1,0 +1,470 @@
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-500 mb-2">
+            <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}" 
+               hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-gray-700">
+                {{ project.name if project.name is defined else project['name'] }}
+            </a>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">Architecture</span>
+        </nav>
+        
+        <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="building-2" class="w-10 h-10 text-gray-600"></i>
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900">Architecture</h1>
+                    <p class="text-gray-600">{{ project.project_id if project.project_id is defined else project['project_id'] }}</p>
+                </div>
+            </div>
+            
+            <!-- Status Badge -->
+            <div class="flex items-center gap-3">
+                {% if has_final and has_preliminary %}
+                <span class="px-3 py-1.5 text-sm font-medium rounded-full bg-green-100 text-green-800">
+                    Spec Drafted
+                </span>
+                {% elif has_preliminary %}
+                <span class="px-3 py-1.5 text-sm font-medium rounded-full bg-amber-100 text-amber-800">
+                    Discovery Only
+                </span>
+                {% else %}
+                <span class="px-3 py-1.5 text-sm font-medium rounded-full bg-gray-100 text-gray-600">
+                    Not Started
+                </span>
+                {% endif %}
+                
+                {% if last_updated %}
+                <span class="text-sm text-gray-500">
+                    Updated {{ last_updated }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if has_preliminary or has_final %}
+    
+    <!-- View Toggle (when both exist) -->
+    {% if has_preliminary and has_final %}
+    <div class="mb-6 flex gap-2">
+        <button 
+            onclick="toggleArchView('discovery')"
+            id="btn-discovery-view"
+            class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+                   bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
+            <i data-lucide="search" class="w-4 h-4 inline mr-1"></i>
+            Discovery View
+        </button>
+        <button 
+            onclick="toggleArchView('spec')"
+            id="btn-spec-view"
+            class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors
+                   bg-blue-600 border-blue-600 text-white">
+            <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>
+            Spec View
+        </button>
+    </div>
+    {% endif %}
+
+    {% set discovery = preliminary_content %}
+    {% set spec = final_content %}
+    {% set primary = spec if spec else discovery %}
+
+    <!-- Summary Card -->
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">What are we building?</h2>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-700 leading-relaxed">
+                {% if spec and spec.architecture_summary and spec.architecture_summary.refined_description %}
+                {{ spec.architecture_summary.refined_description }}
+                {% elif discovery and discovery.preliminary_summary %}
+                {{ discovery.preliminary_summary.problem_understanding }}
+                {% else %}
+                No summary available yet.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- System Shape -->
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">System Shape</h2>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-700 mb-3">
+                {% if discovery and discovery.preliminary_summary and discovery.preliminary_summary.proposed_system_shape %}
+                {{ discovery.preliminary_summary.proposed_system_shape }}
+                {% elif spec and spec.architecture_summary and spec.architecture_summary.refined_description %}
+                {{ spec.architecture_summary.refined_description }}
+                {% else %}
+                Not yet defined.
+                {% endif %}
+            </p>
+            {% if spec and spec.architecture_summary and spec.architecture_summary.architectural_style %}
+            <div class="inline-flex items-center px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700">
+                <i data-lucide="layout" class="w-4 h-4 mr-2 text-gray-500"></i>
+                <span class="font-medium">Style:</span>
+                <span class="ml-1">{{ spec.architecture_summary.architectural_style }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- MVP Boundary -->
+    {% if discovery and discovery.mvp_guardrails %}
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">MVP Boundary</h2>
+            <span class="text-sm text-gray-500">{{ discovery.mvp_guardrails|length }} guardrails</span>
+        </div>
+        <div class="p-6">
+            <ul class="space-y-2">
+                {% for guardrail in discovery.mvp_guardrails %}
+                <li class="flex items-start text-sm text-gray-700">
+                    <i data-lucide="check" class="w-4 h-4 mr-3 mt-0.5 text-green-600 flex-shrink-0"></i>
+                    {{ guardrail }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Key Decisions -->
+    {% if discovery and discovery.early_decision_points %}
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">Key Decisions</h2>
+            <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/preliminary"
+               hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/preliminary"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="text-sm text-blue-600 hover:text-blue-800">
+                View all →
+            </a>
+        </div>
+        <div class="p-6">
+            <div class="flex flex-wrap gap-2">
+                {% for decision in discovery.early_decision_points %}
+                <div class="inline-flex items-center px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                    <span class="mr-2">🟨</span>
+                    <span class="text-gray-700">{{ decision.decision }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Components (MVP focus) -->
+    {% if spec and spec.components %}
+    <div class="bg-white rounded-lg border border-gray-200 mb-8" id="section-components">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">Components</h2>
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-gray-500">{{ spec.components|length }} components</span>
+                <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/final"
+                   hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/final"
+                   hx-target="#main-content"
+                   hx-push-url="true"
+                   class="text-sm text-blue-600 hover:text-blue-800">
+                    View details →
+                </a>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="space-y-3">
+                {% for component in spec.components[:6] %}
+                <div class="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium text-gray-900">{{ component.name }}</span>
+                            {% if component.layer %}
+                            <span class="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">{{ component.layer }}</span>
+                            {% endif %}
+                        </div>
+                        {% if component.purpose %}
+                        <p class="text-sm text-gray-600 mt-1">{{ component.purpose[:100] }}{% if component.purpose|length > 100 %}...{% endif %}</p>
+                        {% endif %}
+                    </div>
+                    {% if component.dependencies %}
+                    <span class="text-xs text-gray-500 ml-3">depends: {{ component.dependencies|length }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% if spec.components|length > 6 %}
+                <p class="text-sm text-gray-500 text-center pt-2">+ {{ spec.components|length - 6 }} more components</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% elif discovery and discovery.candidate_architectural_patterns %}
+    <!-- Show patterns if no components yet -->
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">Candidate Patterns</h2>
+            <span class="text-sm text-gray-500">{{ discovery.candidate_architectural_patterns|length }} patterns</span>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {% for pattern in discovery.candidate_architectural_patterns %}
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <p class="font-medium text-gray-900 text-sm">{{ pattern.pattern }}</p>
+                    <p class="text-xs text-gray-600 mt-1">{{ pattern.applicability[:80] }}{% if pattern.applicability|length > 80 %}...{% endif %}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Two Column: Interfaces & Data -->
+    {% if spec and (spec.interfaces or spec.data_model) %}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Interfaces -->
+        {% if spec.interfaces %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Interfaces</h2>
+                <span class="text-sm text-gray-500">
+                    {% set endpoint_count = namespace(value=0) %}
+                    {% for iface in spec.interfaces %}
+                        {% if iface.endpoints %}
+                            {% set endpoint_count.value = endpoint_count.value + iface.endpoints|length %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ endpoint_count.value }} endpoints
+                </span>
+            </div>
+            <div class="p-6">
+                <ul class="space-y-2">
+                    {% for iface in spec.interfaces %}
+                    {% if iface.endpoints %}
+                    {% for endpoint in iface.endpoints[:3] %}
+                    <li class="flex items-center text-sm">
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded mr-2
+                            {% if endpoint.method == 'GET' %}bg-blue-100 text-blue-800
+                            {% elif endpoint.method == 'POST' %}bg-green-100 text-green-800
+                            {% elif endpoint.method == 'PUT' or endpoint.method == 'PATCH' %}bg-amber-100 text-amber-800
+                            {% elif endpoint.method == 'DELETE' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ endpoint.method }}
+                        </span>
+                        <span class="text-gray-700 font-mono text-xs">{{ endpoint.path }}</span>
+                    </li>
+                    {% endfor %}
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Data -->
+        {% if spec.data_model %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Data</h2>
+                <span class="text-sm text-gray-500">{{ spec.data_model|length }} entities</span>
+            </div>
+            <div class="p-6">
+                <ul class="space-y-2">
+                    {% for model in spec.data_model[:5] %}
+                    <li class="flex items-start p-2 bg-gray-50 rounded">
+                        <i data-lucide="database" class="w-4 h-4 mr-2 mt-0.5 text-gray-400"></i>
+                        <div>
+                            <span class="font-medium text-gray-900 text-sm">{{ model.name }}</span>
+                            {% if model.fields %}
+                            <span class="text-xs text-gray-500 ml-2">{{ model.fields|length }} fields</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Workflows -->
+    {% if spec and spec.workflows %}
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">Primary Workflows</h2>
+            <span class="text-sm text-gray-500">{{ spec.workflows|length }} workflows</span>
+        </div>
+        <div class="p-6">
+            <ul class="space-y-3">
+                {% for workflow in spec.workflows[:5] %}
+                <li class="flex items-center text-sm text-gray-700">
+                    <i data-lucide="arrow-right" class="w-4 h-4 mr-3 text-gray-400"></i>
+                    <span class="font-medium">{{ workflow.name }}</span>
+                    {% if workflow.description %}
+                    <span class="text-gray-500 ml-2">— {{ workflow.description[:60] }}{% if workflow.description|length > 60 %}...{% endif %}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Risks & Open Questions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Risks -->
+        {% set risks = (spec.risks if spec and spec.risks else (discovery.identified_risks if discovery and discovery.identified_risks else [])) %}
+        {% if risks %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Top Risks</h2>
+                <span class="text-sm text-gray-500">{{ risks|length }} total</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for risk in risks[:3] %}
+                <div class="border-l-4 rounded-r-lg p-3
+                    {% if risk.likelihood == 'high' %}border-red-400 bg-gray-50
+                    {% elif risk.likelihood == 'medium' %}border-amber-400 bg-gray-50
+                    {% else %}border-gray-300 bg-gray-50{% endif %}">
+                    <div class="flex items-start justify-between">
+                        <p class="text-sm text-gray-900">{{ risk.description }}</p>
+                        <span class="ml-2 px-2 py-0.5 text-xs font-medium rounded flex-shrink-0
+                            {% if risk.likelihood == 'high' %}bg-red-100 text-red-800
+                            {% elif risk.likelihood == 'medium' %}bg-amber-100 text-amber-800
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ risk.likelihood | title }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Open Questions -->
+        {% if discovery and discovery.unknowns %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-900">Open Questions</h2>
+                <span class="text-sm text-gray-500">{{ discovery.unknowns|length }} questions</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for unknown in discovery.unknowns[:5] %}
+                <div class="flex items-start text-sm">
+                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 mt-0.5 text-amber-500 flex-shrink-0"></i>
+                    <span class="text-gray-700">{{ unknown.question }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Blocking Questions (if exist) -->
+        {% if discovery and discovery.stakeholder_questions %}
+        {% set blocking = discovery.stakeholder_questions | selectattr('blocking', 'equalto', true) | list %}
+        {% if blocking %}
+        <div class="bg-white rounded-lg border border-gray-200 lg:col-span-2">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-5 h-5 text-red-500"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Blocking Questions</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ blocking|length }} blocking</span>
+            </div>
+            <div class="p-6">
+                <div class="flex flex-wrap gap-2">
+                    {% for q in blocking %}
+                    <div class="inline-flex items-center px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-sm">
+                        <span class="text-red-800">{{ q.question[:60] }}{% if q.question|length > 60 %}...{% endif %}</span>
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">{{ q.directed_to | replace('_', ' ') | title }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Navigation Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Discovery Link -->
+        <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/preliminary"
+           hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/preliminary"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="block p-6 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors {% if not has_preliminary %}opacity-50 pointer-events-none{% endif %}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="search" class="w-5 h-5 text-gray-600"></i>
+                    <h3 class="font-semibold text-gray-900">Discovery</h3>
+                </div>
+                {% if has_preliminary %}
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                {% else %}
+                <span class="text-xs text-gray-400">Not created</span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-600">Unknowns, constraints, early decisions, and MVP guardrails</p>
+        </a>
+
+        <!-- Final Link -->
+        <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/final"
+           hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}/architecture/final"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="block p-6 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors {% if not has_final %}opacity-50 pointer-events-none{% endif %}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="landmark" class="w-5 h-5 text-gray-600"></i>
+                    <h3 class="font-semibold text-gray-900">Final Specification</h3>
+                </div>
+                {% if has_final %}
+                <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+                {% else %}
+                <span class="text-xs text-gray-400">Not created</span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-600">Components, interfaces, data models, and workflows</p>
+        </a>
+    </div>
+
+    {% else %}
+    <!-- No Architecture Yet -->
+    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <i data-lucide="building-2" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No Architecture Yet</h2>
+        <p class="text-gray-600 mb-6">Run the Discovery Architect to begin defining the system architecture.</p>
+        <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+           hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+            Back to Project
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleArchView(view) {
+    const btnDiscovery = document.getElementById('btn-discovery-view');
+    const btnSpec = document.getElementById('btn-spec-view');
+    
+    if (view === 'discovery') {
+        btnDiscovery.className = 'px-4 py-2 text-sm font-medium rounded-lg border transition-colors bg-blue-600 border-blue-600 text-white';
+        btnSpec.className = 'px-4 py-2 text-sm font-medium rounded-lg border transition-colors bg-white border-gray-300 text-gray-700 hover:bg-gray-50';
+        // Could toggle visibility of discovery-heavy vs spec-heavy sections here
+    } else {
+        btnSpec.className = 'px-4 py-2 text-sm font-medium rounded-lg border transition-colors bg-blue-600 border-blue-600 text-white';
+        btnDiscovery.className = 'px-4 py-2 text-sm font-medium rounded-lg border transition-colors bg-white border-gray-300 text-gray-700 hover:bg-gray-50';
+    }
+}
+</script>
