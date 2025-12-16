@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
 
 # Import existing models
-from app.combine.models import Project, Artifact
+from app.api.models import Project, Artifact
 from app.api.repositories import ProjectRepository
 
 
@@ -254,6 +254,67 @@ class ProjectService:
         
         if not project:
             return None
+        
+        return {
+            "id": str(project.id),
+            "project_id": project.project_id,
+            "name": project.name,
+            "description": project.description,
+            "status": project.status,
+            "created_at": project.created_at.isoformat() if project.created_at else None
+        }
+
+    async def create_project(
+        self,
+        db: AsyncSession,
+        name: str,
+        description: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Create a new project with auto-generated project_id.
+        
+        Args:
+            db: Database session
+            name: Project name
+            description: Project description
+            
+        Returns:
+            Created project dict
+            
+        Raises:
+            ValueError: If project creation fails
+        """
+        import re
+        
+        repo = ProjectRepository(db)
+        
+        # Generate a short project ID from the name (max 8 chars)
+        base_id = re.sub(r'[^A-Z0-9]', '', name.upper())[:8]
+        
+        if len(base_id) < 3:
+            base_id = base_id + 'PRJ'
+        
+        project_id = base_id
+        counter = 1
+        
+        # Find unique project_id
+        while counter < 100:
+            existing = await repo.get_by_project_id(project_id)
+            if not existing:
+                break
+            suffix = str(counter)
+            project_id = base_id[:8-len(suffix)] + suffix
+            counter += 1
+        
+        if counter >= 100:
+            raise ValueError("Could not generate unique project ID")
+        
+        # Create project
+        project = await repo.create(
+            project_id=project_id,
+            name=name,
+            description=description
+        )
         
         return {
             "id": str(project.id),

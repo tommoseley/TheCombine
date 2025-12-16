@@ -2,24 +2,68 @@
 Abstract Mentor Base Class with Streaming Support
 
 Each mentor (PM, BA, Developer, QA) extends this and defines their own progress steps.
+
+Dependencies are injected - this class has no direct imports from app.api.
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional, Protocol, Callable, Awaitable
 from dataclasses import dataclass
-from enum import Enum
 import json
 import asyncio
+import logging
 from anthropic import Anthropic
 
 from config import settings
-from app.combine.services.role_prompt_service import RolePromptService
-from app.combine.services.artifact_service import ArtifactService
-from app.combine.services.llm_response_parser import LLMResponseParser
-from app.api.middleware.logging import get_logger
+from app.domain.services.llm_response_parser import LLMResponseParser
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# PROTOCOLS (Interfaces for dependency injection)
+# ============================================================================
+
+class PromptServiceProtocol(Protocol):
+    """Interface for prompt service - allows dependency injection"""
+    
+    async def build_prompt(
+        self,
+        role_name: str,
+        pipeline_id: str,
+        phase: str,
+        epic_context: str = ""
+    ) -> tuple[str, str]:
+        """Build system prompt, returns (prompt, prompt_id)"""
+        ...
+    
+    async def get_prompt_by_id(self, prompt_id: str) -> Any:
+        """Get prompt record by ID"""
+        ...
+
+
+class ArtifactServiceProtocol(Protocol):
+    """Interface for artifact service - allows dependency injection"""
+    
+    async def create_artifact(
+        self,
+        artifact_path: str,
+        artifact_type: str,
+        title: str,
+        content: Dict[str, Any],
+        breadcrumbs: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """Create and save an artifact"""
+        ...
+
+
+# Type alias for ID generator functions
+IdGeneratorFunc = Callable[[str], Awaitable[str]]
+
+
+# ============================================================================
+# DATA CLASSES
+# ============================================================================
 
 @dataclass
 class ProgressStep:
@@ -37,9 +81,15 @@ class ProgressStep:
         }
 
 
+# ============================================================================
+# STREAMING MENTOR BASE CLASS
+# ============================================================================
+
 class StreamingMentor(ABC):
     """
     Abstract base class for all AI mentors with streaming progress updates.
+    
+    Dependencies are injected via constructor - no direct database or API imports.
     
     Each mentor defines:
     1. Their progress steps
@@ -50,13 +100,24 @@ class StreamingMentor(ABC):
     
     def __init__(
         self,
-        db,
-        prompt_service: RolePromptService,
-        artifact_service: ArtifactService
+        prompt_service: PromptServiceProtocol,
+        artifact_service: ArtifactServiceProtocol,
+        id_generator: Optional[IdGeneratorFunc] = None,
+        model: Optional[str] = None
     ):
-        self.db = db
+        """
+        Initialize mentor with injected dependencies.
+        
+        Args:
+            prompt_service: Service for building/retrieving prompts
+            artifact_service: Service for creating artifacts
+            id_generator: Optional async function for generating IDs
+            model: Optional model override (defaults to preferred_model)
+        """
         self.prompt_service = prompt_service
         self.artifact_service = artifact_service
+        self.id_generator = id_generator
+        self.model = model or self.preferred_model
         self.llm_parser = LLMResponseParser()
         self.anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     
@@ -66,10 +127,8 @@ class StreamingMentor(ABC):
 
     @property
     def preferred_model(self) -> str:
-        return "claude-sonnet-4-5"  # Default for all mentors
-
-    def __init__(self, db, model=None):
-        self.model = model or self.preferred_model  # Use override or property
+        """Default model for this mentor. Override in subclasses."""
+        return "claude-sonnet-4-20250514"
 
     # ========================================================================
     # Abstract methods - Each mentor MUST implement these
@@ -225,7 +284,7 @@ class StreamingMentor(ABC):
             # Step 4: Call LLM
             yield await self.emit_progress("calling_llm")
             
-            model = request_data.get("model", "claude-sonnet-4-20250514")
+            model = request_data.get("model", self.model)
             max_tokens = request_data.get("max_tokens", 4096)
             temperature = request_data.get("temperature", 0.7)
             

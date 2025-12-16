@@ -125,39 +125,11 @@ async def create_project_handler(
     Returns HTML response for HTMX
     """
     try:
-        import uuid
-        import re
-        
-        from app.api.repositories.project_repository import create_project, get_project
-        
-        # Generate a short project ID from the name (max 8 chars)
-        base_id = re.sub(r'[^A-Z0-9]', '', name.upper())[:8]
-        
-        if len(base_id) < 3:
-            base_id = base_id + 'PRJ'
-        
-        project_id = base_id
-        counter = 1
-        
-        while counter < 100:
-            existing = await get_project(project_id, db)
-            if not existing:
-                break
-            suffix = str(counter)
-            project_id = base_id[:8-len(suffix)] + suffix
-            counter += 1
-        
-        if counter >= 100:
-            raise ValueError("Could not generate unique project ID")
-        
-        uuid_id = str(uuid.uuid4())
-        
-        project = await create_project(
-            uuid_id=uuid_id,
-            project_id=project_id,
+        # Use project service to create project
+        project = await project_service.create_project(
+            db=db,
             name=name.strip(),
-            description=description.strip(),
-            db=db
+            description=description.strip()
         )
         
         # Success response
@@ -166,10 +138,10 @@ async def create_project_handler(
             {
                 "request": request,
                 "title": "Project Created",
-                "message": f'Project "{name}" (ID: {project_id}) has been created successfully.',
+                "message": f'Project "{name}" (ID: {project["project_id"]}) has been created successfully.',
                 "primary_action": {
                     "label": "View Project",
-                    "url": f"/ui/projects/{uuid_id}"
+                    "url": f"/ui/projects/{project['id']}"
                 },
                 "secondary_action": {
                     "label": "Create Another",
@@ -210,25 +182,11 @@ async def get_project_detail(
     Single route handles both full page and HTMX partial
     """
     try:
-        import uuid as uuid_lib
-        uuid_obj = uuid_lib.UUID(project_id)
+        # Use project service to get project
+        project = await project_service.get_project_by_uuid(db, project_id)
         
-        from sqlalchemy import select
-        from app.combine.models import Project
-        
-        query = select(Project).where(Project.id == str(uuid_obj))
-        result = await db.execute(query)
-        project_obj = result.scalar_one_or_none()
-        
-        if not project_obj:
+        if not project:
             raise HTTPException(status_code=404, detail="Project not found")
-        
-        project = {
-            "id": str(project_obj.id),
-            "project_id": project_obj.project_id,
-            "name": project_obj.name,
-            "description": project_obj.description or ""
-        }
         
         context = {
             "request": request,

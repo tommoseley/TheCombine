@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Set
 from dataclasses import dataclass
 
 # Import existing models
-from app.combine.models import Project, Artifact
+from app.api.models import Project, Artifact
 
 
 @dataclass

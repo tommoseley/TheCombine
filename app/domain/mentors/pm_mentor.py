@@ -7,9 +7,8 @@ Transforms user queries into Epic artifacts with streaming progress updates.
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 
-from app.combine.mentors.base_mentor import StreamingMentor, ProgressStep
-from app.combine.utils.id_generators import generate_epic_id
-from app.api.repositories.project_repository import ProjectRepository
+from app.domain.mentors.base_mentor import StreamingMentor, ProgressStep
+
 
 # ============================================================================
 # REQUEST/RESPONSE MODELS
@@ -69,7 +68,7 @@ class PMMentor(StreamingMentor):
         """PM-specific progress steps"""
         return [
             ProgressStep("building_prompt", "Reading PM instructions", "📋", 10),
-            ProgressStep("loading_schema", "Loading epic schema", "🔍", 20),
+            ProgressStep("loading_schema", "Loading epic schema", "📄", 20),
             ProgressStep("calling_llm", "Analyzing your request", "🤖", 30),
             ProgressStep("generating", "Crafting epic definition", "✨", 50),
             ProgressStep("streaming", "Building epic structure", "💭", 70),
@@ -129,6 +128,8 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         """
         Create PM epic artifact
         
+        Uses injected id_generator to generate epic IDs.
+        
         Returns:
             Dictionary with:
             - project_id: Project identifier
@@ -139,14 +140,12 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         """
         project_id = request_data.get("project_id")
         
-        # Ensure project exists
-        project_repo = ProjectRepository(self.db)
-        project = await project_repo.ensure_exists(project_id)
-        
-        # Generate epic ID if not provided in response
+        # Generate epic ID using injected generator
         epic_id = parsed_json.get("epic_id")
         if not epic_id:
-            epic_id = await generate_epic_id(project_id, self.db)
+            if self.id_generator is None:
+                raise ValueError("No ID generator provided and epic_id not in response")
+            epic_id = await self.id_generator(project_id)
             parsed_json["epic_id"] = epic_id
         
         epic_path = f"{project_id}/{epic_id}"

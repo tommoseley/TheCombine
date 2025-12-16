@@ -11,7 +11,7 @@ import io
 import json
 
 # Import existing models
-from app.combine.models import Artifact, Project
+from app.api.models import Artifact, Project
 
 
 class StoryService:

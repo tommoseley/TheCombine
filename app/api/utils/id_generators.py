@@ -7,7 +7,7 @@ following RSP-1 path conventions.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.combine.models import Artifact
+from app.api.models import Artifact
 
 
 async def generate_epic_id(project_id: str, db: AsyncSession) -> str:

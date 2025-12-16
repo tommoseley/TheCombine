@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List
 
 # Import existing models
-from app.combine.models import Artifact, Project
+from app.api.models import Artifact, Project
 
 
 class EpicService:
