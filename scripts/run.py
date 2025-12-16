@@ -51,12 +51,13 @@ def main():
     
     # Start server
     import uvicorn
-    
+    print ("🔧 Uvicorn server starting on http://")
     uvicorn.run(
         "app.api.main:app",
         host="127.0.0.1",
         port=8000,
-        reload=True
+        reload=True,
+        log_level="debug"
     )
 
 if __name__ == "__main__":

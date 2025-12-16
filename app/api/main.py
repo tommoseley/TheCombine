@@ -20,7 +20,7 @@ from app.dependencies import set_startup_time
 # Import routers
 from app.api.routers import health, artifacts, auth
 from app.web import routes as web_routes
-from app.combine.mentors import pm_mentor, architect_mentor, ba_mentor, dev_mentor
+from app.api.routers.mentors import router as mentor_router
 
 # Import middleware
 from app.api.middleware import (
@@ -32,7 +32,7 @@ from app.api.middleware import (
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ app.mount("/web", StaticFiles(directory="app/web"), name="web")
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup."""
-    logger.info("Starting The Combine API...")
+    logger.info("Starting The Combine API")
     
     # Set startup time
     set_startup_time(datetime.utcnow())
@@ -106,11 +106,8 @@ app.add_middleware(error_handling.ErrorHandlingMiddleware)
 # Health check
 app.include_router(health.router, tags=["health"])
 
-# AI Mentors
-app.include_router(pm_mentor.router, tags=["pm_mentor"])
-app.include_router(architect_mentor.router, tags=["architect_mentor"])
-app.include_router(ba_mentor.router, tags=["ba_mentor"])
-app.include_router(dev_mentor.router, tags=["developer_mentor"])
+app.include_router(mentor_router)
+
 # ADD THIS LINE
 app.include_router(web_routes.router)
 
@@ -145,5 +142,7 @@ if __name__ == "__main__":
         "app.api.main:app",
         host=settings.API_HOST,
         port=settings.API_PORT,
-        reload=True
+        reload=True,
+        log_level="debug"
+      
     )

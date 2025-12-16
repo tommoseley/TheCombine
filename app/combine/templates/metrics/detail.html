@@ -1,9 +1,0 @@
-<!DOCTYPE html>
-<html>
-<head><title>Pipeline Detail</title></head>
-<body>
-    <h1>Pipeline: {{ pipeline.pipeline_id }}</h1>
-    <p>Status: {{ pipeline.status }}</p>
-    <p>Cost: ${{ "%.2f"|format(pipeline.total_cost_usd) }}</p>
-</body>
-</html>

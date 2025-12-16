@@ -1,4 +1,4 @@
-<li class="tree-node expanded" data-node-id="epic-{{ epic.epic_uuid }}">
+<li class="tree-node expanded list-none" data-node-id="epic-{{ epic.epic_uuid }}">
     <div class="flex items-center gap-1 group">
         <!-- Collapse Button -->
         <button 
@@ -17,36 +17,36 @@
             hx-target="#main-content"
             hx-push-url="true"
             class="tree-link active flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <i data-lucide="list-checks" class="w-4 h-4 text-green-500 flex-shrink-0"></i>
+            <i data-lucide="list-checks" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
             <span class="text-sm font-medium text-gray-900 truncate flex-1">{{ epic.name }}</span>
         </a>
     </div>
     
     <!-- Children -->
-    <ul class="tree-children ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
+    <ul class="tree-children list-none ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
         <!-- Stories Link -->
-        <li class="tree-node">
+        <li class="tree-node list-none">
             <a 
                 href="/ui/epics/{{ epic.epic_uuid }}/stories"
                 hx-get="/ui/epics/{{ epic.epic_uuid }}/stories"
                 hx-target="#main-content"
                 hx-push-url="true"
                 class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <i data-lucide="file-text" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
+                <i data-lucide="file-text" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
                 <span class="text-sm text-gray-700">Stories</span>
                 <span class="ml-auto text-xs text-gray-400 font-medium">{{ epic.story_count }}</span>
             </a>
         </li>
         
         <!-- Code Link -->
-        <li class="tree-node">
+        <li class="tree-node list-none">
             <a 
                 href="/ui/epics/{{ epic.epic_uuid }}/code"
                 hx-get="/ui/epics/{{ epic.epic_uuid }}/code"
                 hx-target="#main-content"
                 hx-push-url="true"
                 class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <i data-lucide="code" class="w-4 h-4 text-indigo-500 flex-shrink-0"></i>
+                <i data-lucide="code" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
                 <span class="text-sm text-gray-700">Code</span>
             </a>
         </li>

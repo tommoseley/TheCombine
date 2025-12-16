@@ -1,4 +1,4 @@
-<li class="tree-node" data-node-id="epic-{{ epic.epic_uuid }}">
+<li class="tree-node list-none" data-node-id="epic-{{ epic.epic_uuid }}">
     <div class="flex items-center gap-1 group">
         <!-- Expand Button -->
         <button 
@@ -16,12 +16,10 @@
             hx-get="/ui/epics/{{ epic.epic_uuid }}"
             hx-target="#main-content"
             hx-push-url="true"
-            class="tree-link flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <i data-lucide="list-todo" class="w-4 h-4 text-green-500 flex-shrink-0"></i>
-            <span class="text-sm text-gray-700 truncate flex-1">{{ epic.name }}</span>
-            {% if epic.story_count > 0 %}
-            <span class="text-xs text-gray-400 font-medium">{{ epic.story_count }}</span>
-            {% endif %}
+            class="flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i data-lucide="list-checks" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
+            <span class="text-sm font-medium text-gray-900 truncate flex-1">{{ epic.name }}</span>
+            <span class="text-xs text-gray-500">{{ epic.story_count|default(0) }}</span>
         </a>
     </div>
 </li>

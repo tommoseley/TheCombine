@@ -1,9 +1,9 @@
-<li class="tree-node" data-node-id="project-{{ project.project_uuid }}">
+<li class="tree-node list-none" data-node-id="project-{{ project.id }}">
     <div class="flex items-center gap-1 group">
         <!-- Expand Button -->
         <button 
             class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-            hx-get="/ui/projects/{{ project.project_uuid }}/expand"
+            hx-get="/ui/projects/{{ project.id }}/expand"
             hx-target="closest .tree-node"
             hx-swap="outerHTML"
             title="Expand">
@@ -12,18 +12,14 @@
         
         <!-- Project Link -->
         <a 
-        href="/projects/{{ project.id }}"
-        hx-get="/projects/{{ project.id }}/partial"
-        hx-target="#main-content"
-        hx-push-url="true"
-        hx-swap="innerHTML"
-        class="block p-3 hover:bg-gray-100 rounded cursor-pointer"
-        >
-        <div class="flex items-center justify-between">
-            <span class="font-medium">{{ project.name }}</span>
-            <span class="text-sm text-gray-500">{{ project.epic_count }} workflows</span>
-        </div>
-        </div>
+            href="/ui/projects/{{ project.id }}"
+            hx-get="/ui/projects/{{ project.id }}"
+            hx-target="#main-content"
+            hx-push-url="true"
+            class="flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i data-lucide="folder" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
+            <span class="text-sm font-medium text-gray-900 truncate flex-1">{{ project.name }}</span>
+            <span class="text-xs text-gray-500">{{ project.epic_count|default(0) }}</span>
         </a>
     </div>
 </li>

@@ -6,7 +6,7 @@ Updated for new architecture - no global orchestrator, uses database sessions.
 
 import os
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
@@ -29,7 +29,7 @@ def get_startup_time() -> datetime:
     """Get application startup time."""
     if _startup_time is None:
         # Return current time if not set
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     return _startup_time
 
 

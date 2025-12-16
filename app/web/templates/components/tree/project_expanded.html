@@ -1,9 +1,9 @@
-<li class="tree-node expanded" data-node-id="project-{{ project.project_uuid }}">
+<li class="tree-node expanded list-none" data-node-id="project-{{ project.id }}">
     <div class="flex items-center gap-1 group">
         <!-- Collapse Button -->
         <button 
             class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-            hx-get="/ui/projects/{{ project.project_uuid }}/collapse"
+            hx-get="/ui/projects/{{ project.id }}/collapse"
             hx-target="closest .tree-node"
             hx-swap="outerHTML"
             title="Collapse">
@@ -12,27 +12,27 @@
         
         <!-- Project Link -->
         <a 
-            href="/ui/projects/{{ project.project_uuid }}"
-            hx-get="/ui/projects/{{ project.project_uuid }}"
+            href="/ui/projects/{{ project.id }}"
+            hx-get="/ui/projects/{{ project.id }}"
             hx-target="#main-content"
             hx-push-url="true"
             class="tree-link active flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <i data-lucide="folder-open" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+            <i data-lucide="folder-open" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
             <span class="text-sm font-medium text-gray-900 truncate flex-1">{{ project.name }}</span>
         </a>
     </div>
     
     <!-- Children -->
-    <ul class="tree-children ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
+    <ul class="tree-children list-none ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
         <!-- Architecture Node -->
-        <li class="tree-node">
+        <li class="tree-node list-none">
             <a 
-                href="/ui/projects/{{ project.project_uuid }}/architecture"
-                hx-get="/ui/projects/{{ project.project_uuid }}/architecture"
+                href="/ui/projects/{{ project.id }}/architecture"
+                hx-get="/ui/projects/{{ project.id }}/architecture"
                 hx-target="#main-content"
                 hx-push-url="true"
                 class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <i data-lucide="building-2" class="w-4 h-4 text-purple-500 flex-shrink-0"></i>
+                <i data-lucide="building-2" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
                 <span class="text-sm text-gray-700">Architecture</span>
             </a>
         </li>

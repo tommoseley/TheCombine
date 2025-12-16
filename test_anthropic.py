@@ -15,7 +15,7 @@ def test_api_connection():
     api_key = ANTHROPIC_API_KEY # os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
         print("❌ ERROR: ANTHROPIC_API_KEY environment variable not set")
-        return False
+        assert False
     
     print(f"✓ API key found (starts with: {api_key[:8]}...)")
     
@@ -51,12 +51,12 @@ def test_api_connection():
         print(f"   Model: {message.model}")
         print(f"   Role: {message.role}")
         
-        return True
+        assert True
         
     except Exception as e:
         print(f"\n❌ ERROR: {type(e).__name__}")
         print(f"   {str(e)}")
-        return False
+        assert False
 
 if __name__ == "__main__":
     success = test_api_connection()
