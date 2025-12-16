@@ -2,6 +2,7 @@
 Repository for RolePrompt CRUD operations (ASYNC VERSION).
 
 Matches the actual PostgreSQL schema with simplified fields.
+Uses dependency injection for database session.
 """
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -9,16 +10,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from app.api.models.role_prompt import RolePrompt
-from database import AsyncSessionLocal
+from app.api.models import RolePrompt
 from app.api.repositories.exceptions import RepositoryError
 
 
 class RolePromptRepository:
-    """Repository for RolePrompt CRUD operations."""
+    """Repository for RolePrompt CRUD operations with injected database session."""
     
-    @staticmethod
-    async def get_active_prompt(role_name: str) -> Optional[RolePrompt]:
+    def __init__(self, db: AsyncSession):
+        """
+        Initialize repository with database session.
+        
+        Args:
+            db: SQLAlchemy async database session
+        """
+        self.db = db
+    
+    async def get_active_prompt(self, role_name: str) -> Optional[RolePrompt]:
         """
         Get currently active prompt for a role.
         
@@ -28,17 +36,15 @@ class RolePromptRepository:
         Returns:
             Active RolePrompt or None if not found
         """
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(RolePrompt).where(
-                    RolePrompt.role_name == role_name,
-                    RolePrompt.is_active == True
-                )
+        result = await self.db.execute(
+            select(RolePrompt).where(
+                RolePrompt.role_name == role_name,
+                RolePrompt.is_active == True
             )
-            return result.scalar_one_or_none()
+        )
+        return result.scalar_one_or_none()
     
-    @staticmethod
-    async def get_by_id(prompt_id: str) -> Optional[RolePrompt]:
+    async def get_by_id(self, prompt_id: str) -> Optional[RolePrompt]:
         """
         Get specific prompt by ID.
         
@@ -48,14 +54,12 @@ class RolePromptRepository:
         Returns:
             RolePrompt or None if not found
         """
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(RolePrompt).where(RolePrompt.id == prompt_id)
-            )
-            return result.scalar_one_or_none()
+        result = await self.db.execute(
+            select(RolePrompt).where(RolePrompt.id == prompt_id)
+        )
+        return result.scalar_one_or_none()
     
-    @staticmethod
-    async def list_versions(role_name: str) -> List[RolePrompt]:
+    async def list_versions(self, role_name: str) -> List[RolePrompt]:
         """
         List all versions for a role, ordered by date descending.
         
@@ -65,33 +69,30 @@ class RolePromptRepository:
         Returns:
             List of RolePrompt versions (newest first)
         """
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(RolePrompt)
-                .where(RolePrompt.role_name == role_name)
-                .order_by(RolePrompt.created_at.desc())
-            )
-            return result.scalars().all()
+        result = await self.db.execute(
+            select(RolePrompt)
+            .where(RolePrompt.role_name == role_name)
+            .order_by(RolePrompt.created_at.desc())
+        )
+        return list(result.scalars().all())
     
-    @staticmethod
-    async def list_all() -> List[RolePrompt]:
+    async def list_all(self) -> List[RolePrompt]:
         """
         List all prompts across all roles.
         
         Returns:
             List of all RolePrompts
         """
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(RolePrompt).order_by(
-                    RolePrompt.role_name,
-                    RolePrompt.version.desc()
-                )
+        result = await self.db.execute(
+            select(RolePrompt).order_by(
+                RolePrompt.role_name,
+                RolePrompt.version.desc()
             )
-            return result.scalars().all()
+        )
+        return list(result.scalars().all())
     
-    @staticmethod
     async def create(
+        self,
         role_name: str,
         version: str,
         instructions: str,
@@ -131,51 +132,50 @@ class RolePromptRepository:
         if expected_schema is not None and not isinstance(expected_schema, dict):
             raise ValueError("expected_schema must be dict or None")
         
-        async with AsyncSessionLocal() as session:
-            try:
-                # Deactivate existing active prompts if set_active=True
-                if set_active:
-                    result = await session.execute(
-                        select(RolePrompt).where(
-                            RolePrompt.role_name == role_name,
-                            RolePrompt.is_active == True
-                        )
+        try:
+            # Deactivate existing active prompts if set_active=True
+            if set_active:
+                result = await self.db.execute(
+                    select(RolePrompt).where(
+                        RolePrompt.role_name == role_name,
+                        RolePrompt.is_active == True
                     )
-                    existing_active = result.scalars().all()
-                    for prompt in existing_active:
-                        prompt.is_active = False
-                
-                # Generate ID
-                prompt_id = f"{role_name}-v{version}"
-                
-                # Create new prompt
-                prompt = RolePrompt(
-                    id=prompt_id,
-                    role_name=role_name,
-                    version=version,
-                    instructions=instructions,
-                    expected_schema=expected_schema,
-                    is_active=set_active,
-                    created_at=datetime.now(timezone.utc),
-                    updated_at=datetime.now(timezone.utc),
-                    created_by=created_by,
-                    notes=notes
                 )
-                
-                session.add(prompt)
-                await session.commit()
-                await session.refresh(prompt)
-                return prompt
-                
-            except IntegrityError as e:
-                await session.rollback()
-                raise RepositoryError(f"Database constraint violation: {e}")
-            except Exception as e:
-                await session.rollback()
-                raise RepositoryError(f"Failed to create prompt: {e}")
+                existing_active = result.scalars().all()
+                for prompt in existing_active:
+                    prompt.is_active = False
+            
+            # Generate ID
+            prompt_id = f"{role_name}-v{version}"
+            
+            # Create new prompt
+            prompt = RolePrompt(
+                id=prompt_id,
+                role_name=role_name,
+                version=version,
+                instructions=instructions,
+                expected_schema=expected_schema,
+                is_active=set_active,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                created_by=created_by,
+                notes=notes
+            )
+            
+            self.db.add(prompt)
+            await self.db.commit()
+            await self.db.refresh(prompt)
+            return prompt
+            
+        except IntegrityError as e:
+            await self.db.rollback()
+            raise RepositoryError(f"Database constraint violation: {e}")
+        except Exception as e:
+            await self.db.rollback()
+            raise RepositoryError(f"Failed to create prompt: {e}")
     
-    @staticmethod
     async def update(
+        self,
         prompt_id: str,
         instructions: Optional[str] = None,
         expected_schema: Optional[dict] = None,
@@ -196,35 +196,33 @@ class RolePromptRepository:
         Raises:
             RepositoryError: If database operation fails
         """
-        async with AsyncSessionLocal() as session:
-            try:
-                result = await session.execute(
-                    select(RolePrompt).where(RolePrompt.id == prompt_id)
-                )
-                prompt = result.scalar_one_or_none()
-                
-                if not prompt:
-                    return None
-                
-                if instructions is not None:
-                    prompt.instructions = instructions
-                if expected_schema is not None:
-                    prompt.expected_schema = expected_schema
-                if notes is not None:
-                    prompt.notes = notes
-                
-                prompt.updated_at = datetime.now(timezone.utc)
-                
-                await session.commit()
-                await session.refresh(prompt)
-                return prompt
-                
-            except Exception as e:
-                await session.rollback()
-                raise RepositoryError(f"Failed to update prompt: {e}")
+        try:
+            result = await self.db.execute(
+                select(RolePrompt).where(RolePrompt.id == prompt_id)
+            )
+            prompt = result.scalar_one_or_none()
+            
+            if not prompt:
+                return None
+            
+            if instructions is not None:
+                prompt.instructions = instructions
+            if expected_schema is not None:
+                prompt.expected_schema = expected_schema
+            if notes is not None:
+                prompt.notes = notes
+            
+            prompt.updated_at = datetime.now(timezone.utc)
+            
+            await self.db.commit()
+            await self.db.refresh(prompt)
+            return prompt
+            
+        except Exception as e:
+            await self.db.rollback()
+            raise RepositoryError(f"Failed to update prompt: {e}")
     
-    @staticmethod
-    async def set_active(prompt_id: str) -> RolePrompt:
+    async def set_active(self, prompt_id: str) -> RolePrompt:
         """
         Set specific prompt as active (deactivates others for same role).
         
@@ -238,47 +236,45 @@ class RolePromptRepository:
             ValueError: If prompt not found
             RepositoryError: If database operation fails
         """
-        async with AsyncSessionLocal() as session:
-            try:
-                # Get prompt to activate
-                result = await session.execute(
-                    select(RolePrompt).where(RolePrompt.id == prompt_id)
+        try:
+            # Get prompt to activate
+            result = await self.db.execute(
+                select(RolePrompt).where(RolePrompt.id == prompt_id)
+            )
+            prompt = result.scalar_one_or_none()
+            
+            if not prompt:
+                raise ValueError(f"Prompt not found: {prompt_id}")
+            
+            # Deactivate other prompts for same role
+            other_result = await self.db.execute(
+                select(RolePrompt).where(
+                    RolePrompt.role_name == prompt.role_name,
+                    RolePrompt.id != prompt_id,
+                    RolePrompt.is_active == True
                 )
-                prompt = result.scalar_one_or_none()
-                
-                if not prompt:
-                    raise ValueError(f"Prompt not found: {prompt_id}")
-                
-                # Deactivate other prompts for same role
-                other_result = await session.execute(
-                    select(RolePrompt).where(
-                        RolePrompt.role_name == prompt.role_name,
-                        RolePrompt.id != prompt_id,
-                        RolePrompt.is_active == True
-                    )
-                )
-                other_prompts = other_result.scalars().all()
-                
-                for other in other_prompts:
-                    other.is_active = False
-                
-                # Activate target prompt
-                prompt.is_active = True
-                prompt.updated_at = datetime.now(timezone.utc)
-                
-                await session.commit()
-                await session.refresh(prompt)
-                return prompt
-                
-            except ValueError:
-                await session.rollback()
-                raise
-            except Exception as e:
-                await session.rollback()
-                raise RepositoryError(f"Failed to set active prompt: {e}")
+            )
+            other_prompts = other_result.scalars().all()
+            
+            for other in other_prompts:
+                other.is_active = False
+            
+            # Activate target prompt
+            prompt.is_active = True
+            prompt.updated_at = datetime.now(timezone.utc)
+            
+            await self.db.commit()
+            await self.db.refresh(prompt)
+            return prompt
+            
+        except ValueError:
+            await self.db.rollback()
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise RepositoryError(f"Failed to set active prompt: {e}")
     
-    @staticmethod
-    async def delete(prompt_id: str) -> bool:
+    async def delete(self, prompt_id: str) -> bool:
         """
         Delete a prompt.
         
@@ -291,20 +287,19 @@ class RolePromptRepository:
         Raises:
             RepositoryError: If database operation fails
         """
-        async with AsyncSessionLocal() as session:
-            try:
-                result = await session.execute(
-                    select(RolePrompt).where(RolePrompt.id == prompt_id)
-                )
-                prompt = result.scalar_one_or_none()
-                
-                if not prompt:
-                    return False
-                
-                await session.delete(prompt)
-                await session.commit()
-                return True
-                
-            except Exception as e:
-                await session.rollback()
-                raise RepositoryError(f"Failed to delete prompt: {e}")
+        try:
+            result = await self.db.execute(
+                select(RolePrompt).where(RolePrompt.id == prompt_id)
+            )
+            prompt = result.scalar_one_or_none()
+            
+            if not prompt:
+                return False
+            
+            await self.db.delete(prompt)
+            await self.db.commit()
+            return True
+            
+        except Exception as e:
+            await self.db.rollback()
+            raise RepositoryError(f"Failed to delete prompt: {e}")

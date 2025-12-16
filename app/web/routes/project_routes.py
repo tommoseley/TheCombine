@@ -5,6 +5,7 @@ Handles project CRUD, tree navigation, and project details
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
@@ -12,9 +13,21 @@ import logging
 from database import get_db
 from .shared import templates, get_template
 from app.api.services import project_service
+from app.api.models import Artifact
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+async def get_artifact_by_path(db: AsyncSession, artifact_path: str) -> Optional[Artifact]:
+    """Load an artifact by its path."""
+    query = select(Artifact).where(Artifact.artifact_path == artifact_path)
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
 
 
 # ============================================================================
@@ -59,11 +72,87 @@ async def expand_project_tree_node(
     """Get expanded project node with epics"""
     project = await project_service.get_project_with_epics(db, project_id)
     
+    # Check for architecture artifacts
+    has_preliminary = await get_artifact_by_path(
+        db, f"{project['project_id']}/ARCH/DISCOVERY"
+    ) is not None
+    has_final = await get_artifact_by_path(
+        db, f"{project['project_id']}/ARCH/FINAL"
+    ) is not None
+    
     return templates.TemplateResponse(
         "components/tree/project_expanded.html",
         {
             "request": request,
-            "project": project
+            "project": project,
+            "has_preliminary": has_preliminary,
+            "has_final": has_final
+        }
+    )
+
+
+@router.get("/{project_id}/architecture/expand", response_class=HTMLResponse)
+async def expand_architecture_tree_node(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get expanded architecture node with Discovery/Final children"""
+    project = await project_service.get_project_by_uuid(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Handle both dict and ORM object
+    proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
+    
+    # Check for architecture artifacts
+    has_preliminary = await get_artifact_by_path(
+        db, f"{proj_id}/ARCH/DISCOVERY"
+    ) is not None
+    has_final = await get_artifact_by_path(
+        db, f"{proj_id}/ARCH/FINAL"
+    ) is not None
+    
+    return templates.TemplateResponse(
+        "components/tree/architecture_expanded.html",
+        {
+            "request": request,
+            "project": project,
+            "has_preliminary": has_preliminary,
+            "has_final": has_final
+        }
+    )
+
+
+@router.get("/{project_id}/architecture/collapse", response_class=HTMLResponse)
+async def collapse_architecture_tree_node(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get collapsed architecture node"""
+    project = await project_service.get_project_by_uuid(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Handle both dict and ORM object
+    proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
+    
+    # Check for architecture artifacts
+    has_preliminary = await get_artifact_by_path(
+        db, f"{proj_id}/ARCH/DISCOVERY"
+    ) is not None
+    has_final = await get_artifact_by_path(
+        db, f"{proj_id}/ARCH/FINAL"
+    ) is not None
+    
+    return templates.TemplateResponse(
+        "components/tree/architecture_collapsed.html",
+        {
+            "request": request,
+            "project": project,
+            "has_preliminary": has_preliminary,
+            "has_final": has_final
         }
     )
 
@@ -100,7 +189,7 @@ async def new_project_form(
     """Display form for creating a new project"""
     template = get_template(
         request,
-        wrapper="pages/project_new.html",
+        wrapper="pages/project_detail.html",
         partial="pages/partials/_project_new_content.html"
     )
     return templates.TemplateResponse(
@@ -188,12 +277,27 @@ async def get_project_detail(
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         
+        # Handle both dict and ORM object
+        proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
+        
+        # Load architecture artifacts
+        preliminary_architecture = await get_artifact_by_path(
+            db, f"{proj_id}/ARCH/DISCOVERY"
+        )
+        final_architecture = await get_artifact_by_path(
+            db, f"{proj_id}/ARCH/FINAL"
+        )
+        
+        # Load epics - use get_project_with_epics which includes them
+        project_with_epics = await project_service.get_project_with_epics(db, project_id)
+        epics = project_with_epics.get('epics', []) if project_with_epics else []
+        
         context = {
             "request": request,
             "project": project,
-            "high_level_architecture": None,
-            "detailed_architecture": None,
-            "epics": []
+            "preliminary_architecture": preliminary_architecture,
+            "final_architecture": final_architecture,
+            "epics": epics or []
         }
         
         template = get_template(
@@ -208,6 +312,7 @@ async def get_project_detail(
         raise
     except Exception as e:
         import traceback
+        logger.error(f"Error loading project: {e}", exc_info=True)
         error_html = f"""
         <div class="p-6">
             <div class="bg-red-50 border border-red-200 rounded-lg p-6">
