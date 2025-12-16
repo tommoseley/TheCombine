@@ -34,31 +34,35 @@
         {% endif %}
     </div>
 
-    <!-- High Level Architecture (when done) -->
-    {% if high_level_architecture %}
+    <!-- Preliminary Architecture (when done) -->
+    {% if preliminary_architecture %}
+    {% include "pages/partials/_preliminary_architecture.html" %}
+    {% endif %}
+
+    <!-- Final Architecture (when done) -->
+    {% if final_architecture %}
     <div class="mb-8 bg-gray-50 rounded-lg border border-gray-200 p-6">
         <div class="flex items-center mb-4">
-            <i data-lucide="git-branch" class="w-6 h-6 mr-3 text-gray-600"></i>
-            <h2 class="text-2xl font-bold text-gray-900">High Level Architecture</h2>
+            <i data-lucide="building-2" class="w-6 h-6 mr-3 text-gray-600"></i>
+            <h2 class="text-2xl font-bold text-gray-900">Final Architecture</h2>
         </div>
         <div class="prose max-w-none text-gray-700">
-            {{ high_level_architecture.content | safe }}
+            {{ final_architecture.content | safe }}
         </div>
     </div>
     {% endif %}
 
-    <!-- Completed Architecture (when done) -->
-    {% if detailed_architecture %}
-    <div class="mb-8 bg-gray-50 rounded-lg border border-gray-200 p-6">
+    <!-- Progress Display (hidden by default) -->
+    <div id="mentor-progress" class="hidden mb-8 bg-blue-50 rounded-lg border border-blue-200 p-6">
         <div class="flex items-center mb-4">
-            <i data-lucide="building-2" class="w-6 h-6 mr-3 text-gray-600"></i>
-            <h2 class="text-2xl font-bold text-gray-900">Detailed Architecture</h2>
+            <i data-lucide="loader-2" class="w-6 h-6 mr-3 text-blue-600 animate-spin" id="progress-spinner"></i>
+            <h2 class="text-xl font-bold text-blue-900" id="progress-title">Working...</h2>
         </div>
-        <div class="prose max-w-none text-gray-700">
-            {{ detailed_architecture.content | safe }}
+        <div class="w-full bg-blue-200 rounded-full h-3 mb-3">
+            <div id="progress-bar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
         </div>
+        <p id="progress-message" class="text-blue-800 text-sm">Initializing...</p>
     </div>
-    {% endif %}
 
     <!-- Workflow Controls -->
     <div class="mb-8 bg-white rounded-lg border border-gray-200 p-6">
@@ -70,16 +74,12 @@
         <div class="flex flex-wrap gap-3">
             <!-- Preliminary Architecture Button -->
             <button 
-                hx-post="/ui/projects/{{ project.id }}/mentors/architect/preliminary"
-                hx-target="#main-content"
-                hx-swap="innerHTML"
-                hx-indicator="#prelim-arch-spinner"
-                class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                id="btn-prelim-arch"
+                onclick="startArchitectMentor('preliminary', '{{ project.id }}', '{{ project.project_id }}')"
+                class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                {% if preliminary_architecture %}disabled{% endif %}>
                 <i data-lucide="git-branch" class="w-5 h-5 mr-2"></i>
-                <span>Generate High-Level Architecture</span>
-                <div id="prelim-arch-spinner" class="htmx-indicator ml-2">
-                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                </div>
+                <span>{{ 'Preliminary Architecture ✓' if preliminary_architecture else 'Create Preliminary Architecture' }}</span>
             </button>
 
             <!-- Start PM Button -->
@@ -93,18 +93,14 @@
                 <span>Generate Epics</span>
             </button>
 
-            <!-- Detailed Architecture Button -->
+            <!-- Final Architecture Button -->
             <button 
-                hx-post="/ui/projects/{{ project.id }}/mentors/architect/detailed"
-                hx-target="#main-content"
-                hx-swap="innerHTML"
-                hx-indicator="#detailed-arch-spinner"
-                class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                id="btn-detailed-arch"
+                onclick="startArchitectMentor('detailed', '{{ project.id }}', '{{ project.project_id }}')"
+                class="inline-flex items-center px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                {% if final_architecture %}disabled{% endif %}>
                 <i data-lucide="building-2" class="w-5 h-5 mr-2"></i>
-                <span>Generate Detailed Architecture</span>
-                <div id="detailed-arch-spinner" class="htmx-indicator ml-2">
-                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                </div>
+                <span>{{ 'Final Architecture ✓' if final_architecture else 'Create Final Architecture' }}</span>
             </button>
         </div>
     </div>
@@ -117,7 +113,7 @@
                 Epics
             </h2>
             <span class="text-sm text-gray-500 font-medium">
-                {{ epics|length }} epic{{ epics|length|pluralize }}
+                {{ epics|length }} epic{{ 's' if epics|length != 1 else '' }}
             </span>
         </div>
 
@@ -163,9 +159,7 @@
                         </div>
                         <div class="space-y-1">
                             {% for artifact in epic.artifacts %}
-                            <a 
-                                href="/ui/artifacts/{{ artifact.id }}"
-                                class="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                            <a href="/ui/artifacts/{{ artifact.id }}" class="flex items-center text-sm text-gray-600 hover:text-blue-600 py-1">
                                 <i data-lucide="file-text" class="w-4 h-4 mr-2 text-gray-400"></i>
                                 <span class="flex-1">{{ artifact.title or artifact.artifact_type|title }}</span>
                                 <span class="text-xs text-gray-400">{{ artifact.created_at.strftime('%b %d') }}</span>
@@ -200,3 +194,132 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function startArchitectMentor(mode, projectUuid, projectId) {
+    const progressDiv = document.getElementById('mentor-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressMessage = document.getElementById('progress-message');
+    const progressTitle = document.getElementById('progress-title');
+    const progressSpinner = document.getElementById('progress-spinner');
+    
+    // Disable buttons
+    document.getElementById('btn-prelim-arch').disabled = true;
+    document.getElementById('btn-detailed-arch').disabled = true;
+    
+    // Show progress
+    progressDiv.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    progressTitle.textContent = mode === 'preliminary' ? 'Creating Preliminary Architecture...' : 'Creating Final Architecture...';
+    progressMessage.textContent = 'Initializing...';
+    
+    // Determine endpoint and artifact path based on mode
+    let url, artifactPath;
+    if (mode === 'preliminary') {
+        url = '/api/mentors/preliminary-architect/execute-stream';
+        artifactPath = `${projectId}/ARCH/DISCOVERY`;
+    } else {
+        url = `/ui/projects/${projectUuid}/mentors/architect/detailed`;
+        artifactPath = `${projectId}/ARCH/FINAL`;
+    }
+    
+    // Build request body for preliminary architect
+    const requestBody = mode === 'preliminary' ? JSON.stringify({
+        project_id: projectId,
+        artifact_path: artifactPath,
+        max_tokens: 8192
+    }) : null;
+    
+    // Start SSE connection
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Accept': 'text/event-stream',
+            'Content-Type': 'application/json'
+        },
+        body: requestBody
+    }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        function read() {
+            reader.read().then(({done, value}) => {
+                if (done) {
+                    // Stream complete - reload page to show results
+                    window.location.reload();
+                    return;
+                }
+                
+                const text = decoder.decode(value);
+                const lines = text.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+                            
+                            // Update progress bar
+                            if (data.progress !== undefined) {
+                                progressBar.style.width = data.progress + '%';
+                            }
+                            
+                            // Update message
+                            if (data.message) {
+                                progressMessage.textContent = data.message;
+                            }
+                            
+                            // Handle completion
+                            if (data.status === 'complete') {
+                                progressTitle.textContent = 'Complete!';
+                                progressSpinner.classList.remove('animate-spin');
+                                progressDiv.classList.remove('bg-blue-50', 'border-blue-200');
+                                progressDiv.classList.add('bg-green-50', 'border-green-200');
+                                progressBar.classList.remove('bg-blue-600');
+                                progressBar.classList.add('bg-green-600');
+                                
+                                // Reload after brief delay
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1000);
+                            }
+                            
+                            // Handle error
+                            if (data.status === 'error') {
+                                progressTitle.textContent = 'Error';
+                                progressMessage.textContent = data.message || 'Something went wrong';
+                                progressSpinner.classList.remove('animate-spin');
+                                progressDiv.classList.remove('bg-blue-50', 'border-blue-200');
+                                progressDiv.classList.add('bg-red-50', 'border-red-200');
+                                progressBar.classList.remove('bg-blue-600');
+                                progressBar.classList.add('bg-red-600');
+                                
+                                // Re-enable buttons
+                                document.getElementById('btn-prelim-arch').disabled = false;
+                                document.getElementById('btn-detailed-arch').disabled = false;
+                            }
+                            
+                        } catch (e) {
+                            console.log('Failed to parse SSE data:', line);
+                        }
+                    }
+                }
+                
+                // Continue reading
+                read();
+            });
+        }
+        
+        read();
+    }).catch(error => {
+        console.error('SSE Error:', error);
+        progressTitle.textContent = 'Connection Error';
+        progressMessage.textContent = error.message;
+        progressDiv.classList.remove('bg-blue-50', 'border-blue-200');
+        progressDiv.classList.add('bg-red-50', 'border-red-200');
+        
+        // Re-enable buttons
+        document.getElementById('btn-prelim-arch').disabled = false;
+        document.getElementById('btn-detailed-arch').disabled = false;
+    });
+}
+</script>

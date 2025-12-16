@@ -1,0 +1,364 @@
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-500 mb-2">
+            <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}" 
+               hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-gray-700">
+                {{ project.name if project.name is defined else project['name'] }}
+            </a>
+            <span class="mx-2">/</span>
+            <span>Architecture</span>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900">Discovery</span>
+        </nav>
+        
+        <div class="flex items-center gap-3">
+            <i data-lucide="building-2" class="w-10 h-10 text-gray-600"></i>
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900">Discovery Architecture</h1>
+                <p class="text-gray-600">Early constraints, unknowns, and architectural direction</p>
+            </div>
+        </div>
+    </div>
+
+    {% set content = artifact.content if artifact else preliminary_architecture %}
+
+    {% if content %}
+    
+    <!-- Summary -->
+    {% if content.preliminary_summary %}
+    <div class="bg-white rounded-lg border border-gray-200 mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">{{ content.project_name or 'Project Summary' }}</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Problem Understanding</h3>
+                <p class="text-gray-700">{{ content.preliminary_summary.problem_understanding }}</p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Proposed System Shape</h3>
+                <p class="text-gray-700">{{ content.preliminary_summary.proposed_system_shape }}</p>
+            </div>
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Architectural Intent</h3>
+                <p class="text-gray-700">{{ content.preliminary_summary.architectural_intent }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="space-y-8">
+        
+        <!-- Blocking Questions -->
+        {% if content.stakeholder_questions %}
+        {% set blocking_questions = content.stakeholder_questions | selectattr('blocking', 'equalto', true) | list %}
+        {% if blocking_questions %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Blocking Questions</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ blocking_questions|length }} question{{ 's' if blocking_questions|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for q in blocking_questions %}
+                <div class="border-l-4 border-red-400 bg-gray-50 p-4 rounded-r-lg">
+                    <div class="flex items-start justify-between mb-1">
+                        <p class="font-medium text-gray-900">{{ q.question }}</p>
+                        <span class="ml-3 px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-700 flex-shrink-0">
+                            {{ q.directed_to | replace('_', ' ') | title }}
+                        </span>
+                    </div>
+                    {% if q.notes %}
+                    <p class="text-sm text-gray-600 mt-2">{{ q.notes }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <!-- Unknowns -->
+        {% if content.unknowns %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="help-circle" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Unknowns to Resolve</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.unknowns|length }} unknown{{ 's' if content.unknowns|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for unknown in content.unknowns %}
+                <div class="border-l-4 border-amber-400 bg-gray-50 p-4 rounded-r-lg">
+                    <p class="font-medium text-gray-900 mb-2">{{ unknown.question }}</p>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <p><span class="font-medium">Why it matters:</span> {{ unknown.why_it_matters }}</p>
+                        <p><span class="font-medium">Impact if unresolved:</span> {{ unknown.impact_if_unresolved }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Early Decision Points -->
+        {% if content.early_decision_points %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="git-branch" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Early Decision Points</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.early_decision_points|length }} decision{{ 's' if content.early_decision_points|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6 space-y-4">
+                {% for decision in content.early_decision_points %}
+                <details class="border border-gray-200 rounded-lg" {% if loop.first %}open{% endif %}>
+                    <summary class="p-4 cursor-pointer hover:bg-gray-50 font-semibold text-gray-900">
+                        {{ decision.decision }}
+                    </summary>
+                    <div class="p-4 pt-0 border-t border-gray-100">
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Options</h4>
+                            <ul class="space-y-1">
+                                {% for option in decision.options %}
+                                <li class="text-sm text-gray-700 flex items-start">
+                                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2 mt-1.5 flex-shrink-0"></span>
+                                    {{ option }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Recommendation</h4>
+                            <p class="text-sm text-gray-900">{{ decision.recommendation_direction }}</p>
+                        </div>
+                        {% if decision.notes %}
+                        <p class="text-sm text-gray-500 mt-3 italic">{{ decision.notes }}</p>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Candidate Architectural Patterns -->
+        {% if content.candidate_architectural_patterns %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="layers" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Candidate Patterns</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.candidate_architectural_patterns|length }} pattern{{ 's' if content.candidate_architectural_patterns|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {% for pattern in content.candidate_architectural_patterns %}
+                    <div class="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                        <h3 class="font-semibold text-gray-900 mb-2">{{ pattern.pattern }}</h3>
+                        <p class="text-sm text-gray-600 mb-3">{{ pattern.applicability }}</p>
+                        {% if pattern.risks %}
+                        <div class="pt-3 border-t border-gray-100">
+                            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Risks</span>
+                            <ul class="mt-2 space-y-1">
+                                {% for risk in pattern.risks %}
+                                <li class="text-sm text-gray-600 flex items-start">
+                                    <i data-lucide="alert-triangle" class="w-3 h-3 mr-2 mt-0.5 text-gray-400 flex-shrink-0"></i>
+                                    {{ risk }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Identified Risks -->
+        {% if content.identified_risks %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Identified Risks</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.identified_risks|length }} risk{{ 's' if content.identified_risks|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for risk in content.identified_risks %}
+                <div class="border-l-4 rounded-r-lg p-4
+                    {% if risk.likelihood == 'high' %}border-red-400 bg-gray-50
+                    {% elif risk.likelihood == 'medium' %}border-amber-400 bg-gray-50
+                    {% else %}border-gray-300 bg-gray-50{% endif %}">
+                    <div class="flex items-start justify-between mb-1">
+                        <p class="font-medium text-gray-900">{{ risk.description }}</p>
+                        <span class="ml-3 px-2 py-0.5 text-xs font-medium rounded flex-shrink-0
+                            {% if risk.likelihood == 'high' %}bg-red-100 text-red-800
+                            {% elif risk.likelihood == 'medium' %}bg-amber-100 text-amber-800
+                            {% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ risk.likelihood | title }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600">{{ risk.impact }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Two Column: Constraints & Assumptions -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Known Constraints -->
+            {% if content.known_constraints %}
+            <div class="bg-white rounded-lg border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                    <i data-lucide="lock" class="w-5 h-5 text-gray-600"></i>
+                    <h2 class="text-xl font-semibold text-gray-900">Known Constraints</h2>
+                </div>
+                <div class="p-6">
+                    <ul class="space-y-2">
+                        {% for constraint in content.known_constraints %}
+                        <li class="flex items-start text-sm text-gray-700">
+                            <span class="w-1.5 h-1.5 bg-gray-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                            {{ constraint }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Assumptions -->
+            {% if content.assumptions %}
+            <div class="bg-white rounded-lg border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-gray-600"></i>
+                    <h2 class="text-xl font-semibold text-gray-900">Assumptions</h2>
+                </div>
+                <div class="p-6">
+                    <ul class="space-y-2">
+                        {% for assumption in content.assumptions %}
+                        <li class="flex items-start text-sm text-gray-700">
+                            <span class="w-1.5 h-1.5 bg-gray-400 rounded-full mr-3 mt-1.5 flex-shrink-0"></span>
+                            {{ assumption }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Integration Considerations -->
+        {% if content.integration_considerations %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="plug" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Integration Considerations</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.integration_considerations|length }} consideration{{ 's' if content.integration_considerations|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6 space-y-3">
+                {% for item in content.integration_considerations %}
+                <div class="flex items-start p-4 bg-gray-50 rounded-lg">
+                    <span class="px-2 py-0.5 text-xs font-medium rounded mr-4 flex-shrink-0
+                        {% if item.risk_level == 'high' %}bg-red-100 text-red-800
+                        {% elif item.risk_level == 'medium' %}bg-amber-100 text-amber-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ item.risk_level | title }}
+                    </span>
+                    <div>
+                        <p class="font-medium text-gray-900">{{ item.area }}</p>
+                        <p class="text-sm text-gray-600 mt-1">{{ item.description }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- MVP Guardrails -->
+        {% if content.mvp_guardrails %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">MVP Guardrails</h2>
+                <span class="ml-auto text-sm text-gray-500">{{ content.mvp_guardrails|length }} guardrail{{ 's' if content.mvp_guardrails|length != 1 else '' }}</span>
+            </div>
+            <div class="p-6">
+                <ul class="space-y-2">
+                    {% for guardrail in content.mvp_guardrails %}
+                    <li class="flex items-start text-sm text-gray-700">
+                        <i data-lucide="check" class="w-4 h-4 mr-3 mt-0.5 text-green-600 flex-shrink-0"></i>
+                        {{ guardrail }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recommendations for PM -->
+        {% if content.recommendations_for_pm %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Recommendations for PM</h2>
+            </div>
+            <div class="p-6">
+                <ul class="space-y-2">
+                    {% for rec in content.recommendations_for_pm %}
+                    <li class="flex items-start text-sm text-gray-700">
+                        <i data-lucide="arrow-right" class="w-4 h-4 mr-3 mt-0.5 text-gray-400 flex-shrink-0"></i>
+                        {{ rec }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Operational Considerations -->
+        {% if content.operational_considerations %}
+        <div class="bg-white rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+                <i data-lucide="settings" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Operational Considerations</h2>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for item in content.operational_considerations %}
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="font-medium text-gray-900 text-sm">{{ item.topic }}</p>
+                        <p class="text-sm text-gray-600 mt-1">{{ item.notes }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Raw JSON (collapsible) -->
+        <details class="bg-white rounded-lg border border-gray-200">
+            <summary class="px-6 py-4 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
+                <i data-lucide="code" class="w-5 h-5 text-gray-600"></i>
+                <h2 class="text-xl font-semibold text-gray-900">Raw Data (JSON)</h2>
+            </summary>
+            <div class="p-6 border-t border-gray-200">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <pre class="text-sm text-gray-700 overflow-x-auto"><code>{{ content | tojson(indent=2) }}</code></pre>
+                </div>
+            </div>
+        </details>
+    </div>
+    
+    {% else %}
+    <!-- No Architecture Defined -->
+    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <i data-lucide="search" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No Discovery Architecture</h2>
+        <p class="text-gray-600">Run the preliminary architect to generate discovery findings.</p>
+    </div>
+    {% endif %}
+</div>
