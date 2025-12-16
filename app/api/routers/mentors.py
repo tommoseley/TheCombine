@@ -13,15 +13,28 @@ Endpoints:
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Dict, Any
 
 from database import get_db
-from app.combine.services.role_prompt_service import RolePromptService
-from app.combine.services.artifact_service import ArtifactService
-from app.combine.mentors.pm_mentor import PMMentor, PMRequest
-from app.combine.mentors.architect_mentor import ArchitectMentor, ArchitectRequest
-from app.combine.mentors.ba_mentor import BAMentor, BARequest
-from app.combine.mentors.dev_mentor import DeveloperMentor, DeveloperRequest
+from app.api.services.role_prompt_service import RolePromptService
+from app.api.services.artifact_service import ArtifactService
+from app.api.models import Artifact
+from app.api.repositories import ProjectRepository
+from app.api.utils.id_generators import generate_epic_id, generate_story_id
+
+# Import mentor classes and request models
+from app.domain.mentors import (
+    PMMentor,
+    ArchitectMentor,
+    BAMentor,
+    DeveloperMentor,
+)
+from app.domain.mentors.pm_mentor import PMRequest
+from app.domain.mentors.architect_mentor import ArchitectRequest
+from app.domain.mentors.ba_mentor import BARequest
+from app.domain.mentors.dev_mentor import DeveloperRequest
 
 
 router = APIRouter(prefix="/api/mentors", tags=["mentors"])
@@ -39,6 +52,73 @@ async def get_prompt_service(db: AsyncSession = Depends(get_db)) -> RolePromptSe
 async def get_artifact_service(db: AsyncSession = Depends(get_db)) -> ArtifactService:
     """Get artifact service instance"""
     return ArtifactService(db)
+
+
+# ============================================================================
+# ARTIFACT LOADING HELPERS (kept in API layer)
+# ============================================================================
+
+async def load_epic_content(db: AsyncSession, epic_artifact_path: str) -> Dict[str, Any]:
+    """
+    Load epic content from database.
+    
+    This stays in the API layer because it requires database access.
+    """
+    query = (
+        select(Artifact)
+        .where(Artifact.artifact_path == epic_artifact_path)
+        .where(Artifact.artifact_type == "epic")
+    )
+    
+    result = await db.execute(query)
+    epic_artifact = result.scalar_one_or_none()
+    
+    if not epic_artifact:
+        raise ValueError(f"Epic not found at path: {epic_artifact_path}")
+    
+    return epic_artifact.content or {}
+
+
+async def load_architecture_content(db: AsyncSession, architecture_artifact_path: str) -> Dict[str, Any]:
+    """
+    Load architecture content from database.
+    
+    This stays in the API layer because it requires database access.
+    """
+    query = (
+        select(Artifact)
+        .where(Artifact.artifact_path == architecture_artifact_path)
+        .where(Artifact.artifact_type == "architecture")
+    )
+    
+    result = await db.execute(query)
+    arch_artifact = result.scalar_one_or_none()
+    
+    if not arch_artifact:
+        raise ValueError(f"Architecture not found at path: {architecture_artifact_path}")
+    
+    return arch_artifact.content or {}
+
+
+async def load_story_content(db: AsyncSession, story_artifact_path: str) -> Dict[str, Any]:
+    """
+    Load story content from database.
+    
+    This stays in the API layer because it requires database access.
+    """
+    query = (
+        select(Artifact)
+        .where(Artifact.artifact_path == story_artifact_path)
+        .where(Artifact.artifact_type == "story")
+    )
+    
+    result = await db.execute(query)
+    story_artifact = result.scalar_one_or_none()
+    
+    if not story_artifact:
+        raise ValueError(f"Story not found at path: {story_artifact_path}")
+    
+    return story_artifact.content or {}
 
 
 # ============================================================================
@@ -64,37 +144,22 @@ async def execute_pm_stream(
             "temperature": 0.7  // optional
         }
     
-    Returns Server-Sent Events:
-        - "📋 Reading PM instructions" (10%)
-        - "🔍 Loading epic schema" (20%)
-        - "🤖 Analyzing your request" (30%)
-        - "✨ Crafting epic definition" (50%)
-        - "💭 Building epic structure" (70%)
-        - "🔧 Parsing epic JSON" (80%)
-        - "✅ Validating epic completeness" (85%)
-        - "💾 Saving epic to project" (95%)
-        - "🎉 Epic created successfully!" (100%)
-    
-    Final Event:
-        {
-            "status": "complete",
-            "message": "🎉 PM task completed!",
-            "progress": 100,
-            "data": {
-                "project_id": "AUTH",
-                "epic_id": "E001",
-                "epic_path": "AUTH/E001",
-                "artifact_id": "...",
-                "title": "User Authentication System",
-                "tokens": {
-                    "input": 1234,
-                    "output": 2345,
-                    "total": 3579
-                }
-            }
-        }
+    Returns Server-Sent Events with progress updates.
     """
-    mentor = PMMentor(db, prompt_service, artifact_service)
+    # Create ID generator function that closes over db
+    async def epic_id_generator(project_id: str) -> str:
+        return await generate_epic_id(db, project_id)
+    
+    # Ensure project exists
+    project_repo = ProjectRepository(db)
+    await project_repo.ensure_exists(request.project_id)
+    
+    # Create mentor with injected dependencies
+    mentor = PMMentor(
+        prompt_service=prompt_service,
+        artifact_service=artifact_service,
+        id_generator=epic_id_generator
+    )
     
     return StreamingResponse(
         mentor.stream_execution(request.dict()),
@@ -129,53 +194,25 @@ async def execute_architect_stream(
             "temperature": 0.5  // optional
         }
     
-    Returns Server-Sent Events:
-        - "📋 Reading architecture guidelines" (8%)
-        - "🔍 Loading architecture schema" (12%)
-        - "📖 Loading epic context" (20%)
-        - "🤖 Analyzing epic requirements" (28%)
-        - "✨ Designing system architecture" (40%)
-        - "💭 Defining components and interfaces" (55%)
-        - "🗄️ Creating data models" (70%)
-        - "🔧 Parsing architecture JSON" (82%)
-        - "✅ Validating architecture completeness" (88%)
-        - "💾 Saving architecture" (95%)
-        - "🎉 Architecture created successfully!" (100%)
-    
-    Final Event:
-        {
-            "status": "complete",
-            "message": "🎉 ARCHITECT task completed!",
-            "progress": 100,
-            "data": {
-                "epic_artifact_path": "AUTH/E001",
-                "architecture_artifact_path": "AUTH/E001",
-                "artifact_id": "...",
-                "project_id": "AUTH",
-                "epic_id": "E001",
-                "title": "Architecture for E001",
-                "tokens": {
-                    "input": 2345,
-                    "output": 5678,
-                    "total": 8023
-                }
-            }
-        }
+    Returns Server-Sent Events with progress updates.
     """
-    mentor = ArchitectMentor(db, prompt_service, artifact_service)
-    
-    # Load epic content before streaming
+    # Load epic content (API layer responsibility)
     try:
-        epic_content = await mentor._load_epic_content(request.epic_artifact_path)
-        
-        # Add epic content to request data
-        request_data = request.dict()
-        request_data["epic_content"] = epic_content
-        
+        epic_content = await load_epic_content(db, request.epic_artifact_path)
     except ValueError as e:
         raise HTTPException(404, detail=str(e))
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to load epic: {str(e)}")
+    
+    # Create mentor with injected dependencies
+    mentor = ArchitectMentor(
+        prompt_service=prompt_service,
+        artifact_service=artifact_service
+    )
+    
+    # Add epic content to request data
+    request_data = request.dict()
+    request_data["epic_content"] = epic_content
     
     return StreamingResponse(
         mentor.stream_execution(request_data),
@@ -186,7 +223,6 @@ async def execute_architect_stream(
             "Connection": "keep-alive"
         }
     )
-
 
 
 # ============================================================================
@@ -212,64 +248,32 @@ async def execute_ba_stream(
             "temperature": 0.6  // optional
         }
     
-    Returns Server-Sent Events:
-        - "📋 Reading BA guidelines" (8%)
-        - "🔍 Loading story schema" (12%)
-        - "📖 Loading epic context" (18%)
-        - "🏗️ Loading architecture context" (24%)
-        - "🤖 Analyzing requirements" (30%)
-        - "✨ Breaking down into stories" (45%)
-        - "💭 Defining acceptance criteria" (60%)
-        - "📝 Adding technical details" (75%)
-        - "🔧 Parsing stories JSON" (82%)
-        - "✅ Validating story structure" (88%)
-        - "💾 Creating story artifacts" (95%)
-        - "🎉 Stories created successfully!" (100%)
-    
-    Final Event:
-        {
-            "status": "complete",
-            "message": "🎉 BA task completed!",
-            "progress": 100,
-            "data": {
-                "epic_artifact_path": "AUTH/E001",
-                "architecture_artifact_path": "AUTH/E001",
-                "stories_created": [
-                    {
-                        "artifact_path": "AUTH/E001/S001",
-                        "artifact_id": "...",
-                        "title": "User Registration",
-                        "story_id": "S001"
-                    },
-                    ...
-                ],
-                "project_id": "AUTH",
-                "epic_id": "E001",
-                "total_stories": 5,
-                "tokens": {
-                    "input": 3456,
-                    "output": 6789,
-                    "total": 10245
-                }
-            }
-        }
+    Returns Server-Sent Events with progress updates.
     """
-    mentor = BAMentor(db, prompt_service, artifact_service)
-    
-    # Load epic and architecture content before streaming
+    # Load epic and architecture content (API layer responsibility)
     try:
-        epic_content = await mentor._load_epic_content(request.epic_artifact_path)
-        architecture_content = await mentor._load_architecture_content(request.architecture_artifact_path)
-        
-        # Add content to request data
-        request_data = request.dict()
-        request_data["epic_content"] = epic_content
-        request_data["architecture_content"] = architecture_content
-        
+        epic_content = await load_epic_content(db, request.epic_artifact_path)
+        architecture_content = await load_architecture_content(db, request.architecture_artifact_path)
     except ValueError as e:
         raise HTTPException(404, detail=str(e))
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to load artifacts: {str(e)}")
+    
+    # Create ID generator function that closes over db and epic path
+    async def story_id_generator(epic_id: str) -> str:
+        return await generate_story_id(db, request.epic_artifact_path)
+    
+    # Create mentor with injected dependencies
+    mentor = BAMentor(
+        prompt_service=prompt_service,
+        artifact_service=artifact_service,
+        id_generator=story_id_generator
+    )
+    
+    # Add content to request data
+    request_data = request.dict()
+    request_data["epic_content"] = epic_content
+    request_data["architecture_content"] = architecture_content
     
     return StreamingResponse(
         mentor.stream_execution(request_data),
@@ -304,72 +308,35 @@ async def execute_developer_stream(
             "temperature": 0.3  // optional (low for deterministic code)
         }
     
-    Returns Server-Sent Events:
-        - "📋 Reading development guidelines" (5%)
-        - "🔍 Loading code schema" (8%)
-        - "📖 Loading story context" (12%)
-        - "🏗️ Loading architecture context" (18%)
-        - "🤖 Analyzing technical requirements" (25%)
-        - "✨ Planning implementation approach" (32%)
-        - "💻 Writing production code" (48%)
-        - "🧪 Adding unit tests" (62%)
-        - "📝 Creating documentation" (76%)
-        - "🔧 Parsing code artifacts" (84%)
-        - "✅ Validating code structure" (90%)
-        - "💾 Saving implementation" (95%)
-        - "🎉 Code ready for review!" (100%)
-    
-    Final Event:
-        {
-            "status": "complete",
-            "message": "🎉 DEVELOPER task completed!",
-            "progress": 100,
-            "data": {
-                "story_artifact_path": "AUTH/E001/S001",
-                "code_artifacts_created": [
-                    {
-                        "artifact_path": "AUTH/E001/S001",
-                        "artifact_id": "...",
-                        "title": "Implementation: User Registration",
-                        "file_path": "src/auth/registration.py"
-                    },
-                    ...
-                ],
-                "project_id": "AUTH",
-                "epic_id": "E001",
-                "story_id": "S001",
-                "total_files": 8,
-                "tokens": {
-                    "input": 5678,
-                    "output": 12345,
-                    "total": 18023
-                }
-            }
-        }
+    Returns Server-Sent Events with progress updates.
     """
-    mentor = DeveloperMentor(db, prompt_service, artifact_service)
-    
-    # Load story and architecture content before streaming
+    # Load story and architecture content (API layer responsibility)
     try:
-        story_content = await mentor._load_story_content(request.story_artifact_path)
+        story_content = await load_story_content(db, request.story_artifact_path)
         
         # Extract epic path from story path (e.g., "PROJ/E001/S001" -> "PROJ/E001")
         path_parts = request.story_artifact_path.split("/")
         if len(path_parts) == 3:
             epic_path = f"{path_parts[0]}/{path_parts[1]}"
-            architecture_content = await mentor._load_architecture_content(epic_path)
+            architecture_content = await load_architecture_content(db, epic_path)
         else:
             architecture_content = {}
-        
-        # Add content to request data
-        request_data = request.dict()
-        request_data["story_content"] = story_content
-        request_data["architecture_content"] = architecture_content
-        
+            
     except ValueError as e:
         raise HTTPException(404, detail=str(e))
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to load artifacts: {str(e)}")
+    
+    # Create mentor with injected dependencies
+    mentor = DeveloperMentor(
+        prompt_service=prompt_service,
+        artifact_service=artifact_service
+    )
+    
+    # Add content to request data
+    request_data = request.dict()
+    request_data["story_content"] = story_content
+    request_data["architecture_content"] = architecture_content
     
     return StreamingResponse(
         mentor.stream_execution(request_data),

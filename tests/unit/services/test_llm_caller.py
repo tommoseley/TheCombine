@@ -9,7 +9,7 @@ Epic: PIPELINE-175B
 
 import pytest
 from unittest.mock import Mock, MagicMock
-from app.combine.services.llm_caller import LLMCaller, LLMCallResult
+from app.domain.services.llm_caller import LLMCaller, LLMCallResult
 
 
 class TestLLMCaller:

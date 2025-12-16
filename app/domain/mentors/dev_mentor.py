@@ -6,10 +6,8 @@ Transforms User Stories into code implementation with streaming progress updates
 
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
-from app.combine.mentors.base_mentor import StreamingMentor, ProgressStep
-from app.combine.models import Artifact
+from app.domain.mentors.base_mentor import StreamingMentor, ProgressStep
 
 
 # ============================================================================
@@ -80,7 +78,7 @@ class DeveloperMentor(StreamingMentor):
         """Developer-specific progress steps"""
         return [
             ProgressStep("building_prompt", "Reading development guidelines", "📋", 5),
-            ProgressStep("loading_schema", "Loading code schema", "🔍", 8),
+            ProgressStep("loading_schema", "Loading code schema", "📄", 8),
             ProgressStep("loading_story", "Loading story context", "📖", 12),
             ProgressStep("loading_architecture", "Loading architecture context", "🏗️", 18),
             ProgressStep("calling_llm", "Analyzing technical requirements", "🤖", 25),
@@ -337,42 +335,3 @@ The JSON should contain a "code_files" array with objects containing "file_path"
             "implementation_artifact_path": implementation_path,
             "implementation_artifact_id": str(artifact.id)
         }
-    
-    async def _load_story_content(self, story_artifact_path: str) -> Dict[str, Any]:
-        """
-        Helper method to load story content from database
-        """
-        query = (
-            select(Artifact)
-            .where(Artifact.artifact_path == story_artifact_path)
-            .where(Artifact.artifact_type == "story")
-        )
-        
-        result = await self.db.execute(query)
-        story_artifact = result.scalar_one_or_none()
-        
-        if not story_artifact:
-            raise ValueError(f"Story not found at path: {story_artifact_path}")
-        
-        return story_artifact.content or {}
-    
-    async def _load_architecture_content(self, epic_path: str) -> Dict[str, Any]:
-        """
-        Helper method to load architecture content from database
-        
-        Architecture is stored at epic level (e.g., "PROJ/E001")
-        """
-        query = (
-            select(Artifact)
-            .where(Artifact.artifact_path == epic_path)
-            .where(Artifact.artifact_type == "architecture")
-        )
-        
-        result = await self.db.execute(query)
-        arch_artifact = result.scalar_one_or_none()
-        
-        if not arch_artifact:
-            # Architecture might not exist yet - return empty dict
-            return {}
-        
-        return arch_artifact.content or {}

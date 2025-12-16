@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from .shared import templates, get_template
-from app.api.services import project_service
+from app.api.services import project_service, artifact_service
 
 router = APIRouter(tags=["architecture"])
 
@@ -47,9 +47,7 @@ async def start_preliminary_architecture(
     Start preliminary (high-level) architecture mentor
     Returns updated project page
     """
-    from app.api.services import project_service
-    from app.domain.mentors.architect_mentor import ArchitectMentor
-    from app.api.repositories.artifact_repository import ArtifactRepository
+    from app.domain.mentors import ArchitectMentor
     
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
@@ -74,11 +72,11 @@ Keep it high-level and strategic, not detailed implementation.
     
     result = await mentor.execute(prompt, project['project_id'])
     
-    # Save architecture artifact using repository pattern
-    artifact_repo = ArtifactRepository(db)
+    # Save architecture artifact using service
     artifact_path = f"{project['project_id']}/architecture/preliminary"
     
-    artifact_repo.create(
+    await artifact_service.create_artifact(
+        db=db,
         artifact_path=artifact_path,
         artifact_type='architecture',
         title='Preliminary Architecture',
@@ -103,9 +101,7 @@ async def start_detailed_architecture(
     Start detailed architecture mentor
     Returns updated project page
     """
-    from app.api.services import project_service
-    from app.domain.mentors.architect_mentor import ArchitectMentor
-    from app.api.repositories.artifact_repository import ArtifactRepository
+    from app.domain.mentors import ArchitectMentor
     
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
@@ -131,11 +127,11 @@ Provide comprehensive technical details including:
     
     result = await mentor.execute(prompt, project['project_id'])
     
-    # Save architecture artifact using repository pattern
-    artifact_repo = ArtifactRepository(db)
+    # Save architecture artifact using service
     artifact_path = f"{project['project_id']}/architecture/detailed"
     
-    artifact_repo.create(
+    await artifact_service.create_artifact(
+        db=db,
         artifact_path=artifact_path,
         artifact_type='architecture',
         title='Detailed Architecture',

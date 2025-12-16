@@ -4,12 +4,10 @@ Architect Mentor - Extends StreamingMentor with Architect-specific logic
 Transforms PM Epics into architectural specifications with streaming progress updates.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Callable, Awaitable
 from pydantic import BaseModel, Field
 
-from app.combine.mentors.base_mentor import StreamingMentor, ProgressStep
-from app.combine.models import Artifact
-from sqlalchemy import select
+from app.domain.mentors.base_mentor import StreamingMentor, ProgressStep
 
 
 # ============================================================================
@@ -80,7 +78,7 @@ class ArchitectMentor(StreamingMentor):
         """Architect-specific progress steps"""
         return [
             ProgressStep("building_prompt", "Reading architecture guidelines", "📋", 8),
-            ProgressStep("loading_schema", "Loading architecture schema", "🔍", 12),
+            ProgressStep("loading_schema", "Loading architecture schema", "📄", 12),
             ProgressStep("loading_epic", "Loading epic context", "📖", 20),
             ProgressStep("calling_llm", "Analyzing epic requirements", "🤖", 28),
             ProgressStep("generating", "Designing system architecture", "✨", 40),
@@ -239,24 +237,3 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
             "epic_id": epic_id,
             "title": title
         }
-    
-    async def _load_epic_content(self, epic_artifact_path: str) -> Dict[str, Any]:
-        """
-        Helper method to load epic content from database
-        
-        This is called before stream_execution to add epic_content to request_data
-        """
-        # Query for epic artifact
-        query = (
-            select(Artifact)
-            .where(Artifact.artifact_path == epic_artifact_path)
-            .where(Artifact.artifact_type == "epic")
-        )
-        
-        result = await self.db.execute(query)
-        epic_artifact = result.scalar_one_or_none()
-        
-        if not epic_artifact:
-            raise ValueError(f"Epic not found at path: {epic_artifact_path}")
-        
-        return epic_artifact.content or {}

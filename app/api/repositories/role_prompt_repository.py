@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from app.combine.models.role_prompt import RolePrompt
+from app.api.models.role_prompt import RolePrompt
 from database import AsyncSessionLocal
 from app.api.repositories.exceptions import RepositoryError
 

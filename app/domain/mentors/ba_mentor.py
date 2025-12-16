@@ -6,11 +6,8 @@ Transforms Epic + Architecture into User Stories with streaming progress updates
 
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
-from app.combine.mentors.base_mentor import StreamingMentor, ProgressStep
-from app.combine.models import Artifact
-from app.combine.utils.id_generators import generate_story_id
+from app.domain.mentors.base_mentor import StreamingMentor, ProgressStep
 
 
 # ============================================================================
@@ -84,7 +81,7 @@ class BAMentor(StreamingMentor):
         """BA-specific progress steps"""
         return [
             ProgressStep("building_prompt", "Reading BA guidelines", "📋", 8),
-            ProgressStep("loading_schema", "Loading story schema", "🔍", 12),
+            ProgressStep("loading_schema", "Loading story schema", "📄", 12),
             ProgressStep("loading_epic", "Loading epic context", "📖", 18),
             ProgressStep("loading_architecture", "Loading architecture context", "🏗️", 24),
             ProgressStep("calling_llm", "Analyzing requirements", "🤖", 30),
@@ -228,6 +225,7 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         """
         Create BA story artifacts
         
+        Uses injected id_generator to generate story IDs.
         Creates one artifact per story in the response.
         
         Returns:
@@ -254,8 +252,10 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         
         # Create an artifact for each story
         for idx, story_data in enumerate(stories):
-            # Generate story ID
-            story_id = await generate_story_id(project_id, epic_id, self.db)
+            # Generate story ID using injected generator
+            if self.id_generator is None:
+                raise ValueError("No ID generator provided for story creation")
+            story_id = await self.id_generator(epic_id)
             story_path = f"{project_id}/{epic_id}/{story_id}"
             
             # Extract title
@@ -296,39 +296,3 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
             "epic_id": epic_id,
             "total_stories": len(created_stories)
         }
-    
-    async def _load_epic_content(self, epic_artifact_path: str) -> Dict[str, Any]:
-        """
-        Helper method to load epic content from database
-        """
-        query = (
-            select(Artifact)
-            .where(Artifact.artifact_path == epic_artifact_path)
-            .where(Artifact.artifact_type == "epic")
-        )
-        
-        result = await self.db.execute(query)
-        epic_artifact = result.scalar_one_or_none()
-        
-        if not epic_artifact:
-            raise ValueError(f"Epic not found at path: {epic_artifact_path}")
-        
-        return epic_artifact.content or {}
-    
-    async def _load_architecture_content(self, architecture_artifact_path: str) -> Dict[str, Any]:
-        """
-        Helper method to load architecture content from database
-        """
-        query = (
-            select(Artifact)
-            .where(Artifact.artifact_path == architecture_artifact_path)
-            .where(Artifact.artifact_type == "architecture")
-        )
-        
-        result = await self.db.execute(query)
-        arch_artifact = result.scalar_one_or_none()
-        
-        if not arch_artifact:
-            raise ValueError(f"Architecture not found at path: {architecture_artifact_path}")
-        
-        return arch_artifact.content or {}

@@ -1,2 +1,3 @@
-from app.combine.schemas.artifacts import *
-from app.combine.schemas.metrics import *
+"""Schemas package: Request and response models."""
+from app.domain.schemas.artifacts import *
+from app.domain.schemas.metrics import *

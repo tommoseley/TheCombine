@@ -9,7 +9,7 @@ Epic: PIPELINE-175B
 """
 
 import pytest
-from app.combine.services.llm_response_parser import (
+from app.domain.services.llm_response_parser import (
     ParseResult,
     LLMResponseParser,
     DirectParseStrategy,
