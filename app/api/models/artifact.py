@@ -4,7 +4,7 @@ Artifact model for The Combine.
 Represents any deliverable in the RSP-1 canonical path system.
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, Text, Index, Computed
+from sqlalchemy import Column, ForeignKey, String, Integer, DateTime, Text, Index, Computed
 from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -33,10 +33,9 @@ class Artifact(Base):
     artifact_type = Column(String(50), nullable=False, index=True)
     
     # Hierarchical IDs (extracted from path)
-    project_id = Column(String(50), nullable=False, index=True)
-    epic_id = Column(String(50), nullable=True, index=True)
-    feature_id = Column(String(50), nullable=True, index=True)
-    story_id = Column(String(50), nullable=True, index=True)
+    # CHANGE these from VARCHAR to UUID:
+    project_id = Column(UUID(as_uuid=True), ForeignKey('projects.id', ondelete='CASCADE'), nullable=False)
+    epic_id = Column(UUID(as_uuid=True), nullable=True)
     
     # Content
     title = Column(String(500), nullable=False)

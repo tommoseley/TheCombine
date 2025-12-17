@@ -21,6 +21,7 @@ from app.dependencies import set_startup_time
 from app.api.routers import health, artifacts, auth
 from app.web import routes as web_routes
 from app.api.routers.mentors import router as mentor_router
+from app.api.routers.documents import router as document_router
 
 # Import middleware
 from app.api.middleware import (
@@ -105,7 +106,7 @@ app.add_middleware(error_handling.ErrorHandlingMiddleware)
 
 # Health check
 app.include_router(health.router, tags=["health"])
-
+app.include_router(document_router)
 app.include_router(mentor_router)
 
 # ADD THIS LINE
