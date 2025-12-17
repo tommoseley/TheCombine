@@ -10,7 +10,9 @@ from app.api.models.breadcrumb_file import BreadcrumbFile
 from app.api.models.role_prompt import RolePrompt
 from app.api.models.role import Role
 from app.api.models.role_task import RoleTask
-
+from app.api.models.document_type import DocumentType
+from app.api.models.document import Document
+from app.api.models.document_relation import DocumentRelation, RelationType
 __all__ = [
     'Project',
     'Artifact',
@@ -20,5 +22,8 @@ __all__ = [
     'BreadcrumbFile',
     'RolePrompt',
     'Role',
-    'RoleTask'
+    'RoleTask',
+    'Document',
+    'DocumentRelation',
+    'RelationType'  
 ]
