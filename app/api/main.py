@@ -18,7 +18,7 @@ from database import init_database
 from app.dependencies import set_startup_time
 
 # Import routers
-from app.api.routers import health, artifacts, auth
+from app.api.routers import health, auth
 from app.web import routes as web_routes
 from app.api.routers.mentors import router as mentor_router
 from app.api.routers.documents import router as document_router
