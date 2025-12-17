@@ -1,0 +1,63 @@
+<li class="tree-node expanded list-none" data-node-id="arch-{{ project.id }}">
+    <div class="flex items-center gap-1 group">
+        <!-- Collapse Button -->
+        <button 
+            class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+            hx-get="/ui/projects/{{ project.id }}/architecture/collapse"
+            hx-target="closest .tree-node"
+            hx-swap="outerHTML"
+            title="Collapse">
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+        </button>
+        
+        <!-- Architecture Link -->
+        <a 
+            href="/ui/projects/{{ project.id }}/architecture"
+            hx-get="/ui/projects/{{ project.id }}/architecture"
+            hx-target="#main-content"
+            hx-push-url="true"
+            class="tree-link flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i data-lucide="building-2" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
+            <span class="text-sm font-medium text-gray-700">Architecture</span>
+        </a>
+    </div>
+    
+    <!-- Children -->
+    <ul class="tree-children list-none ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
+        <!-- Discovery (Preliminary) -->
+        <li class="tree-node list-none">
+            <a 
+                href="/ui/projects/{{ project.id }}/architecture/preliminary"
+                hx-get="/ui/projects/{{ project.id }}/architecture/preliminary"
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors {% if not has_preliminary %}opacity-50{% endif %}">
+                <i data-lucide="search" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
+                <span class="text-sm text-gray-700">Discovery</span>
+                {% if has_preliminary %}
+                <i data-lucide="check-circle" class="w-3 h-3 text-green-500 ml-auto"></i>
+                {% else %}
+                <span class="ml-auto text-xs text-gray-400">—</span>
+                {% endif %}
+            </a>
+        </li>
+        
+        <!-- Final -->
+        <li class="tree-node list-none">
+            <a 
+                href="/ui/projects/{{ project.id }}/architecture/final"
+                hx-get="/ui/projects/{{ project.id }}/architecture/final"
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors {% if not has_final %}opacity-50{% endif %}">
+                <i data-lucide="landmark" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
+                <span class="text-sm text-gray-700">Final</span>
+                {% if has_final %}
+                <i data-lucide="check-circle" class="w-3 h-3 text-green-500 ml-auto"></i>
+                {% else %}
+                <span class="ml-auto text-xs text-gray-400">—</span>
+                {% endif %}
+            </a>
+        </li>
+    </ul>
+</li>

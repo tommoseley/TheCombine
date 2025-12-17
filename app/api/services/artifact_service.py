@@ -47,7 +47,7 @@ class ArtifactService:
         self.db = db_session
         self.artifact_repo = ArtifactRepository(db_session)
     
-    def create_artifact(
+    async def create_artifact(
         self,
         artifact_path: str,
         artifact_type: str,
@@ -114,8 +114,8 @@ class ArtifactService:
             )
             
             self.db.add(artifact)
-            self.db.commit()
-            self.db.refresh(artifact)
+            await self.db.commit()
+            await self.db.refresh(artifact)
             
             logger.info(f"Created artifact: {artifact_path} ({artifact_type})")
             return artifact

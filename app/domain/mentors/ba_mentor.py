@@ -1,67 +1,23 @@
 """
-BA Mentor - Extends StreamingMentor with BA-specific logic
-
-Transforms Epic + Architecture into User Stories with streaming progress updates.
+BA Mentor - Creates user stories from epic and architecture.
 """
 
-from typing import Dict, Any, List
-from pydantic import BaseModel, Field
+from typing import Dict, Any
 
-from app.domain.mentors.base_mentor import StreamingMentor, ProgressStep
+from app.domain.mentors.base_mentor import (
+    StreamingMentor,
+    validate_non_empty_array
+)
 
-
-# ============================================================================
-# REQUEST/RESPONSE MODELS
-# ============================================================================
-
-class BARequest(BaseModel):
-    """Request to BA Mentor"""
-    epic_artifact_path: str = Field(..., description="RSP-1 path to Epic (e.g., 'PROJ/E001')")
-    architecture_artifact_path: str = Field(
-        ..., 
-        description="RSP-1 path to Architecture (e.g., 'PROJ/E001' - same as epic)"
-    )
-    model: str = Field(default="claude-sonnet-4-20250514", description="Model to use")
-    max_tokens: int = Field(default=8192, description="Maximum tokens (higher for stories)")
-    temperature: float = Field(default=0.6, description="Temperature for generation")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "epic_artifact_path": "AUTH/E001",
-                "architecture_artifact_path": "AUTH/E001"
-            }
-        }
-
-
-class StoryArtifact(BaseModel):
-    """Individual story artifact created"""
-    artifact_path: str
-    artifact_id: str
-    title: str
-
-
-# ============================================================================
-# BA MENTOR IMPLEMENTATION
-# ============================================================================
 
 class BAMentor(StreamingMentor):
     """
-    Business Analyst Mentor - Creates user stories from epic and architecture
+    Business Analyst Mentor - Creates user stories from epic and architecture.
     
-    Progress Steps:
-    1. Reading BA guidelines (8%)
-    2. Loading story schema (12%)
-    3. Loading epic context (18%)
-    4. Loading architecture context (24%)
-    5. Analyzing requirements (30%)
-    6. Breaking down into stories (45%)
-    7. Defining acceptance criteria (60%)
-    8. Adding technical details (75%)
-    9. Parsing stories JSON (82%)
-    10. Validating story structure (88%)
-    11. Creating story artifacts (95%)
-    12. Stories created successfully! (100%)
+    Unique aspects:
+    - Creates MULTIPLE artifacts (one per story)
+    - Uses id_generator for story IDs
+    - Validates: stories array with required fields
     """
     
     @property
@@ -69,65 +25,29 @@ class BAMentor(StreamingMentor):
         return "ba"
     
     @property
-    def pipeline_id(self) -> str:
-        return "execution"
+    def task_name(self) -> str:
+        return "story_breakdown"
     
     @property
-    def phase_name(self) -> str:
-        return "ba_phase"
-    
-    @property
-    def progress_steps(self) -> List[ProgressStep]:
-        """BA-specific progress steps"""
-        return [
-            ProgressStep("building_prompt", "Reading BA guidelines", "📋", 8),
-            ProgressStep("loading_schema", "Loading story schema", "📄", 12),
-            ProgressStep("loading_epic", "Loading epic context", "📖", 18),
-            ProgressStep("loading_architecture", "Loading architecture context", "🏗️", 24),
-            ProgressStep("calling_llm", "Analyzing requirements", "🤖", 30),
-            ProgressStep("generating", "Breaking down into stories", "✨", 45),
-            ProgressStep("streaming", "Defining acceptance criteria", "💭", 60),
-            ProgressStep("adding_details", "Adding technical details", "📝", 75),
-            ProgressStep("parsing", "Parsing stories JSON", "🔧", 82),
-            ProgressStep("validating", "Validating story structure", "✅", 88),
-            ProgressStep("saving", "Creating story artifacts", "💾", 95),
-            ProgressStep("complete", "Stories created successfully!", "🎉", 100),
-            ProgressStep("error", "Something went wrong", "❌", 0),
-            ProgressStep("validation_failed", "Validation issues detected", "⚠️", 88)
-        ]
+    def artifact_type(self) -> str:
+        return "story"
     
     async def build_user_message(self, request_data: Dict[str, Any]) -> str:
-        """
-        Build BA-specific user message with epic and architecture context
-        """
         epic_content = request_data.get("epic_content", {})
         architecture_content = request_data.get("architecture_content", {})
         
-        # Extract epic details
         epic_title = epic_content.get("title", "Epic")
         epic_objectives = epic_content.get("objectives", [])
         epic_description = epic_content.get("description", "")
         
-        # Extract architecture details
         arch_summary = architecture_content.get("architecture_summary", {})
         arch_style = arch_summary.get("style", "N/A")
         components = architecture_content.get("components", [])
-        data_model = architecture_content.get("data_model", {})
         
-        # Format objectives
         objectives_text = "\n".join([f"- {obj}" for obj in epic_objectives])
-        
-        # Format components
         components_text = "\n".join([
             f"- {comp.get('name', 'Component')}: {comp.get('purpose', '')}" 
-            for comp in components[:10]  # Limit to first 10
-        ])
-        
-        # Format data entities
-        entities = data_model.get("entities", [])
-        entities_text = "\n".join([
-            f"- {entity.get('name', 'Entity')}: {entity.get('description', '')}" 
-            for entity in entities[:10]  # Limit to first 10
+            for comp in components[:10]
         ])
         
         return f"""Break down the following epic into detailed user stories:
@@ -140,14 +60,10 @@ Description:
 Objectives:
 {objectives_text}
 
-Architecture Context:
-Style: {arch_style}
+Architecture Style: {arch_style}
 
 Components:
 {components_text if components_text else "- See architecture for details"}
-
-Data Model:
-{entities_text if entities_text else "- See architecture for details"}
 
 Create comprehensive user stories with:
 1. Clear user story in "As a [role], I want [feature], so that [benefit]" format
@@ -156,12 +72,6 @@ Create comprehensive user stories with:
 4. Dependencies on other stories or components
 5. Estimated complexity (1-5 story points)
 
-Ensure stories are:
-- Small enough to implement in one sprint
-- Testable with clear acceptance criteria
-- Aligned with architecture components
-- Properly sequenced with dependencies
-
 Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
     
     async def validate_response(
@@ -169,34 +79,18 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         parsed_json: Dict[str, Any], 
         schema: Dict[str, Any]
     ) -> tuple[bool, str]:
-        """
-        Validate BA stories response
+        # Check for non-empty stories array
+        is_valid, error = validate_non_empty_array(parsed_json, "stories")
+        if not is_valid:
+            return is_valid, error
         
-        Checks for:
-        - stories array exists
-        - Each story has required fields
-        - Acceptance criteria are present
-        """
-        # Check for stories array
-        if "stories" not in parsed_json:
-            return False, "Response must contain 'stories' array"
-        
-        stories = parsed_json.get("stories", [])
-        
-        if not isinstance(stories, list):
-            return False, "Field 'stories' must be an array"
-        
-        if len(stories) == 0:
-            return False, "Must create at least one story"
-        
-        # Validate each story structure
-        for idx, story in enumerate(stories):
+        # Validate each story
+        for idx, story in enumerate(parsed_json["stories"]):
             story_num = idx + 1
             
             if not isinstance(story, dict):
                 return False, f"Story {story_num} must be an object"
             
-            # Check required fields
             if "title" not in story:
                 return False, f"Story {story_num} missing 'title'"
             
@@ -206,12 +100,8 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
             if "acceptance_criteria" not in story:
                 return False, f"Story {story_num} missing 'acceptance_criteria'"
             
-            # Validate acceptance criteria
-            acceptance_criteria = story.get("acceptance_criteria")
-            if not isinstance(acceptance_criteria, list):
-                return False, f"Story {story_num} 'acceptance_criteria' must be an array"
-            
-            if len(acceptance_criteria) == 0:
+            ac = story.get("acceptance_criteria")
+            if not isinstance(ac, list) or len(ac) == 0:
                 return False, f"Story {story_num} must have at least one acceptance criterion"
         
         return True, ""
@@ -222,48 +112,29 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
         parsed_json: Dict[str, Any],
         metadata: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """
-        Create BA story artifacts
-        
-        Uses injected id_generator to generate story IDs.
-        Creates one artifact per story in the response.
-        
-        Returns:
-            Dictionary with:
-            - epic_artifact_path: Source epic path
-            - architecture_artifact_path: Source architecture path
-            - stories_created: List of created story artifacts
-            - project_id: Extracted project ID
-            - epic_id: Extracted epic ID
-        """
+        """Create multiple story artifacts - one per story in response."""
         epic_artifact_path = request_data.get("epic_artifact_path")
         architecture_artifact_path = request_data.get("architecture_artifact_path")
         
-        # Parse project and epic from path (e.g., "PROJ/E001")
         path_parts = epic_artifact_path.split("/")
         if len(path_parts) != 2:
-            raise ValueError(f"Invalid epic path: {epic_artifact_path}. Expected format: PROJECT/EPIC")
+            raise ValueError(f"Invalid epic path: {epic_artifact_path}")
         
         project_id, epic_id = path_parts
-        
-        # Get stories array
         stories = parsed_json.get("stories", [])
         created_stories = []
         
-        # Create an artifact for each story
         for idx, story_data in enumerate(stories):
-            # Generate story ID using injected generator
             if self.id_generator is None:
                 raise ValueError("No ID generator provided for story creation")
+            
             story_id = await self.id_generator(epic_id)
             story_path = f"{project_id}/{epic_id}/{story_id}"
-            
-            # Extract title
             title = story_data.get("title") or f"Story {idx+1}"
             
-            # Create breadcrumbs
             breadcrumbs = {
                 "created_by": "ba_mentor",
+                "task": self.task_name,
                 "epic_id": epic_id,
                 "epic_artifact_path": epic_artifact_path,
                 "architecture_artifact_path": architecture_artifact_path,
@@ -272,7 +143,6 @@ Remember: Output ONLY valid JSON matching the schema. No markdown, no prose."""
                 **metadata
             }
             
-            # Create artifact
             artifact = await self.artifact_service.create_artifact(
                 artifact_path=story_path,
                 artifact_type="story",

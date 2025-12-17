@@ -44,3 +44,55 @@
         </div>
     </div>
 </div>
+
+<style>
+/* Active tree node styling */
+.tree-link.active {
+    background-color: rgb(239 246 255); /* bg-blue-50 */
+    color: rgb(29 78 216); /* text-blue-700 */
+}
+.tree-link.active i {
+    color: rgb(37 99 235); /* text-blue-600 */
+}
+</style>
+
+<script>
+// Update active tree node based on current URL
+function updateActiveTreeNode() {
+    const currentPath = window.location.pathname;
+    
+    // Remove active class from all tree links
+    document.querySelectorAll('#project-tree-root .tree-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Find and activate the matching link
+    document.querySelectorAll('#project-tree-root .tree-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && currentPath === href) {
+            link.classList.add('active');
+        }
+    });
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', updateActiveTreeNode);
+
+// Run after HTMX swaps content (for both tree updates and main content navigation)
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Small delay to ensure DOM is updated
+    setTimeout(() => {
+        updateActiveTreeNode();
+        // Re-initialize Lucide icons for new content
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }, 10);
+});
+
+// Run after URL changes (for browser back/forward)
+window.addEventListener('popstate', updateActiveTreeNode);
+
+// Run after HTMX pushes URL
+document.body.addEventListener('htmx:pushedIntoHistory', updateActiveTreeNode);
+</script>

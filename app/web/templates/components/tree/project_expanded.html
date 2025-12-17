@@ -16,7 +16,7 @@
             hx-get="/ui/projects/{{ project.id }}"
             hx-target="#main-content"
             hx-push-url="true"
-            class="tree-link active flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
+            class="tree-link flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
             <i data-lucide="folder-open" class="w-4 h-4 text-gray-600 flex-shrink-0"></i>
             <span class="text-sm font-medium text-gray-900 truncate flex-1">{{ project.name }}</span>
         </a>
@@ -24,18 +24,19 @@
     
     <!-- Children -->
     <ul class="tree-children list-none ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
-        <!-- Architecture Node -->
-        <li class="tree-node list-none">
-            <a 
-                href="/ui/projects/{{ project.id }}/architecture"
-                hx-get="/ui/projects/{{ project.id }}/architecture"
-                hx-target="#main-content"
-                hx-push-url="true"
-                class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <i data-lucide="building-2" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
-                <span class="text-sm text-gray-700">Architecture</span>
-            </a>
+        <!-- Architecture Node (Collapsed by default) -->
+        {% include 'components/tree/architecture_collapsed.html' %}
+        
+        <!-- Epics Section Header -->
+        {% if project.epics and project.epics|length > 0 %}
+        <li class="tree-node list-none pt-2">
+            <div class="flex items-center gap-2 py-1 px-2">
+                <i data-lucide="layers" class="w-4 h-4 text-gray-400 flex-shrink-0"></i>
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Epics</span>
+                <span class="text-xs text-gray-400">{{ project.epics|length }}</span>
+            </div>
         </li>
+        {% endif %}
         
         <!-- Epic Nodes -->
         {% for epic in project.epics %}
