@@ -1,0 +1,172 @@
+{#
+  Document Action Buttons Component (ADR-007)
+  
+  Displays action buttons based on document status.
+  Buttons are enabled/disabled according to derived status.
+  
+  Required context:
+    - project: Project object with id
+    - doc_status: DocumentStatus object
+    - document: Optional Document object (if exists)
+  
+  Follows "Boring Buttons" design token - clear verbs, no personality.
+#}
+
+<div class="flex flex-wrap gap-2" id="document-actions">
+  
+  {# ===== BUILD / REBUILD BUTTON ===== #}
+  {% if doc_status.can_build %}
+    {% if doc_status.readiness == 'stale' %}
+      {# Rebuild button for stale documents #}
+      <button type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                     text-sm font-medium rounded-md
+                     bg-amber-50 text-amber-700 border border-amber-200
+                     hover:bg-amber-100 hover:border-amber-300
+                     focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-1
+                     transition-colors duration-150"
+              hx-post="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}/build"
+              hx-target="#main-content"
+              hx-indicator="#build-indicator"
+              hx-confirm="Rebuild {{ doc_status.title }}? This will regenerate the document.">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        <span>Rebuild</span>
+        <span id="build-indicator" class="htmx-indicator">
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+        </span>
+      </button>
+    {% else %}
+      {# Build button for waiting documents #}
+      <button type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                     text-sm font-medium rounded-md
+                     bg-blue-600 text-white
+                     hover:bg-blue-700
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
+                     transition-colors duration-150"
+              hx-post="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}/build"
+              hx-target="#main-content"
+              hx-indicator="#build-indicator">
+        <i data-lucide="play" class="w-4 h-4"></i>
+        <span>Generate</span>
+        <span id="build-indicator" class="htmx-indicator">
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+        </span>
+      </button>
+    {% endif %}
+  {% elif doc_status.readiness == 'blocked' %}
+    {# Disabled build button with explanation #}
+    <button type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                   text-sm font-medium rounded-md
+                   bg-gray-100 text-gray-400 border border-gray-200
+                   cursor-not-allowed"
+            disabled
+            title="Cannot build: missing {{ doc_status.missing_inputs | join(', ') }}">
+      <i data-lucide="ban" class="w-4 h-4"></i>
+      <span>Generate</span>
+    </button>
+  {% endif %}
+  
+  {# ===== ACCEPT BUTTON ===== #}
+  {% if doc_status.can_accept %}
+    <button type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                   text-sm font-medium rounded-md
+                   bg-green-50 text-green-700 border border-green-200
+                   hover:bg-green-100 hover:border-green-300
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1
+                   transition-colors duration-150"
+            hx-post="/api/documents/{{ doc_status.document_id }}/accept"
+            hx-vals='{"accepted_by": "{{ current_user | default("user@example.com") }}"}'
+            hx-target="#document-actions"
+            hx-swap="outerHTML"
+            hx-indicator="#accept-indicator">
+      <i data-lucide="check" class="w-4 h-4"></i>
+      <span>Accept</span>
+      <span id="accept-indicator" class="htmx-indicator">
+        <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+      </span>
+    </button>
+  {% endif %}
+  
+  {# ===== REJECT BUTTON ===== #}
+  {% if doc_status.can_reject %}
+    <button type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                   text-sm font-medium rounded-md
+                   bg-white text-gray-600 border border-gray-300
+                   hover:bg-gray-50 hover:text-red-600 hover:border-red-200
+                   focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1
+                   transition-colors duration-150"
+            hx-get="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}/reject-modal"
+            hx-target="#modal-container"
+            hx-swap="innerHTML">
+      <i data-lucide="message-square-x" class="w-4 h-4"></i>
+      <span>Request Changes</span>
+    </button>
+  {% endif %}
+  
+  {# ===== ACCEPTED BADGE (not a button) ===== #}
+  {% if doc_status.acceptance_state == 'accepted' and not doc_status.can_reject %}
+    <div class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                text-sm font-medium rounded-md
+                bg-green-50 text-green-700 border border-green-200">
+      <i data-lucide="badge-check" class="w-4 h-4"></i>
+      <span>Accepted</span>
+    </div>
+  {% endif %}
+  
+  {# ===== VIEW DOCUMENT BUTTON ===== #}
+  {% if doc_status.document_id %}
+    <button type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 
+                   text-sm font-medium rounded-md
+                   bg-white text-gray-600 border border-gray-300
+                   hover:bg-gray-50
+                   focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1
+                   transition-colors duration-150"
+            hx-get="/ui/documents/{{ doc_status.document_id }}"
+            hx-target="#main-content"
+            hx-push-url="true">
+      <i data-lucide="file-text" class="w-4 h-4"></i>
+      <span>View Document</span>
+    </button>
+  {% endif %}
+  
+</div>
+
+{# ===== STATUS SUMMARY ===== #}
+<div class="mt-3 text-sm">
+  {% if doc_status.readiness == 'ready' and doc_status.acceptance_state == 'accepted' %}
+    <p class="text-green-600 flex items-center gap-1">
+      <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+      Document is ready and accepted — safe to use as input.
+    </p>
+  {% elif doc_status.readiness == 'stale' and doc_status.acceptance_state == 'accepted' %}
+    <p class="text-amber-600 flex items-center gap-1">
+      <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+      Inputs have changed since acceptance — review recommended.
+    </p>
+  {% elif doc_status.acceptance_state == 'rejected' %}
+    <p class="text-red-600 flex items-center gap-1">
+      <i data-lucide="x-circle" class="w-4 h-4"></i>
+      Changes requested — cannot be used as input until re-accepted.
+    </p>
+  {% elif doc_status.acceptance_state == 'needs_acceptance' %}
+    <p class="text-yellow-600 flex items-center gap-1">
+      <i data-lucide="clock" class="w-4 h-4"></i>
+      Awaiting acceptance — cannot be used as input until accepted.
+    </p>
+  {% elif doc_status.readiness == 'blocked' %}
+    <p class="text-gray-500 flex items-center gap-1">
+      <i data-lucide="lock" class="w-4 h-4"></i>
+      Blocked — complete prerequisites first: {{ doc_status.missing_inputs | join(', ') }}
+    </p>
+  {% elif doc_status.readiness == 'waiting' %}
+    <p class="text-gray-500 flex items-center gap-1">
+      <i data-lucide="play-circle" class="w-4 h-4"></i>
+      Ready to generate — prerequisites are complete.
+    </p>
+  {% endif %}
+</div>

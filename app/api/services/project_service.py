@@ -1,19 +1,19 @@
 """
-Project service for web UI
-Uses path-based architecture (RSP-1)
+Project service for web UI - Document-centric version.
 """
 
 from sqlalchemy import select, func, or_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
+from uuid import UUID
 
 # Import existing models
-from app.api.models import Project, Artifact
+from app.api.models import Project, Document, DocumentRelation
 from app.api.repositories import ProjectRepository
 
 
 class ProjectService:
-    """Service for project-related operations"""
+    """Service for project-related operations using Document model."""
     
     async def _get_project_or_raise(
         self,
@@ -47,10 +47,22 @@ class ProjectService:
         search: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Get projects with epic counts for tree view
-        Supports pagination and search
+        Get projects with document counts for tree view.
+        Supports pagination and search.
         """
-        # Build query - count distinct epic_ids per project
+        # Build query - count epics (documents with doc_type_id='epic') per project
+        epic_subquery = (
+            select(
+                Document.space_id,
+                func.count(Document.id).label("epic_count")
+            )
+            .where(Document.space_type == 'project')
+            .where(Document.doc_type_id == 'epic')
+            .where(Document.is_latest == True)
+            .group_by(Document.space_id)
+            .subquery()
+        )
+        
         query = (
             select(
                 Project.id,
@@ -59,10 +71,9 @@ class ProjectService:
                 Project.description,
                 Project.status,
                 Project.created_at,
-                func.count(distinct(Artifact.epic_id)).label("epic_count")
+                func.coalesce(epic_subquery.c.epic_count, 0).label("epic_count")
             )
-            .outerjoin(Artifact, Project.project_id == Artifact.project_id)
-            .group_by(Project.id, Project.project_id, Project.name, Project.description, Project.status, Project.created_at)
+            .outerjoin(epic_subquery, Project.id == epic_subquery.c.space_id)
             .order_by(Project.created_at.desc())
         )
         
@@ -101,14 +112,16 @@ class ProjectService:
         db: AsyncSession,
         project_id: str
     ) -> Dict[str, Any]:
-        """Get basic project info for collapsed tree node"""
+        """Get basic project info for collapsed tree node."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Count epics using the project's short project_id
+        # Count epics (documents with doc_type_id='epic')
         epic_count_query = (
-            select(func.count(distinct(Artifact.epic_id)))
-            .where(Artifact.project_id == project.project_id)
-            .where(Artifact.epic_id.isnot(None))
+            select(func.count(Document.id))
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == 'epic')
+            .where(Document.is_latest == True)
         )
         epic_count_result = await db.execute(epic_count_query)
         epic_count = epic_count_result.scalar()
@@ -127,25 +140,42 @@ class ProjectService:
         db: AsyncSession,
         project_id: str
     ) -> Dict[str, Any]:
-        """Get project with all epics for expanded tree node"""
+        """Get project with all epics for expanded tree node."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Get all unique epics for this project using short project_id
+        # Get all epic documents for this project
         epics_query = (
-            select(
-                Artifact.epic_id,
-                func.min(Artifact.title).label("title"),
-                func.count(distinct(Artifact.story_id)).label("story_count"),
-                func.min(Artifact.status).label("status")
-            )
-            .where(Artifact.project_id == project.project_id)
-            .where(Artifact.epic_id.isnot(None))
-            .where(Artifact.artifact_type == 'epic')
-            .group_by(Artifact.epic_id)
-            .order_by(Artifact.epic_id)
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == 'epic')
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at)
         )
         epics_result = await db.execute(epics_query)
-        epics = epics_result.all()
+        epic_docs = epics_result.scalars().all()
+        
+        # For each epic, count stories (derived_from relations)
+        epics = []
+        for epic in epic_docs:
+            story_count_query = (
+                select(func.count(Document.id))
+                .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+                .where(DocumentRelation.to_document_id == epic.id)
+                .where(DocumentRelation.relation_type == 'derived_from')
+                .where(Document.doc_type_id == 'story')
+                .where(Document.is_latest == True)
+            )
+            story_count_result = await db.execute(story_count_query)
+            story_count = story_count_result.scalar() or 0
+            
+            epics.append({
+                "epic_uuid": str(epic.id),
+                "name": epic.title,
+                "description": epic.summary or "",
+                "status": epic.status,
+                "story_count": story_count
+            })
         
         return {
             "id": str(project.id),
@@ -153,16 +183,7 @@ class ProjectService:
             "name": project.name or "Untitled Project",
             "description": project.description or "",
             "status": project.status or "active",
-            "epics": [
-                {
-                    "epic_uuid": epic.epic_id,
-                    "name": epic.title or f"Epic {epic.epic_id}",
-                    "description": "",
-                    "status": epic.status or "pending",
-                    "story_count": epic.story_count or 0
-                }
-                for epic in epics
-            ]
+            "epics": epics
         }
     
     async def get_project_full(
@@ -170,25 +191,41 @@ class ProjectService:
         db: AsyncSession,
         project_id: str
     ) -> Dict[str, Any]:
-        """Get complete project details for main content view"""
+        """Get complete project details for main content view."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Count epics using short project_id
+        # Count epics
         epic_count_query = (
-            select(func.count(distinct(Artifact.epic_id)))
-            .where(Artifact.project_id == project.project_id)
-            .where(Artifact.epic_id.isnot(None))
+            select(func.count(Document.id))
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == 'epic')
+            .where(Document.is_latest == True)
         )
         epic_count_result = await db.execute(epic_count_query)
-        epic_count = epic_count_result.scalar()
+        epic_count = epic_count_result.scalar() or 0
         
-        # Count total artifacts
-        artifact_count_query = (
-            select(func.count(Artifact.id))
-            .where(Artifact.project_id == project.project_id)
+        # Count total documents
+        doc_count_query = (
+            select(func.count(Document.id))
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.is_latest == True)
         )
-        artifact_count_result = await db.execute(artifact_count_query)
-        total_artifacts = artifact_count_result.scalar()
+        doc_count_result = await db.execute(doc_count_query)
+        total_documents = doc_count_result.scalar() or 0
+        
+        # Check for architecture documents
+        arch_query = (
+            select(Document.id)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id.in_(['project_discovery', 'architecture_spec']))
+            .where(Document.is_latest == True)
+            .limit(1)
+        )
+        arch_result = await db.execute(arch_query)
+        has_architecture = arch_result.scalar_one_or_none() is not None
         
         return {
             "id": str(project.id),
@@ -199,9 +236,9 @@ class ProjectService:
             "status": project.status or "active",
             "created_at": project.created_at.isoformat() if project.created_at else "",
             "updated_at": project.updated_at.isoformat() if project.updated_at else "",
-            "epic_count": epic_count or 0,
-            "story_count": total_artifacts or 0,
-            "has_architecture": False  # TODO: Check if architecture artifact exists
+            "epic_count": epic_count,
+            "document_count": total_documents,
+            "has_architecture": has_architecture
         }
     
     async def get_architecture(
@@ -209,18 +246,31 @@ class ProjectService:
         db: AsyncSession,
         project_id: str
     ) -> Dict[str, Any]:
-        """Get architecture details for a project"""
+        """Get architecture details for a project."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Look for architecture artifact using short project_id
+        # Look for architecture_spec document first, then project_discovery
         arch_query = (
-            select(Artifact)
-            .where(Artifact.project_id == project.project_id)
-            .where(Artifact.artifact_type == 'architecture')
-            .order_by(Artifact.created_at.desc())
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == 'architecture_spec')
+            .where(Document.is_latest == True)
         )
         arch_result = await db.execute(arch_query)
         architecture = arch_result.scalar_one_or_none()
+        
+        # Fall back to project_discovery if no architecture_spec
+        if not architecture:
+            discovery_query = (
+                select(Document)
+                .where(Document.space_type == 'project')
+                .where(Document.space_id == project.id)
+                .where(Document.doc_type_id == 'project_discovery')
+                .where(Document.is_latest == True)
+            )
+            discovery_result = await db.execute(discovery_query)
+            architecture = discovery_result.scalar_one_or_none()
         
         if architecture:
             return {
@@ -228,7 +278,7 @@ class ProjectService:
                 "id": str(project.id),
                 "project_id": project.project_id,
                 "project_name": project.name or "Untitled Project",
-                "summary": architecture.title or "Architecture",
+                "summary": architecture.title,
                 "detailed_view": architecture.content or {},
                 "diagrams": []
             }
@@ -248,7 +298,7 @@ class ProjectService:
         db: AsyncSession,
         uuid: str
     ) -> Optional[Dict[str, Any]]:
-        """Get basic project info by UUID"""
+        """Get basic project info by UUID."""
         repo = ProjectRepository(db)
         project = await repo.get_by_uuid(uuid)
         
@@ -263,6 +313,15 @@ class ProjectService:
             "status": project.status,
             "created_at": project.created_at.isoformat() if project.created_at else None
         }
+
+    async def get_project_by_project_id(
+        self,
+        db: AsyncSession,
+        project_id: str
+    ) -> Optional[Project]:
+        """Get project by short project_id."""
+        repo = ProjectRepository(db)
+        return await repo.get_by_project_id(project_id)
 
     async def create_project(
         self,
@@ -324,6 +383,37 @@ class ProjectService:
             "status": project.status,
             "created_at": project.created_at.isoformat() if project.created_at else None
         }
+    
+    async def get_project_documents(
+        self,
+        db: AsyncSession,
+        project_id: str
+    ) -> List[Dict[str, Any]]:
+        """Get all documents for a project."""
+        project = await self._get_project_or_raise(db, project_id)
+        
+        query = (
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at.desc())
+        )
+        result = await db.execute(query)
+        docs = result.scalars().all()
+        
+        return [
+            {
+                "id": str(doc.id),
+                "doc_type_id": doc.doc_type_id,
+                "title": doc.title,
+                "status": doc.status,
+                "is_stale": doc.is_stale,
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+            }
+            for doc in docs
+        ]
 
 
 # Singleton instance

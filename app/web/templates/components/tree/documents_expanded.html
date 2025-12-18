@@ -1,0 +1,98 @@
+<!-- components/tree/documents_expanded.html -->
+<!-- Shows documents section expanded with individual document types and their statuses -->
+<!-- All icons have title attributes for hover tooltips -->
+
+<li class="tree-node expanded list-none" data-node-id="docs-{{ project.id }}" role="treeitem" aria-expanded="true">
+    <div class="flex items-center gap-1 group">
+        <!-- Collapse Button -->
+        <button 
+            class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+            hx-get="/ui/projects/{{ project.id }}/documents/collapse"
+            hx-target="closest .tree-node"
+            hx-swap="outerHTML"
+            aria-label="Collapse documents section"
+            title="Collapse">
+            <i data-lucide="chevron-down" class="w-4 h-4" aria-hidden="true"></i>
+        </button>
+        
+        <!-- Documents Link -->
+        <a 
+            href="/ui/projects/{{ project.id }}/documents"
+            hx-get="/ui/projects/{{ project.id }}/documents"
+            hx-target="#main-content"
+            hx-push-url="true"
+            class="tree-link flex-1 flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+            aria-label="View all documents">
+            <i data-lucide="file-stack" class="w-4 h-4 text-gray-600 flex-shrink-0" aria-hidden="true" title="Documents"></i>
+            <span class="text-sm font-medium text-gray-700">Documents</span>
+        </a>
+    </div>
+    
+    <!-- Children - Document Types with Status -->
+    <ul class="tree-children list-none ml-6 mt-1 space-y-0.5 border-l-2 border-gray-200 pl-2" role="group">
+        {% for doc_status in document_statuses %}
+        <li class="tree-node list-none" role="treeitem">
+            <a 
+                href="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
+                hx-get="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="tree-link flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 {% if doc_status.readiness == 'blocked' %}opacity-50{% endif %}"
+                aria-label="{{ doc_status.title }}{% if doc_status.readiness == 'blocked' %}, blocked{% elif doc_status.readiness == 'stale' %}, stale{% elif doc_status.readiness == 'waiting' %}, waiting to build{% else %}, ready{% endif %}{% if doc_status.acceptance_state == 'needs_acceptance' %}, needs acceptance{% elif doc_status.acceptance_state == 'rejected' %}, changes requested{% elif doc_status.acceptance_state == 'accepted' %}, accepted{% endif %}">
+                
+                <!-- Document Type Icon -->
+                <i data-lucide="{{ doc_status.icon }}" class="w-4 h-4 text-gray-500 flex-shrink-0" aria-hidden="true" title="{{ doc_status.title }}"></i>
+                
+                <!-- Document Title -->
+                <span class="text-sm text-gray-700 truncate flex-1">{{ doc_status.title }}</span>
+                
+                <!-- Status Icons -->
+                <span class="flex items-center gap-1 ml-auto flex-shrink-0" role="group" aria-label="Status indicators">
+                    <!-- Readiness Status -->
+                    {% if doc_status.readiness == 'ready' %}
+                        <i data-lucide="check-circle" class="w-3.5 h-3.5 text-green-500" aria-hidden="true" title="Ready — safe to use"></i>
+                        <span class="sr-only">Ready</span>
+                    {% elif doc_status.readiness == 'stale' %}
+                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-500" aria-hidden="true" title="Stale — inputs changed, review recommended"></i>
+                        <span class="sr-only">Stale - review recommended</span>
+                    {% elif doc_status.readiness == 'blocked' %}
+                        <i data-lucide="x-circle" class="w-3.5 h-3.5 text-red-400" aria-hidden="true" title="Blocked — missing: {{ doc_status.missing_inputs | join(', ') }}"></i>
+                        <span class="sr-only">Blocked - missing {{ doc_status.missing_inputs | join(', ') }}</span>
+                    {% elif doc_status.readiness == 'waiting' %}
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-gray-400" aria-hidden="true" title="Waiting — ready to build"></i>
+                        <span class="sr-only">Waiting - ready to build</span>
+                    {% endif %}
+                    
+                    <!-- Acceptance State (only if required and document exists) -->
+                    {% if doc_status.acceptance_state %}
+                        {% if doc_status.acceptance_state == 'accepted' %}
+                            <span class="w-2 h-2 bg-green-500 rounded-full" aria-hidden="true" title="Accepted"></span>
+                            <span class="sr-only">Accepted</span>
+                        {% elif doc_status.acceptance_state == 'needs_acceptance' %}
+                            <span class="w-2 h-2 bg-yellow-400 rounded-full" aria-hidden="true" title="Needs acceptance"></span>
+                            <span class="sr-only">Needs acceptance</span>
+                        {% elif doc_status.acceptance_state == 'rejected' %}
+                            <span class="w-2 h-2 bg-red-400 rounded-full" aria-hidden="true" title="Rejected — changes requested"></span>
+                            <span class="sr-only">Rejected - changes requested</span>
+                        {% endif %}
+                    {% endif %}
+                </span>
+            </a>
+            
+            <!-- Subtitle (if present) - calmer styling -->
+            {% if doc_status.subtitle %}
+            <div class="pl-6 text-xs text-gray-400 italic -mt-0.5 mb-1" aria-live="polite">
+                {{ doc_status.subtitle }}
+            </div>
+            {% endif %}
+        </li>
+        {% endfor %}
+        
+        <!-- Empty state -->
+        {% if not document_statuses %}
+        <li class="py-2 px-3 text-sm text-gray-400 italic">
+            No document types configured
+        </li>
+        {% endif %}
+    </ul>
+</li>

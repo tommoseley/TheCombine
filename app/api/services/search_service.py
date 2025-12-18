@@ -1,15 +1,14 @@
 """
-Search service for web UI
-Handles full-text search across projects and artifacts
+Search service for web UI - Document-centric version.
+Handles full-text search across projects and documents.
 """
 
-from sqlalchemy import select, or_, distinct
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, List, Set
 from dataclasses import dataclass
 
-# Import existing models
-from app.api.models import Project, Artifact
+from app.api.models import Project, Document
 
 
 @dataclass
@@ -18,6 +17,7 @@ class SearchResults:
     projects: List[Dict[str, Any]]
     epics: List[Dict[str, Any]]
     stories: List[Dict[str, Any]]
+    documents: List[Dict[str, Any]]  # Generic documents
     
     def get_tree_paths(self) -> List[str]:
         """
@@ -42,11 +42,16 @@ class SearchResults:
                 paths.add(f"epic-{story['epic_uuid']}")
             paths.add(f"story-{story['story_uuid']}")
         
+        # Add generic document paths
+        for doc in self.documents:
+            paths.add(f"project-{doc['project_uuid']}")
+            paths.add(f"document-{doc['document_uuid']}")
+        
         return list(paths)
 
 
 class SearchService:
-    """Service for search operations"""
+    """Service for search operations using Document model."""
     
     async def search_all(
         self,
@@ -55,7 +60,7 @@ class SearchService:
         limit: int = 10
     ) -> SearchResults:
         """
-        Search across all entities (projects, epics, stories)
+        Search across all entities (projects, documents)
         Returns structured results with parent relationships
         """
         search_term = f"%{query}%"
@@ -63,16 +68,20 @@ class SearchService:
         # Search projects
         projects = await self._search_projects(db, search_term, limit)
         
-        # Search epics (artifacts with artifact_type='epic')
-        epics = await self._search_epics(db, search_term, limit)
+        # Search epics (documents with doc_type_id='epic')
+        epics = await self._search_documents_by_type(db, search_term, 'epic', limit)
         
-        # Search stories (artifacts with artifact_type='story')
-        stories = await self._search_stories(db, search_term, limit)
+        # Search stories (documents with doc_type_id='story')
+        stories = await self._search_documents_by_type(db, search_term, 'story', limit)
+        
+        # Search all other documents
+        documents = await self._search_documents(db, search_term, limit)
         
         return SearchResults(
             projects=projects,
             epics=epics,
-            stories=stories
+            stories=stories,
+            documents=documents
         )
     
     async def _search_projects(
@@ -87,8 +96,7 @@ class SearchService:
             .where(
                 or_(
                     Project.name.ilike(search_term),
-                    Project.description.ilike(search_term),
-                    Project.project_id.ilike(search_term)
+                    Project.description.ilike(search_term)
                 )
             )
             .order_by(Project.updated_at.desc())
@@ -100,7 +108,7 @@ class SearchService:
         
         return [
             {
-                "project_uuid": project.project_id,
+                "project_uuid": str(project.id),
                 "name": project.name or "Untitled Project",
                 "description": project.description or "",
                 "status": project.status or "active"
@@ -108,91 +116,100 @@ class SearchService:
             for project in projects
         ]
     
-    async def _search_epics(
+    async def _search_documents_by_type(
         self,
         db: AsyncSession,
         search_term: str,
+        doc_type: str,
         limit: int
     ) -> List[Dict[str, Any]]:
-        """Search epics (artifacts with type='epic')"""
+        """Search documents of a specific type."""
         query = (
-            select(Artifact)
-            .where(Artifact.artifact_type == 'epic')
+            select(Document)
+            .where(Document.doc_type_id == doc_type)
+            .where(Document.is_latest == True)
             .where(
                 or_(
-                    Artifact.title.ilike(search_term),
-                    Artifact.epic_id.ilike(search_term),
-                    Artifact.artifact_path.ilike(search_term)
+                    Document.title.ilike(search_term),
+                    Document.summary.ilike(search_term)
                 )
             )
-            .order_by(Artifact.updated_at.desc())
+            .order_by(Document.updated_at.desc())
             .limit(limit)
         )
         
         result = await db.execute(query)
-        epics = result.scalars().all()
+        docs = result.scalars().all()
         
         # Get project names
-        epic_results = []
-        for epic in epics:
-            proj_query = select(Project).where(Project.project_id == epic.project_id)
-            proj_result = await db.execute(proj_query)
-            project = proj_result.scalar_one_or_none()
+        doc_results = []
+        for doc in docs:
+            project = await db.get(Project, doc.space_id) if doc.space_type == 'project' else None
             
-            epic_results.append({
-                "epic_uuid": epic.epic_id,
-                "name": epic.title or f"Epic {epic.epic_id}",
-                "description": "",
-                "status": epic.status or "pending",
-                "project_uuid": epic.project_id,
-                "project_name": project.name if project else "Unknown Project"
-            })
+            if doc_type == 'epic':
+                doc_results.append({
+                    "epic_uuid": str(doc.id),
+                    "name": doc.title,
+                    "description": doc.summary or "",
+                    "status": doc.status,
+                    "project_uuid": str(doc.space_id),
+                    "project_name": project.name if project else "Unknown Project"
+                })
+            elif doc_type == 'story':
+                doc_results.append({
+                    "story_uuid": str(doc.id),
+                    "title": doc.title,
+                    "description": doc.summary or "",
+                    "status": doc.status,
+                    "epic_uuid": None,  # Would need to query relations to get this
+                    "epic_name": "Unknown Epic",
+                    "project_uuid": str(doc.space_id),
+                    "project_name": project.name if project else "Unknown Project"
+                })
         
-        return epic_results
+        return doc_results
     
-    async def _search_stories(
+    async def _search_documents(
         self,
         db: AsyncSession,
         search_term: str,
         limit: int
     ) -> List[Dict[str, Any]]:
-        """Search stories (artifacts with type='story')"""
+        """Search all documents (excluding epics and stories which have their own handlers)."""
         query = (
-            select(Artifact)
-            .where(Artifact.artifact_type == 'story')
+            select(Document)
+            .where(Document.is_latest == True)
+            .where(Document.doc_type_id.notin_(['epic', 'story']))
             .where(
                 or_(
-                    Artifact.title.ilike(search_term),
-                    Artifact.story_id.ilike(search_term),
-                    Artifact.artifact_path.ilike(search_term)
+                    Document.title.ilike(search_term),
+                    Document.summary.ilike(search_term)
                 )
             )
-            .order_by(Artifact.updated_at.desc())
+            .order_by(Document.updated_at.desc())
             .limit(limit)
         )
         
         result = await db.execute(query)
-        stories = result.scalars().all()
+        docs = result.scalars().all()
         
-        # Get project names
-        story_results = []
-        for story in stories:
-            proj_query = select(Project).where(Project.project_id == story.project_id)
-            proj_result = await db.execute(proj_query)
-            project = proj_result.scalar_one_or_none()
+        doc_results = []
+        for doc in docs:
+            project = await db.get(Project, doc.space_id) if doc.space_type == 'project' else None
             
-            story_results.append({
-                "story_uuid": story.story_id,
-                "title": story.title or f"Story {story.story_id}",
-                "description": "",
-                "status": story.status or "pending",
-                "epic_uuid": story.epic_id,
-                "epic_name": f"Epic {story.epic_id}" if story.epic_id else "Unknown Epic",
-                "project_uuid": story.project_id,
-                "project_name": project.name if project else "Unknown Project"
+            doc_results.append({
+                "document_uuid": str(doc.id),
+                "doc_type_id": doc.doc_type_id,
+                "title": doc.title,
+                "description": doc.summary or "",
+                "status": doc.status,
+                "is_stale": doc.is_stale,
+                "project_uuid": str(doc.space_id) if doc.space_type == 'project' else None,
+                "project_name": project.name if project else None,
+                "space_type": doc.space_type
             })
         
-        return story_results
+        return doc_results
 
 
 # Singleton instance

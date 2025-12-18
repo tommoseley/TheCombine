@@ -1,3 +1,6 @@
+<!-- components/tree/project_expanded.html -->
+<!-- Updated to use document-centric structure per ADR-007 -->
+
 <li class="tree-node expanded list-none" data-node-id="project-{{ project.id }}">
     <div class="flex items-center gap-1 group">
         <!-- Collapse Button -->
@@ -24,8 +27,8 @@
     
     <!-- Children -->
     <ul class="tree-children list-none ml-6 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
-        <!-- Architecture Node (Collapsed by default) -->
-        {% include 'components/tree/architecture_collapsed.html' %}
+        <!-- Documents Node (replaces Architecture) -->
+        {% include 'components/tree/documents_collapsed.html' %}
         
         <!-- Epics Section Header -->
         {% if project.epics and project.epics|length > 0 %}
