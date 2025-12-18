@@ -137,6 +137,40 @@ class Document(Base):
     )
     
     # =========================================================================
+    # ACCEPTANCE (ADR-007)
+    # =========================================================================
+    
+    accepted_at: Mapped[Optional[datetime]] = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Timestamp when document was accepted"
+    )
+    
+    accepted_by: Mapped[Optional[str]] = Column(
+        String(200),
+        nullable=True,
+        doc="User ID or identifier who accepted the document"
+    )
+    
+    rejected_at: Mapped[Optional[datetime]] = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        doc="Timestamp when document was rejected (most recent rejection)"
+    )
+    
+    rejected_by: Mapped[Optional[str]] = Column(
+        String(200),
+        nullable=True,
+        doc="User ID or identifier who rejected the document"
+    )
+    
+    rejection_reason: Mapped[Optional[str]] = Column(
+        Text,
+        nullable=True,
+        doc="Human-provided reason for rejection"
+    )
+    
+    # =========================================================================
     # PROVENANCE - Who/what created this document?
     # =========================================================================
     
@@ -223,6 +257,13 @@ class Document(Base):
         
         # Full-text search
         Index("idx_documents_search", "search_vector", postgresql_using="gin"),
+        
+        # Acceptance status index (ADR-007)
+        Index(
+            "idx_documents_acceptance",
+            "accepted_at", "rejected_at",
+            postgresql_where=(is_latest == True)
+        ),
     )
     
     # =========================================================================
@@ -257,6 +298,68 @@ class Document(Base):
     def derivatives(self) -> List["DocumentRelation"]:
         """Get documents derived from this document."""
         return [r for r in self.incoming_relations if r.relation_type == "derived_from"]
+    
+    # =========================================================================
+    # ACCEPTANCE METHODS (ADR-007)
+    # =========================================================================
+    
+    @property
+    def is_accepted(self) -> bool:
+        """Check if document has been accepted."""
+        return self.accepted_at is not None and self.rejected_at is None
+    
+    @property
+    def is_rejected(self) -> bool:
+        """Check if document has been rejected (and not subsequently accepted)."""
+        if self.rejected_at is None:
+            return False
+        if self.accepted_at is None:
+            return True
+        # If both exist, the later one wins
+        return self.rejected_at > self.accepted_at
+    
+    @property
+    def needs_acceptance(self) -> bool:
+        """Check if document needs acceptance (not yet accepted or rejected)."""
+        return self.accepted_at is None and self.rejected_at is None
+    
+    def accept(self, accepted_by: str) -> None:
+        """
+        Accept this document.
+        
+        Clears rejection state if previously rejected.
+        """
+        self.accepted_at = func.now()
+        self.accepted_by = accepted_by
+        # Clear rejection (acceptance supersedes rejection)
+        self.rejected_at = None
+        self.rejected_by = None
+        self.rejection_reason = None
+    
+    def reject(self, rejected_by: str, reason: str) -> None:
+        """
+        Reject this document.
+        
+        Clears acceptance state if previously accepted.
+        """
+        self.rejected_at = func.now()
+        self.rejected_by = rejected_by
+        self.rejection_reason = reason
+        # Clear acceptance (rejection supersedes acceptance)
+        self.accepted_at = None
+        self.accepted_by = None
+    
+    def clear_acceptance(self) -> None:
+        """
+        Clear all acceptance/rejection state.
+        
+        Used when document is rebuilt and needs fresh review.
+        """
+        self.accepted_at = None
+        self.accepted_by = None
+        self.rejected_at = None
+        self.rejected_by = None
+        self.rejection_reason = None
     
     def __repr__(self) -> str:
         return f"<Document(id={self.id}, type={self.doc_type_id}, title='{self.title[:30]}...')>"

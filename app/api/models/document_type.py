@@ -22,6 +22,7 @@ class DocumentType(Base):
     - How it's BUILT (prompts, builder role/task)
     - What it NEEDS (required/optional inputs)
     - How it's HANDLED (handler_id maps to code)
+    - Who must ACCEPT it (ADR-007 acceptance workflow)
     
     Adding a new document type is an INSERT, not a code change.
     """
@@ -66,6 +67,29 @@ class DocumentType(Base):
     # e.g., {"blocking_questions_answered": true}
     gating_rules = Column(JSONB, nullable=False, default=dict)
     
+    # =========================================================================
+    # ACCEPTANCE CONFIGURATION (ADR-007)
+    # =========================================================================
+    
+    # Does this document type require human sign-off before downstream use?
+    acceptance_required = Column(
+        Boolean, 
+        nullable=False, 
+        default=False,
+        doc="Whether this document type requires human acceptance before downstream use"
+    )
+    
+    # Which role is responsible for acceptance? (pm, architect, tech_lead, etc.)
+    accepted_by_role = Column(
+        String(64), 
+        nullable=True,
+        doc="Role that must accept this document type (pm, architect, etc.)"
+    )
+    
+    # =========================================================================
+    # SCOPE & DISPLAY
+    # =========================================================================
+    
     # Scope - where does this document appear?
     # 'project' = one per project, 'epic' = one per epic, 'story' = one per story
     scope = Column(String(50), nullable=False, default="project")
@@ -93,6 +117,8 @@ class DocumentType(Base):
         Index('idx_document_types_scope', 'scope'),
         Index('idx_document_types_active', 'is_active'),
         Index('idx_document_types_builder', 'builder_role', 'builder_task'),
+        Index('idx_document_types_acceptance_required', 'acceptance_required',
+              postgresql_where='acceptance_required = true'),
     )
     
     def __repr__(self):
@@ -115,6 +141,8 @@ class DocumentType(Base):
             "required_inputs": self.required_inputs,
             "optional_inputs": self.optional_inputs,
             "gating_rules": self.gating_rules,
+            "acceptance_required": self.acceptance_required,
+            "accepted_by_role": self.accepted_by_role,
             "scope": self.scope,
             "display_order": self.display_order,
             "is_active": self.is_active,

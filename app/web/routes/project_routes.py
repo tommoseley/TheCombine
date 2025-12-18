@@ -1,19 +1,27 @@
 """
 Project routes for The Combine UI
 Handles project CRUD, tree navigation, and project details
+
+Updated to support document-centric architecture (ADR-007)
+- Removed Artifact dependency (replaced by Document)
+- Uses DocumentStatusService for status derivation
 """
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from uuid import UUID
 import logging
 
 from database import get_db
 from .shared import templates, get_template
 from app.api.services import project_service
-from app.api.models import Artifact
+from app.api.services.document_status_service import (
+    DocumentStatusService,
+    document_status_service,
+    ReadinessStatus
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
@@ -23,11 +31,14 @@ logger = logging.getLogger(__name__)
 # HELPER FUNCTIONS
 # ============================================================================
 
-async def get_artifact_by_path(db: AsyncSession, artifact_path: str) -> Optional[Artifact]:
-    """Load an artifact by its path."""
-    query = select(Artifact).where(Artifact.artifact_path == artifact_path)
-    result = await db.execute(query)
-    return result.scalar_one_or_none()
+def _compute_document_summary(document_statuses: list) -> dict:
+    """Compute summary counts from document statuses for collapsed view."""
+    return {
+        "ready_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.READY),
+        "stale_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.STALE),
+        "blocked_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.BLOCKED),
+        "waiting_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.WAITING),
+    }
 
 
 # ============================================================================
@@ -69,90 +80,85 @@ async def expand_project_tree_node(
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get expanded project node with epics"""
+    """Get expanded project node with documents and epics"""
     project = await project_service.get_project_with_epics(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    # Check for architecture artifacts
-    has_preliminary = await get_artifact_by_path(
-        db, f"{project['project_id']}/ARCH/DISCOVERY"
-    ) is not None
-    has_final = await get_artifact_by_path(
-        db, f"{project['project_id']}/ARCH/FINAL"
-    ) is not None
+    # Get document statuses for summary display
+    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
+    document_summary = _compute_document_summary(document_statuses)
     
     return templates.TemplateResponse(
         "components/tree/project_expanded.html",
         {
             "request": request,
             "project": project,
-            "has_preliminary": has_preliminary,
-            "has_final": has_final
+            "document_summary": document_summary
         }
     )
 
 
-@router.get("/{project_id}/architecture/expand", response_class=HTMLResponse)
-async def expand_architecture_tree_node(
+@router.get("/{project_id}/documents/expand", response_class=HTMLResponse)
+async def expand_documents_tree_node(
     request: Request,
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get expanded architecture node with Discovery/Final children"""
+    """
+    Expand the Documents node to show individual document types with status.
+    Returns the documents_expanded.html partial per ADR-007.
+    """
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Handle both dict and ORM object
-    proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
-    
-    # Check for architecture artifacts
-    has_preliminary = await get_artifact_by_path(
-        db, f"{proj_id}/ARCH/DISCOVERY"
-    ) is not None
-    has_final = await get_artifact_by_path(
-        db, f"{proj_id}/ARCH/FINAL"
-    ) is not None
+    # Get document statuses for the project
+    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
     
     return templates.TemplateResponse(
-        "components/tree/architecture_expanded.html",
+        "components/tree/documents_expanded.html",
         {
             "request": request,
             "project": project,
-            "has_preliminary": has_preliminary,
-            "has_final": has_final
+            "document_statuses": document_statuses
         }
     )
 
 
-@router.get("/{project_id}/architecture/collapse", response_class=HTMLResponse)
-async def collapse_architecture_tree_node(
+@router.get("/{project_id}/documents/collapse", response_class=HTMLResponse)
+async def collapse_documents_tree_node(
     request: Request,
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get collapsed architecture node"""
+    """
+    Collapse the Documents node to show summary indicators.
+    Returns the documents_collapsed.html partial.
+    """
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Handle both dict and ORM object
-    proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
-    
-    # Check for architecture artifacts
-    has_preliminary = await get_artifact_by_path(
-        db, f"{proj_id}/ARCH/DISCOVERY"
-    ) is not None
-    has_final = await get_artifact_by_path(
-        db, f"{proj_id}/ARCH/FINAL"
-    ) is not None
+    # Get document statuses to compute summary
+    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
+    document_summary = _compute_document_summary(document_statuses)
     
     return templates.TemplateResponse(
-        "components/tree/architecture_collapsed.html",
+        "components/tree/documents_collapsed.html",
         {
             "request": request,
             "project": project,
-            "has_preliminary": has_preliminary,
-            "has_final": has_final
+            "document_summary": document_summary
         }
     )
 
@@ -277,27 +283,21 @@ async def get_project_detail(
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         
-        # Handle both dict and ORM object
-        proj_id = project['project_id'] if isinstance(project, dict) else project.project_id
-        
-        # Load architecture artifacts
-        preliminary_architecture = await get_artifact_by_path(
-            db, f"{proj_id}/ARCH/DISCOVERY"
-        )
-        final_architecture = await get_artifact_by_path(
-            db, f"{proj_id}/ARCH/FINAL"
-        )
-        
         # Load epics - use get_project_with_epics which includes them
         project_with_epics = await project_service.get_project_with_epics(db, project_id)
         epics = project_with_epics.get('epics', []) if project_with_epics else []
         
+        # Get document statuses for the document-centric view
+        project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
+        document_statuses = await document_status_service.get_project_document_statuses(
+            db, project_uuid
+        )
+        
         context = {
             "request": request,
             "project": project,
-            "preliminary_architecture": preliminary_architecture,
-            "final_architecture": final_architecture,
-            "epics": epics or []
+            "epics": epics or [],
+            "document_statuses": document_statuses
         }
         
         template = get_template(

@@ -1,0 +1,182 @@
+{#
+  Document Content Renderer (ADR-007)
+  
+  Renders document content based on document type.
+  Handles JSON content from different document types.
+  
+  Required context:
+    - active_document: Document object with content (JSONB)
+    - doc_status: DocumentStatus object (for type info)
+#}
+
+{% if active_document.content %}
+
+  {# ===== PROJECT DISCOVERY ===== #}
+  {% if doc_status.doc_type_id == 'project_discovery' %}
+    {% set content = active_document.content %}
+    
+    {% if content.problem_statement %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Problem Statement</h3>
+      <p class="text-gray-700">{{ content.problem_statement }}</p>
+    </section>
+    {% endif %}
+    
+    {% if content.goals %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Goals</h3>
+      <ul class="list-disc list-inside space-y-1 text-gray-700">
+        {% for goal in content.goals %}
+        <li>{{ goal }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    
+    {% if content.target_users %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Target Users</h3>
+      <p class="text-gray-700">{{ content.target_users }}</p>
+    </section>
+    {% endif %}
+    
+    {% if content.constraints %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Constraints</h3>
+      <ul class="list-disc list-inside space-y-1 text-gray-700">
+        {% for constraint in content.constraints %}
+        <li>{{ constraint }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+  {# ===== TECHNICAL ARCHITECTURE ===== #}
+  {% elif doc_status.doc_type_id == 'technical_architecture' %}
+    {% set content = active_document.content %}
+    
+    {% if content.overview %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Overview</h3>
+      <p class="text-gray-700">{{ content.overview }}</p>
+    </section>
+    {% endif %}
+    
+    {% if content.components %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Components</h3>
+      <div class="space-y-4">
+        {% for component in content.components %}
+        <div class="p-4 bg-gray-50 rounded-lg">
+          <h4 class="font-medium text-gray-900">{{ component.name }}</h4>
+          <p class="text-sm text-gray-600 mt-1">{{ component.description }}</p>
+          {% if component.technologies %}
+          <div class="mt-2 flex flex-wrap gap-1">
+            {% for tech in component.technologies %}
+            <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">{{ tech }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    
+    {% if content.decisions %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Key Decisions</h3>
+      <div class="space-y-3">
+        {% for decision in content.decisions %}
+        <div class="border-l-4 border-blue-400 pl-4">
+          <h4 class="font-medium text-gray-900">{{ decision.title }}</h4>
+          <p class="text-sm text-gray-600">{{ decision.rationale }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+  {# ===== EPIC BACKLOG ===== #}
+  {% elif doc_status.doc_type_id == 'epic_backlog' %}
+    {% set content = active_document.content %}
+    
+    {% if content.epics %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Epics</h3>
+      <div class="space-y-4">
+        {% for epic in content.epics %}
+        <div class="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs font-medium text-gray-500">{{ epic.id }}</span>
+              <h4 class="font-medium text-gray-900 mt-0.5">{{ epic.title }}</h4>
+              <p class="text-sm text-gray-600 mt-1">{{ epic.description }}</p>
+            </div>
+            {% if epic.priority %}
+            <span class="px-2 py-1 text-xs font-medium rounded
+                         {% if epic.priority == 'high' %}bg-red-100 text-red-700
+                         {% elif epic.priority == 'medium' %}bg-yellow-100 text-yellow-700
+                         {% else %}bg-gray-100 text-gray-700{% endif %}">
+              {{ epic.priority | title }}
+            </span>
+            {% endif %}
+          </div>
+          {% if epic.acceptance_criteria %}
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <p class="text-xs font-medium text-gray-500 mb-1">Acceptance Criteria</p>
+            <ul class="text-sm text-gray-600 space-y-0.5">
+              {% for criterion in epic.acceptance_criteria %}
+              <li class="flex items-start gap-1.5">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0"></i>
+                {{ criterion }}
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+  {# ===== STORY BACKLOG ===== #}
+  {% elif doc_status.doc_type_id == 'story_backlog' %}
+    {% set content = active_document.content %}
+    
+    {% if content.stories %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Stories</h3>
+      <div class="space-y-3">
+        {% for story in content.stories %}
+        <div class="p-3 border border-gray-200 rounded-lg">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-mono text-gray-500">{{ story.id }}</span>
+            {% if story.points %}
+            <span class="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">
+              {{ story.points }} pts
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-gray-900 mt-1">{{ story.title }}</p>
+          {% if story.epic_id %}
+          <p class="text-xs text-gray-500 mt-1">Epic: {{ story.epic_id }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+  {# ===== GENERIC FALLBACK ===== #}
+  {% else %}
+    <section class="mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Document Content</h3>
+      <pre class="p-4 bg-gray-50 rounded-lg overflow-x-auto text-sm text-gray-700"><code>{{ active_document.content | tojson(indent=2) }}</code></pre>
+    </section>
+  {% endif %}
+
+{% else %}
+  <p class="text-gray-500 italic">No content available.</p>
+{% endif %}

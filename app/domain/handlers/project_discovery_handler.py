@@ -18,12 +18,12 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
     Handler for Project Discovery documents.
     
     Project Discovery captures:
-    - Problem understanding and system shape
+    - Problem understanding and architectural intent
     - Blocking questions and unknowns
     - Early decision points
-    - Candidate architectural patterns
     - Constraints, assumptions, and risks
     - MVP guardrails
+    - Recommendations for PM
     """
     
     @property
@@ -57,7 +57,8 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
             errors.append("Missing required field: 'preliminary_summary'")
         elif isinstance(data["preliminary_summary"], dict):
             summary = data["preliminary_summary"]
-            for field in ["problem_understanding", "proposed_system_shape", "architectural_intent"]:
+            # Updated required fields - removed proposed_system_shape, added scope_pressure_points
+            for field in ["problem_understanding", "architectural_intent"]:
                 if field not in summary or not summary[field]:
                     errors.append(f"Missing required summary field: '{field}'")
         elif isinstance(data["preliminary_summary"], str):
@@ -85,12 +86,11 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
             "unknowns",
             "stakeholder_questions", 
             "early_decision_points",
-            "candidate_architectural_patterns",
             "known_constraints",
             "assumptions",
             "identified_risks",
             "mvp_guardrails",
-            "next_steps",
+            "recommendations_for_pm",
         ]
         
         for field in array_fields:
@@ -101,8 +101,8 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         if "preliminary_summary" in data and isinstance(data["preliminary_summary"], str):
             data["preliminary_summary"] = {
                 "problem_understanding": data["preliminary_summary"],
-                "proposed_system_shape": "",
                 "architectural_intent": "",
+                "scope_pressure_points": "",
             }
         
         return data
@@ -170,18 +170,18 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
                         <p class="text-blue-900">{self._escape(summary["problem_understanding"])}</p>
                     </div>
                 ''')
-            if summary.get("proposed_system_shape"):
-                html_parts.append(f'''
-                    <div>
-                        <span class="text-sm font-medium text-blue-800">Proposed System Shape:</span>
-                        <p class="text-blue-900">{self._escape(summary["proposed_system_shape"])}</p>
-                    </div>
-                ''')
             if summary.get("architectural_intent"):
                 html_parts.append(f'''
                     <div>
                         <span class="text-sm font-medium text-blue-800">Architectural Intent:</span>
                         <p class="text-blue-900">{self._escape(summary["architectural_intent"])}</p>
+                    </div>
+                ''')
+            if summary.get("scope_pressure_points"):
+                html_parts.append(f'''
+                    <div>
+                        <span class="text-sm font-medium text-blue-800">Scope Pressure Points:</span>
+                        <p class="text-blue-900">{self._escape(summary["scope_pressure_points"])}</p>
                     </div>
                 ''')
             html_parts.append('</div>')
@@ -202,14 +202,9 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         # Early Decision Points
         decisions = data.get("early_decision_points", [])
         if decisions:
-            html_parts.append(self._render_decisions(decisions))
+            html_parts.append(self._render_decision_points(decisions))
         
-        # Candidate Patterns
-        patterns = data.get("candidate_architectural_patterns", [])
-        if patterns:
-            html_parts.append(self._render_patterns(patterns))
-        
-        # Two column: Constraints & Assumptions
+        # Constraints and Assumptions
         constraints = data.get("known_constraints", [])
         assumptions = data.get("assumptions", [])
         if constraints or assumptions:
@@ -225,98 +220,67 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         if guardrails:
             html_parts.append(self._render_guardrails(guardrails))
         
-        # Next Steps
-        next_steps = data.get("next_steps", [])
-        if next_steps:
-            html_parts.append(self._render_next_steps(next_steps))
+        # Recommendations for PM
+        recommendations = data.get("recommendations_for_pm", [])
+        if recommendations:
+            html_parts.append(self._render_recommendations(recommendations))
+        
+        # Non-blocking questions
+        non_blocking = [q for q in questions if not q.get("blocking")]
+        if non_blocking:
+            html_parts.append(self._render_non_blocking_questions(non_blocking))
         
         # Close container
         html_parts.append('</div>')
         
-        return '\n'.join(html_parts)
+        return ''.join(html_parts)
     
     # =========================================================================
-    # RENDERING - Summary view
+    # SUMMARY RENDERING
     # =========================================================================
     
     def render_summary(
-        self, 
+        self,
         data: Dict[str, Any],
         context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Render summary card for project discovery.
-        
-        Shows:
-        - Project name
-        - Problem understanding (truncated)
-        - Counts of blocking items
+        Render compact project discovery summary for cards/lists.
         """
         project_name = data.get("project_name", "Project")
         summary = data.get("preliminary_summary", {})
         
-        # Get problem understanding
+        # Extract first sentence of problem understanding
+        problem = ""
         if isinstance(summary, dict):
-            problem = summary.get("problem_understanding", "")
-        else:
-            problem = str(summary)
+            problem = summary.get("problem_understanding", "")[:200]
+        elif isinstance(summary, str):
+            problem = summary[:200]
         
-        # Truncate if too long
-        if len(problem) > 150:
-            problem = problem[:147] + "..."
-        
-        # Count blocking items
-        questions = data.get("stakeholder_questions", [])
-        blocking_count = len([q for q in questions if q.get("blocking")])
         unknowns_count = len(data.get("unknowns", []))
+        blocking_count = len([q for q in data.get("stakeholder_questions", []) if q.get("blocking")])
         
         html = f'''
-        <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-            <div class="flex items-start justify-between mb-2">
-                <div class="flex items-center">
-                    <i data-lucide="search" class="w-5 h-5 mr-2 text-blue-600"></i>
-                    <h3 class="font-semibold text-gray-900">{self._escape(project_name)}</h3>
-                </div>
+        <div class="p-4">
+            <div class="flex items-center mb-2">
+                <i data-lucide="search" class="w-5 h-5 mr-2 text-blue-600"></i>
+                <h3 class="font-semibold text-gray-900">{self._escape(project_name)}</h3>
             </div>
-            <p class="text-sm text-gray-600 mb-3">{self._escape(problem)}</p>
-            <div class="flex items-center space-x-4 text-xs text-gray-500">
-        '''
-        
-        if blocking_count > 0:
-            html += f'''
-                <span class="flex items-center text-red-600">
-                    <i data-lucide="alert-circle" class="w-3 h-3 mr-1"></i>
-                    {blocking_count} blocking
-                </span>
-            '''
-        
-        if unknowns_count > 0:
-            html += f'''
-                <span class="flex items-center text-amber-600">
-                    <i data-lucide="help-circle" class="w-3 h-3 mr-1"></i>
-                    {unknowns_count} unknowns
-                </span>
-            '''
-        
-        html += '''
+            <p class="text-sm text-gray-600 mb-3">{self._escape(problem)}{'...' if len(problem) == 200 else ''}</p>
+            <div class="flex gap-4 text-xs text-gray-500">
+                <span>{unknowns_count} unknowns</span>
+                <span>{blocking_count} blocking questions</span>
             </div>
         </div>
         '''
-        
         return html
     
     # =========================================================================
     # PRIVATE RENDER HELPERS
     # =========================================================================
     
-    def _escape(self, text: Any) -> str:
-        """HTML escape a string."""
-        if text is None:
-            return ""
-        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    
     def _render_blocking_questions(self, questions: List[Dict]) -> str:
-        """Render blocking questions section."""
+        """Render blocking stakeholder questions."""
         html = '''
         <div class="mb-8">
             <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
@@ -327,17 +291,40 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         '''
         
         for q in questions:
-            directed_to = q.get("directed_to", "").replace("_", " ").title()
+            directed_to = q.get("directed_to", "stakeholder")
             html += f'''
-                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div class="flex items-start justify-between">
-                        <p class="font-medium text-red-900">{self._escape(q.get("question", ""))}</p>
-                        <span class="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded">{directed_to}</span>
-                    </div>
+                <div class="border-l-4 border-red-400 bg-red-50 p-4 rounded-r-lg">
+                    <p class="font-medium text-red-900">{self._escape(q.get("question", ""))}</p>
+                    <p class="text-sm text-red-700 mt-1">
+                        Directed to: <span class="font-medium">{self._escape(directed_to)}</span>
+                    </p>
+                </div>
             '''
-            if q.get("notes"):
-                html += f'<p class="text-sm text-red-700 mt-2">{self._escape(q["notes"])}</p>'
-            html += '</div>'
+        
+        html += '</div></div>'
+        return html
+    
+    def _render_non_blocking_questions(self, questions: List[Dict]) -> str:
+        """Render non-blocking stakeholder questions."""
+        html = '''
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                <i data-lucide="help-circle" class="w-5 h-5 mr-2 text-gray-500"></i>
+                Other Stakeholder Questions
+            </h3>
+            <div class="space-y-3">
+        '''
+        
+        for q in questions:
+            directed_to = q.get("directed_to", "stakeholder")
+            html += f'''
+                <div class="border border-gray-200 bg-gray-50 p-4 rounded-lg">
+                    <p class="font-medium text-gray-900">{self._escape(q.get("question", ""))}</p>
+                    <p class="text-sm text-gray-600 mt-1">
+                        Directed to: <span class="font-medium">{self._escape(directed_to)}</span>
+                    </p>
+                </div>
+            '''
         
         html += '</div></div>'
         return html
@@ -348,29 +335,39 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         <div class="mb-8">
             <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                 <i data-lucide="help-circle" class="w-5 h-5 mr-2 text-amber-500"></i>
-                Unknowns to Resolve
+                Unknowns
             </h3>
             <div class="space-y-3">
         '''
         
         for unknown in unknowns:
             html += f'''
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div class="border border-amber-200 bg-amber-50 p-4 rounded-lg">
                     <p class="font-medium text-amber-900">{self._escape(unknown.get("question", ""))}</p>
-                    <p class="text-sm text-amber-700 mt-1"><strong>Why it matters:</strong> {self._escape(unknown.get("why_it_matters", ""))}</p>
-                    <p class="text-sm text-amber-700"><strong>Impact if unresolved:</strong> {self._escape(unknown.get("impact_if_unresolved", ""))}</p>
-                </div>
             '''
+            if unknown.get("why_it_matters"):
+                html += f'''
+                    <p class="text-sm text-amber-700 mt-2">
+                        <span class="font-medium">Why it matters:</span> {self._escape(unknown["why_it_matters"])}
+                    </p>
+                '''
+            if unknown.get("impact_if_unresolved"):
+                html += f'''
+                    <p class="text-sm text-amber-700 mt-1">
+                        <span class="font-medium">Impact if unresolved:</span> {self._escape(unknown["impact_if_unresolved"])}
+                    </p>
+                '''
+            html += '</div>'
         
         html += '</div></div>'
         return html
     
-    def _render_decisions(self, decisions: List[Dict]) -> str:
+    def _render_decision_points(self, decisions: List[Dict]) -> str:
         """Render early decision points."""
         html = '''
         <div class="mb-8">
             <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <i data-lucide="git-pull-request" class="w-5 h-5 mr-2 text-purple-500"></i>
+                <i data-lucide="git-branch" class="w-5 h-5 mr-2 text-purple-500"></i>
                 Early Decision Points
             </h3>
             <div class="space-y-4">
@@ -378,72 +375,33 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         
         for decision in decisions:
             html += f'''
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <p class="font-semibold text-gray-900 mb-2">{self._escape(decision.get("decision", ""))}</p>
+                <div class="border border-purple-200 bg-purple-50 p-4 rounded-lg">
+                    <p class="font-semibold text-purple-900 mb-2">{self._escape(decision.get("decision_area", ""))}</p>
             '''
+            
+            if decision.get("why_early"):
+                html += f'''
+                    <p class="text-sm text-purple-700 mb-2">
+                        <span class="font-medium">Why decide early:</span> {self._escape(decision["why_early"])}
+                    </p>
+                '''
             
             options = decision.get("options", [])
             if options:
-                html += '''
-                    <div class="mb-3">
-                        <span class="text-sm font-medium text-gray-600">Options:</span>
-                        <ul class="mt-1 space-y-1">
-                '''
-                for option in options:
+                html += '<div class="mb-2"><span class="text-sm font-medium text-purple-800">Options:</span><ul class="list-disc list-inside ml-2">'
+                for opt in options:
                     html += f'''
-                        <li class="text-sm text-gray-700 flex items-center">
-                            <span class="w-1.5 h-1.5 bg-gray-400 rounded-full mr-2"></span>
-                            {self._escape(option)}
-                        </li>
+                        <li class="text-sm text-purple-700">{self._escape(opt)}</li>
                     '''
                 html += '</ul></div>'
             
             if decision.get("recommendation_direction"):
                 html += f'''
-                    <div class="bg-purple-50 rounded p-3">
+                    <div class="bg-purple-100 rounded p-3 mt-2">
                         <span class="text-sm font-medium text-purple-800">Recommendation:</span>
                         <p class="text-sm text-purple-900">{self._escape(decision["recommendation_direction"])}</p>
                     </div>
                 '''
-            
-            html += '</div>'
-        
-        html += '</div></div>'
-        return html
-    
-    def _render_patterns(self, patterns: List[Dict]) -> str:
-        """Render candidate architectural patterns."""
-        html = '''
-        <div class="mb-8">
-            <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <i data-lucide="layers" class="w-5 h-5 mr-2 text-indigo-500"></i>
-                Candidate Patterns
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        '''
-        
-        for pattern in patterns:
-            html += f'''
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <p class="font-semibold text-gray-900 mb-2">{self._escape(pattern.get("pattern", ""))}</p>
-                    <p class="text-sm text-gray-600 mb-2">{self._escape(pattern.get("applicability", ""))}</p>
-            '''
-            
-            risks = pattern.get("risks", [])
-            if risks:
-                html += '''
-                    <div class="mt-2">
-                        <span class="text-xs font-medium text-gray-500 uppercase">Risks:</span>
-                        <ul class="mt-1">
-                '''
-                for risk in risks:
-                    html += f'''
-                        <li class="text-sm text-red-600 flex items-center">
-                            <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>
-                            {self._escape(risk)}
-                        </li>
-                    '''
-                html += '</ul></div>'
             
             html += '</div>'
         
@@ -529,7 +487,7 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
                             {likelihood.title()}
                         </span>
                     </div>
-                    <p class="text-sm text-gray-600">{self._escape(risk.get("impact", ""))}</p>
+                    <p class="text-sm text-gray-600">{self._escape(risk.get("impact_on_planning", ""))}</p>
                 </div>
             '''
         
@@ -544,53 +502,47 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
                 <i data-lucide="shield" class="w-5 h-5 mr-2 text-green-500"></i>
                 MVP Guardrails
             </h3>
-            <div class="space-y-3">
+            <ul class="space-y-2">
         '''
         
         for guardrail in guardrails:
             # Handle both string and dict formats
             if isinstance(guardrail, str):
                 html += f'''
-                <div class="border border-green-200 bg-green-50 rounded-lg p-4">
-                    <p class="font-medium text-green-900">{self._escape(guardrail)}</p>
-                </div>
+                <li class="flex items-start text-sm text-gray-700 bg-green-50 p-3 rounded-lg">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 text-green-600 flex-shrink-0 mt-0.5"></i>
+                    {self._escape(guardrail)}
+                </li>
                 '''
             else:
-                scope = guardrail.get("scope", "")
                 html += f'''
-                <div class="border border-green-200 bg-green-50 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-1">
-                        <p class="font-medium text-green-900">{self._escape(guardrail.get("guardrail", ""))}</p>
-                        <span class="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">
-                            {self._escape(scope)}
-                        </span>
-                    </div>
-                    <p class="text-sm text-green-700">{self._escape(guardrail.get("rationale", ""))}</p>
-                </div>
+                <li class="flex items-start text-sm text-gray-700 bg-green-50 p-3 rounded-lg">
+                    <i data-lucide="check" class="w-4 h-4 mr-2 text-green-600 flex-shrink-0 mt-0.5"></i>
+                    {self._escape(guardrail.get("guardrail", ""))}
+                </li>
                 '''
         
-        html += '</div></div>'
+        html += '</ul></div>'
         return html
     
-    def _render_next_steps(self, next_steps: List[Dict]) -> str:
-        """Render next steps."""
+    def _render_recommendations(self, recommendations: List[str]) -> str:
+        """Render recommendations for PM."""
         html = '''
         <div class="mb-8">
             <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                <i data-lucide="arrow-right-circle" class="w-5 h-5 mr-2 text-blue-500"></i>
-                Next Steps
+                <i data-lucide="message-square" class="w-5 h-5 mr-2 text-blue-500"></i>
+                Recommendations for PM
             </h3>
-            <div class="space-y-2">
+            <ul class="space-y-2">
         '''
         
-        for step in next_steps:
-            owner = step.get("owner", "")
+        for rec in recommendations:
             html += f'''
-                <div class="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <span class="text-gray-900">{self._escape(step.get("action", ""))}</span>
-                    <span class="text-sm text-gray-500">{self._escape(owner)}</span>
-                </div>
+                <li class="flex items-start text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">
+                    <i data-lucide="arrow-right" class="w-4 h-4 mr-2 text-blue-600 flex-shrink-0 mt-0.5"></i>
+                    {self._escape(rec)}
+                </li>
             '''
         
-        html += '</div></div>'
+        html += '</ul></div>'
         return html
