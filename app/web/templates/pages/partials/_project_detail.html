@@ -1,0 +1,12 @@
+<!-- pages/partials/_project_detail.html -->
+<!-- Project detail view with document list sidebar -->
+
+<div class="flex h-full">
+    <!-- Document List Sidebar -->
+    {% include "components/document_list_sidebar.html" %}
+    
+    <!-- Project Content Panel -->
+    <div class="flex-1 overflow-y-auto bg-gray-50">
+        {% include "pages/partials/_project_detail_content.html" %}
+    </div>
+</div>

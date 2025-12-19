@@ -1,0 +1,28 @@
+<!-- components/project_list.html -->
+<!-- Flat alphabetical list of projects for sidebar -->
+
+{% for project in projects %}
+<li 
+    class="project-item px-3 py-2 cursor-pointer transition-colors"
+    data-id="{{ project.id }}"
+    data-name="{{ project.name }}"
+    data-icon="{{ project.get('icon') | default('folder', true) }}">
+    <a 
+        href="/ui/projects/{{ project.id }}"
+        hx-get="/ui/projects/{{ project.id }}"
+        hx-target="#main-content"
+        hx-push-url="true"
+        class="flex items-center gap-3 w-full">
+        <i data-lucide="{{ project.get('icon') | default('folder', true) }}" class="project-icon w-5 h-5 text-gray-500 flex-shrink-0"></i>
+        <span class="project-name text-sm text-gray-700 truncate">{{ project.name }}</span>
+    </a>
+</li>
+{% else %}
+<li class="px-3 py-8 text-center">
+    <div class="text-gray-400">
+        <i data-lucide="folder-plus" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+        <p class="text-sm">No projects yet</p>
+        <p class="text-xs mt-1">Create your first project to get started</p>
+    </div>
+</li>
+{% endfor %}

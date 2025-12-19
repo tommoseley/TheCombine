@@ -21,6 +21,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import json
 import re
 import logging
+import html
 
 from app.domain.handlers.exceptions import (
     DocumentParseError,
@@ -394,5 +395,12 @@ class BaseDocumentHandler(ABC):
             </div>
             """
     
+    # In the BaseDocumentHandler class:
+    def _escape(self, text: str) -> str:
+        """HTML-escape text for safe rendering."""
+        if text is None:
+            return ""
+        return html.escape(str(text))
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(doc_type_id='{self.doc_type_id}')>"
