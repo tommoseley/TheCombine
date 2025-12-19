@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="text-[14px]">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,248 +7,138 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontSize: {
-                        'xs': ['0.75rem', { lineHeight: '1rem' }],
-                        'sm': ['0.8125rem', { lineHeight: '1.25rem' }],
-                        'base': ['0.875rem', { lineHeight: '1.5rem' }],
-                        'lg': ['1rem', { lineHeight: '1.5rem' }],
-                        'xl': ['1.125rem', { lineHeight: '1.75rem' }],
-                        '2xl': ['1.25rem', { lineHeight: '1.75rem' }],
-                        '3xl': ['1.5rem', { lineHeight: '2rem' }],
-                        '4xl': ['1.875rem', { lineHeight: '2.25rem' }],
-                        '5xl': ['2.25rem', { lineHeight: '2.5rem' }],
-                    }
-                }
-            }
-        }
-    </script>
     
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
-    <!-- Add this right after loading htmx.js in base.html -->
-
-    <script>
-        // Disable HTMX history cache to fix back button styling issues
-        // This forces a fresh request on back/forward navigation
-        htmx.config.historyCacheSize = 0;
-        
-        // Also refresh content when navigating back
-        window.addEventListener('popstate', function(event) {
-            // Small delay to let HTMX process first
-            setTimeout(function() {
-                // If we detect we're showing unstyled content, reload
-                const mainContent = document.getElementById('main-content');
-                if (mainContent && !document.getElementById('sidebar-wrapper')) {
-                    window.location.reload();
-                }
-            }, 50);
-        });
-    </script>
-
-    <!-- Alpine.js (for icon picker) -->
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
     
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     
     <style>
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
+        /* Ensure full height layout */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        /* Custom scrollbar - subtle */
+        .scrollbar-thin::-webkit-scrollbar {
             width: 6px;
-            height: 6px;
         }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #d1d5db;
             border-radius: 3px;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #999;
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
         }
         
-        /* Tree indentation */
-        .tree-level-1 { padding-left: 1rem; }
-        .tree-level-2 { padding-left: 2rem; }
-        .tree-level-3 { padding-left: 3rem; }
-        
-        /* Smooth transitions */
-        .transition-all {
-            transition: all 0.2s ease-in-out;
+        /* HTMX loading states */
+        .htmx-request .htmx-indicator {
+            display: inline-block;
         }
-        
-        /* Tighter spacing for dense UI */
-        .compact-card {
-            padding: 1rem 1.25rem;
+        .htmx-indicator {
+            display: none;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
-    <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
-        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <h1 class="text-xl font-bold">The Combine</h1>
+<body class="h-full bg-gray-50" hx-boost="true">
+    <div class="flex flex-col h-full">
+        
+        <!-- Top Navigation Bar - Dark, per Design Manifesto -->
+        <header class="h-14 bg-gray-900 flex items-center px-4 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <span class="text-white font-semibold text-lg">The Combine</span>
             </div>
             
             <!-- Global Search -->
-            <div class="flex-1 max-w-2xl mx-8">
+            <div class="flex-1 max-w-xl mx-auto px-4">
                 <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
                     <input 
                         type="text" 
-                        id="global-search"
-                        name="q"
                         placeholder="Search projects, workflows, artifacts..."
-                        hx-get="/ui/search"
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#search-results"
-                        hx-include="#global-search"
-                        class="w-full px-4 py-1.5 pl-9 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                        class="w-full bg-gray-800 text-gray-100 placeholder-gray-500 rounded-lg pl-10 pr-4 py-2 text-sm border border-gray-700 focus:outline-none focus:border-gray-600 focus:ring-1 focus:ring-gray-600">
                 </div>
-                
-                <!-- Search Results Dropdown -->
-                <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white rounded-lg shadow-xl max-h-96 overflow-y-auto hidden"></div>
             </div>
             
-            <div class="flex items-center gap-3">
-                <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
-                    <i data-lucide="bell" class="w-4 h-4"></i>
-                </button>
-                <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
-                    <i data-lucide="settings" class="w-4 h-4"></i>
-                </button>
-            </div>
-        </div>
-    </header>
-    
-    <!-- Main Layout: Sidebar + Content -->
-    <div class="flex h-[calc(100vh-56px)]">
-        <!-- Sidebar Wrapper (controls width for flex layout) -->
-        <aside id="sidebar-wrapper" class="bg-white border-r border-gray-200 flex-shrink-0 transition-all duration-200" style="width: 280px;">
-            {% include "components/sidebar.html" %}
-        </aside>
+            <div class="w-32"></div> <!-- Spacer for balance -->
+        </header>
         
-        <!-- Main Content Area -->
-        <main id="main-content" class="flex-1 overflow-y-auto min-w-0">
-            {% block content %}
-            <!-- Default content when page first loads -->
-            <div class="p-6 max-w-7xl mx-auto">
-                <div class="text-center py-16">
-                    <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to The Combine</h1>
-                    <p class="text-lg text-gray-600 mb-8">AI-driven pipeline automation for software development</p>
-                    
-                    <p class="text-gray-500">Select a project from the sidebar to get started</p>
+        <!-- Main Layout -->
+        <div class="flex flex-1 overflow-hidden">
+            
+            <!-- Projects Sidebar -->
+            <aside id="projects-sidebar" class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+                
+                <!-- Projects Header -->
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Projects</span>
+                    <div class="flex items-center gap-1">
+                        <a 
+                            href="/ui/projects/new"
+                            hx-get="/ui/projects/new"
+                            hx-target="#document-container"
+                            hx-push-url="true"
+                            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            title="New Project">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </a>
+                    </div>
                 </div>
                 
-                <!-- Feature Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="brain" class="w-5 h-5 text-blue-600"></i>
-                        </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">AI-Powered Mentors</h3>
-                        <p class="text-sm text-gray-600">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="git-branch" class="w-5 h-5 text-green-600"></i>
-                        </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">Structured Pipeline</h3>
-                        <p class="text-sm text-gray-600">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="dollar-sign" class="w-5 h-5 text-purple-600"></i>
-                        </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">Cost Tracking</h3>
-                        <p class="text-sm text-gray-600">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
+                <!-- Project List -->
+                <div 
+                    id="project-list"
+                    class="flex-1 overflow-y-auto scrollbar-thin"
+                    hx-get="/ui/projects/list"
+                    hx-trigger="load, refreshProjectList from:body"
+                    hx-swap="innerHTML">
+                    <!-- Projects loaded via HTMX -->
+                    <div class="p-4 text-center text-gray-400">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>
                     </div>
                 </div>
-            </div>
-            {% endblock %}
-        </main>
+                
+            </aside>
+            
+            <!-- Document Container - reloads when project is selected -->
+            <main id="document-container" class="flex-1 flex overflow-hidden">
+                {% block content %}
+                <!-- Default: show welcome content -->
+                <div class="flex-1 flex items-center justify-center bg-gray-50">
+                    <div class="text-center">
+                        <i data-lucide="folder-open" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+                        <h2 class="text-xl font-semibold text-gray-600 mb-2">Select a Project</h2>
+                        <p class="text-gray-500">Choose a project from the sidebar to get started</p>
+                    </div>
+                </div>
+                {% endblock %}
+            </main>
+            
+        </div>
     </div>
     
-    <!-- Legend Modal -->
-    {% include "components/legend_modal.html" %}
-    
-    <!-- Initialize Lucide Icons -->
+    <!-- Initialize Lucide icons -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize icons on page load
+        lucide.createIcons();
+        
+        // Re-initialize after HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function(event) {
             lucide.createIcons();
         });
         
-        // Re-initialize icons after HTMX content swaps
-        document.body.addEventListener('htmx:afterSwap', () => {
-            lucide.createIcons();
-            
-            // Initialize code highlighting if present
-            if (typeof hljs !== 'undefined') {
-                document.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
-            }
-        });
-        
-        // Show/hide search results
-        const searchInput = document.getElementById('global-search');
-        const searchResults = document.getElementById('search-results');
-        
-        if (searchInput) {
-            searchInput.addEventListener('focus', () => {
-                if (searchResults.children.length > 0) {
-                    searchResults.classList.remove('hidden');
-                }
-            });
-            
-            searchInput.addEventListener('input', (e) => {
-                if (e.target.value.length > 0) {
-                    searchResults.classList.remove('hidden');
-                } else {
-                    searchResults.classList.add('hidden');
-                }
-            });
-            
-            document.addEventListener('click', (e) => {
-                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                    searchResults.classList.add('hidden');
-                }
-            });
-        }
-        
-        // Store/restore tree state
-        document.body.addEventListener('htmx:beforeSwap', (event) => {
-            // Save expanded state to localStorage
-            const expandedNodes = [];
-            document.querySelectorAll('[data-expanded="true"]').forEach(node => {
-                const id = node.dataset.nodeId;
-                if (id) expandedNodes.push(id);
-            });
-            localStorage.setItem('treeState', JSON.stringify(expandedNodes));
-        });
-        
-        document.body.addEventListener('htmx:afterSwap', () => {
-            // Restore expanded state from localStorage
-            const savedState = localStorage.getItem('treeState');
-            if (savedState) {
-                const expandedNodes = JSON.parse(savedState);
-                // You can implement tree restoration logic here if needed
-            }
+        // Handle HTMX errors
+        document.body.addEventListener('htmx:responseError', function(event) {
+            console.error('HTMX Error:', event.detail);
         });
     </script>
+    
+    {% block scripts %}{% endblock %}
 </body>
 </html>

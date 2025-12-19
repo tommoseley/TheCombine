@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Key principle from ADR-007:
 # - project_discovery: No acceptance required (foundational, low-risk)
 # - architecture_spec: Architect must accept (high-impact technical decisions)
-# - epic_set: PM must accept (scoping decisions)
+# - epic_backlogccept (scoping decisions)
 # - story_backlog: No acceptance (derived from accepted epics)
 #
 
@@ -45,7 +45,7 @@ DOCUMENT_TYPE_CONFIG = {
         "icon": "landmark",
         "display_order": 20,
     },
-    "epic_set": {
+    "epic_backlog": {
         "acceptance_required": True,
         "accepted_by_role": "pm",
         "icon": "layers",
