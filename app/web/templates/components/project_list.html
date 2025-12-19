@@ -1,28 +1,33 @@
 <!-- components/project_list.html -->
-<!-- Flat alphabetical list of projects for sidebar -->
+<!-- List of projects for sidebar - each targets #document-container -->
 
-{% for project in projects %}
-<li 
-    class="project-item px-3 py-2 cursor-pointer transition-colors"
-    data-id="{{ project.id }}"
-    data-name="{{ project.name }}"
-    data-icon="{{ project.get('icon') | default('folder', true) }}">
-    <a 
-        href="/ui/projects/{{ project.id }}"
-        hx-get="/ui/projects/{{ project.id }}"
-        hx-target="#main-content"
-        hx-push-url="true"
-        class="flex items-center gap-3 w-full">
-        <i data-lucide="{{ project.get('icon') | default('folder', true) }}" class="project-icon w-5 h-5 text-gray-500 flex-shrink-0"></i>
-        <span class="project-name text-sm text-gray-700 truncate">{{ project.name }}</span>
-    </a>
-</li>
+{% if projects %}
+<ul class="py-2">
+    {% for project in projects %}
+    <li>
+        <a 
+            href="/ui/projects/{{ project.id }}"
+            hx-get="/ui/projects/{{ project.id }}"
+            hx-target="#document-container"
+            hx-push-url="true"
+            class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+            <i data-lucide="{{ project.icon | default('folder') }}" class="w-4 h-4 text-gray-500"></i>
+            <span class="text-sm text-gray-700 truncate">{{ project.name }}</span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
 {% else %}
-<li class="px-3 py-8 text-center">
-    <div class="text-gray-400">
-        <i data-lucide="folder-plus" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-        <p class="text-sm">No projects yet</p>
-        <p class="text-xs mt-1">Create your first project to get started</p>
-    </div>
-</li>
-{% endfor %}
+<div class="p-4 text-center">
+    <i data-lucide="folder-open" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
+    <p class="text-sm text-gray-500">No projects yet</p>
+    <a 
+        href="/ui/projects/new"
+        hx-get="/ui/projects/new"
+        hx-target="#document-container"
+        hx-push-url="true"
+        class="text-sm text-indigo-600 hover:text-indigo-800 mt-2 inline-block">
+        Create your first project
+    </a>
+</div>
+{% endif %}

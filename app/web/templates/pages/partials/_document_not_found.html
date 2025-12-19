@@ -1,53 +1,147 @@
-<!-- pages/partials/_document_not_found.html -->
-<!-- Generic empty state for any document type, with document list sidebar -->
+{# Document Not Found / Build UI #}
+{# Shared partial for when a document doesn't exist yet #}
+{# Expected variables: project, doc_type_id, doc_type_name, doc_type_icon #}
 
-<div class="flex h-full">
-    <!-- Document List Sidebar -->
-    {% include "components/document_list_sidebar.html" %}
-    
-    <!-- Document Content Panel - Empty State -->
-    <div class="flex-1 overflow-y-auto bg-gray-50">
-        <div class="p-6 max-w-4xl">
-            <!-- Breadcrumb -->
-            <nav class="text-sm text-gray-500 mb-6">
-                <a href="/ui" hx-get="/ui" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700">Projects</a>
-                <span class="mx-2">›</span>
-                <a href="/ui/projects/{{ project.id }}" hx-get="/ui/projects/{{ project.id }}" hx-target="#main-content" hx-push-url="true" class="hover:text-gray-700">{{ project.name }}</a>
-                <span class="mx-2">›</span>
-                <span class="text-gray-900">{{ document_title }}</span>
-            </nav>
+<div class="bg-white rounded-lg border border-gray-200 p-12">
+    <div class="max-w-md mx-auto text-center">
+        <i data-lucide="{{ doc_type_icon | default('file-text') }}" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
+        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No {{ doc_type_name | default('Document') }}</h2>
+        <p class="text-gray-600 mb-6">Build the {{ doc_type_name | default('document') }} to continue.</p>
+        
+        <!-- Build Button with Progress -->
+        <div id="build-container">
+            <button 
+                id="build-btn"
+                onclick="startDocumentBuild('{{ project.id if project.id is defined else project['id'] }}', '{{ doc_type_id }}')"
+                class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                <i data-lucide="play" class="w-5 h-5" id="btn-icon"></i>
+                <span id="btn-text">Generate {{ doc_type_name | default('Document') }}</span>
+            </button>
             
-            <!-- Empty State Card -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i data-lucide="{{ document_icon | default('file-text') }}" class="w-8 h-8 text-gray-400"></i>
+            <!-- Progress Bar (hidden initially) -->
+            <div id="progress-container" class="hidden mt-4">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-medium text-gray-700">Progress</span>
+                    <span id="progress-pct" class="text-sm text-gray-500">0%</span>
                 </div>
-                
-                <h2 class="text-lg font-semibold text-gray-900 mb-2">{{ document_title }} Not Generated</h2>
-                
-                {% if is_blocked %}
-                <p class="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                    This document cannot be generated yet. Required dependencies are missing.
-                </p>
-                <div class="text-sm text-red-600 mb-4">
-                    <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
-                    Missing: {{ missing_dependencies | join(', ') }}
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-fill" class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
                 </div>
-                {% else %}
-                <p class="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                    This document hasn't been created yet. Click the button below to generate it.
-                </p>
-                
-                <button 
-                    hx-post="/ui/projects/{{ project.id }}/documents/{{ doc_type_id }}/build"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                    class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-medium rounded-lg transition-colors inline-flex items-center gap-2">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i>
-                    Generate {{ document_title }}
-                </button>
-                {% endif %}
+            </div>
+            
+            <!-- Status Messages (hidden initially) -->
+            <div id="status-messages" class="hidden mt-4 text-left space-y-1 max-h-48 overflow-y-auto">
             </div>
         </div>
     </div>
 </div>
+
+<script>
+async function startDocumentBuild(projectId, docTypeId) {
+    const btn = document.getElementById('build-btn');
+    const btnIcon = document.getElementById('btn-icon');
+    const btnText = document.getElementById('btn-text');
+    const progressContainer = document.getElementById('progress-container');
+    const statusMessages = document.getElementById('status-messages');
+    
+    // Update button to loading state
+    btn.disabled = true;
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    btnIcon.outerHTML = `<svg class="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>`;
+    btnText.textContent = 'Generating...';
+    
+    // Show progress bar and messages
+    progressContainer.classList.remove('hidden');
+    statusMessages.classList.remove('hidden');
+    statusMessages.innerHTML = '';
+    
+    try {
+        // Use fetch with POST for SSE stream
+        const response = await fetch(`/ui/projects/${projectId}/documents/${docTypeId}/build`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'text/event-stream',
+            }
+        });
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Process complete SSE messages
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+            
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        
+                        // Update progress bar
+                        if (data.progress !== undefined) {
+                            document.getElementById('progress-fill').style.width = data.progress + '%';
+                            document.getElementById('progress-pct').textContent = data.progress + '%';
+                        }
+                        
+                        // Add status message
+                        if (data.message) {
+                            addStatusMessage(data.message, data.status);
+                        }
+                        
+                        // Handle completion
+                        if (data.status === 'complete') {
+                            setTimeout(() => {
+                                htmx.ajax('GET', window.location.pathname, {target: '#main-content', swap: 'innerHTML'});
+                            }, 500);
+                        }
+                        
+                    } catch (e) {
+                        console.log('Parse error:', e, line);
+                    }
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Build error:', error);
+        addStatusMessage('Connection error. Please try again.', 'error');
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+function addStatusMessage(message, status) {
+    const container = document.getElementById('status-messages');
+    const div = document.createElement('div');
+    div.className = 'flex items-start gap-2 text-sm py-0.5';
+    
+    let iconHtml = '';
+    if (status === 'complete') {
+        iconHtml = '<i data-lucide="check-circle" class="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"></i>';
+    } else if (status === 'error') {
+        iconHtml = '<i data-lucide="x-circle" class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5"></i>';
+    } else if (status === 'streaming') {
+        iconHtml = '<i data-lucide="radio" class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5 animate-pulse"></i>';
+    } else {
+        iconHtml = '<i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"></i>';
+    }
+    
+    div.innerHTML = `${iconHtml}<span class="text-gray-600">${message}</span>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    
+    // Re-init lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+</script>
