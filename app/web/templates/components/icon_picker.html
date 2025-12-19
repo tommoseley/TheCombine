@@ -1,0 +1,84 @@
+<!-- components/icon_picker.html -->
+<!-- Icon picker for project creation/editing -->
+<!-- Usage: set selected_icon variable before including this template -->
+
+{% set selected = selected_icon | default('folder') %}
+
+<div class="icon-picker" x-data="{ open: false, selected: '{{ selected }}' }">
+    <label class="block text-sm font-medium text-gray-700 mb-1">Project Icon</label>
+    
+    <!-- Selected Icon Button -->
+    <button 
+        type="button"
+        @click="open = !open"
+        class="flex items-center gap-3 px-3 py-2 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors w-full max-w-xs">
+        <span class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+            <i :data-lucide="selected" class="w-5 h-5 text-gray-600"></i>
+        </span>
+        <span class="text-sm text-gray-700" x-text="selected"></span>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 ml-auto"></i>
+    </button>
+    
+    <!-- Hidden input for form submission -->
+    <input type="hidden" name="icon" :value="selected">
+    
+    <!-- Icon Grid Dropdown -->
+    <div 
+        x-show="open" 
+        @click.away="open = false"
+        x-transition:enter="transition ease-out duration-100"
+        x-transition:enter-start="opacity-0 scale-95"
+        x-transition:enter-end="opacity-100 scale-100"
+        x-transition:leave="transition ease-in duration-75"
+        x-transition:leave-start="opacity-100 scale-100"
+        x-transition:leave-end="opacity-0 scale-95"
+        class="absolute z-10 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+        
+        <p class="text-xs text-gray-500 mb-2">Select an icon for your project</p>
+        
+        <div class="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto">
+            {% set icons = [
+                'folder', 'folder-open', 'briefcase', 'building', 'building-2',
+                'rocket', 'zap', 'star', 'heart', 'target',
+                'compass', 'map', 'globe', 'flag', 'bookmark',
+                'box', 'package', 'archive', 'database', 'server',
+                'code', 'terminal', 'git-branch', 'git-merge', 'github',
+                'cpu', 'smartphone', 'monitor', 'laptop', 'tablet',
+                'cloud', 'wifi', 'shield', 'lock', 'key',
+                'users', 'user', 'user-check', 'crown', 'award',
+                'lightbulb', 'bulb', 'sun', 'moon', 'sparkles',
+                'music', 'camera', 'image', 'film', 'tv',
+                'book', 'book-open', 'file-text', 'newspaper', 'scroll',
+                'shopping-cart', 'credit-card', 'dollar-sign', 'trending-up', 'bar-chart',
+                'calendar', 'clock', 'timer', 'hourglass', 'alarm-clock',
+                'mail', 'message-circle', 'phone', 'video', 'mic',
+                'settings', 'tool', 'wrench', 'hammer', 'cog',
+                'flask', 'beaker', 'atom', 'dna', 'microscope',
+                'plane', 'car', 'truck', 'ship', 'train',
+                'home', 'store', 'warehouse', 'factory', 'landmark',
+                'tree', 'leaf', 'flower', 'mountain', 'waves',
+                'gamepad', 'puzzle', 'dice', 'trophy', 'medal'
+            ] %}
+            
+            {% for icon in icons %}
+            <button 
+                type="button"
+                @click="selected = '{{ icon }}'; open = false; $nextTick(() => lucide.createIcons())"
+                :class="selected === '{{ icon }}' ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-gray-100 text-gray-600'"
+                class="p-2 rounded transition-colors"
+                title="{{ icon }}">
+                <i data-lucide="{{ icon }}" class="w-4 h-4"></i>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Refresh icons when picker updates
+document.addEventListener('alpine:init', () => {
+    Alpine.effect(() => {
+        setTimeout(() => lucide.createIcons(), 10);
+    });
+});
+</script>

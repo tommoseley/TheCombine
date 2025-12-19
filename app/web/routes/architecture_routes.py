@@ -5,7 +5,7 @@ Handles architecture viewing and document building.
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -14,10 +14,15 @@ from .shared import templates, get_template
 from app.api.services import project_service
 from app.api.services.role_prompt_service import RolePromptService
 from app.api.services.document_service import DocumentService
+from app.api.services.document_status_service import document_status_service
 from app.api.models import Document
 
 router = APIRouter(tags=["architecture"])
 
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
 
 async def get_document_by_type(
     db: AsyncSession, 
@@ -36,6 +41,58 @@ async def get_document_by_type(
     return result.scalar_one_or_none()
 
 
+async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict:
+    """Get project with icon field using direct SQL."""
+    result = await db.execute(
+        text("""
+            SELECT id, name, project_id, description, icon, created_at, updated_at
+            FROM projects 
+            WHERE id = :project_id
+        """),
+        {"project_id": project_id}
+    )
+    row = result.fetchone()
+    
+    if not row:
+        return None
+    
+    return {
+        "id": str(row.id),
+        "name": row.name,
+        "project_id": row.project_id,
+        "description": row.description,
+        "icon": row.icon or "folder",
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+async def _get_document_context(
+    db: AsyncSession,
+    project_id: str,
+    active_doc_type: str
+) -> dict:
+    """Get common context for document views including sidebar data."""
+    project = await _get_project_with_icon(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project_uuid = UUID(project_id)
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
+    
+    return {
+        "project": project,
+        "document_statuses": document_statuses,
+        "active_doc_type": active_doc_type,
+    }
+
+
+# ============================================================================
+# ARCHITECTURE VIEWS
+# ============================================================================
+
 @router.get("/projects/{project_id}/architecture", response_class=HTMLResponse)
 async def get_project_architecture(
     request: Request,
@@ -43,13 +100,11 @@ async def get_project_architecture(
     db: AsyncSession = Depends(get_db)
 ):
     """Get architecture summary view - aggregates Discovery and Final"""
-    # First get the project
-    project = await project_service.get_project_by_uuid(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # Get common context with sidebar data
+    base_context = await _get_document_context(db, project_id, "architecture_summary")
+    project = base_context["project"]
     
-    # Get project UUID
-    proj_uuid = UUID(project['id']) if isinstance(project.get('id'), str) else project.get('id')
+    proj_uuid = UUID(project_id)
     
     # Load architecture documents
     preliminary = await get_document_by_type(db, proj_uuid, 'project_discovery')
@@ -68,7 +123,7 @@ async def get_project_architecture(
     
     context = {
         "request": request,
-        "project": project,
+        **base_context,
         "has_preliminary": preliminary is not None,
         "has_final": final is not None,
         "preliminary_content": preliminary_content,
@@ -86,26 +141,40 @@ async def get_project_architecture(
 
 
 @router.get("/projects/{project_id}/architecture/preliminary", response_class=HTMLResponse)
+@router.get("/projects/{project_id}/documents/project_discovery", response_class=HTMLResponse)
 async def get_preliminary_architecture(
     request: Request,
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
     """Get preliminary architecture (project discovery) view"""
-    project = await project_service.get_project_by_uuid(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # Get common context with sidebar data
+    base_context = await _get_document_context(db, project_id, "project_discovery")
+    project = base_context["project"]
     
-    proj_uuid = UUID(project['id']) if isinstance(project.get('id'), str) else project.get('id')
-    
+    proj_uuid = UUID(project_id)
     document = await get_document_by_type(db, proj_uuid, 'project_discovery')
     
     if not document:
-        raise HTTPException(status_code=404, detail="Project discovery not found")
+        # Show empty state with sidebar
+        context = {
+            "request": request,
+            **base_context,
+            "doc_type_id": "project_discovery",
+            "document_title": "Project Discovery",
+            "document_icon": "compass",
+            "is_blocked": False,
+        }
+        template = get_template(
+            request,
+            wrapper="pages/project_discovery.html",
+            partial="pages/partials/_document_not_found.html"
+        )
+        return templates.TemplateResponse(template, context)
     
     context = {
         "request": request,
-        "project": project,
+        **base_context,
         "document": document,
         "artifact": document,  # For template compatibility
         "content": document.content,
@@ -113,42 +182,55 @@ async def get_preliminary_architecture(
     
     template = get_template(
         request,
-        wrapper="pages/preliminary_architecture.html",
-        partial="pages/partials/_preliminary_architecture.html"
+        wrapper="pages/project_discovery.html",
+        partial="pages/partials/_project_discovery.html"
     )
     
     return templates.TemplateResponse(template, context)
 
 
 @router.get("/projects/{project_id}/architecture/final", response_class=HTMLResponse)
+@router.get("/projects/{project_id}/documents/technical_architecture", response_class=HTMLResponse)
 async def get_final_architecture(
     request: Request,
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
     """Get final architecture (architecture spec) view"""
-    project = await project_service.get_project_by_uuid(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    # Get common context with sidebar data
+    base_context = await _get_document_context(db, project_id, "technical_architecture")
+    project = base_context["project"]
     
-    proj_uuid = UUID(project['id']) if isinstance(project.get('id'), str) else project.get('id')
-    proj_name = project['name'] if isinstance(project, dict) else project.name
-    
+    proj_uuid = UUID(project_id)
     document = await get_document_by_type(db, proj_uuid, 'architecture_spec')
     
     if not document:
-        raise HTTPException(status_code=404, detail="Architecture spec not found")
+        # Show empty state with sidebar
+        context = {
+            "request": request,
+            **base_context,
+            "doc_type_id": "technical_architecture",
+            "document_title": "Technical Architecture",
+            "document_icon": "building",
+            "is_blocked": False,
+        }
+        template = get_template(
+            request,
+            wrapper="pages/project_detail.html",
+            partial="pages/partials/_document_not_found.html"
+        )
+        return templates.TemplateResponse(template, context)
     
     # Build architecture object for the template
     architecture = {
-        "project_name": proj_name,
+        "project_name": project['name'],
         "architecture_uuid": str(document.id),
         "detailed_view": document.content
     }
     
     context = {
         "request": request,
-        "project": project,
+        **base_context,
         "document": document,
         "artifact": document,  # For template compatibility
         "architecture": architecture,
@@ -157,8 +239,56 @@ async def get_final_architecture(
     
     template = get_template(
         request,
-        wrapper="pages/architecture_view.html",
-        partial="pages/partials/_architecture_view_content.html"
+        wrapper="pages/project_detail.html",
+        partial="pages/partials/_technical_architecture.html"
+    )
+    
+    return templates.TemplateResponse(template, context)
+
+
+@router.get("/projects/{project_id}/documents/epic_backlog", response_class=HTMLResponse)
+async def get_epic_backlog(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get epic backlog view"""
+    # Get common context with sidebar data
+    base_context = await _get_document_context(db, project_id, "epic_backlog")
+    project = base_context["project"]
+    
+    proj_uuid = UUID(project_id)
+    document = await get_document_by_type(db, proj_uuid, 'epic_backlog')
+    
+    if not document:
+        # Show empty state with sidebar
+        context = {
+            "request": request,
+            **base_context,
+            "doc_type_id": "epic_backlog",
+            "document_title": "Epic Backlog",
+            "document_icon": "layers",
+            "is_blocked": False,
+        }
+        template = get_template(
+            request,
+            wrapper="pages/project_detail.html",
+            partial="pages/partials/_document_not_found.html"
+        )
+        return templates.TemplateResponse(template, context)
+    
+    context = {
+        "request": request,
+        **base_context,
+        "document": document,
+        "artifact": document,
+        "content": document.content,
+    }
+    
+    template = get_template(
+        request,
+        wrapper="pages/project_detail.html",
+        partial="pages/partials/_epic_backlog.html"
     )
     
     return templates.TemplateResponse(template, context)
@@ -194,14 +324,18 @@ async def get_document_detail(
         logging.error(f"Error rendering document: {e}")
         rendered_html = f"<pre>{content}</pre>"
     
-    # Get project info for breadcrumbs
+    # Get project info and sidebar data
     project = None
+    document_statuses = []
     if document.space_type == 'project':
-        project = await project_service.get_project_by_uuid(db, str(document.space_id))
+        project = await _get_project_with_icon(db, str(document.space_id))
+        document_statuses = await document_status_service.get_project_document_statuses(
+            db, document.space_id
+        )
     
     template = get_template(
         request,
-        wrapper="pages/document_view.html",
+        wrapper="pages/project_detail.html",
         partial="pages/partials/_document_view_content.html"
     )
     
@@ -209,6 +343,8 @@ async def get_document_detail(
         "request": request,
         "document": document,
         "project": project,
+        "document_statuses": document_statuses,
+        "active_doc_type": document.doc_type_id,
         "content": content,
         "rendered_html": rendered_html,
     }

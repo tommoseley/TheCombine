@@ -1,10 +1,6 @@
 """
-Project routes for The Combine UI
-Handles project CRUD, tree navigation, and project details
-
-Updated to support document-centric architecture (ADR-007)
-- Removed Artifact dependency (replaced by Document)
-- Uses DocumentStatusService for status derivation
+Project routes for The Combine UI - V2
+Flat project list, editable names/icons, two-panel layout
 """
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, Form
@@ -28,11 +24,34 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# DOCUMENT TYPE TO TEMPLATE MAPPING
+# ============================================================================
+
+DOCUMENT_TEMPLATES = {
+    "project_discovery": "documents/_preliminary_architecture.html",
+    "epic_backlog": "documents/_epic_backlog.html",
+    "technical_architecture": "documents/_technical_architecture.html",
+}
+
+DOCUMENT_TITLES = {
+    "project_discovery": "Project Discovery",
+    "epic_backlog": "Epic Backlog", 
+    "technical_architecture": "Technical Architecture",
+}
+
+DOCUMENT_ICONS = {
+    "project_discovery": "compass",
+    "epic_backlog": "layers",
+    "technical_architecture": "building",
+}
+
+
+# ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
 def _compute_document_summary(document_statuses: list) -> dict:
-    """Compute summary counts from document statuses for collapsed view."""
+    """Compute summary counts from document statuses."""
     return {
         "ready_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.READY),
         "stale_count": sum(1 for d in document_statuses if d.readiness == ReadinessStatus.STALE),
@@ -41,142 +60,78 @@ def _compute_document_summary(document_statuses: list) -> dict:
     }
 
 
+async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict:
+    """Get project with icon field using direct SQL."""
+    from sqlalchemy import text
+    
+    result = await db.execute(
+        text("""
+            SELECT id, name, project_id, description, icon, created_at, updated_at
+            FROM projects 
+            WHERE id = :project_id
+        """),
+        {"project_id": project_id}
+    )
+    row = result.fetchone()
+    
+    if not row:
+        return None
+    
+    return {
+        "id": str(row.id),
+        "name": row.name,
+        "project_id": row.project_id,
+        "description": row.description,
+        "icon": row.icon or "folder",
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
 # ============================================================================
-# TREE NAVIGATION
+# PROJECT LIST (for sidebar)
 # ============================================================================
 
-@router.get("/tree", response_class=HTMLResponse)
-async def get_project_tree(
+@router.get("/list", response_class=HTMLResponse)
+async def get_project_list(
     request: Request,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get projects for sidebar tree with infinite scroll"""
-    logger.info(f"Loading project tree: offset={offset}, limit={limit}, search={search}")
-    projects = await project_service.list_projects(
-        db,
-        offset=offset,
-        limit=limit,
-        search=search
-    )
-    has_more = len(projects) == limit
-    next_offset = offset + limit if has_more else None
-    return templates.TemplateResponse(
-        "components/tree/project_list.html",
+    """Get list of projects for sidebar - simple flat list"""
+    from sqlalchemy import text
+    
+    if search:
+        result = await db.execute(
+            text("""
+                SELECT id, name, project_id, icon
+                FROM projects
+                WHERE name ILIKE :search OR project_id ILIKE :search
+                ORDER BY name ASC
+            """),
+            {"search": f"%{search}%"}
+        )
+    else:
+        result = await db.execute(
+            text("SELECT id, name, project_id, icon FROM projects ORDER BY name ASC")
+        )
+    
+    rows = result.fetchall()
+    projects = [
         {
-            "request": request,
-            "projects": projects,
-            "has_more": has_more,
-            "next_offset": next_offset
+            "id": str(row.id),
+            "name": row.name,
+            "project_id": row.project_id,
+            "icon": row.icon or "folder"
         }
-    )
-
-
-@router.get("/{project_id}/expand", response_class=HTMLResponse)
-async def expand_project_tree_node(
-    request: Request,
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get expanded project node with documents and epics"""
-    project = await project_service.get_project_with_epics(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Get document statuses for summary display
-    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
-    document_statuses = await document_status_service.get_project_document_statuses(
-        db, project_uuid
-    )
-    document_summary = _compute_document_summary(document_statuses)
+        for row in rows
+    ]
     
     return templates.TemplateResponse(
-        "components/tree/project_expanded.html",
+        "components/project_list.html",
         {
             "request": request,
-            "project": project,
-            "document_summary": document_summary
-        }
-    )
-
-
-@router.get("/{project_id}/documents/expand", response_class=HTMLResponse)
-async def expand_documents_tree_node(
-    request: Request,
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Expand the Documents node to show individual document types with status.
-    Returns the documents_expanded.html partial per ADR-007.
-    """
-    project = await project_service.get_project_by_uuid(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Get document statuses for the project
-    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
-    document_statuses = await document_status_service.get_project_document_statuses(
-        db, project_uuid
-    )
-    
-    return templates.TemplateResponse(
-        "components/tree/documents_expanded.html",
-        {
-            "request": request,
-            "project": project,
-            "document_statuses": document_statuses
-        }
-    )
-
-
-@router.get("/{project_id}/documents/collapse", response_class=HTMLResponse)
-async def collapse_documents_tree_node(
-    request: Request,
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Collapse the Documents node to show summary indicators.
-    Returns the documents_collapsed.html partial.
-    """
-    project = await project_service.get_project_by_uuid(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Get document statuses to compute summary
-    project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
-    document_statuses = await document_status_service.get_project_document_statuses(
-        db, project_uuid
-    )
-    document_summary = _compute_document_summary(document_statuses)
-    
-    return templates.TemplateResponse(
-        "components/tree/documents_collapsed.html",
-        {
-            "request": request,
-            "project": project,
-            "document_summary": document_summary
-        }
-    )
-
-
-@router.get("/{project_id}/collapse", response_class=HTMLResponse)
-async def collapse_project_tree_node(
-    request: Request,
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get collapsed project node"""
-    project = await project_service.get_project_summary(db, project_id)
-    
-    return templates.TemplateResponse(
-        "components/tree/project_collapsed.html",
-        {
-            "request": request,
-            "project": project
+            "projects": projects
         }
     )
 
@@ -185,8 +140,6 @@ async def collapse_project_tree_node(
 # PROJECT CRUD
 # ============================================================================
 
-# IMPORTANT: This route MUST come BEFORE /{project_id}
-# so that "new" doesn't get interpreted as a project_id
 @router.get("/new", response_class=HTMLResponse)
 async def new_project_form(
     request: Request,
@@ -213,36 +166,28 @@ async def create_project_handler(
     request: Request,
     name: str = Form(...),
     description: str = Form(""),
+    icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Handle form submission for creating a new project
-    Returns HTML response for HTMX
-    """
+    """Handle form submission for creating a new project"""
     try:
-        # Use project service to create project
         project = await project_service.create_project(
             db=db,
             name=name.strip(),
-            description=description.strip()
+            description=description.strip(),
+            icon=icon
         )
         
-        # Success response
         return templates.TemplateResponse(
             "components/alerts/success.html",
             {
                 "request": request,
                 "title": "Project Created",
-                "message": f'Project "{name}" (ID: {project["project_id"]}) has been created successfully.',
-                "primary_action": {
-                    "label": "View Project",
-                    "url": f"/ui/projects/{project['id']}"
-                },
-                "secondary_action": {
-                    "label": "Create Another",
-                    "url": "/ui/projects/new"
-                }
-            }
+                "message": f'Project "{name}" has been created successfully.',
+                "redirect_url": f"/ui/projects/{project['id']}",
+                "redirect_delay": 1000
+            },
+            headers={"HX-Redirect": f"/ui/projects/{project['id']}"}
         )
         
     except ValueError as e:
@@ -254,16 +199,6 @@ async def create_project_handler(
                 "message": str(e)
             }
         )
-        
-    except Exception as e:
-        return templates.TemplateResponse(
-            "components/alerts/error.html",
-            {
-                "request": request,
-                "title": "Unexpected Error",
-                "message": f"Failed to create project: {str(e)}"
-            }
-        )
 
 
 @router.get("/{project_id}", response_class=HTMLResponse)
@@ -272,23 +207,15 @@ async def get_project_detail(
     project_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Display project detail page
-    Single route handles both full page and HTMX partial
-    """
+    """Display project detail with document list sidebar"""
     try:
-        # Use project service to get project
-        project = await project_service.get_project_by_uuid(db, project_id)
+        project = await _get_project_with_icon(db, project_id)
         
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         
-        # Load epics - use get_project_with_epics which includes them
-        project_with_epics = await project_service.get_project_with_epics(db, project_id)
-        epics = project_with_epics.get('epics', []) if project_with_epics else []
-        
-        # Get document statuses for the document-centric view
-        project_uuid = UUID(project_id) if isinstance(project_id, str) else project_id
+        # Get document statuses for sidebar
+        project_uuid = UUID(project_id)
         document_statuses = await document_status_service.get_project_document_statuses(
             db, project_uuid
         )
@@ -296,14 +223,15 @@ async def get_project_detail(
         context = {
             "request": request,
             "project": project,
-            "epics": epics or [],
-            "document_statuses": document_statuses
+            "document_statuses": document_statuses,
+            "active_doc_type": None,  # No document selected on project view
         }
         
+        # Use the wrapper that includes document sidebar
         template = get_template(
             request,
             wrapper="pages/project_detail.html",
-            partial="pages/partials/_project_detail_content.html"
+            partial="pages/partials/_project_detail.html"
         )
         
         return templates.TemplateResponse(template, context)
@@ -311,15 +239,188 @@ async def get_project_detail(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
         logger.error(f"Error loading project: {e}", exc_info=True)
-        error_html = f"""
-        <div class="p-6">
-            <div class="bg-red-50 border border-red-200 rounded-lg p-6">
-                <h1 class="text-lg font-medium text-gray-900 mb-2">Error loading project</h1>
-                <pre class="text-sm text-gray-700">{str(e)}</pre>
-                <pre class="text-xs text-gray-500 mt-2">{traceback.format_exc()}</pre>
-            </div>
-        </div>
-        """
-        return HTMLResponse(content=error_html, status_code=500)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{project_id}", response_class=HTMLResponse)
+async def update_project(
+    request: Request,
+    project_id: str,
+    name: str = Form(...),
+    description: str = Form(""),
+    icon: str = Form("folder"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update project name, description, and icon"""
+    from sqlalchemy import text
+    
+    try:
+        await db.execute(
+            text("""
+                UPDATE projects 
+                SET name = :name, 
+                    description = :description, 
+                    icon = :icon,
+                    updated_at = NOW()
+                WHERE id = :project_id
+            """),
+            {
+                "name": name.strip(),
+                "description": description.strip(),
+                "icon": icon,
+                "project_id": project_id
+            }
+        )
+        await db.commit()
+        
+        project = await _get_project_with_icon(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        project_uuid = UUID(project_id)
+        document_statuses = await document_status_service.get_project_document_statuses(
+            db, project_uuid
+        )
+        
+        template = get_template(
+            request,
+            wrapper="pages/project_detail.html",
+            partial="pages/partials/_project_detail.html"
+        )
+        
+        return templates.TemplateResponse(
+            template,
+            {
+                "request": request,
+                "project": project,
+                "document_statuses": document_statuses,
+                "active_doc_type": None,
+            },
+            headers={"HX-Trigger": "refreshProjectList"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating project: {e}", exc_info=True)
+        return templates.TemplateResponse(
+            "components/alerts/error.html",
+            {
+                "request": request,
+                "title": "Error Updating Project",
+                "message": str(e)
+            }
+        )
+
+
+# ============================================================================
+# DOCUMENT SIDEBAR REFRESH
+# ============================================================================
+
+@router.get("/{project_id}/documents/refresh-sidebar", response_class=HTMLResponse)
+async def refresh_document_sidebar(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Refresh just the document list sidebar component"""
+    project = await _get_project_with_icon(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project_uuid = UUID(project_id)
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
+    
+    # Get active_doc_type from referer URL if possible
+    active_doc_type = None
+    referer = request.headers.get("referer", "")
+    if "/documents/" in referer:
+        parts = referer.split("/documents/")
+        if len(parts) > 1:
+            active_doc_type = parts[1].split("/")[0].split("?")[0]
+    
+    return templates.TemplateResponse(
+        "components/document_list_sidebar.html",
+        {
+            "request": request,
+            "project": project,
+            "document_statuses": document_statuses,
+            "active_doc_type": active_doc_type,
+        }
+    )
+
+
+@router.get("/{project_id}/documents/refresh", response_class=HTMLResponse)
+async def refresh_document_statuses(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Refresh just the document status list (legacy)"""
+    project = await _get_project_with_icon(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    project_uuid = UUID(project_id)
+    document_statuses = await document_status_service.get_project_document_statuses(
+        db, project_uuid
+    )
+    
+    return templates.TemplateResponse(
+        "components/sidebar/document_status_list.html",
+        {
+            "request": request,
+            "project": project,
+            "document_statuses": document_statuses,
+        }
+    )
+
+
+# ============================================================================
+# PROJECT DELETE
+# ============================================================================
+
+@router.delete("/{project_id}", response_class=HTMLResponse)
+async def delete_project(
+    request: Request,
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a project"""
+    from sqlalchemy import text
+    
+    try:
+        await db.execute(
+            text("DELETE FROM projects WHERE id = :project_id"),
+            {"project_id": project_id}
+        )
+        await db.commit()
+        
+        return templates.TemplateResponse(
+            "components/alerts/success.html",
+            {
+                "request": request,
+                "title": "Project Deleted",
+                "message": "The project has been deleted.",
+                "redirect_url": "/ui",
+                "redirect_delay": 1000
+            },
+            headers={
+                "HX-Redirect": "/ui",
+                "HX-Trigger": "refreshProjectList"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}", exc_info=True)
+        return templates.TemplateResponse(
+            "components/alerts/error.html",
+            {
+                "request": request,
+                "title": "Error Deleting Project",
+                "message": str(e)
+            }
+        )

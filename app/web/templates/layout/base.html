@@ -30,6 +30,29 @@
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     
+    <!-- Add this right after loading htmx.js in base.html -->
+
+    <script>
+        // Disable HTMX history cache to fix back button styling issues
+        // This forces a fresh request on back/forward navigation
+        htmx.config.historyCacheSize = 0;
+        
+        // Also refresh content when navigating back
+        window.addEventListener('popstate', function(event) {
+            // Small delay to let HTMX process first
+            setTimeout(function() {
+                // If we detect we're showing unstyled content, reload
+                const mainContent = document.getElementById('main-content');
+                if (mainContent && !document.getElementById('sidebar-wrapper')) {
+                    window.location.reload();
+                }
+            }, 50);
+        });
+    </script>
+
+    <!-- Alpine.js (for icon picker) -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -112,13 +135,13 @@
     
     <!-- Main Layout: Sidebar + Content -->
     <div class="flex h-[calc(100vh-56px)]">
-        <!-- Sidebar -->
-        <aside class="w-72 bg-white border-r border-gray-200 overflow-y-auto">
+        <!-- Sidebar Wrapper (controls width for flex layout) -->
+        <aside id="sidebar-wrapper" class="bg-white border-r border-gray-200 flex-shrink-0 transition-all duration-200" style="width: 280px;">
             {% include "components/sidebar.html" %}
         </aside>
         
         <!-- Main Content Area -->
-        <main id="main-content" class="flex-1 overflow-y-auto">
+        <main id="main-content" class="flex-1 overflow-y-auto min-w-0">
             {% block content %}
             <!-- Default content when page first loads -->
             <div class="p-6 max-w-7xl mx-auto">
