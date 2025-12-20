@@ -9,8 +9,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+                    },
                     fontSize: {
                         'xs': ['0.75rem', { lineHeight: '1rem' }],
                         'sm': ['0.8125rem', { lineHeight: '1.25rem' }],
@@ -21,24 +26,75 @@
                         '3xl': ['1.5rem', { lineHeight: '2rem' }],
                         '4xl': ['1.875rem', { lineHeight: '2.25rem' }],
                         '5xl': ['2.25rem', { lineHeight: '2.5rem' }],
-                    }
+                    },
+                    colors: {
+                        // Semantic color aliases
+                        accent: {
+                            DEFAULT: '#7C3AED',
+                            dark: '#8B5CF6',
+                        },
+                        success: {
+                            DEFAULT: '#059669',
+                            dark: '#10B981',
+                        },
+                        warning: {
+                            DEFAULT: '#D97706',
+                            dark: '#F59E0B',
+                        },
+                        error: {
+                            DEFAULT: '#DC2626',
+                            dark: '#EF4444',
+                        },
+                    },
                 }
             }
         }
     </script>
     
+    <!-- Dark mode initialization (before page renders to prevent flash) -->
+    <script>
+        if (localStorage.getItem('darkMode') === 'dark' || 
+            (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <script>
+        // Disable HTMX history cache to fix back button styling issues
+        htmx.config.historyCacheSize = 0;
+        
+        // Refresh content when navigating back
+        window.addEventListener('popstate', function(event) {
+            setTimeout(function() {
+                const mainContent = document.getElementById('main-content');
+                if (mainContent && !document.getElementById('sidebar-wrapper')) {
+                    window.location.reload();
+                }
+            }, 50);
+        });
+    </script>
+
+    <!-- Alpine.js (for icon picker) -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <!-- Highlight.js for code syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     
     <style>
-        /* Custom scrollbar */
+        /* Custom scrollbar - Light mode */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -52,6 +108,17 @@
         }
         ::-webkit-scrollbar-thumb:hover {
             background: #999;
+        }
+        
+        /* Custom scrollbar - Dark mode */
+        .dark ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
         }
         
         /* Tree indentation */
@@ -70,9 +137,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
     <!-- Header -->
-    <header class="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
+    <header class="bg-gray-900 dark:bg-gray-950 text-white shadow-lg sticky top-0 z-50 border-b border-gray-800">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <h1 class="text-xl font-bold">The Combine</h1>
@@ -90,16 +157,25 @@
                         hx-trigger="keyup changed delay:300ms"
                         hx-target="#search-results"
                         hx-include="#global-search"
-                        class="w-full px-4 py-1.5 pl-9 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        class="w-full px-4 py-1.5 pl-9 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent text-sm"
                     />
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"></i>
                 </div>
                 
                 <!-- Search Results Dropdown -->
-                <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white rounded-lg shadow-xl max-h-96 overflow-y-auto hidden"></div>
+                <div id="search-results" class="absolute left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl max-h-96 overflow-y-auto hidden border border-gray-200 dark:border-gray-700"></div>
             </div>
             
             <div class="flex items-center gap-3">
+                <!-- Dark Mode Toggle -->
+                <button 
+                    onclick="toggleDarkMode()"
+                    class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+                    aria-label="Toggle dark mode"
+                    title="Toggle dark mode">
+                    <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                    <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+                </button>
                 <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
                     <i data-lucide="bell" class="w-4 h-4"></i>
                 </button>
@@ -112,47 +188,47 @@
     
     <!-- Main Layout: Sidebar + Content -->
     <div class="flex h-[calc(100vh-56px)]">
-        <!-- Sidebar -->
-        <aside class="w-72 bg-white border-r border-gray-200 overflow-y-auto">
+        <!-- Sidebar Wrapper (controls width for flex layout) -->
+        <aside id="sidebar-wrapper" class="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-all duration-200" style="width: 280px;">
             {% include "components/sidebar.html" %}
         </aside>
         
         <!-- Main Content Area -->
-        <main id="main-content" class="flex-1 overflow-y-auto">
+        <main id="main-content" class="flex-1 overflow-y-auto min-w-0 bg-gray-50 dark:bg-gray-900">
             {% block content %}
             <!-- Default content when page first loads -->
             <div class="p-6 max-w-7xl mx-auto">
                 <div class="text-center py-16">
-                    <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to The Combine</h1>
-                    <p class="text-lg text-gray-600 mb-8">AI-driven pipeline automation for software development</p>
+                    <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-50 mb-4">Welcome to The Combine</h1>
+                    <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">AI-driven pipeline automation for software development</p>
                     
-                    <p class="text-gray-500">Select a project from the sidebar to get started</p>
+                    <p class="text-gray-500 dark:text-gray-400">Select a project from the sidebar to get started</p>
                 </div>
                 
                 <!-- Feature Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="brain" class="w-5 h-5 text-blue-600"></i>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i data-lucide="brain" class="w-5 h-5 text-violet-600 dark:text-violet-500"></i>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">AI-Powered Mentors</h3>
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">AI-Powered Mentors</h3>
-                        <p class="text-sm text-gray-600">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
                     </div>
                     
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="git-branch" class="w-5 h-5 text-green-600"></i>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i data-lucide="git-branch" class="w-5 h-5 text-emerald-600 dark:text-emerald-500"></i>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">Structured Pipeline</h3>
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">Structured Pipeline</h3>
-                        <p class="text-sm text-gray-600">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
                     </div>
                     
-                    <div class="bg-white rounded-lg shadow-lg p-5">
-                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
-                            <i data-lucide="dollar-sign" class="w-5 h-5 text-purple-600"></i>
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i data-lucide="dollar-sign" class="w-5 h-5 text-amber-600 dark:text-amber-500"></i>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">Cost Tracking</h3>
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-2">Cost Tracking</h3>
-                        <p class="text-sm text-gray-600">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
                     </div>
                 </div>
             </div>
@@ -160,8 +236,21 @@
         </main>
     </div>
     
-    <!-- Initialize Lucide Icons -->
+    <!-- Legend Modal -->
+    {% include "components/legend_modal.html" %}
+    
+    <!-- Initialize Lucide Icons & Dark Mode -->
     <script>
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', 
+                document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+            );
+            // Re-init icons after toggle
+            lucide.createIcons();
+        }
+        
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });
@@ -206,7 +295,6 @@
         
         // Store/restore tree state
         document.body.addEventListener('htmx:beforeSwap', (event) => {
-            // Save expanded state to localStorage
             const expandedNodes = [];
             document.querySelectorAll('[data-expanded="true"]').forEach(node => {
                 const id = node.dataset.nodeId;
@@ -216,13 +304,17 @@
         });
         
         document.body.addEventListener('htmx:afterSwap', () => {
-            // Restore expanded state from localStorage
             const savedState = localStorage.getItem('treeState');
             if (savedState) {
                 const expandedNodes = JSON.parse(savedState);
-                // You can implement tree restoration logic here if needed
             }
         });
     </script>
 </body>
 </html>
+
+yes. provide that. In fact...
+
+
+
+You're the design architect and lead UX developer. Provide an architectural document, design guide, and implementation instructions for implementing the Floating Status Overlay in a system built on FastAPI, Jinja2, Tailwind.css, and Python. 

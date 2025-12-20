@@ -1,59 +1,68 @@
 """
-Story service for web UI
-Maps story_id in Artifact model to Story concepts for UI
+Story service for web UI - Document-centric version.
+
+Stories are documents with doc_type_id = 'story'.
+Related to epics via document_relations (derived_from).
 """
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any
+from uuid import UUID
 import zipfile
 import io
 import json
 
-# Import existing models
-from app.api.models import Artifact, Project
+from app.api.models import Document, DocumentRelation, Project
 
 
 class StoryService:
-    """Service for story-related operations (maps to story_id in Artifact)"""
+    """Service for story-related operations using Document model."""
     
     async def get_story_full(
         self,
         db: AsyncSession,
-        story_id: str
+        story_id: UUID
     ) -> Dict[str, Any]:
-        """Get complete story details for main content view"""
-        # Get story artifact
-        story_query = (
-            select(Artifact)
-            .where(Artifact.story_id == story_id)
-            .where(Artifact.artifact_type == 'story')
-        )
-        story_result = await db.execute(story_query)
-        story = story_result.scalar_one()
+        """Get complete story details for main content view."""
+        # Get story document
+        story = await db.get(Document, story_id)
+        if not story or story.doc_type_id != 'story':
+            raise ValueError(f"Story not found: {story_id}")
         
         # Get project
-        proj_query = select(Project).where(Project.project_id == story.project_id)
-        proj_result = await db.execute(proj_query)
-        project = proj_result.scalar_one()
+        project = await db.get(Project, story.space_id)
+        project_name = project.name if project else "Unknown Project"
         
-        # Try to parse acceptance criteria from content
+        # Get parent epic (if any) via derived_from relation
+        epic_query = (
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.to_document_id == Document.id)
+            .where(DocumentRelation.from_document_id == story_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'epic')
+        )
+        result = await db.execute(epic_query)
+        epic = result.scalar_one_or_none()
+        
+        # Parse acceptance criteria from content
         acceptance_criteria = []
         if story.content and isinstance(story.content, dict):
             acceptance_criteria = story.content.get("acceptance_criteria", [])
         
         return {
-            "story_uuid": story.story_id,
-            "epic_uuid": story.epic_id,
-            "epic_name": f"Epic {story.epic_id}" if story.epic_id else "Unknown Epic",
-            "project_uuid": story.project_id,
-            "project_name": project.name or "Unknown Project",
-            "title": story.title or f"Story {story.story_id}",
-            "description": "",
+            "story_uuid": str(story.id),
+            "epic_uuid": str(epic.id) if epic else None,
+            "epic_name": epic.title if epic else "No Epic",
+            "project_uuid": str(story.space_id),
+            "project_name": project_name,
+            "title": story.title,
+            "description": story.summary or "",
             "acceptance_criteria": acceptance_criteria,
-            "status": story.status or "pending",
-            "has_code": bool(story.content and story.content != {}),
-            "has_tests": False,
+            "status": story.status,
+            "is_stale": story.is_stale,
+            "has_code": bool(story.content and story.content.get("files")),
+            "has_tests": bool(story.content and story.content.get("tests")),
             "created_at": story.created_at.isoformat() if story.created_at else "",
             "updated_at": story.updated_at.isoformat() if story.updated_at else ""
         }
@@ -61,61 +70,58 @@ class StoryService:
     async def get_code_deliverables(
         self,
         db: AsyncSession,
-        story_id: str
+        story_id: UUID
     ) -> Dict[str, Any]:
-        """Get code deliverables for a story"""
-        # Get story artifact
-        story_query = (
-            select(Artifact)
-            .where(Artifact.story_id == story_id)
-            .where(Artifact.artifact_type == 'story')
-        )
-        story_result = await db.execute(story_query)
-        story = story_result.scalar_one()
+        """Get code deliverables for a story."""
+        # Get story document
+        story = await db.get(Document, story_id)
+        if not story or story.doc_type_id != 'story':
+            raise ValueError(f"Story not found: {story_id}")
         
         # Get project
-        proj_query = select(Project).where(Project.project_id == story.project_id)
-        proj_result = await db.execute(proj_query)
-        project = proj_result.scalar_one()
+        project = await db.get(Project, story.space_id)
+        project_name = project.name if project else "Unknown Project"
         
+        # Get parent epic
+        epic_query = (
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.to_document_id == Document.id)
+            .where(DocumentRelation.from_document_id == story_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'epic')
+        )
+        result = await db.execute(epic_query)
+        epic = result.scalar_one_or_none()
+        
+        # Extract files from content
         files = []
-        if story.content:
-            # Try to parse as structured content with files
-            if isinstance(story.content, dict):
-                if "files" in story.content:
-                    files = story.content["files"]
-                elif "code" in story.content:
-                    # Single code block
-                    files = [{
-                        "filepath": f"{story.artifact_path}.code",
-                        "content": story.content["code"],
-                        "language": story.content.get("language", "text"),
-                        "description": ""
-                    }]
-                else:
-                    # Treat entire content as single JSON file
-                    files = [{
-                        "filepath": f"{story.artifact_path}.json",
-                        "content": json.dumps(story.content, indent=2),
-                        "language": "json",
-                        "description": ""
-                    }]
-            else:
-                # String content - treat as single file
+        if story.content and isinstance(story.content, dict):
+            if "files" in story.content:
+                files = story.content["files"]
+            elif "code" in story.content:
+                # Single code block
                 files = [{
-                    "filepath": f"{story.artifact_path}.txt",
-                    "content": str(story.content),
-                    "language": "text",
+                    "filepath": f"story_{story.id}.code",
+                    "content": story.content["code"],
+                    "language": story.content.get("language", "text"),
+                    "description": ""
+                }]
+            elif story.content:
+                # Treat entire content as single JSON file
+                files = [{
+                    "filepath": f"story_{story.id}.json",
+                    "content": json.dumps(story.content, indent=2),
+                    "language": "json",
                     "description": ""
                 }]
         
         return {
-            "story_uuid": story.story_id,
-            "story_title": story.title or f"Story {story.story_id}",
-            "epic_uuid": story.epic_id,
-            "epic_name": f"Epic {story.epic_id}" if story.epic_id else "Unknown Epic",
-            "project_uuid": story.project_id,
-            "project_name": project.name or "Unknown Project",
+            "story_uuid": str(story.id),
+            "story_title": story.title,
+            "epic_uuid": str(epic.id) if epic else None,
+            "epic_name": epic.title if epic else "No Epic",
+            "project_uuid": str(story.space_id),
+            "project_name": project_name,
             "files": files,
             "has_code": len(files) > 0
         }
@@ -123,10 +129,10 @@ class StoryService:
     async def get_code_file(
         self,
         db: AsyncSession,
-        story_id: str,
+        story_id: UUID,
         file_index: int
     ) -> Dict[str, Any]:
-        """Get a specific code file by index"""
+        """Get a specific code file by index."""
         code_data = await self.get_code_deliverables(db, story_id)
         
         if not code_data["files"] or file_index >= len(code_data["files"]):
@@ -143,9 +149,9 @@ class StoryService:
     async def create_code_zip(
         self,
         db: AsyncSession,
-        story_id: str
+        story_id: UUID
     ) -> io.BytesIO:
-        """Create a zip file with all code deliverables"""
+        """Create a zip file with all code deliverables."""
         code_data = await self.get_code_deliverables(db, story_id)
         
         # Create zip in memory
@@ -175,6 +181,35 @@ Story ID: {code_data['story_uuid']}
         
         zip_buffer.seek(0)
         return zip_buffer
+    
+    async def list_stories_for_project(
+        self,
+        db: AsyncSession,
+        project_id: UUID
+    ) -> list[Dict[str, Any]]:
+        """List all stories for a project."""
+        query = (
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project_id)
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at)
+        )
+        result = await db.execute(query)
+        stories = result.scalars().all()
+        
+        return [
+            {
+                "story_uuid": str(story.id),
+                "title": story.title,
+                "status": story.status,
+                "is_stale": story.is_stale,
+                "has_code": bool(story.content and story.content.get("files")),
+                "created_at": story.created_at.isoformat() if story.created_at else ""
+            }
+            for story in stories
+        ]
 
 
 # Singleton instance

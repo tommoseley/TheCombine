@@ -71,19 +71,19 @@ def mock_architecture_spec():
 
 
 @pytest.fixture
-def mock_epic_set():
-    """Mock epic_set document type."""
+def mock_epic_backlog():
+    """Mock epic_backlog document type."""
     mock = MagicMock()
     mock.to_dict.return_value = {
         "id": "uuid-3",
-        "doc_type_id": "epic_set",
-        "name": "Epic Set",
+        "doc_type_id": "epic_backlog",
+        "name": "Epic Backlog",
         "description": "Project epics",
         "category": "planning",
         "icon": "layers",
         "builder_role": "pm",
         "builder_task": "epic_generation",
-        "handler_id": "epic_set",
+        "handler_id": "epic_backlog",
         "required_inputs": ["project_discovery"],
         "optional_inputs": ["architecture_spec"],
         "scope": "project",
@@ -136,13 +136,13 @@ async def test_get_document_config_not_found():
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_list_document_types(mock_project_discovery, mock_architecture_spec, mock_epic_set):
+async def test_list_document_types(mock_project_discovery, mock_architecture_spec, mock_epic_backlog):
     """Test listing all document types."""
     # Arrange
     db = AsyncMock(spec=AsyncSession)
     mock_result = MagicMock()
     mock_scalars = MagicMock()
-    mock_scalars.all.return_value = [mock_project_discovery, mock_architecture_spec, mock_epic_set]
+    mock_scalars.all.return_value = [mock_project_discovery, mock_architecture_spec, mock_epic_backlog]
     mock_result.scalars.return_value = mock_scalars
     db.execute.return_value = mock_result
     
@@ -153,7 +153,7 @@ async def test_list_document_types(mock_project_discovery, mock_architecture_spe
     assert len(doc_types) == 3
     assert doc_types[0]["doc_type_id"] == "project_discovery"
     assert doc_types[1]["doc_type_id"] == "architecture_spec"
-    assert doc_types[2]["doc_type_id"] == "epic_set"
+    assert doc_types[2]["doc_type_id"] == "epic_backlog"
 
 
 # =============================================================================
@@ -272,7 +272,7 @@ async def test_document_dependency_chain():
     Test the full dependency chain:
     - project_discovery has no deps (can build first)
     - architecture_spec needs project_discovery
-    - epic_set needs project_discovery
+    - epic_backlog needs project_discovery
     """
     # This would be an integration test with a real database
     # For now, just document the expected behavior
@@ -280,11 +280,11 @@ async def test_document_dependency_chain():
     # Phase 1: Nothing exists
     # - project_discovery: can build (no deps)
     # - architecture_spec: cannot build (missing project_discovery)
-    # - epic_set: cannot build (missing project_discovery)
+    # - epic_backlog: cannot build (missing project_discovery)
     
     # Phase 2: project_discovery exists
     # - architecture_spec: can build
-    # - epic_set: can build
+    # - epic_backlog: can build
     
     # Phase 3: All exist
     # - Nothing new to build at project scope

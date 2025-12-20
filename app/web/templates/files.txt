@@ -1,0 +1,79 @@
+ Volume in drive C is Firecuda
+ Volume Serial Number is 0493-D99C
+
+ Directory of C:\dev\The Combine\app\web\templates
+
+12/19/2025  10:40 AM    <DIR>          .
+12/15/2025  05:51 PM    <DIR>          ..
+12/19/2025  10:44 PM    <DIR>          components
+12/20/2025  02:37 PM                 0 files.txt
+12/12/2025  10:18 AM    <DIR>          layout
+12/20/2025  02:29 PM    <DIR>          pages
+               1 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components
+
+12/19/2025  10:44 PM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/14/2025  06:11 PM    <DIR>          alerts
+12/18/2025  07:16 PM             4,012 icon_picker.html
+12/18/2025  05:44 PM             6,584 legend_modal.html
+12/19/2025  10:44 PM             4,021 project_inspector.html
+12/19/2025  10:37 PM             9,166 project_list.html
+12/19/2025  10:44 PM             1,866 project_rail.html
+12/14/2025  03:16 PM             4,881 search_results.html
+12/19/2025  10:46 PM             6,461 sidebar.html
+               7 File(s)         36,991 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components\alerts
+
+12/14/2025  06:11 PM    <DIR>          .
+12/19/2025  10:44 PM    <DIR>          ..
+12/14/2025  06:11 PM               637 error.html
+12/14/2025  06:11 PM             1,506 success.html
+               2 File(s)          2,143 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\layout
+
+12/12/2025  10:18 AM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/19/2025  06:49 PM            14,508 base.html
+               1 File(s)         14,508 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages
+
+12/20/2025  02:29 PM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/20/2025  02:30 PM    <DIR>          admin
+12/20/2025  01:06 PM    <DIR>          partials
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\admin
+
+12/20/2025  02:30 PM    <DIR>          .
+12/20/2025  02:29 PM    <DIR>          ..
+12/20/2025  02:30 PM             7,581 document_types.html
+12/20/2025  02:30 PM            12,440 document_type_detail.html
+12/20/2025  02:30 PM             3,410 index.html
+12/20/2025  02:30 PM               870 not_found.html
+               4 File(s)         24,301 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\partials
+
+12/20/2025  01:06 PM    <DIR>          .
+12/20/2025  02:29 PM    <DIR>          ..
+12/19/2025  10:00 PM               462 _document_container.html
+12/19/2025  11:37 PM             7,583 _document_not_found.html
+12/19/2025  06:51 PM            11,121 _epic_backlog_content.html
+12/19/2025  06:51 PM            10,301 _epic_card.html
+12/19/2025  12:46 PM               409 _project_detail.html
+12/19/2025  09:06 PM            19,797 _project_discovery_content.html
+12/18/2025  08:54 PM             4,203 _project_new_content.html
+12/19/2025  09:00 PM            13,793 _project_overview.html
+12/20/2025  10:43 AM            14,616 _story_backlog_content.html
+12/19/2025  11:08 PM            20,827 _technical_architecture_content.html
+              10 File(s)        103,112 bytes
+
+     Total Files Listed:
+              25 File(s)        181,055 bytes
+              20 Dir(s)  998,900,027,392 bytes free

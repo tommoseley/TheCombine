@@ -26,12 +26,15 @@ from database import Base
 
 # Import all models here so they're registered with Base.metadata
 # This enables autogenerate to detect changes
-from app.api.models.artifact import Artifact
 from app.api.models.project import Project
-from app.api.models.role_prompt import RolePrompt  # If this exists
-# from app.combine.models.role import Role  # Uncomment if exists
-# from app.combine.models.role_task import RoleTask  # Uncomment if exists
-from app.api.models.document_type import DocumentType  # NEW - add after creating
+from app.api.models.document_type import DocumentType
+from app.api.models.document import Document
+from app.api.models.document_relation import DocumentRelation
+
+# Optional models - uncomment as needed
+# from app.api.models.role_prompt import RolePrompt
+# from app.combine.models.role import Role
+# from app.combine.models.role_task import RoleTask
 
 # =============================================================================
 # ALEMBIC CONFIGURATION

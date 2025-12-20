@@ -1,89 +1,89 @@
 """
-Epic service for web UI
-Maps epic_id in Artifact model to Epic concepts for UI
+Epic service for web UI - Document-centric version.
+
+Epics are documents with doc_type_id = 'epic'.
+Stories are related via document_relations (derived_from).
 """
 
-from sqlalchemy import select, func, distinct, and_
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from typing import Dict, Any, List
+from uuid import UUID
 
-# Import existing models
-from app.api.models import Artifact, Project
+from app.api.models import Document, DocumentRelation, Project
 
 
 class EpicService:
-    """Service for epic-related operations (maps to epic_id in Artifact)"""
+    """Service for epic-related operations using Document model."""
     
     async def get_epic_summary(
         self,
         db: AsyncSession,
-        epic_id: str
+        epic_id: UUID
     ) -> Dict[str, Any]:
-        """Get basic epic info for collapsed tree node"""
-        # Get epic artifact
-        epic_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'epic')
-            .order_by(Artifact.created_at.desc())
-        )
-        epic_result = await db.execute(epic_query)
-        epic = epic_result.scalar_one()
+        """Get basic epic info for collapsed tree node."""
+        # Get epic document
+        epic = await db.get(Document, epic_id)
+        if not epic or epic.doc_type_id != 'epic':
+            raise ValueError(f"Epic not found: {epic_id}")
         
-        # Count stories in this epic
+        # Count stories derived from this epic
         story_count_query = (
-            select(func.count(distinct(Artifact.story_id)))
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.story_id.isnot(None))
+            select(func.count(Document.id))
+            .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+            .where(DocumentRelation.to_document_id == epic_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
         )
-        story_count_result = await db.execute(story_count_query)
-        story_count = story_count_result.scalar()
+        result = await db.execute(story_count_query)
+        story_count = result.scalar() or 0
         
         return {
-            "epic_uuid": epic.epic_id,
-            "name": epic.title or f"Epic {epic.epic_id}",
-            "description": "",
-            "status": epic.status or "pending",
-            "story_count": story_count or 0
+            "epic_uuid": str(epic.id),
+            "name": epic.title,
+            "description": epic.summary or "",
+            "status": epic.status,
+            "story_count": story_count
         }
     
     async def get_epic_with_stories(
         self,
         db: AsyncSession,
-        epic_id: str
+        epic_id: UUID
     ) -> Dict[str, Any]:
-        """Get epic with story list for expanded tree node"""
-        # Get epic artifact
-        epic_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'epic')
-        )
-        epic_result = await db.execute(epic_query)
-        epic = epic_result.scalar_one()
+        """Get epic with story list for expanded tree node."""
+        # Get epic document
+        epic = await db.get(Document, epic_id)
+        if not epic or epic.doc_type_id != 'epic':
+            raise ValueError(f"Epic not found: {epic_id}")
         
-        # Get all stories in this epic
+        # Get all stories derived from this epic
         stories_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'story')
-            .order_by(Artifact.story_id)
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+            .where(DocumentRelation.to_document_id == epic_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at)
         )
-        stories_result = await db.execute(stories_query)
-        stories = stories_result.scalars().all()
+        result = await db.execute(stories_query)
+        stories = result.scalars().all()
         
         return {
-            "epic_uuid": epic.epic_id,
-            "name": epic.title or f"Epic {epic.epic_id}",
-            "description": "",
-            "status": epic.status or "pending",
+            "epic_uuid": str(epic.id),
+            "name": epic.title,
+            "description": epic.summary or "",
+            "status": epic.status,
             "story_count": len(stories),
             "stories": [
                 {
-                    "story_uuid": story.story_id,
-                    "title": story.title or f"Story {story.story_id}",
-                    "status": story.status or "pending",
-                    "has_code": bool(story.content and story.content != {})
+                    "story_uuid": str(story.id),
+                    "title": story.title,
+                    "status": story.status,
+                    "has_code": bool(story.content and story.content.get("files"))
                 }
                 for story in stories
             ]
@@ -92,43 +92,42 @@ class EpicService:
     async def get_epic_full(
         self,
         db: AsyncSession,
-        epic_id: str
+        epic_id: UUID
     ) -> Dict[str, Any]:
-        """Get complete epic details for main content view"""
-        # Get epic artifact with project
-        epic_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'epic')
-        )
-        epic_result = await db.execute(epic_query)
-        epic = epic_result.scalar_one()
+        """Get complete epic details for main content view."""
+        # Get epic document
+        epic = await db.get(Document, epic_id)
+        if not epic or epic.doc_type_id != 'epic':
+            raise ValueError(f"Epic not found: {epic_id}")
         
         # Get project
-        proj_query = select(Project).where(Project.project_id == epic.project_id)
-        proj_result = await db.execute(proj_query)
-        project = proj_result.scalar_one()
+        project = await db.get(Project, epic.space_id)
+        project_name = project.name if project else "Unknown Project"
         
         # Get story statistics
         stories_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'story')
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+            .where(DocumentRelation.to_document_id == epic_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
         )
-        stories_result = await db.execute(stories_query)
-        stories = stories_result.scalars().all()
+        result = await db.execute(stories_query)
+        stories = result.scalars().all()
         
         total_stories = len(stories)
         completed_stories = sum(1 for s in stories if s.status == "complete")
         in_progress_stories = sum(1 for s in stories if s.status == "in_progress")
         
         return {
-            "epic_uuid": epic.epic_id,
-            "project_uuid": epic.project_id,
-            "project_name": project.name or "Unknown Project",
-            "name": epic.title or f"Epic {epic.epic_id}",
-            "description": "",
-            "status": epic.status or "pending",
+            "epic_uuid": str(epic.id),
+            "project_uuid": str(epic.space_id),
+            "project_name": project_name,
+            "name": epic.title,
+            "description": epic.summary or "",
+            "status": epic.status,
+            "is_stale": epic.is_stale,
             "created_at": epic.created_at.isoformat() if epic.created_at else "",
             "updated_at": epic.updated_at.isoformat() if epic.updated_at else "",
             "total_stories": total_stories,
@@ -140,115 +139,130 @@ class EpicService:
     async def get_stories(
         self,
         db: AsyncSession,
-        epic_id: str
+        epic_id: UUID
     ) -> Dict[str, Any]:
-        """Get all stories for an epic with details"""
+        """Get all stories for an epic with details."""
         # Get epic
-        epic_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'epic')
-        )
-        epic_result = await db.execute(epic_query)
-        epic = epic_result.scalar_one()
+        epic = await db.get(Document, epic_id)
+        if not epic or epic.doc_type_id != 'epic':
+            raise ValueError(f"Epic not found: {epic_id}")
         
         # Get project
-        proj_query = select(Project).where(Project.project_id == epic.project_id)
-        proj_result = await db.execute(proj_query)
-        project = proj_result.scalar_one()
+        project = await db.get(Project, epic.space_id)
+        project_name = project.name if project else "Unknown Project"
         
         # Get all stories
         stories_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'story')
-            .order_by(Artifact.story_id)
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+            .where(DocumentRelation.to_document_id == epic_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at)
         )
-        stories_result = await db.execute(stories_query)
-        stories_list = stories_result.scalars().all()
+        result = await db.execute(stories_query)
+        stories = result.scalars().all()
         
         return {
-            "epic_uuid": epic.epic_id,
-            "epic_name": epic.title or f"Epic {epic.epic_id}",
-            "project_uuid": epic.project_id,
-            "project_name": project.name or "Unknown Project",
+            "epic_uuid": str(epic.id),
+            "epic_name": epic.title,
+            "project_uuid": str(epic.space_id),
+            "project_name": project_name,
             "stories": [
                 {
-                    "story_uuid": story.story_id,
-                    "title": story.title or f"Story {story.story_id}",
-                    "description": "",
-                    "status": story.status or "pending",
-                    "has_code": bool(story.content and story.content != {}),
-                    "has_tests": False,
-                    "acceptance_criteria_count": 0,
+                    "story_uuid": str(story.id),
+                    "title": story.title,
+                    "description": story.summary or "",
+                    "status": story.status,
+                    "is_stale": story.is_stale,
+                    "has_code": bool(story.content and story.content.get("files")),
+                    "has_tests": bool(story.content and story.content.get("tests")),
+                    "acceptance_criteria_count": len(story.content.get("acceptance_criteria", [])) if story.content else 0,
                     "created_at": story.created_at.isoformat() if story.created_at else ""
                 }
-                for story in stories_list
+                for story in stories
             ],
-            "total_count": len(stories_list)
+            "total_count": len(stories)
         }
     
     async def get_epic_code(
         self,
         db: AsyncSession,
-        epic_id: str
+        epic_id: UUID
     ) -> Dict[str, Any]:
-        """Get all code deliverables across all stories in an epic"""
+        """Get all code deliverables across all stories in an epic."""
         # Get epic
-        epic_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'epic')
-        )
-        epic_result = await db.execute(epic_query)
-        epic = epic_result.scalar_one()
+        epic = await db.get(Document, epic_id)
+        if not epic or epic.doc_type_id != 'epic':
+            raise ValueError(f"Epic not found: {epic_id}")
         
         # Get project
-        proj_query = select(Project).where(Project.project_id == epic.project_id)
-        proj_result = await db.execute(proj_query)
-        project = proj_result.scalar_one()
+        project = await db.get(Project, epic.space_id)
+        project_name = project.name if project else "Unknown Project"
         
-        # Get all stories with code
+        # Get all stories
         stories_query = (
-            select(Artifact)
-            .where(Artifact.epic_id == epic_id)
-            .where(Artifact.artifact_type == 'story')
+            select(Document)
+            .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
+            .where(DocumentRelation.to_document_id == epic_id)
+            .where(DocumentRelation.relation_type == 'derived_from')
+            .where(Document.doc_type_id == 'story')
+            .where(Document.is_latest == True)
         )
-        stories_result = await db.execute(stories_query)
-        stories = stories_result.scalars().all()
+        result = await db.execute(stories_query)
+        stories = result.scalars().all()
         
         # Collect all code files
         all_files = []
         for story in stories:
-            if story.content:
-                # Check if content has files array
-                if isinstance(story.content, dict) and "files" in story.content:
-                    for file_info in story.content["files"]:
-                        all_files.append({
-                            "story_uuid": story.story_id,
-                            "story_title": story.title or f"Story {story.story_id}",
-                            "filepath": file_info.get("filepath", "unknown"),
-                            "content": file_info.get("content", ""),
-                            "language": file_info.get("language", "text")
-                        })
-                else:
-                    # Treat entire content as single file
+            if story.content and isinstance(story.content, dict):
+                files = story.content.get("files", [])
+                for file_info in files:
                     all_files.append({
-                        "story_uuid": story.story_id,
-                        "story_title": story.title or f"Story {story.story_id}",
-                        "filepath": f"{story.artifact_path}.json",
-                        "content": str(story.content),
-                        "language": "json"
+                        "story_uuid": str(story.id),
+                        "story_title": story.title,
+                        "filepath": file_info.get("filepath", "unknown"),
+                        "content": file_info.get("content", ""),
+                        "language": file_info.get("language", "text")
                     })
         
         return {
-            "epic_uuid": epic.epic_id,
-            "epic_name": epic.title or f"Epic {epic.epic_id}",
-            "project_uuid": epic.project_id,
-            "project_name": project.name or "Unknown Project",
+            "epic_uuid": str(epic.id),
+            "epic_name": epic.title,
+            "project_uuid": str(epic.space_id),
+            "project_name": project_name,
             "files": all_files,
             "total_files": len(all_files)
         }
+    
+    async def list_epics_for_project(
+        self,
+        db: AsyncSession,
+        project_id: UUID
+    ) -> List[Dict[str, Any]]:
+        """List all epics for a project."""
+        query = (
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project_id)
+            .where(Document.doc_type_id == 'epic')
+            .where(Document.is_latest == True)
+            .order_by(Document.created_at)
+        )
+        result = await db.execute(query)
+        epics = result.scalars().all()
+        
+        return [
+            {
+                "epic_uuid": str(epic.id),
+                "name": epic.title,
+                "status": epic.status,
+                "is_stale": epic.is_stale,
+                "created_at": epic.created_at.isoformat() if epic.created_at else ""
+            }
+            for epic in epics
+        ]
 
 
 # Singleton instance

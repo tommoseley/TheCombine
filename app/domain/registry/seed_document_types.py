@@ -118,7 +118,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     # PLANNING DOCUMENTS
     # -------------------------------------------------------------------------
     {
-        "doc_type_id": "epic_set",
+        "doc_type_id": "epic_backlog
         "name": "Epic Set",
         "description": (
             "Set of epics decomposed from project discovery. "
@@ -128,7 +128,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "icon": "layers",
         "builder_role": "pm",
         "builder_task": "epic_generation",
-        "handler_id": "epic_set",
+        "handler_id": "epic_backlog
         "required_inputs": ["project_discovery"],  # Needs discovery first
         "optional_inputs": ["architecture_spec"],  # Better with arch spec
         "gating_rules": {},
