@@ -5,117 +5,75 @@
 
 12/19/2025  10:40 AM    <DIR>          .
 12/15/2025  05:51 PM    <DIR>          ..
-12/19/2025  11:50 AM    <DIR>          components
-12/19/2025  01:42 PM                 0 files.txt
+12/19/2025  10:44 PM    <DIR>          components
+12/20/2025  02:37 PM                 0 files.txt
 12/12/2025  10:18 AM    <DIR>          layout
-12/19/2025  12:33 PM    <DIR>          pages
+12/20/2025  02:29 PM    <DIR>          pages
                1 File(s)              0 bytes
 
  Directory of C:\dev\The Combine\app\web\templates\components
 
-12/19/2025  11:50 AM    <DIR>          .
+12/19/2025  10:44 PM    <DIR>          .
 12/19/2025  10:40 AM    <DIR>          ..
 12/14/2025  06:11 PM    <DIR>          alerts
-12/14/2025  03:17 PM               591 code_file.html
-12/18/2025  04:45 PM             7,739 document_actions.html
-12/18/2025  04:20 PM             6,830 document_content.html
-12/19/2025  12:08 PM             6,057 document_list_sidebar.html
-12/18/2025  06:06 PM    <DIR>          empty_states
 12/18/2025  07:16 PM             4,012 icon_picker.html
 12/18/2025  05:44 PM             6,584 legend_modal.html
-12/18/2025  08:36 PM             1,128 project_list.html
-12/18/2025  04:20 PM             4,222 reject_modal.html
+12/19/2025  10:44 PM             4,021 project_inspector.html
+12/19/2025  10:37 PM             9,166 project_list.html
+12/19/2025  10:44 PM             1,866 project_rail.html
 12/14/2025  03:16 PM             4,881 search_results.html
-12/18/2025  04:18 PM    <DIR>          sidebar
-12/18/2025  09:20 PM            11,043 sidebar.html
-12/18/2025  06:51 PM    <DIR>          tree
-              10 File(s)         53,087 bytes
+12/19/2025  10:46 PM             6,461 sidebar.html
+               7 File(s)         36,991 bytes
 
  Directory of C:\dev\The Combine\app\web\templates\components\alerts
 
 12/14/2025  06:11 PM    <DIR>          .
-12/19/2025  11:50 AM    <DIR>          ..
+12/19/2025  10:44 PM    <DIR>          ..
 12/14/2025  06:11 PM               637 error.html
 12/14/2025  06:11 PM             1,506 success.html
                2 File(s)          2,143 bytes
-
- Directory of C:\dev\The Combine\app\web\templates\components\empty_states
-
-12/18/2025  06:06 PM    <DIR>          .
-12/19/2025  11:50 AM    <DIR>          ..
-12/18/2025  06:06 PM               621 no_document_selected.html
-               1 File(s)            621 bytes
-
- Directory of C:\dev\The Combine\app\web\templates\components\sidebar
-
-12/18/2025  04:18 PM    <DIR>          .
-12/19/2025  11:50 AM    <DIR>          ..
-12/18/2025  04:20 PM             4,312 document_status_list.html
-               1 File(s)          4,312 bytes
-
- Directory of C:\dev\The Combine\app\web\templates\components\tree
-
-12/18/2025  06:51 PM    <DIR>          .
-12/19/2025  11:50 AM    <DIR>          ..
-12/16/2025  06:07 PM             1,563 architecture_collapsed.html
-12/16/2025  06:07 PM             3,159 architecture_expanded.html
-12/18/2025  05:36 PM             4,088 documents_collapsed.html
-12/18/2025  06:06 PM             6,512 documents_expanded.html
-12/16/2025  06:07 PM             1,187 epic_collapsed.html
-12/16/2025  06:07 PM             2,561 epic_expanded.html
-12/16/2025  06:06 PM             1,186 project_collapsed.html
-12/18/2025  04:58 PM             2,203 project_expanded.html
-               8 File(s)         22,459 bytes
 
  Directory of C:\dev\The Combine\app\web\templates\layout
 
 12/12/2025  10:18 AM    <DIR>          .
 12/19/2025  10:40 AM    <DIR>          ..
-12/18/2025  10:09 PM            11,327 base.html
-               1 File(s)         11,327 bytes
+12/19/2025  06:49 PM            14,508 base.html
+               1 File(s)         14,508 bytes
 
  Directory of C:\dev\The Combine\app\web\templates\pages
 
-12/19/2025  12:33 PM    <DIR>          .
+12/20/2025  02:29 PM    <DIR>          .
 12/19/2025  10:40 AM    <DIR>          ..
-12/16/2025  05:54 PM               256 architectural_summary.html
-12/19/2025  12:34 PM               197 architecture_view.html
-12/18/2025  10:21 PM               185 document_with_list.html
-12/19/2025  12:34 PM               198 epic_backlog.html
-12/14/2025  05:46 PM               189 epic_detail.html
-12/14/2025  05:45 PM               164 home.html
-12/19/2025  12:46 PM    <DIR>          partials
-12/18/2025  04:33 PM               185 project_content.html
-12/14/2025  05:02 PM               195 project_detail.html
-12/19/2025  12:30 PM               196 project_discovery.html
-12/14/2025  05:45 PM               185 project_new.html
-12/14/2025  05:47 PM               195 story_code.html
-12/14/2025  05:46 PM               192 story_detail.html
-              12 File(s)          2,337 bytes
+12/20/2025  02:30 PM    <DIR>          admin
+12/20/2025  01:06 PM    <DIR>          partials
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\admin
+
+12/20/2025  02:30 PM    <DIR>          .
+12/20/2025  02:29 PM    <DIR>          ..
+12/20/2025  02:30 PM             7,581 document_types.html
+12/20/2025  02:30 PM            12,440 document_type_detail.html
+12/20/2025  02:30 PM             3,410 index.html
+12/20/2025  02:30 PM               870 not_found.html
+               4 File(s)         24,301 bytes
 
  Directory of C:\dev\The Combine\app\web\templates\pages\partials
 
-12/19/2025  12:46 PM    <DIR>          .
-12/19/2025  12:33 PM    <DIR>          ..
-12/16/2025  05:53 PM            24,242 _architecture_summary.html
-12/19/2025  12:35 PM             2,842 _document_not_found.html
-12/18/2025  10:20 PM                 0 _document_with_list.html
-12/19/2025  12:36 PM               404 _epic_backlog.html
-12/14/2025  06:08 PM             5,988 _epic_backlog_content.html
-12/14/2025  06:08 PM             6,477 _epic_detail_content.html
-12/14/2025  05:48 PM             2,601 _home_content.html
-12/18/2025  04:21 PM            13,940 _project_content.html
+12/20/2025  01:06 PM    <DIR>          .
+12/20/2025  02:29 PM    <DIR>          ..
+12/19/2025  10:00 PM               462 _document_container.html
+12/19/2025  11:37 PM             7,583 _document_not_found.html
+12/19/2025  06:51 PM            11,121 _epic_backlog_content.html
+12/19/2025  06:51 PM            10,301 _epic_card.html
 12/19/2025  12:46 PM               409 _project_detail.html
-12/19/2025  11:50 AM             5,379 _project_detail_content.html
-12/19/2025  12:30 PM               413 _project_discovery.html
-12/19/2025  12:21 PM            17,266 _project_discovery_content.html
+12/19/2025  09:06 PM            19,797 _project_discovery_content.html
 12/18/2025  08:54 PM             4,203 _project_new_content.html
-12/14/2025  06:09 PM             4,828 _story_code_content.html
-12/14/2025  06:09 PM             6,057 _story_detail_content.html
-12/19/2025  12:36 PM               434 _technical_architecture.html
-12/16/2025  04:59 PM            17,144 _technical_architecture_content.html
-              17 File(s)        112,627 bytes
+12/19/2025  09:00 PM            13,793 _project_overview.html
+12/20/2025  10:43 AM            14,616 _story_backlog_content.html
+12/19/2025  11:08 PM            20,827 _technical_architecture_content.html
+              10 File(s)        103,112 bytes
 
      Total Files Listed:
-              53 File(s)        208,913 bytes
-              26 Dir(s)  1,002,549,084,160 bytes free
+              25 File(s)        181,055 bytes
+              20 Dir(s)  998,900,027,392 bytes free

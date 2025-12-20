@@ -1,31 +1,29 @@
 {# Epic Card Partial - Renders a single epic #}
 {# Expected variables: epic (dict), is_later (optional bool) #}
 
-{% set border_class = "border-gray-300" if is_later else "border-purple-200" %}
-
-<details class="bg-white rounded-lg border {{ border_class }} hover:shadow-md transition-shadow" open>
+<details class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow" open>
     <summary class="p-6 cursor-pointer">
         <div class="flex items-start justify-between">
             <div class="flex-1">
                 <div class="flex items-center gap-3 mb-2">
-                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-mono">
+                    <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs font-mono">
                         {{ epic.epic_id }}
                     </span>
-                    <h3 class="text-lg font-semibold text-gray-900">{{ epic.name }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-50">{{ epic.name }}</h3>
                 </div>
-                <p class="text-gray-600">{{ epic.intent }}</p>
+                <p class="text-gray-600 dark:text-gray-400">{{ epic.intent }}</p>
             </div>
-            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 flex-shrink-0 ml-4"></i>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-4"></i>
         </div>
     </summary>
     
-    <div class="px-6 pb-6 border-t border-gray-100 pt-4 space-y-4">
+    <div class="px-6 pb-6 border-t border-gray-100 dark:border-gray-700 pt-4 space-y-4">
         
         <!-- Business Value -->
         {% if epic.business_value %}
-        <div class="p-3 bg-green-50 rounded-lg">
-            <h4 class="text-sm font-medium text-green-800 uppercase tracking-wider mb-1">Business Value</h4>
-            <p class="text-green-900 text-sm">{{ epic.business_value }}</p>
+        <div class="border-l-4 border-emerald-600 dark:border-emerald-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Business Value</h4>
+            <p class="text-gray-900 dark:text-gray-50 text-sm">{{ epic.business_value }}</p>
         </div>
         {% endif %}
         
@@ -33,12 +31,12 @@
         {% if epic.in_scope or epic.out_of_scope %}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {% if epic.in_scope %}
-            <div>
-                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">In Scope</h4>
+            <div class="border-l-4 border-emerald-600 dark:border-emerald-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+                <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">In Scope</h4>
                 <ul class="space-y-1">
                     {% for item in epic.in_scope %}
-                    <li class="flex items-start text-sm text-gray-700">
-                        <i data-lucide="check" class="w-4 h-4 mr-2 text-green-500 flex-shrink-0 mt-0.5"></i>
+                    <li class="flex items-start text-sm text-gray-900 dark:text-gray-50">
+                        <i data-lucide="check" class="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-500 flex-shrink-0 mt-0.5"></i>
                         {{ item }}
                     </li>
                     {% endfor %}
@@ -47,12 +45,12 @@
             {% endif %}
             
             {% if epic.out_of_scope %}
-            <div>
-                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Out of Scope</h4>
+            <div class="border-l-4 border-gray-400 dark:border-gray-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+                <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Out of Scope</h4>
                 <ul class="space-y-1">
                     {% for item in epic.out_of_scope %}
-                    <li class="flex items-start text-sm text-gray-500">
-                        <i data-lucide="x" class="w-4 h-4 mr-2 text-gray-400 flex-shrink-0 mt-0.5"></i>
+                    <li class="flex items-start text-sm text-gray-600 dark:text-gray-400">
+                        <i data-lucide="x" class="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5"></i>
                         {{ item }}
                     </li>
                     {% endfor %}
@@ -64,12 +62,12 @@
         
         <!-- Primary Outcomes -->
         {% if epic.primary_outcomes %}
-        <div>
-            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Primary Outcomes</h4>
+        <div class="border-l-4 border-violet-600 dark:border-violet-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Primary Outcomes</h4>
             <ul class="space-y-1">
                 {% for outcome in epic.primary_outcomes %}
-                <li class="flex items-start text-sm text-gray-700">
-                    <i data-lucide="target" class="w-4 h-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5"></i>
+                <li class="flex items-start text-sm text-gray-900 dark:text-gray-50">
+                    <i data-lucide="target" class="w-4 h-4 mr-2 text-violet-600 dark:text-violet-500 flex-shrink-0 mt-0.5"></i>
                     {{ outcome }}
                 </li>
                 {% endfor %}
@@ -82,17 +80,17 @@
         {% set blocking_questions = epic.open_questions | selectattr('blocking_for_epic', 'equalto', true) | list %}
         {% set other_questions = epic.open_questions | selectattr('blocking_for_epic', 'equalto', false) | list %}
         
-        <div class="p-3 bg-amber-50 rounded-lg">
-            <h4 class="text-sm font-medium text-amber-800 uppercase tracking-wider mb-2">Open Questions</h4>
+        <div class="border-l-4 border-amber-600 dark:border-amber-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Open Questions</h4>
             <div class="space-y-2">
                 {% for q in blocking_questions %}
                 <div class="flex items-start">
-                    <i data-lucide="alert-circle" class="w-4 h-4 mr-2 text-red-500 flex-shrink-0 mt-0.5"></i>
+                    <i data-lucide="alert-circle" class="w-4 h-4 mr-2 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5"></i>
                     <div class="flex-1">
-                        <span class="text-amber-900 text-sm">{{ q.question }}</span>
-                        <span class="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">Blocking</span>
+                        <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
+                        <span class="ml-2 px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-xs">Blocking</span>
                         {% if q.directed_to %}
-                        <span class="ml-1 text-xs text-gray-500">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-1 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -100,11 +98,11 @@
                 
                 {% for q in other_questions %}
                 <div class="flex items-start">
-                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 text-amber-500 flex-shrink-0 mt-0.5"></i>
+                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5"></i>
                     <div class="flex-1">
-                        <span class="text-amber-900 text-sm">{{ q.question }}</span>
+                        <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
                         {% if q.directed_to %}
-                        <span class="ml-2 text-xs text-gray-500">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -116,14 +114,14 @@
         <!-- Dependencies -->
         {% if epic.dependencies %}
         <div>
-            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-2">Dependencies</h4>
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Dependencies</h4>
             <div class="space-y-2">
                 {% for dep in epic.dependencies %}
                 <div class="flex items-center text-sm">
-                    <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono mr-2">
+                    <span class="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-mono mr-2">
                         {{ dep.depends_on_epic_id }}
                     </span>
-                    <span class="text-gray-500">{{ dep.reason }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">{{ dep.reason }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -132,12 +130,12 @@
         
         <!-- Architecture Attention Points -->
         {% if epic.architecture_attention_points %}
-        <div class="p-3 bg-indigo-50 rounded-lg">
-            <h4 class="text-sm font-medium text-indigo-800 uppercase tracking-wider mb-2">Architecture Attention Points</h4>
+        <div class="border-l-4 border-violet-600 dark:border-violet-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Architecture Attention Points</h4>
             <ul class="space-y-1">
                 {% for note in epic.architecture_attention_points %}
-                <li class="text-indigo-900 text-sm flex items-start">
-                    <i data-lucide="alert-circle" class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"></i>
+                <li class="text-gray-900 dark:text-gray-50 text-sm flex items-start">
+                    <i data-lucide="alert-circle" class="w-4 h-4 mr-2 mt-0.5 text-violet-600 dark:text-violet-500 flex-shrink-0"></i>
                     {{ note }}
                 </li>
                 {% endfor %}
@@ -149,25 +147,34 @@
         {% if epic.related_discovery_items %}
         {% set related = epic.related_discovery_items %}
         {% if related.risks or related.unknowns or related.early_decision_points %}
-        <div class="p-3 bg-gray-50 rounded-lg">
-            <h4 class="text-sm font-medium text-gray-600 uppercase tracking-wider mb-2">Related Discovery Items</h4>
+        <div class="border-l-4 border-gray-400 dark:border-gray-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Related Discovery Items</h4>
             <div class="space-y-2 text-sm">
                 {% if related.risks %}
-                <div>
-                    <span class="text-red-600 font-medium">Risks:</span>
-                    <span class="text-gray-700">{{ related.risks | join(', ') }}</span>
+                <div class="flex items-start">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 mr-2 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 font-medium">Risks:</span>
+                        <span class="text-gray-700 dark:text-gray-300 ml-1">{{ related.risks | join(', ') }}</span>
+                    </div>
                 </div>
                 {% endif %}
                 {% if related.unknowns %}
-                <div>
-                    <span class="text-amber-600 font-medium">Unknowns:</span>
-                    <span class="text-gray-700">{{ related.unknowns | join(', ') }}</span>
+                <div class="flex items-start">
+                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 font-medium">Unknowns:</span>
+                        <span class="text-gray-700 dark:text-gray-300 ml-1">{{ related.unknowns | join(', ') }}</span>
+                    </div>
                 </div>
                 {% endif %}
                 {% if related.early_decision_points %}
-                <div>
-                    <span class="text-purple-600 font-medium">Decisions:</span>
-                    <span class="text-gray-700">{{ related.early_decision_points | join(', ') }}</span>
+                <div class="flex items-start">
+                    <i data-lucide="git-branch" class="w-4 h-4 mr-2 text-violet-600 dark:text-violet-500 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 font-medium">Decisions:</span>
+                        <span class="text-gray-700 dark:text-gray-300 ml-1">{{ related.early_decision_points | join(', ') }}</span>
+                    </div>
                 </div>
                 {% endif %}
             </div>

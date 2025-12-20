@@ -1,48 +1,88 @@
 {# Document Not Found / Build UI #}
 {# Shared partial for when a document doesn't exist yet #}
-{# Expected variables: project, doc_type_id, doc_type_name, doc_type_icon #}
+{# Expected variables: project, doc_type_id, doc_type_name, doc_type_icon, doc_type_description #}
 
-<div class="bg-white rounded-lg border border-gray-200 p-12">
-    <div class="max-w-md mx-auto text-center">
-        <i data-lucide="{{ doc_type_icon | default('file-text') }}" class="w-16 h-16 text-gray-300 mx-auto mb-4"></i>
-        <h2 class="text-2xl font-semibold text-gray-900 mb-2">No {{ doc_type_name | default('Document') }}</h2>
-        <p class="text-gray-600 mb-6">Build the {{ doc_type_name | default('document') }} to continue.</p>
+<div class="p-6 max-w-4xl mx-auto">
+    <!-- Header with breadcrumb -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}" 
+               hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-gray-700 dark:hover:text-gray-200">
+                {{ project.name if project.name is defined else project['name'] }}
+            </a>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900 dark:text-gray-100">{{ doc_type_name }}</span>
+        </nav>
         
-        <!-- Build Button with Progress -->
-        <div id="build-container">
-            <button 
-                id="build-btn"
-                onclick="startDocumentBuild('{{ project.id if project.id is defined else project['id'] }}', '{{ doc_type_id }}')"
-                class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium">
-                <i data-lucide="play" class="w-5 h-5" id="btn-icon"></i>
-                <span id="btn-text">Generate {{ doc_type_name | default('Document') }}</span>
-            </button>
-            
-            <!-- Progress Bar (hidden initially) -->
-            <div id="progress-container" class="hidden mt-4">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm font-medium text-gray-700">Progress</span>
-                    <span id="progress-pct" class="text-sm text-gray-500">0%</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5">
-                    <div id="progress-fill" class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
+        <div class="flex items-center gap-3">
+            <i data-lucide="{{ doc_type_icon | default('file-text') }}" class="w-10 h-10 text-gray-400 dark:text-gray-500"></i>
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ doc_type_name }}</h1>
+                <p class="text-gray-500 dark:text-gray-400">Not yet created</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Document Type Description Card -->
+    {% if doc_type_description %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">About This Document</h2>
+        <div class="text-gray-600 dark:text-gray-400 whitespace-pre-line">{{ doc_type_description }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Build Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
+        <div class="max-w-md mx-auto text-center">
+            <i data-lucide="{{ doc_type_icon | default('file-text') }}" class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4"></i>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ doc_type_name }} Not Created</h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">This document has not been generated yet. Click below to create it.</p>
             
-            <!-- Status Messages (hidden initially) -->
-            <div id="status-messages" class="hidden mt-4 text-left space-y-1 max-h-48 overflow-y-auto">
+            <!-- Build Button with Progress -->
+            <div id="build-container">
+                <button 
+                    id="build-btn"
+                    onclick="startDocumentBuild('{{ project.id if project.id is defined else project['id'] }}', '{{ doc_type_id }}')"
+                    class="w-full px-4 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                    <i data-lucide="sparkles" class="w-5 h-5" id="btn-icon"></i>
+                    <span id="btn-text">Generate {{ doc_type_name }}</span>
+                </button>
+                
+                <!-- Progress Bar (hidden initially) -->
+                <div id="progress-container" class="hidden mt-4">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Progress</span>
+                        <span id="progress-pct" class="text-sm text-gray-500 dark:text-gray-400">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div id="progress-fill" class="bg-violet-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Status Messages (hidden initially) -->
+                <div id="status-messages" class="hidden mt-4 text-left space-y-1 max-h-48 overflow-y-auto">
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
+// Track last status to deduplicate
+let lastStatusMessage = '';
+
 async function startDocumentBuild(projectId, docTypeId) {
     const btn = document.getElementById('build-btn');
     const btnIcon = document.getElementById('btn-icon');
     const btnText = document.getElementById('btn-text');
     const progressContainer = document.getElementById('progress-container');
     const statusMessages = document.getElementById('status-messages');
+    
+    // Reset deduplication tracker
+    lastStatusMessage = '';
     
     // Update button to loading state
     btn.disabled = true;
@@ -92,7 +132,7 @@ async function startDocumentBuild(projectId, docTypeId) {
                             document.getElementById('progress-pct').textContent = data.progress + '%';
                         }
                         
-                        // Add status message
+                        // Add status message (with deduplication)
                         if (data.message) {
                             addStatusMessage(data.message, data.status);
                         }
@@ -100,7 +140,11 @@ async function startDocumentBuild(projectId, docTypeId) {
                         // Handle completion
                         if (data.status === 'complete') {
                             setTimeout(() => {
+                                // Refresh main content
                                 htmx.ajax('GET', window.location.pathname, {target: '#main-content', swap: 'innerHTML'});
+                                
+                                // Refresh project tree to update status indicators
+                                htmx.ajax('GET', '/ui/projects/tree', {target: '#project-tree-root', swap: 'innerHTML'});
                             }, 500);
                         }
                         
@@ -120,22 +164,28 @@ async function startDocumentBuild(projectId, docTypeId) {
 }
 
 function addStatusMessage(message, status) {
+    // Deduplicate: skip if identical to last message
+    if (message === lastStatusMessage) {
+        return;
+    }
+    lastStatusMessage = message;
+    
     const container = document.getElementById('status-messages');
     const div = document.createElement('div');
     div.className = 'flex items-start gap-2 text-sm py-0.5';
     
     let iconHtml = '';
     if (status === 'complete') {
-        iconHtml = '<i data-lucide="check-circle" class="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"></i>';
+        iconHtml = '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>';
     } else if (status === 'error') {
         iconHtml = '<i data-lucide="x-circle" class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5"></i>';
     } else if (status === 'streaming') {
-        iconHtml = '<i data-lucide="radio" class="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5 animate-pulse"></i>';
+        iconHtml = '<i data-lucide="radio" class="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5 animate-pulse"></i>';
     } else {
-        iconHtml = '<i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"></i>';
+        iconHtml = '<i data-lucide="bot" class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5"></i>';
     }
     
-    div.innerHTML = `${iconHtml}<span class="text-gray-600">${message}</span>`;
+    div.innerHTML = `${iconHtml}<span class="text-gray-600 dark:text-gray-400">${message}</span>`;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
     

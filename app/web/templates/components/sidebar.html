@@ -1,307 +1,187 @@
-<!-- components/sidebar.html -->
-<!-- Flat project list, resizable and collapsible -->
-
-<div id="sidebar-container" class="flex h-full">
-    <!-- Sidebar Content -->
-    <div id="sidebar-content" class="flex flex-col h-full w-full min-w-0">
-        <!-- Project List Header -->
-        <div class="p-3 border-b border-gray-200 flex items-center justify-between">
-            <span id="sidebar-title" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Projects</span>
-            <button 
-                onclick="collapseSidebar()"
-                class="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                title="Collapse sidebar">
-                <i data-lucide="panel-left-close" class="w-4 h-4"></i>
-            </button>
-        </div>
-        
-        <!-- Project List -->
-        <div class="flex-1 overflow-y-auto">
-            <ul 
-                id="project-list"
-                hx-get="/ui/projects/list"
-                hx-trigger="load"
-                hx-swap="innerHTML"
-                class="py-2">
-                <!-- Projects loaded here via HTMX -->
-                <li class="flex items-center justify-center py-8">
-                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin text-gray-400 htmx-indicator"></i>
-                </li>
-            </ul>
-        </div>
-        
-        <!-- Sidebar Footer -->
-        <div class="p-3 border-t border-gray-200">
-            <a 
-                href="/ui/projects/new"
-                hx-get="/ui/projects/new"
-                hx-target="#main-content"
-                hx-push-url="true"
-                class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm">
-                <i data-lucide="plus" class="w-4 h-4"></i>
-                <span id="new-project-text">New Project</span>
-            </a>
-        </div>
-        
-        <!-- Legend Link -->
-        <div class="px-3 pb-3">
-            <button 
-                onclick="openLegendModal()"
-                class="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
-                <span id="legend-text">Legend</span>
-            </button>
-        </div>
-    </div>
-    
-    <!-- Resize Handle -->
-    <div 
-        id="sidebar-resize-handle"
-        class="w-1 bg-transparent hover:bg-indigo-300 cursor-col-resize transition-colors flex-shrink-0"
-        title="Drag to resize">
-    </div>
-</div>
-
-<!-- Collapsed Sidebar State -->
-<div id="sidebar-collapsed" class="hidden flex-col h-full w-14 bg-white border-r border-gray-200">
-    <!-- Expand Button -->
-    <div class="p-3 flex justify-center">
-        <button 
-            onclick="expandSidebar()"
-            class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-            title="Expand sidebar">
-            <i data-lucide="panel-left-open" class="w-4 h-4"></i>
-        </button>
-    </div>
-    
-    <!-- Collapsed Project Icons -->
-    <div class="flex-1 overflow-y-auto">
-        <ul 
-            id="project-list-collapsed"
-            class="py-2 flex flex-col items-center gap-1">
-            <!-- Project icons loaded here -->
-        </ul>
-    </div>
-    
-    <!-- Collapsed New Project -->
-    <div class="p-3 flex justify-center border-t border-gray-200">
+<div class="flex flex-col h-full">
+    <!-- New Project Button -->
+    <div class="p-3 border-b border-gray-200 dark:border-gray-700">
         <a 
             href="/ui/projects/new"
             hx-get="/ui/projects/new"
             hx-target="#main-content"
             hx-push-url="true"
-            class="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
-            title="New Project">
+            class="w-full bg-violet-600 hover:bg-violet-700 dark:bg-violet-500 dark:hover:bg-violet-600 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
             <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>New Project</span>
         </a>
+    </div>
+    
+    <!-- Project Accordion Tree -->
+    <div class="flex-1 overflow-y-auto">
+        <div 
+            id="project-tree-root"
+            hx-get="/ui/projects/tree"
+            hx-trigger="load"
+            hx-swap="innerHTML"
+            hx-indicator="#tree-loading"
+            class="py-1">
+            <!-- Projects loaded here via HTMX -->
+            <div class="flex items-center justify-center py-8">
+                <div id="tree-loading" class="htmx-indicator">
+                    <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-gray-400 dark:text-gray-500"></i>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <style>
-/* Active project styling - rounded left edge like "(" */
-.project-item.active {
-    background-color: rgb(224 231 255); /* bg-indigo-100 */
-    border-top-left-radius: 0.5rem;
-    border-bottom-left-radius: 0.5rem;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    border-left: 4px solid rgb(99 102 241); /* indigo-500 */
+/* Accordion animation */
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
 }
-.project-item.active .project-name {
-    color: rgb(67 56 202); /* text-indigo-700 */
+.accordion-content.open {
+    max-height: 500px;
+}
+
+/* Active project header */
+.project-header.active {
+    background-color: rgb(76 29 149 / 0.2);
+}
+
+/* Active document link - Light mode */
+.doc-link.active {
+    background-color: rgb(243 232 255);
+    border-left-color: rgb(124 58 237) !important;
+}
+.doc-link.active span {
+    color: rgb(109 40 217);
     font-weight: 500;
 }
-.project-item.active .project-icon {
-    color: rgb(79 70 229); /* text-indigo-600 */
+.doc-link.active .doc-icon {
+    color: rgb(124 58 237);
 }
 
-/* Hover state */
-.project-item:hover:not(.active) {
-    background-color: rgb(249 250 251); /* bg-gray-50 */
+/* Active document link - Dark mode */
+.dark .doc-link.active {
+    background-color: rgb(124 58 237 / 0.15);
+    border-left-color: rgb(139 92 246) !important;
 }
-
-/* Collapsed icon active state */
-.project-icon-collapsed.active {
-    background-color: rgb(224 231 255);
-    color: rgb(79 70 229);
-    border-radius: 0.5rem;
+.dark .doc-link.active span {
+    color: rgb(196 181 253);
+}
+.dark .doc-link.active .doc-icon {
+    color: rgb(167 139 250);
 }
 </style>
 
 <script>
-// Sidebar state
-let sidebarWidth = localStorage.getItem('sidebarWidth') || 280;
-let sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-
-// Initialize sidebar
-document.addEventListener('DOMContentLoaded', () => {
-    const sidebarWrapper = document.getElementById('sidebar-wrapper');
-    const sidebar = document.getElementById('sidebar-container');
-    const collapsedSidebar = document.getElementById('sidebar-collapsed');
+// Accordion toggle - collapse others when opening
+// Note: button is now inside .project-header, not the header itself
+function toggleProjectAccordion(button, projectId) {
+    const accordion = button.closest('.project-accordion');
+    const content = accordion.querySelector('.accordion-content');
+    const header = accordion.querySelector('.project-header');
+    const chevron = button.querySelector('.accordion-chevron');
+    const isOpening = !content.classList.contains('open');
     
-    if (sidebarCollapsed) {
-        sidebar.classList.add('hidden');
-        collapsedSidebar.classList.remove('hidden');
-        collapsedSidebar.classList.add('flex');
-        if (sidebarWrapper) {
-            sidebarWrapper.style.width = '56px';
-        }
+    // If opening this one, close all others first
+    if (isOpening) {
+        document.querySelectorAll('.project-accordion').forEach(other => {
+            if (other !== accordion) {
+                const otherContent = other.querySelector('.accordion-content');
+                const otherChevron = other.querySelector('.accordion-chevron');
+                const otherHeader = other.querySelector('.project-header');
+                
+                otherContent.classList.remove('open');
+                otherHeader.classList.remove('active');
+                otherChevron.setAttribute('data-lucide', 'chevron-right');
+            }
+        });
+    }
+    
+    // Toggle this one
+    content.classList.toggle('open');
+    header.classList.toggle('active');
+    
+    if (content.classList.contains('open')) {
+        chevron.setAttribute('data-lucide', 'chevron-down');
     } else {
-        sidebar.style.width = sidebarWidth + 'px';
-        if (sidebarWrapper) {
-            sidebarWrapper.style.width = sidebarWidth + 'px';
-        }
+        chevron.setAttribute('data-lucide', 'chevron-right');
     }
     
-    initResizeHandle();
-});
-
-function collapseSidebar() {
-    const sidebarWrapper = document.getElementById('sidebar-wrapper');
-    const sidebar = document.getElementById('sidebar-container');
-    const collapsedSidebar = document.getElementById('sidebar-collapsed');
-    
-    sidebar.classList.add('hidden');
-    collapsedSidebar.classList.remove('hidden');
-    collapsedSidebar.classList.add('flex');
-    
-    // Update wrapper width for collapsed state
-    if (sidebarWrapper) {
-        sidebarWrapper.style.width = '56px';
-    }
-    
-    sidebarCollapsed = true;
-    localStorage.setItem('sidebarCollapsed', 'true');
-    
-    // Copy project icons to collapsed view
-    updateCollapsedProjectList();
-}
-
-function expandSidebar() {
-    const sidebarWrapper = document.getElementById('sidebar-wrapper');
-    const sidebar = document.getElementById('sidebar-container');
-    const collapsedSidebar = document.getElementById('sidebar-collapsed');
-    
-    collapsedSidebar.classList.add('hidden');
-    collapsedSidebar.classList.remove('flex');
-    sidebar.classList.remove('hidden');
-    sidebar.style.width = sidebarWidth + 'px';
-    
-    // Update wrapper width for expanded state
-    if (sidebarWrapper) {
-        sidebarWrapper.style.width = sidebarWidth + 'px';
-    }
-    
-    sidebarCollapsed = false;
-    localStorage.setItem('sidebarCollapsed', 'false');
-    
-    lucide.createIcons();
-}
-
-function updateCollapsedProjectList() {
-    const fullList = document.getElementById('project-list');
-    const collapsedList = document.getElementById('project-list-collapsed');
-    
-    if (!fullList || !collapsedList) return;
-    
-    const projects = fullList.querySelectorAll('.project-item');
-    collapsedList.innerHTML = '';
-    
-    projects.forEach(project => {
-        const icon = project.dataset.icon || 'folder';
-        const name = project.dataset.name || 'Project';
-        const id = project.dataset.id;
-        const isActive = project.classList.contains('active');
-        
-        const iconEl = document.createElement('li');
-        iconEl.innerHTML = `
-            <a 
-                href="/ui/projects/${id}"
-                hx-get="/ui/projects/${id}"
-                hx-target="#main-content"
-                hx-push-url="true"
-                class="project-icon-collapsed p-2 rounded-lg hover:bg-gray-100 transition-colors block ${isActive ? 'active' : ''}"
-                title="${name}">
-                <i data-lucide="${icon}" class="w-5 h-5 text-gray-500"></i>
-            </a>
-        `;
-        collapsedList.appendChild(iconEl);
-    });
-    
-    lucide.createIcons();
-    htmx.process(collapsedList);
-}
-
-function initResizeHandle() {
-    const handle = document.getElementById('sidebar-resize-handle');
-    const sidebar = document.getElementById('sidebar-container');
-    const sidebarWrapper = document.getElementById('sidebar-wrapper');
-    
-    if (!handle || !sidebar) return;
-    
-    let isResizing = false;
-    
-    handle.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        
-        const newWidth = Math.max(200, Math.min(400, e.clientX));
-        sidebar.style.width = newWidth + 'px';
-        if (sidebarWrapper) {
-            sidebarWrapper.style.width = newWidth + 'px';
-        }
-        sidebarWidth = newWidth;
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            localStorage.setItem('sidebarWidth', sidebarWidth);
-        }
-    });
-}
-
-// Update active project based on URL
-function updateActiveProject() {
-    const currentPath = window.location.pathname;
-    const projectMatch = currentPath.match(/\/projects\/([^\/]+)/);
-    const currentProjectId = projectMatch ? projectMatch[1] : null;
-    
-    document.querySelectorAll('.project-item').forEach(item => {
-        item.classList.remove('active');
-        if (currentProjectId && item.dataset.id === currentProjectId) {
-            item.classList.add('active');
-        }
-    });
-    
-    // Update collapsed view too
-    if (sidebarCollapsed) {
-        updateCollapsedProjectList();
-    }
-}
-
-document.addEventListener('DOMContentLoaded', updateActiveProject);
-document.body.addEventListener('htmx:afterSwap', () => {
-    setTimeout(() => {
-        updateActiveProject();
+    // Re-render icons
+    if (typeof lucide !== 'undefined') {
         lucide.createIcons();
+    }
+}
+
+// Update active states based on current URL
+function updateActiveStates() {
+    const currentPath = window.location.pathname;
+    
+    // Remove all active states
+    document.querySelectorAll('.project-header.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.doc-link.active').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.accordion-content.open').forEach(el => el.classList.remove('open'));
+    
+    // Reset all chevrons
+    document.querySelectorAll('.accordion-chevron').forEach(chev => {
+        chev.setAttribute('data-lucide', 'chevron-right');
+    });
+    
+    // Find matching document link and activate it + its parent project
+    document.querySelectorAll('.doc-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && currentPath.startsWith(href)) {
+            link.classList.add('active');
+            
+            // Open parent accordion
+            const accordion = link.closest('.project-accordion');
+            if (accordion) {
+                const content = accordion.querySelector('.accordion-content');
+                const header = accordion.querySelector('.project-header');
+                const chevron = accordion.querySelector('.accordion-chevron');
+                
+                content.classList.add('open');
+                header.classList.add('active');
+                chevron.setAttribute('data-lucide', 'chevron-down');
+            }
+        }
+    });
+    
+    // Also check project-level links (when viewing project detail page)
+    document.querySelectorAll('.project-header').forEach(header => {
+        const projectLink = header.getAttribute('data-project-url');
+        if (projectLink && currentPath === projectLink) {
+            header.classList.add('active');
+            const accordion = header.closest('.project-accordion');
+            const content = accordion.querySelector('.accordion-content');
+            const chevron = accordion.querySelector('.accordion-chevron');
+            
+            content.classList.add('open');
+            chevron.setAttribute('data-lucide', 'chevron-down');
+        }
+    });
+    
+    // Re-render icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', updateActiveStates);
+
+// Run after HTMX swaps
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    setTimeout(() => {
+        updateActiveStates();
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }, 10);
 });
-document.body.addEventListener('htmx:pushedIntoHistory', updateActiveProject);
-window.addEventListener('popstate', updateActiveProject);
 
-// Refresh project list when triggered (e.g., after project update)
-document.body.addEventListener('refreshProjectList', () => {
-    const projectList = document.getElementById('project-list');
-    if (projectList) {
-        htmx.ajax('GET', '/ui/projects/list', {target: '#project-list', swap: 'innerHTML'});
-    }
-});
+// Run after URL changes
+window.addEventListener('popstate', updateActiveStates);
+document.body.addEventListener('htmx:pushedIntoHistory', updateActiveStates);
 </script>

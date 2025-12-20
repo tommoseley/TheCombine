@@ -59,8 +59,18 @@ def _get_htmx_target(request: Request) -> str | None:
 
 
 # ============================================================================
-# PROJECT LIST (for sidebar)
+# STATIC ROUTES (must come BEFORE parameterized routes)
 # ============================================================================
+
+@router.get("/new", response_class=HTMLResponse)
+async def new_project_form(request: Request):
+    """Display form for creating a new project."""
+    return templates.TemplateResponse("pages/partials/_project_new_content.html", {
+        "request": request,
+        "project": None,
+        "mode": "create"
+    })
+
 
 @router.get("/list", response_class=HTMLResponse)
 async def get_project_list(
@@ -95,8 +105,137 @@ async def get_project_list(
     })
 
 
+@router.get("/tree", response_class=HTMLResponse)
+async def get_project_tree(
+    request: Request,
+    offset: int = 0,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get project tree with documents for accordion sidebar navigation."""
+    from uuid import UUID
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Get projects
+    result = await db.execute(
+        text("""
+            SELECT id, name, project_id, icon FROM projects
+            ORDER BY name ASC
+            LIMIT :limit OFFSET :offset
+        """),
+        {"limit": limit, "offset": offset}
+    )
+    
+    rows = result.fetchall()
+    projects = []
+    
+    for row in rows:
+        project_id = str(row.id)
+        project_uuid = UUID(project_id)
+        
+        # Get document statuses for this project
+        document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
+        
+        # DEBUG: Log what we got back
+        logger.info(f"Project {row.name}: got {len(document_statuses) if document_statuses else 0} documents")
+        if document_statuses:
+            for ds in document_statuses:
+                logger.info(f"  Document: {ds}, type={type(ds)}")
+        
+        # Calculate status summary - considering both readiness AND acceptance
+        status_summary = {
+            "ready": 0,
+            "stale": 0,
+            "blocked": 0,
+            "waiting": 0,
+            "needs_acceptance": 0
+        }
+        
+        # Convert DocumentStatus objects to dicts and count statuses
+        documents = []
+        for doc in document_statuses:
+            # Handle both dict and object access
+            if hasattr(doc, 'readiness'):
+                readiness = doc.readiness
+                acceptance_state = getattr(doc, 'acceptance_state', None)
+                documents.append({
+                    "doc_type_id": doc.doc_type_id,
+                    "title": doc.title,
+                    "icon": doc.icon,
+                    "readiness": readiness,
+                    "acceptance_state": acceptance_state,
+                    "subtitle": getattr(doc, 'subtitle', None)
+                })
+            else:
+                readiness = doc.get("readiness", "waiting")
+                acceptance_state = doc.get("acceptance_state")
+                documents.append(doc)
+            
+            # For status summary: acceptance_state overrides readiness for display
+            if acceptance_state == "needs_acceptance":
+                status_summary["needs_acceptance"] += 1
+            elif acceptance_state == "rejected":
+                status_summary["blocked"] += 1
+            elif readiness in status_summary:
+                status_summary[readiness] += 1
+        
+        # DEBUG: Log final status summary
+        logger.info(f"  Status summary: {status_summary}")
+        logger.info(f"  Documents list: {documents}")
+        
+        projects.append({
+            "id": project_id,
+            "name": row.name,
+            "project_id": row.project_id,
+            "icon": row.icon or "folder",
+            "documents": documents,
+            "status_summary": status_summary
+        })
+    
+    return templates.TemplateResponse("components/project_list.html", {
+        "request": request,
+        "projects": projects
+    })
+
+
+@router.post("/create", response_class=HTMLResponse)
+async def create_project_handler(
+    request: Request,
+    name: str = Form(...),
+    description: str = Form(""),
+    icon: str = Form("folder"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new project."""
+    try:
+        project = await project_service.create_project(
+            db=db,
+            name=name.strip(),
+            description=description.strip(),
+            icon=icon
+        )
+        
+        return templates.TemplateResponse(
+            "components/alerts/success.html",
+            {
+                "request": request,
+                "title": "Project Created",
+                "message": f'Project "{name}" has been created.',
+            },
+            headers={"HX-Redirect": f"/ui/projects/{project['id']}"}
+        )
+        
+    except ValueError as e:
+        return templates.TemplateResponse("components/alerts/error.html", {
+            "request": request,
+            "title": "Error Creating Project",
+            "message": str(e)
+        })
+
+
 # ============================================================================
-# PROJECT DETAIL - Returns document container
+# PARAMETERIZED ROUTES (must come AFTER static routes)
 # ============================================================================
 
 @router.get("/{project_id}", response_class=HTMLResponse)
@@ -169,55 +308,6 @@ async def update_project(
         },
         headers={"HX-Trigger": "refreshProjectList"}
     )
-
-
-# ============================================================================
-# PROJECT CRUD
-# ============================================================================
-
-@router.get("/new", response_class=HTMLResponse)
-async def new_project_form(request: Request):
-    """Display form for creating a new project."""
-    return templates.TemplateResponse("pages/partials/_project_new_content.html", {
-        "request": request,
-        "project": None,
-        "mode": "create"
-    })
-
-
-@router.post("/create", response_class=HTMLResponse)
-async def create_project_handler(
-    request: Request,
-    name: str = Form(...),
-    description: str = Form(""),
-    icon: str = Form("folder"),
-    db: AsyncSession = Depends(get_db)
-):
-    """Create a new project."""
-    try:
-        project = await project_service.create_project(
-            db=db,
-            name=name.strip(),
-            description=description.strip(),
-            icon=icon
-        )
-        
-        return templates.TemplateResponse(
-            "components/alerts/success.html",
-            {
-                "request": request,
-                "title": "Project Created",
-                "message": f'Project "{name}" has been created.',
-            },
-            headers={"HX-Redirect": f"/ui/projects/{project['id']}"}
-        )
-        
-    except ValueError as e:
-        return templates.TemplateResponse("components/alerts/error.html", {
-            "request": request,
-            "title": "Error Creating Project",
-            "message": str(e)
-        })
 
 
 @router.delete("/{project_id}", response_class=HTMLResponse)
