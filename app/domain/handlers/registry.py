@@ -22,8 +22,8 @@ from app.domain.handlers.exceptions import HandlerNotFoundError
 # Import concrete handlers as they are created
 from app.domain.handlers.project_discovery_handler import ProjectDiscoveryHandler
 from app.domain.handlers.architecture_spec_handler import ArchitectureSpecHandler
+from app.domain.handlers.story_backlog_handler import StoryBacklogHandler
 from app.domain.handlers.epic_backlog_handler import EpicBacklogHandler
-# from app.domain.handlers.story_backlog_handler import StoryBacklogHandler
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,9 @@ logger = logging.getLogger(__name__)
 HANDLERS: Dict[str, BaseDocumentHandler] = {
     # Registered handlers:
     "project_discovery": ProjectDiscoveryHandler(),
-    "architecture_spec": ArchitectureSpecHandler(),
+    "technical_architecture": ArchitectureSpecHandler(),
+    "story_backlog": StoryBacklogHandler(),
     "epic_backlog": EpicBacklogHandler(),
-    # Uncomment as handlers are implemented:
-    # "story_backlog": StoryBacklogHandler(),
 }
 
 

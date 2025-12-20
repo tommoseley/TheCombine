@@ -1,32 +1,162 @@
 <!-- components/project_list.html -->
-<!-- List of projects for sidebar - each targets #document-container -->
+<!-- Accordion-based project tree with persistent status indicators -->
+<!-- NO TOOLTIPS - all critical status information is always visible -->
 
-{% if projects %}
-<ul class="py-2">
+{% if projects and projects|length > 0 %}
     {% for project in projects %}
-    <li>
-        <a 
-            href="/ui/projects/{{ project.id }}"
-            hx-get="/ui/projects/{{ project.id }}"
-            hx-target="#document-container"
-            hx-push-url="true"
-            class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
-            <i data-lucide="{{ project.icon | default('folder') }}" class="w-4 h-4 text-gray-500"></i>
-            <span class="text-sm text-gray-700 truncate">{{ project.name }}</span>
-        </a>
-    </li>
+    <div class="project-accordion">
+        <!-- Project Header -->
+        <div class="project-header w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+             data-project-url="/ui/projects/{{ project.id }}">
+            
+            <!-- Expand/Collapse Chevron - ONLY this toggles accordion -->
+            <button 
+                type="button"
+                onclick="event.stopPropagation(); toggleProjectAccordion(this, '{{ project.id }}')"
+                class="p-1 -ml-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors flex-shrink-0"
+                aria-label="Toggle project documents">
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 dark:text-gray-500 accordion-chevron transition-transform"></i>
+            </button>
+            
+            <!-- Project Link - Icon + Name navigate to project detail -->
+            <a 
+                href="/ui/projects/{{ project.id }}"
+                hx-get="/ui/projects/{{ project.id }}"
+                hx-target="#main-content"
+                hx-push-url="true"
+                class="flex items-center gap-2 flex-1 min-w-0"
+                onclick="event.stopPropagation()">
+                
+                <!-- Project Icon -->
+                <i data-lucide="{{ project.icon | default('folder') }}" class="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0"></i>
+                
+                <!-- Project Name -->
+                <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate hover:text-violet-600 dark:hover:text-violet-400">{{ project.name }}</span>
+            </a>
+            
+            <!-- Project Status Summary - ALWAYS VISIBLE -->
+            {% if project.documents %}
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+                {% if project.status_summary.ready > 0 %}
+                <span class="flex items-center gap-0.5">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.ready }}</span>
+                </span>
+                {% endif %}
+                {% if project.status_summary.needs_acceptance > 0 %}
+                <span class="flex items-center gap-0.5">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.needs_acceptance }}</span>
+                </span>
+                {% endif %}
+                {% if project.status_summary.stale > 0 %}
+                <span class="flex items-center gap-0.5">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.stale }}</span>
+                </span>
+                {% endif %}
+                {% if project.status_summary.blocked > 0 %}
+                <span class="flex items-center gap-0.5">
+                    <i data-lucide="x-circle" class="w-4 h-4 text-red-600 dark:text-red-400"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.blocked }}</span>
+                </span>
+                {% endif %}
+                {% if project.status_summary.waiting > 0 %}
+                <span class="flex items-center gap-0.5">
+                    <i data-lucide="clock" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.waiting }}</span>
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Accordion Content: Document List -->
+        <div class="accordion-content">
+            <div class="ml-5 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
+                {% if project.documents %}
+                    {% for doc in project.documents %}
+                    <a 
+                        href="/ui/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
+                        hx-get="/ui/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
+                        hx-target="#main-content"
+                        hx-push-url="true"
+                        class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px] {% if doc.readiness == 'blocked' %}opacity-60{% endif %}">
+                        
+                        <!-- Document Type Icon -->
+                        <i data-lucide="{{ doc.icon }}" class="doc-icon w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0"></i>
+                        
+                        <!-- Document Title + Subtitle -->
+                        <div class="flex-1 min-w-0">
+                            <span class="text-sm text-gray-700 dark:text-gray-200 truncate block">{{ doc.title }}</span>
+                            {% if doc.subtitle %}
+                            <span class="text-xs text-gray-500 dark:text-gray-400 truncate block">{{ doc.subtitle }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Document Status Icon - Acceptance state takes priority -->
+                        {% if doc.acceptance_state == 'needs_acceptance' %}
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+                        {% elif doc.acceptance_state == 'rejected' %}
+                            <i data-lucide="x-circle" class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0"></i>
+                        {% elif doc.readiness == 'ready' %}
+                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"></i>
+                        {% elif doc.readiness == 'stale' %}
+                            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+                        {% elif doc.readiness == 'blocked' %}
+                            <i data-lucide="x-circle" class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0"></i>
+                        {% elif doc.readiness == 'waiting' %}
+                            <i data-lucide="clock" class="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                    
+                    <!-- Missing Documents - ALWAYS VISIBLE when expanded -->
+                    {% set doc_type_ids = project.documents | map(attribute='doc_type_id') | list %}
+                    {% set missing = [] %}
+                    {% if 'project_discovery' not in doc_type_ids %}
+                        {% set _ = missing.append('project_discovery') %}
+                    {% endif %}
+                    {% if 'epic_backlog' not in doc_type_ids %}
+                        {% set _ = missing.append('epic_backlog') %}
+                    {% endif %}
+                    {% if 'technical_architecture' not in doc_type_ids %}
+                        {% set _ = missing.append('technical_architecture') %}
+                    {% endif %}
+                    
+                    {% for m in missing %}
+                    <div class="flex items-center gap-3 px-2 py-2 border-l-2 border-red-400 -ml-[2px] bg-red-50 dark:bg-red-900/20">
+                        <i data-lucide="alert-circle" class="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0"></i>
+                        <span class="text-sm text-red-600 dark:text-red-400 font-medium">Missing: {{ m }}</span>
+                    </div>
+                    {% endfor %}
+                    
+                {% else %}
+                    <!-- No documents yet -->
+                    <a 
+                        href="/ui/projects/{{ project.id }}"
+                        hx-get="/ui/projects/{{ project.id }}"
+                        hx-target="#main-content"
+                        hx-push-url="true"
+                        class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px]">
+                        <i data-lucide="file-plus" class="doc-icon w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
+                        <span class="flex-1 text-sm text-gray-500 dark:text-gray-400 italic truncate">No documents yet</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     {% endfor %}
-</ul>
 {% else %}
 <div class="p-4 text-center">
-    <i data-lucide="folder-open" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
-    <p class="text-sm text-gray-500">No projects yet</p>
+    <i data-lucide="folder-open" class="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2"></i>
+    <p class="text-sm text-gray-500 dark:text-gray-400">No projects yet</p>
     <a 
         href="/ui/projects/new"
         hx-get="/ui/projects/new"
-        hx-target="#document-container"
+        hx-target="#main-content"
         hx-push-url="true"
-        class="text-sm text-indigo-600 hover:text-indigo-800 mt-2 inline-block">
+        class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 mt-2 inline-block">
         Create your first project
     </a>
 </div>

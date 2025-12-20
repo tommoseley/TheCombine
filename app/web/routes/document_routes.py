@@ -17,11 +17,15 @@ from app.api.services.role_prompt_service import RolePromptService
 from app.api.services.document_service import DocumentService
 from app.api.models import Document
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["documents"])
 
 
 # ============================================================================
-# DOCUMENT TYPE CONFIG
+# DOCUMENT TYPE CONFIG (fallback if not in database)
 # ============================================================================
 
 DOCUMENT_CONFIG = {
@@ -40,10 +44,10 @@ DOCUMENT_CONFIG = {
         "icon": "building",
         "template": "pages/partials/_technical_architecture_content.html",
     },
-    "architecture_spec": {
-        "title": "Architecture Specification",
-        "icon": "landmark",
-        "template": "pages/partials/_architecture_spec_content.html",
+    "story_backlog": {
+        "title": "Story Backlog",
+        "icon": "list-checks",
+        "template": "pages/partials/_story_backlog_content.html",
     },
 }
 
@@ -74,6 +78,30 @@ async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict | No
     }
 
 
+async def _get_document_type(db: AsyncSession, doc_type_id: str) -> dict | None:
+    """Get document type configuration from database."""
+    result = await db.execute(
+        text("""
+            SELECT doc_type_id, name, description, icon, required_inputs, optional_inputs
+            FROM document_types 
+            WHERE doc_type_id = :doc_type_id AND is_active = true
+        """),
+        {"doc_type_id": doc_type_id}
+    )
+    row = result.fetchone()
+    if not row:
+        return None
+    
+    return {
+        "doc_type_id": row.doc_type_id,
+        "name": row.name,
+        "description": row.description,
+        "icon": row.icon,
+        "required_inputs": row.required_inputs or [],
+        "optional_inputs": row.optional_inputs or [],
+    }
+
+
 async def _get_document_by_type(db: AsyncSession, space_id: UUID, doc_type_id: str) -> Document | None:
     """Load the latest document of a type for a project."""
     query = (
@@ -100,49 +128,66 @@ async def get_document(
 ):
     """
     Get document content.
-    Returns just the document content partial - targets #document-content.
+    Returns partial for HTMX requests, full page for browser refresh.
     """
+    logger.info(f"Looking for document: doc_type_id={doc_type_id}, space_id={project_id}")
+    
     project = await _get_project_with_icon(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     proj_uuid = UUID(project_id)
     
-    # Get document config
-    config = DOCUMENT_CONFIG.get(doc_type_id, {
+    # Get document type from database
+    doc_type = await _get_document_type(db, doc_type_id)
+    
+    # Fallback to static config if not in database
+    fallback_config = DOCUMENT_CONFIG.get(doc_type_id, {
         "title": doc_type_id.replace("_", " ").title(),
         "icon": "file-text",
         "template": "pages/partials/_document_not_found.html",
     })
     
+    # Merge database config with fallback
+    doc_type_name = doc_type["name"] if doc_type else fallback_config["title"]
+    doc_type_icon = doc_type["icon"] if doc_type and doc_type["icon"] else fallback_config["icon"]
+    doc_type_description = doc_type["description"] if doc_type else None
+    template_path = fallback_config.get("template", "pages/partials/_document_not_found.html")
+    
     # Try to load the document
     document = await _get_document_by_type(db, proj_uuid, doc_type_id)
     
-    if not document:
-        # Return not found state
-        return templates.TemplateResponse(
-            "pages/partials/_document_not_found.html",
-            {
-                "request": request,
-                "project": project,
-                "doc_type_id": doc_type_id,
-                "document_title": config["title"],
-                "document_icon": config["icon"],
-                "is_blocked": False,
-            }
-        )
+    logger.info(f"Document found: {document is not None}")
     
-    # Return document content
-    return templates.TemplateResponse(
-        config["template"],
-        {
-            "request": request,
-            "project": project,
-            "document": document,
-            "artifact": document,  # For template compatibility
-            "content": document.content,
-        }
-    )
+    # Check if this is an HTMX request (partial) or full page request (browser refresh)
+    is_htmx = request.headers.get("HX-Request") == "true"
+    
+    # Build context
+    context = {
+        "request": request,
+        "project": project,
+        "doc_type_id": doc_type_id,
+        "doc_type_name": doc_type_name,
+        "doc_type_icon": doc_type_icon,
+        "doc_type_description": doc_type_description,
+    }
+    
+    if not document:
+        context["is_blocked"] = False
+        partial_template = "pages/partials/_document_not_found.html"
+    else:
+        context["document"] = document
+        context["artifact"] = document  # For template compatibility
+        context["content"] = document.content
+        partial_template = template_path
+    
+    # Return partial for HTMX, full page for browser
+    if is_htmx:
+        return templates.TemplateResponse(partial_template, context)
+    else:
+        # Wrap in full page layout
+        context["content_template"] = partial_template
+        return templates.TemplateResponse("pages/document_page.html", context)
 
 
 # ============================================================================
