@@ -114,7 +114,7 @@ app.include_router(document_router)
 # Web UI routes
 app.include_router(web_routes.router)
 app.include_router(document_status_router, prefix="/api")
-app.include_router(document_status_ui_router, prefix="/ui")# DEPRECATED: mentor_router removed - use document_router instead
+#app.include_router(document_status_ui_router, prefix="/ui")# DEPRECATED: mentor_router removed - use document_router instead
 app.include_router(admin_router, prefix="/ui")
 # ============================================================================
 # ROOT ENDPOINT
