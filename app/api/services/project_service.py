@@ -327,7 +327,8 @@ class ProjectService:
         self,
         db: AsyncSession,
         name: str,
-        description: str = ""
+        description: str = "",
+        icon: str = "folder"
     ) -> Dict[str, Any]:
         """
         Create a new project with auto-generated project_id.
