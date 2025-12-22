@@ -8,6 +8,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+run-local.ps1
+
 # IDE/editor
 .vscode/
 .idea/
@@ -15,3 +17,16 @@ Thumbs.db
 # Python virtual env
 venv/
 .env/
+# Terraform
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Environment
+.env
+.env.*
+
+# Secrets
+*secret*
+*credentials*
