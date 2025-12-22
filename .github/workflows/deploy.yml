@@ -162,7 +162,7 @@ jobs:
         run: |
           # Retry health check a few times
           for i in {1..5}; do
-            if curl -sf https://app.thecombine.ui/health; then
+            if curl -sf https://app.thecombine.ai/health; then
               echo ""
               echo "✅ Health check passed!"
               exit 0
