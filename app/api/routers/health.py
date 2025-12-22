@@ -25,6 +25,8 @@ async def health_check():
     """
     try:
         startup_time = get_startup_time()
+        if startup_time.tzinfo is None:
+            startup_time = startup_time.replace(tzinfo=timezone.utc)
         current_time = datetime.now(timezone.utc)
         uptime_seconds = (current_time - startup_time).total_seconds()
         
