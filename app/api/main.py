@@ -11,6 +11,9 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime
 import logging
 
+from starlette.middleware.sessions import SessionMiddleware
+import os
+
 from config import settings
 from database import init_database
 
@@ -100,7 +103,27 @@ app.add_middleware(request_id.RequestIDMiddleware)
 app.add_middleware(body_size.BodySizeMiddleware)
 app.add_middleware(error_handling.ErrorHandlingMiddleware)
 
+# Add SessionMiddleware to your FastAPI app
+# Place this AFTER app = FastAPI() but BEFORE any route definitions
 
+# ============================================================================
+# SESSION MIDDLEWARE (Required for Authlib OIDC)
+# ============================================================================
+# CRITICAL: Authlib requires SessionMiddleware to store state/nonce during OAuth flow.
+# Without this, OAuth login will fail with cryptic errors about missing state.
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv('SESSION_SECRET_KEY', os.urandom(32).hex()),
+    session_cookie='combine_session',  # Cookie name for session state
+    max_age=600,  # 10 minutes - only for OAuth flow, not user sessions
+    same_site='lax',
+    https_only=os.getenv('HTTPS_ONLY', 'false').lower() == 'true'
+)
+
+# Note: This is DIFFERENT from user session cookies (__Host-session).
+# This session is ONLY for storing OAuth state/nonce during the login redirect.
+# Actual user sessions will be managed separately in the database.
 # ============================================================================
 # ROUTERS
 # ============================================================================
