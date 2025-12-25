@@ -32,6 +32,7 @@ from app.api.routers.document_status_router import router as document_status_rou
 from app.web.routes.document_status_routes import router as document_status_ui_router
 from app.web.routes.admin_routes import router as admin_router
 from app.auth.routes import router as auth_router
+from app.api.routers.protected import router as protected_router
 # Import middleware
 from app.api.middleware import (
     error_handling,
@@ -157,6 +158,7 @@ app.include_router(web_routes.router)
 app.include_router(document_status_router, prefix="/api")
 #app.include_router(document_status_ui_router, prefix="/ui")# DEPRECATED: mentor_router removed - use document_router instead
 app.include_router(admin_router, prefix="/ui")
+app.include_router(protected_router)
 # ============================================================================
 # ROOT ENDPOINT
 # ============================================================================
