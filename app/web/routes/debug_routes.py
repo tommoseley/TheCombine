@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from .shared import templates
 
 router = APIRouter(tags=["debug"])

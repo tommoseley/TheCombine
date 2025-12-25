@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped
 from sqlalchemy.sql import func
 
-from database import Base
+from app.core.database import Base
 
 
 class DocumentRelation(Base):

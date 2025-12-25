@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 
-from database import Base
+from app.core.database import Base
 
 
 class Role(Base):

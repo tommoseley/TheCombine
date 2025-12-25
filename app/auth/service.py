@@ -16,8 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, insert, delete, func
 from sqlalchemy.exc import IntegrityError
 
-from auth.models import User, UserSession, AuthEventType
-from auth.utils import utcnow
+from app.auth.models import User, UserSession, AuthEventType
+from app.auth.db_models import (
+    UserORM, UserOAuthIdentityORM, UserSessionORM,
+    AuthAuditLogORM
+)
+from app.auth.utils import utcnow
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,8 +40,7 @@ class AuthService:
     """
     
     # Circuit breaker for audit logging: max 1000 events per minute
-    _audit_log_window = deque(maxlen=1000)
-    _audit_log_window_start: Optional[datetime] = None
+    AUDIT_LOG_RATE_LIMIT = 1000
     
     def __init__(self, db: AsyncSession):
         """
@@ -47,6 +50,7 @@ class AuthService:
             db: Async database session
         """
         self.db = db
+        self._audit_log_times = deque(maxlen=self.AUDIT_LOG_RATE_LIMIT)
     
     # ========================================================================
     # SESSION MANAGEMENT
@@ -56,33 +60,28 @@ class AuthService:
         self,
         user_id: UUID,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        expires_in_days: int = 30
+        user_agent: Optional[str] = None
     ) -> UserSession:
         """
-        Create new web session with CSRF token.
+        Create new session for user.
         
-        Generates cryptographically secure session_token and csrf_token.
-        Both are 43-character URL-safe base64 strings (32 random bytes).
+        Generates cryptographically secure tokens (43 chars URL-safe).
+        Session expires in 30 days.
         
         Args:
-            user_id: User UUID
+            user_id: User ID
             ip_address: Client IP address
             user_agent: User agent string
-            expires_in_days: Session expiration in days (default 30)
             
         Returns:
-            UserSession object with session_token and csrf_token
+            UserSession with session_token and csrf_token
         """
         now = utcnow()
-        expires_at = now + timedelta(days=expires_in_days)
+        session_token = secrets.token_urlsafe(32)  # 43 chars
+        csrf_token = secrets.token_urlsafe(32)     # 43 chars
         
-        # Generate secure tokens (32 bytes = 43 chars in URL-safe base64)
-        session_token = secrets.token_urlsafe(32)
-        csrf_token = secrets.token_urlsafe(32)
-        
-        # Insert session into database
-        query = insert(UserSession.__table__).values(
+        # Create ORM object
+        session_orm = UserSessionORM(
             user_id=user_id,
             session_token=session_token,
             csrf_token=csrf_token,
@@ -90,24 +89,24 @@ class AuthService:
             user_agent=user_agent,
             session_created_at=now,
             last_activity_at=now,
-            expires_at=expires_at
-        ).returning(UserSession.__table__)
+            expires_at=now + timedelta(days=30)
+        )
         
-        result = await self.db.execute(query)
+        self.db.add(session_orm)
         await self.db.commit()
+        await self.db.refresh(session_orm)
         
-        row = result.fetchone()
-        
+        # Convert to dataclass
         session = UserSession(
-            session_id=row.session_id,
-            user_id=row.user_id,
-            session_token=row.session_token,
-            csrf_token=row.csrf_token,
-            ip_address=row.ip_address,
-            user_agent=row.user_agent,
-            session_created_at=row.session_created_at,
-            last_activity_at=row.last_activity_at,
-            expires_at=row.expires_at
+            session_id=session_orm.session_id,
+            user_id=session_orm.user_id,
+            session_token=session_orm.session_token,
+            csrf_token=session_orm.csrf_token,
+            ip_address=session_orm.ip_address,
+            user_agent=session_orm.user_agent,
+            session_created_at=session_orm.session_created_at,
+            last_activity_at=session_orm.last_activity_at,
+            expires_at=session_orm.expires_at
         )
         
         logger.info(f"Created session {session.session_id} for user {user_id}")
@@ -118,94 +117,63 @@ class AuthService:
         session_token: str
     ) -> Optional[Tuple[User, UUID, str]]:
         """
-        Verify session token and return user + session info.
+        Verify session token and return user.
         
-        CRITICAL: Implements write throttling to reduce DB load.
-        Only updates last_activity_at if >15 minutes since last update.
-        This reduces writes by ~90% under HTMX load.
+        Write throttling: Only updates last_activity_at if >15 minutes since last update
+        (reduces DB writes by ~90% while maintaining reasonable freshness).
         
         Args:
             session_token: Session token from cookie
             
         Returns:
-            Tuple of (User, session_id, csrf_token) if valid, None if invalid/expired
+            Tuple of (User, session_id, csrf_token) or None if invalid/expired
         """
         now = utcnow()
         
-        # Query with explicit column selection (prevents collisions)
-        # Join users table to get user details in one query
-        from sqlalchemy.orm import aliased
-        
-        UserTable = aliased(User.__table__, name='u')
-        SessionTable = aliased(UserSession.__table__, name='s')
-        
-        query = select(
-            UserTable.c.user_id,
-            UserTable.c.email,
-            UserTable.c.email_verified,
-            UserTable.c.name,
-            UserTable.c.avatar_url,
-            UserTable.c.is_active,
-            UserTable.c.user_created_at,
-            UserTable.c.user_updated_at,
-            UserTable.c.last_login_at,
-            SessionTable.c.session_id,
-            SessionTable.c.csrf_token,
-            SessionTable.c.last_activity_at,
-            SessionTable.c.expires_at
-        ).select_from(
-            SessionTable.join(UserTable, SessionTable.c.user_id == UserTable.c.user_id)
-        ).where(
-            SessionTable.c.session_token == session_token
+        # Query session with user (using ORM with join)
+        result = await self.db.execute(
+            select(UserSessionORM, UserORM)
+            .join(UserORM)
+            .where(
+                UserSessionORM.session_token == session_token,
+                UserSessionORM.expires_at > now
+            )
         )
-        
-        result = await self.db.execute(query)
-        row = result.fetchone()
+        row = result.first()
         
         if not row:
             return None
         
-        # Check expiration
-        if row.expires_at < now:
-            logger.info(f"Session {row.session_id} expired")
-            return None
+        session_orm, user_orm = row
         
         # Check if user is active
-        if not row.is_active:
-            logger.warning(f"Inactive user {row.user_id} attempted session use")
+        if not user_orm.is_active:
             return None
         
-        # Write throttling: only update last_activity_at if >15 minutes
-        should_update = (now - row.last_activity_at) > timedelta(minutes=15)
-        
-        if should_update:
-            update_query = update(UserSession.__table__).where(
-                UserSession.__table__.c.session_id == row.session_id
-            ).values(
-                last_activity_at=now
-            )
-            await self.db.execute(update_query)
+        # Write throttling: only update if >15 minutes
+        time_since_activity = now - session_orm.last_activity_at
+        if time_since_activity.total_seconds() > 900:  # 15 minutes
+            session_orm.last_activity_at = now
             await self.db.commit()
-            logger.debug(f"Updated last_activity_at for session {row.session_id}")
         
-        # Construct User object
+        # Convert to dataclasses
         user = User(
-            user_id=row.user_id,
-            email=row.email,
-            email_verified=row.email_verified,
-            name=row.name,
-            avatar_url=row.avatar_url,
-            is_active=row.is_active,
-            user_created_at=row.user_created_at,
-            user_updated_at=row.user_updated_at,
-            last_login_at=row.last_login_at
+            user_id=user_orm.user_id,
+            email=user_orm.email,
+            email_verified=user_orm.email_verified,
+            name=user_orm.name,
+            avatar_url=user_orm.avatar_url,
+            is_active=user_orm.is_active,
+            user_created_at=user_orm.user_created_at,
+            user_updated_at=user_orm.user_updated_at,
+            last_login_at=user_orm.last_login_at
         )
         
-        return (user, row.session_id, row.csrf_token)
-    
+        return (user, session_orm.session_id, session_orm.csrf_token)
+
     async def delete_session(self, session_token: str) -> bool:
         """
-        Delete session (logout).
+        Delete session by token.
         
         Args:
             session_token: Session token to delete
@@ -213,10 +181,11 @@ class AuthService:
         Returns:
             True if session was deleted, False if not found
         """
-        query = delete(UserSession.__table__).where(
-            UserSession.__table__.c.session_token == session_token
+        result = await self.db.execute(
+            delete(UserSessionORM).where(
+                UserSessionORM.session_token == session_token
+            )
         )
-        result = await self.db.execute(query)
         await self.db.commit()
         
         deleted = result.rowcount > 0
@@ -258,89 +227,64 @@ class AuthService:
         name = claims.get('name', '')
         avatar_url = claims.get('picture')
         
-        # Check if this OAuth identity already exists
-        from sqlalchemy.orm import aliased
-        OAuthTable = aliased(User.__table__.metadata.tables['user_oauth_identities'], name='oauth')
-        UserTable = aliased(User.__table__, name='u')
-        
-        oauth_query = select(
-            UserTable.c.user_id,
-            UserTable.c.email,
-            UserTable.c.email_verified,
-            UserTable.c.name,
-            UserTable.c.avatar_url,
-            UserTable.c.is_active,
-            UserTable.c.user_created_at,
-            UserTable.c.user_updated_at,
-            UserTable.c.last_login_at
-        ).select_from(
-            OAuthTable.join(UserTable, OAuthTable.c.user_id == UserTable.c.user_id)
-        ).where(
-            OAuthTable.c.provider_id == provider_id,
-            OAuthTable.c.provider_user_id == provider_user_id
-        )
-        
-        result = await self.db.execute(oauth_query)
-        existing_row = result.fetchone()
-        
-        if existing_row:
-            # User exists - update last_login_at
-            now = utcnow()
-            update_query = update(User.__table__).where(
-                User.__table__.c.user_id == existing_row.user_id
-            ).values(
-                last_login_at=now
+        # Check if OAuth identity exists (using ORM)
+        result = await self.db.execute(
+            select(UserORM)
+            .join(UserOAuthIdentityORM)
+            .where(
+                UserOAuthIdentityORM.provider_id == provider_id,
+                UserOAuthIdentityORM.provider_user_id == provider_user_id
             )
-            await self.db.execute(update_query)
+        )
+        user_orm = result.scalar_one_or_none()
+        
+        if user_orm:
+            # Existing user - update last_login
+            now = utcnow()
+            user_orm.last_login_at = now
             await self.db.commit()
+            await self.db.refresh(user_orm)
             
+            # Convert ORM to dataclass
             user = User(
-                user_id=existing_row.user_id,
-                email=existing_row.email,
-                email_verified=existing_row.email_verified,
-                name=existing_row.name,
-                avatar_url=existing_row.avatar_url,
-                is_active=existing_row.is_active,
-                user_created_at=existing_row.user_created_at,
-                user_updated_at=existing_row.user_updated_at,
-                last_login_at=now
+                user_id=user_orm.user_id,
+                email=user_orm.email,
+                email_verified=user_orm.email_verified,
+                name=user_orm.name,
+                avatar_url=user_orm.avatar_url,
+                is_active=user_orm.is_active,
+                user_created_at=user_orm.user_created_at,
+                user_updated_at=user_orm.user_updated_at,
+                last_login_at=user_orm.last_login_at
             )
             
             logger.info(f"Existing user {user.user_id} logged in via {provider_id}")
             return (user, False)
         
-        # Check for email collision (security-critical)
-        email_query = select(User.__table__.c.user_id, User.__table__.c.email_verified).where(
-            User.__table__.c.email == email
+        # Check for email collision (using ORM)
+        result = await self.db.execute(
+            select(UserORM).where(UserORM.email == email)
         )
-        email_result = await self.db.execute(email_query)
-        email_row = email_result.fetchone()
+        existing_email = result.scalar_one_or_none()
         
-        if email_row:
-            # Email exists - this is an account takeover attempt or needs explicit linking
-            if email_row.email_verified:
-                logger.warning(
-                    f"Email collision: {email} exists (verified). "
-                    f"User must login with existing provider first to link {provider_id}"
-                )
+        if existing_email:
+            if existing_email.email_verified:
+                logger.warning(f"Email collision: {email} exists (verified)")
                 raise ValueError(
                     f"An account with email {email} already exists. "
                     f"Please sign in with your existing provider first, "
                     f"then link {provider_id} from your account settings."
                 )
             else:
-                logger.warning(
-                    f"Email collision: {email} exists (unverified). "
-                    f"User must verify existing account first."
-                )
+                logger.warning(f"Email collision: {email} exists (unverified)")
                 raise ValueError(
                     f"An account with email {email} already exists but is not verified. "
                     f"Please verify your existing account first."
                 )
         
-        # Create new user
+        # Create new user (using ORM)
         now = utcnow()
-        insert_user_query = insert(User.__table__).values(
+        new_user = UserORM(
             email=email,
             email_verified=email_verified,
             name=name,
@@ -349,15 +293,13 @@ class AuthService:
             user_created_at=now,
             user_updated_at=now,
             last_login_at=now
-        ).returning(User.__table__.c.user_id)
+        )
+        self.db.add(new_user)
+        await self.db.flush()  # Get user_id without full commit
         
-        result = await self.db.execute(insert_user_query)
-        user_id = result.fetchone()[0]
-        
-        # Create OAuth identity
-        OAuthIdentityTable = User.__table__.metadata.tables['user_oauth_identities']
-        insert_oauth_query = insert(OAuthIdentityTable).values(
-            user_id=user_id,
+        # Create OAuth identity (using ORM)
+        oauth_identity = UserOAuthIdentityORM(
+            user_id=new_user.user_id,
             provider_id=provider_id,
             provider_user_id=provider_user_id,
             provider_email=email,
@@ -370,22 +312,24 @@ class AuthService:
             identity_created_at=now,
             last_used_at=now
         )
-        await self.db.execute(insert_oauth_query)
+        self.db.add(oauth_identity)
         await self.db.commit()
+        await self.db.refresh(new_user)
         
+        # Convert ORM to dataclass
         user = User(
-            user_id=user_id,
-            email=email,
-            email_verified=email_verified,
-            name=name,
-            avatar_url=avatar_url,
-            is_active=True,
-            user_created_at=now,
-            user_updated_at=now,
-            last_login_at=now
+            user_id=new_user.user_id,
+            email=new_user.email,
+            email_verified=new_user.email_verified,
+            name=new_user.name,
+            avatar_url=new_user.avatar_url,
+            is_active=new_user.is_active,
+            user_created_at=new_user.user_created_at,
+            user_updated_at=new_user.user_updated_at,
+            last_login_at=new_user.last_login_at
         )
         
-        logger.info(f"Created new user {user_id} from {provider_id} OAuth")
+        logger.info(f"Created new user {user.user_id} from {provider_id} OAuth")
         return (user, True)
     
     # ========================================================================
@@ -404,60 +348,51 @@ class AuthService:
         """
         Log authentication event to audit log.
         
-        CRITICAL: Includes circuit breaker to prevent DB saturation during attacks.
-        Maximum 1000 events per minute. After that, events are dropped (not logged).
+        Circuit breaker: Drops events after 1000/minute to prevent DB saturation
+        during attacks.
         
         Args:
             event_type: Type of auth event
-            user_id: User UUID (if applicable)
-            provider_id: OAuth provider (if applicable)
-            ip_address: Client IP address
+            user_id: Optional user ID
+            provider_id: Optional OAuth provider
+            ip_address: Client IP
             user_agent: User agent string
-            metadata: Additional event metadata
+            metadata: Additional metadata dict
             
         Returns:
-            True if logged, False if dropped due to circuit breaker
+            True if logged, False if rate limited
         """
+        # Circuit breaker: limit to 1000 events per minute
         now = utcnow()
         
-        # Circuit breaker: check if we're over limit
-        if self._audit_log_window_start is None:
-            self._audit_log_window_start = now
+        # Clean old entries (older than 1 minute)
+        cutoff_time = now - timedelta(minutes=1)
+        while self._audit_log_times and self._audit_log_times[0] < cutoff_time:
+            self._audit_log_times.popleft()
         
-        # Reset window if more than 1 minute has passed
-        if (now - self._audit_log_window_start) > timedelta(minutes=1):
-            self._audit_log_window.clear()
-            self._audit_log_window_start = now
-        
-        # Check if we've hit the limit (1000 events per minute)
-        if len(self._audit_log_window) >= 1000:
+        # Check rate limit
+        if len(self._audit_log_times) >= self.AUDIT_LOG_RATE_LIMIT:
             logger.warning(
-                f"Audit log circuit breaker triggered: "
-                f"Dropping {event_type} event (>1000 events/min)"
+                f"Audit log rate limit hit ({self.AUDIT_LOG_RATE_LIMIT}/min). "
+                f"Dropping event: {event_type.value}"
             )
             return False
         
-        # Log the event
-        try:
-            AuditLogTable = User.__table__.metadata.tables['auth_audit_log']
-            query = insert(AuditLogTable).values(
-                user_id=user_id,
-                event_type=event_type.value,
-                provider_id=provider_id,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                metadata=metadata,
-                created_at=now
-            )
-            await self.db.execute(query)
-            await self.db.commit()
-            
-            # Track in circuit breaker window
-            self._audit_log_window.append(now)
-            
-            logger.debug(f"Logged auth event: {event_type} for user {user_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to log auth event: {e}")
-            return False
+        # Record timestamp
+        self._audit_log_times.append(now)
+        
+        # Create audit log entry (using ORM)
+        log_entry = AuthAuditLogORM(
+            user_id=user_id,
+            event_type=event_type.value,
+            provider_id=provider_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            event_metadata=metadata,  # Note: using event_metadata attribute
+            created_at=now
+        )
+        
+        self.db.add(log_entry)
+        await self.db.commit()
+        
+        return True

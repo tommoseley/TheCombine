@@ -15,7 +15,7 @@ import secrets
 import bcrypt
 import logging
 from uuid import uuid4
-from database import get_db
+from app.core.database import get_db
 
 from app.api.services.email_service import email_service
 

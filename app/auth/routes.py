@@ -6,19 +6,19 @@ FastAPI routes for OAuth login/logout flows.
 
 Stage 4: Login + Logout only (Account linking deferred to later stage)
 """
-from fastapi import APIRouter, Request, Response, Depends, HTTPException, Header
+from fastapi import APIRouter, Request, Depends, HTTPException, Header
 from fastapi.responses import RedirectResponse
 from typing import Optional
 from urllib.parse import urlparse
 import os
 import logging
 
-from auth.oidc_config import OIDCConfig
-from auth.service import AuthService
-from auth.models import AuthEventType
-from dependencies import get_oidc_config
-from database import get_db
-from middleware.rate_limit import get_client_ip
+from app.auth.oidc_config import OIDCConfig
+from app.auth.service import AuthService
+from app.auth.models import AuthEventType
+from app.core.dependencies import get_oidc_config
+from app.core.database import get_db
+from app.middleware.rate_limit import get_client_ip
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ async def login(
     domain = os.getenv('DOMAIN', 'localhost:8000')
     scheme = 'https' if os.getenv('HTTPS_ONLY', 'false').lower() == 'true' else 'http'
     redirect_uri = f"{scheme}://{domain}/auth/callback/{provider_id}"
-    
+
     # Redirect to OAuth provider
     # Authlib stores state and nonce in session automatically
     return await client.authorize_redirect(request, redirect_uri)
@@ -156,7 +156,6 @@ async def login(
 async def callback(
     provider_id: str,
     request: Request,
-    response: Response,
     oidc_config: OIDCConfig = Depends(get_oidc_config),
     db: AsyncSession = Depends(get_db)
 ):
@@ -177,7 +176,6 @@ async def callback(
     Args:
         provider_id: OAuth provider
         request: FastAPI Request
-        response: FastAPI Response
         oidc_config: OIDC configuration
         db: Database session
         
@@ -199,9 +197,12 @@ async def callback(
             detail="OAuth authorization failed"
         )
     
-    # Parse and validate ID token (CRITICAL: validates nonce)
+    # Get claims from userinfo (Authlib already validated the token)
     try:
-        claims = await oidc_config.parse_id_token(provider_id, request, token)
+        claims = token.get('userinfo')
+        if not claims:
+            # Fallback: try to parse id_token manually
+            claims = await oidc_config.parse_id_token(provider_id, request, token)
     except Exception as e:
         logger.error(f"ID token validation failed for {provider_id}: {e}")
         raise HTTPException(
@@ -249,11 +250,14 @@ async def callback(
         user_agent=request.headers.get('user-agent')
     )
     
-    # Set cookies
+    # Create redirect response
+    redirect = RedirectResponse(url='/', status_code=302)
+     
+    # Set cookies on the redirect response
     production = os.getenv('HTTPS_ONLY', 'false').lower() == 'true'
     
     # Session cookie
-    response.set_cookie(
+    redirect.set_cookie(
         key=get_cookie_name('session', production),
         value=session.session_token,
         max_age=30 * 24 * 60 * 60,  # 30 days
@@ -263,17 +267,17 @@ async def callback(
         samesite='lax'
     )
     
-    # CSRF cookie (HttpOnly=False so JavaScript can read it)
-    response.set_cookie(
+    # CSRF cookie
+    redirect.set_cookie(
         key=get_cookie_name('csrf', production),
         value=session.csrf_token,
         max_age=30 * 24 * 60 * 60,  # 30 days
         path='/',
         secure=production,
-        httponly=False,  # JavaScript needs to read this
+        httponly=False,
         samesite='lax'
     )
-    
+
     # Log success
     await auth_service.log_auth_event(
         event_type=AuthEventType.LOGIN_SUCCESS,
@@ -286,8 +290,8 @@ async def callback(
     action = "created" if created else "logged in"
     logger.info(f"User {user.user_id} {action} via {provider_id}")
     
-    # Redirect to home
-    return RedirectResponse(url='/', status_code=302)
+    # Return redirect with cookies
+    return redirect
 
 
 # ============================================================================
@@ -297,7 +301,6 @@ async def callback(
 @router.post("/logout")
 async def logout(
     request: Request,
-    response: Response,
     x_csrf_token: str = Header(None),
     db: AsyncSession = Depends(get_db)
 ):
@@ -311,7 +314,6 @@ async def logout(
     
     Args:
         request: FastAPI Request
-        response: FastAPI Response
         x_csrf_token: CSRF token from header
         db: Database session
         
@@ -353,6 +355,10 @@ async def logout(
     auth_service = AuthService(db)
     await auth_service.delete_session(session_token)
     
+    # Create response with cookies cleared
+    from fastapi.responses import JSONResponse
+    response = JSONResponse(content={"status": "logged_out"})
+    
     # Clear cookies (CRITICAL: must match Path used when setting)
     response.delete_cookie(
         key=session_cookie_name,
@@ -379,4 +385,4 @@ async def logout(
     
     logger.info(f"User logged out from IP {get_client_ip(request)}")
     
-    return {"status": "logged_out"}
+    return response

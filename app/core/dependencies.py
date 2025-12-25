@@ -11,10 +11,10 @@ from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from functools import lru_cache
-from auth.oidc_config import OIDCConfig
+from app.auth.oidc_config import OIDCConfig
 import logging
 
-from database import get_db
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ except Exception as e:
 
 # Test 3: Can we import from app.dependencies?
 try:
-    from app.dependencies import get_oidc_config as test
+    from app.core.dependencies import get_oidc_config as test
     print("[PASS] from app.dependencies import get_oidc_config")
 except Exception as e:
     print(f"[FAIL] from app.dependencies: {e}")

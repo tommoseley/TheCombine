@@ -11,7 +11,7 @@ from typing import Optional
 from uuid import UUID
 import logging
 
-from database import get_db
+from app.core.database import get_db
 from .shared import templates
 from app.api.services import project_service
 from app.api.services.document_status_service import document_status_service

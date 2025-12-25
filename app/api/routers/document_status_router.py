@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from app.api.models.document import Document
 from app.api.models.document_type import DocumentType
 from app.api.services.document_status_service import (

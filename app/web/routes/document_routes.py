@@ -9,7 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from database import get_db
+from app.core.database import get_db
 from .shared import templates
 from app.api.services import project_service
 from app.api.services.document_status_service import document_status_service
