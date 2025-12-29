@@ -2,8 +2,8 @@
     <!-- Header -->
     <div class="mb-8">
         <nav class="text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <a href="/ui/projects/{{ project.id if project.id is defined else project['id'] }}" 
-               hx-get="/ui/projects/{{ project.id if project.id is defined else project['id'] }}"
+            <a href="/projects/{{ project.id if project.id is defined else project['id'] }}" 
+               hx-get="/projects/{{ project.id if project.id is defined else project['id'] }}"
                hx-target="#main-content"
                hx-push-url="true"
                class="hover:text-gray-700 dark:hover:text-gray-200">
@@ -334,7 +334,7 @@
         <p class="text-gray-600 dark:text-gray-400 mb-6">Technical architecture has not been generated yet.</p>
         
         <button 
-            hx-post="/ui/projects/{{ project.id }}/documents/technical_architecture/build"
+            hx-post="/projects/{{ project.id }}/documents/technical_architecture/build"
             hx-target="#main-content"
             hx-swap="innerHTML"
             class="bg-violet-600 hover:bg-violet-700 text-white font-medium py-2 px-4 rounded-lg inline-flex items-center gap-2">

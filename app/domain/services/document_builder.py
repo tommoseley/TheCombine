@@ -23,7 +23,7 @@ import logging
 import httpx
 from anthropic import Anthropic
 
-from config import settings
+from app.core.config import settings
 from app.domain.registry.loader import (
     get_document_config,
     DocumentNotFoundError,

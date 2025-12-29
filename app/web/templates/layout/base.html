@@ -142,7 +142,7 @@
     <header class="bg-gray-900 dark:bg-gray-950 text-white shadow-lg sticky top-0 z-50 border-b border-gray-800">
         <div class="container mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <h1 class="text-xl font-bold">The Combine 1</h1>
+                <h1 class="text-xl font-bold">Welcome to The Combine</h1>
             </div>
             
             <!-- Global Search -->
@@ -153,7 +153,7 @@
                         id="global-search"
                         name="q"
                         placeholder="Search projects, workflows, artifacts..."
-                        hx-get="/ui/search"
+                        hx-get="/search"
                         hx-trigger="keyup changed delay:300ms"
                         hx-target="#search-results"
                         hx-include="#global-search"
@@ -182,6 +182,35 @@
                 <button class="p-1.5 hover:bg-gray-800 rounded-lg transition-colors">
                     <i data-lucide="settings" class="w-4 h-4"></i>
                 </button>
+                
+                <!-- User Menu (shown when logged in) -->
+                <div id="user-menu" class="relative" style="display: none;">
+                    <button 
+                        onclick="toggleUserDropdown()"
+                        class="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-800 rounded-lg transition-colors">
+                        <div id="user-avatar" class="w-6 h-6 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-medium"></div>
+                        <span id="user-email" class="text-sm text-gray-300 max-w-[150px] truncate"></span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-gray-400"></i>
+                    </button>
+                    
+                    <!-- Dropdown -->
+                    <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                        <a href="/static/accounts.html" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <i data-lucide="link" class="w-4 h-4"></i>
+                            <span>Linked Accounts</span>
+                        </a>
+                        <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                        <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sign In Button (shown when not logged in) -->
+                <a id="signin-button" href="/static/login.html" class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors" style="display: none;">
+                    Sign In
+                </a>
             </div>
         </div>
     </header>
@@ -251,8 +280,100 @@
             lucide.createIcons();
         }
         
+        // Auth state management
+        let currentUser = null;
+        
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/optional-auth');
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    currentUser = data;
+                    showUserMenu(data);
+                } else {
+                    showSignInButton();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                showSignInButton();
+            }
+        }
+        
+        function showUserMenu(user) {
+            document.getElementById('user-menu').style.display = 'block';
+            document.getElementById('signin-button').style.display = 'none';
+            
+            // Set email
+            document.getElementById('user-email').textContent = user.email || '';
+            
+            // Set avatar
+            const avatar = document.getElementById('user-avatar');
+            if (user.avatar_url) {
+                avatar.innerHTML = `<img src="${user.avatar_url}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
+            } else {
+                const initial = (user.name || user.email || '?').charAt(0).toUpperCase();
+                avatar.textContent = initial;
+            }
+            
+            // Re-init icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+        
+        function showSignInButton() {
+            document.getElementById('user-menu').style.display = 'none';
+            document.getElementById('signin-button').style.display = 'inline-block';
+        }
+        
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('user-dropdown');
+            dropdown.classList.toggle('hidden');
+            
+            // Re-init icons in dropdown
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+        
+        async function logout() {
+            try {
+                const csrf = document.cookie.split('csrf=')[1]?.split(';')[0] || 
+                             document.cookie.split('__Host-csrf=')[1]?.split(';')[0];
+                
+                const response = await fetch('/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': csrf
+                    }
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/static/login.html';
+                } else {
+                    console.error('Logout failed');
+                    alert('Logout failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed. Please try again.');
+            }
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const userMenu = document.getElementById('user-menu');
+            const dropdown = document.getElementById('user-dropdown');
+            
+            if (userMenu && dropdown && !userMenu.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            checkAuth();
         });
         
         // Re-initialize icons after HTMX content swaps
@@ -312,9 +433,3 @@
     </script>
 </body>
 </html>
-
-yes. provide that. In fact...
-
-
-
-You're the design architect and lead UX developer. Provide an architectural document, design guide, and implementation instructions for implementing the Floating Status Overlay in a system built on FastAPI, Jinja2, Tailwind.css, and Python. 

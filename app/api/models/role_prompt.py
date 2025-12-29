@@ -7,7 +7,7 @@ Zero hard-coded prompts - all externalized to database.
 from sqlalchemy import Column, String, Text, DateTime, Boolean, Index, JSON
 from sqlalchemy.sql import func
 
-from database import Base
+from app.core.database import Base
 
 
 class RolePrompt(Base):

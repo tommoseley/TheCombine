@@ -9,9 +9,12 @@ from typing import List
 from datetime import datetime, timezone
 from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session
+
+from functools import lru_cache
+from app.auth.oidc_config import OIDCConfig
 import logging
 
-from database import get_db
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ def get_valid_api_keys() -> List[str]:
     if not keys_str:
         return []
     return [key.strip() for key in keys_str.split(",") if key.strip()]
+
 
 
 async def require_api_key(
@@ -101,3 +105,27 @@ async def require_api_key(
         )
     
     return api_key
+
+@lru_cache()
+def get_oidc_config() -> OIDCConfig:
+        """
+        Get cached OIDC configuration instance.
+        
+        Uses lru_cache to ensure singleton pattern - only one instance created.
+        This instance is shared across all requests.
+        
+        Returns:
+            OIDCConfig instance with registered providers
+        """
+        return OIDCConfig()
+
+
+    # Future dependencies will be added here:
+    # - get_db() for database session
+    # - get_current_user() for authentication (Stage 6)
+
+
+
+
+
+

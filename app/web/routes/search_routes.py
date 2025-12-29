@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from .shared import templates
 from app.api.services import search_service
 

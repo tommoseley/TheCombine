@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from .shared import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])

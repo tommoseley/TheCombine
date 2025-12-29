@@ -9,7 +9,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import TSVECTOR
 import uuid
 
-from database import Base
+from app.core.database import Base
 
 
 class File(Base):

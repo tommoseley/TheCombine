@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from app.api.models.document import Document
 from app.api.models.project import Project
 from app.api.services.document_status_service import document_status_service

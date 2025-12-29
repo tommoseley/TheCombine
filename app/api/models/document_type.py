@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 
-from database import Base
+from app.core.database import Base
 
 
 class DocumentType(Base):

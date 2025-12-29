@@ -13,8 +13,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision: str = '20241218_001'
-down_revision: Union[str, None] = 'create_documents_tables'
+revision: str = '20251218_001'
+down_revision: Union[str, None] = '20251217_003'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

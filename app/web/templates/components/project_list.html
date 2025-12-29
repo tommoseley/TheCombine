@@ -7,7 +7,7 @@
     <div class="project-accordion">
         <!-- Project Header -->
         <div class="project-header w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-             data-project-url="/ui/projects/{{ project.id }}">
+             data-project-url="/projects/{{ project.id }}">
             
             <!-- Expand/Collapse Chevron - ONLY this toggles accordion -->
             <button 
@@ -20,8 +20,8 @@
             
             <!-- Project Link - Icon + Name navigate to project detail -->
             <a 
-                href="/ui/projects/{{ project.id }}"
-                hx-get="/ui/projects/{{ project.id }}"
+                href="/projects/{{ project.id }}"
+                hx-get="/projects/{{ project.id }}"
                 hx-target="#main-content"
                 hx-push-url="true"
                 class="flex items-center gap-2 flex-1 min-w-0"
@@ -77,8 +77,8 @@
                 {% if project.documents %}
                     {% for doc in project.documents %}
                     <a 
-                        href="/ui/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
-                        hx-get="/ui/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
+                        href="/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
+                        hx-get="/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
                         hx-target="#main-content"
                         hx-push-url="true"
                         class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px] {% if doc.readiness == 'blocked' %}opacity-60{% endif %}">
@@ -134,8 +134,8 @@
                 {% else %}
                     <!-- No documents yet -->
                     <a 
-                        href="/ui/projects/{{ project.id }}"
-                        hx-get="/ui/projects/{{ project.id }}"
+                        href="/projects/{{ project.id }}"
+                        hx-get="/projects/{{ project.id }}"
                         hx-target="#main-content"
                         hx-push-url="true"
                         class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px]">
@@ -152,8 +152,8 @@
     <i data-lucide="folder-open" class="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2"></i>
     <p class="text-sm text-gray-500 dark:text-gray-400">No projects yet</p>
     <a 
-        href="/ui/projects/new"
-        hx-get="/ui/projects/new"
+        href="/projects/new"
+        hx-get="/projects/new"
         hx-target="#main-content"
         hx-push-url="true"
         class="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 mt-2 inline-block">

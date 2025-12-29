@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 import logging
 
-from app.dependencies import get_startup_time
-from database import engine
+from app.core.dependencies import get_startup_time
+from app.core.database import engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db
+from app.core.database import get_db
 from app.domain.services.document_builder import DocumentBuilder, BuildResult
 from app.domain.registry.loader import (
     list_document_types,
