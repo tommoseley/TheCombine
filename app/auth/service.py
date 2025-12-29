@@ -4,7 +4,7 @@ Authentication service.
 ADR-008: Multi-Provider OAuth Authentication
 Business logic for session management, user creation, and audit logging.
 
-Stage 3A: Sessions + Audit only (Link nonces and PATs deferred to later stages)
+Stage 6: With Account Linking
 """
 import secrets
 import hashlib
@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from app.auth.models import User, UserSession, AuthEventType
 from app.auth.db_models import (
     UserORM, UserOAuthIdentityORM, UserSessionORM,
-    AuthAuditLogORM
+    AuthAuditLogORM, LinkIntentNonceORM
 )
 from app.auth.utils import utcnow
 import logging
@@ -35,8 +35,9 @@ class AuthService:
     - Session creation and verification (with write throttling)
     - User creation from OIDC claims
     - Audit event logging (with circuit breaker)
+    - Account linking (Stage 6)
     
-    Future: Link nonces, PATs (Stage 3B)
+    Future: PATs (Stage 7)
     """
     
     # Circuit breaker for audit logging: max 1000 events per minute
@@ -396,3 +397,238 @@ class AuthService:
         await self.db.commit()
         
         return True
+    
+    # ========================================================================
+    # ACCOUNT LINKING
+    # ========================================================================
+    
+    async def create_link_intent(
+        self,
+        user_id: UUID,
+        provider_id: str
+    ) -> str:
+        """
+        Create link intent nonce for account linking flow.
+        
+        Security: Nonce is single-use and expires in 15 minutes.
+        Prevents unauthorized linking attempts.
+        
+        Args:
+            user_id: User who is initiating the link
+            provider_id: Provider to link ('google', 'microsoft')
+            
+        Returns:
+            Nonce string (64 chars hex)
+        """
+        # Generate nonce
+        nonce = secrets.token_hex(32)  # 64 chars
+        
+        # Create intent
+        now = utcnow()
+        intent = LinkIntentNonceORM(
+            user_id=user_id,
+            nonce=nonce,
+            provider_id=provider_id,
+            created_at=now,
+            expires_at=now + timedelta(minutes=15)
+        )
+        
+        self.db.add(intent)
+        await self.db.commit()
+        
+        logger.info(f"Created link intent for user {user_id} to link {provider_id}")
+        return nonce
+    
+    async def verify_link_intent(
+        self,
+        nonce: str
+    ) -> Optional[Tuple[UUID, str]]:
+        """
+        Verify and consume link intent nonce.
+        
+        Single-use: Nonce is deleted after verification.
+        
+        Args:
+            nonce: Link intent nonce
+            
+        Returns:
+            Tuple of (user_id, provider_id) or None if invalid/expired
+        """
+        now = utcnow()
+        
+        # Find and delete nonce (single-use)
+        result = await self.db.execute(
+            select(LinkIntentNonceORM).where(
+                LinkIntentNonceORM.nonce == nonce,
+                LinkIntentNonceORM.expires_at > now
+            )
+        )
+        intent = result.scalar_one_or_none()
+        
+        if not intent:
+            return None
+        
+        user_id = intent.user_id
+        provider_id = intent.provider_id
+        
+        # Delete nonce (single-use)
+        await self.db.delete(intent)
+        await self.db.commit()
+        
+        logger.info(f"Verified link intent for user {user_id} to link {provider_id}")
+        return (user_id, provider_id)
+    
+    async def link_oauth_identity(
+        self,
+        user_id: UUID,
+        provider_id: str,
+        provider_user_id: str,
+        claims: Dict[str, Any]
+    ) -> bool:
+        """
+        Link OAuth identity to existing user.
+        
+        Security checks:
+        - Prevents linking identity already linked to another user
+        - Prevents duplicate links to same user
+        
+        Args:
+            user_id: User to link identity to
+            provider_id: OAuth provider
+            provider_user_id: Provider's user ID
+            claims: OAuth claims
+            
+        Returns:
+            True if linked, False if already linked
+            
+        Raises:
+            ValueError: If identity is linked to a different user
+        """
+        # Check if this identity is already linked to ANOTHER user
+        result = await self.db.execute(
+            select(UserOAuthIdentityORM).where(
+                UserOAuthIdentityORM.provider_id == provider_id,
+                UserOAuthIdentityORM.provider_user_id == provider_user_id
+            )
+        )
+        existing = result.scalar_one_or_none()
+        
+        if existing:
+            if existing.user_id == user_id:
+                # Already linked to this user - idempotent
+                logger.info(f"Identity {provider_id}/{provider_user_id} already linked to user {user_id}")
+                return False
+            else:
+                # Linked to different user - security violation
+                logger.warning(
+                    f"Attempt to link {provider_id}/{provider_user_id} to user {user_id}, "
+                    f"but already linked to user {existing.user_id}"
+                )
+                raise ValueError(
+                    f"This {provider_id} account is already linked to another user. "
+                    f"Please use a different account."
+                )
+        
+        # Create new link
+        now = utcnow()
+        identity = UserOAuthIdentityORM(
+            user_id=user_id,
+            provider_id=provider_id,
+            provider_user_id=provider_user_id,
+            provider_email=claims.get('email'),
+            email_verified=claims.get('email_verified', False),
+            provider_metadata={
+                'sub': claims['sub'],
+                'email': claims.get('email'),
+                'name': claims.get('name')
+            },
+            identity_created_at=now,
+            last_used_at=now
+        )
+        
+        self.db.add(identity)
+        await self.db.commit()
+        
+        logger.info(f"Linked {provider_id} identity to user {user_id}")
+        return True
+    
+    async def get_linked_identities(
+        self,
+        user_id: UUID
+    ) -> list[Dict[str, Any]]:
+        """
+        Get all OAuth identities linked to user.
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            List of identity dicts with provider info
+        """
+        result = await self.db.execute(
+            select(UserOAuthIdentityORM).where(
+                UserOAuthIdentityORM.user_id == user_id
+            ).order_by(UserOAuthIdentityORM.identity_created_at)
+        )
+        identities = result.scalars().all()
+        
+        return [
+            {
+                'identity_id': str(identity.identity_id),
+                'provider_id': identity.provider_id,
+                'provider_email': identity.provider_email,
+                'email_verified': identity.email_verified,
+                'linked_at': identity.identity_created_at.isoformat(),
+                'last_used': identity.last_used_at.isoformat()
+            }
+            for identity in identities
+        ]
+    
+    async def unlink_oauth_identity(
+        self,
+        user_id: UUID,
+        provider_id: str
+    ) -> bool:
+        """
+        Unlink OAuth identity from user.
+        
+        Security: Prevents unlinking if it's the only identity (user would be locked out).
+        
+        Args:
+            user_id: User ID
+            provider_id: Provider to unlink
+            
+        Returns:
+            True if unlinked
+            
+        Raises:
+            ValueError: If trying to unlink the only identity
+        """
+        # Count identities
+        result = await self.db.execute(
+            select(func.count(UserOAuthIdentityORM.identity_id)).where(
+                UserOAuthIdentityORM.user_id == user_id
+            )
+        )
+        count = result.scalar()
+        
+        if count <= 1:
+            raise ValueError(
+                "Cannot unlink your only login method. "
+                "Please link another account first."
+            )
+        
+        # Delete identity
+        result = await self.db.execute(
+            delete(UserOAuthIdentityORM).where(
+                UserOAuthIdentityORM.user_id == user_id,
+                UserOAuthIdentityORM.provider_id == provider_id
+            )
+        )
+        await self.db.commit()
+        
+        deleted = result.rowcount > 0
+        if deleted:
+            logger.info(f"Unlinked {provider_id} from user {user_id}")
+        
+        return deleted

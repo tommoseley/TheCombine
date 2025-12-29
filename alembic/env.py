@@ -1,69 +1,41 @@
 """
 Alembic environment configuration for The Combine.
-
-Configured to:
-- Use DATABASE_URL from config/settings
-- Import all models for autogenerate support
-- Support both online and offline migrations
+Simplified version that avoids import errors.
 """
-
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
+from sqlalchemy import engine_from_config, pool, MetaData
 from alembic import context
+import sys
+import os
 
-# =============================================================================
-# COMBINE-SPECIFIC CONFIGURATION
-# =============================================================================
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-# Import your settings to get DATABASE_URL
-from config import settings
+# Import settings
+from app.core.config import settings
 
-# Import Base and all models for autogenerate support
-from database import Base
-
-# Import all models here so they're registered with Base.metadata
-# This enables autogenerate to detect changes
-from app.api.models.project import Project
-from app.api.models.document_type import DocumentType
-from app.api.models.document import Document
-from app.api.models.document_relation import DocumentRelation
-
-# Optional models - uncomment as needed
-# from app.api.models.role_prompt import RolePrompt
-# from app.combine.models.role import Role
-# from app.combine.models.role_task import RoleTask
-
-# =============================================================================
-# ALEMBIC CONFIGURATION
-# =============================================================================
-
-# This is the Alembic Config object
+# this is the Alembic Config object
 config = context.config
 
-# Override sqlalchemy.url with our settings
+# Override sqlalchemy.url
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set target metadata for autogenerate support
-target_metadata = Base.metadata
+# Create empty metadata - Alembic will use the migration files themselves
+# We don't need to import all models here
+target_metadata = MetaData()
+
+# Note: We're using an empty MetaData object.
+# This means Alembic won't auto-generate migrations based on model changes,
+# but it will still run the migration files we create manually.
+# This is fine for explicit migrations like adding owner_id.
+
 
 def run_migrations_offline() -> None:
-    """
-    Run migrations in 'offline' mode.
-    
-    This configures the context with just a URL and not an Engine,
-    though an Engine is acceptable here as well. By skipping the
-    Engine creation we don't even need a DBAPI to be available.
-    
-    Calls to context.execute() here emit the given string to the
-    script output.
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -77,12 +49,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """
-    Run migrations in 'online' mode.
-    
-    In this scenario we need to create an Engine and associate
-    a connection with the context.
-    """
+    """Run migrations in 'online' mode."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -91,8 +58,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
-            target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():

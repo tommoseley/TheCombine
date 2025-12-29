@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers
-revision: str = 'refactor_artifacts_uuids'
-down_revision: Union[str, None] = '20241217_001'
+revision: str = '20251217_002'
+down_revision: Union[str, None] = '20251217_001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

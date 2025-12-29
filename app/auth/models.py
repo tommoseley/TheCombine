@@ -34,10 +34,6 @@ class AuthEventType(str, Enum):
     # Session events
     SESSION_EXPIRED = "session_expired"
     
-    # Account linking events
-    ACCOUNT_LINKED = "account_linked"
-    LINK_CSRF_BLOCKED = "link_csrf_blocked"
-    LINK_NONCE_INVALID = "link_nonce_invalid"
     
     # PAT events
     PAT_CREATED = "pat_created"
@@ -47,7 +43,12 @@ class AuthEventType(str, Enum):
     # Security violations
     CSRF_VIOLATION = "csrf_violation"
     ORIGIN_VIOLATION = "origin_violation"
-
+    # Account linking events
+    ACCOUNT_LINKED = "account_linked"
+    ACCOUNT_UNLINKED = "account_unlinked"  # ← ADD THIS
+    LINK_BLOCKED_IDENTITY_EXISTS = "link_blocked_identity_exists"  # ← ADD THIS
+    LINK_CSRF_BLOCKED = "link_csrf_blocked"
+    LINK_NONCE_INVALID = "link_nonce_invalid"
 
 @dataclass
 class User:

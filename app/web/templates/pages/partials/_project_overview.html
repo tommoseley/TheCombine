@@ -52,8 +52,8 @@
             <div class="space-y-3">
                 {% for doc_status in document_statuses %}
                 <a 
-                    href="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
-                    hx-get="/ui/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
+                    href="/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
+                    hx-get="/projects/{{ project.id }}/documents/{{ doc_status.doc_type_id }}"
                     hx-target="#document-content"
                     hx-push-url="true"
                     class="flex items-center gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {% if doc_status.readiness == 'blocked' %}opacity-50{% endif %}">
@@ -126,7 +126,7 @@
             
             <!-- Modal Body -->
             <form 
-                hx-put="/ui/projects/{{ project.id }}"
+                hx-put="/projects/{{ project.id }}"
                 hx-target="#document-content"
                 hx-swap="innerHTML"
                 hx-on::after-request="closeEditModal()"

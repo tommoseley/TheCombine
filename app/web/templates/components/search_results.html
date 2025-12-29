@@ -15,8 +15,8 @@
         <div class="space-y-1">
             {% for project in results.projects %}
             <a 
-                href="/ui/projects/{{ project.project_uuid }}"
-                hx-get="/ui/projects/{{ project.project_uuid }}"
+                href="/projects/{{ project.project_uuid }}"
+                hx-get="/projects/{{ project.project_uuid }}"
                 hx-target="#main-content"
                 hx-push-url="true"
                 onclick="document.getElementById('search-results').classList.add('hidden')"
@@ -42,8 +42,8 @@
         <div class="space-y-1">
             {% for epic in results.epics %}
             <a 
-                href="/ui/epics/{{ epic.epic_uuid }}"
-                hx-get="/ui/epics/{{ epic.epic_uuid }}"
+                href="/epics/{{ epic.epic_uuid }}"
+                hx-get="/epics/{{ epic.epic_uuid }}"
                 hx-target="#main-content"
                 hx-push-url="true"
                 onclick="document.getElementById('search-results').classList.add('hidden')"
@@ -67,8 +67,8 @@
         <div class="space-y-1">
             {% for story in results.stories %}
             <a 
-                href="/ui/stories/{{ story.story_uuid }}"
-                hx-get="/ui/stories/{{ story.story_uuid }}"
+                href="/stories/{{ story.story_uuid }}"
+                hx-get="/stories/{{ story.story_uuid }}"
                 hx-target="#main-content"
                 hx-push-url="true"
                 onclick="document.getElementById('search-results').classList.add('hidden')"

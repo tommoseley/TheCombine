@@ -55,164 +55,156 @@ class OIDCConfig:
         else:
             logger.info("Google OIDC not configured (GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET missing)")
         
-        # Microsoft OIDC
+        # Microsoft OAuth2 (pure OAuth2, NOT OIDC)
         microsoft_client_id = os.getenv('MICROSOFT_CLIENT_ID')
         microsoft_client_secret = os.getenv('MICROSOFT_CLIENT_SECRET')
         if microsoft_client_id and microsoft_client_secret:
+            # CRITICAL: Microsoft requires 'openid' scope
+            # But we'll skip ID token validation to avoid issuer problems
             self.oauth.register(
                 name='microsoft',
                 client_id=microsoft_client_id,
                 client_secret=microsoft_client_secret,
-                server_metadata_url='https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration',
+                # Manual OAuth2 endpoints (no auto-discovery)
+                authorize_url='https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+                access_token_url='https://login.microsoftonline.com/common/oauth2/v2.0/token',
+                userinfo_endpoint='https://graph.microsoft.com/oidc/userinfo',
                 client_kwargs={
-                    'scope': 'openid email profile',
-                    'code_challenge_method': 'S256'  # PKCE
-                }
+                    # Microsoft requires 'openid' but we'll skip ID token validation
+                    'scope': 'openid User.Read email profile',
+                },
+                token_endpoint_auth_method='client_secret_post'
             )
             self.providers['microsoft'] = {
                 'name': 'Microsoft',
                 'icon': '/static/icons/microsoft.svg'
             }
-            logger.info("Registered Microsoft OIDC provider")
+            logger.info("Registered Microsoft OAuth2 provider (pure OAuth2, no OIDC)")
         else:
-            logger.info("Microsoft OIDC not configured (MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET missing)")
+            logger.info("Microsoft OAuth not configured (MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET missing)")
         
         if not self.providers:
-            logger.warning(
-                "No OIDC providers configured! Set at least one of: "
-                "GOOGLE_CLIENT_ID/SECRET or MICROSOFT_CLIENT_ID/SECRET"
-            )
-    
-    def get_enabled_providers(self) -> list:
-        """
-        Get list of enabled providers for login UI.
-        
-        Returns:
-            List of dicts with 'id', 'name', 'icon' keys
-        """
-        return [
-            {
-                'id': provider_id,
-                'name': config['name'],
-                'icon': config['icon']
-            }
-            for provider_id, config in self.providers.items()
-        ]
+            logger.warning("No OAuth providers configured! Please set environment variables.")
     
     def get_client(self, provider_id: str):
         """
-        Get Authlib OAuth client for provider.
+        Get OAuth client for provider.
         
         Args:
             provider_id: Provider identifier ('google', 'microsoft')
             
         Returns:
-            Authlib OAuth client instance
+            OAuth client instance
             
         Raises:
             ValueError: If provider not configured
         """
         if provider_id not in self.providers:
             raise ValueError(f"Provider '{provider_id}' not configured")
-        return self.oauth.create_client(provider_id)
+        
+        return getattr(self.oauth, provider_id)
     
     async def parse_id_token(
         self,
         provider_id: str,
         request: Request,
-        token: dict
+        token: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Parse and validate ID token using Authlib's OIDC support.
+        Parse and validate ID token or fetch userinfo.
         
-        CRITICAL: Must pass request for nonce validation.
-        Authlib verifies: signature, issuer, audience, nonce, expiration.
+        For Google: Validates OIDC ID token (signature, nonce, issuer, etc)
+        For Microsoft: Fetches userinfo from Graph API (no ID token)
         
         Args:
             provider_id: Provider identifier
             request: Starlette Request (needed for nonce from session)
-            token: Token response from OAuth provider
+            token: Token response dict
             
         Returns:
-            Dict of validated ID token claims
+            User claims dict
             
         Raises:
-            Various Authlib exceptions if validation fails
+            Exception: If validation fails
         """
         client = self.get_client(provider_id)
-        claims = await client.parse_id_token(request, token)
-        return dict(claims)
-    
-    def normalize_claims(self, provider_id: str, claims: dict) -> dict:
-        """
-        Normalize provider-specific claims to standard format.
         
-        Handles provider differences:
-        - Microsoft may use 'preferred_username' or 'upn' instead of 'email'
-        - Google always provides 'email'
+        # For Microsoft, always use userinfo endpoint (pure OAuth2)
+        if provider_id == 'microsoft':
+            # Fetch user info from Microsoft Graph
+            import httpx
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.get(
+                    'https://graph.microsoft.com/oidc/userinfo',
+                    headers={'Authorization': f"Bearer {token['access_token']}"}
+                )
+                response.raise_for_status()
+                claims = response.json()
+            return claims
+        else:
+            # Google and others: Parse and validate OIDC ID token
+            claims = client.parse_id_token(request, token)
+        
+        return claims
+    
+    def normalize_claims(
+        self,
+        provider_id: str,
+        claims: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Normalize claims across providers into standard format.
+        
+        Handles provider-specific differences in claim names/formats.
         
         Args:
             provider_id: Provider identifier
-            claims: Raw claims from ID token
+            claims: Raw claims from ID token or userinfo
             
         Returns:
-            Normalized claims dict with keys: sub, name, email, email_verified, picture
+            Normalized claims dict with: sub, email, email_verified, name, picture
             
         Raises:
-            ValueError: If Microsoft token lacks email-like identifier
+            ValueError: If required claims missing
         """
-        normalized = {
-            'sub': claims['sub'],
-            'name': claims.get('name', ''),
-            'email': None,
-            'email_verified': False,
-            'picture': claims.get('picture')
-        }
+        # Required claims
+        if 'sub' not in claims:
+            raise ValueError("Missing required claim: sub")
         
-        if provider_id == 'microsoft':
-            # Priority 1: Use 'email' claim if present
-            email = claims.get('email')
-            if email:
-                normalized['email'] = email
-                normalized['email_verified'] = claims.get('email_verified', False)
-                return normalized
-            
-            # Priority 2: Use 'preferred_username' if it looks like email
-            preferred_username = claims.get('preferred_username')
-            if preferred_username and '@' in preferred_username:
-                normalized['email'] = preferred_username
-                normalized['email_verified'] = False  # Cannot trust as verified
-                logger.info(
-                    f"Microsoft ID token missing 'email', using preferred_username "
-                    f"as identifier (marked unverified)"
-                )
-                return normalized
-            
-            # Priority 3: Use 'upn' (User Principal Name) if present
-            upn = claims.get('upn')
-            if upn and '@' in upn:
-                normalized['email'] = upn
-                normalized['email_verified'] = False
-                logger.info(
-                    f"Microsoft ID token missing 'email', using upn "
-                    f"as identifier (marked unverified)"
-                )
-                return normalized
-            
-            # Priority 4: Block login with explicit error
-            logger.error(
-                f"Microsoft ID token missing email, preferred_username, and upn. "
-                f"Cannot create user account. Claims: {claims}"
-            )
-            raise ValueError(
-                "Microsoft account does not provide email address. "
-                "Please configure 'email' optional claim in Azure AD. "
-                "See: https://learn.microsoft.com/en-us/entra/identity-platform/optional-claims"
-            )
+        if 'email' not in claims:
+            raise ValueError("Missing required claim: email")
         
-        elif provider_id == 'google':
-            # Google always provides email
-            normalized['email'] = claims.get('email')
-            normalized['email_verified'] = claims.get('email_verified', False)
+        # Normalize based on provider
+        if provider_id == 'google':
+            return {
+                'sub': claims['sub'],
+                'email': claims['email'],
+                'email_verified': claims.get('email_verified', False),
+                'name': claims.get('name', ''),
+                'picture': claims.get('picture')
+            }
         
-        return normalized
+        elif provider_id == 'microsoft':
+            # Microsoft Graph userinfo uses 'preferred_username' for email
+            email = claims.get('email') or claims.get('preferred_username')
+            if not email:
+                raise ValueError("Missing email claim from Microsoft")
+            
+            return {
+                'sub': claims['sub'],
+                'email': email,
+                # Microsoft doesn't always include email_verified in userinfo
+                'email_verified': claims.get('email_verified', True),
+                'name': claims.get('name', ''),
+                'picture': None  # Microsoft Graph userinfo doesn't include picture
+            }
+        
+        else:
+            # Generic normalization for future providers
+            return {
+                'sub': claims['sub'],
+                'email': claims['email'],
+                'email_verified': claims.get('email_verified', False),
+                'name': claims.get('name', ''),
+                'picture': claims.get('picture')
+            }

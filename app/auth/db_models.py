@@ -72,10 +72,9 @@ class LinkIntentNonceORM(Base):
     """Nonces for account linking flow."""
     __tablename__ = 'link_intent_nonces'
     
-    nonce_id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    nonce = Column(String(64), primary_key=True)  # Changed: nonce is the PK, not nonce_id
     user_id = Column(PGUUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
-    nonce = Column(String(64), unique=True, nullable=False)
-    provider_id = Column(String(32), nullable=False)
+    provider_id = Column(String(50), nullable=False)  # Changed: 50 to match DB
     created_at = Column(TIMESTAMP(timezone=True), nullable=False)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     

@@ -1,6 +1,6 @@
 """
-Project routes for The Combine UI - Simplified
-Two-target HTMX approach: #document-container and #document-content
+Project routes for The Combine UI - With User Ownership
+Handles different User model ID field names (id, user_id, uuid, etc.)
 """
 
 from fastapi import APIRouter, Depends, Request, HTTPException, Form
@@ -15,6 +15,8 @@ from app.core.database import get_db
 from .shared import templates
 from app.api.services import project_service
 from app.api.services.document_status_service import document_status_service
+from app.auth.dependencies import require_auth
+from app.auth.models import User
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
@@ -24,14 +26,37 @@ logger = logging.getLogger(__name__)
 # HELPERS
 # ============================================================================
 
-async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict | None:
-    """Get project with icon field."""
+def _get_user_id(user: User) -> str:
+    """
+    Get the user's ID, handling different field names.
+    The User model might use 'id', 'user_id', 'uuid', or other field names.
+    """
+    # Try common field names
+    for field_name in ['id', 'user_id', 'uuid', 'pk']:
+        if hasattr(user, field_name):
+            value = getattr(user, field_name)
+            # Convert to string if it's a UUID
+            return str(value) if value else None
+    
+    # If we can't find the ID, raise a helpful error
+    available_attrs = [attr for attr in dir(user) if not attr.startswith('_')]
+    raise AttributeError(
+        f"User model has no 'id' attribute. Available attributes: {available_attrs}. "
+        f"Please update _get_user_id() in project_routes.py to use the correct field."
+    )
+
+
+async def _get_project_with_icon(db: AsyncSession, project_id: str, user: User) -> dict | None:
+    """Get project with icon field - VERIFY OWNERSHIP."""
+    user_id = _get_user_id(user)
+    
     result = await db.execute(
         text("""
-            SELECT id, name, project_id, description, icon, created_at, updated_at
-            FROM projects WHERE id = :project_id
+            SELECT id, name, project_id, description, icon, created_at, updated_at, owner_id
+            FROM projects 
+            WHERE id = :project_id AND owner_id = :user_id
         """),
-        {"project_id": project_id}
+        {"project_id": project_id, "user_id": user_id}
     )
     row = result.fetchone()
     if not row:
@@ -45,6 +70,7 @@ async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict | No
         "icon": row.icon or "folder",
         "created_at": row.created_at,
         "updated_at": row.updated_at,
+        "owner_id": str(row.owner_id) if row.owner_id else None,
     }
 
 
@@ -63,7 +89,10 @@ def _get_htmx_target(request: Request) -> str | None:
 # ============================================================================
 
 @router.get("/new", response_class=HTMLResponse)
-async def new_project_form(request: Request):
+async def new_project_form(
+    request: Request,
+    current_user: User = Depends(require_auth)
+):
     """Display form for creating a new project."""
     return templates.TemplateResponse("pages/partials/_project_new_content.html", {
         "request": request,
@@ -75,22 +104,31 @@ async def new_project_form(request: Request):
 @router.get("/list", response_class=HTMLResponse)
 async def get_project_list(
     request: Request,
+    current_user: User = Depends(require_auth),
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get list of projects for sidebar."""
+    """Get list of projects for sidebar - USER'S PROJECTS ONLY."""
+    user_id = _get_user_id(current_user)
+    
     if search:
         result = await db.execute(
             text("""
                 SELECT id, name, project_id, icon FROM projects
-                WHERE name ILIKE :search OR project_id ILIKE :search
+                WHERE owner_id = :user_id 
+                AND (name ILIKE :search OR project_id ILIKE :search)
                 ORDER BY name ASC
             """),
-            {"search": f"%{search}%"}
+            {"user_id": user_id, "search": f"%{search}%"}
         )
     else:
         result = await db.execute(
-            text("SELECT id, name, project_id, icon FROM projects ORDER BY name ASC")
+            text("""
+                SELECT id, name, project_id, icon FROM projects 
+                WHERE owner_id = :user_id
+                ORDER BY name ASC
+            """),
+            {"user_id": user_id}
         )
     
     rows = result.fetchall()
@@ -108,23 +146,23 @@ async def get_project_list(
 @router.get("/tree", response_class=HTMLResponse)
 async def get_project_tree(
     request: Request,
+    current_user: User = Depends(require_auth),
     offset: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project tree with documents for accordion sidebar navigation."""
-    from uuid import UUID
-    import logging
-    logger = logging.getLogger(__name__)
+    """Get project tree with documents for accordion sidebar navigation - USER'S PROJECTS ONLY."""
+    user_id = _get_user_id(current_user)
     
-    # Get projects
+    # Get ONLY user's projects
     result = await db.execute(
         text("""
             SELECT id, name, project_id, icon FROM projects
+            WHERE owner_id = :user_id
             ORDER BY name ASC
             LIMIT :limit OFFSET :offset
         """),
-        {"limit": limit, "offset": offset}
+        {"user_id": user_id, "limit": limit, "offset": offset}
     )
     
     rows = result.fetchall()
@@ -137,13 +175,7 @@ async def get_project_tree(
         # Get document statuses for this project
         document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
         
-        # DEBUG: Log what we got back
-        logger.info(f"Project {row.name}: got {len(document_statuses) if document_statuses else 0} documents")
-        if document_statuses:
-            for ds in document_statuses:
-                logger.info(f"  Document: {ds}, type={type(ds)}")
-        
-        # Calculate status summary - considering both readiness AND acceptance
+        # Calculate status summary
         status_summary = {
             "ready": 0,
             "stale": 0,
@@ -152,10 +184,9 @@ async def get_project_tree(
             "needs_acceptance": 0
         }
         
-        # Convert DocumentStatus objects to dicts and count statuses
+        # Convert DocumentStatus objects to dicts
         documents = []
         for doc in document_statuses:
-            # Handle both dict and object access
             if hasattr(doc, 'readiness'):
                 readiness = doc.readiness
                 acceptance_state = getattr(doc, 'acceptance_state', None)
@@ -172,17 +203,13 @@ async def get_project_tree(
                 acceptance_state = doc.get("acceptance_state")
                 documents.append(doc)
             
-            # For status summary: acceptance_state overrides readiness for display
+            # Count statuses
             if acceptance_state == "needs_acceptance":
                 status_summary["needs_acceptance"] += 1
             elif acceptance_state == "rejected":
                 status_summary["blocked"] += 1
             elif readiness in status_summary:
                 status_summary[readiness] += 1
-        
-        # DEBUG: Log final status summary
-        logger.info(f"  Status summary: {status_summary}")
-        logger.info(f"  Documents list: {documents}")
         
         projects.append({
             "id": project_id,
@@ -202,19 +229,38 @@ async def get_project_tree(
 @router.post("/create", response_class=HTMLResponse)
 async def create_project_handler(
     request: Request,
+    current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
     icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new project."""
+    """Create a new project - SET OWNER."""
+    user_id = _get_user_id(current_user)
+    
     try:
-        project = await project_service.create_project(
-            db=db,
-            name=name.strip(),
-            description=description.strip(),
-            icon=icon
+        # Create project with owner_id and organization_id
+        # For individual users: organization_id = user_id
+        result = await db.execute(
+            text("""
+                INSERT INTO projects (id, project_id, name, description, icon, owner_id, organization_id, created_by, created_at, updated_at)
+                VALUES (gen_random_uuid(), :project_id, :name, :description, :icon, :owner_id, :organization_id, :created_by, NOW(), NOW())
+                RETURNING id
+            """),
+            {
+                "project_id": name.strip().upper().replace(" ", "_")[:20],
+                "name": name.strip(),
+                "description": description.strip(),
+                "icon": icon,
+                "owner_id": user_id,
+                "organization_id": user_id,  # Individual user = own org
+                "created_by": user_id
+            }
         )
+        await db.commit()
+        
+        row = result.fetchone()
+        project_id = str(row.id)
         
         return templates.TemplateResponse(
             "components/alerts/success.html",
@@ -223,10 +269,11 @@ async def create_project_handler(
                 "title": "Project Created",
                 "message": f'Project "{name}" has been created.',
             },
-            headers={"HX-Redirect": f"/ui/projects/{project['id']}"}
+            headers={"HX-Redirect": f"/projects/{project_id}"}
         )
         
-    except ValueError as e:
+    except Exception as e:
+        logger.error(f"Error creating project: {e}", exc_info=True)
         return templates.TemplateResponse("components/alerts/error.html", {
             "request": request,
             "title": "Error Creating Project",
@@ -242,16 +289,13 @@ async def create_project_handler(
 async def get_project(
     request: Request,
     project_id: str,
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Get project view.
-    - HTMX request targeting #document-container: return _document_container.html
-    - Full page request: return full page with base.html
-    """
-    project = await _get_project_with_icon(db, project_id)
+    """Get project view - VERIFY OWNERSHIP."""
+    project = await _get_project_with_icon(db, project_id, current_user)
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
     
     project_uuid = UUID(project_id)
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
@@ -267,8 +311,7 @@ async def get_project(
     if _is_htmx_request(request):
         return templates.TemplateResponse("pages/partials/_document_container.html", context)
     
-    # Full page request - return with base template
-    # For now, return the partial (base.html will include it via block)
+    # Full page request
     return templates.TemplateResponse("pages/partials/_document_container.html", context)
 
 
@@ -276,26 +319,37 @@ async def get_project(
 async def update_project(
     request: Request,
     project_id: str,
+    current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
     icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project - returns just the project overview content."""
+    """Update project - VERIFY OWNERSHIP."""
+    user_id = _get_user_id(current_user)
+    
+    # Verify ownership first
+    project = await _get_project_with_icon(db, project_id, current_user)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or access denied")
+    
     await db.execute(
         text("""
             UPDATE projects 
             SET name = :name, description = :description, icon = :icon, updated_at = NOW()
-            WHERE id = :project_id
+            WHERE id = :project_id AND owner_id = :user_id
         """),
-        {"name": name.strip(), "description": description.strip(), "icon": icon, "project_id": project_id}
+        {
+            "name": name.strip(),
+            "description": description.strip(),
+            "icon": icon,
+            "project_id": project_id,
+            "user_id": user_id
+        }
     )
     await db.commit()
     
-    project = await _get_project_with_icon(db, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
+    project = await _get_project_with_icon(db, project_id, current_user)
     project_uuid = UUID(project_id)
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
     
@@ -314,12 +368,22 @@ async def update_project(
 async def delete_project(
     request: Request,
     project_id: str,
+    current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete a project."""
+    """Delete a project - VERIFY OWNERSHIP."""
+    user_id = _get_user_id(current_user)
+    
     try:
-        await db.execute(text("DELETE FROM projects WHERE id = :project_id"), {"project_id": project_id})
+        # Only delete if user owns it
+        result = await db.execute(
+            text("DELETE FROM projects WHERE id = :project_id AND owner_id = :user_id"),
+            {"project_id": project_id, "user_id": user_id}
+        )
         await db.commit()
+        
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Project not found or access denied")
         
         return templates.TemplateResponse(
             "components/alerts/success.html",
@@ -328,9 +392,11 @@ async def delete_project(
                 "title": "Project Deleted",
                 "message": "The project has been deleted.",
             },
-            headers={"HX-Redirect": "/ui", "HX-Trigger": "refreshProjectList"}
+            headers={"HX-Redirect": "/", "HX-Trigger": "refreshProjectList"}
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting project: {e}", exc_info=True)
         return templates.TemplateResponse("components/alerts/error.html", {
