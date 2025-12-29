@@ -34,6 +34,9 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Make entrypoint executable
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+
 # Switch to non-root user
 USER appuser
 
