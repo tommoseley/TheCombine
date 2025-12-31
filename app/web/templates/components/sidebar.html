@@ -129,36 +129,49 @@ function updateActiveStates() {
     });
     
     // Find matching document link and activate it + its parent project
+    // BUT: Skip archived projects - they stay collapsed
     document.querySelectorAll('.doc-link').forEach(link => {
         const href = link.getAttribute('href');
         if (href && currentPath.startsWith(href)) {
             link.classList.add('active');
             
-            // Open parent accordion
+            // Open parent accordion ONLY if it's NOT in the archived section
             const accordion = link.closest('.project-accordion');
             if (accordion) {
-                const content = accordion.querySelector('.accordion-content');
-                const header = accordion.querySelector('.project-header');
-                const chevron = accordion.querySelector('.accordion-chevron');
+                const isArchived = accordion.closest('#archived-projects-list') !== null;
                 
-                content.classList.add('open');
-                header.classList.add('active');
-                chevron.setAttribute('data-lucide', 'chevron-down');
+                if (!isArchived) {
+                    // Only auto-expand active projects
+                    const content = accordion.querySelector('.accordion-content');
+                    const header = accordion.querySelector('.project-header');
+                    const chevron = accordion.querySelector('.accordion-chevron');
+                    
+                    content.classList.add('open');
+                    header.classList.add('active');
+                    chevron.setAttribute('data-lucide', 'chevron-down');
+                }
             }
         }
     });
     
     // Also check project-level links (when viewing project detail page)
+    // BUT: Skip archived projects - they stay collapsed
     document.querySelectorAll('.project-header').forEach(header => {
         const projectLink = header.getAttribute('data-project-url');
         if (projectLink && currentPath === projectLink) {
             header.classList.add('active');
-            const accordion = header.closest('.project-accordion');
-            const content = accordion.querySelector('.accordion-content');
-            const chevron = accordion.querySelector('.accordion-chevron');
             
-            content.classList.add('open');
-            chevron.setAttribute('data-lucide', 'chevron-down');
+            // Only auto-expand if NOT archived
+            const accordion = header.closest('.project-accordion');
+            const isArchived = accordion?.closest('#archived-projects-list') !== null;
+            
+            if (!isArchived && accordion) {
+                const content = accordion.querySelector('.accordion-content');
+                const chevron = accordion.querySelector('.accordion-chevron');
+                
+                content.classList.add('open');
+                chevron.setAttribute('data-lucide', 'chevron-down');
+            }
         }
     });
     

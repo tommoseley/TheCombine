@@ -18,6 +18,9 @@ from app.api.services.document_status_service import document_status_service
 from app.auth.dependencies import require_auth
 from app.auth.models import User
 
+from app.core.audit_service import audit_service
+from app.core.dependencies.archive import verify_project_not_archived
+
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
 
@@ -47,12 +50,14 @@ def _get_user_id(user: User) -> str:
 
 
 async def _get_project_with_icon(db: AsyncSession, project_id: str, user: User) -> dict | None:
-    """Get project with icon field - VERIFY OWNERSHIP."""
+    """Get project with icon AND archive state - VERIFY OWNERSHIP."""
     user_id = _get_user_id(user)
     
     result = await db.execute(
         text("""
-            SELECT id, name, project_id, description, icon, created_at, updated_at, owner_id
+            SELECT id, name, project_id, description, icon, 
+                   created_at, updated_at, owner_id,
+                   archived_at, archived_by, archived_reason
             FROM projects 
             WHERE id = :project_id AND owner_id = :user_id
         """),
@@ -71,6 +76,10 @@ async def _get_project_with_icon(db: AsyncSession, project_id: str, user: User) 
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "owner_id": str(row.owner_id) if row.owner_id else None,
+        "archived_at": row.archived_at,
+        "archived_by": str(row.archived_by) if row.archived_by else None,
+        "archived_reason": row.archived_reason,
+        "is_archived": row.archived_at is not None,  # Computed convenience field
     }
 
 
@@ -100,7 +109,6 @@ async def new_project_form(
         "mode": "create"
     })
 
-
 @router.get("/list", response_class=HTMLResponse)
 async def get_project_list(
     request: Request,
@@ -114,26 +122,32 @@ async def get_project_list(
     if search:
         result = await db.execute(
             text("""
-                SELECT id, name, project_id, icon FROM projects
+                SELECT id, name, project_id, icon, archived_at FROM projects
                 WHERE owner_id = :user_id 
                 AND (name ILIKE :search OR project_id ILIKE :search)
-                ORDER BY name ASC
+                ORDER BY archived_at NULLS FIRST, name ASC
             """),
             {"user_id": user_id, "search": f"%{search}%"}
         )
     else:
         result = await db.execute(
             text("""
-                SELECT id, name, project_id, icon FROM projects 
+                SELECT id, name, project_id, icon, archived_at FROM projects 
                 WHERE owner_id = :user_id
-                ORDER BY name ASC
+                ORDER BY archived_at NULLS FIRST, name ASC
             """),
             {"user_id": user_id}
         )
     
     rows = result.fetchall()
     projects = [
-        {"id": str(row.id), "name": row.name, "project_id": row.project_id, "icon": row.icon or "folder"}
+        {
+            "id": str(row.id), 
+            "name": row.name, 
+            "project_id": row.project_id, 
+            "icon": row.icon or "folder",
+            "is_archived": row.archived_at is not None  # Add this line
+        }
         for row in rows
     ]
     
@@ -141,7 +155,6 @@ async def get_project_list(
         "request": request,
         "projects": projects
     })
-
 
 @router.get("/tree", response_class=HTMLResponse)
 async def get_project_tree(
@@ -154,12 +167,12 @@ async def get_project_tree(
     """Get project tree with documents for accordion sidebar navigation - USER'S PROJECTS ONLY."""
     user_id = _get_user_id(current_user)
     
-    # Get ONLY user's projects
+    # Get ONLY user's projects - WITH ARCHIVE STATUS
     result = await db.execute(
         text("""
-            SELECT id, name, project_id, icon FROM projects
+            SELECT id, name, project_id, icon, archived_at FROM projects
             WHERE owner_id = :user_id
-            ORDER BY name ASC
+            ORDER BY archived_at NULLS FIRST, name ASC
             LIMIT :limit OFFSET :offset
         """),
         {"user_id": user_id, "limit": limit, "offset": offset}
@@ -171,6 +184,7 @@ async def get_project_tree(
     for row in rows:
         project_id = str(row.id)
         project_uuid = UUID(project_id)
+        is_archived = row.archived_at is not None  # Calculate once
         
         # Get document statuses for this project
         document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
@@ -203,13 +217,13 @@ async def get_project_tree(
                 acceptance_state = doc.get("acceptance_state")
                 documents.append(doc)
             
-            # Count statuses
-            if acceptance_state == "needs_acceptance":
-                status_summary["needs_acceptance"] += 1
-            elif acceptance_state == "rejected":
-                status_summary["blocked"] += 1
-            elif readiness in status_summary:
-                status_summary[readiness] += 1
+            # # Count statuses
+            # if acceptance_state == "needs_acceptance":
+            #     status_summary["needs_acceptance"] += 1
+            # elif acceptance_state == "rejected":
+            #     status_summary["blocked"] += 1
+            # elif readiness in status_summary:
+            #     status_summary[readiness] += 1
         
         projects.append({
             "id": project_id,
@@ -217,14 +231,14 @@ async def get_project_tree(
             "project_id": row.project_id,
             "icon": row.icon or "folder",
             "documents": documents,
-            "status_summary": status_summary
+            "status_summary": status_summary,
+            "is_archived": is_archived  # Add this line
         })
     
     return templates.TemplateResponse("components/project_list.html", {
         "request": request,
         "projects": projects
     })
-
 
 @router.post("/create", response_class=HTMLResponse)
 async def create_project_handler(
@@ -281,6 +295,173 @@ async def create_project_handler(
         })
 
 
+@router.post("/{project_id}/archive", response_class=HTMLResponse)
+async def archive_project(
+    request: Request,
+    project_id: str,
+    current_user: User = Depends(require_auth),
+    reason: str = Form(""),
+    db: AsyncSession = Depends(get_db)
+):
+    """Archive a project - TRANSACTIONAL STATE + AUDIT."""
+    user_id = _get_user_id(current_user)
+    
+    try:
+        # Verify ownership and not already archived
+        result = await db.execute(
+            text("""
+                SELECT archived_at 
+                FROM projects 
+                WHERE id = :project_id AND owner_id = :user_id
+            """),
+            {"project_id": project_id, "user_id": user_id}
+        )
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Project not found or access denied")
+        
+        if row.archived_at is not None:
+            raise HTTPException(status_code=400, detail="Project is already archived")
+        
+        # Update project state
+        result = await db.execute(
+            text("""
+                UPDATE projects 
+                SET archived_at = NOW(),
+                    archived_by = :user_id,
+                    archived_reason = :reason,
+                    updated_at = NOW()
+                WHERE id = :project_id AND owner_id = :user_id
+            """),
+            {
+                "project_id": project_id,
+                "user_id": user_id,
+                "reason": reason.strip() if reason else None
+            }
+        )
+        
+        # Only audit if update succeeded
+        if result.rowcount > 0:
+            await audit_service.log_event(
+                db=db,
+                project_id=UUID(project_id),
+                action='ARCHIVED',
+                actor_user_id=UUID(user_id),
+                reason=reason.strip() if reason else None,
+                metadata={
+                    'client': 'web',
+                    'ui_source': 'edit_modal'
+                },
+                correlation_id=request.headers.get('X-Request-ID')
+            )
+        
+        # Commit the transaction
+        await db.commit()
+        
+        return templates.TemplateResponse(
+            "components/alerts/success.html",
+            {
+                "request": request,
+                "title": "Project Archived",
+                "message": "The project has been archived and is now read-only.",
+            },
+            headers={"HX-Redirect": f"/projects/{project_id}", "HX-Trigger": "refreshProjectList"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error archiving project: {e}", exc_info=True)
+        await db.rollback()
+        return templates.TemplateResponse("components/alerts/error.html", {
+            "request": request,
+            "title": "Error Archiving Project",
+            "message": str(e)
+        })
+
+
+@router.post("/{project_id}/unarchive", response_class=HTMLResponse)
+async def unarchive_project(
+    request: Request,
+    project_id: str,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    """Unarchive a project - RESTORE FULL ACCESS + AUDIT."""
+    user_id = _get_user_id(current_user)
+    
+    try:
+        # Verify ownership and currently archived
+        result = await db.execute(
+            text("""
+                SELECT archived_at 
+                FROM projects 
+                WHERE id = :project_id AND owner_id = :user_id
+            """),
+            {"project_id": project_id, "user_id": user_id}
+        )
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Project not found or access denied")
+        
+        if row.archived_at is None:
+            raise HTTPException(status_code=400, detail="Project is not archived")
+        
+        # Clear archive state
+        result = await db.execute(
+            text("""
+                UPDATE projects 
+                SET archived_at = NULL,
+                    archived_by = NULL,
+                    archived_reason = NULL,
+                    updated_at = NOW()
+                WHERE id = :project_id AND owner_id = :user_id
+            """),
+            {
+                "project_id": project_id,
+                "user_id": user_id
+            }
+        )
+        
+        # Only audit if update succeeded
+        if result.rowcount > 0:
+            await audit_service.log_event(
+                db=db,
+                project_id=UUID(project_id),
+                action='UNARCHIVED',
+                actor_user_id=UUID(user_id),
+                metadata={
+                    'client': 'web',
+                    'ui_source': 'edit_modal'
+                },
+                correlation_id=request.headers.get('X-Request-ID')
+            )
+        
+        # Commit the transaction
+        await db.commit()
+        
+        return templates.TemplateResponse(
+            "components/alerts/success.html",
+            {
+                "request": request,
+                "title": "Project Unarchived",
+                "message": "The project has been restored and is now fully editable.",
+            },
+            headers={"HX-Redirect": f"/projects/{project_id}", "HX-Trigger": "refreshProjectList"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unarchiving project: {e}", exc_info=True)
+        await db.rollback()
+        return templates.TemplateResponse("components/alerts/error.html", {
+            "request": request,
+            "title": "Error Unarchiving Project",
+            "message": str(e)
+        })
+
+
 # ============================================================================
 # PARAMETERIZED ROUTES (must come AFTER static routes)
 # ============================================================================
@@ -311,14 +492,15 @@ async def get_project(
     if _is_htmx_request(request):
         return templates.TemplateResponse("pages/partials/_document_container.html", context)
     
-    # Full page request
-    return templates.TemplateResponse("pages/partials/_document_container.html", context)
+    # Full page request - return page with base.html
+    return templates.TemplateResponse("pages/project_detail.html", context)
 
 
 @router.put("/{project_id}", response_class=HTMLResponse)
 async def update_project(
     request: Request,
     project_id: str,
+    _: None = Depends(verify_project_not_archived),  # ← ARCHIVE PROTECTION
     current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
@@ -362,45 +544,3 @@ async def update_project(
         },
         headers={"HX-Trigger": "refreshProjectList"}
     )
-
-
-@router.delete("/{project_id}", response_class=HTMLResponse)
-async def delete_project(
-    request: Request,
-    project_id: str,
-    current_user: User = Depends(require_auth),
-    db: AsyncSession = Depends(get_db)
-):
-    """Delete a project - VERIFY OWNERSHIP."""
-    user_id = _get_user_id(current_user)
-    
-    try:
-        # Only delete if user owns it
-        result = await db.execute(
-            text("DELETE FROM projects WHERE id = :project_id AND owner_id = :user_id"),
-            {"project_id": project_id, "user_id": user_id}
-        )
-        await db.commit()
-        
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Project not found or access denied")
-        
-        return templates.TemplateResponse(
-            "components/alerts/success.html",
-            {
-                "request": request,
-                "title": "Project Deleted",
-                "message": "The project has been deleted.",
-            },
-            headers={"HX-Redirect": "/", "HX-Trigger": "refreshProjectList"}
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting project: {e}", exc_info=True)
-        return templates.TemplateResponse("components/alerts/error.html", {
-            "request": request,
-            "title": "Error Deleting Project",
-            "message": str(e)
-        })
