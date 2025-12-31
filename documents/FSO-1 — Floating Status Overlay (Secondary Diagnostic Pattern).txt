@@ -1,0 +1,220 @@
+# FSO-1 — Floating Status Overlay (Secondary Diagnostic Pattern)
+
+**System:** The Combine  
+**Status:** Draft  
+**Owner:** Product Architecture  
+**Audience:** Product, UX, Frontend Engineering  
+**Applies To:** Project Navigation & Document Health Inspection  
+
+---
+
+## 1. Intent
+
+FSO-1 defines the **Floating Status Overlay (FSO)** as a **secondary, opt-in diagnostic surface** for inspecting project document health at scale.
+
+It is **not** the primary navigation mechanism.
+
+The primary navigation model for MVP remains **Accordion-Based Project Navigation**.  
+FSO exists to provide **high-density, low-friction inspection** when users need to reason about readiness, risk, or blockage across documents or projects.
+
+This pattern prioritizes:
+- Truthful system state
+- Cognitive calm
+- Document-centric work
+- Explicit user intent
+
+---
+
+## 2. Problem Statement
+
+As projects grow in complexity, accordion navigation alone becomes inefficient for:
+
+- Rapid scanning of document readiness
+- Comparing blocking vs non-blocking documents
+- Diagnosing why downstream work is gated
+- Monitoring multiple projects without context switching
+
+At the same time, replacing primary navigation with floating or hover-driven UI introduces:
+- Fragility
+- Mobile incompatibility
+- Increased cognitive load
+- Accidental state loss
+
+FSO-1 resolves this tension by **decoupling navigation from inspection**.
+
+---
+
+## 3. Architectural Decision Record (ADR)
+
+### Decision
+
+Introduce a **Floating Status Overlay (FSO)** as a **secondary, explicitly invoked inspection layer** for project document health.
+
+### Status
+
+Proposed (MVP-compatible as optional feature)
+
+### Forces
+
+- **Cognitive Load:** Users need calm, predictable navigation by default.
+- **Spatial Priority:** Document reading and writing must dominate horizontal space.
+- **Truthfulness:** Missing or blocked states must be surfaced as first-class signals.
+- **Scalability:** Inspection must work across large projects without vertical thrash.
+- **Accessibility:** Core workflows must function without hover or mouse precision.
+
+### Decision Details
+
+- **Primary Navigation:** Accordion-based project/document list remains canonical.
+- **Secondary Inspection:** FSO is activated intentionally (inspect action, shortcut, or mode toggle).
+- **Decoupling:** Navigation selects documents; FSO diagnoses document state.
+- **No Hover Dependency:** Hover may preview, but never controls state.
+
+### Rejected Alternatives
+
+- **Hover-only overlays:** Too fragile and inaccessible.
+- **Accordion-only scaling:** Insufficient for high-density inspection.
+- **Always-on inspector:** Competes with document content and increases noise.
+
+---
+
+## 4. Pattern Classification
+
+| Aspect | Classification |
+|------|---------------|
+| Pattern Type | Secondary Diagnostic UI |
+| Invocation | Explicit (User-Initiated) |
+| Default State | Hidden |
+| Persistence | Optional (Pinned) |
+| Mobile Support | Required (Reflowed) |
+| Editing Capability | None (Read-only inspection) |
+
+---
+
+## 5. Behavioral Rules
+
+### Invocation
+
+FSO may be opened via:
+- Explicit “Inspect” action on a project
+- Keyboard shortcut
+- Optional “Compact / Diagnostic Mode” toggle
+
+FSO must **never** open implicitly via hover alone.
+
+### States
+
+- **Hidden:** Default state
+- **Transient:** Open until focus shifts
+- **Pinned:** Remains visible across document navigation
+
+Only one FSO may be active at a time.
+
+### Dismissal
+
+- **Transient:** Clicking into content dismisses
+- **Pinned:** Requires explicit close or unpin
+- **Escape Key:** Always dismisses
+
+---
+
+## 6. Visual & Interaction Rules
+
+### Layout
+
+- FSO is rendered as a **layered panel**, not a layout-shifting container
+- It overlays content without resizing the editor
+- Background must be **solid** (no blur, no translucency)
+
+### Information Hierarchy
+
+- Document title: primary emphasis
+- Status icon: shape-distinct, adjacent to title
+- Subtext (e.g., “Missing: Discovery”): secondary but high-contrast
+
+### Status Encoding (Never Color Alone)
+
+| State | Icon Shape |
+|-----|------------|
+| Accepted | Check in circle |
+| Pending / Stale | Clock or triangle |
+| Blocked / Missing | X in square or octagon |
+
+---
+
+## 7. Responsive Behavior
+
+### Desktop (>1024px)
+- Floating overlay anchored adjacent to Project Navigator
+
+### Tablet (<1024px)
+- FSO reflows to inline expansion within navigation
+
+### Mobile (<768px)
+- Navigator becomes drawer
+- FSO becomes full-height inspection overlay
+
+Touch interactions must fully replace hover.
+
+---
+
+## 8. Accessibility Requirements
+
+- Keyboard navigation for all interactive elements
+- `role="navigation"` or `role="complementary"` on FSO container
+- `aria-expanded` for expandable project elements
+- Focus trapping in drawer/overlay modes
+- Status conveyed via text + icon shape, not color alone
+
+---
+
+## 9. Implementation Notes (Non-Binding)
+
+### Structural Guidance
+
+- FSO should be a sibling to the Project Navigator
+- Rendered into a persistent layout slot to avoid DOM churn
+
+### State Model (Conceptual)
+
+- `active_project_id`
+- `inspector_state`: hidden | transient | pinned
+- `viewport_mode`: desktop | tablet | mobile
+
+### Animation
+
+- Opacity + transform only
+- No content-area reflow
+- 200ms standard easing
+
+---
+
+## 10. Non-Goals
+
+FSO does **not**:
+- Edit documents
+- Replace primary navigation
+- Act as a task manager
+- Support drag-and-drop
+- Execute workflows
+
+It exists solely to **surface truth about document readiness and dependency health**.
+
+---
+
+## 11. Relationship to MVP
+
+- Accordion navigation is the MVP default
+- FSO may ship **disabled or behind a feature flag**
+- FSO is validated through real project scale, not speculative polish
+
+---
+
+## 12. Summary
+
+FSO-1 is a **precision instrument**, not a dashboard.
+
+The Combine’s primary UI remains calm, boring, and trustworthy.  
+FSO exists for moments when users need to **diagnose**, not navigate.
+
+Calm by default.  
+Truth on demand.
