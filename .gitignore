@@ -31,4 +31,4 @@ venv/
 *secret*
 *credentials*
 
-task*.json
+private/
