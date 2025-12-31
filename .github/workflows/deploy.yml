@@ -141,8 +141,8 @@ jobs:
         run: |
           echo "✅ Deployment complete!"
           echo ""
-          echo "🔗 Application URL: https://thecombine.ui:8000"
-          echo "🔗 Health check: https://thecombine.ui:8000/health"
+          echo "🔗 Application URL: http://thecombine.ui:8000"
+          echo "🔗 Health check: http://thecombine.ui:8000/health"
           echo "📦 Image: ${{ steps.build-image.outputs.image }}"
 
   # ============================================================
@@ -162,7 +162,7 @@ jobs:
         run: |
           # Retry health check a few times
           for i in {1..5}; do
-            if curl -sf https://thecombine.ai:8000/health; then
+            if curl -sf http://thecombine.ai:8000/health; then
               echo ""
               echo "✅ Health check passed!"
               exit 0
@@ -176,7 +176,7 @@ jobs:
       
       - name: Database connectivity check
         run: |
-          curl -sf https://thecombine.ui:8000/health/db || {
+          curl -sf http://thecombine.ui:8000/health/db || {
             echo "⚠️ Database health check failed (may not be implemented)"
             exit 0
           }
