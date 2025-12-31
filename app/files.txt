@@ -1,0 +1,533 @@
+ Volume in drive C is Firecuda
+ Volume Serial Number is 0493-D99C
+
+ Directory of C:\dev\The Combine\app
+
+12/30/2025  04:14 PM    <DIR>          .
+12/30/2025  10:44 AM    <DIR>          ..
+12/25/2025  07:49 PM    <DIR>          api
+12/25/2025  07:49 PM    <DIR>          auth
+12/25/2025  07:49 PM    <DIR>          core
+12/20/2025  08:16 PM    <DIR>          domain
+12/30/2025  04:14 PM                 0 files.txt
+12/24/2025  03:25 PM    <DIR>          infrastructure
+12/24/2025  11:26 AM               449 inspect_routes.py
+12/25/2025  07:49 PM    <DIR>          middleware
+12/25/2025  07:49 PM    <DIR>          web
+12/15/2025  05:51 PM                37 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               3 File(s)            486 bytes
+
+ Directory of C:\dev\The Combine\app\api
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/28/2025  05:09 PM             6,210 main.py
+12/25/2025  07:49 PM    <DIR>          middleware
+12/25/2025  07:49 PM    <DIR>          models
+12/25/2025  07:49 PM    <DIR>          repositories
+12/25/2025  07:49 PM    <DIR>          routers
+12/24/2025  03:25 PM    <DIR>          schemas
+12/25/2025  07:49 PM    <DIR>          services
+12/24/2025  03:25 PM    <DIR>          utils
+12/28/2025  05:09 PM    <DIR>          __pycache__
+               1 File(s)          6,210 bytes
+
+ Directory of C:\dev\The Combine\app\api\middleware
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/24/2025  03:27 PM             1,840 body_size.py
+12/15/2025  05:51 PM             2,130 error_handling.py
+12/15/2025  05:51 PM             2,880 logging.py
+12/15/2025  05:51 PM               777 request_id.py
+12/15/2025  05:51 PM                25 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               5 File(s)          7,652 bytes
+
+ Directory of C:\dev\The Combine\app\api\middleware\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM             2,058 body_size.cpython-313.pyc
+12/25/2025  07:49 PM             3,397 error_handling.cpython-313.pyc
+12/25/2025  07:49 PM             4,096 logging.cpython-313.pyc
+12/25/2025  07:49 PM             1,183 request_id.cpython-313.pyc
+12/25/2025  07:49 PM               180 __init__.cpython-313.pyc
+               5 File(s)         10,914 bytes
+
+ Directory of C:\dev\The Combine\app\api\models
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/24/2025  03:12 PM            12,553 document.py
+12/24/2025  03:12 PM             6,927 document_relation.py
+12/24/2025  03:12 PM             6,467 document_type.py
+12/24/2025  03:11 PM             2,108 file.py
+12/24/2025  03:11 PM             2,160 project.py
+12/24/2025  03:12 PM             1,180 role.py
+12/24/2025  03:12 PM             2,303 role_prompt.py
+12/24/2025  03:12 PM             1,619 role_task.py
+12/21/2025  11:56 AM               587 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               9 File(s)         35,904 bytes
+
+ Directory of C:\dev\The Combine\app\api\models\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM            10,847 document.cpython-313.pyc
+12/25/2025  07:49 PM             5,296 document_relation.cpython-313.pyc
+12/25/2025  07:49 PM             5,475 document_type.cpython-313.pyc
+12/25/2025  07:49 PM             2,935 file.cpython-313.pyc
+12/25/2025  07:49 PM             3,116 project.cpython-313.pyc
+12/25/2025  07:49 PM             1,905 role.cpython-313.pyc
+12/25/2025  07:49 PM             3,042 role_prompt.cpython-313.pyc
+12/25/2025  07:49 PM             2,299 role_task.cpython-313.pyc
+12/25/2025  07:49 PM               750 __init__.cpython-313.pyc
+               9 File(s)         35,665 bytes
+
+ Directory of C:\dev\The Combine\app\api\repositories
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/15/2025  05:51 PM               204 exceptions.py
+12/15/2025  06:41 PM             7,418 project_repository.py
+12/16/2025  10:19 AM            10,371 role_prompt_repository.py
+12/18/2025  10:07 AM               467 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               4 File(s)         18,460 bytes
+
+ Directory of C:\dev\The Combine\app\api\repositories\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM               563 exceptions.cpython-313.pyc
+12/25/2025  07:49 PM             9,545 project_repository.cpython-313.pyc
+12/25/2025  07:49 PM            13,093 role_prompt_repository.cpython-313.pyc
+12/25/2025  07:49 PM               558 __init__.cpython-313.pyc
+               4 File(s)         23,759 bytes
+
+ Directory of C:\dev\The Combine\app\api\routers
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/28/2025  02:46 PM            12,148 accounts.py
+12/24/2025  03:11 PM             9,408 auth.py
+12/24/2025  03:16 PM            15,396 documents.py
+12/24/2025  03:19 PM             9,369 document_status_router.py
+12/29/2025  01:32 AM             3,110 health.py
+12/25/2025  02:58 PM             4,955 protected.py
+12/18/2025  10:28 AM               190 __init__.py
+12/29/2025  01:32 AM    <DIR>          __pycache__
+               7 File(s)         54,576 bytes
+
+ Directory of C:\dev\The Combine\app\api\routers\__pycache__
+
+12/29/2025  01:32 AM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/28/2025  02:46 PM            12,310 accounts.cpython-313.pyc
+12/25/2025  07:49 PM            11,917 auth.cpython-313.pyc
+12/25/2025  07:49 PM            18,847 documents.cpython-313.pyc
+12/25/2025  07:49 PM            11,775 document_status_router.cpython-313.pyc
+12/29/2025  01:32 AM             3,998 health.cpython-313.pyc
+12/25/2025  07:49 PM             4,442 protected.cpython-313.pyc
+12/25/2025  07:49 PM               357 __init__.cpython-313.pyc
+               7 File(s)         63,646 bytes
+
+ Directory of C:\dev\The Combine\app\api\schemas
+
+12/24/2025  03:25 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/15/2025  05:51 PM             2,495 requests.py
+12/15/2025  05:51 PM             2,607 responses.py
+12/15/2025  05:51 PM                51 __init__.py
+               3 File(s)          5,153 bytes
+
+ Directory of C:\dev\The Combine\app\api\services
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/17/2025  04:47 PM            14,353 document_service.py
+12/18/2025  04:09 PM            17,162 document_status_service.py
+12/15/2025  05:54 PM             6,425 email_service.py
+12/21/2025  02:24 PM            14,828 project_service.py
+12/16/2025  03:01 PM             7,431 role_prompt_service.py
+12/18/2025  10:19 AM             7,403 search_service.py
+12/20/2025  08:17 PM               269 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               7 File(s)         67,871 bytes
+
+ Directory of C:\dev\The Combine\app\api\services\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM            17,495 document_service.cpython-313.pyc
+12/25/2025  07:49 PM            16,463 document_status_service.cpython-313.pyc
+12/25/2025  07:49 PM             9,790 email_service.cpython-313.pyc
+12/25/2025  07:49 PM            19,379 project_service.cpython-313.pyc
+12/25/2025  07:49 PM             9,171 role_prompt_service.cpython-313.pyc
+12/25/2025  07:49 PM             9,667 search_service.cpython-313.pyc
+12/25/2025  07:49 PM               352 __init__.cpython-313.pyc
+               7 File(s)         82,317 bytes
+
+ Directory of C:\dev\The Combine\app\api\utils
+
+12/24/2025  03:25 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/15/2025  07:46 PM             6,765 id_generators.py
+12/16/2025  10:38 AM                43 __init__.py
+               2 File(s)          6,808 bytes
+
+ Directory of C:\dev\The Combine\app\api\__pycache__
+
+12/28/2025  05:09 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/28/2025  05:09 PM             5,978 main.cpython-313.pyc
+               1 File(s)          5,978 bytes
+
+ Directory of C:\dev\The Combine\app\auth
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/25/2025  03:26 PM            10,445 accounts.py
+12/25/2025  04:20 PM             6,871 db_models.py
+12/25/2025  03:09 PM             4,843 dependencies.py
+12/25/2025  03:43 PM             3,844 models.py
+12/29/2025  10:34 PM             8,124 oidc_config.py
+12/24/2025  10:46 AM             3,693 rate_limits.py
+12/28/2025  04:55 PM            12,323 routes.py
+12/25/2025  04:04 PM            21,714 service.py
+12/24/2025  10:46 AM               697 utils.py
+12/24/2025  10:41 AM               401 __init__.py
+12/29/2025  10:34 PM    <DIR>          __pycache__
+              10 File(s)         72,955 bytes
+
+ Directory of C:\dev\The Combine\app\auth\__pycache__
+
+12/29/2025  10:34 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM             7,375 db_models.cpython-313.pyc
+12/25/2025  07:49 PM             5,276 dependencies.cpython-313.pyc
+12/25/2025  07:49 PM             5,236 models.cpython-313.pyc
+12/29/2025  10:34 PM             7,558 oidc_config.cpython-313.pyc
+12/28/2025  04:55 PM            12,705 routes.cpython-313.pyc
+12/25/2025  07:49 PM            21,755 service.cpython-313.pyc
+12/25/2025  07:49 PM               929 utils.cpython-313.pyc
+12/25/2025  07:49 PM               492 __init__.cpython-313.pyc
+               8 File(s)         61,326 bytes
+
+ Directory of C:\dev\The Combine\app\core
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/10/2025  04:36 PM             4,893 config.py
+12/24/2025  04:34 PM             2,171 database.py
+12/24/2025  03:10 PM             3,565 dependencies.py
+12/24/2025  03:14 PM               441 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               4 File(s)         11,070 bytes
+
+ Directory of C:\dev\The Combine\app\core\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM             4,448 config.cpython-313.pyc
+12/25/2025  07:49 PM             3,208 database.cpython-313.pyc
+12/25/2025  07:49 PM             3,866 dependencies.cpython-313.pyc
+12/25/2025  07:49 PM               577 __init__.cpython-313.pyc
+               4 File(s)         12,099 bytes
+
+ Directory of C:\dev\The Combine\app\domain
+
+12/20/2025  08:16 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/25/2025  07:49 PM    <DIR>          handlers
+12/15/2025  05:51 PM                 0 init.py
+12/25/2025  07:49 PM    <DIR>          registry
+12/25/2025  07:52 PM    <DIR>          schemas
+12/25/2025  07:49 PM    <DIR>          services
+12/24/2025  03:25 PM    <DIR>          utils
+               1 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\domain\handlers
+
+12/25/2025  07:49 PM    <DIR>          .
+12/20/2025  08:16 PM    <DIR>          ..
+12/17/2025  12:39 PM            24,567 architecture_spec_handler.py
+12/18/2025  09:41 PM            13,622 base_handler.py
+12/20/2025  03:35 PM             2,434 epic_backlog_handler.py
+12/17/2025  12:12 PM             4,940 exceptions.py
+12/18/2025  01:27 PM            22,285 project_discovery_handler.py
+12/20/2025  05:34 PM             3,541 registry.py
+12/20/2025  01:06 PM             2,994 story_backlog_handler.py
+12/17/2025  12:12 PM             1,636 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               8 File(s)         76,019 bytes
+
+ Directory of C:\dev\The Combine\app\domain\handlers\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM            26,128 architecture_spec_handler.cpython-313.pyc
+12/25/2025  07:49 PM            12,374 base_handler.cpython-313.pyc
+12/25/2025  07:49 PM             3,940 epic_backlog_handler.cpython-313.pyc
+12/25/2025  07:49 PM             6,957 exceptions.cpython-313.pyc
+12/25/2025  07:49 PM            22,768 project_discovery_handler.cpython-313.pyc
+12/25/2025  07:49 PM             3,891 registry.cpython-313.pyc
+12/25/2025  07:49 PM             4,358 story_backlog_handler.cpython-313.pyc
+12/25/2025  07:49 PM             1,496 __init__.cpython-313.pyc
+               8 File(s)         81,912 bytes
+
+ Directory of C:\dev\The Combine\app\domain\registry
+
+12/25/2025  07:49 PM    <DIR>          .
+12/20/2025  08:16 PM    <DIR>          ..
+12/19/2025  05:09 PM            17,040 loader.py
+12/19/2025  04:46 PM            10,286 seed_document_types.py
+12/17/2025  10:36 AM             1,252 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               3 File(s)         28,578 bytes
+
+ Directory of C:\dev\The Combine\app\domain\registry\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM            15,667 loader.cpython-313.pyc
+12/25/2025  07:49 PM             1,212 __init__.cpython-313.pyc
+               2 File(s)         16,879 bytes
+
+ Directory of C:\dev\The Combine\app\domain\schemas
+
+12/25/2025  07:52 PM    <DIR>          .
+12/20/2025  08:16 PM    <DIR>          ..
+12/15/2025  06:51 PM             2,470 artifacts.py
+12/15/2025  05:51 PM             5,409 metrics.py
+12/15/2025  07:14 PM               137 __init__.py
+12/25/2025  07:52 PM    <DIR>          __pycache__
+               3 File(s)          8,016 bytes
+
+ Directory of C:\dev\The Combine\app\domain\schemas\__pycache__
+
+12/25/2025  07:52 PM    <DIR>          .
+12/25/2025  07:52 PM    <DIR>          ..
+12/25/2025  07:52 PM             5,049 artifacts.cpython-313.pyc
+12/25/2025  07:52 PM             5,439 metrics.cpython-313.pyc
+12/25/2025  07:52 PM               300 __init__.cpython-313.pyc
+               3 File(s)         10,788 bytes
+
+ Directory of C:\dev\The Combine\app\domain\services
+
+12/25/2025  07:49 PM    <DIR>          .
+12/20/2025  08:16 PM    <DIR>          ..
+12/24/2025  03:17 PM            19,288 document_builder.py
+12/15/2025  05:51 PM             6,354 llm_response_parser.py
+12/20/2025  08:26 PM                84 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               3 File(s)         25,726 bytes
+
+ Directory of C:\dev\The Combine\app\domain\services\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM            19,256 document_builder.cpython-313.pyc
+12/25/2025  07:49 PM             7,946 llm_response_parser.cpython-313.pyc
+12/25/2025  07:49 PM               208 __init__.cpython-313.pyc
+               3 File(s)         27,410 bytes
+
+ Directory of C:\dev\The Combine\app\domain\utils
+
+12/24/2025  03:25 PM    <DIR>          .
+12/20/2025  08:16 PM    <DIR>          ..
+12/15/2025  05:51 PM             1,672 pricing.py
+12/15/2025  07:49 PM                38 __init__.py
+               2 File(s)          1,710 bytes
+
+ Directory of C:\dev\The Combine\app\infrastructure
+
+12/24/2025  03:25 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/15/2025  05:51 PM                83 config.py
+12/15/2025  05:51 PM                87 database.py
+12/15/2025  05:51 PM                 0 __init__.py
+               3 File(s)            170 bytes
+
+ Directory of C:\dev\The Combine\app\middleware
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/24/2025  10:45 AM             2,584 rate_limit.py
+12/24/2025  10:45 AM               166 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               2 File(s)          2,750 bytes
+
+ Directory of C:\dev\The Combine\app\middleware\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM             2,548 rate_limit.cpython-313.pyc
+12/25/2025  07:49 PM               324 __init__.cpython-313.pyc
+               2 File(s)          2,872 bytes
+
+ Directory of C:\dev\The Combine\app\web
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/25/2025  07:49 PM    <DIR>          routes
+12/28/2025  04:17 PM    <DIR>          static
+12/19/2025  10:40 AM    <DIR>          templates
+12/15/2025  05:51 PM                70 __init__.py
+12/25/2025  07:49 PM    <DIR>          __pycache__
+               1 File(s)             70 bytes
+
+ Directory of C:\dev\The Combine\app\web\routes
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/24/2025  03:19 PM             6,144 admin_routes.py
+12/24/2025  03:18 PM             3,057 debug_routes.py
+12/24/2025  03:18 PM             8,764 document_routes.py
+12/24/2025  03:18 PM             9,548 document_status_routes.py
+12/28/2025  04:31 PM               565 home_routes.py
+12/28/2025  06:09 PM            14,285 project_routes.py
+12/24/2025  03:18 PM             1,291 search_routes.py
+12/15/2025  05:51 PM             1,204 shared.py
+12/28/2025  04:57 PM             1,328 __init__.py
+12/28/2025  06:09 PM    <DIR>          __pycache__
+               9 File(s)         46,186 bytes
+
+ Directory of C:\dev\The Combine\app\web\routes\__pycache__
+
+12/28/2025  06:09 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM             7,318 admin_routes.cpython-313.pyc
+12/25/2025  07:49 PM             3,945 debug_routes.cpython-313.pyc
+12/25/2025  07:49 PM             8,729 document_routes.cpython-313.pyc
+12/25/2025  07:49 PM             8,860 document_status_routes.cpython-313.pyc
+12/28/2025  04:31 PM               949 home_routes.cpython-313.pyc
+12/28/2025  06:09 PM            15,263 project_routes.cpython-313.pyc
+12/25/2025  07:49 PM             1,774 search_routes.cpython-313.pyc
+12/25/2025  07:49 PM             1,701 shared.cpython-313.pyc
+12/28/2025  04:57 PM             1,385 __init__.cpython-313.pyc
+               9 File(s)         49,924 bytes
+
+ Directory of C:\dev\The Combine\app\web\static
+
+12/28/2025  04:17 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/28/2025  04:42 PM            13,426 accounts.html
+12/12/2025  10:15 AM    <DIR>          css
+12/12/2025  10:15 AM    <DIR>          images
+12/12/2025  10:15 AM    <DIR>          js
+12/28/2025  04:16 PM             6,595 login.html
+               2 File(s)         20,021 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\css
+
+12/12/2025  10:15 AM    <DIR>          .
+12/28/2025  04:17 PM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\images
+
+12/12/2025  10:15 AM    <DIR>          .
+12/28/2025  04:17 PM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\static\js
+
+12/12/2025  10:15 AM    <DIR>          .
+12/28/2025  04:17 PM    <DIR>          ..
+               0 File(s)              0 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates
+
+12/19/2025  10:40 AM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/19/2025  10:44 PM    <DIR>          components
+12/20/2025  02:37 PM             3,370 files.txt
+12/12/2025  10:18 AM    <DIR>          layout
+12/20/2025  03:56 PM    <DIR>          pages
+               1 File(s)          3,370 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components
+
+12/19/2025  10:44 PM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/14/2025  06:11 PM    <DIR>          alerts
+12/18/2025  07:16 PM             4,012 icon_picker.html
+12/18/2025  05:44 PM             6,584 legend_modal.html
+12/19/2025  10:44 PM             4,021 project_inspector.html
+12/28/2025  05:04 PM             9,845 project_list.html
+12/19/2025  10:44 PM             1,866 project_rail.html
+12/28/2025  05:04 PM             4,863 search_results.html
+12/28/2025  05:04 PM             6,797 sidebar.html
+               7 File(s)         37,988 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\components\alerts
+
+12/14/2025  06:11 PM    <DIR>          .
+12/19/2025  10:44 PM    <DIR>          ..
+12/14/2025  06:11 PM               637 error.html
+12/14/2025  06:11 PM             1,506 success.html
+               2 File(s)          2,143 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\layout
+
+12/12/2025  10:18 AM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/28/2025  05:04 PM            20,264 base.html
+               1 File(s)         20,264 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages
+
+12/20/2025  03:56 PM    <DIR>          .
+12/19/2025  10:40 AM    <DIR>          ..
+12/20/2025  02:30 PM    <DIR>          admin
+12/20/2025  03:56 PM               192 document_page.html
+12/20/2025  01:06 PM    <DIR>          partials
+               1 File(s)            192 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\admin
+
+12/20/2025  02:30 PM    <DIR>          .
+12/20/2025  03:56 PM    <DIR>          ..
+12/28/2025  05:04 PM             7,574 document_types.html
+12/28/2025  05:04 PM            12,427 document_type_detail.html
+12/28/2025  05:04 PM             3,406 index.html
+12/28/2025  05:04 PM               866 not_found.html
+               4 File(s)         24,273 bytes
+
+ Directory of C:\dev\The Combine\app\web\templates\pages\partials
+
+12/20/2025  01:06 PM    <DIR>          .
+12/20/2025  03:56 PM    <DIR>          ..
+12/19/2025  10:00 PM               462 _document_container.html
+12/28/2025  05:04 PM             9,445 _document_not_found.html
+12/28/2025  05:04 PM            11,115 _epic_backlog_content.html
+12/19/2025  06:51 PM            10,301 _epic_card.html
+12/19/2025  12:46 PM               409 _project_detail.html
+12/28/2025  05:04 PM            19,791 _project_discovery_content.html
+12/28/2025  05:04 PM             4,200 _project_new_content.html
+12/28/2025  05:04 PM            13,784 _project_overview.html
+12/28/2025  05:04 PM            14,607 _story_backlog_content.html
+12/28/2025  05:04 PM            20,818 _technical_architecture_content.html
+              10 File(s)        104,932 bytes
+
+ Directory of C:\dev\The Combine\app\web\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/25/2025  07:49 PM    <DIR>          ..
+12/25/2025  07:49 PM               234 __init__.cpython-313.pyc
+               1 File(s)            234 bytes
+
+ Directory of C:\dev\The Combine\app\__pycache__
+
+12/25/2025  07:49 PM    <DIR>          .
+12/30/2025  04:14 PM    <DIR>          ..
+12/25/2025  07:49 PM               177 __init__.cpython-313.pyc
+               1 File(s)            177 bytes
+
+     Total Files Listed:
+             192 File(s)      1,175,453 bytes
+             143 Dir(s)  914,967,474,176 bytes free

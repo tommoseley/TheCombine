@@ -30,3 +30,5 @@ venv/
 # Secrets
 *secret*
 *credentials*
+
+task*.json
