@@ -1,0 +1,124 @@
+Task Prompt: Project Discovery — Questions Only
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+Task Objective
+
+Produce only clarifying questions to support initial project discovery.
+
+The purpose of this task is to surface unknowns, assumptions, constraints, and decision gaps without proposing solutions, interpretations, or conclusions.
+
+Mode
+
+questions_only
+
+Inputs Provided
+
+Project context (if any)
+
+User-provided problem statement or request
+
+Any explicitly supplied artifacts or reference material
+
+No prior executions or unstated context may be assumed.
+
+Required Behavior
+
+You must:
+
+Produce only questions
+
+Ensure every question ends with ?
+
+Phrase questions neutrally and precisely
+
+Focus on uncovering:
+
+intent
+
+scope boundaries
+
+constraints
+
+success criteria
+
+risks
+
+dependencies
+
+unknowns
+
+You must not:
+
+Provide answers, recommendations, or interpretations
+
+Restate the problem in declarative form
+
+Introduce assumptions
+
+Explain why questions are being asked
+
+Group questions with headings that imply conclusions
+
+Prohibited Language
+
+No question may include:
+
+Answer lead-ins such as:
+
+“Given that…”
+
+“We should…”
+
+“This means…”
+
+“It sounds like…”
+
+Statements disguised as questions
+
+Multi-sentence questions containing declarative clauses
+
+Output Form
+
+Return a structured list of questions.
+
+Each item must contain only the question text.
+
+No commentary, preamble, summary, or follow-up text is permitted.
+
+Governance & Audit Constraints
+
+All questions must be directly derivable from provided inputs
+
+No hidden reasoning or implied conclusions
+
+Output must be fully loggable and replayable per ADR-010
+
+Any ambiguity must be expressed as a question, not resolved silently
+
+Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+
+Produce questions of the same intent and scope
+
+Avoid stylistic variance that changes meaning
+
+Contain no temporal or contextual references outside the provided input
+
+Failure Conditions (Automatic Reject)
+
+This task fails if any of the following occur:
+
+A declarative sentence appears
+
+A question does not end with ?
+
+An answer or recommendation is implied
+
+Role identity or authority is redefined
+
+Output depends on unstated prior context

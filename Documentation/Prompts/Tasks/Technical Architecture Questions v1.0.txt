@@ -1,0 +1,114 @@
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+Task Objective
+
+Produce a questions-only set of technical architecture questions required to design a compliant and complete technical architecture for the provided intent.
+
+You must ask questions only.
+You must not propose solutions, recommendations, or decisions.
+
+Inputs Provided
+
+Project discovery artifacts (if supplied)
+
+Epic backlog (if supplied)
+
+Explicit constraints or non-functional requirements (if supplied)
+
+Any documents explicitly included as input
+
+No other context may be assumed.
+
+Scope & Constraints
+
+You must:
+
+Identify all unresolved technical architecture questions required before architecture design can proceed
+
+Cover architecture-relevant domains including (but not limited to):
+
+system boundaries
+
+data ownership and flow
+
+integration points
+
+scalability and availability expectations
+
+security and compliance constraints
+
+operational and lifecycle considerations
+
+Make uncertainty explicit through questioning, not inference
+
+You must NOT:
+
+Answer any question
+
+Suggest architectures, patterns, tools, or designs
+
+Infer intent not explicitly provided
+
+Collapse questions into statements or recommendations
+
+Output Form (Strict)
+
+Hard Validation Rules
+
+Every questions[].text must end with ?
+
+No questions[].text may include:
+
+answer lead-ins (e.g., “Given that…”, “We should…”, “This means…”)
+
+implied decisions
+
+mode must equal "questions_only"
+
+qa.declarative_sentence_count must be 0
+
+qa.non_question_line_count must be 0
+
+Violation of any rule is an automatic failure.
+
+Governance & Audit Constraints
+
+No silent assumptions or inferred intent
+
+All uncertainty must surface as explicit questions
+
+Inputs and outputs must be fully loggable per ADR-010
+
+No bypassing or weakening of governance per ADR-009
+
+Determinism & Replay Readiness
+
+Identical inputs must yield equivalent questions
+
+No references to prior runs, time, or external state
+
+If insufficient input prevents meaningful questioning, ask meta-questions explicitly identifying missing information
+
+Failure Conditions (Automatic ❌ Reject)
+
+Any declarative sentence appears
+
+Any solution, design, or recommendation appears
+
+Any role identity or authority language appears
+
+Any output outside the defined schema appears
+
+Certification Notes
+
+Task-scoped only
+
+Role-agnostic
+
+Mechanically testable
+
+Safe for replay, diffing, and prompt evaluation engines

@@ -1,15 +1,17 @@
-"""
+﻿"""
 Documents API Routes - Unified endpoint for building any document type.
 
 Uses the new document-centric model with:
 - Documents (space_type + space_id ownership)
 - Document Relations (requires, derived_from)
 - Document Types registry
+
+Week 2 (ADR-010): Integrated correlation_id for LLM execution logging.
 """
 
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +28,8 @@ from app.domain.handlers import get_handler, HandlerNotFoundError
 # Import services
 from app.api.services.role_prompt_service import RolePromptService
 from app.api.services.document_service import DocumentService
+from app.core.dependencies import get_llm_execution_logger
+from app.domain.services.llm_execution_logger import LLMExecutionLogger
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -129,19 +133,30 @@ class DocumentDetailResponse(DocumentResponse):
 # =============================================================================
 
 async def get_document_builder(
-    db: AsyncSession = Depends(get_db)
+    request: Request,  # ADR-010: Extract correlation_id
+    db: AsyncSession = Depends(get_db),
+    llm_logger: LLMExecutionLogger = Depends(get_llm_execution_logger),  # ADR-010
 ) -> DocumentBuilder:
-    """Create DocumentBuilder with injected dependencies."""
+    """
+    Create DocumentBuilder with injected dependencies.
+    
+    Week 2: Extracts correlation_id from request.state (set by RequestIDMiddleware).
+    ADR-010: Injects LLMExecutionLogger for telemetry.
+    """
     role_prompt_service = RolePromptService(db)
     prompt_adapter = PromptServiceAdapter(role_prompt_service)
     document_service = DocumentService(db)
+    
+    # Extract correlation_id from request state (set by middleware)
+    correlation_id = getattr(request.state, "correlation_id", None)
     
     return DocumentBuilder(
         db=db,
         prompt_service=prompt_adapter,
         document_service=document_service,
+        correlation_id=correlation_id,  # ADR-010: Pass for telemetry
+        llm_logger=llm_logger,  # ADR-010: Injected logger
     )
-
 
 async def get_document_service(
     db: AsyncSession = Depends(get_db)
@@ -270,6 +285,8 @@ async def build_document_stream(
     Build a document with streaming progress updates.
     
     Returns Server-Sent Events with progress updates.
+    
+    Week 2: LLM execution is logged to llm_run table for telemetry and replay.
     """
     return StreamingResponse(
         builder.build_stream(

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -32,6 +32,7 @@ from app.api.routers.documents import router as document_router
 from app.api.routers.document_status_router import router as document_status_router
 from app.web.routes.document_status_routes import router as document_status_ui_router
 from app.web.routes.admin_routes import router as admin_router
+from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay endpoint
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
@@ -78,13 +79,13 @@ async def startup_event():
     # Initialize database
     try:
         await init_database()
-        logger.info("✅ Database initialized")
+        logger.info("âœ… Database initialized")
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
+        logger.error(f"âŒ Database initialization failed: {e}")
         raise
     
-    logger.info("✅ The Combine API started successfully")
-    logger.info(f"📚 API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
+    logger.info("âœ… The Combine API started successfully")
+    logger.info(f"ðŸ“š API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
 
 @app.get("/test-session")
 async def test_session(request: Request):
@@ -163,6 +164,7 @@ app.include_router(web_routes.router)
 # Other routes - ALL at root level now
 app.include_router(document_status_router, prefix="/api")
 app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
+app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
 app.include_router(protected_router)
 app.include_router(accounts_router)
 

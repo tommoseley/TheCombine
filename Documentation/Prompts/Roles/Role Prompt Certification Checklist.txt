@@ -1,0 +1,161 @@
+Role Prompt Certification Checklist
+
+The Combine — Certified Role Prompts
+
+This checklist defines the minimum requirements for a role prompt to be considered certified and eligible for:
+
+versioning
+
+replay
+
+mechanical evaluation
+
+use in governed execution paths
+
+Any failure blocks certification.
+
+1. Structural Integrity (Required)
+1.1 Role Identity Defined
+
+ Role identity is clearly stated in the opening section
+
+ Identity applies across all tasks (not scenario-specific)
+
+ Role purpose is expressed as responsibility, not activity
+
+❌ Fail if: the role sounds like a job description tied to a specific artifact or phase.
+
+1.2 Explicit Authority Boundaries
+
+ Clear statement of what the role may decide
+
+ Clear statement of what the role may not decide
+
+ Conflict-handling posture is explicit (surface vs resolve)
+
+❌ Fail if: the role implicitly resolves conflicts outside its authority.
+
+2. Separation of Concerns (Hard Stop)
+2.1 No Task Logic
+
+ No instructions for what to produce
+
+ No schemas, formats, or deliverables
+
+ No references to specific artifacts (e.g., “epic doc”, “PRD”, “API spec”)
+
+❌ Fail if: any output expectations appear.
+
+2.2 No Workflow or Ceremony
+
+ No step sequences
+
+ No process invention
+
+ No references to meetings, rituals, or cadence
+
+❌ Fail if: the role defines how work flows rather than how it reasons.
+
+3. Subordinate Persona Discipline (Mandatory)
+3.1 Exactly Three Subordinate Personae
+
+ Exactly three are defined (no more, no fewer)
+
+❌ Fail if: count ≠ 3.
+
+3.2 Each Subordinate Has:
+
+For each subordinate:
+
+ Clear purpose (what it is good at)
+
+ Explicit failure mode (what it overdoes or misses)
+
+ Defined as an internal reasoning lens only
+
+❌ Fail if: a subordinate appears to act independently or produce output.
+
+3.3 Consultation Rules
+
+ Subordinates are consulted silently by default
+
+ Externalization requires explicit instruction
+
+❌ Fail if: subordinates speak or act unless requested.
+
+4. Governance Alignment (ADR Compliance)
+4.1 ADR-009 (Audit & Governance)
+
+ Role treats state, decisions, and transitions as explicit
+
+ No silent mutation or assumption correction
+
+4.2 ADR-010 (LLM Execution Logging)
+
+ Execution context and recorded artifacts are treated as authoritative
+
+ No reliance on memory, intuition, or inferred state
+
+❌ Fail if: the role compensates for missing context.
+
+5. Behavioral Constraints (Tone & Discipline)
+5.1 No Vibe or Motivation Language
+
+ No inspirational framing
+
+ No coaching tone
+
+ No anthropomorphic encouragement
+
+❌ Fail if: the prompt attempts to “energize” or “guide” emotionally.
+
+5.2 No UI / Implementation Leakage
+
+ No UI layout, routing, or UX guidance
+
+ No technical implementation details
+
+❌ Fail if: the role crosses into solution design or presentation.
+
+6. Prompt Governance Boilerplate (Required)
+6.1 Triggering Instruction Present (Verbatim)
+
+ Includes the following text unchanged:
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This role prompt defines identity, authority, and internal reasoning boundaries.
+Do not introduce task-specific behavior unless explicitly provided in a task prompt.
+
+
+❌ Fail if: missing, altered, or paraphrased.
+
+7. Stability & Replay Readiness
+7.1 Task Independence
+
+ Prompt can be replayed in isolation
+
+ No hidden assumptions about current task or phase
+
+7.2 Drift Risk Declared
+
+ Explicit statement of primary drift risks
+
+ Risks are role-specific, not generic
+
+❌ Fail if: drift risk is omitted or vague.
+
+8. Certification Outcome
+
+✅ Certified — All checks pass
+
+⚠️ Needs Revision — Any single check fails
+
+❌ Rejected — Structural or separation violations
+
+Enforcement Rule
+
+A role prompt that fails certification must not be used in governed execution paths.
+
+No exceptions. No “just this once.”

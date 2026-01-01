@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 """
@@ -204,15 +204,28 @@ async def build_document(
     """
     Build a document using the document-centric pipeline.
     Returns Server-Sent Events stream with progress updates.
+    
+    ADR-010: Integrated LLM execution logging.
     """
     from app.domain.services.document_builder import DocumentBuilder
     from app.api.routers.documents import PromptServiceAdapter
+    from app.domain.repositories.postgres_llm_log_repository import PostgresLLMLogRepository
+    from app.domain.services.llm_execution_logger import LLMExecutionLogger
     
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     proj_uuid = UUID(project['id']) if isinstance(project.get('id'), str) else project.get('id')
+    
+    # ADR-010: Get correlation_id from request state (set by middleware)
+    correlation_id = getattr(request.state, "correlation_id", None)
+    logger.info(f"[ADR-010] Web route build_document - correlation_id={correlation_id}")
+    
+    # ADR-010: Create LLM logger
+    llm_repo = PostgresLLMLogRepository(db)
+    llm_logger = LLMExecutionLogger(llm_repo)
+    logger.info(f"[ADR-010] Created LLMExecutionLogger for web route")
     
     # Create builder with dependencies
     prompt_service = RolePromptService(db)
@@ -223,6 +236,8 @@ async def build_document(
         db=db,
         prompt_service=prompt_adapter,
         document_service=document_service,
+        correlation_id=correlation_id,  # ADR-010
+        llm_logger=llm_logger,  # ADR-010
     )
     
     return StreamingResponse(

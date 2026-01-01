@@ -1,0 +1,128 @@
+Here is the Task Prompt Certification Checklist — intentionally parallel in tone, rigor, and enforceability to your Role Prompt Certification model.
+
+This is written to be mechanically checkable, not advisory.
+
+Task Prompt Certification Checklist
+
+The Combine — Certified Task Prompts
+
+A task prompt must pass every section to be certified.
+
+1. Prompt Classification (Gate 0)
+
+☐ Prompt is explicitly a TASK prompt, not a role prompt
+☐ Prompt assumes an existing certified role prompt
+☐ Prompt does not redefine identity, authority, or values
+
+❌ Fail if role-level content appears.
+
+2. Triggering Instruction (Mandatory)
+
+☐ Prompt includes the following instruction verbatim:
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+
+❌ Fail if missing or altered.
+
+3. Task Scope Definition (Required)
+
+☐ The task prompt clearly defines what is to be produced now
+☐ The task prompt lists all inputs explicitly
+☐ The task prompt states constraints (time, completeness, fidelity, etc.)
+☐ The task prompt defines expected output form, if applicable
+
+⚠️ Risk if scope boundaries are implied rather than stated.
+
+4. Separation of Concerns (Hard Boundary)
+
+☐ No role identity language
+☐ No subordinate personae definitions
+☐ No authority expansion or contraction
+☐ No cross-task coordination logic
+
+❌ Fail if task prompt alters role posture.
+
+5. Determinism & Replay Readiness
+
+☐ Prompt is deterministic given identical inputs
+☐ Prompt does not rely on hidden state or prior runs
+☐ Prompt is replayable without human interpretation
+☐ Any unavoidable ambiguity is explicitly acknowledged
+
+⚠️ Risk if output variance cannot be explained.
+
+6. Input Integrity & Explicitness
+
+☐ All required context is provided as input
+☐ No assumptions about “known” facts
+☐ No reliance on conversational memory
+☐ External references are named and bounded
+
+❌ Fail if the task relies on implicit knowledge.
+
+7. Governance Compliance
+ADR-009 — Audit & Governance
+
+☐ Decisions must be explicit
+☐ No silent correction or interpretation
+☐ No inferred intent substitution
+
+ADR-010 — LLM Execution Logging
+
+☐ All inputs are loggable
+☐ Outputs are capturable artifacts
+☐ No instruction to bypass logging, QA, or traceability
+
+❌ Fail if governance is bypassed or weakened.
+
+8. Prohibited Content Scan
+
+☐ No UI styling or presentation guidance
+☐ No routing or infrastructure detail
+☐ No workflow invention
+☐ No motivational, coaching, or “vibe” language
+☐ No optimization for speed at the cost of traceability
+
+❌ Fail on any violation.
+
+9. Output Discipline
+
+☐ Output requirements are explicit or intentionally open
+☐ No implied secondary outputs
+☐ No cross-task side effects
+
+⚠️ Risk if output expectations are ambiguous.
+
+10. Stability & Certification Readiness
+
+☐ Prompt is stable enough to be versioned
+☐ Prompt is suitable for replay comparison
+☐ Prompt can be evaluated by mechanical QA
+☐ Drift risks are explicitly noted
+
+Certification Verdict
+
+A task prompt is:
+
+✅ Certified — passes all checks
+
+⚠️ Provisionally Acceptable — minor risks, no violations
+
+❌ Rejected — any hard-boundary failure
+
+Common Failure Patterns (for Auditors)
+
+Task prompt quietly redefining role behavior
+
+“Just this once” exceptions
+
+Missing Triggering Instruction
+
+Assuming context instead of declaring it
+
+Overhelpful prompts that leak workflow logic
