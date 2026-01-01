@@ -259,6 +259,23 @@ Project audit remains **human-scale**; LLM logs remain **execution-scale**.
 
 ---
 
+## MVP Scope
+
+- Core `llm_run`, `llm_run_input_ref`, `llm_run_output_ref`, `llm_run_error` tables
+- Basic tool call tracking
+- Database-backed content storage (pluggable via `content_ref`)
+
+---
+
+## Post-MVP Enhancements
+
+- `llm_run_event` for phase-level progress tracking
+- Detailed retry telemetry
+- Object storage backends (S3-compatible, filesystem)
+- Replay UI and automated comparison tooling
+
+---
+
 ## Consequences
 
 ### Positive

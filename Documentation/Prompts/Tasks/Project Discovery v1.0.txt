@@ -1,0 +1,72 @@
+Triggering Instruction
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+Task Objective
+
+Produce a Project Discovery artifact that establishes a clear, shared understanding of the problem space before solution design or execution begins.
+
+This task exists to surface intent, constraints, unknowns, and decision boundaries — not to propose solutions or plans.
+
+Inputs Provided
+
+You will be given:
+
+A project identifier
+
+A project brief or initiating question (may be incomplete or ambiguous)
+
+Optional contextual artifacts (if provided explicitly):
+
+Prior documents
+
+Stakeholder notes
+
+Business context summaries
+
+Constraints or mandates
+
+If information is missing, it must be identified explicitly rather than assumed.
+
+Constraints
+
+Do not propose solutions, architectures, plans, or implementation approaches
+
+Do not infer intent beyond what is supported by inputs
+
+Do not resolve ambiguity silently
+
+All assumptions must be stated explicitly and labeled as assumptions
+
+Unknowns must remain visible, not “filled in”
+
+All statements must be attributable to provided input or declared inference
+
+Expected Output Form
+
+Produce a Project Discovery document containing, at minimum, clearly delineated sections for:
+
+Problem Statement (as currently understood)
+
+Goals and Success Criteria (if identifiable)
+
+In-Scope and Out-of-Scope Boundaries
+
+Constraints (technical, organizational, regulatory, temporal)
+
+Known Unknowns / Open Questions
+
+Explicit Assumptions (clearly labeled)
+
+Decision Boundaries (what is explicitly not decided here)
+
+The output must be a single, coherent artifact suitable for audit, replay, and downstream consumption.
+
+Governance Notes
+
+All conclusions, assumptions, and open questions must be explicit
+
+The produced artifact must be suitable for full logging under ADR-010
+
+No hidden reasoning, implicit context, or unstated judgment is permitted
