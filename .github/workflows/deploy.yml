@@ -1,5 +1,6 @@
-# The Combine - CI/CD Pipeline (OIDC Authentication)
+﻿# The Combine - CI/CD Pipeline (ECS Fargate + Route 53)
 # Uses GitHub OIDC to assume AWS role - no stored credentials
+# No ALB - Route 53 points directly to ECS task public IP
 
 name: Deploy to AWS
 
@@ -13,6 +14,11 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: the-combine
+  ECS_CLUSTER: the-combine-cluster
+  ECS_SERVICE: the-combine-service
+  ECS_TASK_FAMILY: the-combine-task
+  CONTAINER_NAME: the-combine
+  DOMAIN_NAME: thecombine.ai
   PYTHON_VERSION: '3.12'
 
 # Required for OIDC authentication
@@ -83,6 +89,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      public_ip: ${{ steps.get-ip.outputs.public_ip }}
     
     steps:
       - name: Checkout code
@@ -109,41 +117,120 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
-          # Also tag as latest (App Runner watches this)
+          # Also tag as latest
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
       
-      - name: Wait for App Runner deployment
+      - name: Download current task definition
         run: |
-          # App Runner auto-deploys when :latest is updated
-          # This step verifies deployment started
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_FAMILY }} \
+            --query 'taskDefinition' \
+            > task-definition.json
           
-          SERVICE_ARN=$(aws apprunner list-services \
-            --query "ServiceSummaryList[?ServiceName=='$ECR_REPOSITORY'].ServiceArn" \
+          # Remove fields that can't be re-registered
+          cat task-definition.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > cleaned-task-definition.json
+          mv cleaned-task-definition.json task-definition.json
+      
+      - name: Update task definition with new image
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+      
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+      
+      - name: Get new task public IP
+        id: get-ip
+        run: |
+          echo "Waiting for new task to get IP..."
+          sleep 10
+          
+          # Get the running task ARN
+          TASK_ARN=$(aws ecs list-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name ${{ env.ECS_SERVICE }} \
+            --query 'taskArns[0]' \
             --output text)
           
-          if [ -z "$SERVICE_ARN" ]; then
-            echo "⚠️ App Runner service not found. First deployment requires manual start."
-            exit 0
-          fi
+          echo "Task ARN: $TASK_ARN"
           
-          echo "🚀 Deployment triggered for: $SERVICE_ARN"
+          # Get the ENI ID from the task
+          ENI_ID=$(aws ecs describe-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+            --output text)
           
-          # Get current operation status
-          STATUS=$(aws apprunner describe-service --service-arn $SERVICE_ARN \
-            --query 'Service.Status' --output text)
+          echo "ENI ID: $ENI_ID"
           
-          echo "📊 Service status: $STATUS"
+          # Get the public IP from the ENI
+          PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+            --network-interface-ids $ENI_ID \
+            --query 'NetworkInterfaces[0].Association.PublicIp' \
+            --output text)
+          
+          echo "Public IP: $PUBLIC_IP"
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+      
+      - name: Update Route 53 DNS
+        run: |
+          PUBLIC_IP="${{ steps.get-ip.outputs.public_ip }}"
+          
+          # Get hosted zone ID
+          HOSTED_ZONE_ID=$(aws route53 list-hosted-zones \
+            --query "HostedZones[?Name=='${{ env.DOMAIN_NAME }}.'].Id" \
+            --output text | sed 's|/hostedzone/||')
+          
+          echo "Hosted Zone ID: $HOSTED_ZONE_ID"
+          
+          # Create change batch
+          cat > change-batch.json << EOF
+          {
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "${{ env.DOMAIN_NAME }}",
+                  "Type": "A",
+                  "TTL": 60,
+                  "ResourceRecords": [
+                    {
+                      "Value": "$PUBLIC_IP"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Apply DNS change
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id $HOSTED_ZONE_ID \
+            --change-batch file://change-batch.json
+          
+          echo "✅ DNS updated: ${{ env.DOMAIN_NAME }} -> $PUBLIC_IP"
       
       - name: Deployment summary
         run: |
           echo "✅ Deployment complete!"
           echo ""
-          echo "🔗 Application URL: http://thecombine.ui:8000"
-          echo "🔗 Health check: http://thecombine.ui:8000/health"
           echo "📦 Image: ${{ steps.build-image.outputs.image }}"
+          echo "🚀 Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "🔧 Service: ${{ env.ECS_SERVICE }}"
+          echo "🌐 Public IP: ${{ steps.get-ip.outputs.public_ip }}"
+          echo "🔗 URL: http://${{ env.DOMAIN_NAME }}:8000"
 
   # ============================================================
   # SMOKE TEST JOB - Verify deployment succeeded
@@ -155,29 +242,54 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-      - name: Wait for deployment to stabilize
-        run: sleep 60  # Give App Runner time to swap instances
-      
-      - name: Health check
+      - name: Wait for DNS propagation
         run: |
+          echo "Waiting 60s for DNS propagation..."
+          sleep 60
+      
+      - name: Health check via domain
+        run: |
+          echo "Testing health at http://${{ env.DOMAIN_NAME }}:8000/health"
+          
           # Retry health check a few times
           for i in {1..5}; do
-            if curl -sf http://thecombine.ai:8000/health; then
+            if curl -sf "http://${{ env.DOMAIN_NAME }}:8000/health" --max-time 10; then
               echo ""
               echo "✅ Health check passed!"
               exit 0
             fi
-            echo "Attempt $i failed, waiting..."
+            echo "Attempt $i failed, waiting 30s..."
             sleep 30
           done
           
           echo "❌ Health check failed after 5 attempts"
           exit 1
       
-      - name: Database connectivity check
+      - name: Health check via IP (fallback)
+        if: failure()
         run: |
-          curl -sf http://thecombine.ui:8000/health/db || {
-            echo "⚠️ Database health check failed (may not be implemented)"
-            exit 0
-          }
-          echo "✅ Database health check passed!"
+          PUBLIC_IP="${{ needs.deploy.outputs.public_ip }}"
+          echo "Trying direct IP: http://$PUBLIC_IP:8000/health"
+          
+          curl -sf "http://$PUBLIC_IP:8000/health" --max-time 10 && echo "✅ IP health check passed!" || echo "❌ IP health check also failed"
+
+  # ============================================================
+  # NOTIFY JOB - Post deployment info (optional)
+  # ============================================================
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [deploy, smoke-test]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Deployment status
+        run: |
+          if [ "${{ needs.smoke-test.result }}" == "success" ]; then
+            echo "🎉 Deployment successful!"
+            echo "URL: http://${{ env.DOMAIN_NAME }}:8000"
+            echo "IP: ${{ needs.deploy.outputs.public_ip }}"
+          else
+            echo "⚠️ Deployment completed but health check failed"
+            echo "Check logs and try: http://${{ needs.deploy.outputs.public_ip }}:8000/health"
+          fi
