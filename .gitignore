@@ -32,3 +32,5 @@ venv/
 *credentials*
 
 private/
+# AWS MCP Server (local tool)
+aws-scp-server/
