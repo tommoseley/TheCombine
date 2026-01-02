@@ -1,36 +1,44 @@
+﻿# Python
 __pycache__/
-*.pyc
-*.db
-*.sqlite
-.env
+*.py[cod]
+*.class
+*.so
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.eggs/
 
-# OS junk
-.DS_Store
-Thumbs.db
-
-run-local.ps1
-
-# IDE/editor
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Python virtual env
-venv/
-.env/
-# Terraform
-*.tfvars
-*.tfstate
-*.tfstate.*
-.terraform/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Environment
 .env
 .env.*
 
-# Secrets
+# Secrets and sensitive data
 *secret*
 *credentials*
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
 
-private/
+# Recycle bin (to be deleted)
+recycle/
+
+# Local temp files
+*.log
+*.tmp
+
 # AWS MCP Server (local tool)
 aws-scp-server/

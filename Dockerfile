@@ -1,6 +1,5 @@
-# The Combine - Production Dockerfile
+﻿# The Combine - Production Dockerfile
 # Python 3.12 + FastAPI + PostgreSQL
-# Ultra-simple version for App Runner
 
 FROM python:3.12-slim AS builder
 
@@ -32,8 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /root/.local /home/appuser/.local
 ENV PATH=/home/appuser/.local/bin:$PATH
 
-# Copy application code
-COPY --chown=appuser:appuser . .
+# Copy only what's needed for runtime
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser alembic/ ./alembic/
+COPY --chown=appuser:appuser alembic.ini .
 
 # Switch to non-root user
 USER appuser
@@ -45,5 +46,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Simple startup - migrations then server
-CMD sh -c "uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+# Simple startup - server only (migrations run separately)
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
