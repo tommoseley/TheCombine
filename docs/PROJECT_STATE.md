@@ -26,20 +26,21 @@ ADR-011 implementation (project/epic organization) — awaiting draft from Tom.
 - ✅ AI bootstrap system (`AI.md`, `PROJECT_STATE.md`, `docs/session_logs/`)
 - ✅ Session close ritual documented
 - ✅ Backfill prompt for old sessions in AI.md
+- ✅ All changes committed and pushed (`85f2732`)
 
 ---
 
 ## In Progress
 
 - 🟡 ADR-011 Project/Epic organization (Tom has draft from ChatGPT)
+- ✅ Anthropic API key rotated
 
 ---
 
 ## Next Likely Work
 
-- 🔜 Review and implement ADR-011 when Tom shares draft
+- - 🔜 Review and implement ADR-011 when Tom shares draft
 - 🔜 Review `recycle/` folder, then delete
-- 🔜 Commit restructure changes and push to trigger CI/CD
 - 🔜 Automated seed manifest regeneration script
 - 🔜 ALB for stable endpoint (pending AWS permission)
 
@@ -62,7 +63,7 @@ ADR-011 implementation (project/epic organization) — awaiting draft from Tom.
 - No HTTPS (HTTP on port 8000 only)
 - Database publicly accessible (dev configuration)
 - `recycle/` folder contains deleted files — review then delete
-- Changes from today not yet committed to git
+- Anthropic API key rotated (2026-01-02)
 
 ---
 
@@ -81,11 +82,11 @@ ADR-011 implementation (project/epic organization) — awaiting draft from Tom.
 
 | Date | Change |
 |------|--------|
+| 2026-01-02 | All restructure changes committed and pushed (`85f2732`) |
+| 2026-01-02 | Removed exposed API key, rewrote git history |
 | 2026-01-02 | AI bootstrap system complete |
 | 2026-01-02 | Repository restructured: four-bucket model |
 | 2026-01-02 | ADR-010 Week 4 complete — deployed to test |
-| 2026-01-02 | Fixed `document_builder.py` emoji corruption |
-| 2026-01-02 | GitHub Actions updated for ECS + Route 53 |
 | 2026-01-01 | ADR-010 Week 3 complete — replay endpoint |
 | 2026-01-01 | ADR-010 Week 2 complete — repository pattern |
 
@@ -94,7 +95,7 @@ ADR-011 implementation (project/epic organization) — awaiting draft from Tom.
 ## Session Logs
 
 Session summaries live in `docs/session_logs/`. Most recent:
-- `2026-01-02.md` — ADR-010 deployment, restructure, AI bootstrap system
+- `2026-01-02.md` — ADR-010 deployment, restructure, AI bootstrap, git remediation
 
 ---
 
@@ -114,12 +115,11 @@ _Notes for the next session._
 
 **Last session (2026-01-02):**
 - Completed four-bucket restructure
-- Created full AI bootstrap system (AI.md, PROJECT_STATE.md, session_logs/)
-- Added backfill prompt to AI.md for retroactive session logs
-- Test deployment working
+- Created full AI bootstrap system
+- All changes committed and pushed
+- Exposed API key removed from history, new key rotated
 - Tom has ADR-011 draft from ChatGPT — not yet shared with Claude
 
 **Next session should:**
 - Review ADR-011 when Tom shares it
 - Review `recycle/` folder contents, then delete
-- Commit all changes and push (validate Dockerfile in CI)
