@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from datetime import datetime
-from contextlib import asynccontextmanager
 import logging
 
 
@@ -52,41 +51,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# ============================================================================
-# LIFESPAN (startup/shutdown)
-# ============================================================================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan handler for startup and shutdown."""
-    # Startup
-    logger.info("Starting The Combine API")
-    set_startup_time(datetime.utcnow())
-    
-    try:
-        await init_database()
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        raise
-    
-    logger.info("The Combine API started successfully")
-    logger.info(f"API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down The Combine API...")
-
 # Create FastAPI app
 app = FastAPI(
     title="The Combine",
     description="AI-driven pipeline automation system",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    redoc_url="/redoc"
 )
 
 # Mount static files from app/web directory
@@ -94,6 +65,28 @@ app.mount("/web", StaticFiles(directory="app/web"), name="web")
 app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
 
 # ============================================================================
+# STARTUP
+# ============================================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup."""
+    logger.info("Starting The Combine API")
+    
+    # Set startup time
+    set_startup_time(datetime.utcnow())
+    
+    # Initialize database
+    try:
+        await init_database()
+        logger.info("âœ… Database initialized")
+    except Exception as e:
+        logger.error(f"âŒ Database initialization failed: {e}")
+        raise
+    
+    logger.info("âœ… The Combine API started successfully")
+    logger.info(f"ðŸ“š API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
+
 @app.get("/test-session")
 async def test_session(request: Request):
     """Test if sessions work"""
@@ -105,6 +98,10 @@ async def test_session(request: Request):
         "check": "Look for combine_session cookie in DevTools"
     }
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("Shutting down The Combine API...")
 
 
 # ============================================================================

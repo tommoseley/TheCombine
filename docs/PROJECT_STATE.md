@@ -1,6 +1,9 @@
 ﻿# PROJECT_STATE.md
 > Single source of truth for session continuity
 
+## AI Collaboration Notes
+Execution constraints for AI collaborators are defined in AI.MD and are considered binding.
+
 ## Current Status
 **Phase 2 Complete** - Ready for Phase 3 (HTTP API)
 

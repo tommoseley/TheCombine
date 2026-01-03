@@ -34,7 +34,7 @@ All relative paths in this document are from this root. When using tools to read
 
 The following constraints apply to all work on this project:
 
-- **All file-writing commands MUST be provided in PowerShell syntax.**
+- **All file-writing commands MUST be provided or performed in PowerShell syntax.**
   - Do not use bash, sh, or Unix-style commands.
   - Do not assume a Unix-like environment.
 
@@ -42,6 +42,11 @@ The following constraints apply to all work on this project:
   - Do NOT run tests automatically.
   - Do NOT simulate test execution.
   - When tests are needed, provide instructions only.
+
+- **The human operator performs Git Operations**
+  - The AI MUST NOT perform Git commits.
+  - The AI MAY propose commit messages and describe what should be committed.
+  - The user performs all Git commits.
 
 Violation of these constraints is considered a failure to follow project rules.
 
