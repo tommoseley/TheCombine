@@ -1,9 +1,13 @@
 ﻿{
-    "generated_at":  "2026-01-02T11:39:38.9814637-05:00",
-    "version":  "1.0.0",
+    "generated_at":  "2026-01-02T15:47:00.6568825-05:00",
+    "version":  "1.2.0",
     "packages":  {
                      "prompts/tasks":  {
                                            "files":  [
+                                                         {
+                                                             "sha256":  "24d05e69cfdc9cbd356b562cebfa5baa3066bd07905d73551d2c21fe9894fafc",
+                                                             "path":  "Concierge Intake v1.0.txt"
+                                                         },
                                                          {
                                                              "sha256":  "5ba344bbc0138dba21214074c87b13d8dfd24df052c5332f474f320482b4941a",
                                                              "path":  "Epic Backlog v1.0.txt"
@@ -65,6 +69,18 @@
                                                              "path":  "Technical Architect 1.0.txt"
                                                          }
                                                      ]
-                                       }
+                                       },
+                     "schemas":  {
+                                     "files":  [
+                                                   {
+                                                       "sha256":  "c27bcdcbf7b392d1bc98b56f916f1c37e797ea67fbc24262c9fa74406763b756",
+                                                       "path":  "clarification_question_set.v1.json"
+                                                   },
+                                                   {
+                                                       "sha256":  "a10c5dfb676f69a7130d94b32569de7e376cee914d9ed55718ad0ab1b06eae1f",
+                                                       "path":  "intake_gate_result.v1.json"
+                                                   }
+                                               ]
+                                 }
                  }
 }

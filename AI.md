@@ -8,12 +8,42 @@ This file is the **primary entry point for AI collaborators**.
 
 ---
 
+## Project Root
+
+**Filesystem path:** `C:\Dev\The Combine\`
+
+All relative paths in this document are from this root. When using tools to read files:
+- `docs/PROJECT_STATE.md` -> `C:\Dev\The Combine\docs\PROJECT_STATE.md`
+- `docs/session_logs/` -> `C:\Dev\The Combine\docs\session_logs\`
+- `app/` -> `C:\Dev\The Combine\app\`
+
+---
+
 ## Read Order
 
-1. This file (`AI.md`)
-2. `docs/PROJECT_STATE.md`
-3. Recent session logs in `docs/session_logs/` (most recent first)
-4. Referenced ADRs as needed (in `docs/adr/`)
+1. This file (`AI.md`) — in Project Knowledge
+2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
+3. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
+4. Search Project Knowledge for ADRs as needed
+
+**Important:** `PROJECT_STATE.md` and session logs live on the filesystem, not in Project Knowledge. Use tools to read them.
+
+---
+
+## Execution Constraints (Read First)
+
+The following constraints apply to all work on this project:
+
+- **All file-writing commands MUST be provided in PowerShell syntax.**
+  - Do not use bash, sh, or Unix-style commands.
+  - Do not assume a Unix-like environment.
+
+- **The human operator executes all tests.**
+  - Do NOT run tests automatically.
+  - Do NOT simulate test execution.
+  - When tests are needed, provide instructions only.
+
+Violation of these constraints is considered a failure to follow project rules.
 
 ---
 
@@ -21,10 +51,10 @@ This file is the **primary entry point for AI collaborators**.
 
 | Layer | Purpose | Location | Mutability |
 |-------|---------|----------|------------|
-| ADRs | Why decisions were made | `docs/adr/` | Append-only |
+| ADRs | Why decisions were made | Project Knowledge + `docs/adr/` | Append-only |
 | Git history | What changed (code) | `.git` | Immutable |
-| PROJECT_STATE.md | Current status snapshot | `docs/` | Updated per session |
-| Session Summaries | How we got here | `docs/session_logs/` | Immutable after write |
+| PROJECT_STATE.md | Current status snapshot | `docs/` (filesystem) | Updated per session |
+| Session Summaries | How we got here | `docs/session_logs/` (filesystem) | Immutable after write |
 
 These layers do not compete. Each serves a distinct purpose.
 
@@ -115,19 +145,22 @@ Prompts are **not edited casually**. Changes require:
 | ADR-010 | ✅ Complete | LLM Execution Logging — inputs, outputs, replay capability |
 | ADR-011 | 🟡 In Progress | Project/Epic organization (draft exists) |
 
-ADR documents live in `docs/adr/`. Each has implementation reports.
+ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation reports.
 
 ---
 
-## Project Knowledge Available to AI
+## Project Knowledge vs Filesystem
 
-This Claude Project includes uploaded reference materials:
-- Canonical architecture documents
-- Active ADRs and implementation reports
-- Design constitution and UX reference
-- Coding standards
+| Content | Location | Why |
+|---------|----------|-----|
+| `AI.md` | Project Knowledge | Stable, immediate context |
+| ADRs | Project Knowledge | Reference, searchable |
+| `PROJECT_STATE.md` | Filesystem (`docs/`) | Volatile, Claude updates it |
+| Session logs | Filesystem (`docs/session_logs/`) | Claude writes these |
+| Code | Filesystem (`app/`, etc.) | Claude reads/writes |
 
-**Search project knowledge before assuming gaps.**
+**At session start:** Read PROJECT_STATE.md from filesystem using tools.
+**At session close:** Update PROJECT_STATE.md and write session log to filesystem.
 
 ---
 
@@ -149,9 +182,9 @@ This Claude Project includes uploaded reference materials:
 
 Before any work:
 
-1. Read `AI.md` completely
-2. Read `docs/PROJECT_STATE.md`
-3. Scan recent session logs in `docs/session_logs/`
+1. Read `AI.md` (this file, in Project Knowledge)
+2. **Use tools to read** `docs/PROJECT_STATE.md` from filesystem
+3. Optionally scan `docs/session_logs/` for recent context
 4. Summarize back:
    - System purpose
    - Current state
@@ -163,11 +196,11 @@ Before any work:
 
 When the user says **"Prepare session close"** (or similar):
 
-1. Write session summary to `docs/session_logs/YYYY-MM-DD.md`
+1. Write session summary to `docs/session_logs/YYYY-MM-DD.md` (filesystem)
    - Use fixed template (scope, decisions, implemented, commits, open threads, risks)
    - No prose, no reflection — facts only
    - Include git commits/PRs if applicable
-2. Update `docs/PROJECT_STATE.md`
+2. Update `docs/PROJECT_STATE.md` (filesystem)
    - Current state
    - Handoff notes for next session
 3. Pause and ask: **"Ready to close, or do you want to continue?"**

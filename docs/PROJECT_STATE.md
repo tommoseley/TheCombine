@@ -1,125 +1,99 @@
-﻿# Project State — The Combine
+﻿# PROJECT_STATE.md
+> Single source of truth for session continuity
 
-_Last updated: 2026-01-02 by Claude_
+## Current Status
+**Phase 2 Complete** - Ready for Phase 3 (HTTP API)
 
-This document captures the **current factual state** of the project.  
-Updated at the end of each significant work session.
+## Test Summary
+- **Total Tests:** 207 passing
+- **Phase 0 (Validator):** 25 tests
+- **Phase 1 (Step Executor):** 109 tests  
+- **Phase 2 (Workflow Executor):** 73 tests
 
----
+## Completed Phases
 
-## Current Objective
+### Phase 0: Validation ✅
+- Workflow schema validation
+- Scope hierarchy validation
+- Reference rule enforcement
 
-ADR-011 implementation (project/epic organization) — awaiting draft from Tom.
+### Phase 1: Step Executor ✅
+- Single-step execution with LLM
+- Clarification gate (ADR-024)
+- QA gate (mechanical validation)
+- Input resolution (ADR-011)
+- Bounded remediation (max 3 attempts)
 
----
+### Phase 2: Workflow Executor ✅
+- Multi-step orchestration
+- Iteration handling (iterate_over)
+- Acceptance gates (human approval)
+- State persistence (file-based)
+- Scope-aware document storage
 
-## Implemented
+## Architecture Overview
 
-- ✅ ADR-009 Project Audit — all state changes traceable
-- ✅ ADR-010 LLM Execution Logging — full telemetry with replay (all 4 weeks complete)
-- ✅ Repository restructured into four buckets (`app/`, `seed/`, `ops/`, `docs/`)
-- ✅ Prompt certification framework (roles + tasks in `seed/prompts/`)
-- ✅ `seed/manifest.json` with SHA-256 checksums
-- ✅ GitHub Actions CI/CD: ECR → ECS Fargate → Route 53
-- ✅ Anthropic API key in AWS Secrets Manager
-- ✅ `.dockerignore` and explicit Dockerfile COPYs
-- ✅ AI bootstrap system (`AI.md`, `PROJECT_STATE.md`, `docs/session_logs/`)
-- ✅ Session close ritual documented
-- ✅ Backfill prompt for old sessions in AI.md
-- ✅ All changes committed and pushed (`85f2732`)
+```
+WorkflowExecutor
+    ├── StepExecutor
+    │   ├── PromptLoader
+    │   ├── InputResolver
+    │   ├── LLMService (protocol)
+    │   ├── ClarificationGate
+    │   ├── QAGate
+    │   └── RemediationLoop
+    ├── WorkflowContext
+    ├── IterationHandler
+    ├── AcceptanceGate
+    └── StatePersistence
+```
 
----
+## File Structure
 
-## In Progress
+```
+app/domain/workflow/
+├── __init__.py
+├── types.py
+├── scope.py
+├── validator.py
+├── models.py
+├── loader.py
+├── registry.py
+├── step_state.py
+├── prompt_loader.py
+├── input_resolver.py
+├── remediation.py
+├── step_executor.py
+├── context.py
+├── iteration.py
+├── workflow_state.py
+├── workflow_executor.py
+├── persistence.py
+└── gates/
+    ├── __init__.py
+    ├── clarification.py
+    ├── qa.py
+    └── acceptance.py
+```
 
-- 🟡 ADR-011 Project/Epic organization (Tom has draft from ChatGPT)
-- ✅ Anthropic API key rotated
+## Run Tests
 
----
+```powershell
+cd "C:\Dev\The Combine"
+python -m pytest tests/domain/workflow/ -v
+```
 
-## Next Likely Work
+## Next: Phase 3 - HTTP API
 
-- - 🔜 Review and implement ADR-011 when Tom shares draft
-- 🔜 Review `recycle/` folder, then delete
-- 🔜 Automated seed manifest regeneration script
-- 🔜 ALB for stable endpoint (pending AWS permission)
+Components to build:
+- FastAPI router for workflow endpoints
+- WebSocket for real-time updates
+- Request/response models
+- Authentication middleware
+- Error handling
 
----
+## Documentation
 
-## Active Constraints
-
-- No role/task prompt boundary violations
-- No implicit memory between tasks
-- All LLM executions must be logged and replayable
-- Prompts require version bump + certification for changes
-- Tier-3 tests deferred until test DB infrastructure exists
-- Session summaries are immutable logs
-
----
-
-## Known Issues / Sharp Edges
-
-- Route 53 points directly to task IP — changes on every deploy
-- No HTTPS (HTTP on port 8000 only)
-- Database publicly accessible (dev configuration)
-- `recycle/` folder contains deleted files — review then delete
-- Anthropic API key rotated (2026-01-02)
-
----
-
-## Environments
-
-| Environment | Stack | Status |
-|-------------|-------|--------|
-| Local dev | Python 3.12 + local Postgres | ✅ Working |
-| CI | GitHub Actions + Postgres service | ✅ Working |
-| Test | ECS Fargate + RDS | ✅ Deployed |
-| Prod | Not deployed | — |
-
----
-
-## Recent Changes
-
-| Date | Change |
-|------|--------|
-| 2026-01-02 | All restructure changes committed and pushed (`85f2732`) |
-| 2026-01-02 | Removed exposed API key, rewrote git history |
-| 2026-01-02 | AI bootstrap system complete |
-| 2026-01-02 | Repository restructured: four-bucket model |
-| 2026-01-02 | ADR-010 Week 4 complete — deployed to test |
-| 2026-01-01 | ADR-010 Week 3 complete — replay endpoint |
-| 2026-01-01 | ADR-010 Week 2 complete — repository pattern |
-
----
-
-## Session Logs
-
-Session summaries live in `docs/session_logs/`. Most recent:
-- `2026-01-02.md` — ADR-010 deployment, restructure, AI bootstrap, git remediation
-
----
-
-## Notes for AI Collaborators
-
-- Prefer asking clarifying questions over assuming intent
-- Search project knowledge before assuming gaps
-- Update this file when a session produces durable changes
-- `recycle/` contains files marked for deletion — do not restore without asking
-- Session summaries are immutable — never edit after writing
-
----
-
-## Session Handoff
-
-_Notes for the next session._
-
-**Last session (2026-01-02):**
-- Completed four-bucket restructure
-- Created full AI bootstrap system
-- All changes committed and pushed
-- Exposed API key removed from history, new key rotated
-- Tom has ADR-011 draft from ChatGPT — not yet shared with Claude
-
-**Next session should:**
-- Review ADR-011 when Tom shares it
-- Review `recycle/` folder contents, then delete
+- `docs/implementation-plans/phase-1-summary.md` - Step Executor details
+- `docs/implementation-plans/phase-2-summary.md` - Workflow Executor details
+- `docs/implementation-plans/phase-2-workflow-executor.md` - Original plan
