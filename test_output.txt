@@ -1,0 +1,7 @@
+Loading workflow from: C:\Dev\The Combine\seed\workflows\software_product_development.v1.json
+Workflow loaded: Software Product Development
+Testing workflow validation...
+ERRORS (3):
+  [PROMPT_NOT_IN_MANIFEST] steps[3].steps[0].task_prompt: Prompt 'Epic Architecture v1.0' not found in seed/manifest.json
+  [PROMPT_NOT_IN_MANIFEST] steps[3].steps[1].task_prompt: Prompt 'Story Backlog v1.0' not found in seed/manifest.json
+  [PROMPT_NOT_IN_MANIFEST] steps[3].steps[2].steps[0].task_prompt: Prompt 'Story Implementation v1.0' not found in seed/manifest.json

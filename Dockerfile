@@ -1,50 +1,57 @@
 ﻿# The Combine - Production Dockerfile
-# Python 3.12 + FastAPI + PostgreSQL
+FROM python:3.11-slim as base
 
-FROM python:3.12-slim AS builder
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser
+
+# --- Builder stage ---
+FROM base as builder
+
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libpq-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --target=/app/deps -r requirements.txt
 
 # --- Production stage ---
-FROM python:3.12-slim
+FROM base as production
 
-WORKDIR /app
+# Copy dependencies from builder
+COPY --from=builder /app/deps /app/deps
+ENV PYTHONPATH=/app/deps
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --shell /bin/bash appuser
+# Copy application code
+COPY app/ /app/app/
+COPY workflows/ /app/workflows/
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /home/appuser/.local
-ENV PATH=/home/appuser/.local/bin:$PATH
-
-# Copy only what's needed for runtime
-COPY --chown=appuser:appuser app/ ./app/
-COPY --chown=appuser:appuser alembic/ ./alembic/
-COPY --chown=appuser:appuser alembic.ini .
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Expose port
 EXPOSE 8000
 
-# Simple startup - server only (migrations run separately)
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command
+CMD ["python", "-m", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
