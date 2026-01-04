@@ -1,0 +1,53 @@
+﻿# Architecture Design Task
+
+Design system architecture based on the Project Discovery and Requirements documents.
+
+## Instructions
+
+1. **Create Architecture Overview**
+   - Summarize the architectural approach
+   - Select appropriate architecture style (microservices, monolith, serverless, etc.)
+   - Document key architectural decisions
+
+2. **Define Components**
+   - Identify major system components
+   - Define responsibilities for each component
+   - Specify interfaces and dependencies
+   - Select appropriate technologies
+
+3. **Select Technology Stack**
+   - Choose frontend, backend, database technologies
+   - Consider infrastructure and tooling needs
+   - Justify selections based on requirements
+
+4. **Design Data Architecture**
+   - Define storage strategy
+   - Document data flow between components
+   - Design entity relationships
+
+5. **Address Security**
+   - Design authentication and authorization
+   - Plan data protection measures
+   - Include audit logging requirements
+
+6. **Plan Deployment**
+   - Define deployment environment
+   - Specify scaling strategy
+   - Outline CI/CD approach
+
+7. **Document ADRs**
+   - Record significant architectural decisions
+   - Include context, decision, rationale, and consequences
+
+## Output Format
+
+Respond with a JSON object containing:
+- overview: Object with summary, architecture_style, key_decisions
+- components: Array with id, name, responsibility, technology, interfaces, dependencies
+- technology_stack: Object with frontend, backend, database, infrastructure, tools arrays
+- data_architecture: Object with storage_strategy, data_flow, entities
+- security_architecture: Object with authentication, authorization, data_protection, audit_logging
+- deployment_architecture: Object with environment, scaling_strategy, ci_cd
+- adrs: Array with id, title, context, decision, rationale, consequences
+
+Ensure architecture aligns with requirements and constraints from discovery.
