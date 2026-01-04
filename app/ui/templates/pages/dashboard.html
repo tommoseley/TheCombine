@@ -1,0 +1,87 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Dashboard - The Combine{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <section class="card workflow-shortcuts">
+        <h3 class="card-title">Quick Start</h3>
+        <div class="shortcut-grid">
+            {% for workflow in workflows %}
+            <a href="/workflows/{{ workflow.workflow_id }}" class="shortcut-card">
+                <span class="shortcut-icon">⚙</span>
+                <span class="shortcut-name">{{ workflow.name }}</span>
+                <span class="shortcut-meta">{{ workflow.step_count }} steps</span>
+            </a>
+            {% else %}
+            <p class="empty-state">No workflows available</p>
+            {% endfor %}
+        </div>
+    </section>
+    
+    <section class="card recent-executions">
+        <div class="card-header">
+            <h3 class="card-title">Recent Executions</h3>
+            <a href="/executions" class="view-all-link">View all →</a>
+        </div>
+        <div class="execution-list"
+             hx-get="/partials/executions/recent"
+             hx-trigger="every 10s"
+             hx-swap="innerHTML">
+            {% if executions %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Workflow</th>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exec in executions %}
+                    <tr>
+                        <td>{{ exec.workflow_id }}</td>
+                        <td>{{ exec.project_id }}</td>
+                        <td>
+                            {% set status = exec.status %}
+                            {% include "components/status_badge.html" %}
+                        </td>
+                        <td>{{ exec.started_at|default("—", true) }}</td>
+                        <td><a href="/executions/{{ exec.execution_id }}" class="action-link">View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No executions yet. Start a workflow to begin.</p>
+            {% endif %}
+        </div>
+    </section>
+    
+    <section class="card stats-overview">
+        <h3 class="card-title">Overview</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.total_workflows }}</span>
+                <span class="stat-label">Workflows</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.running_executions }}</span>
+                <span class="stat-label">Running</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.waiting_action }}</span>
+                <span class="stat-label">Waiting</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.completed_today }}</span>
+                <span class="stat-label">Completed Today</span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
