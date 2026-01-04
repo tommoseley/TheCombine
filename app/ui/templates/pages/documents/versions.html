@@ -1,0 +1,67 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Version History - {{ document.title }} - The Combine{% endblock %}
+
+{% block page_title %}Version History{% endblock %}
+
+{% block header_actions %}
+<div class="header-actions">
+    <a href="/documents/{{ document.document_id }}" class="btn btn-outline">
+        Back to Document
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="version-history">
+    <section class="card">
+        <h3 class="card-title">{{ document.title }}</h3>
+        <p class="document-type"><code>{{ document.document_type }}</code></p>
+    </section>
+    
+    <section class="card versions-list">
+        <h3 class="card-title">All Versions</h3>
+        {% if versions %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Created</th>
+                    <th>Created By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in versions %}
+                <tr {% if v.is_latest %}class="current-version"{% endif %}>
+                    <td>
+                        v{{ v.version }}
+                        {% if v.is_latest %}
+                        <span class="badge badge-info">Current</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ v.created_at or '-' }}</td>
+                    <td>{{ v.created_by or '-' }}</td>
+                    <td>
+                        <a href="/documents/{{ v.document_id }}" class="btn btn-sm">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No version history available.</p>
+        {% endif %}
+    </section>
+</div>
+
+<style>
+.version-history .current-version {
+    background: var(--color-surface-raised);
+}
+.version-history .document-type {
+    margin-top: 0.5rem;
+    color: var(--color-text-muted);
+}
+</style>
+{% endblock %}

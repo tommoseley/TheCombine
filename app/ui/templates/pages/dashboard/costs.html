@@ -1,0 +1,179 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Cost Dashboard - The Combine{% endblock %}
+
+{% block page_title %}Cost Dashboard{% endblock %}
+
+{% block header_actions %}
+<div class="filter-bar">
+    <form method="get" action="/dashboard/costs" class="filter-form">
+        <select name="days" onchange="this.form.submit()">
+            <option value="7" {% if period_days == 7 %}selected{% endif %}>Last 7 days</option>
+            <option value="14" {% if period_days == 14 %}selected{% endif %}>Last 14 days</option>
+            <option value="30" {% if period_days == 30 %}selected{% endif %}>Last 30 days</option>
+            <option value="90" {% if period_days == 90 %}selected{% endif %}>Last 90 days</option>
+        </select>
+    </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="cost-dashboard">
+    <!-- Summary Cards -->
+    <section class="summary-cards">
+        <div class="card summary-card">
+            <div class="summary-value">${{ summary.total_cost }}</div>
+            <div class="summary-label">Total Cost</div>
+        </div>
+        <div class="card summary-card">
+            <div class="summary-value">{{ "{:,}".format(summary.total_tokens) }}</div>
+            <div class="summary-label">Total Tokens</div>
+        </div>
+        <div class="card summary-card">
+            <div class="summary-value">{{ summary.total_calls }}</div>
+            <div class="summary-label">API Calls</div>
+        </div>
+        <div class="card summary-card">
+            <div class="summary-value">{{ summary.success_rate }}%</div>
+            <div class="summary-label">Success Rate</div>
+        </div>
+    </section>
+    
+    <!-- Averages -->
+    <section class="card averages-section">
+        <h3 class="card-title">Averages</h3>
+        <div class="averages-grid">
+            <div class="average-item">
+                <span class="average-value">${{ summary.avg_cost_per_day }}</span>
+                <span class="average-label">per day</span>
+            </div>
+            <div class="average-item">
+                <span class="average-value">${{ summary.avg_cost_per_call }}</span>
+                <span class="average-label">per call</span>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Daily Breakdown -->
+    <section class="card daily-section">
+        <h3 class="card-title">Daily Breakdown</h3>
+        {% if daily_data %}
+        <div class="chart-container">
+            <canvas id="daily-cost-chart"></canvas>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Cost</th>
+                    <th>Tokens</th>
+                    <th>Calls</th>
+                    <th>Errors</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in daily_data %}
+                <tr>
+                    <td>{{ day.date }}</td>
+                    <td>${{ day.cost }}</td>
+                    <td>{{ "{:,}".format(day.tokens) }}</td>
+                    <td>{{ day.calls }}</td>
+                    <td>{{ day.errors }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No data available for this period.</p>
+        {% endif %}
+    </section>
+</div>
+
+<style>
+.cost-dashboard .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.cost-dashboard .summary-card {
+    text-align: center;
+    padding: 1.5rem;
+}
+.cost-dashboard .summary-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+.cost-dashboard .summary-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+.cost-dashboard .averages-grid {
+    display: flex;
+    gap: 2rem;
+}
+.cost-dashboard .average-item {
+    display: flex;
+    flex-direction: column;
+}
+.cost-dashboard .average-value {
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+.cost-dashboard .average-label {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+.cost-dashboard .chart-container {
+    height: 200px;
+    margin-bottom: 1rem;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('daily-cost-chart');
+    if (!ctx) return;
+    
+    const dailyData = {{ daily_data | tojson }};
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dailyData.map(d => d.date_short),
+            datasets: [{
+                label: 'Cost ($)',
+                data: dailyData.map(d => d.cost),
+                backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(4);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

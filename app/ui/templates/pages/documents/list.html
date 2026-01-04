@@ -1,0 +1,68 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Documents - The Combine{% endblock %}
+
+{% block page_title %}Documents{% endblock %}
+
+{% block header_actions %}
+<div class="filter-bar">
+    <form method="get" action="/documents" class="filter-form">
+        <input type="text" name="scope_type" placeholder="Scope Type" 
+               value="{{ filters.scope_type or '' }}" class="filter-input">
+        <input type="text" name="scope_id" placeholder="Scope ID"
+               value="{{ filters.scope_id or '' }}" class="filter-input">
+        <input type="text" name="document_type" placeholder="Document Type"
+               value="{{ filters.document_type or '' }}" class="filter-input">
+        <button type="submit" class="btn btn-primary">Filter</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="document-list">
+    {% if documents %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for doc in documents %}
+            <tr>
+                <td>
+                    <a href="/documents/{{ doc.document_id }}">{{ doc.title }}</a>
+                    {% if doc.is_latest %}
+                    <span class="badge badge-info">Latest</span>
+                    {% endif %}
+                </td>
+                <td><code>{{ doc.document_type }}</code></td>
+                <td>v{{ doc.version }}</td>
+                <td>
+                    {% set status = doc.status %}
+                    {% include "components/status_badge.html" %}
+                </td>
+                <td>{{ doc.updated_at or '-' }}</td>
+                <td>
+                    <a href="/documents/{{ doc.document_id }}" class="btn btn-sm">View</a>
+                    <a href="/documents/{{ doc.document_id }}/versions" class="btn btn-sm btn-outline">History</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No documents found.</p>
+        {% if not filters.scope_type or not filters.scope_id %}
+        <p class="hint">Enter a scope type and scope ID to search for documents.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
