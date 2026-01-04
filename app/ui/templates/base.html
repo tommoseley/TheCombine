@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}The Combine{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/ws.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="logo">The Combine</h1>
+                <span class="version">v0.1.0</span>
+            </div>
+            <ul class="nav-links">
+                <li>
+                    <a href="/" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                        <span class="nav-icon">⊞</span>
+                        Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="/workflows" class="nav-link {% if active_page == 'workflows' %}active{% endif %}">
+                        <span class="nav-icon">⚙</span>
+                        Workflows
+                    </a>
+                </li>
+                <li>
+                    <a href="/executions" class="nav-link {% if active_page == 'executions' %}active{% endif %}">
+                        <span class="nav-icon">▶</span>
+                        Executions
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <main class="main-content">
+            <header class="page-header">
+                <h2 class="page-title">{% block page_title %}{% endblock %}</h2>
+                <div class="header-actions">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </header>
+            
+            <div class="content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/websocket.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,194 @@
+﻿# ADR Inventory & Status
+
+_Last updated: 2026-01-02_
+
+This document provides a complete inventory of Architecture Decision Records for The Combine.
+
+---
+
+## Status Legend
+
+| Status | Meaning |
+|--------|---------|
+| **Not Created** | ADR number reserved but never created |
+| **Superseded** | Decision replaced by later ADR or architectural change |
+| **Scaffold** | Structure exists, content incomplete |
+| **Draft** | Content complete, awaiting review/acceptance |
+| **Proposed** | Submitted for review |
+| **Accepted** | Approved and governing |
+| **Complete** | Implemented and verified |
+
+---
+
+## ADR Categories
+
+### Governance & Foundations (009-010)
+Core audit, logging, and replay infrastructure.
+
+### Structure & Ownership (011)
+Document hierarchy and ownership boundaries.
+
+### Interaction & Execution (012, 024)
+How LLM interactions are structured and constrained.
+
+### Seed Governance (013)
+Governed inputs: prompts, schemas, reference data.
+
+### Quality Assurance (014)
+Mechanical and agentic QA modes.
+
+### Failure & Escalation (015, 016)
+Failure states, escalation targets, human-in-the-loop.
+
+### Trust & Certification (017, 018, 019, 022)
+Prompt trust levels, change control, composition rules, demotion/recovery.
+
+### Learning & Accountability (020, 021)
+Failure analytics, human decision capture.
+
+### Regulatory & Audit (023)
+External audit export and regulatory readiness.
+
+### Intake & Qualification (025, 026)
+Intake gate, Concierge role definition.
+
+### Workflow (027)
+Workflow definition, selection, and governance.
+
+### Artifacts (028, 029)
+Reference documents, external inputs, document resolution.
+
+### Implementation (002, 007, 008)
+Feature-specific implementation decisions (pre-governance era).
+
+---
+
+## Complete Inventory
+
+| ADR | Title | Status | Category | Notes |
+|-----|-------|--------|----------|-------|
+| 001 | — | Not Created | — | Reserved, never created |
+| 002 | Template-Based BA Addendum | **Superseded** | Implementation | Replaced by document-centric architecture |
+| 003 | — | Not Created | — | Reserved, never created |
+| 004 | — | Not Created | — | Reserved, never created |
+| 005 | — | Not Created | — | Reserved, never created |
+| 006 | — | Not Created | — | Reserved, never created |
+| 007 | Sidebar Document Status | **Complete** | Implementation | DocumentStatusService + sidebar template |
+| 008 | Multi-Provider OAuth | **Complete** | Implementation | Google + Microsoft auth (MS blocked by ALB issue) |
+| 009 | Project Audit | **Complete** | Governance | All state changes explicit and traceable |
+| 010 | LLM Execution Logging | **Complete** | Governance | Inputs, outputs, replay capability |
+| 011 | Document Ownership Model | **Accepted** | Structure | Generic ownership pattern |
+| 012 | Interaction Model | **Accepted** | Interaction | Closed-loop execution, QA as veto |
+| 013 | Seed Governance | Scaffold | Seeds | Governed inputs |
+| 014 | Quality Assurance Modes | Scaffold | QA | Mechanical vs Agentic QA |
+| 015 | Failure States & Escalation | Scaffold | Failure | Failure categories, retry semantics |
+| 016 | Escalation Targets & HITL | Scaffold | Failure | Human-in-the-loop design |
+| 017 | Prompt Certification & Trust | Draft | Trust | Trust levels, certification |
+| 018 | Prompt Change Control | Draft | Trust | Versioning, deprecation, revocation |
+| 019 | Trust Boundary Enforcement | Draft | Trust | Composition rules |
+| 020 | Failure Analytics & Learning | Draft | Learning | Failures as learning signals |
+| 021 | Human Decision Capture | Draft | Learning | Accountability for human overrides |
+| 022 | Trust Demotion & Recovery | Draft | Trust | Trust lifecycle |
+| 023 | Regulatory & Audit Export | Draft | Regulatory | External audit readiness |
+| 024 | Clarification Question Protocol | **Accepted** | Interaction | Question constraints, usability |
+| 025 | Intake Gate & Project Qualification | Draft | Intake | Gate before discovery |
+| 026 | Concierge Role Definition | Draft | Intake | Concierge identity and authority |
+| 027 | Workflow Definition & Governance | **Accepted** | Workflow | Workflow as governed construct |
+| 028 | Reference Document Management | Draft | Artifact | External docs, scopes, trust (post-MVP) |
+| 029 | Contextual Document Resolution | Draft | Artifact | Role-aware condensing (post-MVP) |
+
+---
+
+## Dependency Graph (Conceptual)
+
+```
+                    ┌─────────────────────────────────┐
+                    │  009 Audit & Governance         │
+                    │  010 LLM Execution Logging      │
+                    └───────────────┬─────────────────┘
+                                    │ (foundations)
+                    ┌───────────────┴─────────────────┐
+                    │                                 │
+          ┌─────────▼─────────┐           ┌──────────▼──────────┐
+          │  011 Ownership    │           │  013 Seed Governance │
+          │  (structure)      │           │  (governed inputs)   │
+          └─────────┬─────────┘           └──────────┬──────────┘
+                    │                                 │
+          ┌─────────▼─────────────────────────────────▼─────────┐
+          │                    012 Interaction Model             │
+          │                    024 Clarification Protocol        │
+          └─────────┬───────────────────────────────────────────┘
+                    │
+     ┌──────────────┼──────────────┬──────────────────┐
+     │              │              │                  │
+┌────▼────┐   ┌─────▼─────┐  ┌─────▼─────┐    ┌──────▼──────┐
+│ 014 QA  │   │ 015-016   │  │ 017-019   │    │ 025-026     │
+│ Modes   │   │ Failure & │  │ 022 Trust │    │ Intake Gate │
+│         │   │ Escalation│  │           │    │ Concierge   │
+└────┬────┘   └─────┬─────┘  └─────┬─────┘    └──────┬──────┘
+     │              │              │                  │
+     └──────────────┴──────────────┴──────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │  027 Workflow     │
+                    │  Definition       │
+                    └─────────┬─────────┘
+                              │
+          ┌───────────────────┴───────────────────┐
+          │                                       │
+    ┌─────▼─────┐                         ┌──────▼──────┐
+    │ 020-021   │                         │ 023         │
+    │ Learning  │                         │ Regulatory  │
+    │ Signals   │                         │ Export      │
+    └───────────┘                         └─────────────┘
+```
+
+---
+
+## Scaffolds Requiring Completion
+
+The following ADRs exist as scaffolds and need content:
+
+| ADR | Priority | Blocked By |
+|-----|----------|------------|
+| 013 | High | None — documents existing seed implementation |
+| 014 | High | None — documents existing QA concepts |
+| 015 | Medium | None |
+| 016 | Medium | 015 (failure states inform escalation) |
+
+---
+
+## Implementation ADRs (Legacy)
+
+These ADRs predate the governance architecture and address specific features:
+
+| ADR | Disposition | Rationale |
+|-----|-------------|-----------|
+| 002 | Superseded | BA Addendum template approach replaced by document-centric model |
+| 007 | Keep | Implemented; derivation logic in DocumentStatusService |
+| 008 | Keep | Implemented; Google working, MS blocked by ALB config |
+
+---
+
+## Next ADR Numbers
+
+| Number | Reserved For |
+|--------|--------------|
+| 030 | Developer/Construction Model (future) |
+| 031 | (available) |
+
+---
+
+## Maintenance Notes
+
+- Update this document when ADR status changes
+- ADRs are append-only; superseded ADRs remain for history
+- Governance ADRs (009+) take precedence over implementation ADRs (002-008)
+- Session logs capture when ADRs were created/modified
+
+
+
+
+
+
+

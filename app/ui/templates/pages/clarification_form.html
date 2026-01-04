@@ -1,0 +1,67 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Answer Questions - The Combine{% endblock %}
+
+{% block page_title %}Clarification Needed{% endblock %}
+
+{% block content %}
+<div class="clarification-page">
+    <section class="card clarification-info">
+        <h3 class="card-title">Questions from Step</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Execution</span>
+                <span class="info-value mono">{{ execution.execution_id }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Step</span>
+                <span class="info-value">{{ execution.pending_clarification_step_id }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Workflow</span>
+                <span class="info-value">{{ execution.workflow_id }}</span>
+            </div>
+        </div>
+    </section>
+    
+    <section class="card clarification-form-section">
+        <h3 class="card-title">Please Answer the Following</h3>
+        <form action="/executions/{{ execution.execution_id }}/clarification" method="post"
+              hx-post="/executions/{{ execution.execution_id }}/clarification"
+              hx-target="body">
+            
+            {% if questions %}
+            {% for question in questions %}
+            <div class="form-group question-group">
+                <label for="q_{{ loop.index }}">{{ question.text }}</label>
+                {% if question.type == 'textarea' %}
+                <textarea id="q_{{ loop.index }}" name="answers[{{ question.id }}]" rows="3"
+                          placeholder="{{ question.placeholder|default('Enter your answer...') }}"
+                          {% if question.required %}required{% endif %}></textarea>
+                {% else %}
+                <input type="text" id="q_{{ loop.index }}" name="answers[{{ question.id }}]"
+                       placeholder="{{ question.placeholder|default('Enter your answer...') }}"
+                       {% if question.required %}required{% endif %}>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="form-group">
+                <label for="general_answer">Your Response</label>
+                <textarea id="general_answer" name="answers[general]" rows="4"
+                          placeholder="Please provide additional information..." required></textarea>
+            </div>
+            {% endif %}
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    Submit Answers
+                </button>
+                <a href="/executions/{{ execution.execution_id }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

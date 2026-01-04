@@ -1,0 +1,141 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.dev/schemas/intake_gate_result.v1.json",
+  "title": "IntakeGateResultV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "correlation_id",
+    "outcome",
+    "project_type",
+    "summary",
+    "routing_rationale",
+    "ready_for",
+    "conversation_log"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "intake_gate_result.v1"
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["qualified", "not_ready", "out_of_scope", "redirect"],
+      "description": "Gate decision: whether to proceed and how"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": ["greenfield", "enhancement", "migration", "integration", "replacement", "unknown"],
+      "description": "Categorization of the project if qualified"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 1000,
+      "description": "Brief natural language summary of what the user wants"
+    },
+    "known_constraints": {
+      "type": ["array", "null"],
+      "description": "Constraints mentioned during intake",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "open_gaps": {
+      "type": ["array", "null"],
+      "description": "Things not yet clarified, if any",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    },
+    "routing_rationale": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "Why this outcome was selected"
+    },
+    "ready_for": {
+      "type": ["string", "null"],
+      "enum": ["pm_discovery", null],
+      "description": "Next station if qualified, null otherwise"
+    },
+    "conversation_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turn_count", "started_at", "completed_at", "turns"],
+      "properties": {
+        "turn_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "exit_reason": {
+          "type": "string",
+          "enum": ["user_closed", "concierge_signaled_and_user_closed", "max_turns", "escalated"],
+          "description": "How the conversation ended"
+        },
+        "turns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["turn_id", "role", "content", "timestamp"],
+            "properties": {
+              "turn_id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "role": {
+                "type": "string",
+                "enum": ["concierge", "user"]
+              },
+              "trust_level": {
+                "type": "string",
+                "enum": ["core", "uncertified"],
+                "description": "concierge=core, user=uncertified"
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "outcome": { "const": "qualified" } }
+      },
+      "then": {
+        "properties": { "ready_for": { "const": "pm_discovery" } }
+      },
+      "else": {
+        "properties": { "ready_for": { "type": "null" } }
+      }
+    }
+  ]
+}

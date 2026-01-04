@@ -1,0 +1,51 @@
+﻿# Quality Review Task
+
+Review all strategy documents for completeness, consistency, and quality.
+
+## Instructions
+
+1. **Assess Overall Quality**
+   - Determine overall status (approved, approved_with_conditions, needs_revision, rejected)
+   - Calculate confidence score (0-100)
+   - Summarize the review findings
+
+2. **Identify Findings**
+   - Check each document for issues
+   - Categorize by severity (critical, major, minor, observation)
+   - Categorize by type (completeness, consistency, feasibility, clarity, alignment)
+   - Provide specific recommendations for each finding
+
+3. **Review Each Document**
+   - Assess completeness of project discovery
+   - Validate requirements coverage and traceability
+   - Evaluate architecture alignment with requirements
+
+4. **Check Cross-Document Consistency**
+   - Verify objectives trace through requirements to architecture
+   - Check for contradictions or gaps
+   - Ensure constraints are addressed
+
+5. **Make Recommendation**
+   - Decide on action (proceed, revise, escalate, reject)
+   - Provide rationale for decision
+   - List next steps if proceeding
+   - Identify any blockers
+
+## Review Criteria
+
+- **Completeness**: All required sections populated with meaningful content
+- **Consistency**: No contradictions between documents
+- **Feasibility**: Architecture can satisfy requirements within constraints
+- **Clarity**: Content is clear and unambiguous
+- **Alignment**: All artifacts align with stated objectives
+
+## Output Format
+
+Respond with a JSON object containing:
+- overall_assessment: Object with status, confidence_score, summary
+- findings: Array with id, severity, category, source_document, description, recommendation
+- document_reviews: Array with document_type, status, completeness_score, notes
+- cross_document_issues: Array with issue, affected_documents, resolution
+- recommendation: Object with action, rationale, next_steps, blockers
+
+Be thorough but constructive. Focus on actionable feedback.

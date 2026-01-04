@@ -1,1 +1,1 @@
-"""Integration tests for The Combine."""
+﻿"""Integration tests."""

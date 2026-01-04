@@ -1,0 +1,112 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ workflow.name }} - The Combine{% endblock %}
+
+{% block page_title %}{{ workflow.name }}{% endblock %}
+
+{% block header_actions %}
+<form action="/workflows/{{ workflow.workflow_id }}/start" method="post" class="start-form">
+    <button type="submit" class="btn btn-primary"
+            hx-post="/workflows/{{ workflow.workflow_id }}/start"
+            hx-vals='{"project_id": "proj_new"}'
+            hx-target="body">
+        Start Workflow
+    </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="workflow-detail">
+    <section class="card workflow-info">
+        <h3 class="card-title">Overview</h3>
+        <p class="workflow-description">{{ workflow.description }}</p>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Revision</span>
+                <span class="info-value">{{ workflow.revision }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Effective Date</span>
+                <span class="info-value">{{ workflow.effective_date }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Steps</span>
+                <span class="info-value">{{ workflow.steps|length }}</span>
+            </div>
+        </div>
+    </section>
+    
+    <section class="card workflow-scopes">
+        <h3 class="card-title">Scopes</h3>
+        <div class="scope-list">
+            {% for scope_id, scope in workflow.scopes.items() %}
+            <div class="scope-item">
+                <span class="scope-name">{{ scope_id }}</span>
+                {% if scope.parent %}
+                <span class="scope-parent">→ {{ scope.parent }}</span>
+                {% else %}
+                <span class="scope-root">(root)</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    
+    <section class="card workflow-documents">
+        <h3 class="card-title">Document Types</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Scope</th>
+                    <th>Acceptance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc_id, doc in workflow.document_types.items() %}
+                <tr>
+                    <td><code>{{ doc_id }}</code></td>
+                    <td>{{ doc.name }}</td>
+                    <td>{{ doc.scope }}</td>
+                    <td>
+                        {% if doc.acceptance_required %}
+                        <span class="badge badge-warning">Required</span>
+                        {% else %}
+                        <span class="badge badge-muted">Auto</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    
+    <section class="card workflow-steps">
+        <h3 class="card-title">Steps</h3>
+        <div class="steps-list">
+            {% for step in workflow.steps %}
+            <div class="step-item">
+                <div class="step-number">{{ loop.index }}</div>
+                <div class="step-content">
+                    <div class="step-header">
+                        <span class="step-id">{{ step.step_id }}</span>
+                        <span class="step-role badge">{{ step.role }}</span>
+                    </div>
+                    <div class="step-details">
+                        <span class="step-produces">Produces: <code>{{ step.produces }}</code></span>
+                        {% if step.inputs %}
+                        <span class="step-inputs">Inputs: 
+                            {% for input in step.inputs %}
+                            <code>{{ input }}</code>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

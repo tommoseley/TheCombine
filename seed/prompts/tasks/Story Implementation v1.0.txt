@@ -1,0 +1,16 @@
+﻿# Story Implementation v1.0
+
+## Purpose
+Guide the implementation of a single user story.
+
+## Inputs
+- Story definition
+- Epic Architecture
+
+## Output
+Implementation guidance including:
+- Code structure
+- Test cases
+- Integration steps
+
+[PLACEHOLDER - Full prompt to be developed]

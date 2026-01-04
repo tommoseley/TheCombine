@@ -1,0 +1,46 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Workflows - The Combine{% endblock %}
+
+{% block page_title %}Workflows{% endblock %}
+
+{% block content %}
+<div class="workflows-grid">
+    {% for workflow in workflows %}
+    <article class="workflow-card">
+        <div class="workflow-card-header">
+            <h3 class="workflow-name">{{ workflow.name }}</h3>
+            <span class="workflow-revision">v{{ workflow.revision }}</span>
+        </div>
+        <p class="workflow-description">{{ workflow.description }}</p>
+        <div class="workflow-meta">
+            <span class="meta-item">
+                <span class="meta-icon">⚙</span>
+                {{ workflow.step_count }} steps
+            </span>
+            <span class="meta-item">
+                <span class="meta-icon">📄</span>
+                {{ workflow.doc_count }} documents
+            </span>
+        </div>
+        <div class="workflow-actions">
+            <a href="/workflows/{{ workflow.workflow_id }}" class="btn btn-secondary">View Details</a>
+            <form action="/workflows/{{ workflow.workflow_id }}/start" method="post" class="start-form">
+                <input type="hidden" name="project_id" value="proj_{{ workflow.workflow_id }}">
+                <button type="submit" class="btn btn-primary"
+                        hx-post="/workflows/{{ workflow.workflow_id }}/start"
+                        hx-vals='{"project_id": "proj_new"}'
+                        hx-target="body">
+                    Start Workflow
+                </button>
+            </form>
+        </div>
+    </article>
+    {% else %}
+    <div class="empty-state">
+        <p>No workflows available.</p>
+        <p class="text-muted">Add workflow definitions to the seed/workflows directory.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document Status API Endpoints (ADR-007)
 
 Provides endpoints for:
@@ -12,7 +12,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,8 +48,7 @@ class DocumentStatusResponse(BaseModel):
     missing_inputs: List[str] = Field(default_factory=list)
     display_order: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectDocumentStatusesResponse(BaseModel):

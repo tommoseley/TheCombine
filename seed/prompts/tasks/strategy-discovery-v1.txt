@@ -1,0 +1,42 @@
+﻿# Project Discovery Task
+
+Analyze the provided project information and generate a comprehensive project discovery document.
+
+## Instructions
+
+1. **Identify Core Objectives**
+   - Extract or infer the main goals of the project
+   - Prioritize objectives by business impact
+   - Define measurable success criteria for each
+
+2. **Map Stakeholders**
+   - Identify all parties with interest in the project
+   - Assess their roles and influence levels
+   - Note their key interests and concerns
+
+3. **Document Constraints**
+   - Identify budget, time, and resource limitations
+   - Note any technical or regulatory constraints
+   - Assess the impact of each constraint
+
+4. **Assess Risks**
+   - Identify potential risks to project success
+   - Rate likelihood and impact
+   - Suggest initial mitigation strategies
+
+5. **Capture Assumptions**
+   - List assumptions being made about the project
+   - These will be validated in later phases
+
+## Output Format
+
+Respond with a JSON object containing:
+- project_name: Clear, descriptive name
+- objectives: Array of objective objects with id, description, priority, success_criteria
+- stakeholders: Array with name, role, interests, influence
+- constraints: Array with type, description, impact
+- risks: Array with id, description, likelihood, impact, mitigation
+- assumptions: Array of assumption strings
+- scope_summary: High-level scope description
+
+Ensure all required fields are populated. Be thorough but concise.

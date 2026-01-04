@@ -1,0 +1,75 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Project Discovery",
+  "required": ["project_name", "objectives", "stakeholders", "constraints"],
+  "properties": {
+    "project_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the project"
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "priority"],
+        "properties": {
+          "id": {"type": "string"},
+          "description": {"type": "string"},
+          "priority": {"type": "string", "enum": ["high", "medium", "low"]},
+          "success_criteria": {"type": "string"}
+        }
+      }
+    },
+    "stakeholders": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "role"],
+        "properties": {
+          "name": {"type": "string"},
+          "role": {"type": "string"},
+          "interests": {"type": "array", "items": {"type": "string"}},
+          "influence": {"type": "string", "enum": ["high", "medium", "low"]}
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": {"type": "string", "enum": ["budget", "time", "technical", "regulatory", "resource"]},
+          "description": {"type": "string"},
+          "impact": {"type": "string"}
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "likelihood", "impact"],
+        "properties": {
+          "id": {"type": "string"},
+          "description": {"type": "string"},
+          "likelihood": {"type": "string", "enum": ["high", "medium", "low"]},
+          "impact": {"type": "string", "enum": ["high", "medium", "low"]},
+          "mitigation": {"type": "string"}
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "scope_summary": {
+      "type": "string",
+      "description": "High-level summary of project scope"
+    }
+  }
+}

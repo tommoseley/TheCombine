@@ -1,0 +1,36 @@
+﻿{% if executions %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Execution ID</th>
+            <th>Workflow</th>
+            <th>Project</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for exec in executions %}
+        <tr class="execution-row">
+            <td class="mono">{{ exec.execution_id }}</td>
+            <td>{{ exec.workflow_id }}</td>
+            <td>{{ exec.project_id }}</td>
+            <td>
+                {% set status = exec.status %}
+                {% include "components/status_badge.html" %}
+            </td>
+            <td>{{ exec.started_at|default("—", true) }}</td>
+            <td>
+                <a href="/executions/{{ exec.execution_id }}" class="action-link">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No executions found.</p>
+    <a href="/workflows" class="btn btn-primary">Start a Workflow</a>
+</div>
+{% endif %}

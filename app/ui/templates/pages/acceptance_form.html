@@ -1,0 +1,62 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Review Document - The Combine{% endblock %}
+
+{% block page_title %}Review Document{% endblock %}
+
+{% block content %}
+<div class="acceptance-page">
+    <section class="card acceptance-info">
+        <h3 class="card-title">Document Awaiting Acceptance</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Execution</span>
+                <span class="info-value mono">{{ execution.execution_id }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Document Type</span>
+                <span class="info-value">{{ execution.pending_acceptance }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Workflow</span>
+                <span class="info-value">{{ execution.workflow_id }}</span>
+            </div>
+        </div>
+    </section>
+    
+    {% if document_content %}
+    <section class="card document-preview">
+        <h3 class="card-title">Document Preview</h3>
+        <div class="preview-content">
+            <pre>{{ document_content | tojson(indent=2) }}</pre>
+        </div>
+    </section>
+    {% endif %}
+    
+    <section class="card acceptance-form-section">
+        <h3 class="card-title">Your Decision</h3>
+        <form action="/executions/{{ execution.execution_id }}/acceptance" method="post"
+              hx-post="/executions/{{ execution.execution_id }}/acceptance"
+              hx-target="body">
+            
+            <div class="form-group">
+                <label for="comment">Comment (optional)</label>
+                <textarea id="comment" name="comment" rows="3" 
+                          placeholder="Add any comments about your decision..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" name="accepted" value="true" class="btn btn-success">
+                    ✓ Approve Document
+                </button>
+                <button type="submit" name="accepted" value="false" class="btn btn-danger">
+                    ✗ Reject Document
+                </button>
+                <a href="/executions/{{ execution.execution_id }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,135 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Execution {{ execution.execution_id }} - The Combine{% endblock %}
+
+{% block page_title %}Execution Details{% endblock %}
+
+{% block header_actions %}
+{% if execution.status == 'running' %}
+<form action="/executions/{{ execution.execution_id }}/cancel" method="post">
+    <button type="submit" class="btn btn-danger"
+            hx-post="/executions/{{ execution.execution_id }}/cancel"
+            hx-confirm="Are you sure you want to cancel this execution?">
+        Cancel Execution
+    </button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="execution-detail" 
+     data-execution-id="{{ execution.execution_id }}"
+     hx-ext="ws"
+     ws-connect="/api/v1/ws/executions/{{ execution.execution_id }}">
+    
+    <section class="card execution-overview">
+        <div class="overview-grid">
+            <div class="overview-item">
+                <span class="overview-label">Execution ID</span>
+                <span class="overview-value mono">{{ execution.execution_id }}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">Workflow</span>
+                <span class="overview-value">
+                    <a href="/workflows/{{ execution.workflow_id }}">{{ execution.workflow_id }}</a>
+                </span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">Project</span>
+                <span class="overview-value">{{ execution.project_id }}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">Status</span>
+                <div id="execution-status"
+                     hx-get="/partials/executions/{{ execution.execution_id }}/status"
+                     hx-trigger="every 5s"
+                     hx-swap="innerHTML">
+                    {% set status = execution.status %}
+                    {% include "components/status_badge.html" %}
+                </div>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">Started</span>
+                <span class="overview-value">{{ execution.started_at|default("—", true) }}</span>
+            </div>
+            <div class="overview-item">
+                <span class="overview-label">Completed</span>
+                <span class="overview-value">{{ execution.completed_at|default("—", true) }}</span>
+            </div>
+        </div>
+    </section>
+    
+    {% if execution.status == 'waiting_acceptance' %}
+    <section class="card action-required">
+        <h3 class="card-title">⚠️ Action Required</h3>
+        <p>Document awaiting acceptance: <strong>{{ execution.pending_acceptance }}</strong></p>
+        <a href="/executions/{{ execution.execution_id }}/acceptance" class="btn btn-primary">
+            Review Document
+        </a>
+    </section>
+    {% endif %}
+    
+    {% if execution.status == 'waiting_clarification' %}
+    <section class="card action-required">
+        <h3 class="card-title">⚠️ Action Required</h3>
+        <p>Clarification needed for step: <strong>{{ execution.pending_clarification_step_id }}</strong></p>
+        <a href="/executions/{{ execution.execution_id }}/clarification" class="btn btn-primary">
+            Answer Questions
+        </a>
+    </section>
+    {% endif %}
+    
+    {% if execution.error %}
+    <section class="card error-info">
+        <h3 class="card-title">Error</h3>
+        <pre class="error-message">{{ execution.error }}</pre>
+    </section>
+    {% endif %}
+    
+    <section class="card step-progress-section">
+        <h3 class="card-title">Step Progress</h3>
+        <div id="step-progress" class="step-progress-container">
+            {% include "components/step_progress.html" %}
+        </div>
+    </section>
+    
+    <section class="card completed-steps">
+        <h3 class="card-title">Completed Steps</h3>
+        {% if execution.completed_steps %}
+        <ul class="completed-list">
+            {% for step_id in execution.completed_steps %}
+            <li class="completed-item">
+                <span class="check-icon">✓</span>
+                <span class="step-name">{{ step_id }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty-state">No steps completed yet.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const execId = '{{ execution.execution_id }}';
+    if (window.ExecutionWebSocket) {
+        const ws = new ExecutionWebSocket(execId);
+        ws.onStepStarted = function(data) {
+            htmx.trigger('#step-progress', 'refresh');
+        };
+        ws.onStepCompleted = function(data) {
+            htmx.trigger('#step-progress', 'refresh');
+            htmx.trigger('#execution-status', 'refresh');
+        };
+        ws.onCompleted = function(data) {
+            location.reload();
+        };
+        ws.onFailed = function(data) {
+            location.reload();
+        };
+        ws.connect();
+    }
+});
+</script>
+{% endblock %}
