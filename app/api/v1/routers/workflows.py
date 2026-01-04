@@ -120,3 +120,60 @@ async def get_workflow(
         entity_types=entity_types,
         steps=steps,
     )
+
+
+@router.get(
+    "/{workflow_id}/steps/{step_id}/schema",
+    summary="Get step output schema",
+    description="Returns the JSON schema for a step's output document.",
+    responses={
+        200: {"description": "JSON schema for the step output"},
+        404: {"model": ErrorResponse, "description": "Workflow or step not found"},
+    },
+)
+async def get_step_schema(
+    workflow_id: str,
+    step_id: str,
+    registry: WorkflowRegistry = Depends(get_workflow_registry),
+):
+    """Get the output schema for a specific workflow step."""
+    try:
+        workflow = registry.get(workflow_id)
+    except WorkflowNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKFLOW_NOT_FOUND",
+                "message": f"Workflow '{workflow_id}' not found",
+            },
+        )
+    
+    # Find the step
+    step = None
+    for s in workflow.steps:
+        if s.step_id == step_id:
+            step = s
+            break
+    
+    if step is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "STEP_NOT_FOUND",
+                "message": f"Step '{step_id}' not found in workflow '{workflow_id}'",
+            },
+        )
+    
+    # Get the document type produced by this step
+    doc_type = step.produces
+    if not doc_type or doc_type not in workflow.document_types:
+        return {"type": "object", "description": f"Output for step {step_id}"}
+    
+    # Return a basic schema structure
+    doc_config = workflow.document_types[doc_type]
+    return {
+        "type": "object",
+        "title": doc_config.name,
+        "description": f"Output schema for {doc_config.name}",
+        "properties": {},
+    }

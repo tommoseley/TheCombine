@@ -94,3 +94,32 @@ class TestGetWorkflow:
         assert "detail" in data
         assert data["detail"]["error_code"] == "WORKFLOW_NOT_FOUND"
         assert "unknown_workflow" in data["detail"]["message"]
+
+
+class TestGetStepSchema:
+    """Tests for GET /api/v1/workflows/{id}/steps/{step}/schema."""
+    
+    def test_get_step_schema_found(self, client: TestClient):
+        """Get step schema returns schema when found."""
+        response = client.get("/api/v1/workflows/test_workflow/steps/discovery_step/schema")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "type" in data
+        assert data["type"] == "object"
+    
+    def test_get_step_schema_workflow_not_found(self, client: TestClient):
+        """Get step schema returns 404 for unknown workflow."""
+        response = client.get("/api/v1/workflows/unknown/steps/discovery_step/schema")
+        
+        assert response.status_code == 404
+        data = response.json()
+        assert data["detail"]["error_code"] == "WORKFLOW_NOT_FOUND"
+    
+    def test_get_step_schema_step_not_found(self, client: TestClient):
+        """Get step schema returns 404 for unknown step."""
+        response = client.get("/api/v1/workflows/test_workflow/steps/unknown_step/schema")
+        
+        assert response.status_code == 404
+        data = response.json()
+        assert data["detail"]["error_code"] == "STEP_NOT_FOUND"
