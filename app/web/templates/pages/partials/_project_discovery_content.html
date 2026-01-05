@@ -1,26 +1,8 @@
 <div class="p-6 max-w-7xl mx-auto">
-    <!-- Header -->
-    <div class="mb-8">
-        <nav class="text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <a href="/projects/{{ project.id if project.id is defined else project['id'] }}" 
-               hx-get="/projects/{{ project.id if project.id is defined else project['id'] }}"
-               hx-target="#main-content"
-               hx-push-url="true"
-               class="hover:text-gray-700 dark:hover:text-gray-300">
-                {{ project.name if project.name is defined else project['name'] }}
-            </a>
-            <span class="mx-2">/</span>
-            <span class="font-medium text-gray-900 dark:text-gray-50">Project Discovery</span>
-        </nav>
-        
-        <div class="flex items-center gap-3">
-            <i data-lucide="compass" class="w-10 h-10 text-violet-600 dark:text-violet-500"></i>
-            <div>
-                <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-50">Project Discovery</h1>
-                <p class="text-gray-600 dark:text-gray-400">Early constraints, unknowns, and architectural direction</p>
-            </div>
-        </div>
-    </div>
+    {% set doc_title = "Project Discovery" %}
+    {% set doc_icon = "compass" %}
+    {% set doc_description = "Early constraints, unknowns, and architectural direction" %}
+    {% include "pages/partials/_document_header.html" %}
 
     {% set content = artifact.content if artifact else preliminary_architecture %}
 
@@ -54,10 +36,7 @@
         </div>
     </div>
     {% endif %}
-
-    <div class="space-y-8">
-        
-        <!-- Blocking Questions -->
+    <!-- Blocking Questions -->
         {% if content.stakeholder_questions %}
         {% set blocking_questions = content.stakeholder_questions | selectattr('blocking', 'equalto', true) | list %}
         {% if blocking_questions %}

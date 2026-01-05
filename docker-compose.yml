@@ -1,6 +1,4 @@
 # The Combine - Docker Compose for Development
-version: "3.8"
-
 services:
   app:
     build:

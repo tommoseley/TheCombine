@@ -18,7 +18,7 @@ async def test_template(request: Request):
     """Test if basic template rendering works"""
     return """
     <div style="padding: 20px; border: 2px solid green; margin: 20px;">
-        <h1>✓ Plain HTML works!</h1>
+        <h1>âœ“ Plain HTML works!</h1>
         <p>If you see this, FastAPI can return HTML.</p>
     </div>
     """
@@ -28,10 +28,7 @@ async def test_template(request: Request):
 async def test_template_engine(request: Request):
     """Test if Jinja2 template engine works"""
     try:
-        return templates.TemplateResponse(
-            "pages/project_detail.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request, "pages/project_detail.html", {
                 "project": {
                     "id": "test-123",
                     "project_id": "TEST",
@@ -47,7 +44,7 @@ async def test_template_engine(request: Request):
         import traceback
         return f"""
         <div style="padding: 20px; border: 2px solid red; margin: 20px;">
-            <h1>✗ Template Error</h1>
+            <h1>âœ— Template Error</h1>
             <pre>{str(e)}</pre>
             <h2>Traceback:</h2>
             <pre>{traceback.format_exc()}</pre>
@@ -78,7 +75,7 @@ async def test_db(request: Request, db: AsyncSession = Depends(get_db)):
         
         return f"""
         <div style="padding: 20px; border: 2px solid green;">
-            <h1>✓ Database Works!</h1>
+            <h1>âœ“ Database Works!</h1>
             <p>Test query result: {test_val}</p>
             <p>{project_info}</p>
         </div>
@@ -87,7 +84,7 @@ async def test_db(request: Request, db: AsyncSession = Depends(get_db)):
         import traceback
         return f"""
         <div style="padding: 20px; border: 2px solid red;">
-            <h1>✗ Database Error</h1>
+            <h1>âœ— Database Error</h1>
             <pre>{str(e)}</pre>
             <pre>{traceback.format_exc()}</pre>
         </div>

@@ -103,8 +103,7 @@ async def new_project_form(
     current_user: User = Depends(require_auth)
 ):
     """Display form for creating a new project."""
-    return templates.TemplateResponse("pages/partials/_project_new_content.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/partials/_project_new_content.html", {
         "project": None,
         "mode": "create"
     })
@@ -151,8 +150,7 @@ async def get_project_list(
         for row in rows
     ]
     
-    return templates.TemplateResponse("components/project_list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "components/project_list.html", {
         "projects": projects
     })
 
@@ -235,8 +233,7 @@ async def get_project_tree(
             "is_archived": is_archived  # Add this line
         })
     
-    return templates.TemplateResponse("components/project_list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "components/project_list.html", {
         "projects": projects
     })
 
@@ -276,10 +273,7 @@ async def create_project_handler(
         row = result.fetchone()
         project_id = str(row.id)
         
-        return templates.TemplateResponse(
-            "components/alerts/success.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request, "components/alerts/success.html", {
                 "title": "Project Created",
                 "message": f'Project "{name}" has been created.',
             },
@@ -288,8 +282,7 @@ async def create_project_handler(
         
     except Exception as e:
         logger.error(f"Error creating project: {e}", exc_info=True)
-        return templates.TemplateResponse("components/alerts/error.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "components/alerts/error.html", {
             "title": "Error Creating Project",
             "message": str(e)
         })
@@ -358,10 +351,7 @@ async def archive_project(
         # Commit the transaction
         await db.commit()
         
-        return templates.TemplateResponse(
-            "components/alerts/success.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request, "components/alerts/success.html", {
                 "title": "Project Archived",
                 "message": "The project has been archived and is now read-only.",
             },
@@ -373,8 +363,7 @@ async def archive_project(
     except Exception as e:
         logger.error(f"Error archiving project: {e}", exc_info=True)
         await db.rollback()
-        return templates.TemplateResponse("components/alerts/error.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "components/alerts/error.html", {
             "title": "Error Archiving Project",
             "message": str(e)
         })
@@ -440,10 +429,7 @@ async def unarchive_project(
         # Commit the transaction
         await db.commit()
         
-        return templates.TemplateResponse(
-            "components/alerts/success.html",
-            {
-                "request": request,
+        return templates.TemplateResponse(request, "components/alerts/success.html", {
                 "title": "Project Unarchived",
                 "message": "The project has been restored and is now fully editable.",
             },
@@ -455,8 +441,7 @@ async def unarchive_project(
     except Exception as e:
         logger.error(f"Error unarchiving project: {e}", exc_info=True)
         await db.rollback()
-        return templates.TemplateResponse("components/alerts/error.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "components/alerts/error.html", {
             "title": "Error Unarchiving Project",
             "message": str(e)
         })
@@ -490,17 +475,17 @@ async def get_project(
     
     # HTMX request - return just the document container partial
     if _is_htmx_request(request):
-        return templates.TemplateResponse("pages/partials/_document_container.html", context)
+        return templates.TemplateResponse(request, "pages/partials/_document_container.html", context)
     
     # Full page request - return page with base.html
-    return templates.TemplateResponse("pages/project_detail.html", context)
+    return templates.TemplateResponse(request, "pages/project_detail.html", context)
 
 
 @router.put("/{project_id}", response_class=HTMLResponse)
 async def update_project(
     request: Request,
     project_id: str,
-    _: None = Depends(verify_project_not_archived),  # ← ARCHIVE PROTECTION
+    _: None = Depends(verify_project_not_archived),  # ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ARCHIVE PROTECTION
     current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
@@ -535,10 +520,7 @@ async def update_project(
     project_uuid = UUID(project_id)
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
     
-    return templates.TemplateResponse(
-        "pages/partials/_project_overview.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request, "pages/partials/_project_overview.html", {
             "project": project,
             "document_statuses": document_statuses,
         },

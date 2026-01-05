@@ -1,8 +1,10 @@
-﻿"""Document pages for UI."""
+"""Document pages for UI."""
 
 from typing import Optional
 from uuid import UUID
 
+from app.auth.dependencies import require_admin
+from app.auth.models import User
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -14,7 +16,7 @@ from app.persistence import (
 )
 
 
-router = APIRouter(tags=["document-pages"])
+router = APIRouter(prefix="/admin", tags=["admin-documents"], dependencies=[Depends(require_admin)])
 
 templates = Jinja2Templates(directory="app/ui/templates")
 

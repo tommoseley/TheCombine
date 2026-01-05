@@ -1,4 +1,4 @@
-﻿"""Tests for authentication middleware."""
+"""Tests for authentication middleware."""
 
 import pytest
 import pytest_asyncio
@@ -26,8 +26,8 @@ def sample_user():
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        created_at=datetime.now(UTC),
-        last_login=datetime.now(UTC),
+        user_created_at=datetime.now(UTC),
+        last_login_at=datetime.now(UTC),
         is_active=True,
         roles=["operator"],
     )
@@ -42,8 +42,8 @@ def admin_user():
         name="Admin User",
         provider=AuthProvider.LOCAL,
         provider_id="local_admin",
-        created_at=datetime.now(UTC),
-        last_login=datetime.now(UTC),
+        user_created_at=datetime.now(UTC),
+        last_login_at=datetime.now(UTC),
         is_active=True,
         roles=["admin"],
     )
@@ -58,8 +58,8 @@ def viewer_user():
         name="Viewer User",
         provider=AuthProvider.LOCAL,
         provider_id="local_viewer",
-        created_at=datetime.now(UTC),
-        last_login=datetime.now(UTC),
+        user_created_at=datetime.now(UTC),
+        last_login_at=datetime.now(UTC),
         is_active=True,
         roles=["viewer"],
     )

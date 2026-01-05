@@ -69,8 +69,7 @@ async def project_detail(
     )
     
     context = {
-        "request": request,
-        "project": project,
+            "project": project,
         "document_statuses": document_statuses,
         "active_doc_type": None,
         "active_document": None,
@@ -124,8 +123,7 @@ async def project_document_detail(
         active_document = result.scalar_one_or_none()
     
     context = {
-        "request": request,
-        "project": project,
+            "project": project,
         "document_statuses": document_statuses,
         "active_doc_type": doc_type_id,
         "active_document": active_document,
@@ -165,8 +163,7 @@ async def get_document_statuses_partial(
     )
     
     context = {
-        "request": request,
-        "project": project,
+            "project": project,
         "document_statuses": document_statuses,
         "active_doc_type": None,
     }
@@ -217,8 +214,7 @@ async def get_reject_modal(
     document = result.scalar_one_or_none()
     
     context = {
-        "request": request,
-        "project": project,
+            "project": project,
         "doc_status": doc_status,
         "document": document,
     }
@@ -290,8 +286,7 @@ async def build_document(
         active_document = result.scalar_one_or_none()
     
     context = {
-        "request": request,
-        "project": project,
+            "project": project,
         "document_statuses": document_statuses,
         "active_doc_type": doc_type_id,
         "active_document": active_document,

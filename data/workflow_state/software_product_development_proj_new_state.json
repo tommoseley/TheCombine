@@ -1,0 +1,16 @@
+{
+  "workflow_id": "software_product_development",
+  "project_id": "proj_new",
+  "status": "running",
+  "current_step_id": null,
+  "completed_steps": [],
+  "step_states": {},
+  "iteration_progress": {},
+  "pending_acceptance": null,
+  "pending_acceptance_scope_id": null,
+  "acceptance_decisions": {},
+  "pending_clarification_step_id": null,
+  "started_at": "2026-01-05T03:27:39.226528+00:00",
+  "completed_at": null,
+  "error": null
+}

@@ -1,9 +1,11 @@
-﻿"""Tests for document UI pages."""
+"""Tests for document UI pages."""
 
 import pytest
 from uuid import uuid4
 from datetime import datetime, UTC
 
+from app.auth.dependencies import require_admin
+from app.auth.models import User
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -33,12 +35,31 @@ def repo():
     return InMemoryDocumentRepository()
 
 
+
+@pytest.fixture
+def mock_admin_user() -> User:
+    """Create mock admin user."""
+    from uuid import uuid4
+    return User(
+        user_id=str(uuid4()),
+        email="admin@test.com",
+        name="Test Admin",
+        is_active=True,
+        email_verified=True,
+        is_admin=True,
+    )
+
 @pytest.fixture
 def app(repo):
     """Create test app."""
     set_document_repo(repo)
     
     test_app = FastAPI()
+    
+    # Override admin requirement
+    async def mock_require_admin():
+        return mock_admin_user
+    test_app.dependency_overrides[require_admin] = mock_require_admin
     test_app.include_router(router)
     
     return test_app
@@ -71,14 +92,14 @@ class TestDocumentList:
     
     def test_list_page_renders(self, client):
         """Document list page renders."""
-        response = client.get("/documents")
+        response = client.get("/admin/documents")
         
         assert response.status_code == 200
         assert "Documents" in response.text
     
     def test_list_empty_state(self, client):
         """List shows empty state when no scope filter."""
-        response = client.get("/documents")
+        response = client.get("/admin/documents")
         
         assert response.status_code == 200
         assert "No documents found" in response.text
@@ -89,7 +110,7 @@ class TestDocumentList:
         await repo.save(sample_document)
         
         response = client.get(
-            "/documents",
+            "/admin/documents",
             params={
                 "scope_type": "project",
                 "scope_id": "proj-123",
@@ -105,7 +126,7 @@ class TestDocumentList:
         await repo.save(sample_document)
         
         response = client.get(
-            "/documents",
+            "/admin/documents",
             params={
                 "scope_type": "project",
                 "scope_id": "proj-123",
@@ -125,7 +146,7 @@ class TestDocumentDetail:
         """Document detail page renders."""
         await repo.save(sample_document)
         
-        response = client.get(f"/documents/{sample_document.document_id}")
+        response = client.get(f"/admin/documents/{sample_document.document_id}")
         
         assert response.status_code == 200
         assert "Test Strategy Document" in response.text
@@ -135,7 +156,7 @@ class TestDocumentDetail:
         """Detail page shows document content."""
         await repo.save(sample_document)
         
-        response = client.get(f"/documents/{sample_document.document_id}")
+        response = client.get(f"/admin/documents/{sample_document.document_id}")
         
         assert response.status_code == 200
         assert "Build MVP" in response.text
@@ -145,7 +166,7 @@ class TestDocumentDetail:
         """Detail page shows document metadata."""
         await repo.save(sample_document)
         
-        response = client.get(f"/documents/{sample_document.document_id}")
+        response = client.get(f"/admin/documents/{sample_document.document_id}")
         
         assert response.status_code == 200
         assert "strategy" in response.text
@@ -153,13 +174,13 @@ class TestDocumentDetail:
     
     def test_detail_not_found(self, client):
         """Detail returns 404 for non-existent document."""
-        response = client.get(f"/documents/{uuid4()}")
+        response = client.get(f"/admin/documents/{uuid4()}")
         
         assert response.status_code == 404
     
     def test_detail_invalid_uuid(self, client):
         """Detail returns 400 for invalid UUID."""
-        response = client.get("/documents/not-a-uuid")
+        response = client.get("/admin/documents/not-a-uuid")
         
         assert response.status_code == 400
 
@@ -172,7 +193,7 @@ class TestDocumentVersions:
         """Versions page renders."""
         await repo.save(sample_document)
         
-        response = client.get(f"/documents/{sample_document.document_id}/versions")
+        response = client.get(f"/admin/documents/{sample_document.document_id}/versions")
         
         assert response.status_code == 200
         assert "Version History" in response.text
@@ -207,7 +228,7 @@ class TestDocumentVersions:
         await repo.save(doc1)
         await repo.save(doc2)
         
-        response = client.get(f"/documents/{doc_id_2}/versions")
+        response = client.get(f"/admin/documents/{doc_id_2}/versions")
         
         assert response.status_code == 200
         assert "v1" in response.text
@@ -215,6 +236,6 @@ class TestDocumentVersions:
     
     def test_versions_not_found(self, client):
         """Versions returns 404 for non-existent document."""
-        response = client.get(f"/documents/{uuid4()}/versions")
+        response = client.get(f"/admin/documents/{uuid4()}/versions")
         
         assert response.status_code == 404

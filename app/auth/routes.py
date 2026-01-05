@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from typing import Optional
 from urllib.parse import urlparse
 import os
+import httpx
 import logging
 
 from app.auth.oidc_config import OIDCConfig
@@ -187,16 +188,47 @@ async def callback(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     
+    # Build redirect_uri (must match what was sent in authorize request)
+    domain = os.getenv('DOMAIN', 'localhost:8000')
+    scheme = 'https' if os.getenv('HTTPS_ONLY', 'false').lower() == 'true' else 'http'
+    redirect_uri = f"{scheme}://{domain}/auth/callback/{provider_id}"
+    
     # Exchange authorization code for tokens
     try:
-        token = await client.authorize_access_token(request)
+        if provider_id == 'microsoft':
+            # Microsoft: Manual token exchange to avoid Authlib ID token parsing issues
+            code = request.query_params.get('code')
+            state = request.query_params.get('state')
+            
+            # Verify state matches session
+            session_key = f'_state_microsoft_{state}'
+            session_state = request.session.get(session_key)
+            if not session_state:
+                logger.error(f'Session key {session_key} not found')
+                raise ValueError('CSRF state mismatch - session not found')
+            # Exchange code for token manually
+            async with httpx.AsyncClient() as http_client:
+                token_response = await http_client.post(
+                    'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+                    data={
+                        'client_id': os.getenv('MICROSOFT_CLIENT_ID'),
+                        'client_secret': os.getenv('MICROSOFT_CLIENT_SECRET'),
+                        'code': code,
+                        'redirect_uri': redirect_uri,
+                        'grant_type': 'authorization_code',
+                    }
+                )
+                token_response.raise_for_status()
+                token = token_response.json()
+        else:
+            # Google and others: Use Authlib
+            token = await client.authorize_access_token(request)
     except Exception as e:
         logger.error(f"OAuth token exchange failed for {provider_id}: {e}")
         raise HTTPException(
             status_code=400,
             detail="OAuth authorization failed"
         )
-    
     # Get claims from userinfo (Authlib already validated the token)
     try:
         claims = token.get('userinfo')

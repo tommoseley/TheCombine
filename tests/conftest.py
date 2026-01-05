@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Generator
 from uuid import UUID, uuid4
+from app.auth.models import User
 import pytest_asyncio
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session
@@ -102,3 +103,26 @@ async def async_db_session(async_test_engine):
         async with session.begin():
             yield session
             await session.rollback()
+
+# =============================================================================
+# MOCK ADMIN USER FOR UI TESTS
+# =============================================================================
+
+@pytest.fixture
+def mock_admin_user() -> User:
+    """Create a mock admin user for testing."""
+    return User(
+        user_id=str(uuid4()),
+        email="admin@test.com",
+        name="Test Admin",
+        is_active=True,
+        email_verified=True,
+        is_admin=True,
+    )
+
+
+def override_require_admin(mock_admin_user: User):
+    """Create a dependency override for require_admin."""
+    async def mock_require_admin():
+        return mock_admin_user
+    return mock_require_admin

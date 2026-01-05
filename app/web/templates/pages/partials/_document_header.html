@@ -1,0 +1,29 @@
+{# Document Header Partial - Include with: doc_title, doc_icon, doc_description, project, document/artifact #}
+<div class="mb-8">
+    <nav class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <a href="/projects/{{ project.id if project.id is defined else project['id'] }}" 
+           hx-get="/projects/{{ project.id if project.id is defined else project['id'] }}"
+           hx-target="#main-content"
+           hx-push-url="true"
+           class="hover:text-gray-700 dark:hover:text-gray-300">
+            {{ project.name if project.name is defined else project['name'] }}
+        </a>
+        <span class="mx-2">/</span>
+        <span class="font-medium text-gray-900 dark:text-gray-50">{{ doc_title }}</span>
+    </nav>
+    
+    <div class="flex items-center gap-3">
+        <i data-lucide="{{ doc_icon }}" class="w-10 h-10 text-violet-600 dark:text-violet-500"></i>
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-50">{{ doc_title }}</h1>
+            {% if doc_description %}
+            <p class="text-gray-600 dark:text-gray-400">{{ doc_description }}</p>
+            {% endif %}
+            {% if document and document.updated_at %}
+            <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Prepared: {{ document.updated_at|localtime }}</p>
+            {% elif artifact and artifact.updated_at %}
+            <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Prepared: {{ artifact.updated_at|localtime }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

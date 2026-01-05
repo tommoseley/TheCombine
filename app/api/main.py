@@ -1,4 +1,4 @@
-﻿"""
+"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -9,6 +9,7 @@ import os
 load_dotenv()
 
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -37,6 +38,10 @@ from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay 
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
+
+# Phase 8-10 routers (workflows, executions, telemetry, dashboard)
+from app.api.v1 import api_router as v1_router
+from app.ui.routers import pages_router, dashboard_router, partials_router, documents_router
 # Import middleware
 from app.api.middleware import (
     error_handling,
@@ -91,7 +96,7 @@ app = FastAPI(
 
 # Mount static files from app/web directory
 app.mount("/web", StaticFiles(directory="app/web"), name="web")
-app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
+app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
 
 # ============================================================================
 @app.get("/test-session")
@@ -170,6 +175,13 @@ app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
 app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
 app.include_router(protected_router)
 app.include_router(accounts_router)
+
+# Phase 8-10: Workflow execution engine routes
+app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions
+app.include_router(dashboard_router)  # /dashboard, /dashboard/costs - must be before pages_router
+app.include_router(documents_router)  # /admin/documents UI pages
+app.include_router(pages_router)  # /workflows, /executions UI pages
+app.include_router(partials_router)  # HTMX partials
 
 
 # ============================================================================

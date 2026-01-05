@@ -52,8 +52,11 @@ async def optional_auth_route(
         return {
             "message": f"Hello, {auth_context.user.name}!",
             "authenticated": True,
-            "user_id": str(auth_context.user_id),
-            "email": auth_context.user.email
+            "user_id": str(auth_context.user.user_id),
+            "email": auth_context.user.email,
+            "name": auth_context.user.name,
+            "avatar_url": auth_context.user.avatar_url,
+            "is_admin": auth_context.user.is_admin
         }
     else:
         return {
@@ -102,10 +105,11 @@ async def get_me(
     """
     return {
         "user": {
-            "user_id": str(auth_context.user_id),
+            "user_id": str(auth_context.user.user_id),
             "email": auth_context.user.email,
             "name": auth_context.user.name,
-            "avatar_url": auth_context.user.avatar_url
+            "avatar_url": auth_context.user.avatar_url,
+            "is_admin": auth_context.user.is_admin
         },
         "session": {
             "session_id": str(auth_context.session_id),
@@ -133,7 +137,7 @@ async def update_profile(
     # In a real app, you'd update the user in the database here
     return {
         "message": "Profile updated",
-        "user_id": str(auth_context.user_id),
+        "user_id": str(auth_context.user.user_id),
         "new_name": name,
         "csrf_token": auth_context.csrf_token  # Available for validation
     }

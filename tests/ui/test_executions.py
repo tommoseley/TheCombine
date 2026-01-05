@@ -1,12 +1,16 @@
-﻿"""Tests for execution pages."""
+"""Tests for execution pages."""
 
 import pytest
+from app.auth.dependencies import require_admin
+from app.auth.models import User
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.testclient import TestClient
 
 from app.api.v1 import api_router
 from app.api.v1.dependencies import get_workflow_registry, get_persistence, clear_caches
+from app.core.database import get_db
+from unittest.mock import MagicMock, AsyncMock
 from app.api.v1.routers.executions import reset_execution_service, get_execution_service
 from app.ui.routers import pages_router, partials_router
 from app.domain.workflow import (
@@ -85,12 +89,31 @@ def mock_persistence() -> InMemoryStatePersistence:
     return InMemoryStatePersistence()
 
 
+
 @pytest.fixture
-def app(mock_registry, mock_persistence) -> FastAPI:
+def mock_admin_user() -> User:
+    """Create mock admin user."""
+    from uuid import uuid4
+    return User(
+        user_id=str(uuid4()),
+        email="admin@test.com",
+        name="Test Admin",
+        is_active=True,
+        email_verified=True,
+        is_admin=True,
+    )
+
+@pytest.fixture
+def app(mock_registry, mock_persistence, mock_admin_user) -> FastAPI:
     clear_caches()
     reset_execution_service()
     
     test_app = FastAPI()
+    
+    # Override admin requirement
+    async def mock_require_admin():
+        return mock_admin_user
+    test_app.dependency_overrides[require_admin] = mock_require_admin
     test_app.include_router(api_router)
     test_app.include_router(pages_router)
     test_app.include_router(partials_router)
@@ -98,6 +121,19 @@ def app(mock_registry, mock_persistence) -> FastAPI:
     
     test_app.dependency_overrides[get_workflow_registry] = lambda: mock_registry
     test_app.dependency_overrides[get_persistence] = lambda: mock_persistence
+    
+    # Mock database for LLMRun queries
+    async def mock_get_db():
+        mock_db = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        mock_result.fetchall.return_value = []
+        
+        async def mock_execute(*args, **kwargs):
+            return mock_result
+        mock_db.execute = mock_execute
+        yield mock_db
+    test_app.dependency_overrides[get_db] = mock_get_db
     
     yield test_app
     
@@ -116,28 +152,28 @@ class TestExecutionsList:
     
     def test_executions_page_renders(self, client: TestClient):
         """Executions page returns 200."""
-        response = client.get("/executions")
+        response = client.get("/admin/executions")
         assert response.status_code == 200
     
     def test_executions_page_shows_all_executions(self, client: TestClient):
         """Executions page shows created executions."""
         # Create an execution
         client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_1"},
         )
         
-        response = client.get("/executions")
+        response = client.get("/admin/executions")
         assert "proj_1" in response.text
     
     def test_executions_page_supports_workflow_filter(self, client: TestClient):
         """Executions page can filter by workflow."""
-        response = client.get("/executions?workflow_id=test_workflow")
+        response = client.get("/admin/executions?workflow_id=test_workflow")
         assert response.status_code == 200
     
     def test_executions_page_supports_status_filter(self, client: TestClient):
         """Executions page can filter by status."""
-        response = client.get("/executions?status=running")
+        response = client.get("/admin/executions?status=running")
         assert response.status_code == 200
 
 
@@ -148,7 +184,7 @@ class TestExecutionDetail:
         """Execution detail page returns 200."""
         # Create an execution first
         start_resp = client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_detail"},
             follow_redirects=False,
         )
@@ -160,7 +196,7 @@ class TestExecutionDetail:
     def test_execution_detail_shows_current_step(self, client: TestClient):
         """Execution detail shows workflow info."""
         start_resp = client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_step"},
             follow_redirects=False,
         )
@@ -172,7 +208,7 @@ class TestExecutionDetail:
     def test_execution_detail_shows_step_progress(self, client: TestClient):
         """Execution detail shows step progress."""
         start_resp = client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_progress"},
             follow_redirects=False,
         )
@@ -183,7 +219,7 @@ class TestExecutionDetail:
     
     def test_execution_not_found(self, client: TestClient):
         """Non-existent execution returns 404."""
-        response = client.get("/executions/exec_nonexistent")
+        response = client.get("/admin/executions/exec_nonexistent")
         assert response.status_code == 404
 
 
@@ -194,7 +230,7 @@ class TestExecutionPartials:
         """Status partial returns status badge HTML."""
         # Create execution
         start_resp = client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_partial"},
             follow_redirects=False,
         )
@@ -205,12 +241,12 @@ class TestExecutionPartials:
             headers={"HX-Request": "true"},
         )
         assert response.status_code == 200
-        assert "status-badge" in response.text
+        assert "inline-flex" in response.text  # Tailwind status badge
     
     def test_cancel_button_appears_for_running(self, client: TestClient):
         """Cancel button appears for running execution."""
         start_resp = client.post(
-            "/workflows/test_workflow/start",
+            "/admin/workflows/test_workflow/start",
             data={"project_id": "proj_cancel"},
             follow_redirects=False,
         )

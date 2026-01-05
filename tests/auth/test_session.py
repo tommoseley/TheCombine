@@ -1,4 +1,4 @@
-﻿"""Tests for session management."""
+"""Tests for session management."""
 
 import pytest
 import pytest_asyncio
@@ -46,8 +46,8 @@ async def sample_user(user_repo):
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        created_at=datetime.now(UTC),
-        last_login=datetime.now(UTC),
+        user_created_at=datetime.now(UTC),
+        last_login_at=datetime.now(UTC),
         is_active=True,
         roles=["operator"],
     )

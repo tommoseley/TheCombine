@@ -1,138 +1,106 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Cost Dashboard - The Combine{% endblock %}
 
 {% block page_title %}Cost Dashboard{% endblock %}
 
 {% block header_actions %}
-<div class="filter-bar">
-    <form method="get" action="/dashboard/costs" class="filter-form">
-        <select name="days" onchange="this.form.submit()">
-            <option value="7" {% if period_days == 7 %}selected{% endif %}>Last 7 days</option>
-            <option value="14" {% if period_days == 14 %}selected{% endif %}>Last 14 days</option>
-            <option value="30" {% if period_days == 30 %}selected{% endif %}>Last 30 days</option>
-            <option value="90" {% if period_days == 90 %}selected{% endif %}>Last 90 days</option>
-        </select>
-    </form>
-</div>
+<form method="get" action="/admin/dashboard/costs" class="flex items-center gap-3">
+    <select name="source" onchange="this.form.submit()" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-accent dark:focus:ring-accent-dark focus:outline-none">
+        <option value="">All Sources</option>
+        <option value="workflows" {% if source_filter == 'workflows' %}selected{% endif %}>Workflows Only</option>
+        <option value="documents" {% if source_filter == 'documents' %}selected{% endif %}>Document Builds Only</option>
+    </select>
+    <select name="days" onchange="this.form.submit()" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 focus:ring-2 focus:ring-accent dark:focus:ring-accent-dark focus:outline-none">
+        <option value="7" {% if period_days == 7 %}selected{% endif %}>Last 7 days</option>
+        <option value="14" {% if period_days == 14 %}selected{% endif %}>Last 14 days</option>
+        <option value="30" {% if period_days == 30 %}selected{% endif %}>Last 30 days</option>
+        <option value="90" {% if period_days == 90 %}selected{% endif %}>Last 90 days</option>
+    </select>
+</form>
 {% endblock %}
 
 {% block content %}
-<div class="cost-dashboard">
+<div class="space-y-6">
     <!-- Summary Cards -->
-    <section class="summary-cards">
-        <div class="card summary-card">
-            <div class="summary-value">${{ summary.total_cost }}</div>
-            <div class="summary-label">Total Cost</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <div class="text-2xl font-bold text-accent dark:text-accent-dark">${{ summary.total_cost }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Total Cost</div>
         </div>
-        <div class="card summary-card">
-            <div class="summary-value">{{ "{:,}".format(summary.total_tokens) }}</div>
-            <div class="summary-label">Total Tokens</div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <div class="text-2xl font-bold">{{ "{:,}".format(summary.total_tokens) }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Total Tokens</div>
         </div>
-        <div class="card summary-card">
-            <div class="summary-value">{{ summary.total_calls }}</div>
-            <div class="summary-label">API Calls</div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <div class="text-2xl font-bold">{{ summary.total_calls }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">API Calls</div>
         </div>
-        <div class="card summary-card">
-            <div class="summary-value">{{ summary.success_rate }}%</div>
-            <div class="summary-label">Success Rate</div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
+            <div class="text-2xl font-bold text-success dark:text-success-dark">{{ summary.success_rate }}%</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Success Rate</div>
         </div>
-    </section>
+    </div>
     
     <!-- Averages -->
-    <section class="card averages-section">
-        <h3 class="card-title">Averages</h3>
-        <div class="averages-grid">
-            <div class="average-item">
-                <span class="average-value">${{ summary.avg_cost_per_day }}</span>
-                <span class="average-label">per day</span>
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Averages</h3>
+        <div class="flex gap-8">
+            <div>
+                <span class="block text-xl font-medium">${{ summary.avg_cost_per_day }}</span>
+                <span class="text-sm text-gray-500 dark:text-gray-400">per day</span>
             </div>
-            <div class="average-item">
-                <span class="average-value">${{ summary.avg_cost_per_call }}</span>
-                <span class="average-label">per call</span>
+            <div>
+                <span class="block text-xl font-medium">${{ summary.avg_cost_per_call }}</span>
+                <span class="text-sm text-gray-500 dark:text-gray-400">per call</span>
             </div>
         </div>
-    </section>
+    </div>
     
     <!-- Daily Breakdown -->
-    <section class="card daily-section">
-        <h3 class="card-title">Daily Breakdown</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Daily Breakdown</h3>
         {% if daily_data %}
-        <div class="chart-container">
+        <div class="h-48 mb-6">
             <canvas id="daily-cost-chart"></canvas>
         </div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Cost</th>
-                    <th>Tokens</th>
-                    <th>Calls</th>
-                    <th>Errors</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for day in daily_data %}
-                <tr>
-                    <td>{{ day.date }}</td>
-                    <td>${{ day.cost }}</td>
-                    <td>{{ "{:,}".format(day.tokens) }}</td>
-                    <td>{{ day.calls }}</td>
-                    <td>{{ day.errors }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-gray-200 dark:border-gray-700">
+                    <tr>
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Date</th>
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Total Cost</th>
+                        {% if not source_filter %}
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Workflow</th>
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Documents</th>
+                        {% endif %}
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Tokens</th>
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Calls</th>
+                        <th class="text-left py-2 font-medium text-gray-500 dark:text-gray-400">Errors</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for day in daily_data %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td class="py-2">{{ day.date }}</td>
+                        <td class="py-2">${{ "%.4f"|format(day.cost) }}</td>
+                        {% if not source_filter %}
+                        <td class="py-2 text-purple-600 dark:text-purple-400">${{ "%.4f"|format(day.workflow_cost) }}</td>
+                        <td class="py-2 text-blue-600 dark:text-blue-400">${{ "%.4f"|format(day.document_cost) }}</td>
+                        {% endif %}
+                        <td class="py-2">{{ "{:,}".format(day.tokens) }}</td>
+                        <td class="py-2">{{ day.calls }}</td>
+                        <td class="py-2 {% if day.errors > 0 %}text-error dark:text-error-dark{% endif %}">{{ day.errors }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-        <p class="empty-state">No data available for this period.</p>
+        <p class="text-gray-500 dark:text-gray-400">No data available for this period.</p>
         {% endif %}
-    </section>
+    </div>
 </div>
-
-<style>
-.cost-dashboard .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-.cost-dashboard .summary-card {
-    text-align: center;
-    padding: 1.5rem;
-}
-.cost-dashboard .summary-value {
-    font-size: 1.75rem;
-    font-weight: 600;
-    color: var(--color-text-primary);
-}
-.cost-dashboard .summary-label {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 0.25rem;
-}
-.cost-dashboard .averages-grid {
-    display: flex;
-    gap: 2rem;
-}
-.cost-dashboard .average-item {
-    display: flex;
-    flex-direction: column;
-}
-.cost-dashboard .average-value {
-    font-size: 1.25rem;
-    font-weight: 500;
-}
-.cost-dashboard .average-label {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
-}
-.cost-dashboard .chart-container {
-    height: 200px;
-    margin-bottom: 1rem;
-}
-</style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -141,18 +109,39 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!ctx) return;
     
     const dailyData = {{ daily_data | tojson }};
+    const isDark = document.documentElement.classList.contains('dark');
+    const showSplit = {{ 'true' if not source_filter else 'false' }};
+    
+    const datasets = showSplit ? [
+        {
+            label: 'Workflow ($)',
+            data: dailyData.map(d => d.workflow_cost),
+            backgroundColor: isDark ? 'rgba(139, 92, 246, 0.5)' : 'rgba(124, 58, 237, 0.5)',
+            borderColor: isDark ? 'rgb(139, 92, 246)' : 'rgb(124, 58, 237)',
+            borderWidth: 1
+        },
+        {
+            label: 'Documents ($)',
+            data: dailyData.map(d => d.document_cost),
+            backgroundColor: isDark ? 'rgba(59, 130, 246, 0.5)' : 'rgba(37, 99, 235, 0.5)',
+            borderColor: isDark ? 'rgb(59, 130, 246)' : 'rgb(37, 99, 235)',
+            borderWidth: 1
+        }
+    ] : [
+        {
+            label: 'Cost ($)',
+            data: dailyData.map(d => d.cost),
+            backgroundColor: isDark ? 'rgba(139, 92, 246, 0.5)' : 'rgba(124, 58, 237, 0.5)',
+            borderColor: isDark ? 'rgb(139, 92, 246)' : 'rgb(124, 58, 237)',
+            borderWidth: 1
+        }
+    ];
     
     new Chart(ctx, {
         type: 'bar',
         data: {
             labels: dailyData.map(d => d.date_short),
-            datasets: [{
-                label: 'Cost ($)',
-                data: dailyData.map(d => d.cost),
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: 'rgb(59, 130, 246)',
-                borderWidth: 1
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -160,16 +149,33 @@ document.addEventListener('DOMContentLoaded', function() {
             scales: {
                 y: {
                     beginAtZero: true,
+                    stacked: showSplit,
                     ticks: {
                         callback: function(value) {
                             return '$' + value.toFixed(4);
-                        }
+                        },
+                        color: isDark ? '#9ca3af' : '#6b7280'
+                    },
+                    grid: {
+                        color: isDark ? '#374151' : '#e5e7eb'
+                    }
+                },
+                x: {
+                    stacked: showSplit,
+                    ticks: {
+                        color: isDark ? '#9ca3af' : '#6b7280'
+                    },
+                    grid: {
+                        display: false
                     }
                 }
             },
             plugins: {
                 legend: {
-                    display: false
+                    display: showSplit,
+                    labels: {
+                        color: isDark ? '#9ca3af' : '#6b7280'
+                    }
                 }
             }
         }

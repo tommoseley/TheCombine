@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 """
@@ -165,7 +165,7 @@ async def get_document(
     # Build context
     context = {
         "request": request,
-        "project": project,
+            "project": project,
         "doc_type_id": doc_type_id,
         "doc_type_name": doc_type_name,
         "doc_type_icon": doc_type_icon,

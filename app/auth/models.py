@@ -1,4 +1,4 @@
-﻿"""Authentication domain models."""
+"""Authentication domain models."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
@@ -24,6 +24,8 @@ class AuthEventType(str, Enum):
     TOKEN_CREATED = "token_created"
     TOKEN_REVOKED = "token_revoked"
     ACCOUNT_LINKED = "account_linked"
+    LOGIN_BLOCKED_EMAIL_EXISTS = "login_blocked_email_exists"
+    CSRF_VIOLATION = "csrf_violation"
 
 
 @dataclass
@@ -32,14 +34,16 @@ class User:
     user_id: str
     email: str
     name: str
-    provider: AuthProvider
-    provider_id: str
-    created_at: datetime
-    last_login: datetime
     is_active: bool = True
-    roles: List[str] = field(default_factory=list)
     email_verified: bool = False
     avatar_url: Optional[str] = None
+    user_created_at: Optional[datetime] = None
+    user_updated_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+    provider: Optional[AuthProvider] = None
+    provider_id: Optional[str] = None
+    roles: List[str] = field(default_factory=list)
+    is_admin: bool = False
     
     def has_role(self, role: str) -> bool:
         """Check if user has a specific role."""
@@ -61,8 +65,9 @@ class UserSession:
     """User session for tracking authenticated sessions."""
     session_id: UUID
     user_id: UUID
-    token_hash: str
-    created_at: datetime
+    session_token: str
+    csrf_token: str
+    session_created_at: datetime
     expires_at: datetime
     last_activity_at: datetime
     ip_address: Optional[str] = None

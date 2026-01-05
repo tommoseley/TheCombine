@@ -1,12 +1,36 @@
-﻿/* Calm Authority Design Tokens */
+/* Calm Authority Design Tokens */
 :root {
-    /* Colors */
+    /* Light Mode Colors (Default) */
+    --color-bg: #f8fafc;
+    --color-surface: #ffffff;
+    --color-surface-elevated: #f1f5f9;
+    --color-border: #e2e8f0;
+    --color-primary: #6d28d9;
+    --color-primary-hover: #7c3aed;
+    --color-success: #059669;
+    --color-warning: #d97706;
+    --color-error: #dc2626;
+    --color-text: #1e293b;
+    --color-text-muted: #64748b;
+    --color-text-dim: #94a3b8;
+    
+    /* Status Colors */
+    --status-pending: #64748b;
+    --status-running: #6d28d9;
+    --status-waiting: #d97706;
+    --status-completed: #059669;
+    --status-failed: #dc2626;
+    --status-cancelled: #64748b;
+}
+
+/* Dark Mode Colors */
+html.dark {
     --color-bg: #0f1419;
     --color-surface: #1a1f2e;
     --color-surface-elevated: #242b3d;
     --color-border: #2d3548;
-    --color-primary: #4a90d9;
-    --color-primary-hover: #5a9fe8;
+    --color-primary: #8b5cf6;
+    --color-primary-hover: #a78bfa;
     --color-success: #10b981;
     --color-warning: #f59e0b;
     --color-error: #ef4444;
@@ -16,7 +40,7 @@
     
     /* Status Colors */
     --status-pending: #64748b;
-    --status-running: #4a90d9;
+    --status-running: #8b5cf6;
     --status-waiting: #f59e0b;
     --status-completed: #10b981;
     --status-failed: #ef4444;
@@ -98,6 +122,15 @@ a:hover {
     font-size: var(--text-lg);
     font-weight: 600;
     color: var(--color-text);
+}
+
+.logo-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.logo-link:hover {
+    opacity: 0.8;
 }
 
 .version {
@@ -1029,4 +1062,19 @@ code {
     .main-content {
         margin-left: 0;
     }
+}
+
+.nav-section-divider {
+    border-top: 1px solid var(--border-color);
+    margin: 1rem 0;
+}
+
+.nav-section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    margin: 0;
 }

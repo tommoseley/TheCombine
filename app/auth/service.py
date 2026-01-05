@@ -1,3 +1,4 @@
+import os
 """
 Authentication service.
 
@@ -25,6 +26,15 @@ from app.auth.utils import utcnow
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _is_admin_email(email: str) -> bool:
+    """Check if email is in admin allowlist."""
+    admin_emails = os.getenv('ADMIN_EMAILS', '')
+    if not admin_emails:
+        return False
+    allowlist = [e.strip().lower() for e in admin_emails.split(',') if e.strip()]
+    return email.lower() in allowlist
 
 
 class AuthService:
@@ -167,7 +177,8 @@ class AuthService:
             is_active=user_orm.is_active,
             user_created_at=user_orm.user_created_at,
             user_updated_at=user_orm.user_updated_at,
-            last_login_at=user_orm.last_login_at
+            last_login_at=user_orm.last_login_at,
+            is_admin=_is_admin_email(user_orm.email)
         )
         
         return (user, session_orm.session_id, session_orm.csrf_token)
@@ -256,8 +267,9 @@ class AuthService:
                 is_active=user_orm.is_active,
                 user_created_at=user_orm.user_created_at,
                 user_updated_at=user_orm.user_updated_at,
-                last_login_at=user_orm.last_login_at
-            )
+                last_login_at=user_orm.last_login_at,
+            is_admin=_is_admin_email(user_orm.email)
+        )
             
             logger.info(f"Existing user {user.user_id} logged in via {provider_id}")
             return (user, False)
@@ -269,8 +281,53 @@ class AuthService:
         existing_email = result.scalar_one_or_none()
         
         if existing_email:
-            if existing_email.email_verified:
-                logger.warning(f"Email collision: {email} exists (verified)")
+            # Both emails verified = same person, auto-link the new provider
+            if existing_email.email_verified and email_verified:
+                logger.info(
+                    f"Auto-linking {provider_id} to existing user {existing_email.user_id} "
+                    f"(both providers verified {email})"
+                )
+                
+                # Create OAuth identity link to existing user
+                now = utcnow()
+                oauth_identity = UserOAuthIdentityORM(
+                    user_id=existing_email.user_id,
+                    provider_id=provider_id,
+                    provider_user_id=provider_user_id,
+                    provider_email=email,
+                    email_verified=email_verified,
+                    provider_metadata={
+                        'sub': claims['sub'],
+                        'email': email,
+                        'name': name
+                    },
+                    identity_created_at=now,
+                    last_used_at=now
+                )
+                self.db.add(oauth_identity)
+                
+                # Update last login
+                existing_email.last_login_at = now
+                
+                await self.db.commit()
+                
+                user = User(
+                    user_id=str(existing_email.user_id),
+                    email=existing_email.email,
+                    name=existing_email.name or '',
+                    is_active=existing_email.is_active,
+                    email_verified=existing_email.email_verified,
+                    avatar_url=existing_email.avatar_url,
+                    user_created_at=existing_email.user_created_at,
+                    user_updated_at=existing_email.user_updated_at,
+                    last_login_at=existing_email.last_login_at
+                )
+                
+                return (user, False)  # False = not newly created
+            
+            elif existing_email.email_verified:
+                # Existing is verified but incoming is NOT - could be attacker
+                logger.warning(f"Email collision: {email} exists (verified), incoming NOT verified")
                 raise ValueError(
                     f"An account with email {email} already exists. "
                     f"Please sign in with your existing provider first, "
@@ -282,7 +339,7 @@ class AuthService:
                     f"An account with email {email} already exists but is not verified. "
                     f"Please verify your existing account first."
                 )
-        
+
         # Create new user (using ORM)
         now = utcnow()
         new_user = UserORM(
@@ -327,7 +384,8 @@ class AuthService:
             is_active=new_user.is_active,
             user_created_at=new_user.user_created_at,
             user_updated_at=new_user.user_updated_at,
-            last_login_at=new_user.last_login_at
+            last_login_at=new_user.last_login_at,
+            is_admin=_is_admin_email(new_user.email)
         )
         
         logger.info(f"Created new user {user.user_id} from {provider_id} OAuth")

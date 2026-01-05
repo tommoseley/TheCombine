@@ -26,10 +26,7 @@ async def search_all(
     # Get tree paths for highlighting
     affected_paths = results.get_tree_paths()
     
-    return templates.TemplateResponse(
-        "components/search_results.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request, "components/search_results.html", {
             "query": q,
             "results": {
                 "projects": results.projects,
