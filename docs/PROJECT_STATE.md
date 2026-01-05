@@ -83,18 +83,18 @@ Document ownership implementation ADR updated with:
 
 | Resource | Name/ID | Status |
 |----------|---------|--------|
-| **ECS Cluster** | `the-combine-cluster` | ✅ Running |
-| **ECS Service** | `the-combine-service` | ✅ Running |
-| **Task Definition** | `the-combine-task` | ✅ Active |
-| **ECR Repository** | `the-combine` | ✅ Active |
-| **RDS PostgreSQL** | (default) | ✅ Running |
-| **Route 53** | `thecombine.ai` | ✅ Configured |
-| **ACM Certificate** | `thecombine.ai` + `*.thecombine.ai` | ✅ Issued |
-| **Target Group** | `the-combine-tg` (IP, port 8000) | ✅ Created |
-| **ALB** | - | ❌ Blocked (ticket pending) |
+| **ECS Cluster** | `the-combine-cluster` | âœ… Running |
+| **ECS Service** | `the-combine-service` | âœ… Running |
+| **Task Definition** | `the-combine-task` | âœ… Active |
+| **ECR Repository** | `the-combine` | âœ… Active |
+| **RDS PostgreSQL** | (default) | âœ… Running |
+| **Route 53** | `thecombine.ai` | âœ… Configured |
+| **ACM Certificate** | `thecombine.ai` + `*.thecombine.ai` | âœ… Issued |
+| **Target Group** | `the-combine-tg` (IP, port 8000) | âœ… Created |
+| **ALB** | - | âŒ Blocked (ticket pending) |
 
 ### Environment Variables (ECS Task Definition)
-- `ADMIN_EMAILS` = `tommoseley@outlook.com` ✅ Configured
+- `ADMIN_EMAILS` = `tommoseley@outlook.com` âœ… Configured
 
 ### ALB Issue
 Support tickets filed for **us-east-1** and **us-east-2**. Awaiting AWS response.
@@ -119,7 +119,11 @@ Current environment will become **staging**, new environment for **production**.
 | ADR-024 | Accepted | Clarification Question Protocol |
 | ADR-027 | Accepted | Workflow Definition & Governance |
 
-## Next Session: ADR-011 Implementation
+## 🚀 Next Session: ADR-011-Part-2 Implementation
+
+**Ready to rumble.** ADR-011-Part-2 (v0.92) is finalized and ready for implementation.
+
+**Start here:** `docs/adr/011-part-2-documentation-ownership-impl/ADR-011-Part-2-Document-Ownership-Model-Implementation-Enforcement.md`
 
 Implementation order:
 1. Schema migration (`parent_document_id` + FK + index)

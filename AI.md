@@ -48,6 +48,11 @@ The following constraints apply to all work on this project:
   - The AI MAY propose commit messages and describe what should be committed.
   - The user performs all Git commits.
 
+- **Regarding File not found errors**
+  - You may experience File not found errors on files that clearly exist. 
+  - The human operator uses VS Code, which can hold locks or have unsaved buffers that interfere.
+  - When you get file access errors on files that should exist, ask Tom to close them in VS Code, then retry.
+
 Violation of these constraints is considered a failure to follow project rules.
 
 ---
@@ -233,13 +238,14 @@ Before any work:
 
 1. Read `AI.md` (this file, in Project Knowledge)
 2. **Use tools to read** `docs/PROJECT_STATE.md` from filesystem
-3. Optionally scan `docs/session_logs/` for recent context
-4. Summarize back:
+3. Scan `docs/session_logs/` for recent context
+4. Scan `docs/adr/` for architectural guidance and a future vision
+5. Summarize back:
    - System purpose
    - Current state
    - Active constraints (ADRs)
    - Next logical work
-5. Ask for confirmation before proceeding
+6. Ask for confirmation before proceeding
 
 ### How to Close a Session
 
