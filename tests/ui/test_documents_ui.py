@@ -9,7 +9,7 @@ from app.auth.models import User
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.ui.routers.documents import (
+from app.web.routes.admin.documents import (
     router,
     set_document_repo,
     reset_document_repo,

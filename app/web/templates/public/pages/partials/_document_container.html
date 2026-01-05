@@ -1,0 +1,10 @@
+<!-- pages/partials/_document_container.html -->
+<!-- Document content area - no sidebar needed since accordion sidebar handles navigation -->
+<!-- Loaded into #main-content when a project is selected -->
+
+<div id="document-content" class="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    {% block document_content %}
+    <!-- Default: show project overview -->
+    {% include "public/pages/partials/_project_overview.html" %}
+    {% endblock %}
+</div>

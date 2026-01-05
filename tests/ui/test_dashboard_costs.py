@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, AsyncMock
 from app.core.database import get_db
 
-from app.ui.routers.dashboard import (
+from app.web.routes.admin.dashboard import (
     router,
     set_telemetry_svc,
     reset_telemetry_svc,

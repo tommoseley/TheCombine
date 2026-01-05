@@ -32,8 +32,8 @@ from app.api.routers import health, auth
 from app.web import routes as web_routes
 from app.api.routers.documents import router as document_router
 from app.api.routers.document_status_router import router as document_status_router
-from app.web.routes.document_status_routes import router as document_status_ui_router
-from app.web.routes.admin_routes import router as admin_router
+from app.web.routes.public.document_status_routes import router as document_status_ui_router
+from app.web.routes.admin.admin_routes import router as admin_router
 from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay endpoint
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
@@ -41,7 +41,7 @@ from app.api.routers.accounts import router as accounts_router
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
-from app.ui.routers import pages_router, dashboard_router, partials_router, documents_router
+from app.web.routes.admin import pages_router, dashboard_router, partials_router, documents_router
 # Import middleware
 from app.api.middleware import (
     error_handling,
@@ -96,7 +96,7 @@ app = FastAPI(
 
 # Mount static files from app/web directory
 app.mount("/web", StaticFiles(directory="app/web"), name="web")
-app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
+app.mount("/static", StaticFiles(directory="app/web/static/admin"), name="static")
 
 # ============================================================================
 @app.get("/test-session")
