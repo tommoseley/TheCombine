@@ -228,7 +228,7 @@ class Document(Base):
         "DocumentRelation",
         foreign_keys="DocumentRelation.from_document_id",
         back_populates="from_document",
-        cascade="all, delete-orphan"
+        # Note: No cascade delete per ADR-011-Part-2 - delete with children forbidden
     )
     
     # Relations where this document is the target (to_document)
@@ -236,7 +236,7 @@ class Document(Base):
         "DocumentRelation",
         foreign_keys="DocumentRelation.to_document_id",
         back_populates="to_document",
-        cascade="all, delete-orphan"
+        # Note: No cascade delete per ADR-011-Part-2 - delete with children forbidden
     )
     
     # =========================================================================

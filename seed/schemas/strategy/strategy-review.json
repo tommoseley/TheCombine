@@ -1,0 +1,66 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Strategy Review",
+  "required": ["overall_assessment", "findings", "recommendation"],
+  "properties": {
+    "overall_assessment": {
+      "type": "object",
+      "required": ["status", "confidence_score", "summary"],
+      "properties": {
+        "status": {"type": "string", "enum": ["approved", "approved_with_conditions", "needs_revision", "rejected"]},
+        "confidence_score": {"type": "number", "minimum": 0, "maximum": 100},
+        "summary": {"type": "string"}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "category", "description"],
+        "properties": {
+          "id": {"type": "string"},
+          "severity": {"type": "string", "enum": ["critical", "major", "minor", "observation"]},
+          "category": {"type": "string", "enum": ["completeness", "consistency", "feasibility", "clarity", "alignment"]},
+          "source_document": {"type": "string"},
+          "description": {"type": "string"},
+          "recommendation": {"type": "string"}
+        }
+      }
+    },
+    "document_reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["document_type", "status"],
+        "properties": {
+          "document_type": {"type": "string"},
+          "status": {"type": "string", "enum": ["complete", "incomplete", "needs_revision"]},
+          "completeness_score": {"type": "number"},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "cross_document_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue": {"type": "string"},
+          "affected_documents": {"type": "array", "items": {"type": "string"}},
+          "resolution": {"type": "string"}
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["action", "rationale"],
+      "properties": {
+        "action": {"type": "string", "enum": ["proceed", "revise", "escalate", "reject"]},
+        "rationale": {"type": "string"},
+        "next_steps": {"type": "array", "items": {"type": "string"}},
+        "blockers": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

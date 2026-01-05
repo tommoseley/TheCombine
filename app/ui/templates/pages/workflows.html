@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Workflows - The Combine{% endblock %}
+
+{% block page_title %}Workflows{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for workflow in workflows %}
+    <article class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 flex flex-col">
+        <div class="flex items-start justify-between mb-2">
+            <h3 class="text-lg font-semibold">{{ workflow.name }}</h3>
+            <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">v{{ workflow.revision }}</span>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4 flex-1">{{ workflow.description }}</p>
+        <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <span class="flex items-center gap-1">
+                <i data-lucide="list" class="w-4 h-4"></i>
+                {{ workflow.step_count }} steps
+            </span>
+            <span class="flex items-center gap-1">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                {{ workflow.doc_count }} documents
+            </span>
+        </div>
+        <div class="flex gap-2">
+            <a href="/admin/workflows/{{ workflow.workflow_id }}" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">View Details</a>
+            <form action="/admin/workflows/{{ workflow.workflow_id }}/start" method="post" class="flex-1">
+                <input type="hidden" name="project_id" value="proj_{{ workflow.workflow_id }}">
+                <button type="submit" class="w-full px-3 py-2 text-sm bg-accent dark:bg-accent-dark text-white rounded-md hover:opacity-90 transition-opacity"
+                        hx-post="/admin/workflows/{{ workflow.workflow_id }}/start"
+                        hx-vals='{"project_id": "proj_new"}'
+                        hx-target="body">
+                    Start Workflow
+                </button>
+            </form>
+        </div>
+    </article>
+    {% else %}
+    <div class="col-span-full text-center py-12">
+        <p class="text-gray-500 dark:text-gray-400 mb-2">No workflows available.</p>
+        <p class="text-sm text-gray-400 dark:text-gray-500">Add workflow definitions to the seed/workflows directory.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

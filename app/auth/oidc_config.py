@@ -79,7 +79,7 @@ class OIDCConfig:
                 'name': 'Microsoft',
                 'icon': '/static/icons/microsoft.svg'
             }
-            logger.info("Registered Microsoft OAuth2 provider (pure OAuth2, no OIDC)")
+            logger.info("Registered Microsoft OIDC provider")
         else:
             logger.info("Microsoft OAuth not configured (MICROSOFT_CLIENT_ID or MICROSOFT_CLIENT_SECRET missing)")
         

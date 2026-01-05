@@ -1,0 +1,41 @@
+﻿# Requirements Analysis Task
+
+Based on the Project Discovery document, create a detailed requirements specification.
+
+## Instructions
+
+1. **Derive Functional Requirements**
+   - Transform each objective into specific functional requirements
+   - Use MoSCoW prioritization (must-have, should-have, nice-to-have)
+   - Include clear acceptance criteria for each requirement
+   - Trace each requirement back to its source objective
+
+2. **Define Non-Functional Requirements**
+   - Address performance, security, scalability, reliability
+   - Include measurable metrics where possible
+   - Consider usability and maintainability
+
+3. **Create User Stories**
+   - Write stories in "As a... I want... So that..." format
+   - Include acceptance criteria
+   - Estimate complexity where appropriate
+
+4. **Identify Data Requirements**
+   - List key data entities
+   - Define important attributes
+   - Note relationships between entities
+
+5. **Document Integration Requirements**
+   - Identify external systems that must integrate
+   - Specify integration types and protocols
+
+## Output Format
+
+Respond with a JSON object containing:
+- functional_requirements: Array with id, title, description, priority, acceptance_criteria, dependencies, source_objective
+- non_functional_requirements: Array with id, category, description, metric, target_value
+- user_stories: Array with id, as_a, i_want, so_that, acceptance_criteria, story_points
+- data_requirements: Array with entity, attributes, relationships
+- integration_requirements: Array with system, type, description
+
+Ensure traceability from requirements to discovery objectives.

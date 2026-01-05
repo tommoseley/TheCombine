@@ -413,32 +413,32 @@ class DocumentBuilder:
         
         try:
             # Step 1: Load config
-            yield ProgressUpdate("loading", "ðŸ“‹ Loading document configuration...", 5).to_sse()
+            yield ProgressUpdate("loading", "Loading document configuration...", 5).to_sse()
             config = await get_document_config(self.db, doc_type_id)
             
             # Step 2: Get handler
-            yield ProgressUpdate("loading", "ðŸ”§ Loading handler...", 10).to_sse()
+            yield ProgressUpdate("loading", "Loading handler...", 10).to_sse()
             handler = get_handler(config["handler_id"])
             
             # Step 3: Check dependencies
-            yield ProgressUpdate("checking", "ðŸ” Checking dependencies...", 15).to_sse()
+            yield ProgressUpdate("checking", "Checking dependencies...", 15).to_sse()
             can_build_now, missing = await self.can_build(doc_type_id, space_type, space_id)
             
             if not can_build_now:
                 yield ProgressUpdate(
                     "error", 
-                    f"âŒ Missing dependencies: {', '.join(missing)}", 
+                    f"Missing dependencies: {', '.join(missing)}", 
                     15,
                     {"missing_dependencies": missing}
                 ).to_sse()
                 return
             
             # Step 4: Gather inputs
-            yield ProgressUpdate("gathering", "ðŸ“¥ Gathering input documents...", 20).to_sse()
+            yield ProgressUpdate("gathering", "Gathering input documents...", 20).to_sse()
             input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
             
             # Step 5: Load prompts
-            yield ProgressUpdate("prompts", "ðŸ“ Loading prompts...", 25).to_sse()
+            yield ProgressUpdate("prompts", "Loading prompts...", 25).to_sse()
             system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
                 role_name=config["builder_role"],
                 task_name=config["builder_task"]
@@ -491,7 +491,7 @@ class DocumentBuilder:
             # =====================================================================
             
             # Step 8: Call LLM (streaming)
-            yield ProgressUpdate("generating", "ðŸ¤– Generating document...", 30).to_sse()
+            yield ProgressUpdate("generating", "Generating document...", 30).to_sse()
             
             accumulated_text = ""
             final_message = None
@@ -510,7 +510,7 @@ class DocumentBuilder:
                             preview = accumulated_text[:100] + "..." if len(accumulated_text) > 100 else accumulated_text
                             yield ProgressUpdate(
                                 "streaming", 
-                                "ðŸ¤– Generating...", 
+                                "Generating...",
                                 min(30 + len(accumulated_text) // 50, 70),
                                 {"preview": preview}
                             ).to_sse()
@@ -556,7 +556,7 @@ class DocumentBuilder:
                 raise
             
             # Step 9: Parse
-            yield ProgressUpdate("parsing", "ðŸ”„ Parsing response...", 75).to_sse()
+            yield ProgressUpdate("parsing", "Parsing response...", 75).to_sse()
             await asyncio.sleep(0.1)
             
             parse_status = None
@@ -607,7 +607,7 @@ class DocumentBuilder:
                 raise
             
             # Step 10: Save
-            yield ProgressUpdate("saving", "ðŸ’¾ Saving document...", 85).to_sse()
+            yield ProgressUpdate("saving", "Saving document...", 85).to_sse()
             
             doc = await self.document_service.create_document(
                 space_type=space_type,
@@ -628,7 +628,7 @@ class DocumentBuilder:
             )
             
             # Step 11: Render
-            yield ProgressUpdate("rendering", "ðŸŽ¨ Rendering document...", 95).to_sse()
+            yield ProgressUpdate("rendering", "Rendering document...", 95).to_sse()
             html = handler.render(result["data"])
             
             # =====================================================================
@@ -658,7 +658,7 @@ class DocumentBuilder:
             # Complete!
             yield ProgressUpdate(
                 "complete",
-                f"ðŸŽ‰ {config['name']} created!",
+                f"{config['name']} created!",
                 100,
                 {
                     "document_id": str(doc.id),
@@ -673,7 +673,7 @@ class DocumentBuilder:
             
         except Exception as e:
             logger.error(f"Stream build failed for {doc_type_id}: {e}", exc_info=True)
-            yield ProgressUpdate("error", f"âŒ Error: {str(e)}", 0).to_sse()
+            yield ProgressUpdate("error", f"Error: {str(e)}", 0).to_sse()
     
     # =========================================================================
     # PRIVATE HELPERS

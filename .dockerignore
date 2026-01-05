@@ -1,0 +1,47 @@
+﻿# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Operations (never in runtime image)
+ops/
+docs/
+recycle/
+
+# Seed is optional - uncomment to include
+# seed/
+
+# CI/CD
+.github/
+
+# Local development
+*.log
+*.txt
+*.sql
+*.ps1
+*.bat
+*.sh

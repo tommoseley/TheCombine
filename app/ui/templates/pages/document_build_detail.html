@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Document Build Details - The Combine{% endblock %}
+
+{% block page_title %}Document Build Details{% endblock %}
+
+{% block header_actions %}
+<a href="/admin/executions" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+    <i data-lucide="arrow-left" class="w-4 h-4 inline mr-1"></i>Back to Executions
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Overview Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-xl font-semibold">{{ run.artifact_type }}</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">{{ run.id }}</p>
+            </div>
+            <div>
+                {% set status = run.status|lower %}
+                {% include "components/status_badge.html" %}
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Project</span>
+                <p class="mt-1 font-medium">{% if run.project_name %}{{ run.project_name }}{% else %}-{% endif %}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{% if run.project_id %}{{ run.project_id[:8] }}...{% else %}-{% endif %}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Role</span>
+                <p class="mt-1 font-medium">{{ run.role }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Model</span>
+                <p class="mt-1 font-medium">{{ run.model_name }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ run.model_provider }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Prompt</span>
+                <p class="mt-1 font-medium">{{ run.prompt_id }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">v{{ run.prompt_version }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Timing & Cost Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Timing & Cost</h3>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Started</span>
+                <p class="mt-1 font-medium">{{ run.started_at|default("-", true) }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Ended</span>
+                <p class="mt-1 font-medium">{{ run.ended_at|default("-", true) }}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Elapsed</span>
+                <p class="mt-1 font-medium">{% if run.elapsed_seconds is not none %}{{ "%.1f"|format(run.elapsed_seconds) }}s{% else %}-{% endif %}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tokens</span>
+                <p class="mt-1 font-medium">{% if run.total_tokens %}{{ "{:,}".format(run.total_tokens) }}{% else %}-{% endif %}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{% if run.input_tokens and run.output_tokens %}{{ "{:,}".format(run.input_tokens) }} in / {{ "{:,}".format(run.output_tokens) }} out{% endif %}</p>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Cost</span>
+                <p class="mt-1 font-medium text-accent dark:text-accent-dark">{% if run.cost_usd is not none %}${{ "%.6f"|format(run.cost_usd) }}{% else %}-{% endif %}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Errors (if any) -->
+    {% if errors %}
+    <div class="bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 p-6">
+        <h3 class="text-lg font-semibold text-red-800 dark:text-red-200 mb-4">
+            <i data-lucide="alert-circle" class="w-5 h-5 inline mr-2"></i>Errors ({{ errors|length }})
+        </h3>
+        <div class="space-y-3">
+            {% for error in errors %}
+            <div class="bg-white dark:bg-gray-800 rounded p-4 border border-red-200 dark:border-red-700">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if error.severity == 'FATAL' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% elif error.severity == 'ERROR' %}bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200{% elif error.severity == 'WARN' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200{% else %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200{% endif %}">{{ error.severity }}</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">{{ error.stage }}</span>
+                    {% if error.error_code %}<span class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ error.error_code }}</span>{% endif %}
+                </div>
+                <p class="text-sm">{{ error.message }}</p>
+                {% if error.details %}
+                <details class="mt-2">
+                    <summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Details</summary>
+                    <pre class="mt-2 text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded overflow-x-auto">{{ error.details|tojson(indent=2) }}</pre>
+                </details>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Inputs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Inputs ({{ inputs|length }})</h3>
+        {% if inputs %}
+        <div class="space-y-4">
+            {% for input in inputs %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-2 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">{{ input.kind }}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ "{:,}".format(input.size) }} bytes</span>
+                        {% if input.redacted %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">REDACTED</span>{% endif %}
+                    </div>
+                </div>
+                <div class="p-4">
+                    {% if input.content %}
+                    <details {% if loop.first %}open{% endif %}>
+                        <summary class="text-sm text-gray-600 dark:text-gray-300 cursor-pointer mb-2">View content</summary>
+                        <pre class="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap">{{ input.content }}</pre>
+                    </details>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">Content not available</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No inputs recorded</p>
+        {% endif %}
+    </div>
+    
+    <!-- Outputs -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Outputs ({{ outputs|length }})</h3>
+        {% if outputs %}
+        <div class="space-y-4">
+            {% for output in outputs %}
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-2 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{{ output.kind }}</span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ "{:,}".format(output.size) }} bytes</span>
+                        {% if output.parse_status %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if output.parse_status == 'PARSED' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}">{{ output.parse_status }}</span>{% endif %}
+                        {% if output.validation_status %}<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if output.validation_status == 'PASSED' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200{% else %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200{% endif %}">{{ output.validation_status }}</span>{% endif %}
+                    </div>
+                </div>
+                <div class="p-4">
+                    {% if output.content %}
+                    <details open>
+                        <summary class="text-sm text-gray-600 dark:text-gray-300 cursor-pointer mb-2">View content</summary>
+                        <pre class="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap">{{ output.content }}</pre>
+                    </details>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">Content not available</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No outputs recorded</p>
+        {% endif %}
+    </div>
+    
+    <!-- Metadata (if any) -->
+    {% if run.metadata %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 class="text-lg font-semibold mb-4">Metadata</h3>
+        <pre class="text-xs bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-x-auto">{{ run.metadata|tojson(indent=2) }}</pre>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

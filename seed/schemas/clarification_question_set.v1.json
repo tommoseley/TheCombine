@@ -1,0 +1,192 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.dev/schemas/clarification_question_set.v1.json",
+  "title": "ClarificationQuestionSetV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "correlation_id", "question_set_kind", "questions", "qa"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "clarification_question_set.v1"
+    },
+    "mode": {
+      "type": "string",
+      "const": "questions_only",
+      "description": "Hard gate: prevents declarative output drift."
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "step_id": {
+      "type": ["string", "null"],
+      "description": "Optional workflow step identifier (if available)."
+    },
+    "question_set_kind": {
+      "type": "string",
+      "enum": [
+        "discovery",
+        "epic_backlog",
+        "story_backlog",
+        "architecture",
+        "qa_remediation",
+        "constraint_resolution",
+        "scope_clarification",
+        "technical_feasibility",
+        "other"
+      ],
+      "description": "Categorizes the purpose of this question set without forking schemas."
+    },
+    "artifact_scope": {
+      "type": "string",
+      "enum": ["project", "epic", "story", "document", "unknown"]
+    },
+    "must_answer_before_proceeding_ids": {
+      "type": ["array", "null"],
+      "description": "Question IDs that MUST be answered before the orchestrator may proceed. Subset of questions[].id values.",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_\\-]{3,64}$"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "intent", "priority", "answer_type", "required"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_\\-]{3,64}$",
+            "description": "Stable-ish local id (e.g., Q1, EPIC_SCOPE, DB_PROVIDER)."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300,
+            "pattern": "^.*\\?$",
+            "description": "Must end with a question mark."
+          },
+          "intent": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240,
+            "description": "Why this question is needed (still phrased descriptively, not prescriptive)."
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["must", "should", "could"]
+          },
+          "answer_type": {
+            "type": "string",
+            "enum": [
+              "free_text",
+              "single_choice",
+              "multi_choice",
+              "yes_no",
+              "number",
+              "date",
+              "uuid",
+              "json_object"
+            ]
+          },
+          "choices": {
+            "type": ["array", "null"],
+            "description": "Required when answer_type is single_choice or multi_choice.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "label"],
+              "properties": {
+                "value": { "type": "string", "minLength": 1, "maxLength": 80 },
+                "label": { "type": "string", "minLength": 1, "maxLength": 120 }
+              }
+            }
+          },
+          "default": {
+            "type": ["string", "number", "boolean", "object", "null"],
+            "description": "Optional. Must not be a leading answer (UI may show as default selection)."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "blocking": {
+            "type": "boolean",
+            "default": true,
+            "description": "If true and unanswered, the worker must not proceed."
+          },
+          "references": {
+            "type": ["array", "null"],
+            "description": "Optional pointers to input artifacts that triggered the question.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "ref"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["schema", "context_doc", "user_prompt", "system_prompt", "other"]
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "answer_type": { "enum": ["single_choice", "multi_choice"] }
+              },
+              "required": ["answer_type"]
+            },
+            "then": {
+              "required": ["choices"],
+              "properties": { "choices": { "type": "array", "minItems": 1 } }
+            },
+            "else": {
+              "properties": { "choices": { "type": ["null"] } }
+            }
+          }
+        ]
+      }
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "non_question_line_count",
+        "declarative_sentence_count",
+        "answer_leadin_count",
+        "all_questions_end_with_qmark"
+      ],
+      "properties": {
+        "non_question_line_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "declarative_sentence_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "answer_leadin_count": {
+          "type": "integer",
+          "const": 0,
+          "description": "Count of prohibited lead-ins like 'Given that', 'We should', 'This means'."
+        },
+        "all_questions_end_with_qmark": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}

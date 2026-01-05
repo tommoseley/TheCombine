@@ -1,0 +1,20 @@
+﻿<table class="data-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Cost</th>
+            <th>Tokens</th>
+            <th>Calls</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for day in daily_data %}
+        <tr>
+            <td>{{ day.date }}</td>
+            <td>${{ day.cost }}</td>
+            <td>{{ "{:,}".format(day.tokens) }}</td>
+            <td>{{ day.calls }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

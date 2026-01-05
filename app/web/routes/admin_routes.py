@@ -6,25 +6,18 @@ Provides administrative views for system configuration:
 - Role prompts and schemas
 """
 
+from app.auth.dependencies import require_admin
+from app.auth.models import User
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from .shared import templates
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
-
-@router.get("", response_class=HTMLResponse)
-@router.get("/", response_class=HTMLResponse)
-async def admin_index(request: Request, db: AsyncSession = Depends(get_db)):
-    """Admin dashboard - redirects to document types for now."""
-    return templates.TemplateResponse(
-        "pages/admin/index.html",
-        {"request": request}
-    )
 
 
 @router.get("/document-types", response_class=HTMLResponse)
@@ -84,10 +77,7 @@ async def admin_document_types(request: Request, db: AsyncSession = Depends(get_
             "task_active": row.task_active,
         })
     
-    return templates.TemplateResponse(
-        "pages/admin/document_types.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request, "pages/admin/document_types.html", {
             "doc_types": doc_types,
         }
     )
@@ -137,11 +127,7 @@ async def admin_document_type_detail(
     row = result.fetchone()
     
     if not row:
-        return templates.TemplateResponse(
-            "pages/admin/not_found.html",
-            {"request": request, "item": "Document Type", "id": doc_type_id},
-            status_code=404
-        )
+        return templates.TemplateResponse(request, "pages/admin/not_found.html", {"item": "Document Type", "id": doc_type_id}, status_code=404)
     
     doc_type = {
         "doc_type_id": row.doc_type_id,
@@ -170,10 +156,7 @@ async def admin_document_type_detail(
         "task_notes": row.task_notes,
     }
     
-    return templates.TemplateResponse(
-        "pages/admin/document_type_detail.html",
-        {
-            "request": request,
+    return templates.TemplateResponse(request, "pages/admin/document_type_detail.html", {
             "doc_type": doc_type,
         }
     )

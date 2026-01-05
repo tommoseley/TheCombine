@@ -1,0 +1,86 @@
+﻿{
+    "generated_at":  "2026-01-02T15:47:00.6568825-05:00",
+    "version":  "1.2.0",
+    "packages":  {
+                     "prompts/tasks":  {
+                                           "files":  [
+                                                         {
+                                                             "sha256":  "24d05e69cfdc9cbd356b562cebfa5baa3066bd07905d73551d2c21fe9894fafc",
+                                                             "path":  "Concierge Intake v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "5ba344bbc0138dba21214074c87b13d8dfd24df052c5332f474f320482b4941a",
+                                                             "path":  "Epic Backlog v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "7c6304f64105e0fba320158f89bd59dacf9f0cf89ef00e0513d7eb830088bdc2",
+                                                             "path":  "Project Discovery Questions v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "b185a6193fc26709cff601259ab851af49d338465e7c26e892460cb56548cf43",
+                                                             "path":  "Project Discovery v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "552bc201d30142359dfd3c7670e2c1ec02262a194faa2e4c24ef87ffdace3ab9",
+                                                             "path":  "Task Prompt Auditor v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "db6532f99ba8131c9b828ffb55a797fbb3fd963e1eb8177e1b460dd3f58bbed7",
+                                                             "path":  "Task Prompt Certification Checklist v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "0c5c6f01345dac857fde465bd24a409b19bdae182f41652dccf6bee24fad41c7",
+                                                             "path":  "Technical Architecture Questions v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "34924ca8554be32554682e50d3f119bb23aa757ccef65c050f5f6e4746530dc0",
+                                                             "path":  "Technical Architecture v1.0.txt"
+                                                         }
+                                                     ]
+                                       },
+                     "prompts/roles":  {
+                                           "files":  [
+                                                         {
+                                                             "sha256":  "738dc4ac710bf759c1863d5813e29a2169a16e7848f8e49f19ebce6cf7a1791d",
+                                                             "path":  "Business Analyst 1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "a2bc537577ea6ad6b6968da55d5e7ab6c402ed115418094c5e8f8cd45c4cacd6",
+                                                             "path":  "Developer 1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "5e17e062592e360dda3540fb8f3c20a90c4342947d0105fbd9af876f6a955ff5",
+                                                             "path":  "Project Manager 1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "a015035ea62b70a1db4330487a7b1c8a75e1a3aeb2cae1dbfe09bf65d189022e",
+                                                             "path":  "Quality Assurance 1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "9a820f4dfd8f779f21375ff56278c1e740e49e937a7eb1014cffed0dfa200429",
+                                                             "path":  "Role Prompt Auditor 1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "f0784d2388eb8cc60f247ed0eadd5643c7afb503e3a53ba5fb15b1de20db3123",
+                                                             "path":  "Role Prompt Certification Checklist v1.0.txt"
+                                                         },
+                                                         {
+                                                             "sha256":  "4c5047cbc22cef77152c1b985e02db95cab4575ed61689e7ef3b80bbfa35fc6e",
+                                                             "path":  "Technical Architect 1.0.txt"
+                                                         }
+                                                     ]
+                                       },
+                     "schemas":  {
+                                     "files":  [
+                                                   {
+                                                       "sha256":  "c27bcdcbf7b392d1bc98b56f916f1c37e797ea67fbc24262c9fa74406763b756",
+                                                       "path":  "clarification_question_set.v1.json"
+                                                   },
+                                                   {
+                                                       "sha256":  "a10c5dfb676f69a7130d94b32569de7e376cee914d9ed55718ad0ab1b06eae1f",
+                                                       "path":  "intake_gate_result.v1.json"
+                                                   }
+                                               ]
+                                 }
+                 }
+}

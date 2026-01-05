@@ -8,6 +8,7 @@ Stage 5: Auth Middleware
 """
 from typing import Optional, Tuple
 from fastapi import Request, HTTPException, Depends, status
+from fastapi.responses import RedirectResponse
 from uuid import UUID
 import os
 import logging
@@ -182,3 +183,41 @@ async def get_optional_auth_context(
         token_id=None,  # Session auth, not token auth
         csrf_token=csrf_token
     )
+
+async def require_admin(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """
+    Require admin access.
+    
+    Checks if user is authenticated and is in admin allowlist.
+    Raises HTTPException with 302 redirect to home if not authenticated or not admin.
+    
+    Args:
+        request: FastAPI Request
+        db: Database session
+        
+    Returns:
+        User object if admin
+        
+    Raises:
+        HTTPException 302: redirect to home if not authenticated or not admin
+    """
+    result = await get_optional_user(request, db)
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_302_FOUND,
+            headers={"Location": "/"}
+        )
+    
+    user, _, _ = result
+    
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_302_FOUND,
+            headers={"Location": "/"}
+        )
+    
+    return user

@@ -262,14 +262,14 @@ async def link_callback(
             
             # Redirect to accounts page with success message
             return RedirectResponse(
-                url='/auth/accounts?linked=success',
+                url='/static/accounts.html?linked=success',
                 status_code=302
             )
         else:
             # Already linked (idempotent)
             logger.info(f"{provider_id} already linked to user {intended_user_id}")
             return RedirectResponse(
-                url='/auth/accounts?linked=already',
+                url='/static/accounts.html?linked=already',
                 status_code=302
             )
             

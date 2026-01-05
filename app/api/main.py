@@ -1,4 +1,4 @@
-﻿"""
+"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -9,11 +9,13 @@ import os
 load_dotenv()
 
 from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import FileResponse
 from datetime import datetime
+from contextlib import asynccontextmanager
 import logging
 
 
@@ -36,6 +38,10 @@ from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay 
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
+
+# Phase 8-10 routers (workflows, executions, telemetry, dashboard)
+from app.api.v1 import api_router as v1_router
+from app.ui.routers import pages_router, dashboard_router, partials_router, documents_router
 # Import middleware
 from app.api.middleware import (
     error_handling,
@@ -51,42 +57,48 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# LIFESPAN (startup/shutdown)
+# ============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup and shutdown."""
+    # Startup
+    logger.info("Starting The Combine API")
+    set_startup_time(datetime.utcnow())
+    
+    try:
+        await init_database()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
+    
+    logger.info("The Combine API started successfully")
+    logger.info(f"API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down The Combine API...")
+
 # Create FastAPI app
 app = FastAPI(
     title="The Combine",
     description="AI-driven pipeline automation system",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Mount static files from app/web directory
 app.mount("/web", StaticFiles(directory="app/web"), name="web")
-app.mount("/static", StaticFiles(directory="app/web/static"), name="static")
+app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
 
 # ============================================================================
-# STARTUP
-# ============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup."""
-    logger.info("Starting The Combine API")
-    
-    # Set startup time
-    set_startup_time(datetime.utcnow())
-    
-    # Initialize database
-    try:
-        await init_database()
-        logger.info("âœ… Database initialized")
-    except Exception as e:
-        logger.error(f"âŒ Database initialization failed: {e}")
-        raise
-    
-    logger.info("âœ… The Combine API started successfully")
-    logger.info(f"ðŸ“š API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
-
 @app.get("/test-session")
 async def test_session(request: Request):
     """Test if sessions work"""
@@ -98,10 +110,6 @@ async def test_session(request: Request):
         "check": "Look for combine_session cookie in DevTools"
     }
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown."""
-    logger.info("Shutting down The Combine API...")
 
 
 # ============================================================================
@@ -167,6 +175,13 @@ app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
 app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
 app.include_router(protected_router)
 app.include_router(accounts_router)
+
+# Phase 8-10: Workflow execution engine routes
+app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions
+app.include_router(dashboard_router)  # /dashboard, /dashboard/costs - must be before pages_router
+app.include_router(documents_router)  # /admin/documents UI pages
+app.include_router(pages_router)  # /workflows, /executions UI pages
+app.include_router(partials_router)  # HTMX partials
 
 
 # ============================================================================
