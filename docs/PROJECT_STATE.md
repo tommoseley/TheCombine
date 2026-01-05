@@ -5,27 +5,22 @@
 Execution constraints for AI collaborators are defined in AI.MD and are considered binding.
 
 ## Current Status
-**All 10 Implementation Phases Complete** - Production-ready system with comprehensive Admin UI
+**All 10 Implementation Phases Complete** - Production-ready system deployed to AWS
 
 ## Test Summary
-- **Total Tests:** 940 passing
+- **Total Tests:** 943 passing
 - **Phase 0-2 (Core Engine):** Validator, Step Executor, Workflow Executor
 - **Phase 3-7:** HTTP API, UI Integration, LLM Integration, Authentication
 - **Phase 8-10:** API Integration, E2E Testing, Production Hardening
+- **Template Integrity:** Tests ensure all extends/includes resolve correctly
 
 ---
 
-## Session: January 5, 2026 (Continued)
+## Session: January 5, 2026
 
-### UI Consolidation
+### UI Consolidation Complete
 
-Consolidated split UI structure into unified `app/web/` with admin/public subfolders:
-
-**Previous Structure (DELETED):**
-```
-app/ui/           <- Admin routes, templates, static (DELETED)
-app/web/          <- Public routes, templates, static
-```
+Consolidated split UI structure into unified `app/web/` with admin/public subfolders.
 
 **New Unified Structure:**
 ```
@@ -34,7 +29,6 @@ app/web/
     admin/        <- dashboard.py, pages.py, documents.py, partials.py, admin_routes.py
     public/       <- home_routes.py, project_routes.py, document_routes.py, etc.
     shared.py     <- Jinja2 templates, filters (localtime, pluralize)
-    __init__.py   <- Main router
   templates/
     admin/        <- Admin pages, components, partials
     public/       <- Public pages, layout, components
@@ -47,10 +41,26 @@ app/web/
 - Moved `app/ui/routers/*` to `app/web/routes/admin/`
 - Moved `app/ui/templates/*` to `app/web/templates/admin/`
 - Moved `app/ui/static/*` to `app/web/static/admin/`
-- Updated template include paths: `"components/..."` → `"public/components/..."`
+- Updated all template `{% extends %}` and `{% include %}` paths to use `public/` prefix
 - Updated static URLs: `/web/static/public/login.html`
 - Updated test imports: `app.ui.routers` → `app.web.routes.admin`
 - Deleted `app/ui/` directory entirely
+
+### Template Path Fixes
+
+Fixed template extends statements that were missing `public/` prefix:
+- `document_page.html`: `{% extends "layout/base.html" %}` → `{% extends "public/layout/base.html" %}`
+- `document_wrapper.html`: `{% extends "pages/app_base.html" %}` → `{% extends "public/pages/app_base.html" %}`
+- `project_detail.html`: `{% extends "layout/base.html" %}` → `{% extends "public/layout/base.html" %}`
+
+### New Template Integrity Tests
+
+Added `tests/ui/test_template_integrity.py`:
+- **test_public_templates_extend_correctly** - Validates all public templates load via Jinja2
+- **test_admin_templates_extend_correctly** - Validates all admin templates load via Jinja2
+- **test_no_orphan_extends_in_public** - Scans source for extends/includes missing `public/` prefix
+
+These tests will catch template path issues before deployment.
 
 ### CI/Docker Fixes
 
@@ -67,43 +77,23 @@ app/web/
 - Changed blanket `seed/` exclusion to explicit subdirectory exclusions
 
 **Fixed login page 404:**
-- `/static/login.html` returned 404
 - Correct path: `/web/static/public/login.html`
 - Updated all references in templates
 
----
+### AWS Deployment
 
-## Previous Session Work (January 5, 2026)
+**Current State:** Site deployed and running on AWS ECS Fargate
+- DNS: `thecombine.ai` pointing to Fargate task public IP
+- HTTP only (no HTTPS yet - ALB blocked)
 
-### Admin UI - Unified Executions & Costs
+**ALB Issue:**
+- Error: "This AWS account currently does not support creating load balancers"
+- Not a quota issue (50 ALBs allowed, 0 used)
+- Not an SCP issue (only FullAWSAccess policy)
+- Support tickets filed for us-east-1 and us-east-2
+- Awaiting AWS response
 
-**Unified Executions Page** (`/admin/executions`)
-- Combined workflow executions and document builds in single view
-- Source filter dropdown: All Sources / Workflows Only / Document Builds Only
-- Status filter: All / Running / In Progress / Success / Completed / Failed / Cancelled
-- Date range filtering with `date_from` and `date_to` parameters
-- Source column with badges: purple "Workflow" or blue "Doc Build"
-
-**Execution Details Page** (`/admin/executions/{id}`)
-- Document build details: Project, role, model, prompt, timing, tokens, cost
-- Expandable inputs/outputs sections
-- Error display with severity badges
-
-**Unified Costs Dashboard** (`/admin/dashboard/costs`)
-- Combined workflow telemetry and document build costs
-- Stacked bar chart: Purple for workflows, Blue for documents
-
-**Main Dashboard Updates** (`/admin`)
-- "Recent Activity" with combined executions and document builds
-- "Doc Builds Today" stat
-
-### Public UI - Document Headers
-- Reusable `_document_header.html` partial
-- `localtime` Jinja2 filter for UTC to local timezone
-
-### Navigation Fixes
-- Back button changed from HTMX to regular anchor tags
-- HTMX partial responses check `HX-Request` header
+**Workaround:** Using `fixip.ps1` to update Route 53 after each deployment
 
 ---
 
@@ -125,23 +115,6 @@ Persistence Layer (DocumentRepository, ExecutionRepository, TelemetryStore)
 PostgreSQL
 ```
 
-## Workflow Engine Components
-
-```
-WorkflowExecutor
-    +-- StepExecutor
-    |   +-- PromptLoader
-    |   +-- InputResolver
-    |   +-- LLMService (protocol)
-    |   +-- ClarificationGate
-    |   +-- QAGate
-    |   +-- RemediationLoop
-    +-- WorkflowContext
-    +-- IterationHandler
-    +-- AcceptanceGate
-    +-- StatePersistence
-```
-
 ## Web UI Structure
 
 ```
@@ -161,7 +134,7 @@ app/web/
     shared.py             <- Templates, filters
   templates/
     admin/                <- Admin templates
-    public/               <- Public templates
+    public/               <- Public templates (use public/ prefix in extends/includes)
   static/
     admin/                <- Admin CSS/JS
     public/               <- Login, accounts pages
@@ -178,33 +151,30 @@ app/web/
 | ADR-024 | Accepted | Clarification Question Protocol |
 | ADR-027 | Accepted | Workflow Definition & Governance |
 
-## Pending Work: ADR-011 Document Ownership
+## Pending Work
 
-Document ownership model is accepted but **not yet implemented**:
-
-**Missing Schema:**
+**ADR-011 Document Ownership** (not yet implemented):
 - `parent_document_id` column on `documents` table
-- `parent`/`children` ORM relationships
-- Database migration
+- Cycle detection, scope validation, deletion guard
+- UI for hierarchical document navigation
 
-**Missing Enforcement:**
-- Cycle detection (DAG validation)
-- Scope validation
-- Deletion guard
-- Workflow ownership validation
+**Infrastructure:**
+- ALB creation (blocked, ticket pending)
+- HTTPS termination (requires ALB)
 
 ## Open Threads
 
-- ADR-011 implementation
 - `recycle/` folder needs review then deletion
 - Automated seed manifest regeneration script
 
 ## Deployment
 
 - **Compute:** AWS ECS Fargate (cluster: `the-combine-cluster`)
-- **DNS:** `thecombine.ai` (port 8000, HTTP only)
+- **DNS:** `thecombine.ai` (HTTP only, direct to task IP)
 - **Database:** RDS PostgreSQL
-- **CI/CD:** GitHub Actions to ECR to ECS to Route 53
+- **CI/CD:** GitHub Actions to ECR to ECS
+
+**Post-Deploy Script:** `fixip.ps1` updates Route 53 with new task IP
 
 ## Run Tests
 
