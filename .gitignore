@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 *.class
@@ -24,6 +24,7 @@ htmlcov/
 # Environment
 .env
 .env.*
+!.env.example
 
 # Secrets and sensitive data
 *secret*
