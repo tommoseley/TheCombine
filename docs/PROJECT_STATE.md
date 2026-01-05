@@ -15,7 +15,65 @@ Execution constraints for AI collaborators are defined in AI.MD and are consider
 
 ---
 
-## Session: January 5, 2026
+## Session: January 5, 2026 (Continued)
+
+### UI Consolidation
+
+Consolidated split UI structure into unified `app/web/` with admin/public subfolders:
+
+**Previous Structure (DELETED):**
+```
+app/ui/           <- Admin routes, templates, static (DELETED)
+app/web/          <- Public routes, templates, static
+```
+
+**New Unified Structure:**
+```
+app/web/
+  routes/
+    admin/        <- dashboard.py, pages.py, documents.py, partials.py, admin_routes.py
+    public/       <- home_routes.py, project_routes.py, document_routes.py, etc.
+    shared.py     <- Jinja2 templates, filters (localtime, pluralize)
+    __init__.py   <- Main router
+  templates/
+    admin/        <- Admin pages, components, partials
+    public/       <- Public pages, layout, components
+  static/
+    admin/        <- CSS/JS (websocket.js, styles.css)
+    public/       <- login.html, accounts.html
+```
+
+**Changes Made:**
+- Moved `app/ui/routers/*` to `app/web/routes/admin/`
+- Moved `app/ui/templates/*` to `app/web/templates/admin/`
+- Moved `app/ui/static/*` to `app/web/static/admin/`
+- Updated template include paths: `"components/..."` → `"public/components/..."`
+- Updated static URLs: `/web/static/public/login.html`
+- Updated test imports: `app.ui.routers` → `app.web.routes.admin`
+- Deleted `app/ui/` directory entirely
+
+### CI/Docker Fixes
+
+**Fixed `.env.example` tracking:**
+- File was excluded by `.gitignore` pattern `.env.*`
+- Added exception: `!.env.example`
+
+**Fixed Docker build:**
+- Dockerfile referenced non-existent `workflows/` (should be `seed/workflows/`)
+- Fixed path: `COPY seed/workflows/ /app/seed/workflows/`
+- Fixed casing: `as` → `AS` for Docker best practices
+- `.dockerignore` was blocking `requirements.txt` (all `*.txt`)
+- Added exceptions for requirements files
+- Changed blanket `seed/` exclusion to explicit subdirectory exclusions
+
+**Fixed login page 404:**
+- `/static/login.html` returned 404
+- Correct path: `/web/static/public/login.html`
+- Updated all references in templates
+
+---
+
+## Previous Session Work (January 5, 2026)
 
 ### Admin UI - Unified Executions & Costs
 
@@ -25,98 +83,27 @@ Execution constraints for AI collaborators are defined in AI.MD and are consider
 - Status filter: All / Running / In Progress / Success / Completed / Failed / Cancelled
 - Date range filtering with `date_from` and `date_to` parameters
 - Source column with badges: purple "Workflow" or blue "Doc Build"
-- All executions now clickable with "View" link to details
 
 **Execution Details Page** (`/admin/executions/{id}`)
-- Created `document_build_detail.html` template for document builds
-- Shows: Project ID/Name, role, model, prompt ID/version
-- Timing: Started, Ended, Elapsed seconds
-- Tokens: Input/Output/Total with formatted numbers
-- Cost: USD with 6 decimal precision
-- Inputs section: Expandable content with kind, size, redacted status
-- Outputs section: Expandable content with parse/validation status badges
-- Errors section: Severity badges (FATAL/ERROR/WARN), stage, expandable details
-- Metadata section: JSON display if present
+- Document build details: Project, role, model, prompt, timing, tokens, cost
+- Expandable inputs/outputs sections
+- Error display with severity badges
 
 **Unified Costs Dashboard** (`/admin/dashboard/costs`)
 - Combined workflow telemetry and document build costs
-- Source filter: All Sources / Workflows Only / Document Builds Only
-- Daily breakdown table with Workflow/Documents cost columns
-- Stacked bar chart (Chart.js): Purple for workflows, Blue for documents
-- Aggregates from both `workflow_executions` and `llm_run` tables
+- Stacked bar chart: Purple for workflows, Blue for documents
 
 **Main Dashboard Updates** (`/admin`)
-- "Recent Activity" section (renamed from "Recent Executions")
-- Shows combined workflow executions and document builds
-- Source badges on each row
-- "Doc Builds Today" stat with clickable link to filtered executions
-- View links on all activity rows
-
-**Date/Time Handling**
-- All dates stored as UTC in database
-- Display timezone: America/New_York (Eastern Time)
-- `DISPLAY_TZ` constant in `pages.py` for consistent conversion
-- Date filters: "from X to X" means 00:00 to 23:59:59 of that day
+- "Recent Activity" with combined executions and document builds
+- "Doc Builds Today" stat
 
 ### Public UI - Document Headers
-
-**Document Header Partial** (`_document_header.html`)
-- Reusable header for all document content templates
-- Breadcrumb navigation: Project Name / Document Type
-- Icon, title, description
-- "Prepared: [date/time]" in local timezone
-
-**Updated Document Templates**
-- `_project_discovery_content.html` - uses header partial
-- `_technical_architecture_content.html` - uses header partial
-- `_epic_backlog_content.html` - uses header partial
-- `_story_backlog_content.html` - uses header partial
-
-**Jinja2 Filters** (`shared.py`)
-- Added `localtime` filter for UTC to local timezone conversion
-- Format: "January 05, 2026 at 3:45 PM"
+- Reusable `_document_header.html` partial
+- `localtime` Jinja2 filter for UTC to local timezone
 
 ### Navigation Fixes
-
-**Back Button Fix**
-- Changed HTMX navigation to regular anchor tags in `project_inspector.html`
-- Back button now performs full page reload with proper layout
-- Prevents cached partial responses from breaking layout
-
-**HTMX Partial Responses**
-- `executions_list()` now checks `HX-Request` header
-- Returns partial (`execution_list.html`) for HTMX requests
-- Returns full page (`executions.html`) for browser navigation
-- Prevents nested layout issue when using date filters
-
-### Files Modified
-
-**Backend Routes:**
-- `app/ui/routers/pages.py` - Unified executions, date filtering, timezone handling
-- `app/ui/routers/dashboard.py` - Unified costs from both sources
-- `app/web/routes/shared.py` - Added `localtime` Jinja2 filter
-
-**Admin Templates:**
-- `app/ui/templates/pages/dashboard.html` - Recent Activity, Doc Builds Today link
-- `app/ui/templates/pages/executions.html` - Source and date filters
-- `app/ui/templates/partials/execution_list.html` - Source badges, View links
-- `app/ui/templates/pages/dashboard/costs.html` - Source filter, stacked chart
-- `app/ui/templates/pages/document_build_detail.html` - NEW: Execution details
-
-**Public Templates:**
-- `app/web/templates/pages/partials/_document_header.html` - NEW: Shared header
-- `app/web/templates/pages/partials/_project_discovery_content.html` - Uses header
-- `app/web/templates/pages/partials/_technical_architecture_content.html` - Uses header
-- `app/web/templates/pages/partials/_epic_backlog_content.html` - Uses header
-- `app/web/templates/pages/partials/_story_backlog_content.html` - Uses header
-- `app/web/templates/components/project_inspector.html` - Regular links (not HTMX)
-
-**Tests Updated:**
-- `tests/ui/test_dashboard.py` - "Recent Activity" text, db mocks
-- `tests/ui/test_executions.py` - db mocks
-- `tests/ui/test_websocket_polish.py` - "Recent Activity" test, db mocks
-- `tests/ui/test_dashboard_costs.py` - db mocks
-- `tests/e2e/test_ui_integration.py` - db mocks
+- Back button changed from HTMX to regular anchor tags
+- HTMX partial responses check `HX-Request` header
 
 ---
 
@@ -155,6 +142,31 @@ WorkflowExecutor
     +-- StatePersistence
 ```
 
+## Web UI Structure
+
+```
+app/web/
+  routes/
+    admin/                <- Admin UI routes (require_admin)
+      dashboard.py        <- Cost dashboard
+      pages.py            <- Workflows, executions, dashboard index
+      documents.py        <- Document management
+      partials.py         <- HTMX partials
+      admin_routes.py     <- Admin API routes
+    public/               <- Public UI routes
+      home_routes.py      <- Home page
+      project_routes.py   <- Project CRUD
+      document_routes.py  <- Document viewing
+      search_routes.py    <- Global search
+    shared.py             <- Templates, filters
+  templates/
+    admin/                <- Admin templates
+    public/               <- Public templates
+  static/
+    admin/                <- Admin CSS/JS
+    public/               <- Login, accounts pages
+```
+
 ## Governing ADRs
 
 | ADR | Status | Summary |
@@ -168,7 +180,7 @@ WorkflowExecutor
 
 ## Pending Work: ADR-011 Document Ownership
 
-Reviewed ADR-011-Part-2. Document ownership model is accepted but **not yet implemented**:
+Document ownership model is accepted but **not yet implemented**:
 
 **Missing Schema:**
 - `parent_document_id` column on `documents` table
@@ -177,30 +189,15 @@ Reviewed ADR-011-Part-2. Document ownership model is accepted but **not yet impl
 
 **Missing Enforcement:**
 - Cycle detection (DAG validation)
-- Scope validation (child scope ≤ parent scope)
-- Deletion guard (prevent deleting parent with children)
+- Scope validation
+- Deletion guard
 - Workflow ownership validation
-
-**Missing UI:**
-- Child document queries
-- Epic → Story ownership traversal in sidebar
-- Hierarchical document navigation
-
-**Required Tests (per ADR-011-Part-2):**
-1. Hierarchy Creation
-2. Cycle Prevention
-3. Scope Violation
-4. Workflow Ownership Violation
-5. Deletion Guard
-
-This is significant work for a future session.
 
 ## Open Threads
 
-- ADR-011 implementation (see above)
+- ADR-011 implementation
 - `recycle/` folder needs review then deletion
 - Automated seed manifest regeneration script
-- Anthropic API key rotation (was exposed in prior commit)
 
 ## Deployment
 
@@ -215,12 +212,6 @@ This is significant work for a future session.
 cd "C:\Dev\The Combine"
 python -m pytest tests/ -v
 ```
-
-## Documentation
-
-- `docs/implementation-plans/COMPLETE-IMPLEMENTATION-SUMMARY.md` - Full 10-phase summary
-- `docs/adr/ADR-INVENTORY.md` - Complete ADR listing and status
-- `docs/session_logs/` - Session history
 
 ---
 _Last updated: 2026-01-05_
