@@ -37,108 +37,75 @@ app/web/
     public/       <- login.html, accounts.html
 ```
 
-**Changes Made:**
-- Moved `app/ui/routers/*` to `app/web/routes/admin/`
-- Moved `app/ui/templates/*` to `app/web/templates/admin/`
-- Moved `app/ui/static/*` to `app/web/static/admin/`
-- Updated all template `{% extends %}` and `{% include %}` paths to use `public/` prefix
-- Updated static URLs: `/web/static/public/login.html`
-- Updated test imports: `app.ui.routers` → `app.web.routes.admin`
-- Deleted `app/ui/` directory entirely
-
 ### Template Path Fixes
 
-Fixed template extends statements that were missing `public/` prefix:
-- `document_page.html`: `{% extends "layout/base.html" %}` → `{% extends "public/layout/base.html" %}`
-- `document_wrapper.html`: `{% extends "pages/app_base.html" %}` → `{% extends "public/pages/app_base.html" %}`
-- `project_detail.html`: `{% extends "layout/base.html" %}` → `{% extends "public/layout/base.html" %}`
+Fixed template extends statements missing `public/` prefix in document_page.html, document_wrapper.html, project_detail.html.
 
 ### New Template Integrity Tests
 
-Added `tests/ui/test_template_integrity.py`:
-- **test_public_templates_extend_correctly** - Validates all public templates load via Jinja2
-- **test_admin_templates_extend_correctly** - Validates all admin templates load via Jinja2
-- **test_no_orphan_extends_in_public** - Scans source for extends/includes missing `public/` prefix
+Added `tests/ui/test_template_integrity.py` - catches template path issues before deployment.
 
-These tests will catch template path issues before deployment.
+### Documentation Cleanup
 
-### CI/Docker Fixes
+**Archived (moved to docs/archive/):**
+- ARCHITECTURE-RESTRUCTURE-PROPOSAL-v3.md
+- document-centric-execution-plan.md
+- interface-architecture-plan.md
+- TEMPLATE_PATTERN.md, TEMPLATE_PATTERN_V2.md, Template Pattern V2 Implementation.md
+- MODEL-SELECTION-IMPLEMENTATION.md
+- STAGE_6_INSTALLATION.md
+- PHASE-11-SHAKEDOWN.md
+- FSO-1 - Floating Status Overlay.txt
 
-**Fixed `.env.example` tracking:**
-- File was excluded by `.gitignore` pattern `.env.*`
-- Added exception: `!.env.example`
+**Pending Review (duplicates in Project Knowledge):**
+- the-combine-design-manifesto.md
+- the-combine-design-constitution-and-design-tokens.md
+- The Combine - Canonical Coding Standards.md
+- the-combine-architecture-design-record.md
+- the-combine-architecture-ux-reference.md
+- the-combine-ui-constitution-v2.md
 
-**Fixed Docker build:**
-- Dockerfile referenced non-existent `workflows/` (should be `seed/workflows/`)
-- Fixed path: `COPY seed/workflows/ /app/seed/workflows/`
-- Fixed casing: `as` → `AS` for Docker best practices
-- `.dockerignore` was blocking `requirements.txt` (all `*.txt`)
-- Added exceptions for requirements files
-- Changed blanket `seed/` exclusion to explicit subdirectory exclusions
+### ADR-011-Part-2 Updated (v0.92)
 
-**Fixed login page 404:**
-- Correct path: `/web/static/public/login.html`
-- Updated all references in templates
-
-### AWS Deployment
-
-**Current State:** Site deployed and running on AWS ECS Fargate
-- DNS: `thecombine.ai` pointing to Fargate task public IP
-- HTTP only (no HTTPS yet - ALB blocked)
-
-**ALB Issue:**
-- Error: "This AWS account currently does not support creating load balancers"
-- Not a quota issue (50 ALBs allowed, 0 used)
-- Not an SCP issue (only FullAWSAccess policy)
-- Support tickets filed for us-east-1 and us-east-2
-- Awaiting AWS response
-
-**Workaround:** Using `fixip.ps1` to update Route 53 after each deployment
+Document ownership implementation ADR updated with:
+- Canonical scope ordering: org=400, project=300, epic=200, story=100, file=0
+- Cycle detection algorithm (walk parent chain)
+- ON DELETE RESTRICT for orphan prevention
+- Migration path (NULL by default)
+- Section 4 clarifies generation deps vs UI/navigation
+- Implementation order guidance
 
 ---
 
-## Architecture Overview
+## AWS Infrastructure
 
-```
-UI Layer (HTMX, Chart.js, SSE Client)
-           |
-API Layer (Workflows, Documents, Executions, Telemetry)
-           |
-Service Layer (LLMExecutionService, ProgressPublisher, TelemetryService)
-           |
-Execution Layer (LLMStepExecutor, ExecutionContext, QualityGates)
-           |
-LLM Layer (Anthropic Provider, PromptBuilder, ResponseParser)
-           |
-Persistence Layer (DocumentRepository, ExecutionRepository, TelemetryStore)
-           |
-PostgreSQL
-```
+### Current Environment (Staging)
 
-## Web UI Structure
+| Resource | Name/ID | Status |
+|----------|---------|--------|
+| **ECS Cluster** | `the-combine-cluster` | ✅ Running |
+| **ECS Service** | `the-combine-service` | ✅ Running |
+| **Task Definition** | `the-combine-task` | ✅ Active |
+| **ECR Repository** | `the-combine` | ✅ Active |
+| **RDS PostgreSQL** | (default) | ✅ Running |
+| **Route 53** | `thecombine.ai` | ✅ Configured |
+| **ACM Certificate** | `thecombine.ai` + `*.thecombine.ai` | ✅ Issued |
+| **Target Group** | `the-combine-tg` (IP, port 8000) | ✅ Created |
+| **ALB** | - | ❌ Blocked (ticket pending) |
 
-```
-app/web/
-  routes/
-    admin/                <- Admin UI routes (require_admin)
-      dashboard.py        <- Cost dashboard
-      pages.py            <- Workflows, executions, dashboard index
-      documents.py        <- Document management
-      partials.py         <- HTMX partials
-      admin_routes.py     <- Admin API routes
-    public/               <- Public UI routes
-      home_routes.py      <- Home page
-      project_routes.py   <- Project CRUD
-      document_routes.py  <- Document viewing
-      search_routes.py    <- Global search
-    shared.py             <- Templates, filters
-  templates/
-    admin/                <- Admin templates
-    public/               <- Public templates (use public/ prefix in extends/includes)
-  static/
-    admin/                <- Admin CSS/JS
-    public/               <- Login, accounts pages
-```
+### Environment Variables (ECS Task Definition)
+- `ADMIN_EMAILS` = `tommoseley@outlook.com` ✅ Configured
+
+### ALB Issue
+Support tickets filed for **us-east-1** and **us-east-2**. Awaiting AWS response.
+
+### Current Workaround
+Using `fixip.ps1` to update Route 53 A record after each deployment.
+
+### Future: Production Environment
+Current environment will become **staging**, new environment for **production**.
+
+---
 
 ## Governing ADRs
 
@@ -146,35 +113,27 @@ app/web/
 |-----|--------|---------|
 | ADR-009 | Complete | Project Audit - all state changes explicit and traceable |
 | ADR-010 | Complete | LLM Execution Logging - inputs, outputs, replay capability |
-| ADR-011 | Accepted | Document Ownership Model - pattern defined, implementation pending |
+| ADR-011 | Accepted | Document Ownership Model - conceptual |
+| ADR-011-Part-2 | Draft v0.92 | Document Ownership Implementation - ready for next session |
 | ADR-012 | Accepted | Interaction Model - closed-loop execution, QA as veto |
 | ADR-024 | Accepted | Clarification Question Protocol |
 | ADR-027 | Accepted | Workflow Definition & Governance |
 
-## Pending Work
+## Next Session: ADR-011 Implementation
 
-**ADR-011 Document Ownership** (not yet implemented):
-- `parent_document_id` column on `documents` table
-- Cycle detection, scope validation, deletion guard
-- UI for hierarchical document navigation
-
-**Infrastructure:**
-- ALB creation (blocked, ticket pending)
-- HTTPS termination (requires ALB)
+Implementation order:
+1. Schema migration (`parent_document_id` + FK + index)
+2. ORM relationships (`parent`, `children`)
+3. Deletion guard
+4. Cycle detection
+5. Scope validation
+6. Tests for all five categories
+7. UI traversal queries
 
 ## Open Threads
 
 - `recycle/` folder needs review then deletion
-- Automated seed manifest regeneration script
-
-## Deployment
-
-- **Compute:** AWS ECS Fargate (cluster: `the-combine-cluster`)
-- **DNS:** `thecombine.ai` (HTTP only, direct to task IP)
-- **Database:** RDS PostgreSQL
-- **CI/CD:** GitHub Actions to ECR to ECS
-
-**Post-Deploy Script:** `fixip.ps1` updates Route 53 with new task IP
+- Docs cleanup: review duplicates vs Project Knowledge
 
 ## Run Tests
 
