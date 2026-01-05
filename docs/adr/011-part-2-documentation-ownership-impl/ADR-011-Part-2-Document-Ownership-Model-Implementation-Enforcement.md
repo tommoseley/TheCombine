@@ -1,6 +1,6 @@
-# ADR-011-Part-2 â€” Document Ownership Model (Implementation & Enforcement)
+﻿# ADR-011-Part-2 â€” Document Ownership Model (Implementation & Enforcement)
 
-**Status:** Draft (v0.92)  
+**Status:** Draft (v0.93)  
 **Extends:** ADR-011 â€” Document Ownership Model  
 **Related ADRs:**
 - ADR-009 â€” Audit & Governance
@@ -88,48 +88,69 @@ This prevents:
 
 Implementations MAY impose a maximum chain depth to prevent pathological structures from degrading performance.
 
-### 3.3 Scope Consistency
+### 3.3 Two-Layer Ownership Validation
 
-Each document has a declared scope (e.g., project, epic, story). Scope ordering MUST be explicit.
+Ownership validation occurs in two distinct layers, checked in order.
 
-#### 3.3.1 Canonical Scope Ordering
+#### 3.3.1 Layer 1: Ownership Validity (Graph-Based, Primary)
 
-The system defines the following ordering:
-
-| Scope | Rank | Notes |
-|-------|------|-------|
-| organization | 400 | Optional / if implemented |
-| project | 300 | Root for most workflows |
-| epic | 200 | Child of project |
-| story | 100 | Child of epic |
-| file | 0 | Leaf (code files, assets) |
+Workflow definitions declare which document types may own others via `may_own` arrays.
 
 **Rule:**
 
-Child scope rank MUST be â‰¤ parent scope rank.
+When setting `child.parent_document_id = parent.id`, the system MUST verify that the parent's document type is permitted to own the child's document type per the active workflow.
 
-This prevents invalid structures such as a project document being owned by a story document.
+This is the primary ownership check. If the workflow schema is consistent, this implicitly enforces scope correctness.
 
-Scope validation is enforced at write time.
+**Enforcement:**
 
-### 3.4 Workflow-Declared Ownership
+- Ownership validity is enforced only during active workflow execution
+- Global workflow policing (outside workflow context) is not required for MVP
+- If no workflow context is available, only hard invariants (Section 3.1, 3.2) apply
 
-Workflow definitions (ADR-027) declare which document types may own others.
+#### 3.3.2 Layer 2: Scope Monotonicity (Derived, Secondary)
 
-**Enforcement occurs in two layers:**
+Scope ordering is derived from the workflow's ownership hierarchy, not fixed constants.
 
-1. **Hard invariants** (always enforced):
-   - Single parent
-   - No cycles
-   - Scope ordering
+**Derivation Rules:**
 
-2. **Workflow constraints** (enforced when workflows are active):
-   - Parent/child document types MUST conform to the active workflow's ownership rules
+1. Scope depth is computed by walking the parent chain in `workflow["scopes"]`
+2. Root scopes (`parent: null`) have depth 0
+3. Child scopes have depth = parent_depth + 1
+4. Higher depth = narrower scope (e.g., story is deeper than epic, epic is deeper than project)
+
+**Comparability:**
+
+Scope comparisons are only valid within a workflow-defined ancestry chain.
+
+| Relationship | Comparable? | Action |
+|--------------|-------------|--------|
+| A is ancestor of B | Yes | Compare depths |
+| A equals B | Yes | Compare depths (equal) |
+| A is descendant of B | Yes | Compare depths |
+| A and B share no ancestry | No | Reject explicitly |
+
+**Rule:**
+
+Child document scope depth MUST be ≥ parent document scope depth.
+
+If scopes are incomparable (not on same ancestry chain), the ownership assignment MUST fail explicitly.
+
+### 3.4 Enforcement Summary
+
+**Hard invariants (always enforced, no workflow required):**
+
+1. Single parent (structural via `parent_document_id`)
+2. No cycles (write-time DAG check)
+
+**Workflow constraints (enforced when workflow context is active):**
+
+3. Ownership validity — parent doc_type `may_own` child's entity type
+4. Scope monotonicity — child depth ≥ parent depth, scopes comparable
 
 ADR-011-Part-2 does not define workflow schemas; it enforces their declared constraints.
 
 ---
-
 ## 4. Reference Constraints (Interaction with Ownership)
 
 Ownership defines structural hierarchy. References define dependency edges.
@@ -267,6 +288,6 @@ Recommended sequence:
 
 ---
 
-**Document Version:** 0.92  
+**Document Version:** 0.93  
 **Last Updated:** 2026-01-05  
 **Author:** Tom Moseley
