@@ -12,7 +12,7 @@ from app.api.v1.dependencies import get_workflow_registry, get_persistence, clea
 from app.core.database import get_db
 from unittest.mock import MagicMock, AsyncMock
 from app.api.v1.routers.executions import reset_execution_service, get_execution_service
-from app.ui.routers import pages_router, partials_router
+from app.web.routes.admin import pages_router, partials_router
 from app.domain.workflow import (
     Workflow,
     WorkflowStep,
@@ -113,7 +113,7 @@ def app(mock_registry, mock_persistence, mock_admin_user) -> FastAPI:
     test_app.include_router(api_router)
     test_app.include_router(pages_router)
     test_app.include_router(partials_router)
-    test_app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
+    test_app.mount("/static", StaticFiles(directory="app/web/static/admin"), name="static")
     
     test_app.dependency_overrides[get_workflow_registry] = lambda: mock_registry
     test_app.dependency_overrides[get_persistence] = lambda: mock_persistence
