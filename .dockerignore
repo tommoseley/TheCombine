@@ -1,4 +1,4 @@
-﻿# Git
+# Git
 .git/
 .gitignore
 
@@ -32,16 +32,23 @@ ops/
 docs/
 recycle/
 
-# Seed is optional - uncomment to include
-# seed/
 
 # CI/CD
 .github/
 
 # Local development
 *.log
-*.txt
 *.sql
 *.ps1
 *.bat
 *.sh
+
+# Text files except requirements
+*.txt
+!requirements.txt
+!requirements-full.txt
+
+# Seed data - exclude all except workflows
+seed/prompts/
+seed/reference_data/
+seed/schemas/
