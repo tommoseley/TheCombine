@@ -195,7 +195,7 @@
                             <i data-lucide="shield" class="w-4 h-4"></i>
                             <span>Administration</span>
                         </a>
-                        <a href="/static/accounts.html" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <a href="/web/static/accounts.html" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                             <i data-lucide="link" class="w-4 h-4"></i>
                             <span>Linked Accounts</span>
                         </a>
@@ -208,7 +208,7 @@
                 </div>
                 
                 <!-- Sign In Button (shown when not logged in) -->
-                <a id="signin-button" href="/static/login.html" class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors" style="display: none;">
+                <a id="signin-button" href="/web/static/login.html" class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors" style="display: none;">
                     Sign In
                 </a>
             </div>
@@ -379,7 +379,7 @@
                 });
                 
                 if (response.ok) {
-                    window.location.href = '/static/login.html';
+                    window.location.href = '/web/static/login.html';
                 } else {
                     console.error('Logout failed');
                     alert('Logout failed. Please try again.');
