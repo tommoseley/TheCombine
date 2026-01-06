@@ -13,11 +13,25 @@
 
 ---
 
+## Reuse Analysis
+
+Per the Reuse-First Rule, before creating new artifacts:
+
+| Option | Artifact | Decision | Rationale |
+|--------|----------|----------|-----------|
+| Extend | `DocumentService` | **Selected** | Ownership is document-level concern; avoids service proliferation |
+| Extend | `ScopeHierarchy` | **Reuse** | Already has `is_ancestor`, `get_depth` methods |
+| Create | `OwnershipService` | Rejected | Would duplicate patterns already in DocumentService |
+
+**Decision:** Extend `DocumentService` with ownership validation methods.
+
+---
+
 ## Phase 1: ADR Text Update (Complete)
 
 **File:** `docs/adr/011-part-2-documentation-ownership-impl/ADR-011-Part-2-Document-Ownership-Model-Implementation-Enforcement.md`
 
-**Completed:** Section 3.3 and 3.4 updated to reflect workflow-derived scope ordering.
+Updated Section 3.3 and 3.4 to reflect workflow-derived scope ordering (v0.93).
 
 ---
 
@@ -26,12 +40,7 @@
 **New File:** `alembic/versions/20260105_001_add_parent_document_id.py`
 
 ```python
-"""Add parent_document_id for document ownership (ADR-011-Part-2)
-
-Revision ID: 20260105_001
-Revises: 20251231_004_add_llm_execution_logging
-Create Date: 2026-01-05
-"""
+"""Add parent_document_id for document ownership (ADR-011-Part-2)"""
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -45,20 +54,21 @@ def upgrade() -> None:
     op.add_column('documents', sa.Column(
         'parent_document_id',
         postgresql.UUID(as_uuid=True),
-        sa.ForeignKey('documents.id', ondelete='RESTRICT'),
         nullable=True,
         comment='Parent document for ownership hierarchy (ADR-011)'
     ))
-    
+    op.create_foreign_key(
+        'fk_documents_parent', 'documents', 'documents',
+        ['parent_document_id'], ['id'], ondelete='RESTRICT'
+    )
     op.create_index(
-        'idx_documents_parent',
-        'documents',
-        ['parent_document_id'],
+        'idx_documents_parent', 'documents', ['parent_document_id'],
         postgresql_where=sa.text('parent_document_id IS NOT NULL')
     )
 
 def downgrade() -> None:
     op.drop_index('idx_documents_parent', table_name='documents')
+    op.drop_constraint('fk_documents_parent', 'documents', type_='foreignkey')
     op.drop_column('documents', 'parent_document_id')
 ```
 
@@ -68,10 +78,9 @@ def downgrade() -> None:
 
 **File:** `app/api/models/document.py`
 
-**Add to OWNERSHIP section (after space_id):**
+**Add column (after space_id):**
 
 ```python
-# DOCUMENT OWNERSHIP (ADR-011-Part-2)
 parent_document_id: Mapped[Optional[UUID]] = Column(
     PG_UUID(as_uuid=True),
     ForeignKey("documents.id", ondelete="RESTRICT"),
@@ -81,20 +90,15 @@ parent_document_id: Mapped[Optional[UUID]] = Column(
 )
 ```
 
-**Add to RELATIONSHIPS section:**
+**Add relationships:**
 
 ```python
-# Ownership hierarchy (ADR-011-Part-2)
 parent: Mapped[Optional["Document"]] = relationship(
-    "Document",
-    remote_side=[id],
-    foreign_keys=[parent_document_id],
-    back_populates="children",
+    "Document", remote_side=[id],
+    foreign_keys=[parent_document_id], back_populates="children",
 )
-
 children: Mapped[List["Document"]] = relationship(
-    "Document",
-    foreign_keys="Document.parent_document_id",
+    "Document", foreign_keys="Document.parent_document_id",
     back_populates="parent",
 )
 ```
@@ -103,7 +107,6 @@ children: Mapped[List["Document"]] = relationship(
 
 ```python
 def get_ancestor_chain(self) -> List["Document"]:
-    """Walk parent chain upward. Returns [parent, grandparent, ...] or []."""
     chain = []
     current = self.parent
     while current is not None:
@@ -112,33 +115,23 @@ def get_ancestor_chain(self) -> List["Document"]:
     return chain
 
 def has_children(self) -> bool:
-    """Check if document has any children."""
     return len(self.children) > 0
 ```
 ---
 
-## Phase 4: Ownership Service
+## Phase 4: Extend DocumentService with Ownership Validation
 
-**New File:** `app/domain/services/ownership_service.py`
+**File:** `app/api/services/document_service.py`
+
+**Add imports:**
 
 ```python
-"""
-Document Ownership Service - ADR-011-Part-2 enforcement.
-
-Two-layer validation:
-1. Ownership validity (graph-based, primary) - may_own check
-2. Scope monotonicity (derived, secondary) - depth comparison
-"""
-
-from typing import Optional
-from uuid import UUID
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.models.document import Document
-from app.api.models.document_type import DocumentType
 from app.domain.workflow.scope import ScopeHierarchy
+```
 
+**Add exception classes (top of file):**
 
+```python
 class OwnershipError(Exception):
     """Base class for ownership validation errors."""
     pass
@@ -162,110 +155,112 @@ class ScopeViolationError(OwnershipError):
 class HasChildrenError(OwnershipError):
     """Raised when attempting to delete a document with children."""
     pass
+```
 
+**Add validation methods to DocumentService class:**
 
-class OwnershipService:
-    """
-    Enforces document ownership rules per ADR-011-Part-2.
+```python
+async def validate_parent_assignment(
+    self, child_id: UUID, proposed_parent_id: UUID,
+    workflow: Optional[dict] = None,
+) -> None:
+    """Validate setting child.parent_document_id = proposed_parent_id."""
+    child = await self.get_by_id(child_id)
+    parent = await self.get_by_id(proposed_parent_id)
     
-    Validations (in order):
-    1. Cycle detection (DAG enforcement)
-    2. Ownership validity (may_own from workflow)
-    3. Scope monotonicity (depth comparison)
-    """
+    if not child or not parent:
+        raise OwnershipError("Document not found")
     
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    await self._check_no_cycle(child, parent)
     
-    async def validate_parent_assignment(
-        self,
-        child_id: UUID,
-        proposed_parent_id: UUID,
-        workflow: Optional[dict] = None,
-    ) -> None:
-        """Validate that setting child.parent_document_id = proposed_parent_id is allowed."""
-        child = await self._load_document_with_type(child_id)
-        parent = await self._load_document_with_type(proposed_parent_id)
-        
-        if not child or not parent:
-            raise OwnershipError("Document not found")
-        
-        await self._check_no_cycle(child, parent)
-        
-        if workflow:
-            self._check_ownership_validity(child, parent, workflow)
-            self._check_scope_monotonicity(child, parent, workflow)
+    if workflow:
+        self._check_ownership_validity(child, parent, workflow)
+        self._check_scope_monotonicity(child, parent, workflow)
+
+async def _check_no_cycle(self, child: Document, proposed_parent: Document) -> None:
+    """Walk parent chain. If child.id appears, reject."""
+    if child.id == proposed_parent.id:
+        raise CycleDetectedError(f"Document cannot own itself: {child.id}")
     
-    async def validate_deletion(self, document_id: UUID) -> None:
-        """Check if document can be deleted (has no children)."""
-        query = select(Document.id).where(
-            Document.parent_document_id == document_id
-        ).limit(1)
+    visited = {child.id}
+    current_id = proposed_parent.parent_document_id
+    
+    while current_id is not None:
+        if current_id in visited:
+            raise CycleDetectedError(
+                f"Setting parent would create cycle: {child.id} -> {proposed_parent.id}"
+            )
+        visited.add(current_id)
+        query = select(Document.parent_document_id).where(Document.id == current_id)
         result = await self.db.execute(query)
-        
-        if result.first():
-            raise HasChildrenError(f"Cannot delete document {document_id}: has children")
+        row = result.first()
+        current_id = row[0] if row else None
+
+def _check_ownership_validity(self, child: Document, parent: Document, workflow: dict) -> None:
+    """Check if parent's doc_type may_own child's doc_type per workflow."""
+    doc_types = workflow.get("document_types", {})
+    entity_types = workflow.get("entity_types", {})
+    parent_config = doc_types.get(parent.doc_type_id, {})
+    may_own = parent_config.get("may_own", [])
     
-    async def get_children(self, document_id: UUID) -> list[Document]:
-        """Get all direct children of a document."""
-        query = (
-            select(Document)
-            .where(Document.parent_document_id == document_id)
-            .order_by(Document.created_at)
+    if not may_own:
+        return
+    
+    child_config = doc_types.get(child.doc_type_id, {})
+    child_scope = child_config.get("scope")
+    
+    for entity_type_name in may_own:
+        entity_config = entity_types.get(entity_type_name, {})
+        if entity_config.get("creates_scope") == child_scope:
+            return
+    
+    raise InvalidOwnershipError(
+        f"Document type '{parent.doc_type_id}' cannot own '{child.doc_type_id}'"
+    )
+
+def _check_scope_monotonicity(self, child: Document, parent: Document, workflow: dict) -> None:
+    """Check scope depth: child depth >= parent depth."""
+    hierarchy = ScopeHierarchy.from_workflow(workflow)
+    doc_types = workflow.get("document_types", {})
+    parent_scope = doc_types.get(parent.doc_type_id, {}).get("scope")
+    child_scope = doc_types.get(child.doc_type_id, {}).get("scope")
+    
+    if not parent_scope or not child_scope:
+        return
+    
+    same = parent_scope == child_scope
+    p_anc = hierarchy.is_ancestor(parent_scope, child_scope)
+    c_anc = hierarchy.is_ancestor(child_scope, parent_scope)
+    
+    if not (same or p_anc or c_anc):
+        raise IncomparableScopesError(
+            f"Scopes '{parent_scope}' and '{child_scope}' are not comparable"
         )
-        result = await self.db.execute(query)
-        return list(result.scalars().all())
     
-    async def get_subtree(self, document_id: UUID) -> list[Document]:
-        """Get entire subtree rooted at document."""
-        subtree = []
-        children = await self.get_children(document_id)
-        for child in children:
-            subtree.append(child)
-            subtree.extend(await self.get_subtree(child.id))
-        return subtree
-```
+    if hierarchy.get_depth(child_scope) < hierarchy.get_depth(parent_scope):
+        raise ScopeViolationError(
+            f"Child scope '{child_scope}' is broader than parent scope '{parent_scope}'"
+        )
 
-See full implementation in Phase 4 section of the plan for complete method implementations.
----
+async def validate_deletion(self, document_id: UUID) -> None:
+    """Check if document can be deleted (has no children)."""
+    query = select(Document.id).where(Document.parent_document_id == document_id).limit(1)
+    result = await self.db.execute(query)
+    if result.first():
+        raise HasChildrenError(f"Cannot delete document {document_id}: has children")
 
-## Phase 5: Integrate with DocumentService
+async def get_children(self, document_id: UUID) -> List[Document]:
+    """Get all direct children of a document."""
+    query = select(Document).where(Document.parent_document_id == document_id).order_by(Document.created_at)
+    result = await self.db.execute(query)
+    return list(result.scalars().all())
 
-**File:** `app/api/services/document_service.py`
-
-**Add import:**
-
-```python
-from app.domain.services.ownership_service import (
-    OwnershipService,
-    OwnershipError,
-    HasChildrenError,
-)
-```
-
-**Update `create_document` signature:**
-
-```python
-async def create_document(
-    self,
-    # ... existing params ...
-    parent_document_id: Optional[UUID] = None,  # NEW
-    workflow: Optional[dict] = None,  # NEW
-) -> Document:
-```
-
-**Add deletion guard:**
-
-```python
 async def delete(self, document_id: UUID) -> bool:
-    """Delete a document (hard delete). Raises HasChildrenError if has children."""
-    ownership_svc = OwnershipService(self.db)
-    await ownership_svc.validate_deletion(document_id)
-    
+    """Delete a document. Raises HasChildrenError if has children."""
+    await self.validate_deletion(document_id)
     doc = await self.get_by_id(document_id)
     if not doc:
         return False
-    
     await self.db.delete(doc)
     await self.db.commit()
     return True
@@ -273,62 +268,57 @@ async def delete(self, document_id: UUID) -> bool:
 
 ---
 
-## Phase 6: Tests
+## Phase 5: Tests
 
-**New File:** `tests/domain/test_ownership_service.py`
+**New File:** `tests/services/test_document_ownership.py`
 
 Test categories per ADR-011-Part-2 Section 8:
 
-| Test Category | Description |
-|---------------|-------------|
-| **Hierarchy Creation** | Valid parent/child assignment |
-| **Cycle Prevention** | Self-ownership, ancestor loops |
-| **Scope Violation** | Child scope exceeding parent |
-| **Workflow Ownership Violation** | Parent/child type not allowed by workflow |
-| **Deletion Guard** | Prevent deletion when children exist |
+| Test Category | Test Cases |
+|---------------|------------|
+| **Hierarchy Creation** | `test_valid_ownership_accepted` |
+| **Cycle Prevention** | `test_self_ownership_rejected`, `test_ancestor_loop_rejected` |
+| **Scope Violation** | `test_child_scope_broader_rejected`, `test_child_scope_narrower_accepted` |
+| **Workflow Ownership** | `test_may_own_violation_rejected` |
+| **Deletion Guard** | `test_delete_with_children_rejected`, `test_delete_leaf_accepted` |
 
-Key test cases:
-- `test_self_ownership_rejected` - Document cannot own itself
-- `test_ancestor_loop_rejected` - A -> B -> C, then C -> A rejected
-- `test_child_scope_narrower_accepted` - Epic doc can own story doc
-- `test_child_scope_broader_rejected` - Story doc cannot own epic doc
-- `test_delete_with_children_rejected` - Cannot delete document with children
-- `test_delete_leaf_accepted` - Can delete document without children
-- `test_valid_ownership_accepted` - Valid parent/child assignment succeeds
+**Test Workflow Fixture:**
+
+```python
+TEST_WORKFLOW = {
+    "scopes": {
+        "project": {"parent": None},
+        "epic": {"parent": "project"},
+        "story": {"parent": "epic"},
+    },
+    "document_types": {
+        "project_discovery": {"scope": "project", "may_own": []},
+        "epic_backlog": {"scope": "project", "may_own": ["epic"]},
+        "epic_architecture": {"scope": "epic", "may_own": []},
+        "story_backlog": {"scope": "epic", "may_own": ["story"]},
+        "story_implementation": {"scope": "story", "may_own": []},
+    },
+    "entity_types": {
+        "epic": {"parent_doc_type": "epic_backlog", "creates_scope": "epic"},
+        "story": {"parent_doc_type": "story_backlog", "creates_scope": "story"},
+    },
+}
+```
 
 ---
 
-## Phase 7: Implementation Order
+## Implementation Order
 
 | Step | File(s) | Est. Time | Status |
 |------|---------|-----------|--------|
 | 1 | Update ADR-011-Part-2 text | 15 min | Complete |
 | 2 | Create migration | 15 min | Pending |
-| 3 | Update document.py model | 30 min | Pending |
-| 4 | Create ownership_service.py | 45 min | Pending |
-| 5 | Update document_service.py | 30 min | Pending |
-| 6 | Create test_ownership_service.py | 45 min | Pending |
-| 7 | Run tests, fix issues | 30 min | Pending |
+| 3 | Update `app/api/models/document.py` | 30 min | Pending |
+| 4 | Extend `app/api/services/document_service.py` | 45 min | Pending |
+| 5 | Create `tests/services/test_document_ownership.py` | 45 min | Pending |
+| 6 | Run tests, fix issues | 30 min | Pending |
 
-**Total Estimated Time:** ~3.5 hours
-
----
-
-## Key Design Decisions
-
-1. **Workflow-derived scope ordering** - No fixed rank constants; depth computed from workflow scopes
-
-2. **Two-layer validation:**
-   - Layer 1 (Primary): Ownership validity via `may_own`
-   - Layer 2 (Secondary): Scope monotonicity via depth comparison
-
-3. **Comparability check** - Scopes must be on same ancestry chain; incomparable scopes rejected
-
-4. **Enforcement scope:**
-   - Hard invariants (single parent, no cycles): Always enforced
-   - Workflow constraints: Enforced only during workflow execution
-
-5. **No global policing** - Outside workflow context, only hard invariants apply
+**Total Estimated Time:** ~3 hours
 
 ---
 
@@ -336,12 +326,11 @@ Key test cases:
 
 | Action | File |
 |--------|------|
-| Modified | `docs/adr/.../ADR-011-Part-2-Document-Ownership-Model-Implementation-Enforcement.md` |
+| Modified | `docs/adr/.../ADR-011-Part-2-...` (v0.93) |
 | Create | `alembic/versions/20260105_001_add_parent_document_id.py` |
 | Modify | `app/api/models/document.py` |
-| Create | `app/domain/services/ownership_service.py` |
 | Modify | `app/api/services/document_service.py` |
-| Create | `tests/domain/test_ownership_service.py` |
+| Create | `tests/services/test_document_ownership.py` |
 
 ---
 

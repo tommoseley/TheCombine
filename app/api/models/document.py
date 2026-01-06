@@ -61,6 +61,18 @@ class Document(Base):
     )
     
     # =========================================================================
+    # DOCUMENT OWNERSHIP (ADR-011-Part-2)
+    # =========================================================================
+    
+    parent_document_id: Mapped[Optional[UUID]] = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+        doc="Parent document ID for ownership hierarchy (ADR-011-Part-2)"
+    )
+    
+    # =========================================================================
     # TYPE - What kind of document is this?
     # =========================================================================
     
@@ -239,6 +251,23 @@ class Document(Base):
         # Note: No cascade delete per ADR-011-Part-2 - delete with children forbidden
     )
     
+    
+    # =========================================================================
+    # OWNERSHIP HIERARCHY (ADR-011-Part-2)
+    # =========================================================================
+    
+    parent: Mapped[Optional["Document"]] = relationship(
+        "Document",
+        remote_side=[id],
+        foreign_keys=[parent_document_id],
+        back_populates="children",
+    )
+    
+    children: Mapped[List["Document"]] = relationship(
+        "Document",
+        foreign_keys="Document.parent_document_id",
+        back_populates="parent",
+    )
     # =========================================================================
     # INDEXES (defined in __table_args__)
     # =========================================================================
@@ -278,6 +307,23 @@ class Document(Base):
     def update_revision_hash(self) -> None:
         """Update the revision hash based on current content."""
         self.revision_hash = self.compute_revision_hash()
+    
+    # =========================================================================
+    # OWNERSHIP METHODS (ADR-011-Part-2)
+    # =========================================================================
+    
+    def get_ancestor_chain(self) -> List["Document"]:
+        """Walk parent chain upward. Returns [parent, grandparent, ...] or []."""
+        chain = []
+        current = self.parent
+        while current is not None:
+            chain.append(current)
+            current = current.parent
+        return chain
+    
+    def has_children(self) -> bool:
+        """Check if document has any children."""
+        return len(self.children) > 0
     
     @property
     def requires(self) -> List["DocumentRelation"]:

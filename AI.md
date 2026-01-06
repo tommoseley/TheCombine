@@ -48,10 +48,20 @@ The following constraints apply to all work on this project:
   - The AI MAY propose commit messages and describe what should be committed.
   - The user performs all Git commits.
 
-- **Regarding File not found errors**
-  - You may experience File not found errors on files that clearly exist. 
-  - The human operator uses VS Code, which can hold locks or have unsaved buffers that interfere.
-  - When you get file access errors on files that should exist, ask Tom to close them in VS Code, then retry.
+- **Regarding “File not found” errors**
+  - You may encounter “File not found” errors for files that do in fact exist.
+  - The human operator uses VS Code, which may hold file locks or have unsaved buffers that interfere with file access.
+  - If a file access error occurs on a file that should exist, pause and ask Tom to close the file in VS Code, then retry the operation.
+
+- **Reuse-First Rule**
+
+  -Before creating anything new (file, module, schema, service, prompt):
+    - Search the codebase and existing docs/ADRs.
+    - Prefer extending or refactoring over creating.
+    - Only create something new when reuse is not viable.
+
+  -If you create something new, you must be able to justify why reuse was not appropriate.
+  -Creating something new when a suitable existing artifact existed is a defect.
 
 Violation of these constraints is considered a failure to follow project rules.
 

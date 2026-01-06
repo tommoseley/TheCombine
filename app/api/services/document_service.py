@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document Service - CRUD and relationship management for documents.
 
 This service handles:
@@ -19,6 +19,41 @@ from sqlalchemy.orm import selectinload
 
 from app.api.models.document import Document
 from app.api.models.document_relation import DocumentRelation, RelationType
+from app.domain.workflow.scope import ScopeHierarchy
+
+# =============================================================================
+# OWNERSHIP EXCEPTIONS (ADR-011-Part-2)
+# =============================================================================
+
+class OwnershipError(Exception):
+    """Base class for ownership validation errors."""
+    pass
+
+
+class CycleDetectedError(OwnershipError):
+    """Raised when setting parent would create a cycle."""
+    pass
+
+
+class InvalidOwnershipError(OwnershipError):
+    """Raised when parent doc_type cannot own child doc_type."""
+    pass
+
+
+class IncomparableScopesError(OwnershipError):
+    """Raised when parent and child scopes are not on same ancestry chain."""
+    pass
+
+
+class ScopeViolationError(OwnershipError):
+    """Raised when child scope depth < parent scope depth."""
+    pass
+
+
+class HasChildrenError(OwnershipError):
+    """Raised when attempting to delete a document with children."""
+    pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -399,3 +434,160 @@ class DocumentService:
     async def archive(self, document_id: UUID) -> Optional[Document]:
         """Archive a document (soft delete)."""
         return await self.update_status(document_id, "archived")
+    # =========================================================================
+    # OWNERSHIP VALIDATION (ADR-011-Part-2)
+    # =========================================================================
+    
+    async def validate_parent_assignment(
+        self,
+        child_id: UUID,
+        proposed_parent_id: UUID,
+        workflow: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Validate that setting child.parent_document_id = proposed_parent_id is allowed.
+        
+        Checks (in order):
+        1. Cycle detection (always enforced)
+        2. Ownership validity (if workflow provided)
+        3. Scope monotonicity (if workflow provided)
+        """
+        child = await self.get_by_id(child_id)
+        parent = await self.get_by_id(proposed_parent_id)
+        
+        if not child or not parent:
+            raise OwnershipError("Document not found")
+        
+        await self._check_no_cycle(child, parent)
+        
+        if workflow:
+            self._check_ownership_validity(child, parent, workflow)
+            self._check_scope_monotonicity(child, parent, workflow)
+    
+    async def _check_no_cycle(
+        self,
+        child: Document,
+        proposed_parent: Document
+    ) -> None:
+        """Walk parent chain from proposed_parent. If child.id appears, reject."""
+        if child.id == proposed_parent.id:
+            raise CycleDetectedError(f"Document cannot own itself: {child.id}")
+        
+        visited = {child.id}
+        current_id = proposed_parent.parent_document_id
+        
+        while current_id is not None:
+            if current_id in visited:
+                raise CycleDetectedError(
+                    f"Setting parent would create cycle: {child.id} -> {proposed_parent.id}"
+                )
+            visited.add(current_id)
+            
+            query = select(Document.parent_document_id).where(Document.id == current_id)
+            result = await self.db.execute(query)
+            row = result.first()
+            current_id = row[0] if row else None
+    
+    def _check_ownership_validity(
+        self,
+        child: Document,
+        parent: Document,
+        workflow: Dict[str, Any],
+    ) -> None:
+        """Check if parent's doc_type may_own child's doc_type per workflow."""
+        doc_types = workflow.get("document_types", {})
+        entity_types = workflow.get("entity_types", {})
+        
+        parent_config = doc_types.get(parent.doc_type_id, {})
+        may_own = parent_config.get("may_own", [])
+        
+        if not may_own:
+            return
+        
+        child_config = doc_types.get(child.doc_type_id, {})
+        child_scope = child_config.get("scope")
+        
+        for entity_type_name in may_own:
+            entity_config = entity_types.get(entity_type_name, {})
+            if entity_config.get("creates_scope") == child_scope:
+                return
+        
+        raise InvalidOwnershipError(
+            f"Document type '{parent.doc_type_id}' cannot own '{child.doc_type_id}' "
+            f"per workflow rules (may_own: {may_own})"
+        )
+    
+    def _check_scope_monotonicity(
+        self,
+        child: Document,
+        parent: Document,
+        workflow: Dict[str, Any],
+    ) -> None:
+        """Check scope depth: child depth >= parent depth."""
+        hierarchy = ScopeHierarchy.from_workflow(workflow)
+        doc_types = workflow.get("document_types", {})
+        
+        parent_scope = doc_types.get(parent.doc_type_id, {}).get("scope")
+        child_scope = doc_types.get(child.doc_type_id, {}).get("scope")
+        
+        if not parent_scope or not child_scope:
+            return
+        
+        same_scope = parent_scope == child_scope
+        parent_is_ancestor = hierarchy.is_ancestor(parent_scope, child_scope)
+        child_is_ancestor = hierarchy.is_ancestor(child_scope, parent_scope)
+        
+        if not (same_scope or parent_is_ancestor or child_is_ancestor):
+            raise IncomparableScopesError(
+                f"Scopes '{parent_scope}' and '{child_scope}' are not comparable"
+            )
+        
+        parent_depth = hierarchy.get_depth(parent_scope)
+        child_depth = hierarchy.get_depth(child_scope)
+        
+        if child_depth < parent_depth:
+            raise ScopeViolationError(
+                f"Child scope '{child_scope}' (depth={child_depth}) is broader than "
+                f"parent scope '{parent_scope}' (depth={parent_depth})"
+            )
+    
+    async def validate_deletion(self, document_id: UUID) -> None:
+        """Check if document can be deleted (has no children)."""
+        query = select(Document.id).where(
+            Document.parent_document_id == document_id
+        ).limit(1)
+        result = await self.db.execute(query)
+        
+        if result.first():
+            raise HasChildrenError(f"Cannot delete document {document_id}: has children")
+    
+    async def get_children(self, document_id: UUID) -> List[Document]:
+        """Get all direct children of a document."""
+        query = (
+            select(Document)
+            .where(Document.parent_document_id == document_id)
+            .order_by(Document.created_at)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_subtree(self, document_id: UUID) -> List[Document]:
+        """Get entire subtree rooted at document."""
+        subtree = []
+        children = await self.get_children(document_id)
+        for child in children:
+            subtree.append(child)
+            subtree.extend(await self.get_subtree(child.id))
+        return subtree
+    
+    async def delete(self, document_id: UUID) -> bool:
+        """Delete a document. Raises HasChildrenError if has children."""
+        await self.validate_deletion(document_id)
+        
+        doc = await self.get_by_id(document_id)
+        if not doc:
+            return False
+        
+        await self.db.delete(doc)
+        await self.db.commit()
+        return True
