@@ -11,10 +11,15 @@ from pydantic import BaseModel, Field
 
 
 class OpenQuestionVM(BaseModel):
-    """ViewModel for epic open question."""
-    question: str = ""
+    """ViewModel for epic open question (aligned with OpenQuestionV1 schema)."""
+    id: str = ""
+    question: str = ""  # Maps to 'text' in canonical schema
     blocking: bool = False
-    directed_to: Optional[str] = None
+    why_it_matters: str = ""
+    priority: Optional[str] = None
+    options: List[dict] = []
+    notes: Optional[str] = None
+    directed_to: Optional[str] = None  # Not in canonical schema, kept for display
 
 
 class DependencyVM(BaseModel):
@@ -51,9 +56,6 @@ class EpicCardVM(BaseModel):
     
     # Navigation
     detail_href: str = ""
-    
-    # ADR-032: Pre-rendered fragment content for open questions
-    rendered_open_questions: Optional[str] = None
 
 
 class EpicBacklogSectionVM(BaseModel):
@@ -106,9 +108,6 @@ class EpicBacklogVM(BaseModel):
     # State
     exists: bool = True
     message: Optional[str] = None
-    
-    # ADR-032: Pre-rendered fragment content
-    rendered_open_questions: Optional[str] = None
     
     # Computed properties
     @property

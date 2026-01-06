@@ -68,56 +68,45 @@ Implicit triggers (e.g., "the ADR is accepted") are invalid.
 
 ## 5. Execution Authorization Process
 
-Execution of an ADR MUST follow these steps in order.
+### 5.1 Scope Assessment
 
-### Step 1 — Implementation Plan Draft
+Before beginning execution authorization, assess expected scope:
 
-- An LLM prepares an Implementation Plan for the ADR.
-- The plan describes:
-  - Scope of work
-  - Affected components
-  - Sequence of changes
-  - Risks and dependencies
-- No system changes may occur during this step.
+- **Single-commit scope:** One atomic change, no phasing required
+- **Multi-commit scope:** Multiple changes, phasing/sequencing required
 
-### Step 2 — Implementation Plan Review and Acceptance
+The expected scope (single-commit or multi-commit) MUST be explicitly declared in the Work Statement or Implementation Plan.
 
-- The human operator reviews and edits the Implementation Plan.
-- Multiple review/edit cycles are permitted.
-- Execution must not proceed until the plan is explicitly accepted.
+### 5.2 Single-Commit Path
 
-### Step 3 — Authorization to Prepare Execution Artifacts
+For single-commit work:
 
-Upon Implementation Plan acceptance:
+1. Work Statement Preparation (per POL-WS-001)
+2. Work Statement Review and Acceptance
+3. Execution
 
-- The ADR `execution_state` is set to `authorized`
-- This authorizes:
-  - Preparation of one or more Work Statements
-- This does not authorize execution.
+No Implementation Plan required.
 
-### Step 4 — Work Statement Preparation
+### 5.3 Multi-Commit Path
 
-- The LLM prepares one or more Work Statements in accordance with POL-WS-001.
-- Work Statements define exact execution procedures.
-- No execution may occur during this step.
+For multi-commit work:
 
-### Step 5 — Work Statement Review and Acceptance
+1. Implementation Plan Draft
+2. Implementation Plan Review and Acceptance
+3. Authorization to Prepare Execution Artifacts (`execution_state` = `authorized`)
+4. Work Statement(s) Preparation
+5. Work Statement Review and Acceptance
+6. Execution
 
-- Each Work Statement is reviewed and edited by the human operator.
-- Each Work Statement must be explicitly accepted before execution.
-- Acceptance of one Work Statement does not imply acceptance of others.
+### 5.4 Scope Escalation
 
-### Step 6 — Execution
+If, during execution, it becomes apparent that the remaining work cannot be completed in a single commit:
 
-Upon acceptance of a Work Statement:
-
-- The ADR `execution_state` is set to `active`
-- The LLM may execute work only as specified in the accepted Work Statement.
-
-Multiple Work Statements may be executed under a single ADR authorization, each requiring independent acceptance.
+1. STOP execution
+2. Draft Implementation Plan for remaining work
+3. Resume multi-commit path from Step 2
 
 ---
-
 ## 6. Deviation Handling
 
 **Minor deviations** (within approved scope and intent):

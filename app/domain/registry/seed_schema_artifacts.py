@@ -220,6 +220,101 @@ DEPENDENCY_V1_SCHEMA = {
 }
 
 
+# =============================================================================
+# RENDER MODEL SCHEMAS - ADR-033 Experience Contract Standard
+# =============================================================================
+
+RENDER_MODEL_V1_SCHEMA = {
+    "$id": "schema:RenderModelV1",
+    "title": "Render Model V1",
+    "type": "object",
+    "required": [
+        "render_model_version",
+        "document_id",
+        "document_type",
+        "schema_id",
+        "schema_bundle_sha256",
+        "title",
+        "sections"
+    ],
+    "properties": {
+        "render_model_version": {
+            "type": "string",
+            "const": "1.0"
+        },
+        "document_id": {"type": "string", "minLength": 1},
+        "document_type": {"type": "string", "minLength": 1},
+        "schema_id": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$"
+        },
+        "schema_bundle_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "title": {"type": "string", "minLength": 1},
+        "subtitle": {"type": "string"},
+        "sections": {
+            "type": "array",
+            "items": {"$ref": "schema:RenderSectionV1"}
+        },
+        "actions": {
+            "type": "array",
+            "items": {"$ref": "schema:RenderActionV1"}
+        }
+    },
+    "additionalProperties": False
+}
+
+RENDER_SECTION_V1_SCHEMA = {
+    "$id": "schema:RenderSectionV1",
+    "title": "Render Section V1",
+    "type": "object",
+    "required": ["id", "title", "order", "blocks"],
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "order": {"type": "integer", "minimum": 0},
+        "description": {"type": "string"},
+        "blocks": {
+            "type": "array",
+            "items": {"$ref": "schema:RenderBlockV1"}
+        }
+    },
+    "additionalProperties": False
+}
+
+RENDER_BLOCK_V1_SCHEMA = {
+    "$id": "schema:RenderBlockV1",
+    "title": "Render Block V1",
+    "type": "object",
+    "required": ["type", "data"],
+    "properties": {
+        "type": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$"
+        },
+        "data": {"type": "object"},
+        "key": {"type": "string"}
+    },
+    "additionalProperties": False
+}
+
+RENDER_ACTION_V1_SCHEMA = {
+    "$id": "schema:RenderActionV1",
+    "title": "Render Action V1",
+    "type": "object",
+    "required": ["id", "label", "method", "href"],
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "method": {"type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]},
+        "href": {"type": "string", "minLength": 1}
+    },
+    "additionalProperties": False
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -262,6 +357,51 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_json": DEPENDENCY_V1_SCHEMA,
         "governance_refs": {
             "adrs": ["ADR-031"],
+            "policies": []
+        },
+    },
+    # ADR-033: Render Model schemas
+    {
+        "schema_id": "RenderModelV1",
+        "version": "1.0",
+        "kind": "envelope",
+        "status": "accepted",
+        "schema_json": RENDER_MODEL_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-033"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "RenderSectionV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": RENDER_SECTION_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-033"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "RenderBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": RENDER_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-033"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "RenderActionV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": RENDER_ACTION_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-033"],
             "policies": []
         },
     },

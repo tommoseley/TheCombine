@@ -42,14 +42,18 @@ The following policies are mandatory governance constraints. AI agents MUST read
 
 ### POL-ADR-EXEC-001 Bootstrap Requirements
 
-Per Section 9 of POL-ADR-EXEC-001, AI agents MUST:
+Per POL-ADR-EXEC-001, AI agents MUST:
 
 1. **Recognize ADR states**: Architectural status (Draft/Accepted/Deprecated/Superseded) is independent of execution state (null/authorized/active/complete)
-2. **Request Implementation Plan**: Before any ADR execution, draft an Implementation Plan for human review
-3. **Request Work Statement**: After Implementation Plan acceptance, draft Work Statement(s) per POL-WS-001
-4. **Refuse unauthorized execution**: Do NOT begin execution without explicit acceptance of both Implementation Plan AND Work Statement
+2. **Assess scope**: Determine if work is single-commit or multi-commit
+3. **Follow the appropriate path**:
+   - **Single-commit:** Work Statement → Acceptance → Execute
+   - **Multi-commit:** Implementation Plan → Acceptance → Work Statement(s) → Acceptance → Execute
+4. **Declare scope explicitly**: The expected scope MUST be stated in the Work Statement or Implementation Plan
+5. **Escalate if scope grows**: If single-commit work expands, STOP and draft an Implementation Plan
+6. **Refuse unauthorized execution**: Do NOT begin execution without explicit Work Statement acceptance
 
-**Key principle:** ADR acceptance does NOT authorize execution. Execution requires completing the full authorization process.
+**Key principle:** ADR acceptance does NOT authorize execution. Execution requires completing the appropriate authorization path.
 
 ### POL-WS-001 Bootstrap Requirements
 

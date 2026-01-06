@@ -1,5 +1,5 @@
 ﻿"""
-Tests for schema artifact seeding (ADR-031).
+Tests for schema artifact seeding (ADR-031, ADR-033).
 """
 
 import pytest
@@ -46,10 +46,11 @@ def test_risk_v1_has_required_fields():
     assert "impact" in schema["required"]
 
 
-def test_initial_schemas_are_types():
-    """All initial schemas are canonical types."""
+def test_initial_schemas_have_valid_kind():
+    """All initial schemas have valid kind (type or envelope)."""
+    valid_kinds = {"type", "envelope"}
     for artifact in INITIAL_SCHEMA_ARTIFACTS:
-        assert artifact["kind"] == "type"
+        assert artifact["kind"] in valid_kinds, f"{artifact['schema_id']} has invalid kind"
 
 
 def test_initial_schemas_are_accepted():
@@ -59,9 +60,28 @@ def test_initial_schemas_are_accepted():
 
 
 def test_initial_schemas_have_governance():
-    """All initial schemas reference ADR-031."""
+    """All initial schemas reference a governing ADR."""
     for artifact in INITIAL_SCHEMA_ARTIFACTS:
-        assert "ADR-031" in artifact["governance_refs"]["adrs"]
+        adrs = artifact["governance_refs"]["adrs"]
+        # Must reference at least one ADR (ADR-031 for canonical types, ADR-033 for render models)
+        assert len(adrs) > 0, f"{artifact['schema_id']} has no governing ADR"
+        assert any(adr.startswith("ADR-") for adr in adrs)
+
+
+def test_canonical_types_reference_adr031():
+    """Canonical content types (not render models) reference ADR-031."""
+    content_types = ["OpenQuestionV1", "RiskV1", "ScopeListV1", "DependencyV1"]
+    for artifact in INITIAL_SCHEMA_ARTIFACTS:
+        if artifact["schema_id"] in content_types:
+            assert "ADR-031" in artifact["governance_refs"]["adrs"]
+
+
+def test_render_model_types_reference_adr033():
+    """Render model types reference ADR-033."""
+    render_types = ["RenderModelV1", "RenderSectionV1", "RenderBlockV1", "RenderActionV1"]
+    for artifact in INITIAL_SCHEMA_ARTIFACTS:
+        if artifact["schema_id"] in render_types:
+            assert "ADR-033" in artifact["governance_refs"]["adrs"]
 
 
 def test_schemas_are_valid_json_schema():
@@ -78,6 +98,12 @@ def test_schemas_are_valid_json_schema():
         
         # Can serialize
         json.dumps(schema)
+
+
+def test_expected_schema_count():
+    """Expected number of seed schemas."""
+    # 4 canonical types (ADR-031) + 4 render model types (ADR-033)
+    assert len(INITIAL_SCHEMA_ARTIFACTS) == 8
 
 
 # =============================================================================
@@ -108,8 +134,9 @@ async def test_seed_skips_existing():
     
     with patch("app.domain.registry.seed_schema_artifacts.SchemaRegistryService") as MockRegistry:
         mock_registry = AsyncMock()
-        # First one exists, others don't
-        mock_registry.get_by_id.side_effect = [MagicMock(), None, None, None]
+        # First one exists, rest don't
+        side_effects = [MagicMock()] + [None] * (len(INITIAL_SCHEMA_ARTIFACTS) - 1)
+        mock_registry.get_by_id.side_effect = side_effects
         mock_registry.create.return_value = MagicMock()
         MockRegistry.return_value = mock_registry
         

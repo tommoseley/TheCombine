@@ -1,5 +1,8 @@
 ﻿"""
-Integration tests for Epic Backlog with Fragment Rendering (ADR-032).
+Integration tests for Epic Backlog Fragment Rendering (ADR-033).
+
+ADR-033: Fragment rendering is a web channel concern, not BFF.
+BFF returns data-only contracts; templates invoke fragment rendering.
 """
 
 import pytest
@@ -7,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.web.bff.epic_backlog_bff import get_epic_backlog_vm
-from app.web.bff.fragment_renderer import FragmentRenderer
 
 
 @pytest.fixture
@@ -49,21 +51,13 @@ def mock_doc():
     return doc
 
 
-@pytest.fixture
-def mock_fragment_renderer():
-    """Create mock fragment renderer."""
-    renderer = AsyncMock(spec=FragmentRenderer)
-    renderer.render_list.return_value = '<div class="open-question">Rendered Q1</div><div class="open-question">Rendered Q2</div>'
-    return renderer
-
-
 # =============================================================================
-# Test: With Fragment Renderer
+# Test: BFF Returns Data-Only Contracts (ADR-033)
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_epic_backlog_with_fragment_renderer(mock_db, mock_doc, mock_fragment_renderer):
-    """BFF uses fragment renderer when provided."""
+async def test_epic_backlog_bff_returns_data_only(mock_db, mock_doc):
+    """BFF returns data-only contract with no HTML."""
     project_id = uuid4()
     
     with patch("app.web.routes.public.document_routes._get_document_by_type") as mock_get_doc:
@@ -73,78 +67,80 @@ async def test_epic_backlog_with_fragment_renderer(mock_db, mock_doc, mock_fragm
             db=mock_db,
             project_id=project_id,
             project_name="Test Project",
-            fragment_renderer=mock_fragment_renderer,
         )
     
-    # Fragment renderer should have been called
-    mock_fragment_renderer.render_list.assert_called_once()
-    call_args = mock_fragment_renderer.render_list.call_args
-    assert call_args[0][0] == "OpenQuestionV1"  # schema type
-    assert len(call_args[0][1]) == 2  # 2 questions
-    
-    # Epic should have rendered content (per-epic, not backlog level)
-    mvp_section = next(s for s in vm.sections if s.id == "mvp")
-    assert len(mvp_section.epics) == 1
-    assert mvp_section.epics[0].rendered_open_questions is not None
-    assert "Rendered Q1" in mvp_section.epics[0].rendered_open_questions
-
-
-@pytest.mark.asyncio
-async def test_rendered_open_questions_contains_expected_html(mock_db, mock_doc, mock_fragment_renderer):
-    """Rendered content is passed through to epic VM."""
-    project_id = uuid4()
-    expected_html = '<div class="test-fragment">Custom HTML</div>'
-    mock_fragment_renderer.render_list.return_value = expected_html
-    
-    with patch("app.web.routes.public.document_routes._get_document_by_type") as mock_get_doc:
-        mock_get_doc.return_value = mock_doc
-        
-        vm = await get_epic_backlog_vm(
-            db=mock_db,
-            project_id=project_id,
-            project_name="Test Project",
-            fragment_renderer=mock_fragment_renderer,
-        )
-    
-    mvp_section = next(s for s in vm.sections if s.id == "mvp")
-    assert mvp_section.epics[0].rendered_open_questions == expected_html
-
-
-# =============================================================================
-# Test: Without Fragment Renderer (Backward Compatibility)
-# =============================================================================
-
-@pytest.mark.asyncio
-async def test_epic_backlog_without_fragment_renderer_unchanged(mock_db, mock_doc):
-    """BFF works without fragment renderer (backward compatible)."""
-    project_id = uuid4()
-    
-    with patch("app.web.routes.public.document_routes._get_document_by_type") as mock_get_doc:
-        mock_get_doc.return_value = mock_doc
-        
-        vm = await get_epic_backlog_vm(
-            db=mock_db,
-            project_id=project_id,
-            project_name="Test Project",
-            # No fragment_renderer provided
-        )
-    
-    # Should work without errors
+    # Should have data
     assert vm.exists is True
     
-    # Epics should still be present
-    assert len(vm.sections) == 2
+    # Epics should have open_questions as data (not HTML)
     mvp_section = next(s for s in vm.sections if s.id == "mvp")
     assert len(mvp_section.epics) == 1
-    assert len(mvp_section.epics[0].open_questions) == 2
+    epic = mvp_section.epics[0]
     
-    # No rendered content without renderer
-    assert mvp_section.epics[0].rendered_open_questions is None
+    # open_questions is a list of OpenQuestionVM (data)
+    assert len(epic.open_questions) == 2
+    assert epic.open_questions[0].question == "What about X?"
+    assert epic.open_questions[0].blocking is True
+    assert epic.open_questions[1].question == "Should we use Y?"
+    assert epic.open_questions[1].blocking is False
 
 
 @pytest.mark.asyncio
-async def test_epic_backlog_no_open_questions(mock_db, mock_fragment_renderer):
-    """BFF handles epics without open questions gracefully."""
+async def test_epic_backlog_bff_no_fragment_renderer_param(mock_db, mock_doc):
+    """BFF does not accept fragment_renderer parameter (ADR-033)."""
+    import inspect
+    sig = inspect.signature(get_epic_backlog_vm)
+    param_names = list(sig.parameters.keys())
+    
+    # fragment_renderer should NOT be a parameter
+    assert "fragment_renderer" not in param_names
+
+
+@pytest.mark.asyncio
+async def test_epic_card_vm_no_rendered_field(mock_db, mock_doc):
+    """EpicCardVM has no rendered_open_questions field (ADR-033)."""
+    from app.web.viewmodels.epic_backlog_vm import EpicCardVM
+    
+    # Check model fields
+    field_names = list(EpicCardVM.model_fields.keys())
+    assert "rendered_open_questions" not in field_names
+
+
+# =============================================================================
+# Test: Open Questions Data Structure
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_open_questions_mapped_correctly(mock_db, mock_doc):
+    """Open questions are mapped to OpenQuestionVM correctly."""
+    project_id = uuid4()
+    
+    with patch("app.web.routes.public.document_routes._get_document_by_type") as mock_get_doc:
+        mock_get_doc.return_value = mock_doc
+        
+        vm = await get_epic_backlog_vm(
+            db=mock_db,
+            project_id=project_id,
+            project_name="Test Project",
+        )
+    
+    mvp_section = next(s for s in vm.sections if s.id == "mvp")
+    epic = mvp_section.epics[0]
+    
+    # First question (blocking)
+    q1 = epic.open_questions[0]
+    assert q1.question == "What about X?"
+    assert q1.blocking is True
+    
+    # Second question (not blocking)
+    q2 = epic.open_questions[1]
+    assert q2.question == "Should we use Y?"
+    assert q2.blocking is False
+
+
+@pytest.mark.asyncio
+async def test_epic_without_open_questions(mock_db):
+    """Epic without open_questions has empty list."""
     project_id = uuid4()
     
     doc = MagicMock()
@@ -156,7 +152,7 @@ async def test_epic_backlog_no_open_questions(mock_db, mock_fragment_renderer):
                 "epic_id": "E1",
                 "name": "Epic Without Questions",
                 "mvp_phase": "mvp",
-                # No open_questions
+                # No open_questions key
             },
         ],
     }
@@ -168,39 +164,70 @@ async def test_epic_backlog_no_open_questions(mock_db, mock_fragment_renderer):
             db=mock_db,
             project_id=project_id,
             project_name="Test Project",
-            fragment_renderer=mock_fragment_renderer,
         )
     
-    # Should not call renderer if no questions
-    mock_fragment_renderer.render_list.assert_not_called()
-    
     mvp_section = next(s for s in vm.sections if s.id == "mvp")
-    assert mvp_section.epics[0].rendered_open_questions is None
+    assert len(mvp_section.epics[0].open_questions) == 0
 
 
-@pytest.mark.asyncio
-async def test_epic_backlog_fragment_render_failure_graceful(mock_db, mock_doc):
-    """BFF handles fragment render failure gracefully."""
-    project_id = uuid4()
+# =============================================================================
+# Test: Template Helpers (PreloadedFragmentRenderer)
+# =============================================================================
+
+def test_preloaded_fragment_renderer_render():
+    """PreloadedFragmentRenderer.render returns Markup."""
+    from app.web.template_helpers import PreloadedFragmentRenderer
+    from markupsafe import Markup
     
-    failing_renderer = AsyncMock(spec=FragmentRenderer)
-    failing_renderer.render_list.side_effect = Exception("Render failed")
+    # Provide a simple template
+    templates = {"TestType": "<div>{{ item.name }}</div>"}
+    renderer = PreloadedFragmentRenderer(templates)
     
-    with patch("app.web.routes.public.document_routes._get_document_by_type") as mock_get_doc:
-        mock_get_doc.return_value = mock_doc
-        
-        # Should not raise, should degrade gracefully
-        vm = await get_epic_backlog_vm(
-            db=mock_db,
-            project_id=project_id,
-            project_name="Test Project",
-            fragment_renderer=failing_renderer,
-        )
+    result = renderer.render("TestType", {"name": "Hello"})
     
-    # VM should still be valid
-    assert vm.exists is True
+    assert isinstance(result, Markup)
+    assert "<div>Hello</div>" in str(result)
+
+
+def test_preloaded_fragment_renderer_render_list():
+    """PreloadedFragmentRenderer.render_list returns Markup."""
+    from app.web.template_helpers import PreloadedFragmentRenderer
+    from markupsafe import Markup
     
-    # Epic should exist but without rendered content (graceful degradation)
-    mvp_section = next(s for s in vm.sections if s.id == "mvp")
-    assert len(mvp_section.epics) == 1
-    assert mvp_section.epics[0].rendered_open_questions is None
+    templates = {"TestType": "<span>{{ item.val }}</span>"}
+    renderer = PreloadedFragmentRenderer(templates)
+    
+    result = renderer.render_list("TestType", [{"val": "A"}, {"val": "B"}])
+    
+    assert isinstance(result, Markup)
+    assert "<span>A</span>" in str(result)
+    assert "<span>B</span>" in str(result)
+
+
+def test_preloaded_fragment_renderer_missing_template():
+    """PreloadedFragmentRenderer returns empty Markup for missing template."""
+    from app.web.template_helpers import PreloadedFragmentRenderer
+    from markupsafe import Markup
+    
+    templates = {}  # No templates
+    renderer = PreloadedFragmentRenderer(templates)
+    
+    result = renderer.render("MissingType", {"key": "value"})
+    
+    assert isinstance(result, Markup)
+    assert str(result) == ""
+
+
+def test_preloaded_fragment_renderer_graceful_failure():
+    """PreloadedFragmentRenderer returns empty Markup on render failure."""
+    from app.web.template_helpers import PreloadedFragmentRenderer
+    from markupsafe import Markup
+    
+    # Template that references undefined variable
+    templates = {"BadType": "{{ item.undefined_var.nested }}"}
+    renderer = PreloadedFragmentRenderer(templates)
+    
+    result = renderer.render("BadType", {})
+    
+    assert isinstance(result, Markup)
+    assert str(result) == ""

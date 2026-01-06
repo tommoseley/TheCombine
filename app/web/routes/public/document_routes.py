@@ -19,8 +19,7 @@ from app.api.models import Document
 
 # ADR-030: BFF imports
 from app.web.bff import get_epic_backlog_vm
-from app.web.bff.fragment_renderer import FragmentRenderer
-from app.api.services.fragment_registry_service import FragmentRegistryService
+from app.web.template_helpers import create_preloaded_fragment_renderer
 
 import logging
 
@@ -169,21 +168,25 @@ async def get_document(
     
     # ADR-030: BFF handling for epic_backlog
     if doc_type_id == "epic_backlog":
-        # ADR-032: Create fragment renderer for canonical type rendering
-        fragment_registry = FragmentRegistryService(db)
-        fragment_renderer = FragmentRenderer(fragment_registry)
-        
         vm = await get_epic_backlog_vm(
             db=db,
             project_id=proj_uuid,
             project_name=project["name"],
             base_url="",
-            fragment_renderer=fragment_renderer,
         )
+        
+        # ADR-033: Fragment rendering is a web channel concern
+        # Preload fragment templates while in async context
+        fragment_renderer = await create_preloaded_fragment_renderer(
+            db, 
+            type_ids=['OpenQuestionV1']
+        )
+        
         context = {
             "request": request,
             "project": project,
             "vm": vm,
+            "fragment_renderer": fragment_renderer,
         }
         partial_template = "public/pages/partials/_epic_backlog_content.html"
         

@@ -1,0 +1,41 @@
+﻿{
+  "$id": "schema:RenderModelV1",
+  "title": "Render Model V1",
+  "type": "object",
+  "required": [
+    "render_model_version",
+    "document_id",
+    "document_type",
+    "schema_id",
+    "schema_bundle_sha256",
+    "title",
+    "sections"
+  ],
+  "properties": {
+    "render_model_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "document_id": { "type": "string", "minLength": 1 },
+    "document_type": { "type": "string", "minLength": 1 },
+    "schema_id": {
+      "type": "string",
+      "pattern": "^schema:[A-Za-z0-9._-]+$"
+    },
+    "schema_bundle_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "subtitle": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "schema:RenderSectionV1" }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "schema:RenderActionV1" }
+    }
+  },
+  "additionalProperties": false
+}
