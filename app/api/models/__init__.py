@@ -1,4 +1,4 @@
-"""
+﻿"""
 Models for The Combine.
 """
 from app.api.models.project import Project
@@ -9,6 +9,7 @@ from app.api.models.role_task import RoleTask
 from app.api.models.document_type import DocumentType
 from app.api.models.document import Document
 from app.api.models.document_relation import DocumentRelation, RelationType
+from app.api.models.schema_artifact import SchemaArtifact
 __all__ = [
     'Project',
     'File',

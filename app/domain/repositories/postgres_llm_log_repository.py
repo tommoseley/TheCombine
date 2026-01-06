@@ -89,14 +89,14 @@ class PostgresLLMLogRepository:
                 INSERT INTO llm_run (
                     id, correlation_id, project_id, artifact_type, role,
                     model_provider, model_name, prompt_id, prompt_version,
-                    effective_prompt_hash, schema_version, status, started_at,
-                    error_count
+                    effective_prompt_hash, schema_version, schema_id, schema_bundle_hash,
+                    status, started_at, error_count
                 )
                 VALUES (
                     :id, :correlation_id, :project_id, :artifact_type, :role,
                     :model_provider, :model_name, :prompt_id, :prompt_version,
-                    :effective_prompt_hash, :schema_version, :status, :started_at,
-                    0
+                    :effective_prompt_hash, :schema_version, :schema_id, :schema_bundle_hash,
+                    :status, :started_at, 0
                 )
             """),
             {
@@ -111,6 +111,8 @@ class PostgresLLMLogRepository:
                 "prompt_version": record.prompt_version,
                 "effective_prompt_hash": record.effective_prompt_hash,
                 "schema_version": record.schema_version,
+                "schema_id": record.schema_id,
+                "schema_bundle_hash": record.schema_bundle_hash,
                 "status": record.status,
                 "started_at": record.started_at,
             }
@@ -198,6 +200,8 @@ class PostgresLLMLogRepository:
             prompt_version=row.prompt_version,
             effective_prompt_hash=row.effective_prompt_hash,
             schema_version=row.schema_version,
+            schema_id=getattr(row, 'schema_id', None),
+            schema_bundle_hash=getattr(row, 'schema_bundle_hash', None),
             status=row.status,
             started_at=row.started_at,
             ended_at=row.ended_at,

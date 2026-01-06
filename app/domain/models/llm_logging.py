@@ -1,4 +1,4 @@
-"""
+﻿"""
 SQLAlchemy models for LLM Execution Logging (ADR-010).
 
 Domain models for execution telemetry and operational data.
@@ -12,6 +12,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import (
+    String,
     Column, String, Integer, Text, DateTime, Boolean,
     ForeignKey, Index, CheckConstraint, DECIMAL
 )
@@ -155,6 +156,19 @@ class LLMRun(Base):
         doc="Output schema version if applicable"
     )
     
+    # ADR-031: Schema Registry tracking
+    schema_id: Mapped[Optional[str]] = Column(
+        String(100),
+        nullable=True,
+        doc="Root schema identifier per ADR-031 (e.g., EpicBacklogV2)"
+    )
+    
+    schema_bundle_hash: Mapped[Optional[str]] = Column(
+        String(64),
+        nullable=True,
+        doc="SHA256 hash of resolved schema bundle per ADR-031"
+    )
+    
     status: Mapped[str] = Column(
         Text,
         nullable=False,
@@ -209,7 +223,7 @@ class LLMRun(Base):
     )
     
     run_metadata: Mapped[Optional[dict]] = Column(
-        "metadata",  # ← Column name in database
+        "metadata",  # â† Column name in database
         JSONB,
         nullable=True,
         doc="retry_count, is_replay, etc."
