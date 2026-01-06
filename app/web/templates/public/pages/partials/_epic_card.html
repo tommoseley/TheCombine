@@ -76,12 +76,24 @@
         {% endif %}
         
         <!-- Open Questions -->
-        {% if epic.open_questions %}
-        {% set blocking_questions = epic.open_questions | selectattr('blocking', 'equalto', true) | list %}
-        {% set other_questions = epic.open_questions | selectattr('blocking', 'equalto', false) | list %}
-        
+        {% if epic.open_questions or epic.rendered_open_questions %}
         <div class="border-l-4 border-amber-600 dark:border-amber-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
-            <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Open Questions</h4>
+            <div class="flex items-center gap-2 mb-2">
+                <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Open Questions</h4>
+                {% if epic.rendered_open_questions %}
+                <span class="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">Fragment</span>
+                {% endif %}
+            </div>
+            
+            {% if epic.rendered_open_questions %}
+            {# ADR-032: Use fragment-rendered content #}
+            <div class="space-y-2">
+                {{ epic.rendered_open_questions | safe }}
+            </div>
+            {% else %}
+            {# Fallback: Traditional template rendering #}
+            {% set blocking_questions = epic.open_questions | selectattr('blocking', 'equalto', true) | list %}
+            {% set other_questions = epic.open_questions | selectattr('blocking', 'equalto', false) | list %}
             <div class="space-y-2">
                 {% for q in blocking_questions %}
                 <div class="flex items-start">
@@ -90,7 +102,7 @@
                         <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
                         <span class="ml-2 px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-xs">Blocking</span>
                         {% if q.directed_to %}
-                        <span class="ml-1 text-xs text-gray-500 dark:text-gray-400">â†’ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-1 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -102,12 +114,13 @@
                     <div class="flex-1">
                         <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
                         {% if q.directed_to %}
-                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">â†’ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
         </div>
         {% endif %}
         

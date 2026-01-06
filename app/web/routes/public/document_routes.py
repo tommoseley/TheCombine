@@ -19,6 +19,8 @@ from app.api.models import Document
 
 # ADR-030: BFF imports
 from app.web.bff import get_epic_backlog_vm
+from app.web.bff.fragment_renderer import FragmentRenderer
+from app.api.services.fragment_registry_service import FragmentRegistryService
 
 import logging
 
@@ -167,11 +169,16 @@ async def get_document(
     
     # ADR-030: BFF handling for epic_backlog
     if doc_type_id == "epic_backlog":
+        # ADR-032: Create fragment renderer for canonical type rendering
+        fragment_registry = FragmentRegistryService(db)
+        fragment_renderer = FragmentRenderer(fragment_registry)
+        
         vm = await get_epic_backlog_vm(
             db=db,
             project_id=proj_uuid,
             project_name=project["name"],
             base_url="",
+            fragment_renderer=fragment_renderer,
         )
         context = {
             "request": request,

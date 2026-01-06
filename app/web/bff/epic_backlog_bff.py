@@ -27,6 +27,11 @@ from app.web.viewmodels.epic_backlog_vm import (
     RelatedDiscoveryVM,
 )
 
+# ADR-032: Optional fragment renderer for canonical type rendering
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.web.bff.fragment_renderer import FragmentRenderer
+
 
 async def get_epic_backlog_vm(
     *,
@@ -34,6 +39,7 @@ async def get_epic_backlog_vm(
     project_id: UUID,
     project_name: str,
     base_url: str = "",
+    fragment_renderer: Optional["FragmentRenderer"] = None,
 ) -> EpicBacklogVM:
     """
     BFF assembler for Epic Backlog.
@@ -64,6 +70,34 @@ async def get_epic_backlog_vm(
     
     for e in epics_raw:
         card = _map_epic_to_card_vm(e, project_id, base_url)
+        
+        # ADR-032: Render open questions per-epic using fragment renderer
+        if fragment_renderer and e.get("open_questions"):
+            questions_for_render = []
+            for q in e.get("open_questions", []):
+                if isinstance(q, dict):
+                    questions_for_render.append({
+                        "id": q.get("id", ""),
+                        "text": q.get("question", ""),
+                        "blocking": q.get("blocking_for_epic", False),
+                        "why_it_matters": q.get("why_it_matters", ""),
+                        "priority": q.get("priority"),
+                        "options": q.get("options", []),
+                        "notes": q.get("notes"),
+                    })
+            
+            if questions_for_render:
+                try:
+                    card.rendered_open_questions = await fragment_renderer.render_list(
+                        "OpenQuestionV1",
+                        questions_for_render,
+                    )
+                except Exception as ex:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Fragment rendering failed for epic {card.epic_id}: {ex}"
+                    )
+        
         if card.mvp_phase == "mvp":
             mvp_cards.append(card)
         else:
@@ -109,6 +143,7 @@ async def get_epic_backlog_vm(
         if isinstance(r, dict)
     ]
     
+
     return EpicBacklogVM(
         project_id=str(project_id),
         project_name=project_name,

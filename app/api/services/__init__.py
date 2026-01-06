@@ -11,3 +11,8 @@ from .schema_registry_service import (
     SchemaNotFoundError,
     InvalidStatusTransitionError,
 )
+from .fragment_registry_service import (
+    FragmentRegistryService,
+    FragmentNotFoundError,
+    BindingNotFoundError,
+)

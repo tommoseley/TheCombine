@@ -51,6 +51,9 @@ class EpicCardVM(BaseModel):
     
     # Navigation
     detail_href: str = ""
+    
+    # ADR-032: Pre-rendered fragment content for open questions
+    rendered_open_questions: Optional[str] = None
 
 
 class EpicBacklogSectionVM(BaseModel):
@@ -103,6 +106,9 @@ class EpicBacklogVM(BaseModel):
     # State
     exists: bool = True
     message: Optional[str] = None
+    
+    # ADR-032: Pre-rendered fragment content
+    rendered_open_questions: Optional[str] = None
     
     # Computed properties
     @property

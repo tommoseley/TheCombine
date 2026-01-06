@@ -10,6 +10,7 @@ from app.api.models.document_type import DocumentType
 from app.api.models.document import Document
 from app.api.models.document_relation import DocumentRelation, RelationType
 from app.api.models.schema_artifact import SchemaArtifact
+from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
 __all__ = [
     'Project',
     'File',
