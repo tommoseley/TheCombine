@@ -31,6 +31,37 @@ All relative paths in this document are from this root. When using tools to read
 
 ---
 
+## Governing Policies (Mandatory)
+
+The following policies are mandatory governance constraints. AI agents MUST read and comply with these policies.
+
+| Policy | Purpose | Key Requirements |
+|--------|---------|------------------|
+| POL-WS-001 | Work Statement Standard | Defines structure and execution rules for all implementation work |
+| POL-ADR-EXEC-001 | ADR Execution Authorization | 6-step process from ADR acceptance to execution |
+
+### POL-ADR-EXEC-001 Bootstrap Requirements
+
+Per Section 9 of POL-ADR-EXEC-001, AI agents MUST:
+
+1. **Recognize ADR states**: Architectural status (Draft/Accepted/Deprecated/Superseded) is independent of execution state (null/authorized/active/complete)
+2. **Request Implementation Plan**: Before any ADR execution, draft an Implementation Plan for human review
+3. **Request Work Statement**: After Implementation Plan acceptance, draft Work Statement(s) per POL-WS-001
+4. **Refuse unauthorized execution**: Do NOT begin execution without explicit acceptance of both Implementation Plan AND Work Statement
+
+**Key principle:** ADR acceptance does NOT authorize execution. Execution requires completing the full authorization process.
+
+### POL-WS-001 Bootstrap Requirements
+
+Per POL-WS-001, AI agents MUST:
+
+1. **Follow Work Statements exactly**: Execute steps in order; do not skip, reorder, or merge
+2. **Stop on ambiguity**: If a step is unclear, STOP and escalate rather than infer
+3. **Respect prohibited actions**: Each Work Statement defines what is NOT permitted
+4. **Verify before proceeding**: Complete verification for each step before moving to the next
+
+---
+
 ## Execution Constraints (Read First)
 
 The following constraints apply to all work on this project:
@@ -374,4 +405,4 @@ python -m pytest tests/ -v
 
 ---
 
-_Last reviewed: 2026-01-02_
+_Last reviewed: 2026-01-06_
