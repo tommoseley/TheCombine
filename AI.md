@@ -23,8 +23,9 @@ All relative paths in this document are from this root. When using tools to read
 
 1. This file (`AI.md`) — in Project Knowledge
 2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
-3. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
-4. Search Project Knowledge for ADRs as needed
+3. **Review all policies** in `docs/policies/` - these are mandatory governance constraints
+4. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
+5. Search Project Knowledge for ADRs as needed
 
 **Important:** `PROJECT_STATE.md` and session logs live on the filesystem, not in Project Knowledge. Use tools to read them.
 
