@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authentication routes.
 
 ADR-008: Multi-Provider OAuth Authentication
@@ -161,6 +161,13 @@ async def callback(
     db: AsyncSession = Depends(get_db)
 ):
     """
+    # DEBUG: Log session and request info
+    logger.info(f"Callback - Session keys: {list(request.session.keys())}")
+    logger.info(f"Callback - Cookies: {list(request.cookies.keys())}")
+    fwd_proto = request.headers.get("x-forwarded-proto", "NOT SET")
+    logger.info(f"Callback - X-Forwarded-Proto: {fwd_proto}")
+    logger.info(f"Callback - Scheme: {request.url.scheme}")
+    
     OAuth callback - exchange code for tokens and create session.
     
     Rate limit: 30/min per IP (enforced by Nginx)
@@ -183,6 +190,13 @@ async def callback(
     Returns:
         302 redirect to home page with session cookies set
     """
+    # DEBUG: Log session and request info
+    logger.info(f"Callback - Session keys: {list(request.session.keys())}")
+    logger.info(f"Callback - Cookies: {list(request.cookies.keys())}")
+    fwd_proto = request.headers.get("x-forwarded-proto", "NOT SET")
+    logger.info(f"Callback - X-Forwarded-Proto: {fwd_proto}")
+    logger.info(f"Callback - Scheme: {request.url.scheme}")
+    
     try:
         client = oidc_config.get_client(provider_id)
     except ValueError as e:
