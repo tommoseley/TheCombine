@@ -150,7 +150,7 @@ async def login(
 
     # Redirect to OAuth provider
     # Authlib stores state and nonce in session automatically
-    return await client.authorize_redirect(request, redirect_uri)
+    return await client.authorize_redirect(request, redirect_uri, prompt='select_account')
 
 
 @router.get("/callback/{provider_id}")
@@ -383,8 +383,12 @@ async def logout(
         
         raise HTTPException(status_code=403, detail="CSRF validation failed")
     
-    # Delete session from database
+    # Get user_id from session before deleting (for audit log)
     auth_service = AuthService(db)
+    session_result = await auth_service.verify_session(session_token)
+    user_id = session_result[0].user_id if session_result else None
+    
+    # Delete session from database
     await auth_service.delete_session(session_token)
     
     # Create response with cookies cleared
@@ -411,6 +415,7 @@ async def logout(
     # Log logout
     await auth_service.log_auth_event(
         event_type=AuthEventType.LOGOUT,
+        user_id=user_id,
         ip_address=get_client_ip(request),
         user_agent=request.headers.get('user-agent')
     )

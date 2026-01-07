@@ -24,6 +24,8 @@ class AuthEventType(str, Enum):
     TOKEN_CREATED = "token_created"
     TOKEN_REVOKED = "token_revoked"
     ACCOUNT_LINKED = "account_linked"
+    ACCOUNT_UNLINKED = "account_unlinked"
+    LINK_BLOCKED_IDENTITY_EXISTS = "link_blocked_identity_exists"
     LOGIN_BLOCKED_EMAIL_EXISTS = "login_blocked_email_exists"
     CSRF_VIOLATION = "csrf_violation"
 

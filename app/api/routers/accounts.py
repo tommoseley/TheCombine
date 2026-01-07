@@ -105,7 +105,7 @@ async def initiate_link(
     logger.info(f"Initiating link of {provider_id} for user {user.user_id}")
     
     # Redirect to OAuth provider
-    return await client.authorize_redirect(request, redirect_uri)
+    return await client.authorize_redirect(request, redirect_uri, prompt='select_account')
 
 
 @router.get("/callback/{provider_id}")
@@ -262,14 +262,14 @@ async def link_callback(
             
             # Redirect to accounts page with success message
             return RedirectResponse(
-                url='/static/accounts.html?linked=success',
+                url='/?linked=success',
                 status_code=302
             )
         else:
             # Already linked (idempotent)
             logger.info(f"{provider_id} already linked to user {intended_user_id}")
             return RedirectResponse(
-                url='/static/accounts.html?linked=already',
+                url='/?linked=already',
                 status_code=302
             )
             
