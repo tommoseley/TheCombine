@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 """
@@ -16,6 +16,10 @@ from app.api.services.document_status_service import document_status_service
 from app.api.services.role_prompt_service import RolePromptService
 from app.api.services.document_service import DocumentService
 from app.api.models import Document
+
+# ADR-030: BFF imports
+from app.web.bff import get_epic_backlog_vm
+from app.web.template_helpers import create_preloaded_fragment_renderer
 
 import logging
 
@@ -162,7 +166,37 @@ async def get_document(
     # Check if this is an HTMX request (partial) or full page request (browser refresh)
     is_htmx = request.headers.get("HX-Request") == "true"
     
-    # Build context
+    # ADR-030: BFF handling for epic_backlog
+    if doc_type_id == "epic_backlog":
+        vm = await get_epic_backlog_vm(
+            db=db,
+            project_id=proj_uuid,
+            project_name=project["name"],
+            base_url="",
+        )
+        
+        # ADR-033: Fragment rendering is a web channel concern
+        # Preload fragment templates while in async context
+        fragment_renderer = await create_preloaded_fragment_renderer(
+            db, 
+            type_ids=['OpenQuestionV1']
+        )
+        
+        context = {
+            "request": request,
+            "project": project,
+            "vm": vm,
+            "fragment_renderer": fragment_renderer,
+        }
+        partial_template = "public/pages/partials/_epic_backlog_content.html"
+        
+        if is_htmx:
+            return templates.TemplateResponse(partial_template, context)
+        else:
+            context["content_template"] = partial_template
+            return templates.TemplateResponse("public/pages/document_page.html", context)
+    
+    # Build context for other document types
     context = {
         "request": request,
             "project": project,

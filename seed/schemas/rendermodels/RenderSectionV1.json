@@ -1,0 +1,17 @@
+﻿{
+  "$id": "schema:RenderSectionV1",
+  "title": "Render Section V1",
+  "type": "object",
+  "required": ["id", "title", "order", "blocks"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "order": { "type": "integer", "minimum": 0 },
+    "description": { "type": "string" },
+    "blocks": {
+      "type": "array",
+      "items": { "$ref": "schema:RenderBlockV1" }
+    }
+  },
+  "additionalProperties": false
+}

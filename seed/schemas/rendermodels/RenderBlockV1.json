@@ -1,0 +1,15 @@
+﻿{
+  "$id": "schema:RenderBlockV1",
+  "title": "Render Block V1",
+  "type": "object",
+  "required": ["type", "data"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "pattern": "^schema:[A-Za-z0-9._-]+$"
+    },
+    "data": { "type": "object" },
+    "key": { "type": "string" }
+  },
+  "additionalProperties": false
+}

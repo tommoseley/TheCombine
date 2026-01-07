@@ -1,0 +1,42 @@
+{
+  "family": "the-combine-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::303985543798:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::303985543798:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "the-combine",
+      "image": "303985543798.dkr.ecr.us-east-1.amazonaws.com/the-combine:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {"name": "DATABASE_URL", "value": "postgresql://combine_admin:Gamecocks4896!@the-combine-db.cyqzjxl9c9jd.us-east-1.rds.amazonaws.com:5432/combine"},
+        {"name": "ENVIRONMENT", "value": "production"},
+        {"name": "DOMAIN", "value": "thecombine.ai"},
+        {"name": "HTTPS_ONLY", "value": "true"},
+        {"name": "SESSION_SECRET_KEY", "value": "f6a76b9846ee64c4630c190cd7dd1510f734346d58a5582e827441c64ae9a88c"},
+        {"name": "GOOGLE_CLIENT_ID", "value": "1026213722180-cg52unse2snmbp2ee2b3v1eivls6bn5f.apps.googleusercontent.com"},
+        {"name": "GOOGLE_CLIENT_SECRET", "value": "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"},
+        {"name": "MICROSOFT_CLIENT_ID", "value": "324010a1-bda6-40a6-b637-6464e68111bc"},
+        {"name": "MICROSOFT_CLIENT_SECRET", "value": "Hre8Q~md.sgbHK5BHqG6j2j93i1nDZ54QPwgncmt"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/the-combine",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "essential": true
+    }
+  ]
+}

@@ -52,6 +52,8 @@ class LLMExecutionLogger:
         prompt_version: str,
         effective_prompt: str,
         schema_version: Optional[str] = None,
+        schema_id: Optional[str] = None,
+        schema_bundle_hash: Optional[str] = None,
     ) -> UUID:
         """Create llm_run record. Commits on success."""
         if correlation_id is None:
@@ -74,6 +76,8 @@ class LLMExecutionLogger:
             prompt_version=prompt_version,
             effective_prompt_hash=effective_prompt_hash,
             schema_version=schema_version,
+            schema_id=schema_id,
+            schema_bundle_hash=schema_bundle_hash,
             status="IN_PROGRESS",
             started_at=datetime.now(timezone.utc),
         )
@@ -82,8 +86,9 @@ class LLMExecutionLogger:
             await self.repo.insert_run(record)
             await self.repo.commit()
             
+            schema_info = f", schema: {schema_id}" if schema_id else ""
             logger.info(f"[ADR-010] Started LLM run {run_id} "
-                f"(correlation: {correlation_id}, role: {role}, artifact: {artifact_type})"
+                f"(correlation: {correlation_id}, role: {role}, artifact: {artifact_type}{schema_info})"
             )
             return run_id
         except Exception as e:

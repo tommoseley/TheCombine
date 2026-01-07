@@ -23,10 +23,46 @@ All relative paths in this document are from this root. When using tools to read
 
 1. This file (`AI.md`) — in Project Knowledge
 2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
-3. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
-4. Search Project Knowledge for ADRs as needed
+3. **Review all policies** in `docs/policies/` - these are mandatory governance constraints
+4. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
+5. Search Project Knowledge for ADRs as needed
 
 **Important:** `PROJECT_STATE.md` and session logs live on the filesystem, not in Project Knowledge. Use tools to read them.
+
+---
+
+## Governing Policies (Mandatory)
+
+The following policies are mandatory governance constraints. AI agents MUST read and comply with these policies.
+
+| Policy | Purpose | Key Requirements |
+|--------|---------|------------------|
+| POL-WS-001 | Work Statement Standard | Defines structure and execution rules for all implementation work |
+| POL-ADR-EXEC-001 | ADR Execution Authorization | 6-step process from ADR acceptance to execution |
+
+### POL-ADR-EXEC-001 Bootstrap Requirements
+
+Per POL-ADR-EXEC-001, AI agents MUST:
+
+1. **Recognize ADR states**: Architectural status (Draft/Accepted/Deprecated/Superseded) is independent of execution state (null/authorized/active/complete)
+2. **Assess scope**: Determine if work is single-commit or multi-commit
+3. **Follow the appropriate path**:
+   - **Single-commit:** Work Statement → Acceptance → Execute
+   - **Multi-commit:** Implementation Plan → Acceptance → Work Statement(s) → Acceptance → Execute
+4. **Declare scope explicitly**: The expected scope MUST be stated in the Work Statement or Implementation Plan
+5. **Escalate if scope grows**: If single-commit work expands, STOP and draft an Implementation Plan
+6. **Refuse unauthorized execution**: Do NOT begin execution without explicit Work Statement acceptance
+
+**Key principle:** ADR acceptance does NOT authorize execution. Execution requires completing the appropriate authorization path.
+
+### POL-WS-001 Bootstrap Requirements
+
+Per POL-WS-001, AI agents MUST:
+
+1. **Follow Work Statements exactly**: Execute steps in order; do not skip, reorder, or merge
+2. **Stop on ambiguity**: If a step is unclear, STOP and escalate rather than infer
+3. **Respect prohibited actions**: Each Work Statement defines what is NOT permitted
+4. **Verify before proceeding**: Complete verification for each step before moving to the next
 
 ---
 
@@ -47,6 +83,21 @@ The following constraints apply to all work on this project:
   - The AI MUST NOT perform Git commits.
   - The AI MAY propose commit messages and describe what should be committed.
   - The user performs all Git commits.
+
+- **Regarding “File not found” errors**
+  - You may encounter “File not found” errors for files that do in fact exist.
+  - The human operator uses VS Code, which may hold file locks or have unsaved buffers that interfere with file access.
+  - If a file access error occurs on a file that should exist, pause and ask Tom to close the file in VS Code, then retry the operation.
+
+- **Reuse-First Rule**
+
+  -Before creating anything new (file, module, schema, service, prompt):
+    - Search the codebase and existing docs/ADRs.
+    - Prefer extending or refactoring over creating.
+    - Only create something new when reuse is not viable.
+
+  -If you create something new, you must be able to justify why reuse was not appropriate.
+  -Creating something new when a suitable existing artifact existed is a defect.
 
 Violation of these constraints is considered a failure to follow project rules.
 
@@ -233,13 +284,14 @@ Before any work:
 
 1. Read `AI.md` (this file, in Project Knowledge)
 2. **Use tools to read** `docs/PROJECT_STATE.md` from filesystem
-3. Optionally scan `docs/session_logs/` for recent context
-4. Summarize back:
+3. Scan `docs/session_logs/` for recent context
+4. Scan `docs/adr/` for architectural guidance and a future vision
+5. Summarize back:
    - System purpose
    - Current state
    - Active constraints (ADRs)
    - Next logical work
-5. Ask for confirmation before proceeding
+6. Ask for confirmation before proceeding
 
 ### How to Close a Session
 
@@ -357,4 +409,4 @@ python -m pytest tests/ -v
 
 ---
 
-_Last reviewed: 2026-01-02_
+_Last reviewed: 2026-01-06_

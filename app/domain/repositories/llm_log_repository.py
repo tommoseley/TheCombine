@@ -21,19 +21,24 @@ from dataclasses import dataclass
 @dataclass
 class LLMRunRecord:
     """LLM run data."""
+    # Required fields (no defaults) must come first
     id: UUID
     correlation_id: UUID
-    project_id: Optional[UUID]
-    artifact_type: Optional[str]
     role: str
     model_provider: str
     model_name: str
     prompt_id: str
     prompt_version: str
     effective_prompt_hash: str
-    schema_version: Optional[str]
     status: str
     started_at: datetime
+    # Optional fields (with defaults)
+    project_id: Optional[UUID] = None
+    artifact_type: Optional[str] = None
+    schema_version: Optional[str] = None
+    # ADR-031: Schema Registry tracking
+    schema_id: Optional[str] = None
+    schema_bundle_hash: Optional[str] = None
     ended_at: Optional[datetime] = None
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
