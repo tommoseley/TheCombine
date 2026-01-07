@@ -1,6 +1,6 @@
-﻿# The Combine - CI/CD Pipeline (ECS Fargate + Route 53)
+﻿# The Combine - CI/CD Pipeline (ECS Fargate + ALB)
 # Uses GitHub OIDC to assume AWS role - no stored credentials
-# No ALB - Route 53 points directly to ECS task public IP
+# ALB handles HTTPS termination and routing
 
 name: Deploy to AWS
 
@@ -89,8 +89,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    outputs:
-      public_ip: ${{ steps.get-ip.outputs.public_ip }}
     
     steps:
       - name: Checkout code
@@ -150,87 +148,14 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
       
-      - name: Get new task public IP
-        id: get-ip
-        run: |
-          echo "Waiting for new task to get IP..."
-          sleep 10
-          
-          # Get the running task ARN
-          TASK_ARN=$(aws ecs list-tasks \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service-name ${{ env.ECS_SERVICE }} \
-            --query 'taskArns[0]' \
-            --output text)
-          
-          echo "Task ARN: $TASK_ARN"
-          
-          # Get the ENI ID from the task
-          ENI_ID=$(aws ecs describe-tasks \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --tasks $TASK_ARN \
-            --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
-            --output text)
-          
-          echo "ENI ID: $ENI_ID"
-          
-          # Get the public IP from the ENI
-          PUBLIC_IP=$(aws ec2 describe-network-interfaces \
-            --network-interface-ids $ENI_ID \
-            --query 'NetworkInterfaces[0].Association.PublicIp' \
-            --output text)
-          
-          echo "Public IP: $PUBLIC_IP"
-          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-      
-      - name: Update Route 53 DNS
-        run: |
-          PUBLIC_IP="${{ steps.get-ip.outputs.public_ip }}"
-          
-          # Get hosted zone ID
-          HOSTED_ZONE_ID=$(aws route53 list-hosted-zones \
-            --query "HostedZones[?Name=='${{ env.DOMAIN_NAME }}.'].Id" \
-            --output text | sed 's|/hostedzone/||')
-          
-          echo "Hosted Zone ID: $HOSTED_ZONE_ID"
-          
-          # Create change batch
-          cat > change-batch.json << EOF
-          {
-            "Changes": [
-              {
-                "Action": "UPSERT",
-                "ResourceRecordSet": {
-                  "Name": "${{ env.DOMAIN_NAME }}",
-                  "Type": "A",
-                  "TTL": 60,
-                  "ResourceRecords": [
-                    {
-                      "Value": "$PUBLIC_IP"
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-          EOF
-          
-          # Apply DNS change
-          aws route53 change-resource-record-sets \
-            --hosted-zone-id $HOSTED_ZONE_ID \
-            --change-batch file://change-batch.json
-          
-          echo "✅ DNS updated: ${{ env.DOMAIN_NAME }} -> $PUBLIC_IP"
-      
       - name: Deployment summary
         run: |
-          echo "✅ Deployment complete!"
+          echo "Deployment complete!"
           echo ""
-          echo "📦 Image: ${{ steps.build-image.outputs.image }}"
-          echo "🚀 Cluster: ${{ env.ECS_CLUSTER }}"
-          echo "🔧 Service: ${{ env.ECS_SERVICE }}"
-          echo "🌐 Public IP: ${{ steps.get-ip.outputs.public_ip }}"
-          echo "🔗 URL: http://${{ env.DOMAIN_NAME }}:8000"
+          echo "Image: ${{ steps.build-image.outputs.image }}"
+          echo "Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "Service: ${{ env.ECS_SERVICE }}"
+          echo "URL: https://${{ env.DOMAIN_NAME }}"
 
   # ============================================================
   # SMOKE TEST JOB - Verify deployment succeeded
@@ -242,39 +167,32 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
-      - name: Wait for DNS propagation
+      - name: Wait for ALB to register new task
         run: |
-          echo "Waiting 60s for DNS propagation..."
-          sleep 60
+          echo "Waiting 30s for ALB health checks..."
+          sleep 30
       
-      - name: Health check via domain
+      - name: Health check via ALB
         run: |
-          echo "Testing health at http://${{ env.DOMAIN_NAME }}:8000/health"
+          echo "Testing health at https://${{ env.DOMAIN_NAME }}/health"
           
           # Retry health check a few times
           for i in {1..5}; do
-            if curl -sf "http://${{ env.DOMAIN_NAME }}:8000/health" --max-time 10; then
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/health" --max-time 10 || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
               echo ""
-              echo "✅ Health check passed!"
+              echo "Health check passed! (HTTP $HTTP_CODE)"
               exit 0
             fi
-            echo "Attempt $i failed, waiting 30s..."
+            echo "Attempt $i: HTTP $HTTP_CODE, waiting 30s..."
             sleep 30
           done
           
-          echo "❌ Health check failed after 5 attempts"
+          echo "Health check failed after 5 attempts"
           exit 1
-      
-      - name: Health check via IP (fallback)
-        if: failure()
-        run: |
-          PUBLIC_IP="${{ needs.deploy.outputs.public_ip }}"
-          echo "Trying direct IP: http://$PUBLIC_IP:8000/health"
-          
-          curl -sf "http://$PUBLIC_IP:8000/health" --max-time 10 && echo "✅ IP health check passed!" || echo "❌ IP health check also failed"
 
   # ============================================================
-  # NOTIFY JOB - Post deployment info (optional)
+  # NOTIFY JOB - Post deployment status
   # ============================================================
   notify:
     name: Notify
@@ -286,10 +204,9 @@ jobs:
       - name: Deployment status
         run: |
           if [ "${{ needs.smoke-test.result }}" == "success" ]; then
-            echo "🎉 Deployment successful!"
-            echo "URL: http://${{ env.DOMAIN_NAME }}:8000"
-            echo "IP: ${{ needs.deploy.outputs.public_ip }}"
+            echo "Deployment successful!"
+            echo "URL: https://${{ env.DOMAIN_NAME }}"
           else
-            echo "⚠️ Deployment completed but health check failed"
-            echo "Check logs and try: http://${{ needs.deploy.outputs.public_ip }}:8000/health"
+            echo "Deployment completed but health check failed"
+            echo "Check CloudWatch logs for details"
           fi

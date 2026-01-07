@@ -1,10 +1,5 @@
-import asyncio
-from sqlalchemy import text
-from app.core.database import async_session_factory
-
-async def update_fragment():
-    async with async_session_factory() as db:
-        markup = '''<div class="flex items-start" data-question-id="{{ item.id }}">
+﻿UPDATE fragment_artifacts 
+SET fragment_markup = '<div class="flex items-start" data-question-id="{{ item.id }}">
     {% if item.blocking %}
     <i data-lucide="alert-circle" class="w-4 h-4 mr-2 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5"></i>
     {% else %}
@@ -22,12 +17,5 @@ async def update_fragment():
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ item.why_it_matters }}</p>
         {% endif %}
     </div>
-</div>'''
-        await db.execute(
-            text("UPDATE fragment_artifacts SET fragment_markup = :markup WHERE fragment_id = 'OpenQuestionV1Fragment'"),
-            {"markup": markup}
-        )
-        await db.commit()
-        print("Updated OpenQuestionV1Fragment markup")
-
-asyncio.run(update_fragment())
+</div>'
+WHERE fragment_id = 'OpenQuestionV1Fragment';
