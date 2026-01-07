@@ -44,3 +44,5 @@ recycle/
 
 # AWS MCP Server (local tool)
 aws-scp-server/
+# Generated task definitions with secrets
+task-def*.json
