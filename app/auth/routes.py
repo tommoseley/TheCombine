@@ -1,4 +1,4 @@
-"""
+﻿"""
 Authentication routes.
 
 ADR-008: Multi-Provider OAuth Authentication
@@ -138,6 +138,11 @@ async def login(
     Returns:
         302 redirect to OAuth provider
     """
+    # DEBUG: Log session and cookie info
+    logger.info(f"Callback session keys: {list(request.session.keys())}")
+    logger.info(f"Callback cookies: {list(request.cookies.keys())}")
+    logger.info(f"Session content: {dict(request.session)}")
+    
     try:
         client = oidc_config.get_client(provider_id)
     except ValueError as e:
@@ -183,6 +188,16 @@ async def callback(
     Returns:
         302 redirect to home page with session cookies set
     """
+    # DEBUG: Log session and cookie info
+    logger.info(f"Callback session keys: {list(request.session.keys())}")
+    logger.info(f"Callback cookies: {list(request.cookies.keys())}")
+    logger.info(f"Session content: {dict(request.session)}")
+
+    # DEBUG: Log session and cookie info
+    logger.info(f"Callback session keys: {list(request.session.keys())}")
+    logger.info(f"Callback cookies: {list(request.cookies.keys())}")
+    logger.info(f"Session content: {dict(request.session)}")
+    
     try:
         client = oidc_config.get_client(provider_id)
     except ValueError as e:
