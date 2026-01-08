@@ -304,6 +304,66 @@ RISKS_BLOCK_V1_COMPONENT = {
 }
 
 
+PARAGRAPH_BLOCK_V1_COMPONENT = {
+    "component_id": "component:ParagraphBlockV1:1.0.0",
+    "schema_id": "schema:ParagraphBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Produce clear, concise prose for the section content.",
+            "Keep paragraphs focused on a single topic or theme.",
+            "Avoid bullet points within paragraph blocks.",
+            "Use context.title to understand the section purpose."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:ParagraphBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+INDICATOR_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IndicatorBlockV1:1.0.0",
+    "schema_id": "schema:IndicatorBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only block for derived values.",
+            "Do not generate indicator values directly.",
+            "Values come from frozen derivation rules."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:IndicatorBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+EPIC_SUMMARY_BLOCK_V1_COMPONENT = {
+    "component_id": "component:EpicSummaryBlockV1:1.0.0",
+    "schema_id": "schema:EpicSummaryBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only container for backlog views.",
+            "Contains 3-5 fields: title, intent, phase, risk_level, detail_ref.",
+            "Intentionally lossy - optimized for scanning.",
+            "risk_level is derived, not generated.",
+            "detail_ref links to EpicDetailView."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:EpicSummaryBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 # ADR-034-EXP3: Story backlog test docdef
 STORY_BACKLOG_TEST_DOCDEF = {
     "document_def_id": "docdef:StoryBacklogTest:1.0.0",
@@ -412,6 +472,221 @@ PROJECT_DISCOVERY_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034-EPIC-SUMMARY: Epic Summary View DocDef
+# =============================================================================
+
+EPIC_SUMMARY_VIEW_DOCDEF = {
+    "document_def_id": "docdef:EpicSummaryView:1.0.0",
+    "document_schema_id": None,  # Projection over CanonicalEpicV1
+    "prompt_header": {
+        "role": "You are producing an Epic Summary for backlog scanning.",
+        "constraints": [
+            "Keep summary intentionally brief.",
+            "3-5 fields maximum.",
+            "Optimized for scanning, not understanding.",
+        ]
+    },
+    "sections": [
+        # Title (simple string)
+        {
+            "section_id": "title",
+            "title": "Title",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/title",
+            "context": {"title": ""},
+        },
+        # Intent (one paragraph - use vision)
+        {
+            "section_id": "intent",
+            "title": "Intent",
+            "order": 20,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/vision",
+            "context": {"title": "Intent"},
+        },
+        # Phase (MVP indicator)
+        {
+            "section_id": "phase",
+            "title": "Phase",
+            "order": 30,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/phase",
+            "context": {"title": "Phase"},
+        },
+        # Risk Level (derived from risks array)
+        {
+            "section_id": "risk_level",
+            "title": "Risk Level",
+            "order": 40,
+            "component_id": "component:IndicatorBlockV1:1.0.0",
+            "shape": "single",
+            "derived_from": {"function": "risk_level", "source": "/risks"},
+            "context": {"title": "Risk"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
+# =============================================================================
+# ADR-034-EPIC-DETAIL: Epic Detail DocDef
+# =============================================================================
+
+EPIC_DETAIL_VIEW_DOCDEF = {
+    "document_def_id": "docdef:EpicDetailView:1.0.0",
+    "document_schema_id": None,  # Will link to CanonicalEpicV1 schema
+    "prompt_header": {
+        "role": "You are producing an Epic Detail document.",
+        "constraints": [
+            "Focus on the single epic being defined.",
+            "Be specific about scope boundaries.",
+            "All risks must include likelihood and impact.",
+            "Open questions should identify blocking vs non-blocking.",
+        ]
+    },
+    "sections": [
+        # Vision (paragraph)
+        {
+            "section_id": "vision",
+            "title": "Vision",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/vision",
+            "context": {"title": "Vision"},
+        },
+        # Problem (paragraph)
+        {
+            "section_id": "problem",
+            "title": "Problem/Opportunity",
+            "order": 20,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/problem",
+            "context": {"title": "Problem/Opportunity"},
+        },
+        # Business Goals (string list)
+        {
+            "section_id": "business_goals",
+            "title": "Business Goals",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/business_goals",
+            "context": {"title": "Business Goals"},
+        },
+        # In Scope (string list with checks)
+        {
+            "section_id": "in_scope",
+            "title": "In Scope",
+            "order": 40,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/in_scope",
+            "context": {"title": "In Scope", "style": "check"},
+        },
+        # Out of Scope (string list)
+        {
+            "section_id": "out_of_scope",
+            "title": "Out of Scope",
+            "order": 50,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/out_of_scope",
+            "context": {"title": "Out of Scope"},
+        },
+        # Requirements (numbered list)
+        {
+            "section_id": "requirements",
+            "title": "Requirements",
+            "order": 60,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/requirements",
+            "context": {"title": "Requirements", "style": "numbered"},
+        },
+        # Acceptance Criteria (checkmarks)
+        {
+            "section_id": "acceptance_criteria",
+            "title": "Acceptance Criteria",
+            "order": 70,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/acceptance_criteria",
+            "context": {"title": "Acceptance Criteria", "style": "check"},
+        },
+        # Risks (typed container)
+        {
+            "section_id": "risks",
+            "title": "Risks",
+            "order": 80,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/risks",
+            "context": {"title": "Risks"},
+        },
+        # Open Questions (typed container)
+        {
+            "section_id": "open_questions",
+            "title": "Open Questions",
+            "order": 90,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            "context": {"title": "Open Questions"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
+# =============================================================================
+# ADR-034-EPIC-BACKLOG: Epic Backlog View DocDef
+# =============================================================================
+
+EPIC_BACKLOG_VIEW_DOCDEF = {
+    "document_def_id": "docdef:EpicBacklogView:1.0.0",
+    "document_schema_id": None,  # Projection over epic backlog data
+    "prompt_header": {
+        "role": "You are producing an Epic Backlog for project navigation.",
+        "constraints": [
+            "Each epic renders as a summary card.",
+            "Details are referenced, not embedded.",
+            "Optimized for scanning multiple epics.",
+        ]
+    },
+    "sections": [
+        {
+            "section_id": "epic_summaries",
+            "title": "Epics",
+            "order": 10,
+            "component_id": "component:EpicSummaryBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/epics",
+            "source_pointer": "/",
+            "exclude_fields": ["risks", "open_questions", "requirements", "acceptance_criteria"],
+            "context": {
+                "epic_id": "/epic_id",
+                "epic_title": "/title"
+            },
+            "derived_fields": [
+                {"field": "risk_level", "function": "risk_level", "source": "/risks"},
+            ],
+            "detail_ref_template": {
+                "document_type": "EpicDetailView",
+                "params": {"epic_id": "/epic_id"}
+            },
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
@@ -421,6 +696,9 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     STRING_LIST_BLOCK_V1_COMPONENT,
     SUMMARY_BLOCK_V1_COMPONENT,
     RISKS_BLOCK_V1_COMPONENT,
+    PARAGRAPH_BLOCK_V1_COMPONENT,
+    INDICATOR_BLOCK_V1_COMPONENT,
+    EPIC_SUMMARY_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -430,6 +708,9 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     DEEP_NESTING_TEST_DOCDEF,
     STORY_BACKLOG_TEST_DOCDEF,
     PROJECT_DISCOVERY_DOCDEF,
+    EPIC_SUMMARY_VIEW_DOCDEF,
+    EPIC_DETAIL_VIEW_DOCDEF,
+    EPIC_BACKLOG_VIEW_DOCDEF,
 ]
 
 
@@ -587,6 +868,20 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

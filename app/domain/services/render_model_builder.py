@@ -19,6 +19,47 @@ from app.api.services.component_registry_service import ComponentRegistryService
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# FROZEN DERIVATION RULES
+# =============================================================================
+# These are mechanical, deterministic helpers for derived view fields.
+# Changes require governance approval. See docs/governance/DERIVED_FIELDS.md
+# =============================================================================
+
+def derive_risk_level(risks: List[Dict[str, Any]]) -> str:
+    """
+    Derive aggregate risk level from a list of risks.
+    
+    FROZEN RULE (2026-01-08):
+    - If any risk has likelihood="high" → "high"
+    - Else if any risk has likelihood="medium" → "medium"  
+    - Else → "low"
+    
+    Args:
+        risks: List of RiskV1-shaped dicts with optional 'likelihood' field
+        
+    Returns:
+        One of: "high", "medium", "low"
+    """
+    if not risks:
+        return "low"
+    
+    likelihoods = [r.get("likelihood", "low") for r in risks if isinstance(r, dict)]
+    
+    if "high" in likelihoods:
+        return "high"
+    elif "medium" in likelihoods:
+        return "medium"
+    else:
+        return "low"
+
+
+# Registry of allowed derivation functions (frozen)
+DERIVATION_FUNCTIONS = {
+    "risk_level": derive_risk_level,
+}
+
+
 class RenderModelError(Exception):
     """Base exception for render model building errors."""
     pass
@@ -176,6 +217,17 @@ class RenderModelBuilder:
         source_pointer = section.get("source_pointer", "")
         repeat_over = section.get("repeat_over")
         context_mapping = section.get("context", {})
+        derived_from = section.get("derived_from")
+        
+        # Handle derived fields (frozen derivation rules)
+        if derived_from:
+            return await self._process_derived_section(
+                section_id=section_id,
+                component_id=component_id,
+                derived_from=derived_from,
+                document_data=document_data,
+                context_mapping=context_mapping,
+            )
         
         # Resolve component to get schema_id
         component = await self.component_service.get(component_id)
@@ -190,11 +242,14 @@ class RenderModelBuilder:
             # Single item at source_pointer
             data = self._resolve_pointer(document_data, source_pointer)
             if data is not None:
+                # Use static context from section config if provided
+                static_context = context_mapping if context_mapping else None
+                
                 blocks.append(RenderBlock(
                     type=schema_id,
                     key=f"{section_id}:0",
                     data=data if isinstance(data, dict) else {"value": data},
-                    context=None,
+                    context=static_context,
                 ))
         
         elif shape == "list":
@@ -250,33 +305,74 @@ class RenderModelBuilder:
             if repeat_over:
                 # Iterate parents, produce one container block per parent
                 parents = self._resolve_pointer(document_data, repeat_over)
+                derived_fields = section.get("derived_fields", [])
                 
                 if parents and isinstance(parents, list):
                     for parent_idx, parent in enumerate(parents):
                         if not isinstance(parent, dict):
                             continue
                         
-                        # Resolve source_pointer RELATIVE to parent object
-                        parent_items = self._resolve_pointer(parent, source_pointer)
-                        if not parent_items or not isinstance(parent_items, list):
-                            continue
-                        
-                        # Build context from this parent
-                        context = self._build_context(parent, context_mapping)
-                        
-                        # Process items
-                        processed_items = []
-                        for item in parent_items:
-                            item_data = item if isinstance(item, dict) else {"value": item}
-                            processed_items.append(item_data)
-                        
-                        # One container block per parent
-                        blocks.append(RenderBlock(
-                            type=schema_id,
-                            key=f"{section_id}:container:{parent_idx}",
-                            data={"items": processed_items},
-                            context=context,
-                        ))
+                        # Check if source_pointer is "/" or empty - use parent as data directly
+                        if source_pointer in ("/", ""):
+                            # Use parent object as data (not wrapped in items)
+                            # Filter out heavy fields that shouldn't be in summaries
+                            exclude_fields = section.get("exclude_fields", [])
+                            block_data = {k: v for k, v in parent.items() if k not in exclude_fields}
+                            
+                            # Apply derived fields
+                            for df in derived_fields:
+                                field_name = df.get("field")
+                                func_name = df.get("function")
+                                source = df.get("source", "")
+                                
+                                if func_name in DERIVATION_FUNCTIONS:
+                                    source_data = self._resolve_pointer(parent, source)
+                                    if source_data is None:
+                                        source_data = []
+                                    block_data[field_name] = DERIVATION_FUNCTIONS[func_name](source_data)
+                            
+                            # Add detail_ref if detail_ref_template specified
+                            detail_ref_template = section.get("detail_ref_template")
+                            if detail_ref_template:
+                                block_data["detail_ref"] = {
+                                    "document_type": detail_ref_template.get("document_type", ""),
+                                    "params": {
+                                        k: self._resolve_pointer(parent, v) 
+                                        for k, v in detail_ref_template.get("params", {}).items()
+                                    }
+                                }
+                            
+                            # Build context from this parent
+                            context = self._build_context(parent, context_mapping)
+                            
+                            blocks.append(RenderBlock(
+                                type=schema_id,
+                                key=f"{section_id}:container:{parent_idx}",
+                                data=block_data,
+                                context=context,
+                            ))
+                        else:
+                            # Resolve source_pointer RELATIVE to parent object
+                            parent_items = self._resolve_pointer(parent, source_pointer)
+                            if not parent_items or not isinstance(parent_items, list):
+                                continue
+                            
+                            # Build context from this parent
+                            context = self._build_context(parent, context_mapping)
+                            
+                            # Process items
+                            processed_items = []
+                            for item in parent_items:
+                                item_data = item if isinstance(item, dict) else {"value": item}
+                                processed_items.append(item_data)
+                            
+                            # One container block per parent
+                            blocks.append(RenderBlock(
+                                type=schema_id,
+                                key=f"{section_id}:container:{parent_idx}",
+                                data={"items": processed_items},
+                                context=context,
+                            ))
             else:
                 # Simple container: items directly from source_pointer
                 items = self._resolve_pointer(document_data, source_pointer)
@@ -297,6 +393,59 @@ class RenderModelBuilder:
                     ))
         
         return blocks
+    
+    async def _process_derived_section(
+        self,
+        section_id: str,
+        component_id: str,
+        derived_from: Dict[str, Any],
+        document_data: Dict[str, Any],
+        context_mapping: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        """
+        Process a derived section using frozen derivation rules.
+        
+        Args:
+            section_id: Section identifier
+            component_id: Component to use for rendering
+            derived_from: {"function": "risk_level", "source": "/risks"}
+            document_data: Full document data
+            context_mapping: Static context from section config
+            
+        Returns:
+            List containing single RenderBlock with derived value
+        """
+        func_name = derived_from.get("function")
+        source_pointer = derived_from.get("source", "")
+        
+        # Validate function exists
+        if func_name not in DERIVATION_FUNCTIONS:
+            logger.warning(f"Unknown derivation function: {func_name}")
+            return []
+        
+        # Resolve source data
+        source_data = self._resolve_pointer(document_data, source_pointer)
+        if source_data is None:
+            source_data = []
+        
+        # Apply derivation
+        derive_fn = DERIVATION_FUNCTIONS[func_name]
+        derived_value = derive_fn(source_data)
+        
+        # Resolve component to get schema_id
+        component = await self.component_service.get(component_id)
+        if not component:
+            raise ComponentNotFoundError(f"Component not found: {component_id}")
+        
+        schema_id = component.schema_id
+        static_context = context_mapping if context_mapping else None
+        
+        return [RenderBlock(
+            type=schema_id,
+            key=f"{section_id}:derived",
+            data={"value": derived_value},
+            context=static_context,
+        )]
     
     def _resolve_pointer(
         self,
@@ -368,6 +517,13 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
+
+
+
+
+
+
 
 
 

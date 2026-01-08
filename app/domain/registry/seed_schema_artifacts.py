@@ -664,6 +664,89 @@ RISKS_BLOCK_V1_SCHEMA = {
 }
 
 
+PARAGRAPH_BLOCK_V1_SCHEMA = {
+    "$id": "schema:ParagraphBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Paragraph Block",
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "The paragraph text content"
+        },
+        "value": {
+            "type": "string",
+            "description": "Alternative field name for content (builder compatibility)"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Simple paragraph text block for narrative content."
+}
+
+
+INDICATOR_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IndicatorBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Indicator Block",
+    "type": "object",
+    "required": ["value"],
+    "properties": {
+        "value": {
+            "type": "string",
+            "description": "The indicator value (e.g., low, medium, high)"
+        },
+        "label": {
+            "type": "string",
+            "description": "Optional label for the indicator"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Simple indicator block for derived values like risk level."
+}
+
+
+EPIC_SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:EpicSummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Epic Summary Block",
+    "type": "object",
+    "required": ["title"],
+    "properties": {
+        "epic_id": {
+            "type": "string",
+            "description": "Epic identifier"
+        },
+        "title": {
+            "type": "string",
+            "description": "Epic title"
+        },
+        "intent": {
+            "type": "string",
+            "description": "One-paragraph intent/vision"
+        },
+        "phase": {
+            "type": "string",
+            "description": "MVP phase indicator"
+        },
+        "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Derived aggregate risk level"
+        },
+        "detail_ref": {
+            "type": "object",
+            "properties": {
+                "document_type": {"type": "string"},
+                "epic_id": {"type": "string"}
+            },
+            "description": "Reference to EpicDetailView"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Compact epic summary for backlog views. Intentionally lossy."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -846,6 +929,39 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    {
+        "schema_id": "ParagraphBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": PARAGRAPH_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IndicatorBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INDICATOR_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "EpicSummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": EPIC_SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -910,6 +1026,12 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
+
+
+
+
 
 
 

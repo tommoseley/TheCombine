@@ -308,6 +308,102 @@ RISKS_BLOCK_V1_FRAGMENT = """
 """
 
 
+PARAGRAPH_BLOCK_V1_FRAGMENT = """
+<div class="paragraph-block" data-block-type="ParagraphBlockV1">
+  {% if block.context and block.context.title %}
+  <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ block.context.title }}</h3>
+  {% endif %}
+  
+  {% set text = block.data.content or block.data.value or block.data %}
+  {% if text is string %}
+  <p class="text-gray-700 leading-relaxed">{{ text }}</p>
+  {% elif text is mapping and text.value %}
+  <p class="text-gray-700 leading-relaxed">{{ text.value }}</p>
+  {% else %}
+  <p class="text-gray-400 italic">No content.</p>
+  {% endif %}
+</div>
+"""
+
+
+INDICATOR_BLOCK_V1_FRAGMENT = """
+<div class="indicator-block inline-flex items-center gap-2" data-block-type="IndicatorBlockV1">
+  {% if block.context and block.context.title %}
+  <span class="text-sm text-gray-600">{{ block.context.title }}:</span>
+  {% endif %}
+  
+  {% set value = block.data.value | default('unknown') %}
+  {% if value == 'high' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+    {{ value | title }}
+  </span>
+  {% elif value == 'medium' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+    {{ value | title }}
+  </span>
+  {% elif value == 'low' %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+    {{ value | title }}
+  </span>
+  {% else %}
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+    {{ value | title }}
+  </span>
+  {% endif %}
+</div>
+"""
+
+
+EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
+<div class="epic-summary-block border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors" data-block-type="EpicSummaryBlockV1" data-epic-id="{{ block.data.epic_id | default(block.context.epic_id) }}">
+  <div class="flex items-start justify-between gap-4">
+    <div class="flex-1 min-w-0">
+      <!-- Title -->
+      <h3 class="text-lg font-semibold text-gray-900 truncate">
+        {{ block.data.title | default('Untitled Epic') }}
+      </h3>
+      
+      <!-- Intent (truncated) -->
+      {% if block.data.intent or block.data.vision %}
+      <p class="text-sm text-gray-600 mt-1 line-clamp-2">
+        {{ block.data.intent | default(block.data.vision) }}
+      </p>
+      {% endif %}
+    </div>
+    
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <!-- Phase Badge -->
+      {% if block.data.phase %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+        {% if block.data.phase == 'MVP' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ block.data.phase }}
+      </span>
+      {% endif %}
+      
+      <!-- Risk Level Indicator -->
+      {% set risk = block.data.risk_level | default('low') %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium
+        {% if risk == 'high' %}bg-red-100 text-red-800
+        {% elif risk == 'medium' %}bg-amber-100 text-amber-800
+        {% else %}bg-green-100 text-green-800{% endif %}">
+        {{ risk | title }} Risk
+      </span>
+    </div>
+  </div>
+  
+  <!-- Detail Link -->
+  {% if block.data.detail_ref %}
+  <div class="mt-3 pt-3 border-t border-gray-100">
+    <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium"
+       data-detail-ref="{{ block.data.detail_ref | tojson }}">
+      View Details →
+    </a>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -367,6 +463,30 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_type_id": "RisksBlockV1",
         "status": "accepted",
         "fragment_markup": RISKS_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034-EPIC-DETAIL: Paragraph block
+    {
+        "fragment_id": "ParagraphBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "ParagraphBlockV1",
+        "status": "accepted",
+        "fragment_markup": PARAGRAPH_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034-EPIC-SUMMARY: Indicator block
+    {
+        "fragment_id": "IndicatorBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "IndicatorBlockV1",
+        "status": "accepted",
+        "fragment_markup": INDICATOR_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034-EPIC-BACKLOG: Epic summary card
+    {
+        "fragment_id": "EpicSummaryBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "EpicSummaryBlockV1",
+        "status": "accepted",
+        "fragment_markup": EPIC_SUMMARY_BLOCK_V1_FRAGMENT,
     },
 ]
 
@@ -437,6 +557,12 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
+
+
+
+
 
 
 

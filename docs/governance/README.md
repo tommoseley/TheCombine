@@ -8,6 +8,7 @@ This directory contains canonical governance specifications for The Combine.
 |----------|---------|--------|
 | [RENDER_SHAPES_SEMANTICS.md](./RENDER_SHAPES_SEMANTICS.md) | Authoritative shape semantics for docdefs | Frozen |
 | [DOCUMENT_MIGRATION_CHECKLIST.md](./DOCUMENT_MIGRATION_CHECKLIST.md) | Required playbook for document type migrations | Canonical |
+| [DERIVED_FIELDS.md](./DERIVED_FIELDS.md) | Frozen derivation rules for view fields | Frozen |
 
 ## Usage
 
@@ -25,3 +26,4 @@ Changes require explicit governance approval via ADR amendment.
 ---
 
 *Last updated: 2026-01-08*
+
