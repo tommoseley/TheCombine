@@ -315,6 +315,155 @@ RENDER_ACTION_V1_SCHEMA = {
 }
 
 
+
+# =============================================================================
+# ADR-034 CANONICAL COMPONENT & DOCUMENT DEFINITION SCHEMAS
+# =============================================================================
+
+CANONICAL_COMPONENT_V1_SCHEMA = {
+    "$id": "schema:CanonicalComponentV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Canonical Component Specification",
+    "description": "Defines a reusable component with schema, prompt guidance, and view bindings.",
+    "required": ["component_id", "schema_id", "generation_guidance", "view_bindings"],
+    "properties": {
+        "component_id": {
+            "type": "string",
+            "pattern": "^component:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Canonical component ID with semver (e.g., component:OpenQuestionV1:1.0.0)"
+        },
+        "schema_id": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$",
+            "description": "Reference to canonical schema (e.g., schema:OpenQuestionV1)"
+        },
+        "generation_guidance": {
+            "type": "object",
+            "required": ["bullets"],
+            "properties": {
+                "bullets": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "Prompt generation bullets for LLM"
+                }
+            },
+            "additionalProperties": False
+        },
+        "view_bindings": {
+            "type": "object",
+            "description": "Channel-specific fragment bindings",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "fragment_id": {
+                        "type": "string",
+                        "description": "Canonical fragment ID for this channel"
+                    }
+                },
+                "additionalProperties": False
+            }
+        }
+    },
+    "additionalProperties": False
+}
+
+DOCUMENT_DEFINITION_V2_SCHEMA = {
+    "$id": "schema:DocumentDefinitionV2",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Document Definition V2",
+    "description": "Composes canonical components into a document structure.",
+    "required": ["document_def_id", "prompt_header", "sections"],
+    "properties": {
+        "document_def_id": {
+            "type": "string",
+            "pattern": "^docdef:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Canonical document definition ID with semver"
+        },
+        "document_schema_id": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$",
+            "description": "Optional reference to document-level schema"
+        },
+        "prompt_header": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "description": "Role context for LLM"
+                },
+                "constraints": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Generation constraints"
+                }
+            },
+            "additionalProperties": False
+        },
+        "sections": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["section_id", "title", "order", "component_id", "shape", "source_pointer"],
+                "properties": {
+                    "section_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Unique section identifier"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Section title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Section description"
+                    },
+                    "order": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Section ordering"
+                    },
+                    "component_id": {
+                        "type": "string",
+                        "pattern": "^component:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+                        "description": "Reference to canonical component"
+                    },
+                    "shape": {
+                        "type": "string",
+                        "enum": ["single", "list", "nested_list"],
+                        "description": "How component data is structured"
+                    },
+                    "source_pointer": {
+                        "type": "string",
+                        "pattern": "^/.*$",
+                        "description": "JSON pointer to data source"
+                    },
+                    "repeat_over": {
+                        "type": "string",
+                        "pattern": "^/.*$",
+                        "description": "JSON pointer for nested_list parent iteration"
+                    },
+                    "context": {
+                        "type": "object",
+                        "description": "Context mappings from parent to child",
+                        "additionalProperties": {
+                            "type": "string",
+                            "pattern": "^/.*$"
+                        }
+                    }
+                },
+                "additionalProperties": False
+            },
+            "description": "Ordered list of document sections"
+        }
+    },
+    "additionalProperties": False
+}
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -405,6 +554,29 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034: Canonical Component and Document Definition schemas
+    {
+        "schema_id": "CanonicalComponentV1",
+        "version": "1.0",
+        "kind": "document",
+        "status": "accepted",
+        "schema_json": CANONICAL_COMPONENT_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "DocumentDefinitionV2",
+        "version": "1.0",
+        "kind": "document",
+        "status": "accepted",
+        "schema_json": DOCUMENT_DEFINITION_V2_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -458,11 +630,16 @@ async def seed_schema_artifacts(db: AsyncSession) -> int:
 
 if __name__ == "__main__":
     import asyncio
-    from app.core.database import get_db_session
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env before importing database
+    from app.core.database import async_session_factory
     
     async def main():
-        async with get_db_session() as db:
+        async with async_session_factory() as db:
             count = await seed_schema_artifacts(db)
+            await db.commit()
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+

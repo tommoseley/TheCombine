@@ -48,7 +48,7 @@ def test_risk_v1_has_required_fields():
 
 def test_initial_schemas_have_valid_kind():
     """All initial schemas have valid kind (type or envelope)."""
-    valid_kinds = {"type", "envelope"}
+    valid_kinds = {"type", "envelope", "document"}
     for artifact in INITIAL_SCHEMA_ARTIFACTS:
         assert artifact["kind"] in valid_kinds, f"{artifact['schema_id']} has invalid kind"
 
@@ -102,8 +102,8 @@ def test_schemas_are_valid_json_schema():
 
 def test_expected_schema_count():
     """Expected number of seed schemas."""
-    # 4 canonical types (ADR-031) + 4 render model types (ADR-033)
-    assert len(INITIAL_SCHEMA_ARTIFACTS) == 8
+    # 4 canonical types (ADR-031) + 4 render model types (ADR-033) + 2 meta schemas (ADR-034)
+    assert len(INITIAL_SCHEMA_ARTIFACTS) == 10
 
 
 # =============================================================================
@@ -160,3 +160,4 @@ async def test_seed_idempotent():
         
         assert count == 0
         mock_registry.create.assert_not_called()
+

@@ -11,6 +11,9 @@ from app.api.models.document import Document
 from app.api.models.document_relation import DocumentRelation, RelationType
 from app.api.models.schema_artifact import SchemaArtifact
 from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
+from app.api.models.component_artifact import ComponentArtifact
+from app.api.models.document_definition import DocumentDefinition
+
 __all__ = [
     'Project',
     'File',
@@ -19,5 +22,10 @@ __all__ = [
     'RoleTask',
     'Document',
     'DocumentRelation',
-    'RelationType'  
+    'RelationType',
+    'SchemaArtifact',
+    'FragmentArtifact',
+    'FragmentBinding',
+    'ComponentArtifact',
+    'DocumentDefinition',
 ]

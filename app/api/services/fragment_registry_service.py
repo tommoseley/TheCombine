@@ -1,4 +1,4 @@
-﻿"""
+"""
 Fragment Registry Service for ADR-032.
 
 Provides CRUD operations and binding management for fragment artifacts.
@@ -12,6 +12,16 @@ from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
+
+
+# =============================================================================
+# FRAGMENT ALIASES (POC only - future: move to DB table or fragment_bindings)
+# Per ADR-034 D3: Maps canonical fragment IDs to legacy fragment IDs
+# =============================================================================
+
+FRAGMENT_ALIASES = {
+    "fragment:OpenQuestionV1:web:1.0.0": "OpenQuestionV1Fragment",
+}
 
 
 class FragmentNotFoundError(Exception):
@@ -314,6 +324,41 @@ class FragmentRegistryService:
         
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
+    
+    # =========================================================================
+    # Alias Resolution (ADR-034)
+    # =========================================================================
+    
+    async def resolve_fragment_id(
+        self,
+        canonical_id: str,
+    ) -> Optional[FragmentArtifact]:
+        """
+        Resolve a canonical fragment ID to a FragmentArtifact.
+        
+        Per ADR-034 D3: Component specs store canonical fragment IDs
+        (e.g., fragment:OpenQuestionV1:web:1.0.0). This method resolves
+        them to existing legacy fragment records via alias mapping.
+        
+        Algorithm:
+        1. If canonical_id is in FRAGMENT_ALIASES, look up by legacy id
+        2. Otherwise, look up by canonical_id directly
+        3. Return FragmentArtifact or None
+        
+        Note: FRAGMENT_ALIASES is acceptable only for seeded POC mappings.
+        Future: move aliases into a DB table or fragment_bindings table.
+        
+        Args:
+            canonical_id: Canonical fragment ID (e.g., fragment:OpenQuestionV1:web:1.0.0)
+            
+        Returns:
+            FragmentArtifact or None if not found
+        """
+        # Check alias mapping first
+        lookup_id = FRAGMENT_ALIASES.get(canonical_id, canonical_id)
+        
+        # Look up fragment by resolved ID
+        return await self.get_fragment(lookup_id)
     
     # =========================================================================
     # Utilities

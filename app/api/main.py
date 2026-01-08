@@ -41,7 +41,7 @@ from app.api.routers.accounts import router as accounts_router
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
-from app.web.routes.admin import pages_router, dashboard_router, partials_router, documents_router
+from app.web.routes.admin import pages_router, dashboard_router, partials_router, documents_router, composer_router
 # Import middleware
 from app.api.middleware import (
     error_handling,
@@ -183,6 +183,7 @@ app.include_router(dashboard_router)  # /dashboard, /dashboard/costs - must be b
 app.include_router(documents_router)  # /admin/documents UI pages
 app.include_router(pages_router)  # /workflows, /executions UI pages
 app.include_router(partials_router)  # HTMX partials
+app.include_router(composer_router)  # ADR-034: Composer preview endpoints
 
 
 # ============================================================================
@@ -198,3 +199,4 @@ if __name__ == "__main__":
         reload=True,
         log_level="debug"
     )
+

@@ -1,6 +1,6 @@
 ﻿# ADR-011-Part-2 â€” Document Ownership Model (Implementation & Enforcement)
 
-**Status:** Draft (v0.93)  
+**Status:** Accepted (v1.0)  
 **Extends:** ADR-011 â€” Document Ownership Model  
 **Related ADRs:**
 - ADR-009 â€” Audit & Governance

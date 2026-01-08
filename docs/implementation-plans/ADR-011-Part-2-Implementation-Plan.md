@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-05  
 **ADR Version:** 0.93  
-**Status:** Ready for implementation
+**Status:** Complete
 
 ---
 
@@ -312,11 +312,11 @@ TEST_WORKFLOW = {
 | Step | File(s) | Est. Time | Status |
 |------|---------|-----------|--------|
 | 1 | Update ADR-011-Part-2 text | 15 min | Complete |
-| 2 | Create migration | 15 min | Pending |
-| 3 | Update `app/api/models/document.py` | 30 min | Pending |
-| 4 | Extend `app/api/services/document_service.py` | 45 min | Pending |
-| 5 | Create `tests/services/test_document_ownership.py` | 45 min | Pending |
-| 6 | Run tests, fix issues | 30 min | Pending |
+| 2 | Create migration | 15 min | Complete |
+| 3 | Update `app/api/models/document.py` | 30 min | Complete |
+| 4 | Extend `app/api/services/document_service.py` | 45 min | Complete |
+| 5 | Create `tests/unit/test_document_ownership.py` | 45 min | Complete |
+| 6 | Run tests, fix issues | 30 min | Complete |
 
 **Total Estimated Time:** ~3 hours
 
@@ -335,3 +335,4 @@ TEST_WORKFLOW = {
 ---
 
 _Last updated: 2026-01-05_
+
