@@ -241,6 +241,69 @@ DEEP_NESTING_TEST_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034-DISCOVERY: Generic List and Summary Components
+# =============================================================================
+
+STRING_LIST_BLOCK_V1_COMPONENT = {
+    "component_id": "component:StringListBlockV1:1.0.0",
+    "schema_id": "schema:StringListBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only container. Items come from upstream data.",
+            "Use context.title to set the section heading.",
+            "Style defaults to bullet; can be numbered or check."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:StringListBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+SUMMARY_BLOCK_V1_COMPONENT = {
+    "component_id": "component:SummaryBlockV1:1.0.0",
+    "schema_id": "schema:SummaryBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Produce a summary with clear, concise prose for each field.",
+            "problem_understanding: What is the core problem being solved?",
+            "architectural_intent: What high-level approach is being taken?",
+            "scope_pressure_points: Where might scope expand or contract?",
+            "Keep each field under 2-3 sentences for readability."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:SummaryBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+RISKS_BLOCK_V1_COMPONENT = {
+    "component_id": "component:RisksBlockV1:1.0.0",
+    "schema_id": "schema:RisksBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only container. Do not generate new risks here.",
+            "Render items in the order provided.",
+            "Each item should conform to RiskV1 schema."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:RisksBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 # ADR-034-EXP3: Story backlog test docdef
 STORY_BACKLOG_TEST_DOCDEF = {
     "document_def_id": "docdef:StoryBacklogTest:1.0.0",
@@ -268,12 +331,96 @@ STORY_BACKLOG_TEST_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034-DISCOVERY: Project Discovery DocDef
+# =============================================================================
+
+PROJECT_DISCOVERY_DOCDEF = {
+    "document_def_id": "docdef:ProjectDiscovery:1.0.0",
+    "document_schema_id": None,  # Will link to project_discovery schema eventually
+    "prompt_header": {
+        "role": "You are producing a Project Discovery document.",
+        "constraints": [
+            "Do not propose solutions, architectures, plans, or implementation approaches.",
+            "Do not infer intent beyond what is supported by inputs.",
+            "All assumptions must be stated explicitly and labeled as assumptions.",
+            "Unknowns must remain visible, not filled in.",
+        ]
+    },
+    "sections": [
+        # Summary (single block)
+        {
+            "section_id": "summary",
+            "title": "Preliminary Summary",
+            "order": 10,
+            "component_id": "component:SummaryBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/preliminary_summary",
+        },
+        # Constraints (string list container)
+        {
+            "section_id": "constraints",
+            "title": "Known Constraints",
+            "order": 20,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/known_constraints",
+            "context": {"title": "Known Constraints"},
+        },
+        # Assumptions (string list container)
+        {
+            "section_id": "assumptions",
+            "title": "Assumptions",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/assumptions",
+            "context": {"title": "Assumptions"},
+        },
+        # Risks (typed container)
+        {
+            "section_id": "risks",
+            "title": "Identified Risks",
+            "order": 40,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/identified_risks",
+            "context": {"title": "Identified Risks"},
+        },
+        # Guardrails (string list container)
+        {
+            "section_id": "guardrails",
+            "title": "MVP Guardrails",
+            "order": 50,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/mvp_guardrails",
+            "context": {"title": "MVP Guardrails", "style": "check"},
+        },
+        # Recommendations (string list container)
+        {
+            "section_id": "recommendations",
+            "title": "Recommendations for PM",
+            "order": 60,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/recommendations_for_pm",
+            "context": {"title": "Recommendations for PM"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
     STORY_V1_COMPONENT,
     STORIES_BLOCK_V1_COMPONENT,
+    STRING_LIST_BLOCK_V1_COMPONENT,
+    SUMMARY_BLOCK_V1_COMPONENT,
+    RISKS_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -282,6 +429,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     ROOT_QUESTIONS_TEST_DOCDEF,
     DEEP_NESTING_TEST_DOCDEF,
     STORY_BACKLOG_TEST_DOCDEF,
+    PROJECT_DISCOVERY_DOCDEF,
 ]
 
 
@@ -439,6 +587,10 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
 
 
 

@@ -586,6 +586,84 @@ STORIES_BLOCK_V1_SCHEMA = {
 }
 
 
+# =============================================================================
+# ADR-034-DISCOVERY: Generic List and Summary Components
+# =============================================================================
+
+STRING_LIST_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StringListBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "String List Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title for the list section"
+        },
+        "items": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of string items"
+        },
+        "style": {
+            "type": "string",
+            "enum": ["bullet", "numbered", "check"],
+            "default": "bullet",
+            "description": "Rendering style for the list"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Generic container block for rendering simple string lists."
+}
+
+
+SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:SummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Summary Block",
+    "type": "object",
+    "properties": {
+        "problem_understanding": {
+            "type": "string",
+            "description": "Understanding of the problem space"
+        },
+        "architectural_intent": {
+            "type": "string",
+            "description": "High-level architectural direction"
+        },
+        "scope_pressure_points": {
+            "type": "string",
+            "description": "Areas where scope may expand or contract"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Multi-field summary block for document headers."
+}
+
+
+RISKS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:RisksBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Risks Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:RiskV1"},
+            "description": "Risks to render in this block"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering risk lists."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -734,6 +812,40 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034-DISCOVERY: Generic list and summary schemas
+    {
+        "schema_id": "StringListBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STRING_LIST_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "SummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "RisksBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": RISKS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -798,6 +910,9 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
+
 
 
 

@@ -197,6 +197,117 @@ STORIES_BLOCK_V1_FRAGMENT = """
 """
 
 
+# =============================================================================
+# ADR-034-DISCOVERY: Generic List and Summary Fragments
+# =============================================================================
+
+STRING_LIST_BLOCK_V1_FRAGMENT = """
+<div class="string-list-block" data-block-type="StringListBlockV1">
+  {% if block.context and block.context.title %}
+  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
+  {% endif %}
+  
+  {% set style = block.data.style | default('bullet') %}
+  
+  {% if style == 'numbered' %}
+  <ol class="list-decimal list-inside space-y-2 text-gray-700">
+    {% for item in block.data.items %}
+    <li>{{ item.value if item is mapping else item }}</li>
+    {% endfor %}
+  </ol>
+  {% elif style == 'check' %}
+  <ul class="space-y-2">
+    {% for item in block.data.items %}
+    <li class="flex items-start">
+      <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+      </svg>
+      <span class="text-gray-700">{{ item.value if item is mapping else item }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <ul class="list-disc list-inside space-y-2 text-gray-700">
+    {% for item in block.data.items %}
+    <li>{{ item.value if item is mapping else item }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic">No items.</p>
+  {% endif %}
+</div>
+"""
+
+
+SUMMARY_BLOCK_V1_FRAGMENT = """
+<div class="summary-block bg-blue-50 rounded-lg p-4 space-y-3" data-block-type="SummaryBlockV1">
+  {% if block.data.problem_understanding %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Problem Understanding:</span>
+    <p class="text-blue-900">{{ block.data.problem_understanding }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.architectural_intent %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Architectural Intent:</span>
+    <p class="text-blue-900">{{ block.data.architectural_intent }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.scope_pressure_points %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Scope Pressure Points:</span>
+    <p class="text-blue-900">{{ block.data.scope_pressure_points }}</p>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
+RISKS_BLOCK_V1_FRAGMENT = """
+<div class="risks-block" data-block-type="RisksBlockV1">
+  {% if block.context and block.context.title %}
+  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
+  {% endif %}
+  
+  <div class="space-y-3">
+    {% for item in block.data.items %}
+      {% set likelihood = item.likelihood | default('medium') %}
+      {% if likelihood == 'high' %}
+        {% set border_class = 'border-red-400 bg-red-50' %}
+        {% set badge_class = 'bg-red-100 text-red-700' %}
+      {% elif likelihood == 'medium' %}
+        {% set border_class = 'border-amber-400 bg-amber-50' %}
+        {% set badge_class = 'bg-amber-100 text-amber-700' %}
+      {% else %}
+        {% set border_class = 'border-gray-300 bg-gray-50' %}
+        {% set badge_class = 'bg-gray-100 text-gray-700' %}
+      {% endif %}
+      
+      <div class="border-l-4 {{ border_class }} p-4 rounded-r-lg">
+        <div class="flex items-center justify-between mb-1">
+          <p class="font-medium text-gray-900">{{ item.description }}</p>
+          <span class="px-2 py-0.5 text-xs font-medium rounded {{ badge_class }}">
+            {{ likelihood | title }}
+          </span>
+        </div>
+        {% if item.impact %}
+        <p class="text-sm text-gray-600">{{ item.impact }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic">No risks identified.</p>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -234,6 +345,28 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_type_id": "StoriesBlockV1",
         "status": "accepted",
         "fragment_markup": STORIES_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034-DISCOVERY: Generic list and summary fragments
+    {
+        "fragment_id": "StringListBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "StringListBlockV1",
+        "status": "accepted",
+        "fragment_markup": STRING_LIST_BLOCK_V1_FRAGMENT,
+    },
+    {
+        "fragment_id": "SummaryBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "SummaryBlockV1",
+        "status": "accepted",
+        "fragment_markup": SUMMARY_BLOCK_V1_FRAGMENT,
+    },
+    {
+        "fragment_id": "RisksBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "RisksBlockV1",
+        "status": "accepted",
+        "fragment_markup": RISKS_BLOCK_V1_FRAGMENT,
     },
 ]
 
@@ -304,6 +437,9 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
+
 
 
 

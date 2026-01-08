@@ -286,11 +286,14 @@ class RenderModelBuilder:
                         item_data = item if isinstance(item, dict) else {"value": item}
                         processed_items.append(item_data)
                     
+                    # Use static context from section config if provided
+                    static_context = context_mapping if context_mapping else None
+                    
                     blocks.append(RenderBlock(
                         type=schema_id,
                         key=f"{section_id}:container",
                         data={"items": processed_items},
-                        context=None,
+                        context=static_context,
                     ))
         
         return blocks
@@ -365,5 +368,6 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
 
 

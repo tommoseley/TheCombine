@@ -24,6 +24,9 @@ FRAGMENT_ALIASES = {
     "fragment:OpenQuestionsBlockV1:web:1.0.0": "OpenQuestionsBlockV1Fragment",
     "fragment:StoryV1:web:1.0.0": "StoryV1Fragment",
     "fragment:StoriesBlockV1:web:1.0.0": "StoriesBlockV1Fragment",
+    "fragment:StringListBlockV1:web:1.0.0": "StringListBlockV1Fragment",
+    "fragment:SummaryBlockV1:web:1.0.0": "SummaryBlockV1Fragment",
+    "fragment:RisksBlockV1:web:1.0.0": "RisksBlockV1Fragment",
 }
 
 
@@ -373,4 +376,5 @@ class FragmentRegistryService:
         Compute deterministic SHA256 hash of fragment markup.
         """
         return hashlib.sha256(markup.encode('utf-8')).hexdigest()
+
 
