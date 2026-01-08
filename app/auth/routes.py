@@ -150,6 +150,9 @@ async def login(
 
     # Redirect to OAuth provider
     # Authlib stores state and nonce in session automatically
+    logger.info(f"Login - Session keys before redirect: {list(request.session.keys())}")
+    logger.info(f"Login - HTTPS_ONLY env: {os.getenv('HTTPS_ONLY', 'not set')}")
+    
     return await client.authorize_redirect(request, redirect_uri, prompt='select_account')
 
 
