@@ -293,6 +293,16 @@ Behavior is mechanically deterministic: shape + pointers fully determine output 
 
 See [ADR-034-B](./ADR-034-Amendment-B.md) for full semantics and validation evidence.
 
+> ⚠️ **Governance Notice**
+>
+> **DocDef is not a DSL.** The following are explicitly non-features:
+> - No `filter` semantics
+> - No wildcard pointers  
+> - No nested `repeat_over`
+> - No expression language / conditional logic
+>
+> Changes to shape semantics require governance approval. See [RENDER_SHAPES_SEMANTICS.md](../../governance/RENDER_SHAPES_SEMANTICS.md).
+
 ---
 
 ## 13. Amendments
@@ -310,6 +320,7 @@ See [ADR-034-B](./ADR-034-Amendment-B.md) for full semantics and validation evid
 | 2026-01-07 | Amendment A: Clarifications & Contract Completion |
 | 2026-01-08 | Execution complete (WS-ADR-034-POC) |
 | 2026-01-08 | Amendment B: Clarified flatten-first canonical modeling; related items are represented as flat structures with explicit references; hierarchical views are produced via container blocks during rendering. Confirmed boundary that container sections support a single level of parent iteration (no nested wildcard traversal), per EXP2 findings. |
+
 
 
 
