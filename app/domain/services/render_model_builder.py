@@ -243,6 +243,56 @@ class RenderModelBuilder:
                     ))
                     block_idx += 1
         
+        elif shape == "container":
+            # Container shape: produce ONE block containing all items
+            # Per ADR-034-EXP D2: explicit container shape, no magic
+            if repeat_over:
+                # For nested containers: iterate parents, collect all items
+                parents = self._resolve_pointer(document_data, repeat_over)
+                all_items = []
+                first_context = None
+                
+                if parents and isinstance(parents, list):
+                    for parent in parents:
+                        if not isinstance(parent, dict):
+                            continue
+                        
+                        # Resolve source_pointer RELATIVE to parent object
+                        parent_items = self._resolve_pointer(parent, source_pointer)
+                        if not parent_items or not isinstance(parent_items, list):
+                            continue
+                        
+                        # Build context from first parent only (per D4)
+                        if first_context is None:
+                            first_context = self._build_context(parent, context_mapping)
+                        
+                        for item in parent_items:
+                            item_data = item if isinstance(item, dict) else {"value": item}
+                            all_items.append(item_data)
+                
+                if all_items:
+                    blocks.append(RenderBlock(
+                        type=schema_id,
+                        key=f"{section_id}:container",
+                        data={"items": all_items},
+                        context=first_context,
+                    ))
+            else:
+                # Simple container: items directly from source_pointer
+                items = self._resolve_pointer(document_data, source_pointer)
+                if items and isinstance(items, list):
+                    processed_items = []
+                    for item in items:
+                        item_data = item if isinstance(item, dict) else {"value": item}
+                        processed_items.append(item_data)
+                    
+                    blocks.append(RenderBlock(
+                        type=schema_id,
+                        key=f"{section_id}:container",
+                        data={"items": processed_items},
+                        context=None,
+                    ))
+        
         return blocks
     
     def _resolve_pointer(
@@ -315,3 +365,4 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+

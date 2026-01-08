@@ -1,4 +1,4 @@
-"""
+﻿"""
 Fragment Registry Service for ADR-032.
 
 Provides CRUD operations and binding management for fragment artifacts.
@@ -21,6 +21,7 @@ from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
 
 FRAGMENT_ALIASES = {
     "fragment:OpenQuestionV1:web:1.0.0": "OpenQuestionV1Fragment",
+    "fragment:OpenQuestionsBlockV1:web:1.0.0": "OpenQuestionsBlockV1Fragment",
 }
 
 

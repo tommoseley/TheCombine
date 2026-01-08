@@ -464,6 +464,34 @@ DOCUMENT_DEFINITION_V2_SCHEMA = {
     "additionalProperties": False
 }
 
+
+OPEN_QUESTIONS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:OpenQuestionsBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Open Questions Block",
+    "description": "Container block for a list of open questions within a section context.",
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:OpenQuestionV1"},
+            "description": "List of open questions"
+        },
+        "total_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total count of questions (derived, non-authoritative)"
+        },
+        "blocking_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Count of blocking questions (derived, non-authoritative)"
+        }
+    },
+    "additionalProperties": False
+}
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -577,6 +605,18 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034-EXP: Container block schema
+    {
+        "schema_id": "OpenQuestionsBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": OPEN_QUESTIONS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -641,5 +681,7 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
 
 

@@ -83,6 +83,39 @@ RISK_V1_FRAGMENT = '''<div class="risk {% if item.severity == 'critical' %}risk-
 </div>'''
 
 
+# ADR-034-EXP: Container fragment for Open Questions block
+OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
+<div class="open-questions-block" data-block-type="OpenQuestionsBlockV1">
+  {% if block.context %}
+  <div class="block-context text-sm text-gray-500 mb-2">
+    {% if block.context.epic_title %}Epic: {{ block.context.epic_title }}{% endif %}
+  </div>
+  {% endif %}
+  
+  <div class="questions-list space-y-4">
+    {% for item in block.data.items %}
+      <div class="open-question-item border-l-4 border-amber-400 pl-4 py-2">
+        <div class="question-header flex items-start gap-2">
+          <span class="question-id font-mono text-sm text-gray-500">{{ item.id }}</span>
+          {% if item.blocking %}
+          <span class="blocking-badge bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded">Blocking</span>
+          {% endif %}
+        </div>
+        <p class="question-text font-medium mt-1">{{ item.text }}</p>
+        {% if item.why_it_matters %}
+        <p class="why-it-matters text-sm text-gray-600 mt-1">{{ item.why_it_matters }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic">No open questions.</p>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -97,6 +130,14 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_type_id": "RiskV1",
         "status": "accepted",
         "fragment_markup": RISK_V1_FRAGMENT,
+    },
+    # ADR-034-EXP: Container fragment
+    {
+        "fragment_id": "OpenQuestionsBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "OpenQuestionsBlockV1",
+        "status": "accepted",
+        "fragment_markup": OPEN_QUESTIONS_BLOCK_V1_FRAGMENT,
     },
 ]
 
@@ -167,3 +208,4 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+

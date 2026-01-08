@@ -49,6 +49,25 @@ OPEN_QUESTION_V1_COMPONENT = {
 }
 
 
+# ADR-034-EXP: Container block component
+OPEN_QUESTIONS_BLOCK_V1_COMPONENT = {
+    "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+    "schema_id": "schema:OpenQuestionsBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a container block for rendering; generation guidance is minimal.",
+            "Item-level guidance is provided by OpenQuestionV1."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:OpenQuestionsBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 # =============================================================================
 # DOCUMENT DEFINITIONS - ADR-034
 # =============================================================================
@@ -85,13 +104,48 @@ EPIC_BACKLOG_DOCDEF = {
 }
 
 
+# ADR-034-EXP: EpicBacklog v1.1.0 with container rendering
+EPIC_BACKLOG_V1_1_DOCDEF = {
+    "document_def_id": "docdef:EpicBacklog:1.1.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "You are a Business Analyst creating an Epic Backlog for a software project.",
+        "constraints": [
+            "Output valid JSON matching the document schema.",
+            "Be specific and actionable.",
+            "Do not invent requirements not supported by inputs.",
+            "Each epic must have at least one open question if unknowns exist."
+        ]
+    },
+    "sections": [
+        {
+            "section_id": "epic_open_questions",
+            "title": "Open Questions",
+            "description": "Questions requiring human decision before implementation",
+            "order": 10,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            "repeat_over": "/epics",
+            "context": {
+                "epic_id": "/id",
+                "epic_title": "/title"
+            }
+        }
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
+    OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_BACKLOG_DOCDEF,
+    EPIC_BACKLOG_V1_1_DOCDEF,
 ]
 
 
@@ -249,5 +303,9 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
 
 

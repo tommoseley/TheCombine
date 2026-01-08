@@ -236,6 +236,128 @@ class TestRenderModelBuilder:
         assert len(result.blocks) == 0
     
     @pytest.mark.asyncio
+    async def test_build_container_shape_simple(self, builder, mock_docdef_service, mock_component_service, sample_component):
+        """Test building RenderModel with simple container shape (no repeat_over)."""
+        docdef = MagicMock()
+        docdef.document_def_id = "docdef:Test:1.0.0"
+        docdef.sections = [{
+            "section_id": "container_sec",
+            "order": 10,
+            "component_id": "component:TestV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/items",
+        }]
+        
+        mock_docdef_service.get.return_value = docdef
+        mock_component_service.get.return_value = sample_component
+        
+        document_data = {
+            "items": [
+                {"id": "1", "text": "Item 1"},
+                {"id": "2", "text": "Item 2"},
+            ]
+        }
+        
+        result = await builder.build("docdef:Test:1.0.0", document_data)
+        
+        # Should have exactly ONE block
+        assert len(result.blocks) == 1
+        assert result.blocks[0].key == "container_sec:container"
+        assert result.blocks[0].type == "schema:TestV1"
+        
+        # Block data should have items array
+        assert "items" in result.blocks[0].data
+        assert len(result.blocks[0].data["items"]) == 2
+    
+    @pytest.mark.asyncio
+    async def test_build_container_shape_with_repeat_over(self, builder, mock_docdef_service, mock_component_service, sample_component):
+        """Test building RenderModel with container shape and repeat_over."""
+        docdef = MagicMock()
+        docdef.document_def_id = "docdef:Test:1.0.0"
+        docdef.sections = [{
+            "section_id": "container_sec",
+            "order": 10,
+            "component_id": "component:TestV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/questions",
+            "repeat_over": "/epics",
+            "context": {"epic_id": "/id"},
+        }]
+        
+        mock_docdef_service.get.return_value = docdef
+        mock_component_service.get.return_value = sample_component
+        
+        document_data = {
+            "epics": [
+                {"id": "E1", "questions": [{"q": "Q1"}, {"q": "Q2"}]},
+                {"id": "E2", "questions": [{"q": "Q3"}]},
+            ]
+        }
+        
+        result = await builder.build("docdef:Test:1.0.0", document_data)
+        
+        # Should have exactly ONE block containing ALL items from all epics
+        assert len(result.blocks) == 1
+        assert result.blocks[0].key == "container_sec:container"
+        
+        # Block should have 3 items total
+        assert len(result.blocks[0].data["items"]) == 3
+        
+        # Context should be from first parent
+        assert result.blocks[0].context["epic_id"] == "E1"
+    
+    @pytest.mark.asyncio
+    async def test_build_container_vs_nested_list_comparison(self, builder, mock_docdef_service, mock_component_service, sample_component):
+        """Container produces 1 block, nested_list produces N blocks."""
+        # Same data, different shapes
+        document_data = {
+            "epics": [
+                {"id": "E1", "items": [{"x": 1}, {"x": 2}]},
+                {"id": "E2", "items": [{"x": 3}]},
+            ]
+        }
+        
+        # Test with nested_list
+        docdef_nested = MagicMock()
+        docdef_nested.document_def_id = "docdef:Test:1.0.0"
+        docdef_nested.sections = [{
+            "section_id": "sec",
+            "order": 10,
+            "component_id": "component:TestV1:1.0.0",
+            "shape": "nested_list",
+            "source_pointer": "/items",
+            "repeat_over": "/epics",
+        }]
+        
+        mock_docdef_service.get.return_value = docdef_nested
+        mock_component_service.get.return_value = sample_component
+        
+        result_nested = await builder.build("docdef:Test:1.0.0", document_data)
+        
+        # nested_list: 3 blocks (one per item)
+        assert len(result_nested.blocks) == 3
+        
+        # Test with container
+        docdef_container = MagicMock()
+        docdef_container.document_def_id = "docdef:Test:1.0.0"
+        docdef_container.sections = [{
+            "section_id": "sec",
+            "order": 10,
+            "component_id": "component:TestV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/items",
+            "repeat_over": "/epics",
+        }]
+        
+        mock_docdef_service.get.return_value = docdef_container
+        
+        result_container = await builder.build("docdef:Test:1.0.0", document_data)
+        
+        # container: 1 block with 3 items
+        assert len(result_container.blocks) == 1
+        assert len(result_container.blocks[0].data["items"]) == 3
+
+    @pytest.mark.asyncio
     async def test_build_returns_data_only(self, builder, mock_docdef_service, mock_component_service, sample_component):
         """Test that build returns data-only RenderModel (no HTML)."""
         docdef = MagicMock()
@@ -259,3 +381,4 @@ class TestRenderModelBuilder:
         assert isinstance(result.blocks[0].data, dict)
         # No HTML strings in data
         assert "<" not in str(result.blocks[0].data)
+
