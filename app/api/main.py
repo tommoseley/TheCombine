@@ -1,4 +1,4 @@
-"""
+﻿"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -146,7 +146,8 @@ app.add_middleware(
     session_cookie='combine_session',  # Cookie name for session state
     max_age=600,  # 10 minutes - only for OAuth flow, not user sessions
     same_site='lax',
-    https_only=os.getenv('HTTPS_ONLY', 'false').lower() == 'true'
+    https_only=os.getenv('HTTPS_ONLY', 'false').lower() == 'true',
+    path='/'
 )
 
 # Note: This is DIFFERENT from user session cookies (__Host-session).
