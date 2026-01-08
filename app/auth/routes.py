@@ -150,8 +150,6 @@ async def login(
 
     # Redirect to OAuth provider
     # Authlib stores state and nonce in session automatically
-    logger.info(f"Login - Session keys before redirect: {list(request.session.keys())}")
-    logger.info(f"Login - HTTPS_ONLY env: {os.getenv('HTTPS_ONLY', 'not set')}")
     
     return await client.authorize_redirect(request, redirect_uri, prompt='select_account')
 
@@ -164,12 +162,6 @@ async def callback(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    # DEBUG: Log session and request info
-    logger.info(f"Callback - Session keys: {list(request.session.keys())}")
-    logger.info(f"Callback - Cookies: {list(request.cookies.keys())}")
-    fwd_proto = request.headers.get("x-forwarded-proto", "NOT SET")
-    logger.info(f"Callback - X-Forwarded-Proto: {fwd_proto}")
-    logger.info(f"Callback - Scheme: {request.url.scheme}")
     
     OAuth callback - exchange code for tokens and create session.
     
@@ -193,12 +185,6 @@ async def callback(
     Returns:
         302 redirect to home page with session cookies set
     """
-    # DEBUG: Log session and request info
-    logger.info(f"Callback - Session keys: {list(request.session.keys())}")
-    logger.info(f"Callback - Cookies: {list(request.cookies.keys())}")
-    fwd_proto = request.headers.get("x-forwarded-proto", "NOT SET")
-    logger.info(f"Callback - X-Forwarded-Proto: {fwd_proto}")
-    logger.info(f"Callback - Scheme: {request.url.scheme}")
     
     try:
         client = oidc_config.get_client(provider_id)
