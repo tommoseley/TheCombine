@@ -244,16 +244,15 @@ class RenderModelBuilder:
                     block_idx += 1
         
         elif shape == "container":
-            # Container shape: produce ONE block containing all items
+            # Container shape: one block per parent (if repeat_over), containing that parent's items
             # Per ADR-034-EXP D2: explicit container shape, no magic
+            # Per ADR-034-EXP3: one container per parent for grouped display
             if repeat_over:
-                # For nested containers: iterate parents, collect all items
+                # Iterate parents, produce one container block per parent
                 parents = self._resolve_pointer(document_data, repeat_over)
-                all_items = []
-                first_context = None
                 
                 if parents and isinstance(parents, list):
-                    for parent in parents:
+                    for parent_idx, parent in enumerate(parents):
                         if not isinstance(parent, dict):
                             continue
                         
@@ -262,21 +261,22 @@ class RenderModelBuilder:
                         if not parent_items or not isinstance(parent_items, list):
                             continue
                         
-                        # Build context from first parent only (per D4)
-                        if first_context is None:
-                            first_context = self._build_context(parent, context_mapping)
+                        # Build context from this parent
+                        context = self._build_context(parent, context_mapping)
                         
+                        # Process items
+                        processed_items = []
                         for item in parent_items:
                             item_data = item if isinstance(item, dict) else {"value": item}
-                            all_items.append(item_data)
-                
-                if all_items:
-                    blocks.append(RenderBlock(
-                        type=schema_id,
-                        key=f"{section_id}:container",
-                        data={"items": all_items},
-                        context=first_context,
-                    ))
+                            processed_items.append(item_data)
+                        
+                        # One container block per parent
+                        blocks.append(RenderBlock(
+                            type=schema_id,
+                            key=f"{section_id}:container:{parent_idx}",
+                            data={"items": processed_items},
+                            context=context,
+                        ))
             else:
                 # Simple container: items directly from source_pointer
                 items = self._resolve_pointer(document_data, source_pointer)
@@ -365,4 +365,5 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
 

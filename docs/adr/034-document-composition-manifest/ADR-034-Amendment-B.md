@@ -127,8 +127,54 @@ Option 1 is preferred per this decision.
 | Date | Change |
 |------|--------|
 | 2026-01-08 | Initial amendment based on WS-ADR-034-EXP2 findings |
+| 2026-01-08 | Added shape semantics reference and EXP3 validation results |
+
+---
+
+## Appendix: Shape Semantics Reference
+
+### Complete Shape Vocabulary
+
+| Shape | `repeat_over` | Output | Use Case |
+|-------|---------------|--------|----------|
+| `single` | — | 1 block | Single item display |
+| `list` | — | N blocks (one per item) | Flat item list |
+| `nested_list` | required | N blocks (one per item across all parents) | Items from multiple parents, each block has parent context |
+| `container` | no | 1 block (all items) | Root-level container |
+| `container` | yes | N blocks (one per parent) | Grouped display — each parent gets its own container block |
+
+**Key distinction:** `nested_list` produces one block *per item*; `container + repeat_over` produces one block *per parent* (containing that parent's items).
+
+### Behavior is Mechanically Deterministic
+
+- No inference
+- No magic
+- No document-type branching
+- Shape + pointers fully determine output structure
+
+---
+
+## Appendix: Validated Assertions (EXP1–EXP3)
+
+The following are **proven by implementation**, not merely believed:
+
+| Assertion | Evidence |
+|-----------|----------|
+| Container is a first-class render primitive | EXP1: OpenQuestionsBlockV1 works end-to-end |
+| Container generalizes across types | EXP3: StoriesBlockV1 required zero builder changes |
+| Single-level nesting is sufficient for hierarchical UX | EXP3: Stories grouped under epics renders correctly |
+| DocDef DSL creep avoided | EXP2/EXP3: No filters, no wildcards needed |
+| Shape semantics are explicit and defensible | All tests validate exact block counts and structures |
+
+### Boundary (Documented in EXP2)
+
+> Container sections support at most one level of parent iteration via `repeat_over`.
+> Nested wildcards (e.g., `/epics/*/capabilities/*`) are not supported.
+
+This boundary is **intentional** — deeper nesting should be solved by flattening upstream or pre-grouping during generation, not by extending docdef complexity.
 
 ---
 
 *End of Amendment*
+
 

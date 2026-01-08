@@ -102,8 +102,8 @@ def test_schemas_are_valid_json_schema():
 
 def test_expected_schema_count():
     """Expected number of seed schemas."""
-    # 4 canonical types (ADR-031) + 4 render model types (ADR-033) + 2 document schemas (ADR-034) + 1 container (ADR-034-EXP)
-    assert len(INITIAL_SCHEMA_ARTIFACTS) == 11
+    # 4 canonical types (ADR-031) + 4 render model types (ADR-033) + 2 document schemas (ADR-034) + 1 container (ADR-034-EXP) + 2 story schemas (ADR-034-EXP3)
+    assert len(INITIAL_SCHEMA_ARTIFACTS) == 13
 
 
 # =============================================================================
@@ -160,5 +160,6 @@ async def test_seed_idempotent():
         
         assert count == 0
         mock_registry.create.assert_not_called()
+
 
 

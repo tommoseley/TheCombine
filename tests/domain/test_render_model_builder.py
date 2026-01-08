@@ -296,15 +296,18 @@ class TestRenderModelBuilder:
         
         result = await builder.build("docdef:Test:1.0.0", document_data)
         
-        # Should have exactly ONE block containing ALL items from all epics
-        assert len(result.blocks) == 1
-        assert result.blocks[0].key == "container_sec:container"
+        # Should have 2 blocks (one per epic)
+        assert len(result.blocks) == 2
         
-        # Block should have 3 items total
-        assert len(result.blocks[0].data["items"]) == 3
-        
-        # Context should be from first parent
+        # First block: E1 with 2 questions
+        assert result.blocks[0].key == "container_sec:container:0"
         assert result.blocks[0].context["epic_id"] == "E1"
+        assert len(result.blocks[0].data["items"]) == 2
+        
+        # Second block: E2 with 1 question
+        assert result.blocks[1].key == "container_sec:container:1"
+        assert result.blocks[1].context["epic_id"] == "E2"
+        assert len(result.blocks[1].data["items"]) == 1
     
     @pytest.mark.asyncio
     async def test_build_container_vs_nested_list_comparison(self, builder, mock_docdef_service, mock_component_service, sample_component):
@@ -353,9 +356,10 @@ class TestRenderModelBuilder:
         
         result_container = await builder.build("docdef:Test:1.0.0", document_data)
         
-        # container: 1 block with 3 items
-        assert len(result_container.blocks) == 1
-        assert len(result_container.blocks[0].data["items"]) == 3
+        # container: 2 blocks (one per epic), total 3 items across them
+        assert len(result_container.blocks) == 2
+        total_items = sum(len(b.data["items"]) for b in result_container.blocks)
+        assert total_items == 3
 
     @pytest.mark.asyncio
     async def test_build_returns_data_only(self, builder, mock_docdef_service, mock_component_service, sample_component):
@@ -381,4 +385,6 @@ class TestRenderModelBuilder:
         assert isinstance(result.blocks[0].data, dict)
         # No HTML strings in data
         assert "<" not in str(result.blocks[0].data)
+
+
 

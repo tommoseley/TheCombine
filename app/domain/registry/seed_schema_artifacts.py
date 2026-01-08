@@ -492,6 +492,100 @@ OPEN_QUESTIONS_BLOCK_V1_SCHEMA = {
     "additionalProperties": False
 }
 
+# =============================================================================
+# ADR-034-EXP3: Story Schemas
+# =============================================================================
+
+STORY_V1_SCHEMA = {
+    "$id": "schema:StoryV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Story",
+    "type": "object",
+    "required": ["id", "epic_id", "title", "description", "status"],
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable story identifier"
+        },
+        "epic_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Parent epic identifier (reference, must match parent when nested)"
+        },
+        "title": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Short story title"
+        },
+        "description": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Story description"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["draft", "ready", "in_progress", "blocked", "done"],
+            "default": "draft",
+            "description": "Workflow status"
+        },
+        "acceptance_criteria": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 2},
+            "default": [],
+            "description": "User-validated acceptance criteria"
+        },
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": [],
+            "description": "Optional categorization tags"
+        },
+        "notes": {
+            "type": "string",
+            "description": "Additional context / notes"
+        }
+    },
+    "additionalProperties": False,
+    "description": "A story linked to an epic via epic_id (flatten-first canonical reference)."
+}
+
+
+STORIES_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StoriesBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Stories Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional block title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:StoryV1"},
+            "description": "Stories to render in this block"
+        },
+        "meta": {
+            "type": "object",
+            "properties": {
+                "total_count": {"type": "integer", "minimum": 0},
+                "status_counts": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer", "minimum": 0},
+                    "description": "Derived counts by status (non-authoritative)"
+                }
+            },
+            "additionalProperties": False,
+            "description": "Derived metadata (non-authoritative)"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering story lists; grouping via doc composition + context."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -617,6 +711,29 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034-EXP3: Story schemas
+    {
+        "schema_id": "StoryV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORY_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "StoriesBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORIES_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -681,6 +798,8 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
 
 
 

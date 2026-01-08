@@ -69,6 +69,52 @@ OPEN_QUESTIONS_BLOCK_V1_COMPONENT = {
 
 
 # =============================================================================
+# ADR-034-EXP3: Story Components
+# =============================================================================
+
+STORY_V1_COMPONENT = {
+    "component_id": "component:StoryV1:1.0.0",
+    "schema_id": "schema:StoryV1",
+    "generation_guidance": {
+        "bullets": [
+            "Produce a story with a stable id and explicit epic_id reference.",
+            "Keep title short and specific; description should be actionable and user-facing.",
+            "Set status to one of: draft, ready, in_progress, blocked, done (default draft).",
+            "Acceptance criteria must be concrete, testable statements.",
+            "Include dependencies only when explicitly known; otherwise omit or leave empty.",
+            "Avoid implementation detail (no class names, endpoints, tech stack) unless explicitly provided.",
+            "Keep notes brief; do not introduce new scope silently.",
+            "epic_id must match parent epic id when nested under an epic."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:StoryV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+STORIES_BLOCK_V1_COMPONENT = {
+    "component_id": "component:StoriesBlockV1:1.0.0",
+    "schema_id": "schema:StoriesBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only container. Do not generate new stories here.",
+            "Render items in the order provided; do not reorder unless explicitly instructed."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:StoriesBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+# =============================================================================
 # DOCUMENT DEFINITIONS - ADR-034
 # =============================================================================
 
@@ -195,10 +241,39 @@ DEEP_NESTING_TEST_DOCDEF = {
 }
 
 
+# ADR-034-EXP3: Story backlog test docdef
+STORY_BACKLOG_TEST_DOCDEF = {
+    "document_def_id": "docdef:StoryBacklogTest:1.0.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "Test document for story backlog rendering.",
+        "constraints": []
+    },
+    "sections": [
+        {
+            "section_id": "epic_stories",
+            "title": "Stories",
+            "order": 10,
+            "component_id": "component:StoriesBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/stories",
+            "repeat_over": "/epics",
+            "context": {
+                "epic_id": "/id",
+                "epic_title": "/title"
+            }
+        }
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
+    STORY_V1_COMPONENT,
+    STORIES_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -206,6 +281,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_BACKLOG_V1_1_DOCDEF,
     ROOT_QUESTIONS_TEST_DOCDEF,
     DEEP_NESTING_TEST_DOCDEF,
+    STORY_BACKLOG_TEST_DOCDEF,
 ]
 
 
@@ -363,6 +439,10 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
 
 
 

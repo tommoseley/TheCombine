@@ -22,6 +22,8 @@ from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
 FRAGMENT_ALIASES = {
     "fragment:OpenQuestionV1:web:1.0.0": "OpenQuestionV1Fragment",
     "fragment:OpenQuestionsBlockV1:web:1.0.0": "OpenQuestionsBlockV1Fragment",
+    "fragment:StoryV1:web:1.0.0": "StoryV1Fragment",
+    "fragment:StoriesBlockV1:web:1.0.0": "StoriesBlockV1Fragment",
 }
 
 
@@ -371,3 +373,4 @@ class FragmentRegistryService:
         Compute deterministic SHA256 hash of fragment markup.
         """
         return hashlib.sha256(markup.encode('utf-8')).hexdigest()
+

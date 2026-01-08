@@ -116,6 +116,87 @@ OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
 """
 
 
+# =============================================================================
+# ADR-034-EXP3: Story Fragments
+# =============================================================================
+
+STORY_V1_FRAGMENT = """
+<div class="story-item border-l-4 border-blue-400 pl-4 py-3 bg-white rounded shadow-sm">
+  <div class="story-header flex items-center gap-2 mb-2">
+    <span class="story-id font-mono text-sm text-gray-500">{{ block.data.id }}</span>
+    <span class="story-status px-2 py-0.5 text-xs rounded 
+      {% if block.data.status == 'done' %}bg-green-100 text-green-700
+      {% elif block.data.status == 'blocked' %}bg-red-100 text-red-700
+      {% elif block.data.status == 'in_progress' %}bg-yellow-100 text-yellow-700
+      {% elif block.data.status == 'ready' %}bg-blue-100 text-blue-700
+      {% else %}bg-gray-100 text-gray-600{% endif %}">
+      {{ block.data.status }}
+    </span>
+  </div>
+  <h4 class="story-title font-medium text-gray-900">{{ block.data.title }}</h4>
+  <p class="story-description text-sm text-gray-600 mt-1">{{ block.data.description }}</p>
+  {% if block.data.acceptance_criteria %}
+  <div class="acceptance-criteria mt-2">
+    <span class="text-xs font-medium text-gray-500">Acceptance Criteria:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+      {% for criterion in block.data.acceptance_criteria %}
+      <li>{{ criterion }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if block.data.notes %}
+  <p class="story-notes text-xs text-gray-500 mt-2 italic">{{ block.data.notes }}</p>
+  {% endif %}
+</div>
+"""
+
+
+STORIES_BLOCK_V1_FRAGMENT = """
+<div class="stories-block" data-block-type="StoriesBlockV1">
+  {% if block.context %}
+  <div class="block-context text-sm text-gray-500 mb-3">
+    {% if block.context.epic_title %}Epic: {{ block.context.epic_title }}{% endif %}
+  </div>
+  {% endif %}
+  
+  <div class="stories-list space-y-4">
+    {% for item in block.data.items %}
+      <div class="story-item border-l-4 border-blue-400 pl-4 py-3 bg-white rounded shadow-sm">
+        <div class="story-header flex items-center gap-2 mb-2">
+          <span class="story-id font-mono text-sm text-gray-500">{{ item.id }}</span>
+          <span class="story-status px-2 py-0.5 text-xs rounded 
+            {% if item.status == 'done' %}bg-green-100 text-green-700
+            {% elif item.status == 'blocked' %}bg-red-100 text-red-700
+            {% elif item.status == 'in_progress' %}bg-yellow-100 text-yellow-700
+            {% elif item.status == 'ready' %}bg-blue-100 text-blue-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {{ item.status }}
+          </span>
+        </div>
+        <h4 class="story-title font-medium text-gray-900">{{ item.title }}</h4>
+        <p class="story-description text-sm text-gray-600 mt-1">{{ item.description }}</p>
+        {% if item.acceptance_criteria %}
+        <div class="acceptance-criteria mt-2">
+          <span class="text-xs font-medium text-gray-500">Acceptance Criteria:</span>
+          <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+            {% for criterion in item.acceptance_criteria %}
+            <li>{{ criterion }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic">No stories in this epic.</p>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -138,6 +219,21 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_type_id": "OpenQuestionsBlockV1",
         "status": "accepted",
         "fragment_markup": OPEN_QUESTIONS_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034-EXP3: Story fragments
+    {
+        "fragment_id": "StoryV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "StoryV1",
+        "status": "accepted",
+        "fragment_markup": STORY_V1_FRAGMENT,
+    },
+    {
+        "fragment_id": "StoriesBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "StoriesBlockV1",
+        "status": "accepted",
+        "fragment_markup": STORIES_BLOCK_V1_FRAGMENT,
     },
 ]
 
@@ -208,4 +304,6 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
 
