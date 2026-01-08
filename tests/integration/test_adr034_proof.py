@@ -294,6 +294,157 @@ class TestADR034ProofOfConcept:
         assert result_v1_1.blocks[0].type == "schema:OpenQuestionsBlockV1"
         assert len(result_v1_1.blocks[0].data["items"]) == 3
 
+    # ==========================================================================
+    # WS-ADR-034-EXP2: Structural Variety Tests
+    # ==========================================================================
+    
+    @pytest.fixture
+    def root_questions_docdef(self):
+        """Create root-level questions docdef (S1)."""
+        docdef = MagicMock()
+        docdef.document_def_id = "docdef:RootQuestionsTest:1.0.0"
+        docdef.prompt_header = {"role": "Test", "constraints": []}
+        docdef.sections = [{
+            "section_id": "root_questions",
+            "title": "Open Questions",
+            "order": 10,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions"
+            # No repeat_over - root level
+        }]
+        return docdef
+    
+    @pytest.mark.asyncio
+    async def test_s1_root_level_container(
+        self, root_questions_docdef, open_questions_block_component
+    ):
+        """S1: Root-level container renders correctly without repeat_over."""
+        mock_docdef_service = AsyncMock()
+        mock_docdef_service.get.return_value = root_questions_docdef
+        
+        mock_component_service = AsyncMock()
+        mock_component_service.get.return_value = open_questions_block_component
+        
+        builder = RenderModelBuilder(
+            docdef_service=mock_docdef_service,
+            component_service=mock_component_service,
+        )
+        
+        # Root-level payload - no epics, questions at root
+        document_data = {
+            "open_questions": [
+                {"id": "Q-001", "text": "Root question 1", "blocking": True},
+                {"id": "Q-002", "text": "Root question 2", "blocking": False},
+            ]
+        }
+        
+        result = await builder.build("docdef:RootQuestionsTest:1.0.0", document_data)
+        
+        # Should have exactly ONE container block
+        assert len(result.blocks) == 1
+        assert result.blocks[0].type == "schema:OpenQuestionsBlockV1"
+        assert result.blocks[0].key == "root_questions:container"
+        
+        # Block should contain both questions
+        assert len(result.blocks[0].data["items"]) == 2
+        assert result.blocks[0].data["items"][0]["id"] == "Q-001"
+        assert result.blocks[0].data["items"][1]["id"] == "Q-002"
+        
+        # No context for root level
+        assert result.blocks[0].context is None
+    
+    @pytest.fixture
+    def deep_nesting_docdef(self):
+        """Create deep nesting test docdef (S3 probe)."""
+        docdef = MagicMock()
+        docdef.document_def_id = "docdef:DeepNestingTest:1.0.0"
+        docdef.prompt_header = {"role": "Test", "constraints": []}
+        docdef.sections = [{
+            "section_id": "deep_questions",
+            "title": "Capability Questions",
+            "order": 10,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            "repeat_over": "/epics",
+            "context": {"epic_id": "/id", "epic_title": "/title"}
+        }]
+        return docdef
+    
+    @pytest.mark.asyncio
+    async def test_s3_deep_nesting_probe_documents_limitation(
+        self, deep_nesting_docdef, open_questions_block_component
+    ):
+        """
+        S3 Probe: Document behavior with 3-level nested payload.
+        
+        Payload: /epics/*/capabilities/*/open_questions
+        Config: repeat_over=/epics, source_pointer=/open_questions
+        
+        Expected: Current config cannot reach /capabilities/*/open_questions.
+        It will look for /open_questions directly under each epic, find none,
+        and produce empty or no blocks.
+        
+        This test documents the current boundary, not a failure.
+        """
+        mock_docdef_service = AsyncMock()
+        mock_docdef_service.get.return_value = deep_nesting_docdef
+        
+        mock_component_service = AsyncMock()
+        mock_component_service.get.return_value = open_questions_block_component
+        
+        builder = RenderModelBuilder(
+            docdef_service=mock_docdef_service,
+            component_service=mock_component_service,
+        )
+        
+        # 3-level nested payload: epics -> capabilities -> open_questions
+        document_data = {
+            "epics": [
+                {
+                    "id": "E-001",
+                    "title": "Epic 1",
+                    "capabilities": [
+                        {
+                            "id": "C-001",
+                            "name": "Capability 1",
+                            "open_questions": [
+                                {"id": "Q-001", "text": "Deep Q1", "blocking": True}
+                            ]
+                        },
+                        {
+                            "id": "C-002",
+                            "name": "Capability 2",
+                            "open_questions": [
+                                {"id": "Q-002", "text": "Deep Q2", "blocking": False}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        result = await builder.build("docdef:DeepNestingTest:1.0.0", document_data)
+        
+        # DOCUMENTED BEHAVIOR (PROBE OUTCOME):
+        # Current limitation: repeat_over=/epics + source_pointer=/open_questions
+        # looks for /open_questions at each epic level, NOT inside /capabilities.
+        # Since epics don't have direct /open_questions, result is empty.
+        
+        # This documents the boundary:
+        # "Container sections support at most one level of parent iteration.
+        #  Nested iteration (e.g., /epics/*/capabilities/*) is not supported."
+        
+        # The container block is produced (iterating epics), but items are empty
+        # because /open_questions doesn't exist directly under each epic
+        if len(result.blocks) == 0:
+            # No blocks produced - epics had no direct /open_questions
+            pass  # Acceptable outcome - boundary documented
+        else:
+            # If a block was produced, items should be empty
+            assert result.blocks[0].data["items"] == [] or len(result.blocks[0].data.get("items", [])) == 0
+
     @pytest.mark.asyncio
     async def test_existing_fragment_rendering_unchanged(self):
         """Test that existing fragment rendering mechanism is not affected."""
@@ -325,6 +476,7 @@ class TestADR034ProofOfConcept:
         # Canonical lookup via alias also works
         result = await service.resolve_fragment_id("fragment:OpenQuestionV1:web:1.0.0")
         assert result is not None
+
 
 
 

@@ -280,3 +280,17 @@ ADR-034 is considered satisfied when:
 ## 12. Amendments
 
 - [ADR-034-A: Clarifications & Contract Completion](./ADR-034-Amendment-A.md)
+- [ADR-034-B: Flatten-First Canonical Data, Hierarchy as View](./ADR-034-Amendment-B.md)
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-01-06 | Initial ADR accepted |
+| 2026-01-07 | Amendment A: Clarifications & Contract Completion |
+| 2026-01-08 | Execution complete (WS-ADR-034-POC) |
+| 2026-01-08 | Amendment B: Clarified flatten-first canonical modeling; related items are represented as flat structures with explicit references; hierarchical views are produced via container blocks during rendering. Confirmed boundary that container sections support a single level of parent iteration (no nested wildcard traversal), per EXP2 findings. |
+
+

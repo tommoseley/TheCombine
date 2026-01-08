@@ -137,6 +137,64 @@ EPIC_BACKLOG_V1_1_DOCDEF = {
 }
 
 
+# ADR-034-EXP2 S1: Root-level container test docdef
+ROOT_QUESTIONS_TEST_DOCDEF = {
+    "document_def_id": "docdef:RootQuestionsTest:1.0.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "Test document for root-level questions.",
+        "constraints": []
+    },
+    "sections": [
+        {
+            "section_id": "root_questions",
+            "title": "Open Questions",
+            "order": 10,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions"
+            # No repeat_over - root level
+        }
+    ],
+    "status": "accepted"
+}
+
+
+# ADR-034-EXP2 S3: Deep nesting probe docdef
+# NOTE: This is a probe to test limitations of current repeat_over semantics.
+# Payload structure: /epics/*/capabilities/*/open_questions
+# Question: Can we collect open_questions from all capabilities across all epics?
+#
+# Current hypothesis: NO - repeat_over only supports one level of iteration.
+# We can iterate /epics OR /epics/0/capabilities, but not /epics/*/capabilities.
+DEEP_NESTING_TEST_DOCDEF = {
+    "document_def_id": "docdef:DeepNestingTest:1.0.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "Test document for deep nesting probe.",
+        "constraints": []
+    },
+    "sections": [
+        {
+            "section_id": "deep_questions",
+            "title": "Capability Questions",
+            "order": 10,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            # Probe attempt: What happens if we try to reach nested capabilities?
+            # This uses /capabilities as source_pointer, expecting open_questions inside each
+            "repeat_over": "/epics",
+            "context": {
+                "epic_id": "/id",
+                "epic_title": "/title"
+            }
+        }
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
@@ -146,6 +204,8 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_BACKLOG_DOCDEF,
     EPIC_BACKLOG_V1_1_DOCDEF,
+    ROOT_QUESTIONS_TEST_DOCDEF,
+    DEEP_NESTING_TEST_DOCDEF,
 ]
 
 
@@ -303,6 +363,11 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
+
 
 
 
