@@ -364,6 +364,26 @@ EPIC_SUMMARY_BLOCK_V1_COMPONENT = {
 }
 
 
+DEPENDENCIES_BLOCK_V1_COMPONENT = {
+    "component_id": "component:DependenciesBlockV1:1.0.0",
+    "schema_id": "schema:DependenciesBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only container for dependency lists.",
+            "Each item should conform to DependencyV1 schema.",
+            "Include depends_on_id, reason, and blocking flag.",
+            "Mark blocking=true for hard dependencies."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:DependenciesBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 # ADR-034-EXP3: Story backlog test docdef
 STORY_BACKLOG_TEST_DOCDEF = {
     "document_def_id": "docdef:StoryBacklogTest:1.0.0",
@@ -640,6 +660,16 @@ EPIC_DETAIL_VIEW_DOCDEF = {
             "source_pointer": "/open_questions",
             "context": {"title": "Open Questions"},
         },
+        # Dependencies (typed container)
+        {
+            "section_id": "dependencies",
+            "title": "Dependencies",
+            "order": 100,
+            "component_id": "component:DependenciesBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/dependencies",
+            "context": {"title": "Dependencies"},
+        },
     ],
     "status": "accepted"
 }
@@ -699,6 +729,7 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     PARAGRAPH_BLOCK_V1_COMPONENT,
     INDICATOR_BLOCK_V1_COMPONENT,
     EPIC_SUMMARY_BLOCK_V1_COMPONENT,
+    DEPENDENCIES_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -868,6 +899,9 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
 
 
 

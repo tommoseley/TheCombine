@@ -404,6 +404,51 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
 """
 
 
+DEPENDENCIES_BLOCK_V1_FRAGMENT = """
+<div class="dependencies-block" data-block-type="DependenciesBlockV1">
+  {% if block.context and block.context.title %}
+  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
+  {% endif %}
+  
+  <div class="space-y-2">
+    {% for item in block.data.items %}
+    <div class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg {% if item.blocking %}bg-amber-50 border-amber-200{% else %}bg-gray-50{% endif %}">
+      <!-- Blocking indicator -->
+      {% if item.blocking %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 flex-shrink-0">
+        Blocking
+      </span>
+      {% else %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 flex-shrink-0">
+        Optional
+      </span>
+      {% endif %}
+      
+      <div class="flex-1 min-w-0">
+        <!-- Target -->
+        <p class="font-medium text-gray-900">
+          {% if item.depends_on_type %}{{ item.depends_on_type }}:{% endif %}{{ item.depends_on_id }}
+        </p>
+        
+        <!-- Reason -->
+        <p class="text-sm text-gray-600 mt-1">{{ item.reason }}</p>
+        
+        <!-- Notes -->
+        {% if item.notes %}
+        <p class="text-xs text-gray-500 mt-1 italic">{{ item.notes }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic">No dependencies.</p>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -488,6 +533,14 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "status": "accepted",
         "fragment_markup": EPIC_SUMMARY_BLOCK_V1_FRAGMENT,
     },
+    # ADR-034: Dependencies block
+    {
+        "fragment_id": "DependenciesBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "DependenciesBlockV1",
+        "status": "accepted",
+        "fragment_markup": DEPENDENCIES_BLOCK_V1_FRAGMENT,
+    },
 ]
 
 
@@ -557,6 +610,8 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
 
 
 

@@ -747,6 +747,28 @@ EPIC_SUMMARY_BLOCK_V1_SCHEMA = {
 }
 
 
+DEPENDENCIES_BLOCK_V1_SCHEMA = {
+    "$id": "schema:DependenciesBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Dependencies Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:DependencyV1"},
+            "description": "Dependencies to render in this block"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering dependency lists."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -962,6 +984,17 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    {
+        "schema_id": "DependenciesBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": DEPENDENCIES_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -1026,6 +1059,8 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
 
 
 
