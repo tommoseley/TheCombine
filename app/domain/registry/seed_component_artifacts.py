@@ -717,6 +717,182 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034: Epic Architecture View DocDef
+# =============================================================================
+
+EPIC_ARCHITECTURE_VIEW_DOCDEF = {
+    "document_def_id": "docdef:EpicArchitectureView:1.0.0",
+    "document_schema_id": None,  # Projection over architecture data
+    "prompt_header": {
+        "role": "You are producing an Epic Architecture document.",
+        "constraints": [
+            "Focus on technical structure for one epic.",
+            "Text-first, typed where it matters.",
+            "No diagrams required.",
+        ]
+    },
+    "sections": [
+        # Architecture Intent
+        {
+            "section_id": "architecture_intent",
+            "title": "Architecture Intent",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/architecture_intent",
+            "context": {"title": "Architecture Intent"},
+        },
+        # Systems/Services Touched
+        {
+            "section_id": "systems_touched",
+            "title": "Systems/Services Touched",
+            "order": 20,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/systems_touched",
+            "context": {"title": "Systems/Services Touched"},
+        },
+        # External Integrations
+        {
+            "section_id": "external_integrations",
+            "title": "External Integrations",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/external_integrations",
+            "context": {"title": "External Integrations"},
+        },
+        # Key Interfaces/APIs
+        {
+            "section_id": "key_interfaces",
+            "title": "Key Interfaces/APIs",
+            "order": 40,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/key_interfaces",
+            "context": {"title": "Key Interfaces/APIs"},
+        },
+        # Data/Events
+        {
+            "section_id": "data_events",
+            "title": "Data/Events",
+            "order": 50,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/data_events",
+            "context": {"title": "Data/Events"},
+        },
+        # Dependencies
+        {
+            "section_id": "dependencies",
+            "title": "Dependencies",
+            "order": 60,
+            "component_id": "component:DependenciesBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/dependencies",
+            "context": {"title": "Dependencies"},
+        },
+        # Architectural Constraints
+        {
+            "section_id": "architectural_constraints",
+            "title": "Architectural Constraints",
+            "order": 70,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/architectural_constraints",
+            "context": {"title": "Architectural Constraints"},
+        },
+        # Architecture Decisions
+        {
+            "section_id": "architecture_decisions",
+            "title": "Architecture Decisions",
+            "order": 80,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/architecture_decisions",
+            "context": {"title": "Architecture Decisions", "style": "numbered"},
+        },
+        # Architecture Open Questions
+        {
+            "section_id": "architecture_open_questions",
+            "title": "Architecture Open Questions",
+            "order": 90,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/architecture_open_questions",
+            "context": {"title": "Architecture Open Questions"},
+        },
+        # Observability/SLO Notes
+        {
+            "section_id": "observability_notes",
+            "title": "Observability/SLO Notes",
+            "order": 100,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/observability_notes",
+            "context": {"title": "Observability/SLO Notes"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
+# =============================================================================
+# ADR-034: Architectural Summary View DocDef
+# =============================================================================
+
+ARCHITECTURAL_SUMMARY_VIEW_DOCDEF = {
+    "document_def_id": "docdef:ArchitecturalSummaryView:1.0.0",
+    "document_schema_id": None,  # Lightweight projection
+    "prompt_header": {
+        "role": "You are producing an Architecture Summary for scanning.",
+        "constraints": [
+            "4 fields maximum.",
+            "Intentionally lossy.",
+            "Optimized for scanning, not understanding.",
+        ]
+    },
+    "sections": [
+        # Architecture Intent (short) - carries detail_ref
+        {
+            "section_id": "architecture_intent",
+            "title": "Architecture Intent",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/architecture_intent",
+            "context": {"title": "Intent"},
+            "detail_ref_template": {
+                "document_type": "EpicArchitectureView",
+                "params": {"epic_id": "/epic_id"}
+            },
+        },
+        # Integration Surface (derived)
+        {
+            "section_id": "integration_surface",
+            "title": "Integration Surface",
+            "order": 20,
+            "component_id": "component:IndicatorBlockV1:1.0.0",
+            "shape": "single",
+            "derived_from": {"function": "integration_surface", "source": "/"},
+            "context": {"title": "Integrations"},
+        },
+        # Complexity Level (derived)
+        {
+            "section_id": "complexity_level",
+            "title": "Complexity Level",
+            "order": 30,
+            "component_id": "component:IndicatorBlockV1:1.0.0",
+            "shape": "single",
+            "derived_from": {"function": "complexity_level", "source": "/"},
+            "context": {"title": "Complexity"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
@@ -742,6 +918,8 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_SUMMARY_VIEW_DOCDEF,
     EPIC_DETAIL_VIEW_DOCDEF,
     EPIC_BACKLOG_VIEW_DOCDEF,
+    EPIC_ARCHITECTURE_VIEW_DOCDEF,
+    ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,
 ]
 
 
@@ -899,6 +1077,10 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
 
 
 

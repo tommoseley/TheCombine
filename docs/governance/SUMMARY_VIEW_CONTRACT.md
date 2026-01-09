@@ -47,16 +47,29 @@ Summary block data must never contain:
 | `requirements[]` | Use `requirement_count` instead |
 | `acceptance_criteria[]` | Belongs in detail view only |
 
-### 3. Must include `detail_ref`
+### 3. Must include `detail_ref` (DocumentRefV1)
 
-Every summary must provide an explicit reference to the detail view:
+Every summary must provide an explicit reference to the detail view.
+
+**Schema:** `schema:DocumentRefV1` (frozen)
+
+```json
+{
+  "document_type": "EpicDetailView",
+  "params": {"epic_id": "AUTH-100"}
+}
+```
+
+**DocDef config:**
 
 ```python
 "detail_ref_template": {
     "document_type": "EpicDetailView",
-    "params": {"epic_id": "/epic_id"}
+    "params": {"epic_id": "/epic_id"}  # JSON pointers resolved at render time
 }
 ```
+
+The builder produces `block.data.detail_ref` conforming to `DocumentRefV1`.
 
 ### 4. Field limit
 
@@ -92,3 +105,4 @@ PRs modifying summary docdefs must pass these tests.
 ---
 
 *Last updated: 2026-01-08*
+

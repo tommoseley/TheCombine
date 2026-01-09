@@ -769,6 +769,28 @@ DEPENDENCIES_BLOCK_V1_SCHEMA = {
 }
 
 
+DOCUMENT_REF_V1_SCHEMA = {
+    "$id": "schema:DocumentRefV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Document Reference",
+    "type": "object",
+    "required": ["document_type"],
+    "properties": {
+        "document_type": {
+            "type": "string",
+            "description": "Target docdef type (e.g., EpicDetailView, EpicArchitectureView)"
+        },
+        "params": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "Parameters to resolve the target document (e.g., {epic_id: 'AUTH-100'})"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Frozen reference to another document view. Used in summary views for detail links."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -995,6 +1017,17 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    {
+        "schema_id": "DocumentRefV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": DOCUMENT_REF_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": ["SUMMARY_VIEW_CONTRACT"]
+        },
+    },
 ]
 
 
@@ -1059,6 +1092,8 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
 
 
 

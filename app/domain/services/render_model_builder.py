@@ -54,9 +54,75 @@ def derive_risk_level(risks: List[Dict[str, Any]]) -> str:
         return "low"
 
 
+def derive_integration_surface(obj: Dict[str, Any]) -> str:
+    """
+    Derive integration surface indicator from architecture data.
+    
+    FROZEN RULE (2026-01-08):
+    - If external_integrations count > 0 → "external"
+    - Else → "none"
+    
+    Args:
+        obj: Architecture data object with optional 'external_integrations' field
+        
+    Returns:
+        One of: "external", "none"
+    """
+    integrations = obj.get("external_integrations", [])
+    # Handle both flat list and container form
+    if isinstance(integrations, dict):
+        integrations = integrations.get("items", [])
+    
+    if integrations and len(integrations) > 0:
+        return "external"
+    return "none"
+
+
+def derive_complexity_level(obj: Dict[str, Any]) -> str:
+    """
+    Derive complexity indicator from architecture data.
+    
+    FROZEN RULE (2026-01-08):
+    total = |systems_touched| + |key_interfaces| + |dependencies| + |external_integrations|
+    - 0-3 → "low"
+    - 4-7 → "medium"
+    - 8+ → "high"
+    
+    Args:
+        obj: Architecture data object
+        
+    Returns:
+        One of: "low", "medium", "high"
+    """
+    def safe_len(field_name: str) -> int:
+        val = obj.get(field_name, [])
+        # Handle container form {"items": [...]}
+        if isinstance(val, dict):
+            val = val.get("items", [])
+        if isinstance(val, list):
+            return len(val)
+        return 0
+    
+    total = (
+        safe_len("systems_touched") +
+        safe_len("key_interfaces") +
+        safe_len("dependencies") +
+        safe_len("external_integrations")
+    )
+    
+    if total <= 3:
+        return "low"
+    elif total <= 7:
+        return "medium"
+    else:
+        return "high"
+
+
 # Registry of allowed derivation functions (frozen)
 DERIVATION_FUNCTIONS = {
     "risk_level": derive_risk_level,
+    "integration_surface": derive_integration_surface,
+    "complexity_level": derive_complexity_level,
 }
 
 
@@ -245,10 +311,24 @@ class RenderModelBuilder:
                 # Use static context from section config if provided
                 static_context = context_mapping if context_mapping else None
                 
+                block_data = data if isinstance(data, dict) else {"value": data}
+                
+                # Add detail_ref if detail_ref_template specified
+                detail_ref_template = section.get("detail_ref_template")
+                if detail_ref_template:
+                    block_data = dict(block_data) if isinstance(block_data, dict) else {"value": block_data}
+                    block_data["detail_ref"] = {
+                        "document_type": detail_ref_template.get("document_type", ""),
+                        "params": {
+                            k: self._resolve_pointer(document_data, v) 
+                            for k, v in detail_ref_template.get("params", {}).items()
+                        }
+                    }
+                
                 blocks.append(RenderBlock(
                     type=schema_id,
                     key=f"{section_id}:0",
-                    data=data if isinstance(data, dict) else {"value": data},
+                    data=block_data,
                     context=static_context,
                 ))
         
@@ -326,9 +406,13 @@ class RenderModelBuilder:
                                 source = df.get("source", "")
                                 
                                 if func_name in DERIVATION_FUNCTIONS:
-                                    source_data = self._resolve_pointer(parent, source)
-                                    if source_data is None:
-                                        source_data = []
+                                    # source "/" means pass entire parent object
+                                    if source in ("/", ""):
+                                        source_data = parent
+                                    else:
+                                        source_data = self._resolve_pointer(parent, source)
+                                        if source_data is None:
+                                            source_data = []
                                     block_data[field_name] = DERIVATION_FUNCTIONS[func_name](source_data)
                             
                             # Add detail_ref if detail_ref_template specified
@@ -423,10 +507,13 @@ class RenderModelBuilder:
             logger.warning(f"Unknown derivation function: {func_name}")
             return []
         
-        # Resolve source data
-        source_data = self._resolve_pointer(document_data, source_pointer)
-        if source_data is None:
-            source_data = []
+        # Resolve source data - "/" means pass entire document
+        if source_pointer in ("/", ""):
+            source_data = document_data
+        else:
+            source_data = self._resolve_pointer(document_data, source_pointer)
+            if source_data is None:
+                source_data = []
         
         # Apply derivation
         derive_fn = DERIVATION_FUNCTIONS[func_name]
@@ -517,6 +604,10 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
+
+
+
 
 
 

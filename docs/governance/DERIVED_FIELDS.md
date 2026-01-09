@@ -44,6 +44,50 @@ View docdefs (e.g., `EpicSummaryView`) may include derived fields computed from 
 
 ---
 
+### `derive_integration_surface(obj: Dict) -> "external" | "none"`
+
+**Location:** `app/domain/services/render_model_builder.py`
+
+**Rule:**
+1. If `external_integrations` count > 0 → return `"external"`
+2. Else → return `"none"`
+
+**Edge cases:**
+- Missing field → `"none"`
+- Container form `{"items": [...]}` → handled
+- Empty list → `"none"`
+
+**Tests:** `tests/domain/test_derived_fields.py`
+
+---
+
+### `derive_complexity_level(obj: Dict) -> "low" | "medium" | "high"`
+
+**Location:** `app/domain/services/render_model_builder.py`
+
+**Canonical field names (frozen):**
+- `systems_touched` — array of strings
+- `key_interfaces` — array of strings
+- `dependencies` — array of DependencyV1 items (NOT block-wrapped)
+- `external_integrations` — array of strings
+
+**Rule:**
+```
+total = |systems_touched| + |key_interfaces| + |dependencies| + |external_integrations|
+```
+- 0-3 → `"low"`
+- 4-7 → `"medium"`
+- 8+ → `"high"`
+
+**Edge cases:**
+- Missing fields → count as 0
+- Container form `{"items": [...]}` → handled
+- Empty object → `"low"`
+
+**Tests:** `tests/domain/test_derived_fields.py`
+
+---
+
 ## Anti-Patterns
 
 - ❌ Complex scoring algorithms
@@ -66,3 +110,5 @@ Derivations should be explainable in one sentence.
 ---
 
 *Last updated: 2026-01-08*
+
+
