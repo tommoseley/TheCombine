@@ -184,3 +184,109 @@ class TestDeriveComplexityLevel:
         from app.domain.services.render_model_builder import derive_complexity_level
         obj = {"systems_touched": ["A", "B", "C", "D", "E", "F", "G", "H"]}
         assert derive_complexity_level(obj) == "high"
+
+
+class TestOmitWhenSourceEmpty:
+    """Tests for omit_when_source_empty behavior in derived sections."""
+    
+    @pytest.mark.asyncio
+    async def test_derived_section_omitted_when_source_empty_list(self):
+        """INVARIANT: Derived block omitted when source is empty list and flag set."""
+        from unittest.mock import AsyncMock
+        from uuid import uuid4
+        from app.domain.services.render_model_builder import RenderModelBuilder
+        from app.api.models.document_definition import DocumentDefinition
+        from app.api.models.component_artifact import ComponentArtifact
+        
+        mock_docdef_service = AsyncMock()
+        mock_component_service = AsyncMock()
+        
+        # DocDef with omit_when_source_empty
+        docdef = DocumentDefinition(
+            id=uuid4(),
+            document_def_id="test:OmitEmpty",
+            document_schema_id=None,
+            prompt_header={},
+            sections=[
+                {
+                    "section_id": "risk_level",
+                    "order": 10,
+                    "component_id": "component:IndicatorBlockV1:1.0.0",
+                    "shape": "single",
+                    "derived_from": {
+                        "function": "risk_level",
+                        "source": "/risks",
+                        "omit_when_source_empty": True
+                    },
+                    "context": {"title": "Risk"},
+                }
+            ],
+            status="accepted",
+        )
+        mock_docdef_service.get.return_value = docdef
+        mock_component_service.get.return_value = ComponentArtifact(
+            id=uuid4(),
+            component_id="component:IndicatorBlockV1:1.0.0",
+            schema_id="schema:IndicatorBlockV1",
+            generation_guidance={},
+            view_bindings={},
+            status="accepted",
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        
+        # Empty risks list
+        result = await builder.build("test:OmitEmpty", {"risks": []})
+        assert len(result.blocks) == 0  # Block omitted
+    
+    @pytest.mark.asyncio
+    async def test_derived_section_emitted_when_source_has_items(self):
+        """INVARIANT: Derived block emitted when source has items."""
+        from unittest.mock import AsyncMock
+        from uuid import uuid4
+        from app.domain.services.render_model_builder import RenderModelBuilder
+        from app.api.models.document_definition import DocumentDefinition
+        from app.api.models.component_artifact import ComponentArtifact
+        
+        mock_docdef_service = AsyncMock()
+        mock_component_service = AsyncMock()
+        
+        docdef = DocumentDefinition(
+            id=uuid4(),
+            document_def_id="test:OmitEmpty",
+            document_schema_id=None,
+            prompt_header={},
+            sections=[
+                {
+                    "section_id": "risk_level",
+                    "order": 10,
+                    "component_id": "component:IndicatorBlockV1:1.0.0",
+                    "shape": "single",
+                    "derived_from": {
+                        "function": "risk_level",
+                        "source": "/risks",
+                        "omit_when_source_empty": True
+                    },
+                    "context": {"title": "Risk"},
+                }
+            ],
+            status="accepted",
+        )
+        mock_docdef_service.get.return_value = docdef
+        mock_component_service.get.return_value = ComponentArtifact(
+            id=uuid4(),
+            component_id="component:IndicatorBlockV1:1.0.0",
+            schema_id="schema:IndicatorBlockV1",
+            generation_guidance={},
+            view_bindings={},
+            status="accepted",
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        
+        # Non-empty risks list
+        result = await builder.build("test:OmitEmpty", {
+            "risks": [{"id": "R-001", "description": "Test", "likelihood": "high"}]
+        })
+        assert len(result.blocks) == 1
+        assert result.blocks[0].data["value"] == "high"
