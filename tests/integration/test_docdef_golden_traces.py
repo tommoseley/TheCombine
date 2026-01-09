@@ -555,3 +555,167 @@ class TestStorySummaryViewGoldenTrace:
         block_keys = [b.key for b in result.blocks]
         for field in self.FORBIDDEN_FIELDS:
             assert not any(field in key for key in block_keys), f"{field} should not appear"
+
+
+# =============================================================================
+# StoryBacklogView Golden Trace
+# =============================================================================
+
+class TestStoryBacklogViewGoldenTrace:
+    """Golden-trace tests for docdef:StoryBacklogView:1.0.0"""
+    
+    FORBIDDEN_STORY_FIELDS = [
+        "acceptance_criteria", "in_scope", "out_of_scope",
+        "dependencies", "open_questions", "implementation_notes", "risks"
+    ]
+    
+    @pytest.fixture
+    def backlog_docdef_sections(self):
+        return [
+            {
+                "section_id": "epic_stories",
+                "order": 10,
+                "component_id": "component:StoriesBlockV1:1.0.0",
+                "shape": "container",
+                "repeat_over": "/epics",
+                "source_pointer": "/stories",
+                "context": {"epic_id": "/id", "epic_title": "/title"},
+            },
+        ]
+    
+    @pytest.mark.asyncio
+    async def test_grouping_2_epics_3_stories(
+        self, mock_docdef_service, mock_component_service, backlog_docdef_sections
+    ):
+        """INVARIANT: 2 epics with 2+1 stories → 2 container blocks."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StoryBacklogView:1.0.0", backlog_docdef_sections
+        )
+        mock_component_service.get.return_value = make_component(
+            "component:StoriesBlockV1:1.0.0", "schema:StoriesBlockV1"
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StoryBacklogView:1.0.0", {
+            "epics": [
+                {
+                    "id": "AUTH-100",
+                    "title": "Authentication",
+                    "stories": [
+                        {"story_id": "S1", "title": "T1", "intent": "I1", "phase": "mvp",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S1"}}},
+                        {"story_id": "S2", "title": "T2", "intent": "I2", "phase": "mvp", "risk_level": "high",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S2"}}},
+                    ]
+                },
+                {
+                    "id": "DASH-200",
+                    "title": "Dashboard",
+                    "stories": [
+                        {"story_id": "S3", "title": "T3", "intent": "I3", "phase": "later",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S3"}}},
+                    ]
+                }
+            ]
+        })
+        
+        assert len(result.blocks) == 2
+        assert len(result.blocks[0].data["items"]) == 2
+        assert len(result.blocks[1].data["items"]) == 1
+        assert result.blocks[0].context["epic_id"] == "AUTH-100"
+        assert result.blocks[1].context["epic_id"] == "DASH-200"
+    
+    @pytest.mark.asyncio
+    async def test_empty_epic_omitted(
+        self, mock_docdef_service, mock_component_service, backlog_docdef_sections
+    ):
+        """INVARIANT: Epic with no stories → block omitted."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StoryBacklogView:1.0.0", backlog_docdef_sections
+        )
+        mock_component_service.get.return_value = make_component(
+            "component:StoriesBlockV1:1.0.0", "schema:StoriesBlockV1"
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StoryBacklogView:1.0.0", {
+            "epics": [
+                {
+                    "id": "AUTH-100",
+                    "title": "Authentication",
+                    "stories": [
+                        {"story_id": "S1", "title": "T1", "intent": "I1", "phase": "mvp",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S1"}}},
+                    ]
+                },
+                {
+                    "id": "EMPTY-300",
+                    "title": "Empty Epic",
+                    "stories": []
+                }
+            ]
+        })
+        
+        assert len(result.blocks) == 1
+        assert result.blocks[0].context["epic_id"] == "AUTH-100"
+    
+    @pytest.mark.asyncio
+    async def test_risk_level_absent_when_not_provided(
+        self, mock_docdef_service, mock_component_service, backlog_docdef_sections
+    ):
+        """INVARIANT: Story without risk_level → field absent (not 'low')."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StoryBacklogView:1.0.0", backlog_docdef_sections
+        )
+        mock_component_service.get.return_value = make_component(
+            "component:StoriesBlockV1:1.0.0", "schema:StoriesBlockV1"
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StoryBacklogView:1.0.0", {
+            "epics": [
+                {
+                    "id": "AUTH-100",
+                    "title": "Authentication",
+                    "stories": [
+                        {"story_id": "S1", "title": "T1", "intent": "I1", "phase": "mvp",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S1"}}},
+                    ]
+                }
+            ]
+        })
+        
+        story = result.blocks[0].data["items"][0]
+        assert "risk_level" not in story
+    
+    @pytest.mark.asyncio
+    async def test_detail_ref_present_on_all_stories(
+        self, mock_docdef_service, mock_component_service, backlog_docdef_sections
+    ):
+        """INVARIANT: Every story has detail_ref to StoryDetailView."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StoryBacklogView:1.0.0", backlog_docdef_sections
+        )
+        mock_component_service.get.return_value = make_component(
+            "component:StoriesBlockV1:1.0.0", "schema:StoriesBlockV1"
+        )
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StoryBacklogView:1.0.0", {
+            "epics": [
+                {
+                    "id": "AUTH-100",
+                    "title": "Authentication",
+                    "stories": [
+                        {"story_id": "S1", "title": "T1", "intent": "I1", "phase": "mvp",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S1"}}},
+                        {"story_id": "S2", "title": "T2", "intent": "I2", "phase": "mvp",
+                         "detail_ref": {"document_type": "StoryDetailView", "params": {"story_id": "S2"}}},
+                    ]
+                }
+            ]
+        })
+        
+        for story in result.blocks[0].data["items"]:
+            assert "detail_ref" in story
+            assert story["detail_ref"]["document_type"] == "StoryDetailView"

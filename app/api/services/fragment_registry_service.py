@@ -31,6 +31,8 @@ FRAGMENT_ALIASES = {
     "fragment:IndicatorBlockV1:web:1.0.0": "IndicatorBlockV1Fragment",
     "fragment:EpicSummaryBlockV1:web:1.0.0": "EpicSummaryBlockV1Fragment",
     "fragment:DependenciesBlockV1:web:1.0.0": "DependenciesBlockV1Fragment",
+    "fragment:StorySummaryBlockV1:web:1.0.0": "StorySummaryBlockV1Fragment",
+    "fragment:StoriesBlockV1:web:1.0.0": "StoriesBlockV1Fragment",
 }
 
 
@@ -380,6 +382,7 @@ class FragmentRegistryService:
         Compute deterministic SHA256 hash of fragment markup.
         """
         return hashlib.sha256(markup.encode('utf-8')).hexdigest()
+
 
 
 

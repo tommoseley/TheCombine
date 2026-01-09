@@ -384,6 +384,47 @@ DEPENDENCIES_BLOCK_V1_COMPONENT = {
 }
 
 
+STORY_SUMMARY_BLOCK_V1_COMPONENT = {
+    "component_id": "component:StorySummaryBlockV1:1.0.0",
+    "schema_id": "schema:StorySummaryBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "This is a render-only item for story backlog views.",
+            "Required: story_id, title, intent (1-2 sentences), detail_ref.",
+            "Optional: phase (mvp|later), risk_level (low|medium|high).",
+            "Intentionally lossy - excludes acceptance_criteria, scope, dependencies, questions, notes.",
+            "risk_level is derived upstream, omit if no risks.",
+            "detail_ref must link to StoryDetailView."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:StorySummaryBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
+STORIES_BLOCK_V1_COMPONENT = {
+    "component_id": "component:StoriesBlockV1:1.0.0",
+    "schema_id": "schema:StoriesBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Container for story summaries within an epic.",
+            "items[] contains StorySummaryBlockV1-shaped data.",
+            "Used in StoryBacklogView for grouped display."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:StoriesBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 # ADR-034-EXP3: Story backlog test docdef
 STORY_BACKLOG_TEST_DOCDEF = {
     "document_def_id": "docdef:StoryBacklogTest:1.0.0",
@@ -1069,12 +1110,45 @@ STORY_SUMMARY_VIEW_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034: Story Backlog View DocDef
+# =============================================================================
+
+STORY_BACKLOG_VIEW_DOCDEF = {
+    "document_def_id": "docdef:StoryBacklogView:1.0.0",
+    "document_schema_id": None,  # Multi-story index grouped by epic
+    "prompt_header": {
+        "role": "You are producing a Story Backlog for planning.",
+        "constraints": [
+            "Group stories by epic.",
+            "One container block per epic.",
+            "Story items must be summaries (lossy).",
+            "Must NOT include: acceptance_criteria, scope, dependencies, questions, notes.",
+            "Each story must have detail_ref to StoryDetailView.",
+        ]
+    },
+    "sections": [
+        # Epic Stories (one container per epic)
+        {
+            "section_id": "epic_stories",
+            "title": "Stories",
+            "order": 10,
+            "component_id": "component:StoriesBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/epics",
+            "source_pointer": "/stories",
+            "context": {"epic_id": "/id", "epic_title": "/title"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
     STORY_V1_COMPONENT,
-    STORIES_BLOCK_V1_COMPONENT,
     STRING_LIST_BLOCK_V1_COMPONENT,
     SUMMARY_BLOCK_V1_COMPONENT,
     RISKS_BLOCK_V1_COMPONENT,
@@ -1082,6 +1156,8 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     INDICATOR_BLOCK_V1_COMPONENT,
     EPIC_SUMMARY_BLOCK_V1_COMPONENT,
     DEPENDENCIES_BLOCK_V1_COMPONENT,
+    STORY_SUMMARY_BLOCK_V1_COMPONENT,
+    STORIES_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -1098,6 +1174,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,
     STORY_DETAIL_VIEW_DOCDEF,
     STORY_SUMMARY_VIEW_DOCDEF,
+    STORY_BACKLOG_VIEW_DOCDEF,
 ]
 
 
@@ -1255,6 +1332,11 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
+
 
 
 
