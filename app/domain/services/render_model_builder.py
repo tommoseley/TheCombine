@@ -507,6 +507,9 @@ class RenderModelBuilder:
             logger.warning(f"Unknown derivation function: {func_name}")
             return []
         
+        # Check if we should omit when source is empty
+        omit_when_empty = derived_from.get("omit_when_source_empty", False)
+        
         # Resolve source data - "/" means pass entire document
         if source_pointer in ("/", ""):
             source_data = document_data
@@ -514,6 +517,15 @@ class RenderModelBuilder:
             source_data = self._resolve_pointer(document_data, source_pointer)
             if source_data is None:
                 source_data = []
+        
+        # Omit block if source is empty and omit_when_source_empty is set
+        if omit_when_empty:
+            if source_data is None:
+                return []
+            if isinstance(source_data, list) and len(source_data) == 0:
+                return []
+            if isinstance(source_data, dict) and not source_data:
+                return []
         
         # Apply derivation
         derive_fn = DERIVATION_FUNCTIONS[func_name]
@@ -604,6 +616,7 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
 
 
 

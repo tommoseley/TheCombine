@@ -85,6 +85,32 @@ Summary views should contain **3-5 fields maximum**:
 
 ---
 
+## StorySummaryView Block Set (Frozen)
+
+**Effective:** 2026-01-08
+
+| Order | Block | Type | Required |
+|-------|-------|------|----------|
+| 1 | story_intent | ParagraphBlockV1 | ✅ Yes |
+| 2 | phase | IndicatorBlockV1 | ✅ Yes |
+| 3 | risk_level | IndicatorBlockV1 | ❌ Optional (derived, omit when empty) |
+
+**Constraints:**
+- Maximum 3 blocks
+- `detail_ref` required on story_intent (→ StoryDetailView)
+- `risk_level` must be derived via `derive_risk_level`, not copied
+- Any additional blocks require version bump to `StorySummaryView:1.1.0`
+
+**Excluded (mechanically enforced):**
+- ❌ acceptance_criteria
+- ❌ in_scope / out_of_scope
+- ❌ dependencies
+- ❌ open_questions
+- ❌ implementation_notes
+- ❌ full risks list
+
+---
+
 ## Anti-Patterns
 
 - ❌ Adding "just one more field" to summaries
@@ -105,4 +131,5 @@ PRs modifying summary docdefs must pass these tests.
 ---
 
 *Last updated: 2026-01-08*
+
 

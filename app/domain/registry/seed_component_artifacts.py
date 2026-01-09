@@ -1009,6 +1009,66 @@ STORY_DETAIL_VIEW_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034: Story Summary View DocDef
+# =============================================================================
+
+STORY_SUMMARY_VIEW_DOCDEF = {
+    "document_def_id": "docdef:StorySummaryView:1.0.0",
+    "document_schema_id": None,  # Lightweight projection over StoryV1
+    "prompt_header": {
+        "role": "You are producing a Story Summary for scanning.",
+        "constraints": [
+            "3 fields maximum.",
+            "Intentionally lossy.",
+            "Optimized for scanning, not understanding.",
+            "Must NOT include: acceptance_criteria, scope, dependencies, questions, notes.",
+        ]
+    },
+    "sections": [
+        # Story Intent (carries detail_ref to StoryDetailView)
+        {
+            "section_id": "story_intent",
+            "title": "Story Intent",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/intent",
+            "context": {"title": ""},
+            "detail_ref_template": {
+                "document_type": "StoryDetailView",
+                "params": {"story_id": "/story_id"}
+            },
+        },
+        # Phase indicator
+        {
+            "section_id": "phase",
+            "title": "Phase",
+            "order": 20,
+            "component_id": "component:IndicatorBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/phase",
+            "context": {"title": "Phase"},
+        },
+        # Risk Level (derived, omit when no risks)
+        {
+            "section_id": "risk_level",
+            "title": "Risk Level",
+            "order": 30,
+            "component_id": "component:IndicatorBlockV1:1.0.0",
+            "shape": "single",
+            "derived_from": {
+                "function": "risk_level",
+                "source": "/risks",
+                "omit_when_source_empty": True
+            },
+            "context": {"title": "Risk"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
@@ -1037,6 +1097,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_ARCHITECTURE_VIEW_DOCDEF,
     ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,
     STORY_DETAIL_VIEW_DOCDEF,
+    STORY_SUMMARY_VIEW_DOCDEF,
 ]
 
 
@@ -1194,6 +1255,8 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
 
 
 

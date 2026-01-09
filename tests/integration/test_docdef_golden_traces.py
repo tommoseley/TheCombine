@@ -1,4 +1,4 @@
-"""
+﻿"""
 Golden-trace tests for DocDefs.
 
 These tests assert stable UX semantics:
@@ -371,3 +371,187 @@ class TestProjectDiscoveryGoldenTrace:
         result = await builder.build("docdef:ProjectDiscovery:1.0.0", sample_discovery_data)
         
         assert len(result.blocks) == 6
+
+# =============================================================================
+# StorySummaryView Golden Trace
+# =============================================================================
+
+class TestStorySummaryViewGoldenTrace:
+    """Golden-trace tests for docdef:StorySummaryView:1.0.0"""
+    
+    FORBIDDEN_FIELDS = [
+        "acceptance_criteria", "in_scope", "out_of_scope",
+        "dependencies", "open_questions", "implementation_notes"
+    ]
+    
+    @pytest.fixture
+    def summary_docdef_sections(self):
+        return [
+            {
+                "section_id": "story_intent",
+                "order": 10,
+                "component_id": "component:ParagraphBlockV1:1.0.0",
+                "shape": "single",
+                "source_pointer": "/intent",
+                "context": {"title": ""},
+                "detail_ref_template": {
+                    "document_type": "StoryDetailView",
+                    "params": {"story_id": "/story_id"}
+                },
+            },
+            {
+                "section_id": "phase",
+                "order": 20,
+                "component_id": "component:IndicatorBlockV1:1.0.0",
+                "shape": "single",
+                "source_pointer": "/phase",
+                "context": {"title": "Phase"},
+            },
+            {
+                "section_id": "risk_level",
+                "order": 30,
+                "component_id": "component:IndicatorBlockV1:1.0.0",
+                "shape": "single",
+                "derived_from": {
+                    "function": "risk_level",
+                    "source": "/risks",
+                    "omit_when_source_empty": True
+                },
+                "context": {"title": "Risk"},
+            },
+        ]
+    
+    @pytest.mark.asyncio
+    async def test_with_risks_produces_3_blocks(
+        self, mock_docdef_service, mock_component_service, summary_docdef_sections
+    ):
+        """INVARIANT: Story with risks → 3 blocks."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StorySummaryView:1.0.0", summary_docdef_sections
+        )
+        
+        async def get_component(component_id):
+            schema_map = {
+                "component:ParagraphBlockV1:1.0.0": "schema:ParagraphBlockV1",
+                "component:IndicatorBlockV1:1.0.0": "schema:IndicatorBlockV1",
+            }
+            return make_component(component_id, schema_map.get(component_id))
+        
+        mock_component_service.get.side_effect = get_component
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StorySummaryView:1.0.0", {
+            "story_id": "AUTH-101",
+            "intent": "User can register.",
+            "phase": "MVP",
+            "risks": [{"id": "R-001", "description": "Risk", "likelihood": "high"}]
+        })
+        
+        assert len(result.blocks) == 3
+        assert result.blocks[0].type == "schema:ParagraphBlockV1"
+        assert result.blocks[1].type == "schema:IndicatorBlockV1"
+        assert result.blocks[2].type == "schema:IndicatorBlockV1"
+        assert result.blocks[2].data["value"] == "high"
+    
+    @pytest.mark.asyncio
+    async def test_without_risks_produces_2_blocks(
+        self, mock_docdef_service, mock_component_service, summary_docdef_sections
+    ):
+        """INVARIANT: Story without risks → 2 blocks (risk_level omitted)."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StorySummaryView:1.0.0", summary_docdef_sections
+        )
+        
+        async def get_component(component_id):
+            schema_map = {
+                "component:ParagraphBlockV1:1.0.0": "schema:ParagraphBlockV1",
+                "component:IndicatorBlockV1:1.0.0": "schema:IndicatorBlockV1",
+            }
+            return make_component(component_id, schema_map.get(component_id))
+        
+        mock_component_service.get.side_effect = get_component
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StorySummaryView:1.0.0", {
+            "story_id": "AUTH-102",
+            "intent": "User can reset password.",
+            "phase": "Later",
+            "risks": []
+        })
+        
+        assert len(result.blocks) == 2
+        assert result.blocks[0].type == "schema:ParagraphBlockV1"
+        assert result.blocks[1].type == "schema:IndicatorBlockV1"
+        # No risk_level block
+        block_keys = [b.key for b in result.blocks]
+        assert "risk_level:derived" not in block_keys
+    
+    @pytest.mark.asyncio
+    async def test_detail_ref_present(
+        self, mock_docdef_service, mock_component_service, summary_docdef_sections
+    ):
+        """INVARIANT: detail_ref to StoryDetailView required."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StorySummaryView:1.0.0", summary_docdef_sections
+        )
+        
+        async def get_component(component_id):
+            schema_map = {
+                "component:ParagraphBlockV1:1.0.0": "schema:ParagraphBlockV1",
+                "component:IndicatorBlockV1:1.0.0": "schema:IndicatorBlockV1",
+            }
+            return make_component(component_id, schema_map.get(component_id))
+        
+        mock_component_service.get.side_effect = get_component
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        result = await builder.build("docdef:StorySummaryView:1.0.0", {
+            "story_id": "AUTH-101",
+            "intent": "Test",
+            "phase": "MVP",
+            "risks": []
+        })
+        
+        intent_block = result.blocks[0]
+        assert "detail_ref" in intent_block.data
+        assert intent_block.data["detail_ref"]["document_type"] == "StoryDetailView"
+        assert intent_block.data["detail_ref"]["params"]["story_id"] == "AUTH-101"
+    
+    @pytest.mark.asyncio
+    async def test_no_forbidden_fields_in_output(
+        self, mock_docdef_service, mock_component_service, summary_docdef_sections
+    ):
+        """INVARIANT: Forbidden list fields never appear in summary."""
+        mock_docdef_service.get.return_value = make_docdef(
+            "docdef:StorySummaryView:1.0.0", summary_docdef_sections
+        )
+        
+        async def get_component(component_id):
+            schema_map = {
+                "component:ParagraphBlockV1:1.0.0": "schema:ParagraphBlockV1",
+                "component:IndicatorBlockV1:1.0.0": "schema:IndicatorBlockV1",
+            }
+            return make_component(component_id, schema_map.get(component_id))
+        
+        mock_component_service.get.side_effect = get_component
+        
+        builder = RenderModelBuilder(mock_docdef_service, mock_component_service)
+        
+        # Input with all forbidden fields present
+        result = await builder.build("docdef:StorySummaryView:1.0.0", {
+            "story_id": "AUTH-101",
+            "intent": "Test",
+            "phase": "MVP",
+            "risks": [],
+            "acceptance_criteria": ["AC1", "AC2"],
+            "in_scope": ["Scope1"],
+            "out_of_scope": ["Out1"],
+            "dependencies": [{"depends_on_id": "X"}],
+            "open_questions": [{"id": "Q1"}],
+            "implementation_notes": ["Note1"],
+        })
+        
+        # None of the forbidden fields should appear
+        block_keys = [b.key for b in result.blocks]
+        for field in self.FORBIDDEN_FIELDS:
+            assert not any(field in key for key in block_keys), f"{field} should not appear"
