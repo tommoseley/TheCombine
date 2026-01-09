@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-01-06 |
 | **Decision Owner** | Product Owner |
-| **Execution State** | null |
+| **Execution State** | complete |
 | **Applies To** | All document-centric generation, validation, rendering, and prompt construction |
 
 ---
@@ -277,6 +277,53 @@ ADR-034 is considered satisfied when:
 
 ---
 
-## 12. Amendments
+## 12. Shape Semantics Quick Reference
+
+| Shape | `repeat_over` | Output |
+|-------|---------------|--------|
+| `single` | — | 1 block |
+| `list` | — | N blocks (one per item) |
+| `nested_list` | required | N blocks (one per item across all parents) |
+| `container` | no | 1 block (all items) |
+| `container` | yes | N blocks (one per parent, each containing that parent's items) |
+
+**Key distinction:** `nested_list` → one block *per item*; `container + repeat_over` → one block *per parent*.
+
+Behavior is mechanically deterministic: shape + pointers fully determine output structure. No inference, no magic, no document-type branching.
+
+See [ADR-034-B](./ADR-034-Amendment-B.md) for full semantics and validation evidence.
+
+> ⚠️ **Governance Notice**
+>
+> **DocDef is not a DSL.** The following are explicitly non-features:
+> - No `filter` semantics
+> - No wildcard pointers  
+> - No nested `repeat_over`
+> - No expression language / conditional logic
+>
+> Changes to shape semantics require governance approval. See [RENDER_SHAPES_SEMANTICS.md](../../governance/RENDER_SHAPES_SEMANTICS.md).
+>
+> **Document migrations must follow the [DOCUMENT_MIGRATION_CHECKLIST.md](../../governance/DOCUMENT_MIGRATION_CHECKLIST.md).**
+
+---
+
+## 13. Amendments
 
 - [ADR-034-A: Clarifications & Contract Completion](./ADR-034-Amendment-A.md)
+- [ADR-034-B: Flatten-First Canonical Data, Hierarchy as View](./ADR-034-Amendment-B.md)
+
+---
+
+## 14. Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-01-06 | Initial ADR accepted |
+| 2026-01-07 | Amendment A: Clarifications & Contract Completion |
+| 2026-01-08 | Execution complete (WS-ADR-034-POC) |
+| 2026-01-08 | Amendment B: Clarified flatten-first canonical modeling; related items are represented as flat structures with explicit references; hierarchical views are produced via container blocks during rendering. Confirmed boundary that container sections support a single level of parent iteration (no nested wildcard traversal), per EXP2 findings. |
+
+
+
+
+

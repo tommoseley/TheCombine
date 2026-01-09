@@ -1,0 +1,69 @@
+﻿# Session Notes - 2026-01-07
+
+## Session Focus
+Production OAuth Authentication Fix
+
+## Problem
+OAuth login failing in production with "mismatching_state: CSRF Warning! State not equal in request and response"
+
+## Root Cause Discovery
+1. Initially suspected proxy headers issue (ALB → container)
+2. Added debug logging to diagnose
+3. Found: `Session keys: []`, `Cookies: []`, but `X-Forwarded-Proto: https` ✓
+4. **Real issue:** Cookie domain mismatch
+   - Browser accessed `www.thecombine.ai`
+   - OAuth redirected to `thecombine.ai` (from DOMAIN env var)
+   - Session cookie set for `www.thecombine.ai` not sent to `thecombine.ai`
+
+## Fixes Applied
+
+### Infrastructure
+- Updated ECS task definition: `DOMAIN=www.thecombine.ai`
+- Added ALB redirect rule: `thecombine.ai` → `www.thecombine.ai` (HTTP 301)
+- Updated OAuth redirect URIs in Google Console and Azure Portal to use `www.thecombine.ai`
+
+### Code Changes
+1. **AuthEventType enum** - Added missing types:
+   - `ACCOUNT_UNLINKED = "account_unlinked"`
+   - `LINK_BLOCKED_IDENTITY_EXISTS = "link_blocked_identity_exists"`
+
+2. **Logout audit logging** - Capture user_id before session deletion
+
+3. **Account linking redirects** - Fixed `/static/accounts.html` → `/`
+
+4. **OAuth account picker** - Added `prompt='select_account'` to always show account selection
+
+5. **SessionMiddleware** - Added explicit `path='/'`
+
+6. **Removed duplicate** - Deleted unused `app/auth/accounts.py`
+
+### Files Modified
+- `app/auth/models.py` - Added AuthEventType enums
+- `app/auth/routes.py` - Logout fix, account picker, debug logging (removed)
+- `app/api/routers/accounts.py` - Fixed redirects, account picker
+- `app/api/main.py` - Added path='/' to SessionMiddleware
+- Deleted: `app/auth/accounts.py`
+
+### Test Artifacts
+- Created `AUTH-MANUAL-TEST-PLAN.md` (v1.3) - 11 phases covering full OAuth flow
+
+## Production Status
+- OAuth working for both Google and Microsoft
+- Session cookies properly scoped to `www.thecombine.ai`
+- ALB redirecting non-www to www
+
+## Commits
+- `142962d` - Fix auth testing issues: audit logging, redirects, and account picker
+- `c8a64f5` - Debug: Add session logging to diagnose prod OAuth state issue
+- `ef1742e` - Fix: Add explicit path to SessionMiddleware
+- (pending) - Remove debug logging from auth routes
+
+## Remaining Work
+- Complete auth test plan in production (Phases 2-11)
+- PR development → main
+
+## Key Learnings
+1. Cookie domain matching is critical for OAuth flows
+2. Debug logging in production is valuable for diagnosing issues
+3. PowerShell JSON handling has BOM issues - use bash for AWS CLI
+4. Multiple ECS tasks during rolling deployment can cause session issues (in-memory sessions don't share state)

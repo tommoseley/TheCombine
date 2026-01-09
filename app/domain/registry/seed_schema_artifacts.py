@@ -315,6 +315,482 @@ RENDER_ACTION_V1_SCHEMA = {
 }
 
 
+
+# =============================================================================
+# ADR-034 CANONICAL COMPONENT & DOCUMENT DEFINITION SCHEMAS
+# =============================================================================
+
+CANONICAL_COMPONENT_V1_SCHEMA = {
+    "$id": "schema:CanonicalComponentV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Canonical Component Specification",
+    "description": "Defines a reusable component with schema, prompt guidance, and view bindings.",
+    "required": ["component_id", "schema_id", "generation_guidance", "view_bindings"],
+    "properties": {
+        "component_id": {
+            "type": "string",
+            "pattern": "^component:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Canonical component ID with semver (e.g., component:OpenQuestionV1:1.0.0)"
+        },
+        "schema_id": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$",
+            "description": "Reference to canonical schema (e.g., schema:OpenQuestionV1)"
+        },
+        "generation_guidance": {
+            "type": "object",
+            "required": ["bullets"],
+            "properties": {
+                "bullets": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "description": "Prompt generation bullets for LLM"
+                }
+            },
+            "additionalProperties": False
+        },
+        "view_bindings": {
+            "type": "object",
+            "description": "Channel-specific fragment bindings",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "fragment_id": {
+                        "type": "string",
+                        "description": "Canonical fragment ID for this channel"
+                    }
+                },
+                "additionalProperties": False
+            }
+        }
+    },
+    "additionalProperties": False
+}
+
+DOCUMENT_DEFINITION_V2_SCHEMA = {
+    "$id": "schema:DocumentDefinitionV2",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Document Definition V2",
+    "description": "Composes canonical components into a document structure.",
+    "required": ["document_def_id", "prompt_header", "sections"],
+    "properties": {
+        "document_def_id": {
+            "type": "string",
+            "pattern": "^docdef:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Canonical document definition ID with semver"
+        },
+        "document_schema_id": {
+            "type": "string",
+            "pattern": "^schema:[A-Za-z0-9._-]+$",
+            "description": "Optional reference to document-level schema"
+        },
+        "prompt_header": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "description": "Role context for LLM"
+                },
+                "constraints": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Generation constraints"
+                }
+            },
+            "additionalProperties": False
+        },
+        "sections": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["section_id", "title", "order", "component_id", "shape", "source_pointer"],
+                "properties": {
+                    "section_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Unique section identifier"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Section title"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Section description"
+                    },
+                    "order": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Section ordering"
+                    },
+                    "component_id": {
+                        "type": "string",
+                        "pattern": "^component:[A-Za-z0-9._-]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+                        "description": "Reference to canonical component"
+                    },
+                    "shape": {
+                        "type": "string",
+                        "enum": ["single", "list", "nested_list"],
+                        "description": "How component data is structured"
+                    },
+                    "source_pointer": {
+                        "type": "string",
+                        "pattern": "^/.*$",
+                        "description": "JSON pointer to data source"
+                    },
+                    "repeat_over": {
+                        "type": "string",
+                        "pattern": "^/.*$",
+                        "description": "JSON pointer for nested_list parent iteration"
+                    },
+                    "context": {
+                        "type": "object",
+                        "description": "Context mappings from parent to child",
+                        "additionalProperties": {
+                            "type": "string",
+                            "pattern": "^/.*$"
+                        }
+                    }
+                },
+                "additionalProperties": False
+            },
+            "description": "Ordered list of document sections"
+        }
+    },
+    "additionalProperties": False
+}
+
+
+OPEN_QUESTIONS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:OpenQuestionsBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Open Questions Block",
+    "description": "Container block for a list of open questions within a section context.",
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:OpenQuestionV1"},
+            "description": "List of open questions"
+        },
+        "total_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total count of questions (derived, non-authoritative)"
+        },
+        "blocking_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Count of blocking questions (derived, non-authoritative)"
+        }
+    },
+    "additionalProperties": False
+}
+
+# =============================================================================
+# ADR-034-EXP3: Story Schemas
+# =============================================================================
+
+STORY_V1_SCHEMA = {
+    "$id": "schema:StoryV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Story",
+    "type": "object",
+    "required": ["id", "epic_id", "title", "description", "status"],
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable story identifier"
+        },
+        "epic_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Parent epic identifier (reference, must match parent when nested)"
+        },
+        "title": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Short story title"
+        },
+        "description": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Story description"
+        },
+        "status": {
+            "type": "string",
+            "enum": ["draft", "ready", "in_progress", "blocked", "done"],
+            "default": "draft",
+            "description": "Workflow status"
+        },
+        "acceptance_criteria": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 2},
+            "default": [],
+            "description": "User-validated acceptance criteria"
+        },
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": [],
+            "description": "Optional categorization tags"
+        },
+        "notes": {
+            "type": "string",
+            "description": "Additional context / notes"
+        }
+    },
+    "additionalProperties": False,
+    "description": "A story linked to an epic via epic_id (flatten-first canonical reference)."
+}
+
+
+STORIES_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StoriesBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Stories Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional block title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:StoryV1"},
+            "description": "Stories to render in this block"
+        },
+        "meta": {
+            "type": "object",
+            "properties": {
+                "total_count": {"type": "integer", "minimum": 0},
+                "status_counts": {
+                    "type": "object",
+                    "additionalProperties": {"type": "integer", "minimum": 0},
+                    "description": "Derived counts by status (non-authoritative)"
+                }
+            },
+            "additionalProperties": False,
+            "description": "Derived metadata (non-authoritative)"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering story lists; grouping via doc composition + context."
+}
+
+
+# =============================================================================
+# ADR-034-DISCOVERY: Generic List and Summary Components
+# =============================================================================
+
+STRING_LIST_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StringListBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "String List Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title for the list section"
+        },
+        "items": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of string items"
+        },
+        "style": {
+            "type": "string",
+            "enum": ["bullet", "numbered", "check"],
+            "default": "bullet",
+            "description": "Rendering style for the list"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Generic container block for rendering simple string lists."
+}
+
+
+SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:SummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Summary Block",
+    "type": "object",
+    "properties": {
+        "problem_understanding": {
+            "type": "string",
+            "description": "Understanding of the problem space"
+        },
+        "architectural_intent": {
+            "type": "string",
+            "description": "High-level architectural direction"
+        },
+        "scope_pressure_points": {
+            "type": "string",
+            "description": "Areas where scope may expand or contract"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Multi-field summary block for document headers."
+}
+
+
+RISKS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:RisksBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Risks Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:RiskV1"},
+            "description": "Risks to render in this block"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering risk lists."
+}
+
+
+PARAGRAPH_BLOCK_V1_SCHEMA = {
+    "$id": "schema:ParagraphBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Paragraph Block",
+    "type": "object",
+    "properties": {
+        "content": {
+            "type": "string",
+            "description": "The paragraph text content"
+        },
+        "value": {
+            "type": "string",
+            "description": "Alternative field name for content (builder compatibility)"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Simple paragraph text block for narrative content."
+}
+
+
+INDICATOR_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IndicatorBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Indicator Block",
+    "type": "object",
+    "required": ["value"],
+    "properties": {
+        "value": {
+            "type": "string",
+            "description": "The indicator value (e.g., low, medium, high)"
+        },
+        "label": {
+            "type": "string",
+            "description": "Optional label for the indicator"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Simple indicator block for derived values like risk level."
+}
+
+
+EPIC_SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:EpicSummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Epic Summary Block",
+    "type": "object",
+    "required": ["title"],
+    "properties": {
+        "epic_id": {
+            "type": "string",
+            "description": "Epic identifier"
+        },
+        "title": {
+            "type": "string",
+            "description": "Epic title"
+        },
+        "intent": {
+            "type": "string",
+            "description": "One-paragraph intent/vision"
+        },
+        "phase": {
+            "type": "string",
+            "description": "MVP phase indicator"
+        },
+        "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Derived aggregate risk level"
+        },
+        "detail_ref": {
+            "type": "object",
+            "properties": {
+                "document_type": {"type": "string"},
+                "epic_id": {"type": "string"}
+            },
+            "description": "Reference to EpicDetailView"
+        }
+    },
+    "additionalProperties": True,
+    "description": "Compact epic summary for backlog views. Intentionally lossy."
+}
+
+
+DEPENDENCIES_BLOCK_V1_SCHEMA = {
+    "$id": "schema:DependenciesBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Dependencies Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "title": {
+            "type": "string",
+            "description": "Optional title override"
+        },
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:DependencyV1"},
+            "description": "Dependencies to render in this block"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering dependency lists."
+}
+
+
+DOCUMENT_REF_V1_SCHEMA = {
+    "$id": "schema:DocumentRefV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Document Reference",
+    "type": "object",
+    "required": ["document_type"],
+    "properties": {
+        "document_type": {
+            "type": "string",
+            "description": "Target docdef type (e.g., EpicDetailView, EpicArchitectureView)"
+        },
+        "params": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "Parameters to resolve the target document (e.g., {epic_id: 'AUTH-100'})"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Frozen reference to another document view. Used in summary views for detail links."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -405,6 +881,153 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034: Canonical Component and Document Definition schemas
+    {
+        "schema_id": "CanonicalComponentV1",
+        "version": "1.0",
+        "kind": "document",
+        "status": "accepted",
+        "schema_json": CANONICAL_COMPONENT_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "DocumentDefinitionV2",
+        "version": "1.0",
+        "kind": "document",
+        "status": "accepted",
+        "schema_json": DOCUMENT_DEFINITION_V2_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    # ADR-034-EXP: Container block schema
+    {
+        "schema_id": "OpenQuestionsBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": OPEN_QUESTIONS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    # ADR-034-EXP3: Story schemas
+    {
+        "schema_id": "StoryV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORY_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "StoriesBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORIES_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    # ADR-034-DISCOVERY: Generic list and summary schemas
+    {
+        "schema_id": "StringListBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STRING_LIST_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "SummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "RisksBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": RISKS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "ParagraphBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": PARAGRAPH_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IndicatorBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INDICATOR_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "EpicSummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": EPIC_SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "DependenciesBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": DEPENDENCIES_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "DocumentRefV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": DOCUMENT_REF_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": ["SUMMARY_VIEW_CONTRACT"]
+        },
+    },
 ]
 
 
@@ -458,11 +1081,33 @@ async def seed_schema_artifacts(db: AsyncSession) -> int:
 
 if __name__ == "__main__":
     import asyncio
-    from app.core.database import get_db_session
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env before importing database
+    from app.core.database import async_session_factory
     
     async def main():
-        async with get_db_session() as db:
+        async with async_session_factory() as db:
             count = await seed_schema_artifacts(db)
+            await db.commit()
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
