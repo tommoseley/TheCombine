@@ -551,41 +551,6 @@ STORY_V1_SCHEMA = {
 }
 
 
-STORIES_BLOCK_V1_SCHEMA = {
-    "$id": "schema:StoriesBlockV1",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Stories Block",
-    "type": "object",
-    "required": ["items"],
-    "properties": {
-        "title": {
-            "type": "string",
-            "description": "Optional block title override"
-        },
-        "items": {
-            "type": "array",
-            "items": {"$ref": "schema:StoryV1"},
-            "description": "Stories to render in this block"
-        },
-        "meta": {
-            "type": "object",
-            "properties": {
-                "total_count": {"type": "integer", "minimum": 0},
-                "status_counts": {
-                    "type": "object",
-                    "additionalProperties": {"type": "integer", "minimum": 0},
-                    "description": "Derived counts by status (non-authoritative)"
-                }
-            },
-            "additionalProperties": False,
-            "description": "Derived metadata (non-authoritative)"
-        }
-    },
-    "additionalProperties": False,
-    "description": "Container block for rendering story lists; grouping via doc composition + context."
-}
-
-
 # =============================================================================
 # ADR-034-DISCOVERY: Generic List and Summary Components
 # =============================================================================
@@ -791,6 +756,66 @@ DOCUMENT_REF_V1_SCHEMA = {
 }
 
 
+STORY_SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StorySummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Story Summary Block",
+    "type": "object",
+    "required": ["story_id", "title", "intent", "detail_ref"],
+    "properties": {
+        "story_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable story identifier"
+        },
+        "title": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Story title for scanning"
+        },
+        "intent": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Short intent (1-2 sentences)"
+        },
+        "phase": {
+            "type": "string",
+            "enum": ["mvp", "later"],
+            "description": "Story phase indicator"
+        },
+        "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Derived risk level (optional, omit if no risks)"
+        },
+        "detail_ref": {
+            "$ref": "schema:DocumentRefV1",
+            "description": "Reference to StoryDetailView (required)"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Lossy story summary for backlog views. Intentionally excludes acceptance_criteria, scope, dependencies, questions, notes."
+}
+
+
+STORIES_BLOCK_V1_SCHEMA = {
+    "$id": "schema:StoriesBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Stories Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {"$ref": "schema:StorySummaryBlockV1"},
+            "description": "Story summaries in this container"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for story summaries within an epic."
+}
+
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -928,17 +953,6 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
-    {
-        "schema_id": "StoriesBlockV1",
-        "version": "1.0",
-        "kind": "type",
-        "status": "accepted",
-        "schema_json": STORIES_BLOCK_V1_SCHEMA,
-        "governance_refs": {
-            "adrs": ["ADR-034"],
-            "policies": []
-        },
-    },
     # ADR-034-DISCOVERY: Generic list and summary schemas
     {
         "schema_id": "StringListBlockV1",
@@ -1028,6 +1042,28 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": ["SUMMARY_VIEW_CONTRACT"]
         },
     },
+    {
+        "schema_id": "StorySummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORY_SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": ["SUMMARY_VIEW_CONTRACT"]
+        },
+    },
+    {
+        "schema_id": "StoriesBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": STORIES_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -1092,6 +1128,11 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
+
+
+
 
 
 

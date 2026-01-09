@@ -449,6 +449,98 @@ DEPENDENCIES_BLOCK_V1_FRAGMENT = """
 """
 
 
+STORY_SUMMARY_BLOCK_V1_FRAGMENT = """
+<div class="story-summary-card p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+  <div class="flex items-start justify-between gap-2">
+    <div class="flex-1 min-w-0">
+      <!-- Title -->
+      <p class="font-medium text-gray-900">{{ block.data.title }}</p>
+      
+      <!-- Intent -->
+      <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ block.data.intent }}</p>
+      
+      <!-- Badges row -->
+      <div class="flex items-center gap-2 mt-2">
+        <!-- Phase badge -->
+        {% if block.data.phase %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+          {% if block.data.phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ block.data.phase | upper }}
+        </span>
+        {% endif %}
+        
+        <!-- Risk badge -->
+        {% if block.data.risk_level %}
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+          {% if block.data.risk_level == 'high' %}bg-red-100 text-red-800
+          {% elif block.data.risk_level == 'medium' %}bg-amber-100 text-amber-800
+          {% else %}bg-green-100 text-green-800{% endif %}">
+          {{ block.data.risk_level }} risk
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Detail link -->
+    {% if block.data.detail_ref %}
+    <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0" 
+       data-detail-ref="{{ block.data.detail_ref | tojson }}">
+      View →
+    </a>
+    {% endif %}
+  </div>
+</div>
+"""
+
+
+STORIES_BLOCK_V1_FRAGMENT = """
+<div class="stories-block" data-block-type="StoriesBlockV1">
+  {% if block.context and block.context.epic_title %}
+  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.epic_title }}</h3>
+  {% endif %}
+  
+  <div class="space-y-2">
+    {% for item in block.data.items %}
+    <div class="story-summary-card p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-gray-900">{{ item.title }}</p>
+          <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ item.intent }}</p>
+          <div class="flex items-center gap-2 mt-2">
+            {% if item.phase %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+              {% if item.phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ item.phase | upper }}
+            </span>
+            {% endif %}
+            {% if item.risk_level %}
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+              {% if item.risk_level == 'high' %}bg-red-100 text-red-800
+              {% elif item.risk_level == 'medium' %}bg-amber-100 text-amber-800
+              {% else %}bg-green-100 text-green-800{% endif %}">
+              {{ item.risk_level }} risk
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% if item.detail_ref %}
+        <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0"
+           data-detail-ref="{{ item.detail_ref | tojson }}">
+          View →
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  
+  {% if not block.data.items or block.data.items | length == 0 %}
+  <p class="text-gray-400 italic text-sm">No stories.</p>
+  {% endif %}
+</div>
+"""
+
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "OpenQuestionV1Fragment",
@@ -541,6 +633,22 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "status": "accepted",
         "fragment_markup": DEPENDENCIES_BLOCK_V1_FRAGMENT,
     },
+    # ADR-034: Story summary item
+    {
+        "fragment_id": "StorySummaryBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "StorySummaryBlockV1",
+        "status": "accepted",
+        "fragment_markup": STORY_SUMMARY_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Stories container
+    {
+        "fragment_id": "StoriesBlockV1Fragment",
+        "version": "1.0",
+        "schema_type_id": "StoriesBlockV1",
+        "status": "accepted",
+        "fragment_markup": STORIES_BLOCK_V1_FRAGMENT,
+    },
 ]
 
 
@@ -610,6 +718,10 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
+
+
 
 
 
