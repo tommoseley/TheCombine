@@ -93,7 +93,7 @@ OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
   {% endif %}
   
   <div class="questions-list space-y-4">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
       <div class="open-question-item border-l-4 border-amber-400 pl-4 py-2">
         <div class="question-header flex items-start gap-2">
           <span class="question-id font-mono text-sm text-gray-500">{{ item.id }}</span>
@@ -109,7 +109,7 @@ OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
     {% endfor %}
   </div>
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic">No open questions.</p>
   {% endif %}
 </div>
@@ -161,7 +161,7 @@ STORIES_BLOCK_V1_FRAGMENT = """
   {% endif %}
   
   <div class="stories-list space-y-4">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
       <div class="story-item border-l-4 border-blue-400 pl-4 py-3 bg-white rounded shadow-sm">
         <div class="story-header flex items-center gap-2 mb-2">
           <span class="story-id font-mono text-sm text-gray-500">{{ item.id }}</span>
@@ -190,7 +190,7 @@ STORIES_BLOCK_V1_FRAGMENT = """
     {% endfor %}
   </div>
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic">No stories in this epic.</p>
   {% endif %}
 </div>
@@ -203,21 +203,18 @@ STORIES_BLOCK_V1_FRAGMENT = """
 
 STRING_LIST_BLOCK_V1_FRAGMENT = """
 <div class="string-list-block" data-block-type="StringListBlockV1">
-  {% if block.context and block.context.title %}
-  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
-  {% endif %}
-  
-  {% set style = block.data.style | default('bullet') %}
+  {# Title handled by section header - don't duplicate #}
+  {% set style = block.context.style | default(block.data.style) | default('bullet') %}
   
   {% if style == 'numbered' %}
   <ol class="list-decimal list-inside space-y-2 text-gray-700">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
     <li>{{ item.value if item is mapping else item }}</li>
     {% endfor %}
   </ol>
   {% elif style == 'check' %}
   <ul class="space-y-2">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
     <li class="flex items-start">
       <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -228,13 +225,13 @@ STRING_LIST_BLOCK_V1_FRAGMENT = """
   </ul>
   {% else %}
   <ul class="list-disc list-inside space-y-2 text-gray-700">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
     <li>{{ item.value if item is mapping else item }}</li>
     {% endfor %}
   </ul>
   {% endif %}
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic">No items.</p>
   {% endif %}
 </div>
@@ -243,6 +240,7 @@ STRING_LIST_BLOCK_V1_FRAGMENT = """
 
 SUMMARY_BLOCK_V1_FRAGMENT = """
 <div class="summary-block bg-blue-50 rounded-lg p-4 space-y-3" data-block-type="SummaryBlockV1">
+  {# ProjectDiscovery fields #}
   {% if block.data.problem_understanding %}
   <div>
     <span class="text-sm font-medium text-blue-800">Problem Understanding:</span>
@@ -263,18 +261,51 @@ SUMMARY_BLOCK_V1_FRAGMENT = """
     <p class="text-blue-900">{{ block.data.scope_pressure_points }}</p>
   </div>
   {% endif %}
+  
+  {# EpicBacklog epic_set_summary fields #}
+  {% if block.data.overall_intent %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Overall Intent:</span>
+    <p class="text-blue-900">{{ block.data.overall_intent }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.mvp_definition %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">MVP Definition:</span>
+    <p class="text-blue-900">{{ block.data.mvp_definition }}</p>
+  </div>
+  {% endif %}
+  
+  {# Architecture Summary fields #}
+  {% if block.data.title %}
+  <div>
+    <h3 class="text-lg font-semibold text-blue-900">{{ block.data.title }}</h3>
+  </div>
+  {% endif %}
+  
+  {% if block.data.architectural_style %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Architectural Style:</span>
+    <p class="text-blue-900">{{ block.data.architectural_style }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.refined_description %}
+  <div>
+    <span class="text-sm font-medium text-blue-800">Description:</span>
+    <p class="text-blue-900">{{ block.data.refined_description }}</p>
+  </div>
+  {% endif %}
 </div>
 """
 
 
 RISKS_BLOCK_V1_FRAGMENT = """
 <div class="risks-block" data-block-type="RisksBlockV1">
-  {% if block.context and block.context.title %}
-  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
-  {% endif %}
-  
+  {# Title handled by section header - don't duplicate #}
   <div class="space-y-3">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
       {% set likelihood = item.likelihood | default('medium') %}
       {% if likelihood == 'high' %}
         {% set border_class = 'border-red-400 bg-red-50' %}
@@ -290,18 +321,25 @@ RISKS_BLOCK_V1_FRAGMENT = """
       <div class="border-l-4 {{ border_class }} p-4 rounded-r-lg">
         <div class="flex items-center justify-between mb-1">
           <p class="font-medium text-gray-900">{{ item.description }}</p>
+          {% if item.likelihood %}
           <span class="px-2 py-0.5 text-xs font-medium rounded {{ badge_class }}">
             {{ likelihood | title }}
           </span>
+          {% endif %}
         </div>
         {% if item.impact %}
         <p class="text-sm text-gray-600">{{ item.impact }}</p>
+        {% endif %}
+        {% if item.affected_epics and item.affected_epics | length > 0 %}
+        <p class="text-xs text-gray-500 mt-2">
+          Affects: {{ item.affected_epics | join(', ') }}
+        </p>
         {% endif %}
       </div>
     {% endfor %}
   </div>
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic">No risks identified.</p>
   {% endif %}
 </div>
@@ -360,7 +398,7 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
     <div class="flex-1 min-w-0">
       <!-- Title -->
       <h3 class="text-lg font-semibold text-gray-900 truncate">
-        {{ block.data.title | default('Untitled Epic') }}
+        {{ block.data.name | default(block.data.title) | default('Untitled Epic') }}
       </h3>
       
       <!-- Intent (truncated) -->
@@ -373,10 +411,10 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
     
     <div class="flex items-center gap-3 flex-shrink-0">
       <!-- Phase Badge -->
-      {% if block.data.phase %}
+      {% if block.data.mvp_phase %}
       <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium 
-        {% if block.data.phase == 'MVP' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
-        {{ block.data.phase }}
+        {% if block.data.mvp_phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ block.data.mvp_phase | upper }}
       </span>
       {% endif %}
       
@@ -406,12 +444,9 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
 
 DEPENDENCIES_BLOCK_V1_FRAGMENT = """
 <div class="dependencies-block" data-block-type="DependenciesBlockV1">
-  {% if block.context and block.context.title %}
-  <h3 class="text-lg font-semibold text-gray-900 mb-3">{{ block.context.title }}</h3>
-  {% endif %}
-  
+  {# Title handled by section header - don't duplicate #}
   <div class="space-y-2">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
     <div class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg {% if item.blocking %}bg-amber-50 border-amber-200{% else %}bg-gray-50{% endif %}">
       <!-- Blocking indicator -->
       {% if item.blocking %}
@@ -442,7 +477,7 @@ DEPENDENCIES_BLOCK_V1_FRAGMENT = """
     {% endfor %}
   </div>
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic">No dependencies.</p>
   {% endif %}
 </div>
@@ -462,9 +497,9 @@ STORY_SUMMARY_BLOCK_V1_FRAGMENT = """
       <!-- Badges row -->
       <div class="flex items-center gap-2 mt-2">
         <!-- Phase badge -->
-        {% if block.data.phase %}
+        {% if block.data.mvp_phase %}
         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-          {% if block.data.phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+          {% if block.data.mvp_phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
           {{ block.data.phase | upper }}
         </span>
         {% endif %}
@@ -500,7 +535,7 @@ STORIES_BLOCK_V1_FRAGMENT = """
   {% endif %}
   
   <div class="space-y-2">
-    {% for item in block.data.items %}
+    {% for item in block.data["items"] %}
     <div class="story-summary-card p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
       <div class="flex items-start justify-between gap-2">
         <div class="flex-1 min-w-0">
@@ -534,23 +569,275 @@ STORIES_BLOCK_V1_FRAGMENT = """
     {% endfor %}
   </div>
   
-  {% if not block.data.items or block.data.items | length == 0 %}
+  {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic text-sm">No stories.</p>
   {% endif %}
 </div>
 """
 
 
+# =============================================================================
+# ADR-034: Architecture Component Block Fragment
+# =============================================================================
+
+ARCH_COMPONENT_BLOCK_V1_FRAGMENT = """
+<div class="arch-component-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="ArchComponentBlockV1">
+  <div class="flex items-start justify-between gap-4 mb-3">
+    <div>
+      <h4 class="text-lg font-semibold text-gray-900">{{ block.data.name }}</h4>
+      <span class="text-sm text-gray-500">{{ block.data.id }}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if block.data.layer %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+        {{ block.data.layer }}
+      </span>
+      {% endif %}
+      {% if block.data.mvp_phase %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+        {% if block.data.mvp_phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+        {{ block.data.mvp_phase | upper }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  
+  {% if block.data.purpose %}
+  <p class="text-gray-600 mb-3">{{ block.data.purpose }}</p>
+  {% endif %}
+  
+  {% if block.data.responsibilities and block.data.responsibilities | length > 0 %}
+  <div class="mb-3">
+    <span class="text-sm font-medium text-gray-700">Responsibilities:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+      {% for r in block.data.responsibilities %}
+      <li>{{ r }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  
+  {% if block.data.technology_choices and block.data.technology_choices | length > 0 %}
+  <div class="mb-3">
+    <span class="text-sm font-medium text-gray-700">Technology:</span>
+    <div class="flex flex-wrap gap-1 mt-1">
+      {% for tech in block.data.technology_choices %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">{{ tech }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  
+  {% if block.data.depends_on_components and block.data.depends_on_components | length > 0 %}
+  <div class="text-sm text-gray-500">
+    <span class="font-medium">Depends on:</span> {{ block.data.depends_on_components | join(', ') }}
+  </div>
+  {% endif %}
+</div>
+"""
+
+
+# =============================================================================
+# ADR-034: Quality Attribute Block Fragment
+# =============================================================================
+
+QUALITY_ATTRIBUTE_BLOCK_V1_FRAGMENT = """
+<div class="quality-attr-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="QualityAttributeBlockV1">
+  <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
+  
+  {% if block.data.target %}
+  <div class="mb-2">
+    <span class="text-sm font-medium text-gray-700">Target:</span>
+    <p class="text-gray-600">{{ block.data.target }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.rationale %}
+  <div class="mb-2">
+    <span class="text-sm font-medium text-gray-700">Rationale:</span>
+    <p class="text-sm text-gray-600">{{ block.data.rationale }}</p>
+  </div>
+  {% endif %}
+  
+  {% if block.data.acceptance_criteria and block.data.acceptance_criteria | length > 0 %}
+  <div>
+    <span class="text-sm font-medium text-gray-700">Acceptance Criteria:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+      {% for c in block.data.acceptance_criteria %}
+      <li>{{ c }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
+# =============================================================================
+# ADR-034: Interface Block Fragment
+# =============================================================================
+
+INTERFACE_BLOCK_V1_FRAGMENT = """
+<div class="interface-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="InterfaceBlockV1">
+  <div class="flex items-start justify-between gap-4 mb-3">
+    <div>
+      <h4 class="text-lg font-semibold text-gray-900">{{ block.data.name }}</h4>
+      <span class="text-sm text-gray-500">{{ block.data.id }}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if block.data.type %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+        {{ block.data.type }}
+      </span>
+      {% endif %}
+      {% if block.data.protocol %}
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+        {{ block.data.protocol }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  
+  {% if block.data.description %}
+  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  {% endif %}
+  
+  {% if block.data.endpoints and block.data.endpoints | length > 0 %}
+  <div class="mt-3">
+    <span class="text-sm font-medium text-gray-700">Endpoints:</span>
+    <div class="mt-2 space-y-2">
+      {% for ep in block.data.endpoints %}
+      <div class="bg-gray-50 rounded p-2 text-sm">
+        <div class="flex items-center gap-2">
+          <span class="font-mono px-1.5 py-0.5 rounded text-xs font-bold
+            {% if ep.method == 'GET' %}bg-green-100 text-green-700
+            {% elif ep.method == 'POST' %}bg-blue-100 text-blue-700
+            {% elif ep.method == 'PUT' %}bg-amber-100 text-amber-700
+            {% elif ep.method == 'DELETE' %}bg-red-100 text-red-700
+            {% else %}bg-gray-100 text-gray-700{% endif %}">
+            {{ ep.method }}
+          </span>
+          <span class="font-mono text-gray-800">{{ ep.path }}</span>
+        </div>
+        {% if ep.description %}
+        <p class="text-gray-600 mt-1">{{ ep.description }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
+# =============================================================================
+# ADR-034: Workflow Block Fragment
+# =============================================================================
+
+WORKFLOW_BLOCK_V1_FRAGMENT = """
+<div class="workflow-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="WorkflowBlockV1">
+  <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
+  
+  {% if block.data.description %}
+  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  {% endif %}
+  
+  {% if block.data.trigger %}
+  <div class="mb-3 text-sm">
+    <span class="font-medium text-gray-700">Trigger:</span>
+    <span class="text-gray-600">{{ block.data.trigger }}</span>
+  </div>
+  {% endif %}
+  
+  {% if block.data.steps and block.data.steps | length > 0 %}
+  <div class="mt-3">
+    <span class="text-sm font-medium text-gray-700">Steps:</span>
+    <div class="mt-2 space-y-2">
+      {% for step in block.data.steps %}
+      <div class="flex gap-3 text-sm">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-medium">
+          {{ step.order }}
+        </span>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-medium text-gray-800">{{ step.actor }}</span>
+            <span class="text-gray-400">→</span>
+            <span class="text-gray-600">{{ step.action }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
+# =============================================================================
+# ADR-034: Data Model Block Fragment
+# =============================================================================
+
+DATA_MODEL_BLOCK_V1_FRAGMENT = """
+<div class="data-model-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="DataModelBlockV1">
+  <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
+  
+  {% if block.data.description %}
+  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  {% endif %}
+  
+  {% if block.data.primary_keys and block.data.primary_keys | length > 0 %}
+  <div class="mb-3 text-sm">
+    <span class="font-medium text-gray-700">Primary Key:</span>
+    <span class="font-mono text-gray-600">{{ block.data.primary_keys | join(', ') }}</span>
+  </div>
+  {% endif %}
+  
+  {% if block.data.fields and block.data.fields | length > 0 %}
+  <div class="mt-3">
+    <span class="text-sm font-medium text-gray-700">Fields:</span>
+    <div class="mt-2 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-3 py-2 text-left font-medium text-gray-700">Name</th>
+            <th class="px-3 py-2 text-left font-medium text-gray-700">Type</th>
+            <th class="px-3 py-2 text-left font-medium text-gray-700">Required</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for field in block.data.fields %}
+          <tr>
+            <td class="px-3 py-2 font-mono text-gray-800">{{ field.name }}</td>
+            <td class="px-3 py-2 text-gray-600">{{ field.type }}</td>
+            <td class="px-3 py-2">
+              {% if field.required %}
+              <span class="text-green-600">✓</span>
+              {% else %}
+              <span class="text-gray-400">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+"""
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
-        "fragment_id": "OpenQuestionV1Fragment",
+        "fragment_id": "fragment:OpenQuestionV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "OpenQuestionV1",
         "status": "accepted",
         "fragment_markup": OPEN_QUESTION_V1_FRAGMENT,
     },
     {
-        "fragment_id": "RiskV1Fragment",
+        "fragment_id": "fragment:RiskV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "RiskV1",
         "status": "accepted",
@@ -558,7 +845,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-EXP: Container fragment
     {
-        "fragment_id": "OpenQuestionsBlockV1Fragment",
+        "fragment_id": "fragment:OpenQuestionsBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "OpenQuestionsBlockV1",
         "status": "accepted",
@@ -566,14 +853,14 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-EXP3: Story fragments
     {
-        "fragment_id": "StoryV1Fragment",
+        "fragment_id": "fragment:StoryV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "StoryV1",
         "status": "accepted",
         "fragment_markup": STORY_V1_FRAGMENT,
     },
     {
-        "fragment_id": "StoriesBlockV1Fragment",
+        "fragment_id": "fragment:StoriesBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "StoriesBlockV1",
         "status": "accepted",
@@ -581,21 +868,21 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-DISCOVERY: Generic list and summary fragments
     {
-        "fragment_id": "StringListBlockV1Fragment",
+        "fragment_id": "fragment:StringListBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "StringListBlockV1",
         "status": "accepted",
         "fragment_markup": STRING_LIST_BLOCK_V1_FRAGMENT,
     },
     {
-        "fragment_id": "SummaryBlockV1Fragment",
+        "fragment_id": "fragment:SummaryBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "SummaryBlockV1",
         "status": "accepted",
         "fragment_markup": SUMMARY_BLOCK_V1_FRAGMENT,
     },
     {
-        "fragment_id": "RisksBlockV1Fragment",
+        "fragment_id": "fragment:RisksBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "RisksBlockV1",
         "status": "accepted",
@@ -603,7 +890,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-EPIC-DETAIL: Paragraph block
     {
-        "fragment_id": "ParagraphBlockV1Fragment",
+        "fragment_id": "fragment:ParagraphBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "ParagraphBlockV1",
         "status": "accepted",
@@ -611,7 +898,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-EPIC-SUMMARY: Indicator block
     {
-        "fragment_id": "IndicatorBlockV1Fragment",
+        "fragment_id": "fragment:IndicatorBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "IndicatorBlockV1",
         "status": "accepted",
@@ -619,7 +906,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034-EPIC-BACKLOG: Epic summary card
     {
-        "fragment_id": "EpicSummaryBlockV1Fragment",
+        "fragment_id": "fragment:EpicSummaryBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "EpicSummaryBlockV1",
         "status": "accepted",
@@ -627,7 +914,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034: Dependencies block
     {
-        "fragment_id": "DependenciesBlockV1Fragment",
+        "fragment_id": "fragment:DependenciesBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "DependenciesBlockV1",
         "status": "accepted",
@@ -635,7 +922,7 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034: Story summary item
     {
-        "fragment_id": "StorySummaryBlockV1Fragment",
+        "fragment_id": "fragment:StorySummaryBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "StorySummaryBlockV1",
         "status": "accepted",
@@ -643,11 +930,51 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     },
     # ADR-034: Stories container
     {
-        "fragment_id": "StoriesBlockV1Fragment",
+        "fragment_id": "fragment:StoriesBlockV1:web:1.0.0",
         "version": "1.0",
         "schema_type_id": "StoriesBlockV1",
         "status": "accepted",
         "fragment_markup": STORIES_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Architecture Component Block
+    {
+        "fragment_id": "fragment:ArchComponentBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "ArchComponentBlockV1",
+        "status": "accepted",
+        "fragment_markup": ARCH_COMPONENT_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Quality Attribute Block
+    {
+        "fragment_id": "fragment:QualityAttributeBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "QualityAttributeBlockV1",
+        "status": "accepted",
+        "fragment_markup": QUALITY_ATTRIBUTE_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Interface Block
+    {
+        "fragment_id": "fragment:InterfaceBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "InterfaceBlockV1",
+        "status": "accepted",
+        "fragment_markup": INTERFACE_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Workflow Block
+    {
+        "fragment_id": "fragment:WorkflowBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "WorkflowBlockV1",
+        "status": "accepted",
+        "fragment_markup": WORKFLOW_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Data Model Block
+    {
+        "fragment_id": "fragment:DataModelBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "DataModelBlockV1",
+        "status": "accepted",
+        "fragment_markup": DATA_MODEL_BLOCK_V1_FRAGMENT,
     },
 ]
 
@@ -718,6 +1045,21 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

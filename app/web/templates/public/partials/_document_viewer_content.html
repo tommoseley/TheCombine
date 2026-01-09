@@ -1,0 +1,34 @@
+﻿{#
+  Document Viewer Content Partial
+  
+  For HTMX swaps - includes header and wrapper, but not base layout.
+  Targets #main-content swap.
+#}
+
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-5xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        {{ render_model.title }}
+                    </h1>
+                    {% if render_model.subtitle %}
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {{ render_model.subtitle }}
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ render_model.document_type }}
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main content -->
+    <main class="max-w-5xl mx-auto px-6 py-8">
+        {% include "public/partials/_document_viewer.html" %}
+    </main>
+</div>

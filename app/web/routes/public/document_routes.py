@@ -1,7 +1,13 @@
 ﻿"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
+
+DEPRECATED: These routes are deprecated in favor of /view/{document_type}
+See WS-ADR-034-DOCUMENT-VIEWER for migration details.
+Removal scheduled for future WS.
 """
+
+import warnings
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -21,11 +27,91 @@ from app.api.models import Document
 from app.web.bff import get_epic_backlog_vm
 from app.web.template_helpers import create_preloaded_fragment_renderer
 
+# ADR-034: New viewer imports
+from app.api.services.document_definition_service import DocumentDefinitionService
+from app.api.services.component_registry_service import ComponentRegistryService
+from app.api.services.schema_registry_service import SchemaRegistryService
+from app.api.services.fragment_registry_service import FragmentRegistryService
+from app.domain.services.render_model_builder import (
+    RenderModelBuilder,
+    DocDefNotFoundError,
+)
+from .view_routes import FragmentRenderer
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["documents"])
+
+
+# ============================================================================
+# ADR-034: NEW VIEWER RENDERING
+# ============================================================================
+
+async def _render_with_new_viewer(
+    request: Request,
+    db: AsyncSession,
+    document_type: str,
+    document_data: dict,
+    project: dict,
+    is_htmx: bool,
+) -> HTMLResponse | None:
+    """
+    Attempt to render using new RenderModel + Fragment system.
+    Returns None if rendering fails (triggers fallback to old templates).
+    """
+    try:
+        # Build services
+        docdef_service = DocumentDefinitionService(db)
+        component_service = ComponentRegistryService(db)
+        schema_service = SchemaRegistryService(db)
+        fragment_service = FragmentRegistryService(db)
+        
+        # Build RenderModel
+        builder = RenderModelBuilder(
+            docdef_service=docdef_service,
+            component_service=component_service,
+            schema_service=schema_service,
+        )
+        
+        render_model = await builder.build(
+            document_def_id=document_type,
+            document_data=document_data,
+        )
+        
+        # Preload fragments
+        fragment_renderer = FragmentRenderer(
+            component_service=component_service,
+            fragment_service=fragment_service,
+        )
+        await fragment_renderer.preload(render_model)
+        
+        # Render
+        context = {
+            "request": request,
+            "render_model": render_model,
+            "fragment_renderer": fragment_renderer,
+            "project": project,
+        }
+        
+        if is_htmx:
+            return templates.TemplateResponse(
+                "public/partials/_document_viewer_content.html",
+                context,
+            )
+        else:
+            return templates.TemplateResponse(
+                "public/pages/document_viewer_page.html",
+                context,
+            )
+            
+    except DocDefNotFoundError:
+        logger.warning(f"No docdef found for {document_type}, falling back to old template")
+        return None
+    except Exception as e:
+        logger.error(f"New viewer failed for {document_type}: {e}, falling back to old template")
+        return None
 
 
 # ============================================================================
@@ -37,21 +123,25 @@ DOCUMENT_CONFIG = {
         "title": "Project Discovery",
         "icon": "compass",
         "template": "public/pages/partials/_project_discovery_content.html",
+        "view_docdef": "ProjectDiscovery",  # ADR-034: New viewer docdef
     },
     "epic_backlog": {
         "title": "Epic Backlog",
         "icon": "layers",
         "template": "public/pages/partials/_epic_backlog_content.html",
+        "view_docdef": "EpicBacklogView",  # ADR-034: New viewer docdef
     },
     "technical_architecture": {
         "title": "Technical Architecture",
         "icon": "building",
         "template": "public/pages/partials/_technical_architecture_content.html",
+        "view_docdef": "ArchitecturalSummaryView",  # ADR-034: New viewer docdef
     },
     "story_backlog": {
         "title": "Story Backlog",
         "icon": "list-checks",
         "template": "public/pages/partials/_story_backlog_content.html",
+        "view_docdef": "StoryBacklogView",  # ADR-034: New viewer docdef
     },
 }
 
@@ -133,7 +223,16 @@ async def get_document(
     """
     Get document content.
     Returns partial for HTMX requests, full page for browser refresh.
+    
+    DEPRECATED: Use GET /view/{document_type}?params instead.
+    This route will be removed in a future release.
     """
+    # Log deprecation warning
+    logger.warning(
+        f"DEPRECATED: /projects/{project_id}/documents/{doc_type_id} - "
+        f"Use /view/{{document_type}} instead"
+    )
+    
     logger.info(f"Looking for document: doc_type_id={doc_type_id}, space_id={project_id}")
     
     project = await _get_project_with_icon(db, project_id)
@@ -166,7 +265,23 @@ async def get_document(
     # Check if this is an HTMX request (partial) or full page request (browser refresh)
     is_htmx = request.headers.get("HX-Request") == "true"
     
-    # ADR-030: BFF handling for epic_backlog
+    # ADR-034: Try new viewer if view_docdef is configured and document exists
+    view_docdef = fallback_config.get("view_docdef")
+    if document and view_docdef and document.content:
+        logger.info(f"Attempting new viewer for {doc_type_id} -> {view_docdef}")
+        response = await _render_with_new_viewer(
+            request=request,
+            db=db,
+            document_type=view_docdef,
+            document_data=document.content,
+            project=project,
+            is_htmx=is_htmx,
+        )
+        if response:
+            return response
+        # Fall through to old templates if new viewer fails
+    
+    # ADR-030: BFF handling for epic_backlog (legacy path)
     if doc_type_id == "epic_backlog":
         vm = await get_epic_backlog_vm(
             db=db,
@@ -296,3 +411,8 @@ async def build_document(
             "Connection": "keep-alive"
         }
     )
+
+
+
+
+

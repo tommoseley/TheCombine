@@ -55,8 +55,7 @@ OPEN_QUESTIONS_BLOCK_V1_COMPONENT = {
     "schema_id": "schema:OpenQuestionsBlockV1",
     "generation_guidance": {
         "bullets": [
-            "This is a container block for rendering; generation guidance is minimal.",
-            "Item-level guidance is provided by OpenQuestionV1."
+            "Render-only container. Do not generate this block; items are provided upstream."
         ]
     },
     "view_bindings": {
@@ -96,22 +95,7 @@ STORY_V1_COMPONENT = {
 }
 
 
-STORIES_BLOCK_V1_COMPONENT = {
-    "component_id": "component:StoriesBlockV1:1.0.0",
-    "schema_id": "schema:StoriesBlockV1",
-    "generation_guidance": {
-        "bullets": [
-            "This is a render-only container. Do not generate new stories here.",
-            "Render items in the order provided; do not reorder unless explicitly instructed."
-        ]
-    },
-    "view_bindings": {
-        "web": {
-            "fragment_id": "fragment:StoriesBlockV1:web:1.0.0"
-        }
-    },
-    "status": "accepted"
-}
+# STORIES_BLOCK_V1_COMPONENT moved to later in file (consolidated)
 
 
 # =============================================================================
@@ -250,9 +234,7 @@ STRING_LIST_BLOCK_V1_COMPONENT = {
     "schema_id": "schema:StringListBlockV1",
     "generation_guidance": {
         "bullets": [
-            "This is a render-only container. Items come from upstream data.",
-            "Use context.title to set the section heading.",
-            "Style defaults to bullet; can be numbered or check."
+            "Render-only container. Do not generate items; items are provided upstream."
         ]
     },
     "view_bindings": {
@@ -290,9 +272,7 @@ RISKS_BLOCK_V1_COMPONENT = {
     "schema_id": "schema:RisksBlockV1",
     "generation_guidance": {
         "bullets": [
-            "This is a render-only container. Do not generate new risks here.",
-            "Render items in the order provided.",
-            "Each item should conform to RiskV1 schema."
+            "Render-only container. Do not generate this block; items are provided upstream."
         ]
     },
     "view_bindings": {
@@ -411,9 +391,7 @@ STORIES_BLOCK_V1_COMPONENT = {
     "schema_id": "schema:StoriesBlockV1",
     "generation_guidance": {
         "bullets": [
-            "Container for story summaries within an epic.",
-            "items[] contains StorySummaryBlockV1-shaped data.",
-            "Used in StoryBacklogView for grouped display."
+            "Render-only container. Do not generate this block; items are provided upstream."
         ]
     },
     "view_bindings": {
@@ -724,23 +702,54 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
     "document_def_id": "docdef:EpicBacklogView:1.0.0",
     "document_schema_id": None,  # Projection over epic backlog data
     "prompt_header": {
-        "role": "You are producing an Epic Backlog for project navigation.",
+        "role": "You are producing an Epic Backlog overview.",
         "constraints": [
+            "Show project context and epic set summary first.",
             "Each epic renders as a summary card.",
-            "Details are referenced, not embedded.",
-            "Optimized for scanning multiple epics.",
+            "Include risks overview and architecture recommendations.",
         ]
     },
     "sections": [
+        # Epic Set Summary - Overall Intent & MVP Definition
+        {
+            "section_id": "epic_set_summary",
+            "title": "Epic Set Summary",
+            "order": 10,
+            "component_id": "component:SummaryBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/epic_set_summary",
+            "viewer_tab": "overview",
+        },
+        # Key Constraints
+        {
+            "section_id": "key_constraints",
+            "title": "Key Constraints",
+            "order": 20,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/epic_set_summary/key_constraints",
+            "viewer_tab": "overview",
+        },
+        # Out of Scope
+        {
+            "section_id": "out_of_scope",
+            "title": "Out of Scope",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/epic_set_summary/out_of_scope",
+            "viewer_tab": "overview",
+        },
+        # Epic Cards
         {
             "section_id": "epic_summaries",
             "title": "Epics",
-            "order": 10,
+            "order": 40,
             "component_id": "component:EpicSummaryBlockV1:1.0.0",
             "shape": "container",
             "repeat_over": "/epics",
             "source_pointer": "/",
-            "exclude_fields": ["risks", "open_questions", "requirements", "acceptance_criteria"],
+            "exclude_fields": ["risks", "open_questions", "requirements", "acceptance_criteria", "notes_for_architecture", "related_discovery_items"],
             "context": {
                 "epic_id": "/epic_id",
                 "epic_title": "/title"
@@ -752,6 +761,27 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
                 "document_type": "EpicDetailView",
                 "params": {"epic_id": "/epic_id"}
             },
+            "viewer_tab": "details",
+        },
+        # Risks Overview
+        {
+            "section_id": "risks_overview",
+            "title": "Risks Overview",
+            "order": 50,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/risks_overview",
+            "viewer_tab": "overview",
+        },
+        # Recommendations for Architecture
+        {
+            "section_id": "architecture_recommendations",
+            "title": "Recommendations for Architecture",
+            "order": 60,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/recommendations_for_architecture",
+            "viewer_tab": "overview",
         },
     ],
     "status": "accepted"
@@ -885,49 +915,206 @@ EPIC_ARCHITECTURE_VIEW_DOCDEF = {
 
 ARCHITECTURAL_SUMMARY_VIEW_DOCDEF = {
     "document_def_id": "docdef:ArchitecturalSummaryView:1.0.0",
-    "document_schema_id": None,  # Lightweight projection
+    "document_schema_id": None,
     "prompt_header": {
-        "role": "You are producing an Architecture Summary for scanning.",
+        "role": "You are producing an Architecture document view.",
         "constraints": [
-            "4 fields maximum.",
-            "Intentionally lossy.",
-            "Optimized for scanning, not understanding.",
+            "Full architecture detail with overview and details tabs.",
+            "Overview shows summary and key decisions.",
+            "Details shows components, interfaces, workflows, etc.",
         ]
     },
     "sections": [
-        # Architecture Intent (short) - carries detail_ref
+        # =====================================================================
+        # OVERVIEW TAB
+        # =====================================================================
+        # Architecture Summary
         {
-            "section_id": "architecture_intent",
-            "title": "Architecture Intent",
+            "section_id": "architecture_summary",
+            "title": "Architecture Summary",
             "order": 10,
+            "component_id": "component:SummaryBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/architecture_summary",
+            "viewer_tab": "overview",
+        },
+        # Key Decisions
+        {
+            "section_id": "key_decisions",
+            "title": "Key Decisions",
+            "order": 20,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/architecture_summary/key_decisions",
+            "viewer_tab": "overview",
+        },
+        # MVP Scope Notes
+        {
+            "section_id": "mvp_scope_notes",
+            "title": "MVP Scope Notes",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/architecture_summary/mvp_scope_notes",
+            "viewer_tab": "overview",
+        },
+        # Problem Statement
+        {
+            "section_id": "problem_statement",
+            "title": "Problem Statement",
+            "order": 40,
             "component_id": "component:ParagraphBlockV1:1.0.0",
             "shape": "single",
-            "source_pointer": "/architecture_intent",
-            "context": {"title": "Intent"},
-            "detail_ref_template": {
-                "document_type": "EpicArchitectureView",
-                "params": {"epic_id": "/epic_id"}
-            },
+            "source_pointer": "/context/problem_statement",
+            "viewer_tab": "overview",
         },
-        # Integration Surface (derived)
+        # =====================================================================
+        # DETAILS TAB
+        # =====================================================================
+        # Context - Constraints
         {
-            "section_id": "integration_surface",
-            "title": "Integration Surface",
-            "order": 20,
-            "component_id": "component:IndicatorBlockV1:1.0.0",
-            "shape": "single",
-            "derived_from": {"function": "integration_surface", "source": "/"},
-            "context": {"title": "Integrations"},
+            "section_id": "constraints",
+            "title": "Constraints",
+            "order": 100,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/context/constraints",
+            "viewer_tab": "details",
         },
-        # Complexity Level (derived)
+        # Context - Assumptions
         {
-            "section_id": "complexity_level",
-            "title": "Complexity Level",
-            "order": 30,
-            "component_id": "component:IndicatorBlockV1:1.0.0",
-            "shape": "single",
-            "derived_from": {"function": "complexity_level", "source": "/"},
-            "context": {"title": "Complexity"},
+            "section_id": "assumptions",
+            "title": "Assumptions",
+            "order": 110,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/context/assumptions",
+            "viewer_tab": "details",
+        },
+        # Context - Non Goals
+        {
+            "section_id": "non_goals",
+            "title": "Non-Goals",
+            "order": 120,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/context/non_goals",
+            "viewer_tab": "details",
+        },
+        # Components
+        {
+            "section_id": "components",
+            "title": "Components",
+            "order": 200,
+            "component_id": "component:ArchComponentBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/components",
+            "source_pointer": "/",
+            "viewer_tab": "implementation",
+        },
+        # Data Model
+        {
+            "section_id": "data_model",
+            "title": "Data Model",
+            "order": 210,
+            "component_id": "component:DataModelBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/data_model",
+            "source_pointer": "/",
+            "viewer_tab": "implementation",
+        },
+        # Interfaces
+        {
+            "section_id": "interfaces",
+            "title": "Interfaces",
+            "order": 220,
+            "component_id": "component:InterfaceBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/interfaces",
+            "source_pointer": "/",
+            "viewer_tab": "implementation",
+        },
+        # Workflows
+        {
+            "section_id": "workflows",
+            "title": "Workflows",
+            "order": 230,
+            "component_id": "component:WorkflowBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/workflows",
+            "source_pointer": "/",
+            "viewer_tab": "details",
+        },
+        # Quality Attributes
+        {
+            "section_id": "quality_attributes",
+            "title": "Quality Attributes",
+            "order": 240,
+            "component_id": "component:QualityAttributeBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/quality_attributes",
+            "source_pointer": "/",
+            "viewer_tab": "details",
+        },
+        # Security - Data Classification
+        {
+            "section_id": "security_data_classification",
+            "title": "Data Classification",
+            "order": 300,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/security_considerations/data_classification",
+            "viewer_tab": "details",
+        },
+        # Security - Controls
+        {
+            "section_id": "security_controls",
+            "title": "Security Controls",
+            "order": 310,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/security_considerations/controls",
+            "viewer_tab": "details",
+        },
+        # Observability - Logging
+        {
+            "section_id": "observability_logging",
+            "title": "Logging",
+            "order": 400,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/observability/logging",
+            "viewer_tab": "details",
+        },
+        # Observability - Metrics
+        {
+            "section_id": "observability_metrics",
+            "title": "Metrics",
+            "order": 410,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/observability/metrics",
+            "viewer_tab": "details",
+        },
+        # Risks
+        {
+            "section_id": "risks",
+            "title": "Risks",
+            "order": 500,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/risks",
+            "viewer_tab": "details",
+        },
+        # Open Questions
+        {
+            "section_id": "open_questions",
+            "title": "Open Questions",
+            "order": 510,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            "viewer_tab": "details",
         },
     ],
     "status": "accepted"
@@ -1145,6 +1332,70 @@ STORY_BACKLOG_VIEW_DOCDEF = {
 
 
 # Lists for seeding
+# =============================================================================
+# ADR-034: Architecture Component Block
+# =============================================================================
+
+ARCH_COMPONENT_BLOCK_V1_COMPONENT = {
+    "component_id": "component:ArchComponentBlockV1:1.0.0",
+    "schema_id": "schema:ArchComponentBlockV1",
+    "generation_guidance": "Renders an architecture component card with name, layer, purpose, and details.",
+    "view_bindings": {"web": {"fragment_id": "fragment:ArchComponentBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
+# ADR-034: Quality Attribute Block
+# =============================================================================
+
+QUALITY_ATTRIBUTE_BLOCK_V1_COMPONENT = {
+    "component_id": "component:QualityAttributeBlockV1:1.0.0",
+    "schema_id": "schema:QualityAttributeBlockV1",
+    "generation_guidance": "Renders a quality attribute with name, target, rationale, and acceptance criteria.",
+    "view_bindings": {"web": {"fragment_id": "fragment:QualityAttributeBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
+# ADR-034: Interface Block
+# =============================================================================
+
+INTERFACE_BLOCK_V1_COMPONENT = {
+    "component_id": "component:InterfaceBlockV1:1.0.0",
+    "schema_id": "schema:InterfaceBlockV1",
+    "generation_guidance": "Renders an API interface with endpoints.",
+    "view_bindings": {"web": {"fragment_id": "fragment:InterfaceBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
+# ADR-034: Workflow Block
+# =============================================================================
+
+WORKFLOW_BLOCK_V1_COMPONENT = {
+    "component_id": "component:WorkflowBlockV1:1.0.0",
+    "schema_id": "schema:WorkflowBlockV1",
+    "generation_guidance": "Renders a workflow with steps.",
+    "view_bindings": {"web": {"fragment_id": "fragment:WorkflowBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
+# ADR-034: Data Model Block
+# =============================================================================
+
+DATA_MODEL_BLOCK_V1_COMPONENT = {
+    "component_id": "component:DataModelBlockV1:1.0.0",
+    "schema_id": "schema:DataModelBlockV1",
+    "generation_guidance": "Renders a data model entity with fields.",
+    "view_bindings": {"web": {"fragment_id": "fragment:DataModelBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
@@ -1158,6 +1409,11 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     DEPENDENCIES_BLOCK_V1_COMPONENT,
     STORY_SUMMARY_BLOCK_V1_COMPONENT,
     STORIES_BLOCK_V1_COMPONENT,
+    ARCH_COMPONENT_BLOCK_V1_COMPONENT,
+    QUALITY_ATTRIBUTE_BLOCK_V1_COMPONENT,
+    INTERFACE_BLOCK_V1_COMPONENT,
+    WORKFLOW_BLOCK_V1_COMPONENT,
+    DATA_MODEL_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -1332,6 +1588,21 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

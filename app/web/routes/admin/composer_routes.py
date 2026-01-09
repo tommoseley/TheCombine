@@ -30,6 +30,7 @@ from app.domain.services.prompt_assembler import (
 from app.domain.services.render_model_builder import (
     RenderModelBuilder,
     RenderModel,
+    RenderSection,
     RenderBlock,
     DocDefNotFoundError as RenderDocDefNotFoundError,
     ComponentNotFoundError as RenderComponentNotFoundError,
@@ -71,10 +72,32 @@ class RenderBlockResponse(BaseModel):
     context: Dict[str, Any] | None = None
 
 
-class RenderModelResponse(BaseModel):
-    """Response for render preview endpoint."""
-    document_def_id: str
+class RenderSectionResponse(BaseModel):
+    """Response model for a single RenderSection."""
+    section_id: str
+    title: str
+    order: int
     blocks: list[RenderBlockResponse]
+    description: str | None = None
+
+
+class RenderModelResponse(BaseModel):
+    """
+    Response for render preview endpoint.
+    
+    Per DOCUMENT_VIEWER_CONTRACT v1.0:
+    - render_model_version: "1.0"
+    - schema_id: "schema:RenderModelV1"
+    - sections[]: nested structure with blocks
+    """
+    render_model_version: str
+    schema_id: str
+    schema_bundle_sha256: str
+    document_id: str
+    document_type: str
+    title: str
+    subtitle: str | None = None
+    sections: list[RenderSectionResponse]
     metadata: Dict[str, Any]
     
     model_config = ConfigDict(from_attributes=True)
@@ -176,10 +199,12 @@ async def preview_render(
     # Build services
     docdef_service = DocumentDefinitionService(db)
     component_service = ComponentRegistryService(db)
+    schema_service = SchemaRegistryService(db)
     
     builder = RenderModelBuilder(
         docdef_service=docdef_service,
         component_service=component_service,
+        schema_service=schema_service,
     )
     
     try:
@@ -188,20 +213,40 @@ async def preview_render(
             document_data=request.document_data,
         )
         
-        # Convert to response model
-        blocks = [
-            RenderBlockResponse(
-                type=block.type,
-                key=block.key,
-                data=block.data,
-                context=block.context,
-            )
-            for block in render_model.blocks
-        ]
+        # Convert sections to response model
+        sections = []
+        for section in render_model.sections:
+            # Skip empty sections per contract
+            if not section.blocks:
+                continue
+            
+            blocks = [
+                RenderBlockResponse(
+                    type=block.type,
+                    key=block.key,
+                    data=block.data,
+                    context=block.context,
+                )
+                for block in section.blocks
+            ]
+            
+            sections.append(RenderSectionResponse(
+                section_id=section.section_id,
+                title=section.title,
+                order=section.order,
+                description=section.description,
+                blocks=blocks,
+            ))
         
         return RenderModelResponse(
-            document_def_id=render_model.document_def_id,
-            blocks=blocks,
+            render_model_version=render_model.render_model_version,
+            schema_id=render_model.schema_id,
+            schema_bundle_sha256=render_model.schema_bundle_sha256,
+            document_id=render_model.document_id,
+            document_type=render_model.document_type,
+            title=render_model.title,
+            subtitle=render_model.subtitle,
+            sections=sections,
             metadata=render_model.metadata,
         )
         
@@ -215,4 +260,7 @@ async def preview_render(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
+
+
+
 

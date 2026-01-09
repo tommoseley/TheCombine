@@ -602,7 +602,7 @@ SUMMARY_BLOCK_V1_SCHEMA = {
             "description": "Areas where scope may expand or contract"
         }
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
     "description": "Multi-field summary block for document headers."
 }
 
@@ -642,9 +642,13 @@ PARAGRAPH_BLOCK_V1_SCHEMA = {
         "value": {
             "type": "string",
             "description": "Alternative field name for content (builder compatibility)"
+        },
+        "detail_ref": {
+            "$ref": "schema:DocumentRefV1",
+            "description": "Optional reference to detail view"
         }
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
     "description": "Simple paragraph text block for narrative content."
 }
 
@@ -699,15 +703,11 @@ EPIC_SUMMARY_BLOCK_V1_SCHEMA = {
             "description": "Derived aggregate risk level"
         },
         "detail_ref": {
-            "type": "object",
-            "properties": {
-                "document_type": {"type": "string"},
-                "epic_id": {"type": "string"}
-            },
+            "$ref": "schema:DocumentRefV1",
             "description": "Reference to EpicDetailView"
         }
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
     "description": "Compact epic summary for backlog views. Intentionally lossy."
 }
 
@@ -815,6 +815,161 @@ STORIES_BLOCK_V1_SCHEMA = {
     "description": "Container block for story summaries within an epic."
 }
 
+
+# =============================================================================
+# ADR-034: Architecture Component Schema
+# =============================================================================
+
+ARCH_COMPONENT_BLOCK_V1_SCHEMA = {
+    "$id": "schema:ArchComponentBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Architecture Component Block",
+    "description": "An architecture component with layer, purpose, and dependencies.",
+    "required": ["id", "name"],
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "layer": {"type": "string"},
+        "purpose": {"type": "string"},
+        "mvp_phase": {"type": "string"},
+        "responsibilities": {"type": "array", "items": {"type": "string"}},
+        "technology_choices": {"type": "array", "items": {"type": "string"}},
+        "depends_on_components": {"type": "array", "items": {"type": "string"}},
+    },
+    "additionalProperties": True
+}
+
+
+# =============================================================================
+# ADR-034: Quality Attribute Schema
+# =============================================================================
+
+QUALITY_ATTRIBUTE_BLOCK_V1_SCHEMA = {
+    "$id": "schema:QualityAttributeBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Quality Attribute Block",
+    "description": "A quality attribute with target, rationale, and acceptance criteria.",
+    "required": ["name"],
+    "properties": {
+        "name": {"type": "string"},
+        "target": {"type": "string"},
+        "rationale": {"type": "string"},
+        "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+    },
+    "additionalProperties": True
+}
+
+
+# =============================================================================
+# ADR-034: Interface Schema
+# =============================================================================
+
+INTERFACE_BLOCK_V1_SCHEMA = {
+    "$id": "schema:InterfaceBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Interface Block",
+    "description": "An API interface with endpoints.",
+    "required": ["id", "name"],
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "type": {"type": "string"},
+        "protocol": {"type": "string"},
+        "description": {"type": "string"},
+        "authentication": {"type": "string"},
+        "authorization": {"type": "string"},
+        "producer_components": {"type": "array", "items": {"type": "string"}},
+        "consumer_components": {"type": "array", "items": {"type": "string"}},
+        "endpoints": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "method": {"type": "string"},
+                    "description": {"type": "string"},
+                    "request_schema": {"type": "string"},
+                    "response_schema": {"type": "string"},
+                    "error_cases": {"type": "array", "items": {"type": "string"}},
+                    "idempotency": {"type": "string"},
+                }
+            }
+        },
+    },
+    "additionalProperties": True
+}
+
+
+# =============================================================================
+# ADR-034: Workflow Schema
+# =============================================================================
+
+WORKFLOW_BLOCK_V1_SCHEMA = {
+    "$id": "schema:WorkflowBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Workflow Block",
+    "description": "A workflow with trigger and steps.",
+    "required": ["id", "name"],
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "trigger": {"type": "string"},
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "order": {"type": "integer"},
+                    "actor": {"type": "string"},
+                    "action": {"type": "string"},
+                    "inputs": {"type": "array", "items": {"type": "string"}},
+                    "outputs": {"type": "array", "items": {"type": "string"}},
+                    "notes": {"type": "array", "items": {"type": "string"}},
+                }
+            }
+        },
+    },
+    "additionalProperties": True
+}
+
+
+# =============================================================================
+# ADR-034: Data Model Schema
+# =============================================================================
+
+DATA_MODEL_BLOCK_V1_SCHEMA = {
+    "$id": "schema:DataModelBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Data Model Block",
+    "description": "A data model entity with fields.",
+    "required": ["name"],
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "primary_keys": {"type": "array", "items": {"type": "string"}},
+        "fields": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "type": {"type": "string"},
+                    "required": {"type": "boolean"},
+                    "validation_rules": {"type": "array", "items": {"type": "string"}},
+                    "notes": {"type": "array", "items": {"type": "string"}},
+                }
+            }
+        },
+        "relationships": {"type": "array"},
+    },
+    "additionalProperties": True
+}
 
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
@@ -1064,6 +1219,62 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # ADR-034: Architecture component schemas
+    {
+        "schema_id": "ArchComponentBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": ARCH_COMPONENT_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "QualityAttributeBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": QUALITY_ATTRIBUTE_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "InterfaceBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTERFACE_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "WorkflowBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": WORKFLOW_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "DataModelBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": DATA_MODEL_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
 ]
 
 
@@ -1128,6 +1339,11 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
+
+
+
 
 
 
