@@ -893,6 +893,122 @@ ARCHITECTURAL_SUMMARY_VIEW_DOCDEF = {
 }
 
 
+# =============================================================================
+# ADR-034: Story Detail View DocDef
+# =============================================================================
+
+STORY_DETAIL_VIEW_DOCDEF = {
+    "document_def_id": "docdef:StoryDetailView:1.0.0",
+    "document_schema_id": None,  # Projection over StoryV1
+    "prompt_header": {
+        "role": "You are producing a Story Detail document.",
+        "constraints": [
+            "Single-story comprehensive view.",
+            "Optimized for understanding and execution.",
+            "Do not duplicate epic-level fields (vision, roadmap, business goals).",
+            "Acceptance criteria must be a list, not prose.",
+        ]
+    },
+    "sections": [
+        # Story Intent (carries epic back-reference)
+        {
+            "section_id": "story_intent",
+            "title": "Story Intent",
+            "order": 10,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/intent",
+            "context": {"title": "Story Intent"},
+            "detail_ref_template": {
+                "document_type": "EpicDetailView",
+                "params": {"epic_id": "/epic_id"}
+            },
+        },
+        # User Value / Outcome
+        {
+            "section_id": "user_value",
+            "title": "User Value",
+            "order": 20,
+            "component_id": "component:ParagraphBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/user_value",
+            "context": {"title": "User Value"},
+        },
+        # Acceptance Criteria (must be list)
+        {
+            "section_id": "acceptance_criteria",
+            "title": "Acceptance Criteria",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/acceptance_criteria",
+            "context": {"title": "Acceptance Criteria", "style": "check"},
+        },
+        # In Scope
+        {
+            "section_id": "in_scope",
+            "title": "In Scope",
+            "order": 40,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/in_scope",
+            "context": {"title": "In Scope", "style": "check"},
+        },
+        # Out of Scope
+        {
+            "section_id": "out_of_scope",
+            "title": "Out of Scope",
+            "order": 50,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/out_of_scope",
+            "context": {"title": "Out of Scope"},
+        },
+        # Dependencies
+        {
+            "section_id": "dependencies",
+            "title": "Dependencies",
+            "order": 60,
+            "component_id": "component:DependenciesBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/dependencies",
+            "context": {"title": "Dependencies"},
+        },
+        # Open Questions
+        {
+            "section_id": "open_questions",
+            "title": "Open Questions",
+            "order": 70,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/open_questions",
+            "context": {"title": "Open Questions"},
+        },
+        # Notes for Implementation
+        {
+            "section_id": "implementation_notes",
+            "title": "Notes for Implementation",
+            "order": 80,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/implementation_notes",
+            "context": {"title": "Notes for Implementation"},
+        },
+        # Risks (omitted if empty - builder behavior)
+        {
+            "section_id": "risks",
+            "title": "Risks",
+            "order": 90,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/risks",
+            "context": {"title": "Risks"},
+        },
+    ],
+    "status": "accepted"
+}
+
+
 # Lists for seeding
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
@@ -920,6 +1036,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_BACKLOG_VIEW_DOCDEF,
     EPIC_ARCHITECTURE_VIEW_DOCDEF,
     ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,
+    STORY_DETAIL_VIEW_DOCDEF,
 ]
 
 
@@ -1077,6 +1194,8 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
 
 
 
