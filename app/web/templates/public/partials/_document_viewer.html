@@ -56,7 +56,7 @@
 {# Determine if we should show tabs #}
 {% set show_tabs = sorted_tabs | length > 1 %}
 
-<div class="document-viewer" data-document-id="{{ render_model.document_id }}" data-document-type="{{ render_model.document_type }}">
+<div class="document-viewer" data-document-id="{{ render_model.document_id }}" data-document-type="{{ render_model.document_type }}" data-project-id="{{ document_data.project_id if document_data else project.id }}">
     
     {% if show_tabs %}
     {# Tab Navigation #}
@@ -167,3 +167,4 @@
     {% endif %}
 
 </div>
+

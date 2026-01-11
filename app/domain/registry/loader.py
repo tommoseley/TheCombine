@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document Registry Loader - Query functions and seed data.
 
 This module provides:
@@ -376,43 +376,84 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         },
         "schema_version": "1.0",
     },
+    # =========================================================================
+    # WS-STORY-BACKLOG-COMMANDS: story_backlog (system-initialized)
+    # =========================================================================
     {
         "doc_type_id": "story_backlog",
         "name": "Story Backlog",
         "description": (
-            "User stories decomposed from an epic. "
-            "Detailed, implementable units of work."
+            "Canonical story backlog containing epics with nested story summaries. "
+            "Initialized from EpicBacklog, populated by generate-epic commands."
         ),
         "category": "planning",
         "icon": "list-checks",
-        "builder_role": "ba",
-        "builder_task": "story_decomposition",
-        "handler_id": "story_backlog",
-        "required_inputs": [],  # Required at epic scope, so epic must exist
-        "optional_inputs": ["architecture_spec"],
+        "builder_role": "system",
+        "builder_task": "init",
+        "handler_id": "story_backlog_init",
+        "required_inputs": [],
+        "optional_inputs": [],
         "gating_rules": {},
-        "scope": "epic",  # One per epic
+        "scope": "project",
         "display_order": 40,
         "schema_definition": {
             "type": "object",
-            "required": ["stories"],
+            "required": ["project_id", "epics"],
             "properties": {
-                "epic_id": {"type": "string"},
-                "stories": {
+                "project_id": {"type": "string"},
+                "project_name": {"type": "string"},
+                "source_epic_backlog_ref": {"type": "object"},
+                "epics": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["title", "description"],
+                        "required": ["epic_id", "name", "stories"],
                         "properties": {
-                            "story_id": {"type": "string"},
-                            "title": {"type": "string"},
-                            "description": {"type": "string"},
-                            "acceptance_criteria": {"type": "array"},
-                            "story_points": {"type": "integer"},
-                            "priority": {"type": "string"},
+                            "epic_id": {"type": "string"},
+                            "name": {"type": "string"},
+                            "intent": {"type": "string"},
+                            "mvp_phase": {"type": "string"},
+                            "stories": {"type": "array"}
                         }
                     }
                 }
+            }
+        },
+        "schema_version": "2.0",
+    },
+    # =========================================================================
+    # WS-STORY-BACKLOG-COMMANDS: story_detail (BA-generated per story)
+    # =========================================================================
+    {
+        "doc_type_id": "story_detail",
+        "name": "Story Detail",
+        "description": (
+            "Full BA story output with acceptance criteria, components, and notes. "
+            "Source of truth for individual story details."
+        ),
+        "category": "planning",
+        "icon": "file-text",
+        "builder_role": "ba",
+        "builder_task": "story_backlog",
+        "handler_id": "story_detail",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "story",
+        "display_order": 41,
+        "schema_definition": {
+            "type": "object",
+            "required": ["story_id", "epic_id", "title", "description"],
+            "properties": {
+                "story_id": {"type": "string"},
+                "epic_id": {"type": "string"},
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "acceptance_criteria": {"type": "array"},
+                "related_arch_components": {"type": "array"},
+                "related_pm_story_ids": {"type": "array"},
+                "notes": {"type": "array"},
+                "mvp_phase": {"type": "string"}
             }
         },
         "schema_version": "1.0",
@@ -499,3 +540,10 @@ if __name__ == "__main__":
             print(f"Seeded {count} document types")
     
     asyncio.run(main())
+
+
+
+
+
+
+

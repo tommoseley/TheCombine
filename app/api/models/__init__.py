@@ -13,6 +13,8 @@ from app.api.models.schema_artifact import SchemaArtifact
 from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
 from app.api.models.component_artifact import ComponentArtifact
 from app.api.models.document_definition import DocumentDefinition
+# ADR-035: LLM Thread Queue
+from app.api.models.llm_thread import LLMThreadModel, LLMWorkItemModel, LLMLedgerEntryModel
 
 __all__ = [
     'Project',
@@ -28,4 +30,8 @@ __all__ = [
     'FragmentBinding',
     'ComponentArtifact',
     'DocumentDefinition',
+    # ADR-035: LLM Thread Queue
+    'LLMThreadModel',
+    'LLMWorkItemModel',
+    'LLMLedgerEntryModel',
 ]

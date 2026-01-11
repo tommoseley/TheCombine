@@ -38,6 +38,7 @@ from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay 
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
+from app.api.routers.commands import router as commands_router  # WS-STORY-BACKLOG-COMMANDS
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
@@ -176,6 +177,7 @@ app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
 app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
 app.include_router(protected_router)
 app.include_router(accounts_router)
+app.include_router(commands_router)  # WS-STORY-BACKLOG-COMMANDS
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions
@@ -199,4 +201,5 @@ if __name__ == "__main__":
         reload=True,
         log_level="debug"
     )
+
 

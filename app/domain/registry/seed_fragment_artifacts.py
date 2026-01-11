@@ -828,6 +828,107 @@ DATA_MODEL_BLOCK_V1_FRAGMENT = """
 </div>
 """
 
+# =============================================================================
+# WS-STORY-BACKLOG-VIEW: Epic Stories Card Fragment
+# =============================================================================
+
+EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT = """
+<div class="epic-stories-card border border-gray-200 rounded-lg bg-white shadow-sm mb-6" 
+     data-block-type="EpicStoriesCardBlockV1" data-epic-id="{{ block.data.epic_id }}">
+  {# Epic Header #}
+  <div class="p-4 border-b border-gray-100">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex-1 min-w-0">
+        <h3 class="text-lg font-semibold text-gray-900">
+          {{ block.data.epic_name | default(block.data.name) | default(block.data.epic_id) }}
+        </h3>
+        {% if block.data.intent %}
+        <p class="text-sm text-gray-600 mt-1">{{ block.data.intent }}</p>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        {% set phase = block.data.phase | default(block.data.mvp_phase) %}
+        {% if phase %}
+        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+          {% if phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+          {{ phase | upper }}
+        </span>
+        {% endif %}
+        {% if block.data.risk_level %}
+        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium
+          {% if block.data.risk_level == 'high' %}bg-red-100 text-red-800
+          {% elif block.data.risk_level == 'medium' %}bg-amber-100 text-amber-800
+          {% else %}bg-green-100 text-green-800{% endif %}">
+          {{ block.data.risk_level | title }} Risk
+        </span>
+        {% endif %}
+        {% if block.data.detail_ref %}
+        <a href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+           data-detail-ref="{{ block.data.detail_ref | tojson }}">
+          View Epic &rarr;
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  {# Stories Section OR Generate Button #}
+  {% if block.data.stories and block.data.stories | length > 0 %}
+  <div class="stories-section">
+    <div class="px-4 py-2 bg-gray-50 border-b border-gray-100">
+      <span class="text-sm font-medium text-gray-700">Stories ({{ block.data.stories | length }})</span>
+    </div>
+    <ul class="divide-y divide-gray-100">
+      {% for story in block.data.stories %}
+      <li class="px-4 py-3 hover:bg-gray-50 transition-colors">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-mono text-gray-500">{{ story.story_id | default(story.id) }}</span>
+              <span class="text-sm font-medium text-gray-900">{{ story.title }}</span>
+            </div>
+            {% set story_desc = story.intent | default(story.description) %}
+            {% if story_desc %}
+            <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ story_desc }}</p>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            {% set story_phase = story.phase | default(story.mvp_phase) %}
+            {% if story_phase %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium 
+              {% if story_phase == 'mvp' %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ story_phase | upper }}
+            </span>
+            {% endif %}
+            {% if story.detail_ref %}
+            <a href="#" class="text-blue-600 hover:text-blue-800 text-xs"
+               data-detail-ref="{{ story.detail_ref | tojson }}">
+              View &rarr;
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  {# No stories - show generate button #}
+  <div class="p-4 bg-gray-50 no-stories-section">
+      <p class="text-sm text-gray-500 mb-3 no-stories-text">No stories generated yet</p>
+    <button type="button"
+            class="generate-epic-btn inline-flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            data-epic-id="{{ block.data.epic_id }}"
+            onclick="generateEpicStories(this)">
+      <i data-lucide="sparkles" class="w-4 h-4"></i>
+      <span class="btn-text">Generate Stories</span>
+    </button>
+    <div class="generate-status mt-2 text-sm"></div>
+  </div>
+  {% endif %}
+</div>
+"""
+
 INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "fragment_id": "fragment:OpenQuestionV1:web:1.0.0",
@@ -976,6 +1077,14 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "status": "accepted",
         "fragment_markup": DATA_MODEL_BLOCK_V1_FRAGMENT,
     },
+    # WS-STORY-BACKLOG-VIEW: Epic Stories Card
+    {
+        "fragment_id": "fragment:EpicStoriesCardBlockV1:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "EpicStoriesCardBlockV1",
+        "status": "accepted",
+        "fragment_markup": EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT,
+    },
 ]
 
 
@@ -1045,6 +1154,12 @@ if __name__ == "__main__":
             print(f"Seeded {count} fragment artifacts")
     
     asyncio.run(main())
+
+
+
+
+
+
 
 
 

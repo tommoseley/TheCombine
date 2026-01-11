@@ -1,4 +1,4 @@
-<div class="flex flex-col h-full">
+﻿<div class="flex flex-col h-full">
     <!-- New Project Button -->
     <div class="p-3 border-b border-gray-200 dark:border-gray-700">
         <a 
@@ -76,6 +76,32 @@
 <script>
 // Accordion toggle - collapse others when opening
 // Note: button is now inside .project-header, not the header itself
+// Save/restore expanded state for tree refreshes
+var savedExpandedProjects = [];
+
+function saveExpandedState() {
+    savedExpandedProjects = [];
+    document.querySelectorAll('.accordion-content.open').forEach(content => {
+        const accordion = content.closest('.project-accordion');
+        const projectId = accordion?.getAttribute('data-project-id');
+        if (projectId) savedExpandedProjects.push(projectId);
+    });
+}
+
+function restoreExpandedState() {
+    savedExpandedProjects.forEach(projectId => {
+        const accordion = document.querySelector(`.project-accordion[data-project-id="${projectId}"]`);
+        if (accordion) {
+            const content = accordion.querySelector('.accordion-content');
+            const header = accordion.querySelector('.project-header');
+            const chevron = accordion.querySelector('.accordion-chevron');
+            if (content) content.classList.add('open');
+            if (header) header.classList.add('active');
+            if (chevron) chevron.setAttribute('data-lucide', 'chevron-down');
+        }
+    });
+}
+
 function toggleProjectAccordion(button, projectId) {
     const accordion = button.closest('.project-accordion');
     const content = accordion.querySelector('.accordion-content');
@@ -83,20 +109,7 @@ function toggleProjectAccordion(button, projectId) {
     const chevron = button.querySelector('.accordion-chevron');
     const isOpening = !content.classList.contains('open');
     
-    // If opening this one, close all others first
-    if (isOpening) {
-        document.querySelectorAll('.project-accordion').forEach(other => {
-            if (other !== accordion) {
-                const otherContent = other.querySelector('.accordion-content');
-                const otherChevron = other.querySelector('.accordion-chevron');
-                const otherHeader = other.querySelector('.project-header');
-                
-                otherContent.classList.remove('open');
-                otherHeader.classList.remove('active');
-                otherChevron.setAttribute('data-lucide', 'chevron-right');
-            }
-        });
-    }
+    // Projects can stay expanded independently (no auto-collapse)
     
     // Toggle this one
     content.classList.toggle('open');
@@ -121,12 +134,8 @@ function updateActiveStates() {
     // Remove all active states
     document.querySelectorAll('.project-header.active').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.doc-link.active').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.accordion-content.open').forEach(el => el.classList.remove('open'));
-    
-    // Reset all chevrons
-    document.querySelectorAll('.accordion-chevron').forEach(chev => {
-        chev.setAttribute('data-lucide', 'chevron-right');
-    });
+    // Note: We no longer collapse all accordions or reset chevrons - users can keep multiple projects open
+
     
     // Find matching document link and activate it + its parent project
     // BUT: Skip archived projects - they stay collapsed
@@ -181,11 +190,23 @@ function updateActiveStates() {
     }
 }
 
+// Save expanded state before tree refresh
+document.body.addEventListener('htmx:beforeRequest', function(event) {
+    if (event.target.id === 'project-tree-root' || event.detail.target?.id === 'project-tree-root') {
+        saveExpandedState();
+    }
+});
+
 // Run on page load
 document.addEventListener('DOMContentLoaded', updateActiveStates);
 
 // Run after HTMX swaps
 document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Restore expanded state after tree refresh
+    if (event.target.id === 'project-tree-root' || event.detail.target?.id === 'project-tree-root') {
+        restoreExpandedState();
+    }
+    
     setTimeout(() => {
         updateActiveStates();
         if (typeof lucide !== 'undefined') {
@@ -198,3 +219,11 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
 window.addEventListener('popstate', updateActiveStates);
 document.body.addEventListener('htmx:pushedIntoHistory', updateActiveStates);
 </script>
+
+
+
+
+
+
+
+

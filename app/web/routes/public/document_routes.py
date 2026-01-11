@@ -38,6 +38,18 @@ from app.domain.services.render_model_builder import (
 )
 from .view_routes import FragmentRenderer
 
+# Background task infrastructure
+import asyncio
+from uuid import uuid4
+from app.tasks import (
+    TaskStatus,
+    TaskInfo,
+    get_task,
+    set_task,
+    find_task,
+    run_document_build,
+)
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,6 +73,7 @@ async def _render_with_new_viewer(
     Attempt to render using new RenderModel + Fragment system.
     Returns None if rendering fails (triggers fallback to old templates).
     """
+    logger.info(f"_render_with_new_viewer: Starting render for {document_type}")
     try:
         # Build services
         docdef_service = DocumentDefinitionService(db)
@@ -93,6 +106,7 @@ async def _render_with_new_viewer(
             "render_model": render_model,
             "fragment_renderer": fragment_renderer,
             "project": project,
+            "document_data": document_data,  # For command buttons
         }
         
         if is_htmx:
@@ -110,7 +124,9 @@ async def _render_with_new_viewer(
         logger.warning(f"No docdef found for {document_type}, falling back to old template")
         return None
     except Exception as e:
-        logger.error(f"New viewer failed for {document_type}: {e}, falling back to old template")
+        import traceback
+        logger.error(f"New viewer failed for {document_type}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 
@@ -260,6 +276,70 @@ async def get_document(
     # Try to load the document
     document = await _get_document_by_type(db, proj_uuid, doc_type_id)
     
+    # =========================================================================
+    # WS-STORY-BACKLOG-COMMANDS: Special handling for story_backlog
+    # URL uses story_backlog (lowercase), doc_type_id is also story_backlog
+    # =========================================================================
+    if doc_type_id == "story_backlog":
+        # Try to load existing story_backlog document
+        story_backlog_doc = await _get_document_by_type(db, proj_uuid, "story_backlog")
+        
+        if not story_backlog_doc:
+            # Auto-init from EpicBacklog
+            logger.info(f"StoryBacklog not found for project {project_id}, auto-initializing")
+            from app.api.services.document_service import DocumentService
+            doc_service = DocumentService(db)
+            
+            # Load EpicBacklog
+            epic_backlog = await doc_service.get_latest(
+                space_type="project",
+                space_id=proj_uuid,
+                doc_type_id="epic_backlog"
+            )
+            
+            if epic_backlog and epic_backlog.content:
+                source_epics = epic_backlog.content.get("epics", [])
+                
+                # Build StoryBacklog content
+                story_backlog_epics = []
+                for epic in source_epics:
+                    story_backlog_epics.append({
+                        "epic_id": epic.get("epic_id") or epic.get("id") or f"epic-{len(story_backlog_epics)+1}",
+                        "name": epic.get("title") or epic.get("name") or "Untitled Epic",
+                        "intent": epic.get("description") or epic.get("intent") or "",
+                        "mvp_phase": epic.get("mvp_phase") or epic.get("phase") or "mvp",
+                        "stories": []
+                    })
+                
+                story_backlog_content = {
+                    "project_id": project_id,
+                    "project_name": epic_backlog.content.get("project_name", ""),
+                    "source_epic_backlog_ref": {
+                        "document_type": "EpicBacklog",
+                        "params": {"project_id": project_id}
+                    },
+                    "epics": story_backlog_epics
+                }
+                
+                # Create StoryBacklog document
+                story_backlog_doc = await doc_service.create_document(
+                    space_type="project",
+                    space_id=proj_uuid,
+                    doc_type_id="story_backlog",
+                    title="Story Backlog",
+                    content=story_backlog_content,
+                    summary=f"Story backlog with {len(story_backlog_epics)} epics",
+                    created_by="story-backlog-auto-init",
+                    created_by_type="builder"
+                )
+                await db.commit()
+                logger.info(f"Auto-initialized StoryBacklog with {len(story_backlog_epics)} epics")
+        
+        # Use StoryBacklog document for rendering
+        if story_backlog_doc:
+            document = story_backlog_doc
+    # =========================================================================
+    
     logger.info(f"Document found: {document is not None}")
     
     # Check if this is an HTMX request (partial) or full page request (browser refresh)
@@ -283,6 +363,37 @@ async def get_document(
     
     # ADR-030: BFF handling for epic_backlog (legacy path)
     if doc_type_id == "epic_backlog":
+        # Check if epic_backlog exists
+        if not document:
+            # Check dependencies before showing build option
+            missing_deps = []
+            if doc_type and doc_type.get("required_inputs"):
+                for req_doc_type in doc_type["required_inputs"]:
+                    req_doc = await _get_document_by_type(db, proj_uuid, req_doc_type)
+                    if not req_doc:
+                        missing_deps.append(req_doc_type)
+            
+            logger.info(f"Epic backlog not found, missing deps: {missing_deps}")
+            
+            context = {
+                "request": request,
+                "project": project,
+                "doc_type_id": doc_type_id,
+                "doc_type_name": doc_type_name,
+                "doc_type_icon": doc_type_icon,
+                "doc_type_description": doc_type_description,
+                "is_blocked": len(missing_deps) > 0,
+                "missing_dependencies": missing_deps,
+            }
+            partial_template = "public/pages/partials/_document_not_found.html"
+            
+            if is_htmx:
+                return templates.TemplateResponse(partial_template, context)
+            else:
+                context["content_template"] = partial_template
+                return templates.TemplateResponse("public/pages/document_page.html", context)
+        
+        # Epic backlog exists - use BFF view
         vm = await get_epic_backlog_vm(
             db=db,
             project_id=proj_uuid,
@@ -322,7 +433,20 @@ async def get_document(
     }
     
     if not document:
-        context["is_blocked"] = False
+        # Check if dependencies are met before allowing build
+        missing_deps = []
+        logger.info(f"Checking dependencies for {doc_type_id}, doc_type={doc_type}")
+        if doc_type and doc_type.get("required_inputs"):
+            logger.info(f"Required inputs: {doc_type.get('required_inputs')}")
+            for req_doc_type in doc_type["required_inputs"]:
+                req_doc = await _get_document_by_type(db, proj_uuid, req_doc_type)
+                logger.info(f"  Checking {req_doc_type}: exists={req_doc is not None}")
+                if not req_doc:
+                    missing_deps.append(req_doc_type)
+        
+        logger.info(f"Missing deps: {missing_deps}, is_blocked: {len(missing_deps) > 0}")
+        context["is_blocked"] = len(missing_deps) > 0
+        context["missing_dependencies"] = missing_deps
         partial_template = "public/pages/partials/_document_not_found.html"
     else:
         context["document"] = document
@@ -351,66 +475,87 @@ async def build_document(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Build a document using the document-centric pipeline.
-    Returns Server-Sent Events stream with progress updates.
+    Start document build as background task.
+    Returns task_id for status polling.
     
-    ADR-010: Integrated LLM execution logging.
+    ADR-010: Integrated LLM execution logging via background task.
     """
-    from app.domain.services.document_builder import DocumentBuilder
-    from app.api.routers.documents import PromptServiceAdapter
-    from app.domain.repositories.postgres_llm_log_repository import PostgresLLMLogRepository
-    from app.domain.services.llm_execution_logger import LLMExecutionLogger
-    
     project = await project_service.get_project_by_uuid(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     proj_uuid = UUID(project['id']) if isinstance(project.get('id'), str) else project.get('id')
     
-    # ADR-010: Get correlation_id from request state (set by middleware)
-    correlation_id = getattr(request.state, "correlation_id", None)
-    logger.info(f"[ADR-010] Web route build_document - correlation_id={correlation_id}")
+    # Check for existing active task
+    existing_task = find_task(proj_uuid, doc_type_id)
+    if existing_task:
+        logger.info(f"Returning existing task {existing_task.task_id} for {doc_type_id}")
+        return {"task_id": str(existing_task.task_id), "status": existing_task.status.value}
     
-    # ADR-010: Create LLM logger
-    llm_repo = PostgresLLMLogRepository(db)
-    llm_logger = LLMExecutionLogger(llm_repo)
-    logger.info(f"[ADR-010] Created LLMExecutionLogger for web route")
+    # Create new task
+    task_id = uuid4()
+    correlation_id = getattr(request.state, "correlation_id", None) or uuid4()
     
-    # Create builder with dependencies
-    prompt_service = RolePromptService(db)
-    prompt_adapter = PromptServiceAdapter(prompt_service)
-    document_service = DocumentService(db)
-    
-    builder = DocumentBuilder(
-        db=db,
-        prompt_service=prompt_adapter,
-        document_service=document_service,
-        correlation_id=correlation_id,  # ADR-010
-        llm_logger=llm_logger,  # ADR-010
+    task_info = TaskInfo(
+        task_id=task_id,
+        status=TaskStatus.PENDING,
+        progress=0,
+        message="Starting...",
+        project_id=proj_uuid,
+        doc_type_id=doc_type_id,
     )
+    set_task(task_info)
     
-    return StreamingResponse(
-        builder.build_stream(
+    logger.info(f"[Background] Created task {task_id} for {doc_type_id}")
+    
+    # Start background task (fire and forget)
+    asyncio.create_task(
+        run_document_build(
+            task_id=task_id,
+            project_id=proj_uuid,
+            project_description=project.get('description', ''),
             doc_type_id=doc_type_id,
-            space_type='project',
-            space_id=proj_uuid,
-            inputs={
-                "user_query": project.get('description', ''),
-                "project_description": project.get('description', ''),
-            },
-            options={
-                "model": "claude-sonnet-4-20250514",
-                "max_tokens": 16384,
-                "temperature": 0.5,
-            }
-        ),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive"
-        }
+            correlation_id=correlation_id,
+        )
     )
+    
+    return {"task_id": str(task_id), "status": "pending"}
+
+
+@router.get("/tasks/{task_id}/status")
+async def get_task_status(task_id: str):
+    """
+    Get status of a background task.
+    Used by frontend to poll for build completion.
+    """
+    try:
+        tid = UUID(task_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid task_id")
+    
+    task = get_task(tid)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return {
+        "task_id": str(task.task_id),
+        "status": task.status.value,
+        "progress": task.progress,
+        "message": task.message,
+        "result": task.result,
+        "error": task.error,
+    }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

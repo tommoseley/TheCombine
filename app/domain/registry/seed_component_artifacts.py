@@ -1301,36 +1301,6 @@ STORY_SUMMARY_VIEW_DOCDEF = {
 # ADR-034: Story Backlog View DocDef
 # =============================================================================
 
-STORY_BACKLOG_VIEW_DOCDEF = {
-    "document_def_id": "docdef:StoryBacklogView:1.0.0",
-    "document_schema_id": None,  # Multi-story index grouped by epic
-    "prompt_header": {
-        "role": "You are producing a Story Backlog for planning.",
-        "constraints": [
-            "Group stories by epic.",
-            "One container block per epic.",
-            "Story items must be summaries (lossy).",
-            "Must NOT include: acceptance_criteria, scope, dependencies, questions, notes.",
-            "Each story must have detail_ref to StoryDetailView.",
-        ]
-    },
-    "sections": [
-        # Epic Stories (one container per epic)
-        {
-            "section_id": "epic_stories",
-            "title": "Stories",
-            "order": 10,
-            "component_id": "component:StoriesBlockV1:1.0.0",
-            "shape": "container",
-            "repeat_over": "/epics",
-            "source_pointer": "/stories",
-            "context": {"epic_id": "/id", "epic_title": "/title"},
-        },
-    ],
-    "status": "accepted"
-}
-
-
 # Lists for seeding
 # =============================================================================
 # ADR-034: Architecture Component Block
@@ -1396,6 +1366,50 @@ DATA_MODEL_BLOCK_V1_COMPONENT = {
     "status": "accepted",
 }
 
+# =============================================================================
+# WS-STORY-BACKLOG-VIEW: Epic Stories Card Component
+# =============================================================================
+
+EPIC_STORIES_CARD_BLOCK_V1_COMPONENT = {
+    "component_id": "component:EpicStoriesCardBlockV1:1.0.0",
+    "schema_id": "schema:EpicStoriesCardBlockV1",
+    "generation_guidance": "Renders an epic card with nested story summaries. Stories are summary-level only (no AC, no dependencies). Empty stories array omits story section entirely.",
+    "view_bindings": {"web": {"fragment_id": "fragment:EpicStoriesCardBlockV1:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
+# WS-STORY-BACKLOG-VIEW: Story Backlog View DocDef
+# =============================================================================
+
+STORY_BACKLOG_VIEW_DOCDEF = {
+    "document_def_id": "docdef:StoryBacklogView:1.0.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "You are producing a Story Backlog view.",
+        "constraints": [
+            "Epic cards with nested story summaries.",
+            "Stories are summary-level only.",
+            "One card per epic.",
+        ]
+    },
+    "sections": [
+        # Epic Story Cards - one card per epic with nested stories
+        {
+            "section_id": "epic_stories",
+            "title": None,  # No section header - cards ARE the content
+            "order": 10,
+            "component_id": "component:EpicStoriesCardBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/epics",
+            "source_pointer": "/",
+
+        },
+    ],
+    "status": "accepted"
+}
+
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
@@ -1414,6 +1428,7 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     INTERFACE_BLOCK_V1_COMPONENT,
     WORKFLOW_BLOCK_V1_COMPONENT,
     DATA_MODEL_BLOCK_V1_COMPONENT,
+    EPIC_STORIES_CARD_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -1588,6 +1603,12 @@ if __name__ == "__main__":
             print(f"Seeded {counts['components']} components, {counts['docdefs']} document definitions")
     
     asyncio.run(main())
+
+
+
+
+
+
 
 
 

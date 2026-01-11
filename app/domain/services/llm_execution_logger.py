@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
+from app.domain.utils.pricing import calculate_cost
 from app.domain.repositories.llm_log_repository import (
     LLMLogRepository,
     LLMRunRecord,
@@ -210,6 +211,13 @@ class LLMExecutionLogger:
     ) -> None:
         """Finalize run with metrics. Commits on success."""
         try:
+            # Auto-calculate cost if not provided
+            if cost_usd is None:
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                if input_tokens > 0 or output_tokens > 0:
+                    cost_usd = Decimal(str(calculate_cost(input_tokens, output_tokens)))
+            
             await self.repo.update_run_completion(
                 run_id=run_id,
                 status=status,
@@ -259,3 +267,5 @@ class LLMExecutionLogger:
         logger.info(f"[ADR-010] Content stored (hash: {content_hash[:8]}...)")
         
         return f"db://llm_content/{content_id}", content_hash
+
+

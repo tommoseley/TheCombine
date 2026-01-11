@@ -124,3 +124,224 @@ class StoredExecutionState:
         self.status = ExecutionStatus.FAILED
         self.error_message = error
         self.completed_at = datetime.now(UTC)
+
+
+# =============================================================================
+# ADR-035: LLM Thread Queue Models
+# =============================================================================
+
+class ThreadStatus(str, Enum):
+    """Thread status values."""
+    OPEN = "open"
+    RUNNING = "running"
+    COMPLETE = "complete"
+    FAILED = "failed"
+    CANCELED = "canceled"
+
+
+class WorkItemStatus(str, Enum):
+    """Work item status values."""
+    QUEUED = "queued"
+    CLAIMED = "claimed"
+    RUNNING = "running"
+    APPLIED = "applied"
+    FAILED = "failed"
+    DEAD_LETTER = "dead_letter"
+
+
+class LedgerEntryType(str, Enum):
+    """Ledger entry types."""
+    PROMPT = "prompt"
+    RESPONSE = "response"
+    PARSE_REPORT = "parse_report"
+    MUTATION_REPORT = "mutation_report"
+    ERROR = "error"
+
+
+class ErrorCode(str, Enum):
+    """Standardized error codes for work items."""
+    LOCKED = "LOCKED"
+    PROVIDER_RATE_LIMIT = "PROVIDER_RATE_LIMIT"
+    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
+    SCHEMA_INVALID = "SCHEMA_INVALID"
+    MUTATION_CONFLICT = "MUTATION_CONFLICT"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass
+class LLMThread:
+    """
+    Durable container for user intent (ADR-035).
+    
+    A Thread represents one semantic user intent (e.g., "Generate stories for Epic X").
+    Threads are operation-scoped, not conversational.
+    """
+    id: UUID
+    kind: str  # story_generate_epic, story_generate_all, etc.
+    space_type: str  # project
+    space_id: UUID
+    target_ref: Dict[str, Any]  # {doc_type, doc_id, epic_id?}
+    status: ThreadStatus = ThreadStatus.OPEN
+    parent_thread_id: Optional[UUID] = None
+    idempotency_key: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    closed_at: Optional[datetime] = None
+    
+    @classmethod
+    def create(
+        cls,
+        kind: str,
+        space_type: str,
+        space_id: UUID,
+        target_ref: Dict[str, Any],
+        idempotency_key: Optional[str] = None,
+        parent_thread_id: Optional[UUID] = None,
+        created_by: Optional[str] = None,
+    ) -> "LLMThread":
+        """Create a new thread."""
+        return cls(
+            id=uuid4(),
+            kind=kind,
+            space_type=space_type,
+            space_id=space_id,
+            target_ref=target_ref,
+            idempotency_key=idempotency_key,
+            parent_thread_id=parent_thread_id,
+            created_by=created_by,
+        )
+    
+    def start(self) -> None:
+        """Mark thread as running."""
+        self.status = ThreadStatus.RUNNING
+    
+    def complete(self) -> None:
+        """Mark thread as complete."""
+        self.status = ThreadStatus.COMPLETE
+        self.closed_at = datetime.now(UTC)
+    
+    def fail(self) -> None:
+        """Mark thread as failed."""
+        self.status = ThreadStatus.FAILED
+        self.closed_at = datetime.now(UTC)
+    
+    def cancel(self) -> None:
+        """Mark thread as canceled."""
+        self.status = ThreadStatus.CANCELED
+        self.closed_at = datetime.now(UTC)
+    
+    @property
+    def is_active(self) -> bool:
+        """Check if thread is still active."""
+        return self.status in (ThreadStatus.OPEN, ThreadStatus.RUNNING)
+    
+    @property
+    def is_terminal(self) -> bool:
+        """Check if thread has reached a terminal state."""
+        return self.status in (ThreadStatus.COMPLETE, ThreadStatus.FAILED, ThreadStatus.CANCELED)
+
+
+@dataclass
+class LLMWorkItem:
+    """
+    Execution unit in the queue (ADR-035).
+    
+    A Work Item is a single executable unit, typically one LLM call
+    followed by validation and a lock-safe mutation.
+    """
+    id: UUID
+    thread_id: UUID
+    sequence: int = 1
+    status: WorkItemStatus = WorkItemStatus.QUEUED
+    attempt: int = 1
+    lock_scope: Optional[str] = None  # project:{id} or epic:{id}
+    not_before: Optional[datetime] = None
+    error_code: Optional[ErrorCode] = None
+    error_message: Optional[str] = None  # Informational only; authoritative context in ledger
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    
+    @classmethod
+    def create(
+        cls,
+        thread_id: UUID,
+        sequence: int = 1,
+        lock_scope: Optional[str] = None,
+    ) -> "LLMWorkItem":
+        """Create a new work item."""
+        return cls(
+            id=uuid4(),
+            thread_id=thread_id,
+            sequence=sequence,
+            lock_scope=lock_scope,
+        )
+    
+    def claim(self) -> None:
+        """Claim work item for processing."""
+        self.status = WorkItemStatus.CLAIMED
+        self.started_at = datetime.now(UTC)
+    
+    def start(self) -> None:
+        """Mark work item as running."""
+        self.status = WorkItemStatus.RUNNING
+    
+    def apply(self) -> None:
+        """Mark work item as successfully applied."""
+        self.status = WorkItemStatus.APPLIED
+        self.finished_at = datetime.now(UTC)
+    
+    def fail(self, error_code: ErrorCode, error_message: str) -> None:
+        """Mark work item as failed."""
+        self.status = WorkItemStatus.FAILED
+        self.error_code = error_code
+        self.error_message = error_message
+        self.finished_at = datetime.now(UTC)
+    
+    def dead_letter(self, error_code: ErrorCode, error_message: str) -> None:
+        """Move work item to dead letter."""
+        self.status = WorkItemStatus.DEAD_LETTER
+        self.error_code = error_code
+        self.error_message = error_message
+        self.finished_at = datetime.now(UTC)
+    
+    @property
+    def is_terminal(self) -> bool:
+        """Check if work item has reached a terminal state."""
+        return self.status in (WorkItemStatus.APPLIED, WorkItemStatus.FAILED, WorkItemStatus.DEAD_LETTER)
+
+
+@dataclass
+class LLMLedgerEntry:
+    """
+    Immutable execution record (ADR-035).
+    
+    A Ledger Entry records what the system paid for and received.
+    Ledger entries are immutable and append-only.
+    """
+    id: UUID
+    thread_id: UUID
+    work_item_id: Optional[UUID]
+    entry_type: LedgerEntryType
+    payload: Dict[str, Any]
+    payload_hash: Optional[str] = None  # SHA256 for dedup/verification
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    
+    @classmethod
+    def create(
+        cls,
+        thread_id: UUID,
+        entry_type: LedgerEntryType,
+        payload: Dict[str, Any],
+        work_item_id: Optional[UUID] = None,
+        payload_hash: Optional[str] = None,
+    ) -> "LLMLedgerEntry":
+        """Create a new ledger entry."""
+        return cls(
+            id=uuid4(),
+            thread_id=thread_id,
+            work_item_id=work_item_id,
+            entry_type=entry_type,
+            payload=payload,
+            payload_hash=payload_hash,
+        )

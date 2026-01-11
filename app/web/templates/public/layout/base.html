@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" class="text-[14px]">
 <head>
     <meta charset="UTF-8">
@@ -88,6 +88,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <!-- Thread Status Monitor (ADR-035) -->
+    <script src="/web/static/public/js/thread_monitor.js"></script>
     
     <style>
         /* Custom scrollbar - Light mode */
@@ -415,7 +418,28 @@
                     hljs.highlightElement(block);
                 });
             }
+            
+            // Check for active threads (ADR-035) - DISABLED for performance
+            // initThreadMonitor();
         });
+        
+        // Initialize thread monitor for current page context
+        function initThreadMonitor() {
+            // Get project context from URL or data attributes
+            const projectIdMatch = window.location.pathname.match(/\/projects\/([a-f0-9-]+)/);
+            if (!projectIdMatch) return;
+            
+            const projectId = projectIdMatch[1];
+            
+            // Get document type from URL if viewing a document
+            const docMatch = window.location.pathname.match(/\/documents\/([^\/]+)/);
+            const docTypeId = docMatch ? docMatch[1] : null;
+            
+            // Initialize with default behavior
+            if (typeof ThreadMonitor !== 'undefined') {
+                ThreadMonitor.init(projectId, docTypeId);
+            }
+        }
         
         // Show/hide search results
         const searchInput = document.getElementById('global-search');
@@ -462,3 +486,6 @@
     </script>
 </body>
 </html>
+
+
+

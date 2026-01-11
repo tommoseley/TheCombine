@@ -971,6 +971,97 @@ DATA_MODEL_BLOCK_V1_SCHEMA = {
     "additionalProperties": True
 }
 
+# =============================================================================
+# WS-STORY-BACKLOG-VIEW: Epic Stories Card Schema
+# =============================================================================
+
+EPIC_STORIES_CARD_BLOCK_V1_SCHEMA = {
+    "$id": "schema:EpicStoriesCardBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Epic Stories Card Block",
+    "description": "View projection for an epic card with nested story summaries. NOT canonical storage.",
+    "required": ["epic_id", "name", "stories"],
+    "properties": {
+        "epic_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique epic identifier"
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Epic display name"
+        },
+        "intent": {
+            "type": "string",
+            "description": "Brief description of what the epic achieves"
+        },
+        "phase": {
+            "type": "string",
+            "enum": ["mvp", "later"],
+            "description": "MVP or later phase"
+        },
+        "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Derived or provided risk level"
+        },
+        "detail_ref": {
+            "type": "object",
+            "properties": {
+                "document_type": {"type": "string"},
+                "params": {"type": "object"}
+            },
+            "description": "Reference to EpicDetailView"
+        },
+        "stories": {
+            "type": "array",
+            "description": "Array of StorySummary items (empty allowed)",
+            "items": {
+                "type": "object",
+                "required": ["story_id", "title", "intent", "phase"],
+                "properties": {
+                    "story_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Story identifier (non-empty, no rigid format)"
+                    },
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Story title"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Brief story intent"
+                    },
+                    "phase": {
+                        "type": "string",
+                        "enum": ["mvp", "later"],
+                        "description": "MVP or later phase"
+                    },
+                    "risk_level": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high"],
+                        "description": "Optional risk level"
+                    },
+                    "detail_ref": {
+                        "type": "object",
+                        "properties": {
+                            "document_type": {"type": "string"},
+                            "params": {"type": "object"}
+                        },
+                        "description": "Reference to StoryDetailView"
+                    }
+                }
+            }
+        }
+    },
+    "additionalProperties": True
+}
+
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
     {
         "schema_id": "OpenQuestionV1",
@@ -1275,6 +1366,18 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
             "policies": []
         },
     },
+    # WS-STORY-BACKLOG-VIEW: Epic Stories Card
+    {
+        "schema_id": "EpicStoriesCardBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": EPIC_STORIES_CARD_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": ["WS-STORY-BACKLOG-VIEW"]
+        },
+    },
 ]
 
 
@@ -1339,6 +1442,8 @@ if __name__ == "__main__":
             print(f"Seeded {count} schema artifacts")
     
     asyncio.run(main())
+
+
 
 
 
