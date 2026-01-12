@@ -31,6 +31,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     {
         "doc_type_id": "project_discovery",
         "name": "Project Discovery",
+        "view_docdef": "ProjectDiscovery",
         "description": (
             "Early architectural discovery performed before PM decomposition. "
             "Surfaces critical questions, identifies constraints and risks, "
@@ -64,6 +65,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     {
         "doc_type_id": "architecture_spec",
         "name": "Architecture Specification",
+        "view_docdef": "ArchitecturalSummaryView",
         "description": (
             "Comprehensive architecture specification including components, "
             "interfaces, data models, workflows, and quality attributes. "
@@ -118,8 +120,9 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     # PLANNING DOCUMENTS
     # -------------------------------------------------------------------------
     {
-        "doc_type_id": "epic_backlog
+        "doc_type_id": "epic_backlog",
         "name": "Epic Set",
+        "view_docdef": "EpicBacklogView",
         "description": (
             "Set of epics decomposed from project discovery. "
             "Defines the major work streams for the project."
@@ -128,7 +131,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "icon": "layers",
         "builder_role": "pm",
         "builder_task": "epic_generation",
-        "handler_id": "epic_backlog
+        "handler_id": "epic_backlog",
         "required_inputs": ["project_discovery"],  # Needs discovery first
         "optional_inputs": ["architecture_spec"],  # Better with arch spec
         "gating_rules": {},
@@ -162,6 +165,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     {
         "doc_type_id": "story_backlog",
         "name": "Story Backlog",
+        "view_docdef": "StoryBacklogView",
         "description": (
             "User stories decomposed from an epic. "
             "Detailed, implementable units of work."

@@ -44,10 +44,11 @@
     {% endif %}
 {% endfor %}
 
-{# Tab display names #}
+{# Tab display names - can be document-type specific #}
+{% set details_label = 'Epics' if render_model.document_type == 'epic_backlog' else 'Details' %}
 {% set tab_labels = {
     'overview': 'Overview',
-    'details': 'Details',
+    'details': details_label,
     'implementation': 'Implementation Details',
     'security': 'Security',
     'observability': 'Observability'
@@ -167,4 +168,6 @@
     {% endif %}
 
 </div>
+
+
 

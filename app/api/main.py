@@ -32,7 +32,6 @@ from app.api.routers import health, auth
 from app.web import routes as web_routes
 from app.api.routers.documents import router as document_router
 from app.api.routers.document_status_router import router as document_status_router
-from app.web.routes.public.document_status_routes import router as document_status_ui_router
 from app.web.routes.admin.admin_routes import router as admin_router
 from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay endpoint
 from app.auth.routes import router as auth_router

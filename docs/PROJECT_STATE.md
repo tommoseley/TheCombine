@@ -6,155 +6,167 @@ Execution constraints for AI collaborators are defined in AI.MD and are consider
 
 ## Current Status
 **All 10 Implementation Phases Complete** - Production-ready system deployed to AWS
-**BFF/Schema/Fragment Architecture Complete** - ADR-030 through ADR-033 implemented
+**Document System Architecture Complete** - ADR-030 through ADR-034 implemented
+**Document Lifecycle Semantics Frozen** - ADR-036 accepted
 **Document Ownership Complete** - ADR-011-Part-2 implemented
 
 ## Test Summary
-- **Total Tests:** 1071 passing
+- **Total Tests:** 1,176 passing
 - **Phase 0-2 (Core Engine):** Validator, Step Executor, Workflow Executor
 - **Phase 3-7:** HTTP API, UI Integration, LLM Integration, Authentication
 - **Phase 8-10:** API Integration, E2E Testing, Production Hardening
 - **Template Integrity:** Tests ensure all extends/includes resolve correctly
-- **BFF Tests:** Epic Backlog ViewModel and BFF function tests
-- **Schema Registry Tests:** CRUD, lifecycle, resolver, cycle detection
-- **Fragment Registry Tests:** CRUD, binding, renderer
+- **BFF Tests:** Epic Backlog, Story Backlog ViewModels and BFF function tests
+- **Schema Registry Tests:** CRUD, lifecycle, resolver, cycle detection (28 schemas)
+- **Fragment Registry Tests:** CRUD, binding, renderer (18 components)
 - **Document Ownership Tests:** 17 tests for cycle detection, scope validation, deletion guards
+- **Golden Trace Tests:** RenderModel snapshot tests for docdef validation
+- **Component Completeness Tests:** Ensure all components have guidance bullets
 
 ---
 
-## Completed Work
+## Active ADRs
 
-### Session: January 6, 2026 — BFF/Schema/Fragment Architecture
+| ADR | Status | Summary |
+|-----|--------|---------|
+| ADR-009 | Complete | Project Audit — state changes explicit/traceable |
+| ADR-010 | Complete | LLM Execution Logging — inputs, outputs, replay |
+| ADR-011-Part-2 | Complete | Document Ownership Implementation |
+| ADR-030 | Complete | BFF Layer and ViewModel Boundary |
+| ADR-031 | Complete | Canonical Schema Types and DB-Backed Registry |
+| ADR-032 | Complete | Fragment-Based Rendering |
+| ADR-033 | Complete | Data-Only Experience Contracts (RenderModelV1) |
+| ADR-034 | Complete | Document Composition Manifest & Canonical Components |
+| ADR-035 | Draft | Durable LLM Threaded Queue |
+| ADR-036 | **Accepted** | Document Lifecycle & Staleness Semantics |
 
-Implemented foundational architecture for schema-driven, fragment-based UI rendering.
+## Governing Policies
+* POL-ADR-EXEC-001: ADR Execution Authorization Process (6-step authorization)
+* POL-WS-001: Standard Work Statements (mechanical execution)
+
+---
+
+## Next Logical Work
+
+### Primary: Execute WS-DOCUMENT-SYSTEM-CLEANUP
+
+The document system cleanup plan is ready for execution. See:
+- `docs/document-system-charter.md` — Strategic charter (WHY & WHAT)
+- `docs/document-cleanup-plan.md` — 9-phase implementation spec (HOW & WHEN)
+- `docs/WS-DOCUMENT-SYSTEM-CLEANUP.md` — Work statement for execution
+
+**Phase execution order:**
+
+| Phase | Goal | Can Parallelize |
+|-------|------|-----------------|
+| 1 | Config → DB only (eliminate DOCUMENT_CONFIG) | ✅ Week 1 |
+| 2 | Schema hash persistence (documents store schema_bundle_sha256) | ✅ Week 1 |
+| 3 | Document lifecycle states (ADR-036 implementation) | Week 2 |
+| 4 | Staleness propagation | Week 3 |
+| 5 | Route deprecation with Warning headers | ✅ Week 1 |
+| 6 | Legacy template feature flag | ✅ Week 1 |
+| 7 | Command route normalization | Week 3 |
+| 8 | Debug routes to dev-only | ✅ Week 1 |
+| 9 | Data-driven UX (optional) | Week 4 |
+
+**Key principle from ADR-036:** "Partial is not broken. Partial is honest."
+
+### Open Threads
+* `recycle/` folder needs review then deletion
+* Docs cleanup: review duplicates vs Project Knowledge
+* Update ADR-011-Part-2 status from "Draft" to "Accepted" in the ADR file
+
+---
+
+## Infrastructure
+* **Deployment:** ECS Fargate on `thecombine.ai`
+* **Database:** RDS PostgreSQL
+* **DNS:** Route 53 with IP workaround (ALB blocked pending AWS ticket)
+
+---
+
+## Recent Completed Work
+
+### Session: January 12, 2026 - Document System Cleanup Planning
+
+Comprehensive planning session establishing governance and implementation path for document system stabilization.
+
+#### Strategic Documents Created
+- `docs/document-system-charter.md` — Charter v3 identifying Three Drifts (Config, Schema, Route)
+- `docs/document-cleanup-plan.md` — 9-phase implementation with tests and rollback paths
+- `docs/WS-DOCUMENT-SYSTEM-CLEANUP.md` — Work statement for execution
+- `docs/adr-amendment-analysis.md` — Governance gap analysis
+
+#### ADR-036: Document Lifecycle & Staleness (Accepted)
+- 5 states: missing, generating, partial, complete, stale
+- **Partial is a valid end state** (selective generation is intentional)
+- Staleness is informational, not destructive
+- Regeneration is always explicit
+- Non-blocking visibility in all states except missing
+
+#### Key Decisions
+- Tabs are data-driven (supersedes WS-DOCUMENT-VIEWER-TABS enum approach)
+- UX is data-driven (CTAs, badges, variants, visibility all configurable without code)
+- Schema hash persistence: documents store `schema_bundle_sha256` at generation time
+- RenderModelV1 is the "hourglass waist" — sole rendering contract
+
+#### Bug Fixes
+- 6 component `generation_guidance` format fixes (string → dict with bullets)
+- 6 schema `additionalProperties` fixes (True → False)
+- Schema count test updated (22 → 28)
+
+### Session: January 12, 2026 (Earlier) - Document Viewer & Story Backlog
+
+#### Document Viewer Implementation (ADR-034)
+- Generic `_document_viewer.html` template
+- RenderModelBuilder with shape semantics (single, list, nested_list, container)
+- Fragment-based rendering for all block types
+- Tab support (Overview/Details tabs for EpicBacklogView)
+
+#### Story Backlog Views
+- `StoryBacklogView` with epic cards and story summaries
+- `StoryDetailView` for full BA output
+- `EpicStoriesCardBlockV1` component for story grouping
+
+#### Architecture Views
+- `EpicArchitectureView` with components, quality attributes, interfaces, workflows, data models
+- `ArchitecturalSummaryView` for architecture overview
+
+#### Governance Documents
+- `DOCUMENT_VIEWER_CONTRACT.md` (Frozen)
+- `RENDER_SHAPES_SEMANTICS.md` (Frozen)
+- `SUMMARY_VIEW_CONTRACT.md` (Frozen)
+
+### Session: January 6-7, 2026 - BFF/Schema/Fragment Architecture
 
 #### WS-001: Epic Backlog BFF Refactor (ADR-030)
 - Created `app/web/viewmodels/` with `EpicBacklogVM`, `EpicCardVM`, etc.
 - Created `app/web/bff/` with `get_epic_backlog_vm()` function
 - Templates now access `vm.*` only (ViewModel boundary enforced)
-- 21 BFF tests added
 
 #### WS-002: Schema Registry Implementation (ADR-031)
 - Created `schema_artifacts` table with migration
-- Created `SchemaArtifact` ORM model
 - Created `SchemaRegistryService` with CRUD and status lifecycle
 - Created `SchemaResolver` with bundle resolution and cycle detection
-- Seeded 4 canonical types: `OpenQuestionV1`, `RiskV1`, `DependencyV1`, `ScopeItemV1`
-- Extended `llm_execution_logs` with schema tracking columns
-- 38 new tests
+- Seeded canonical types
 
 #### WS-003: Fragment Registry Implementation (ADR-032)
 - Created `fragment_artifacts` and `fragment_bindings` tables
-- Created `FragmentArtifact` and `FragmentBinding` ORM models
-- Created `FragmentRegistryService` with binding lookup
 - Created `FragmentRenderer` service
-- Seeded `OpenQuestionV1Fragment` with active binding
-- Integrated fragment rendering into Epic Backlog
-- 32 new tests
+- Integrated fragment rendering into document viewer
 
 #### WS-004: Remove HTML from BFF (ADR-033)
 - Removed `rendered_open_questions` from ViewModels
-- Removed `fragment_renderer` parameter from BFF
-- Created `PreloadedFragmentRenderer` for async template use
-- Created `render_fragment` Jinja2 global
-- Templates invoke fragment rendering directly
-- 7 new tests
+- Templates invoke fragment rendering directly via `render_fragment` Jinja2 global
 
-### Session: January 5, 2026 — Document Ownership + UI Consolidation
+### Session: January 5, 2026 - Document Ownership + UI Consolidation
 
 #### ADR-011-Part-2: Document Ownership Implementation
-- Created migration `20260105_001_add_parent_document_id.py`
-- Updated Document model with `parent_document_id`, parent/children relationships
-- Extended DocumentService with ownership validation methods:
-  - `validate_parent_assignment()` - main entry point
-  - `_check_no_cycle()` - cycle detection via parent chain walk
-  - `_check_ownership_validity()` - workflow may_own validation
-  - `_check_scope_monotonicity()` - child scope >= parent scope
-  - `validate_deletion()` - guard against deleting docs with children
-- Exception classes: `OwnershipError`, `CycleDetectedError`, `InvalidOwnershipError`, `IncomparableScopesError`, `ScopeViolationError`, `HasChildrenError`
-- 17 tests in `tests/unit/test_document_ownership.py`
+- Created migration for `parent_document_id`
+- Document model with parent/children relationships
+- DocumentService with ownership validation methods
+- 17 tests for cycle detection, scope validation, deletion guards
 
 #### UI Consolidation
 - Consolidated split UI structure into unified `app/web/` with admin/public subfolders
-- Fixed template extends statements missing `public/` prefix
-- Added `tests/ui/test_template_integrity.py`
-- Archived 10 obsolete planning documents to `docs/archive/`
-
----
-
-## AWS Infrastructure
-
-### Current Environment (Staging)
-
-| Resource | Name/ID | Status |
-|----------|---------|--------|
-| **ECS Cluster** | the-combine-cluster | Running |
-| **ECS Service** | the-combine-service | Running |
-| **Task Definition** | the-combine-task | Active |
-| **ECR Repository** | the-combine | Active |
-| **RDS PostgreSQL** | (default) | Running |
-| **Route 53** | thecombine.ai | Configured |
-| **ACM Certificate** | thecombine.ai + *.thecombine.ai | Issued |
-| **Target Group** | the-combine-tg (IP, port 8000) | Created |
-| **ALB** | - | Blocked (ticket pending) |
-
-### Environment Variables (ECS Task Definition)
-- ADMIN_EMAILS = tommoseley@outlook.com (Configured)
-
-### ALB Issue
-Support tickets filed for **us-east-1** and **us-east-2**. Awaiting AWS response.
-
-### Current Workaround
-Using `fixip.ps1` to update Route 53 A record after each deployment.
-
----
-
-## Governing ADRs
-
-| ADR | Status | Execution | Summary |
-|-----|--------|-----------|---------|
-| ADR-009 | Accepted | Complete | Project Audit - state changes explicit/traceable |
-| ADR-010 | Accepted | Complete | LLM Execution Logging - inputs, outputs, replay |
-| ADR-011 | Accepted | Complete | Document Ownership Model - conceptual |
-| ADR-011-Part-2 | Accepted | Complete | Document Ownership Implementation |
-| ADR-012 | Accepted | - | Interaction Model - closed-loop execution |
-| ADR-024 | Accepted | - | Clarification Question Protocol |
-| ADR-027 | Accepted | - | Workflow Definition & Governance |
-| ADR-030 | Accepted | Complete | BFF Layer and ViewModel Boundary |
-| ADR-031 | Accepted | Complete | Canonical Schema Types and DB-Backed Registry |
-| ADR-032 | Accepted | Complete | Fragment-Based Rendering |
-| ADR-033 | Accepted | Partial | Data-Only Experience Contracts (WS-004 done) |
-
-## Work Statements
-
-| WS | ADR | Status | Summary |
-|----|-----|--------|---------|
-| WS-001 | ADR-030 | Complete | Epic Backlog BFF Refactor |
-| WS-002 | ADR-031 | Complete | Schema Registry Implementation |
-| WS-003 | ADR-032 | Complete | Fragment Registry Implementation |
-| WS-004 | ADR-033 | Complete | Remove HTML from BFF Contracts |
-
----
-
-## Next Session
-
-**Continue ADR-033:** Full Render Model implementation (Experience JSON to Render Model to Channel Viewers).
-
-Or pick up other pending ADRs that need execution authorization.
-
----
-
-## Open Threads
-
-- `recycle/` folder needs review then deletion
-- Docs cleanup: review duplicates vs Project Knowledge
-- Update ADR-011-Part-2 status from "Draft" to "Accepted" in the ADR file
-- Update ADR-011-Part-2 Implementation Plan status to "Complete"
-
-## Run Tests
-
-    cd "C:\Dev\The Combine"
-    python -m pytest tests/ -v
-
----
-_Last updated: 2026-01-07_
+- Fixed template extends statements

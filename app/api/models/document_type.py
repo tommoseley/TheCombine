@@ -97,6 +97,10 @@ class DocumentType(Base):
     # Display configuration
     display_order = Column(Integer, nullable=False, default=0)
     
+    # ADR-034: Document definition ID for new viewer rendering
+    # Maps to document_definitions.document_def_id (e.g., 'EpicBacklogView')
+    view_docdef = Column(String(100), nullable=True)
+    
     # Status
     is_active = Column(Boolean, nullable=False, default=True)
     
@@ -145,6 +149,7 @@ class DocumentType(Base):
             "accepted_by_role": self.accepted_by_role,
             "scope": self.scope,
             "display_order": self.display_order,
+            "view_docdef": self.view_docdef,
             "is_active": self.is_active,
             "version": self.version,
             "created_at": self.created_at.isoformat() if self.created_at else None,

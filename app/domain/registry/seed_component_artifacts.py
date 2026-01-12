@@ -1309,7 +1309,7 @@ STORY_SUMMARY_VIEW_DOCDEF = {
 ARCH_COMPONENT_BLOCK_V1_COMPONENT = {
     "component_id": "component:ArchComponentBlockV1:1.0.0",
     "schema_id": "schema:ArchComponentBlockV1",
-    "generation_guidance": "Renders an architecture component card with name, layer, purpose, and details.",
+    "generation_guidance": {"bullets": ["Render-only container for architecture component display.", "Component data is provided upstream from architecture generation."]},
     "view_bindings": {"web": {"fragment_id": "fragment:ArchComponentBlockV1:web:1.0.0"}},
     "status": "accepted",
 }
@@ -1322,7 +1322,7 @@ ARCH_COMPONENT_BLOCK_V1_COMPONENT = {
 QUALITY_ATTRIBUTE_BLOCK_V1_COMPONENT = {
     "component_id": "component:QualityAttributeBlockV1:1.0.0",
     "schema_id": "schema:QualityAttributeBlockV1",
-    "generation_guidance": "Renders a quality attribute with name, target, rationale, and acceptance criteria.",
+    "generation_guidance": {"bullets": ["Render-only container for quality attribute display.", "Attribute data is provided upstream from architecture generation."]},
     "view_bindings": {"web": {"fragment_id": "fragment:QualityAttributeBlockV1:web:1.0.0"}},
     "status": "accepted",
 }
@@ -1335,7 +1335,7 @@ QUALITY_ATTRIBUTE_BLOCK_V1_COMPONENT = {
 INTERFACE_BLOCK_V1_COMPONENT = {
     "component_id": "component:InterfaceBlockV1:1.0.0",
     "schema_id": "schema:InterfaceBlockV1",
-    "generation_guidance": "Renders an API interface with endpoints.",
+    "generation_guidance": {"bullets": ["Render-only container for API interface display.", "Interface data is provided upstream from architecture generation."]},
     "view_bindings": {"web": {"fragment_id": "fragment:InterfaceBlockV1:web:1.0.0"}},
     "status": "accepted",
 }
@@ -1348,7 +1348,7 @@ INTERFACE_BLOCK_V1_COMPONENT = {
 WORKFLOW_BLOCK_V1_COMPONENT = {
     "component_id": "component:WorkflowBlockV1:1.0.0",
     "schema_id": "schema:WorkflowBlockV1",
-    "generation_guidance": "Renders a workflow with steps.",
+    "generation_guidance": {"bullets": ["Render-only container for workflow display.", "Workflow data is provided upstream from architecture generation."]},
     "view_bindings": {"web": {"fragment_id": "fragment:WorkflowBlockV1:web:1.0.0"}},
     "status": "accepted",
 }
@@ -1361,7 +1361,7 @@ WORKFLOW_BLOCK_V1_COMPONENT = {
 DATA_MODEL_BLOCK_V1_COMPONENT = {
     "component_id": "component:DataModelBlockV1:1.0.0",
     "schema_id": "schema:DataModelBlockV1",
-    "generation_guidance": "Renders a data model entity with fields.",
+    "generation_guidance": {"bullets": ["Render-only container for data model display.", "Data model is provided upstream from architecture generation."]},
     "view_bindings": {"web": {"fragment_id": "fragment:DataModelBlockV1:web:1.0.0"}},
     "status": "accepted",
 }
@@ -1373,7 +1373,7 @@ DATA_MODEL_BLOCK_V1_COMPONENT = {
 EPIC_STORIES_CARD_BLOCK_V1_COMPONENT = {
     "component_id": "component:EpicStoriesCardBlockV1:1.0.0",
     "schema_id": "schema:EpicStoriesCardBlockV1",
-    "generation_guidance": "Renders an epic card with nested story summaries. Stories are summary-level only (no AC, no dependencies). Empty stories array omits story section entirely.",
+    "generation_guidance": {"bullets": ["Render-only container for epic card with story summaries.", "Stories are summary-level only (no AC, no dependencies).", "Empty stories array omits story section entirely."]},
     "view_bindings": {"web": {"fragment_id": "fragment:EpicStoriesCardBlockV1:web:1.0.0"}},
     "status": "accepted",
 }

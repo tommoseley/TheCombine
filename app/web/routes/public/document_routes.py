@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 
@@ -192,7 +192,7 @@ async def _get_document_type(db: AsyncSession, doc_type_id: str) -> dict | None:
     """Get document type configuration from database."""
     result = await db.execute(
         text("""
-            SELECT doc_type_id, name, description, icon, required_inputs, optional_inputs
+            SELECT doc_type_id, name, description, icon, required_inputs, optional_inputs, view_docdef
             FROM document_types 
             WHERE doc_type_id = :doc_type_id AND is_active = true
         """),
@@ -209,6 +209,7 @@ async def _get_document_type(db: AsyncSession, doc_type_id: str) -> dict | None:
         "icon": row.icon,
         "required_inputs": row.required_inputs or [],
         "optional_inputs": row.optional_inputs or [],
+        "view_docdef": row.view_docdef,
     }
 
 
@@ -346,7 +347,8 @@ async def get_document(
     is_htmx = request.headers.get("HX-Request") == "true"
     
     # ADR-034: Try new viewer if view_docdef is configured and document exists
-    view_docdef = fallback_config.get("view_docdef")
+    # Phase 1 (WS-DOCUMENT-SYSTEM-CLEANUP): Prefer DB value, fallback to DOCUMENT_CONFIG
+    view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
     if document and view_docdef and document.content:
         logger.info(f"Attempting new viewer for {doc_type_id} -> {view_docdef}")
         response = await _render_with_new_viewer(
@@ -545,7 +547,6 @@ async def get_task_status(task_id: str):
         "result": task.result,
         "error": task.error,
     }
-
 
 
 

@@ -218,7 +218,63 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
 // Run after URL changes
 window.addEventListener('popstate', updateActiveStates);
 document.body.addEventListener('htmx:pushedIntoHistory', updateActiveStates);
+
+// =========================================================================
+// BUILD STATUS INDICATOR
+// =========================================================================
+
+var BUILD_STORAGE_KEY = 'combine_document_builds';
+
+function updateBuildingIndicators() {
+    const builds = JSON.parse(localStorage.getItem(BUILD_STORAGE_KEY) || '{}');
+    
+    document.querySelectorAll('.doc-link').forEach(link => {
+        const href = link.getAttribute('hx-get') || '';
+        const match = href.match(/\/projects\/([^\/]+)\/documents\/([^\/]+)/);
+        if (!match) return;
+        
+        const projectId = match[1];
+        const docTypeId = match[2];
+        const buildKey = projectId + ':' + docTypeId;
+        
+        const icons = link.querySelectorAll('[data-lucide]');
+        const statusIcon = icons[icons.length - 1];
+        if (!statusIcon) return;
+        
+        if (builds[buildKey]) {
+            // Check if build is stale (> 10 minutes)
+            if (Date.now() - builds[buildKey].startedAt > 10 * 60 * 1000) {
+                delete builds[buildKey];
+                localStorage.setItem(BUILD_STORAGE_KEY, JSON.stringify(builds));
+                return;
+            }
+            
+            statusIcon.setAttribute('data-lucide', 'loader-2');
+            statusIcon.classList.remove('text-emerald-600', 'dark:text-emerald-400', 'text-amber-600', 'dark:text-amber-400', 'text-gray-400', 'dark:text-gray-500', 'text-violet-600', 'dark:text-violet-400');
+            statusIcon.classList.add('text-violet-600', 'dark:text-violet-400', 'animate-spin');
+        } else {
+            statusIcon.classList.remove('animate-spin');
+        }
+    });
+    
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updateBuildingIndicators);
+document.body.addEventListener('htmx:afterSwap', function() {
+    setTimeout(updateBuildingIndicators, 50);
+});
+window.addEventListener('storage', function(e) {
+    if (e.key === BUILD_STORAGE_KEY) updateBuildingIndicators();
+});
+setInterval(updateBuildingIndicators, 2000);
 </script>
+
+
+
+
 
 
 

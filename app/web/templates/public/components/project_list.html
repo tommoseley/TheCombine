@@ -51,31 +51,25 @@
             <div class="flex items-center gap-1.5 flex-shrink-0">
                 {% if project.status_summary.ready > 0 %}
                 <span class="flex items-center gap-0.5">
-                    <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                    <i data-lucide="file-check" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.ready }}</span>
-                </span>
-                {% endif %}
-                {% if project.status_summary.needs_acceptance > 0 %}
-                <span class="flex items-center gap-0.5">
-                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.needs_acceptance }}</span>
                 </span>
                 {% endif %}
                 {% if project.status_summary.stale > 0 %}
                 <span class="flex items-center gap-0.5">
-                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+                    <i data-lucide="file-check" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.stale }}</span>
                 </span>
                 {% endif %}
                 {% if project.status_summary.blocked > 0 %}
                 <span class="flex items-center gap-0.5">
-                    <i data-lucide="x-circle" class="w-4 h-4 text-red-600 dark:text-red-400"></i>
+                    <i data-lucide="file-x" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.blocked }}</span>
                 </span>
                 {% endif %}
                 {% if project.status_summary.waiting > 0 %}
                 <span class="flex items-center gap-0.5">
-                    <i data-lucide="clock" class="w-4 h-4 text-gray-400 dark:text-gray-500"></i>
+                    <i data-lucide="file-plus" class="w-4 h-4 text-violet-600 dark:text-violet-400"></i>
                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ project.status_summary.waiting }}</span>
                 </span>
                 {% endif %}
@@ -93,7 +87,7 @@
                         hx-get="/projects/{{ project.id }}/documents/{{ doc.doc_type_id }}"
                         hx-target="#main-content"
                         hx-push-url="true"
-                        class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px] {% if doc.readiness == 'blocked' %}opacity-60{% endif %}">
+                        class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px] {% if doc.readiness == 'blocked' %}opacity-50{% endif %}">
                         
                         <!-- Document Type Icon -->
                         <i data-lucide="{{ doc.icon }}" class="doc-icon w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0"></i>
@@ -108,13 +102,13 @@
                         
                         <!-- Document Status Icon -->
                         {% if doc.readiness == 'ready' %}
-                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"></i>
+                            <i data-lucide="file-check" class="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0"></i>
                         {% elif doc.readiness == 'stale' %}
-                            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+                            <i data-lucide="file-check" class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
                         {% elif doc.readiness == 'blocked' %}
-                            <i data-lucide="x-circle" class="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0"></i>
+                            <i data-lucide="file-x" class="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
                         {% elif doc.readiness == 'waiting' %}
-                            <i data-lucide="clock" class="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
+                            <i data-lucide="file-plus" class="w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0"></i>
                         {% endif %}
                     </a>
                     {% endfor %}
@@ -332,3 +326,10 @@ document.body.addEventListener('htmx:afterSwap', function(event) {
     }
 });
 </script>
+
+
+
+
+
+
+

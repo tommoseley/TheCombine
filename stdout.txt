@@ -1,0 +1,296 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Dev\The Combine\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Dev\The Combine
+plugins: anyio-4.12.0, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 10 items
+
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_includes_view_docdef FAILED [ 10%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_null_view_docdef FAILED [ 20%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_not_found FAILED [ 30%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefResolutionPriority::test_db_value_preferred_over_fallback PASSED [ 40%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefResolutionPriority::test_fallback_used_when_db_null PASSED [ 50%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefResolutionPriority::test_fallback_used_when_doc_type_none PASSED [ 60%]
+tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefResolutionPriority::test_none_when_both_empty PASSED [ 70%]
+tests/domain/registry/test_view_docdef_resolution.py::TestSeedDataIncludesViewDocdef::test_all_seed_types_have_view_docdef FAILED [ 80%]
+tests/domain/registry/test_view_docdef_resolution.py::TestDocumentTypeModelIncludesViewDocdef::test_model_has_view_docdef_column FAILED [ 90%]
+tests/domain/registry/test_view_docdef_resolution.py::TestDocumentTypeModelIncludesViewDocdef::test_to_dict_includes_view_docdef FAILED [100%]
+
+================================== FAILURES ===================================
+___ TestViewDocdefFromDatabase.test_get_document_type_includes_view_docdef ____
+
+self = <test_view_docdef_resolution.TestViewDocdefFromDatabase object at 0x000002956A20A850>
+
+    @pytest.mark.asyncio
+    async def test_get_document_type_includes_view_docdef(self):
+        """Test that _get_document_type returns view_docdef from DB."""
+>       from app.web.routes.public.document_routes import _get_document_type
+
+tests\domain\registry\test_view_docdef_resolution.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\web\__init__.py:4: in <module>
+    from . import routes
+app\web\routes\__init__.py:29: in <module>
+    from .public.home_routes import router as home_router
+app\web\routes\public\__init__.py:2: in <module>
+    from .home_routes import router as home_router
+app\web\routes\public\home_routes.py:9: in <module>
+    from app.core.database import get_db
+app\core\__init__.py:11: in <module>
+    from app.core.database import get_db, init_database
+app\core\database.py:27: in <module>
+    engine = create_async_engine(
+venv\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:2: in create_engine
+    ???
+venv\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+venv\Lib\site-packages\sqlalchemy\engine\create.py:617: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.postgresql.asyncpg.PGDialect_asyncpg'>
+
+    @classmethod
+    def import_dbapi(cls):
+>       return AsyncAdapt_asyncpg_dbapi(__import__("asyncpg"))
+                                        ^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'asyncpg'
+
+venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:1094: ModuleNotFoundError
+_____ TestViewDocdefFromDatabase.test_get_document_type_null_view_docdef ______
+
+self = <test_view_docdef_resolution.TestViewDocdefFromDatabase object at 0x000002956A20AD50>
+
+    @pytest.mark.asyncio
+    async def test_get_document_type_null_view_docdef(self):
+        """Test handling of NULL view_docdef in database."""
+>       from app.web.routes.public.document_routes import _get_document_type
+
+tests\domain\registry\test_view_docdef_resolution.py:50: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\web\__init__.py:4: in <module>
+    from . import routes
+app\web\routes\__init__.py:29: in <module>
+    from .public.home_routes import router as home_router
+app\web\routes\public\__init__.py:2: in <module>
+    from .home_routes import router as home_router
+app\web\routes\public\home_routes.py:9: in <module>
+    from app.core.database import get_db
+app\core\__init__.py:11: in <module>
+    from app.core.database import get_db, init_database
+app\core\database.py:27: in <module>
+    engine = create_async_engine(
+venv\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:2: in create_engine
+    ???
+venv\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+venv\Lib\site-packages\sqlalchemy\engine\create.py:617: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.postgresql.asyncpg.PGDialect_asyncpg'>
+
+    @classmethod
+    def import_dbapi(cls):
+>       return AsyncAdapt_asyncpg_dbapi(__import__("asyncpg"))
+                                        ^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'asyncpg'
+
+venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:1094: ModuleNotFoundError
+_________ TestViewDocdefFromDatabase.test_get_document_type_not_found _________
+
+self = <test_view_docdef_resolution.TestViewDocdefFromDatabase object at 0x000002956A275480>
+
+    @pytest.mark.asyncio
+    async def test_get_document_type_not_found(self):
+        """Test handling of non-existent document type."""
+>       from app.web.routes.public.document_routes import _get_document_type
+
+tests\domain\registry\test_view_docdef_resolution.py:76: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\web\__init__.py:4: in <module>
+    from . import routes
+app\web\routes\__init__.py:29: in <module>
+    from .public.home_routes import router as home_router
+app\web\routes\public\__init__.py:2: in <module>
+    from .home_routes import router as home_router
+app\web\routes\public\home_routes.py:9: in <module>
+    from app.core.database import get_db
+app\core\__init__.py:11: in <module>
+    from app.core.database import get_db, init_database
+app\core\database.py:27: in <module>
+    engine = create_async_engine(
+venv\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:2: in create_engine
+    ???
+venv\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+venv\Lib\site-packages\sqlalchemy\engine\create.py:617: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.postgresql.asyncpg.PGDialect_asyncpg'>
+
+    @classmethod
+    def import_dbapi(cls):
+>       return AsyncAdapt_asyncpg_dbapi(__import__("asyncpg"))
+                                        ^^^^^^^^^^^^^^^^^^^^^
+E       ModuleNotFoundError: No module named 'asyncpg'
+
+venv\Lib\site-packages\sqlalchemy\dialects\postgresql\asyncpg.py:1094: ModuleNotFoundError
+_____ TestSeedDataIncludesViewDocdef.test_all_seed_types_have_view_docdef _____
+
+self = <test_view_docdef_resolution.TestSeedDataIncludesViewDocdef object at 0x000002956A20AFD0>
+
+    def test_all_seed_types_have_view_docdef(self):
+        """Verify all seed document types include view_docdef."""
+>       from app.domain.registry.seed_document_types import INITIAL_DOCUMENT_TYPES
+
+tests\domain\registry\test_view_docdef_resolution.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\domain\registry\__init__.py:28: in <module>
+    from app.domain.registry.loader import (
+app\domain\registry\loader.py:17: in <module>
+    from app.api.models.document_type import DocumentType
+app\api\__init__.py:3: in <module>
+    from app.api.v1 import api_router
+app\api\v1\__init__.py:5: in <module>
+    from app.api.v1.routers import workflows_router, executions_router, websocket_router
+app\api\v1\routers\__init__.py:3: in <module>
+    from app.api.v1.routers.workflows import router as workflows_router
+app\api\v1\routers\workflows.py:5: in <module>
+    from app.api.v1.dependencies import get_workflow_registry
+app\api\v1\dependencies.py:9: in <module>
+    from app.domain.workflow import (
+app\domain\workflow\__init__.py:12: in <module>
+    from app.domain.workflow.validator import WorkflowValidator
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    """Workflow validator implementing ADR-011 and ADR-027 rules.
+    
+    Validates workflow definitions before execution. Enforces:
+    - JSON Schema conformance
+    - Scope hierarchy validity
+    - Ownership DAG (no cycles)
+    - Reference rules (ancestor OK, sibling/descendant forbidden)
+    - Prompt naming and manifest presence
+    """
+    
+    import json
+    import re
+    from pathlib import Path
+    from typing import Dict, List, Optional, Set
+    
+>   import jsonschema
+E   ModuleNotFoundError: No module named 'jsonschema'
+
+app\domain\workflow\validator.py:16: ModuleNotFoundError
+__ TestDocumentTypeModelIncludesViewDocdef.test_model_has_view_docdef_column __
+
+self = <test_view_docdef_resolution.TestDocumentTypeModelIncludesViewDocdef object at 0x000002956A20B110>
+
+    def test_model_has_view_docdef_column(self):
+        """Verify DocumentType model includes view_docdef."""
+>       from app.api.models.document_type import DocumentType
+
+tests\domain\registry\test_view_docdef_resolution.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\api\__init__.py:3: in <module>
+    from app.api.v1 import api_router
+app\api\v1\__init__.py:5: in <module>
+    from app.api.v1.routers import workflows_router, executions_router, websocket_router
+app\api\v1\routers\__init__.py:3: in <module>
+    from app.api.v1.routers.workflows import router as workflows_router
+app\api\v1\routers\workflows.py:5: in <module>
+    from app.api.v1.dependencies import get_workflow_registry
+app\api\v1\dependencies.py:9: in <module>
+    from app.domain.workflow import (
+app\domain\workflow\__init__.py:12: in <module>
+    from app.domain.workflow.validator import WorkflowValidator
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    """Workflow validator implementing ADR-011 and ADR-027 rules.
+    
+    Validates workflow definitions before execution. Enforces:
+    - JSON Schema conformance
+    - Scope hierarchy validity
+    - Ownership DAG (no cycles)
+    - Reference rules (ancestor OK, sibling/descendant forbidden)
+    - Prompt naming and manifest presence
+    """
+    
+    import json
+    import re
+    from pathlib import Path
+    from typing import Dict, List, Optional, Set
+    
+>   import jsonschema
+E   ModuleNotFoundError: No module named 'jsonschema'
+
+app\domain\workflow\validator.py:16: ModuleNotFoundError
+__ TestDocumentTypeModelIncludesViewDocdef.test_to_dict_includes_view_docdef __
+
+self = <test_view_docdef_resolution.TestDocumentTypeModelIncludesViewDocdef object at 0x000002956A20B250>
+
+    def test_to_dict_includes_view_docdef(self):
+        """Verify to_dict() includes view_docdef."""
+>       from app.api.models.document_type import DocumentType
+
+tests\domain\registry\test_view_docdef_resolution.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\api\__init__.py:3: in <module>
+    from app.api.v1 import api_router
+app\api\v1\__init__.py:5: in <module>
+    from app.api.v1.routers import workflows_router, executions_router, websocket_router
+app\api\v1\routers\__init__.py:3: in <module>
+    from app.api.v1.routers.workflows import router as workflows_router
+app\api\v1\routers\workflows.py:5: in <module>
+    from app.api.v1.dependencies import get_workflow_registry
+app\api\v1\dependencies.py:9: in <module>
+    from app.domain.workflow import (
+app\domain\workflow\__init__.py:12: in <module>
+    from app.domain.workflow.validator import WorkflowValidator
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    """Workflow validator implementing ADR-011 and ADR-027 rules.
+    
+    Validates workflow definitions before execution. Enforces:
+    - JSON Schema conformance
+    - Scope hierarchy validity
+    - Ownership DAG (no cycles)
+    - Reference rules (ancestor OK, sibling/descendant forbidden)
+    - Prompt naming and manifest presence
+    """
+    
+    import json
+    import re
+    from pathlib import Path
+    from typing import Dict, List, Optional, Set
+    
+>   import jsonschema
+E   ModuleNotFoundError: No module named 'jsonschema'
+
+app\domain\workflow\validator.py:16: ModuleNotFoundError
+=========================== short test summary info ===========================
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_includes_view_docdef
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_null_view_docdef
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestViewDocdefFromDatabase::test_get_document_type_not_found
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestSeedDataIncludesViewDocdef::test_all_seed_types_have_view_docdef
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestDocumentTypeModelIncludesViewDocdef::test_model_has_view_docdef_column
+FAILED tests/domain/registry/test_view_docdef_resolution.py::TestDocumentTypeModelIncludesViewDocdef::test_to_dict_includes_view_docdef
+========================= 6 failed, 4 passed in 0.36s =========================

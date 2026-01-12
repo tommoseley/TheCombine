@@ -837,7 +837,7 @@ ARCH_COMPONENT_BLOCK_V1_SCHEMA = {
         "technology_choices": {"type": "array", "items": {"type": "string"}},
         "depends_on_components": {"type": "array", "items": {"type": "string"}},
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 
@@ -858,7 +858,7 @@ QUALITY_ATTRIBUTE_BLOCK_V1_SCHEMA = {
         "rationale": {"type": "string"},
         "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 
@@ -899,7 +899,7 @@ INTERFACE_BLOCK_V1_SCHEMA = {
             }
         },
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 
@@ -934,7 +934,7 @@ WORKFLOW_BLOCK_V1_SCHEMA = {
             }
         },
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 
@@ -968,7 +968,7 @@ DATA_MODEL_BLOCK_V1_SCHEMA = {
         },
         "relationships": {"type": "array"},
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 # =============================================================================
@@ -1059,7 +1059,7 @@ EPIC_STORIES_CARD_BLOCK_V1_SCHEMA = {
             }
         }
     },
-    "additionalProperties": True
+    "additionalProperties": False
 }
 
 INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
