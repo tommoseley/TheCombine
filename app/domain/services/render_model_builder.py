@@ -1,4 +1,4 @@
-﻿"""
+"""
 RenderModelBuilder for ADR-034 Document Composition.
 
 Builds RenderModels from document definitions and document data.
@@ -34,9 +34,9 @@ def derive_risk_level(risks: List[Dict[str, Any]]) -> str:
     Derive aggregate risk level from a list of risks.
     
     FROZEN RULE (2026-01-08):
-    - If any risk has likelihood="high" → "high"
-    - Else if any risk has likelihood="medium" → "medium"  
-    - Else → "low"
+    - If any risk has likelihood="high" ? "high"
+    - Else if any risk has likelihood="medium" ? "medium"  
+    - Else ? "low"
     
     Args:
         risks: List of RiskV1-shaped dicts with optional 'likelihood' field
@@ -62,8 +62,8 @@ def derive_integration_surface(obj: Dict[str, Any]) -> str:
     Derive integration surface indicator from architecture data.
     
     FROZEN RULE (2026-01-08):
-    - If external_integrations count > 0 → "external"
-    - Else → "none"
+    - If external_integrations count > 0 ? "external"
+    - Else ? "none"
     
     Args:
         obj: Architecture data object with optional 'external_integrations' field
@@ -87,9 +87,9 @@ def derive_complexity_level(obj: Dict[str, Any]) -> str:
     
     FROZEN RULE (2026-01-08):
     total = |systems_touched| + |key_interfaces| + |dependencies| + |external_integrations|
-    - 0-3 → "low"
-    - 4-7 → "medium"
-    - 8+ → "high"
+    - 0-3 ? "low"
+    - 4-7 ? "medium"
+    - 8+ ? "high"
     
     Args:
         obj: Architecture data object
@@ -298,6 +298,7 @@ class RenderModelBuilder:
         document_id: Optional[str] = None,
         title: Optional[str] = None,
         subtitle: Optional[str] = None,
+        lifecycle_state: Optional[str] = None,
     ) -> RenderModel:
         """
         Build a RenderModel from document definition and data.
@@ -423,6 +424,21 @@ class RenderModelBuilder:
         hash_value = hashlib.sha256(content.encode()).hexdigest()[:16]
         
         return hash_value
+    
+    def _build_metadata(
+        self,
+        section_count: int,
+        lifecycle_state: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Build metadata dict for RenderModel.
+        
+        Includes lifecycle_state (ADR-036) if provided.
+        """
+        metadata = {"section_count": section_count}
+        if lifecycle_state:
+            metadata["lifecycle_state"] = lifecycle_state
+        return metadata
     
     async def _compute_schema_bundle_sha256(
         self,
@@ -819,8 +835,6 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
-
-
 
 
 

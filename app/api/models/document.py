@@ -12,7 +12,7 @@ import hashlib
 import json
 
 from sqlalchemy import (
-    Column, String, Integer, Boolean, Text, DateTime,
+    Column, String, Integer, Boolean, Text, DateTime, Enum,
     ForeignKey, Index, CheckConstraint, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, TSVECTOR
@@ -100,6 +100,12 @@ class Document(Base):
         nullable=True,
         doc="SHA-256 hash of content for immutability verification"
     )
+
+    schema_bundle_sha256: Mapped[Optional[str]] = Column(
+        String(100),
+        nullable=True,
+        doc="Schema bundle hash at generation time (Phase 2 WS-DOCUMENT-SYSTEM-CLEANUP)"
+    )
     
     is_latest: Mapped[bool] = Column(
         Boolean,
@@ -146,6 +152,28 @@ class Document(Base):
         nullable=False,
         default=False,
         doc="True when inputs have changed and doc may need rebuild"
+    )
+
+    # =========================================================================
+    # LIFECYCLE STATE (ADR-036)
+    # =========================================================================
+    
+    lifecycle_state: Mapped[str] = Column(
+        Enum(
+            'generating', 'partial', 'complete', 'stale',
+            name='document_lifecycle_state',
+            create_type=False,  # Created by migration
+        ),
+        nullable=False,
+        default='complete',
+        doc="ADR-036 lifecycle state: generating | partial | complete | stale"
+    )
+    
+    state_changed_at: Mapped[datetime] = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        doc="Timestamp of last lifecycle state change"
     )
     
     # =========================================================================
@@ -407,5 +435,58 @@ class Document(Base):
         self.rejected_by = None
         self.rejection_reason = None
     
+
+    # =========================================================================
+    # LIFECYCLE STATE METHODS (ADR-036)
+    # =========================================================================
+    
+    # Valid state transitions per ADR-036
+    VALID_TRANSITIONS = {
+        'generating': ['partial', 'complete'],
+        'partial': ['generating', 'complete', 'stale'],
+        'complete': ['partial', 'stale'],
+        'stale': ['generating'],
+    }
+    
+    def can_transition_to(self, new_state: str) -> bool:
+        """Check if transition to new_state is valid per ADR-036."""
+        if self.lifecycle_state is None:
+            return True  # Initial state
+        valid_targets = self.VALID_TRANSITIONS.get(self.lifecycle_state, [])
+        return new_state in valid_targets
+    
+    def set_lifecycle_state(self, new_state: str) -> None:
+        """
+        Set lifecycle state with validation and timestamp update.
+        
+        Raises ValueError if transition is invalid.
+        """
+        if not self.can_transition_to(new_state):
+            raise ValueError(
+                f"Invalid state transition: {self.lifecycle_state} -> {new_state}"
+            )
+        self.lifecycle_state = new_state
+        self.state_changed_at = func.now()
+    
+    def mark_generating(self) -> None:
+        """Mark document as generating."""
+        self.set_lifecycle_state("generating")
+    
+    def mark_partial(self) -> None:
+        """Mark document as partial (some sections complete)."""
+        self.set_lifecycle_state("partial")
+    
+    def mark_complete(self) -> None:
+        """Mark document as complete."""
+        self.set_lifecycle_state("complete")
+    
+    def mark_stale(self) -> None:
+        """Mark document as stale due to upstream changes."""
+        # Stale can be set from partial or complete
+        if self.lifecycle_state in ('partial', 'complete'):
+            self.lifecycle_state = "stale"
+            self.state_changed_at = func.now()
+            self.is_stale = True  # Keep legacy field in sync
+
     def __repr__(self) -> str:
         return f"<Document(id={self.id}, type={self.doc_type_id}, title='{self.title[:30]}...')>"
