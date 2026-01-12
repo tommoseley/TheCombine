@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
 from app.core.database import get_db
+from app.core.config import USE_LEGACY_TEMPLATES
 from ..shared import templates
 from app.api.services import project_service
 from app.api.services.document_status_service import document_status_service
@@ -364,7 +365,15 @@ async def get_document(
         )
         if response:
             return response
-        # Fall through to old templates if new viewer fails
+        # Phase 6 (WS-DOCUMENT-SYSTEM-CLEANUP): Feature flag controls fallback behavior
+        if not USE_LEGACY_TEMPLATES:
+            logger.warning(
+                f"LEGACY_TEMPLATE_FALLBACK_BLOCKED: New viewer failed for {doc_type_id}, "
+                f"USE_LEGACY_TEMPLATES=False. Set USE_LEGACY_TEMPLATES=true to enable fallback."
+            )
+            # Continue to legacy path for now - in future, return error template
+        else:
+            logger.info(f"Falling back to legacy templates for {doc_type_id} (USE_LEGACY_TEMPLATES=True)")
     
     # ADR-030: BFF handling for epic_backlog (legacy path)
     if doc_type_id == "epic_backlog":
@@ -550,7 +559,6 @@ async def get_task_status(task_id: str):
         "result": task.result,
         "error": task.error,
     }
-
 
 
 

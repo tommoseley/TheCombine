@@ -94,6 +94,9 @@ ALLOW_RESET_IN_CRITICAL_PHASES = os.getenv("ALLOW_RESET_IN_CRITICAL_PHASES", "fa
 # Request Size Limits (QA-Blocker #1)
 MAX_REQUEST_BODY_SIZE = int(os.getenv("MAX_REQUEST_BODY_SIZE", 10 * 1024 * 1024))  # 10MB default
 
+# Feature Flags (WS-DOCUMENT-SYSTEM-CLEANUP Phase 6)
+USE_LEGACY_TEMPLATES = os.getenv("USE_LEGACY_TEMPLATES", "false").lower() == "true"
+
 # Anthropic API configuration (for data-driven mode)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "false")
 
@@ -130,6 +133,7 @@ class Settings:
         self.API_KEYS = API_KEYS
         self.ALLOW_RESET_IN_CRITICAL_PHASES = ALLOW_RESET_IN_CRITICAL_PHASES
         self.MAX_REQUEST_BODY_SIZE = MAX_REQUEST_BODY_SIZE
+        self.USE_LEGACY_TEMPLATES = USE_LEGACY_TEMPLATES
 
 # Global settings instance
 settings = Settings()
