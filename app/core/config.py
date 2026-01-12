@@ -97,6 +97,11 @@ MAX_REQUEST_BODY_SIZE = int(os.getenv("MAX_REQUEST_BODY_SIZE", 10 * 1024 * 1024)
 # Feature Flags (WS-DOCUMENT-SYSTEM-CLEANUP Phase 6)
 USE_LEGACY_TEMPLATES = os.getenv("USE_LEGACY_TEMPLATES", "false").lower() == "true"
 
+# Feature Flags (WS-DOCUMENT-SYSTEM-CLEANUP Phase 8)
+# Debug routes are disabled by default in production
+# Set ENABLE_DEBUG_ROUTES=true to enable /test-*, /api/admin/llm-runs/*/replay
+ENABLE_DEBUG_ROUTES = os.getenv("ENABLE_DEBUG_ROUTES", "false").lower() == "true"
+
 # Anthropic API configuration (for data-driven mode)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "false")
 
@@ -134,6 +139,7 @@ class Settings:
         self.ALLOW_RESET_IN_CRITICAL_PHASES = ALLOW_RESET_IN_CRITICAL_PHASES
         self.MAX_REQUEST_BODY_SIZE = MAX_REQUEST_BODY_SIZE
         self.USE_LEGACY_TEMPLATES = USE_LEGACY_TEMPLATES
+        self.ENABLE_DEBUG_ROUTES = ENABLE_DEBUG_ROUTES
 
 # Global settings instance
 settings = Settings()

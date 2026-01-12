@@ -95,3 +95,77 @@ class TestDocumentRoutesUsesFlag:
         source = inspect.getsource(dr)
         assert "if not USE_LEGACY_TEMPLATES:" in source
         assert "LEGACY_TEMPLATE_FALLBACK_BLOCKED" in source
+
+# =============================================================================
+# TESTS: Debug routes feature flag (Phase 8)
+# =============================================================================
+
+class TestDebugRoutesFeatureFlag:
+    """Tests for ENABLE_DEBUG_ROUTES configuration."""
+    
+    def test_enable_debug_routes_defaults_to_false(self):
+        """Verify ENABLE_DEBUG_ROUTES defaults to False (secure by default)."""
+        with patch.dict(os.environ, {}, clear=True):
+            result = os.getenv("ENABLE_DEBUG_ROUTES", "false").lower() == "true"
+            assert result is False
+    
+    def test_enable_debug_routes_true_when_env_set(self):
+        """Verify ENABLE_DEBUG_ROUTES is True when env var is 'true'."""
+        with patch.dict(os.environ, {"ENABLE_DEBUG_ROUTES": "true"}):
+            result = os.getenv("ENABLE_DEBUG_ROUTES", "false").lower() == "true"
+            assert result is True
+    
+    def test_config_exports_enable_debug_routes(self):
+        """Verify config module exports ENABLE_DEBUG_ROUTES."""
+        from app.core.config import ENABLE_DEBUG_ROUTES
+        
+        assert isinstance(ENABLE_DEBUG_ROUTES, bool)
+    
+    def test_settings_has_enable_debug_routes(self):
+        """Verify Settings class has ENABLE_DEBUG_ROUTES attribute."""
+        from app.core.config import settings
+        
+        assert hasattr(settings, 'ENABLE_DEBUG_ROUTES')
+        assert isinstance(settings.ENABLE_DEBUG_ROUTES, bool)
+
+
+class TestWebRoutesUsesDebugFlag:
+    """Tests that web routes module uses ENABLE_DEBUG_ROUTES."""
+    
+    def test_web_routes_imports_flag(self):
+        """Verify web routes imports ENABLE_DEBUG_ROUTES."""
+        import inspect
+        import app.web.routes as routes_module
+        
+        source = inspect.getsource(routes_module)
+        assert "from app.core.config import ENABLE_DEBUG_ROUTES" in source
+    
+    def test_web_routes_conditionally_includes_debug_router(self):
+        """Verify web routes conditionally includes debug_router."""
+        import inspect
+        import app.web.routes as routes_module
+        
+        source = inspect.getsource(routes_module)
+        assert "if ENABLE_DEBUG_ROUTES:" in source
+        assert "debug_router" in source
+
+
+class TestApiMainUsesDebugFlag:
+    """Tests that API main module uses ENABLE_DEBUG_ROUTES."""
+    
+    def test_api_main_imports_flag(self):
+        """Verify API main imports ENABLE_DEBUG_ROUTES."""
+        import inspect
+        import app.api.main as main_module
+        
+        source = inspect.getsource(main_module)
+        assert "ENABLE_DEBUG_ROUTES" in source
+    
+    def test_api_main_conditionally_includes_admin_router(self):
+        """Verify API main conditionally includes api_admin_router."""
+        import inspect
+        import app.api.main as main_module
+        
+        source = inspect.getsource(main_module)
+        assert "if ENABLE_DEBUG_ROUTES:" in source
+        assert "api_admin_router" in source
