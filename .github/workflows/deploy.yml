@@ -20,8 +20,6 @@ env:
   CONTAINER_NAME: the-combine
   DOMAIN_NAME: www.thecombine.ai
   PYTHON_VERSION: '3.12'
-  # Secret name in AWS Secrets Manager
-  ANTHROPIC_SECRET_NAME: the-combine/anthropic-api-key
 
 # Required for OIDC authentication
 permissions:
@@ -125,11 +123,8 @@ jobs:
       
       - name: Download current task definition
         run: |
-          # Get the Anthropic API key secret ARN
-          ANTHROPIC_SECRET_ARN=$(aws secretsmanager describe-secret \
-            --secret-id ${{ env.ANTHROPIC_SECRET_NAME }} \
-            --query 'ARN' \
-            --output text)
+          # Use secret ARN from GitHub variable (avoids needing secretsmanager:DescribeSecret permission)
+          ANTHROPIC_SECRET_ARN="${{ vars.ANTHROPIC_SECRET_ARN }}"
           echo "ANTHROPIC_SECRET_ARN=$ANTHROPIC_SECRET_ARN" >> $GITHUB_ENV
           
           aws ecs describe-task-definition \
