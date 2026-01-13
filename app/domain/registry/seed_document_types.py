@@ -274,11 +274,12 @@ async def clear_document_types(db: AsyncSession) -> int:
 
 if __name__ == "__main__":
     import asyncio
-    from database import get_db_session
+    from app.core.database import async_session_factory
     
     async def main():
-        async with get_db_session() as db:
+        async with async_session_factory() as db:
             count = await seed_document_types(db)
+            await db.commit()
             print(f"Seeded {count} document types")
     
     asyncio.run(main())

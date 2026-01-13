@@ -1,4 +1,4 @@
-﻿# The Combine - CI/CD Pipeline (ECS Fargate + ALB)
+# The Combine - CI/CD Pipeline (ECS Fargate + ALB)
 # Uses GitHub OIDC to assume AWS role - no stored credentials
 # ALB handles HTTPS termination and routing
 
@@ -18,8 +18,10 @@ env:
   ECS_SERVICE: the-combine-service
   ECS_TASK_FAMILY: the-combine-task
   CONTAINER_NAME: the-combine
-  DOMAIN_NAME: thecombine.ai
+  DOMAIN_NAME: www.thecombine.ai
   PYTHON_VERSION: '3.12'
+  # Secret name in AWS Secrets Manager
+  ANTHROPIC_SECRET_NAME: the-combine/anthropic-api-key
 
 # Required for OIDC authentication
 permissions:
@@ -123,14 +125,26 @@ jobs:
       
       - name: Download current task definition
         run: |
+          # Get the Anthropic API key secret ARN
+          ANTHROPIC_SECRET_ARN=$(aws secretsmanager describe-secret \
+            --secret-id ${{ env.ANTHROPIC_SECRET_NAME }} \
+            --query 'ARN' \
+            --output text)
+          echo "ANTHROPIC_SECRET_ARN=$ANTHROPIC_SECRET_ARN" >> $GITHUB_ENV
+          
           aws ecs describe-task-definition \
             --task-definition ${{ env.ECS_TASK_FAMILY }} \
             --query 'taskDefinition' \
             > task-definition.json
           
-          # Remove fields that can't be re-registered
-          cat task-definition.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > cleaned-task-definition.json
+          # Remove fields that can't be re-registered AND ensure secrets are set
+          cat task-definition.json | jq --arg secret_arn "$ANTHROPIC_SECRET_ARN" '
+            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+            .containerDefinitions[0].secrets = [{"name": "ANTHROPIC_API_KEY", "valueFrom": $secret_arn}]
+          ' > cleaned-task-definition.json
           mv cleaned-task-definition.json task-definition.json
+          
+          echo "Task definition prepared with secrets"
       
       - name: Update task definition with new image
         id: task-def
