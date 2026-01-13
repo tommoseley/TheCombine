@@ -70,6 +70,8 @@ async def _render_with_new_viewer(
     project: dict,
     is_htmx: bool,
     lifecycle_state: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
 ) -> HTMLResponse | None:
     """
     Attempt to render using new RenderModel + Fragment system.
@@ -94,6 +96,8 @@ async def _render_with_new_viewer(
             document_def_id=document_type,
             document_data=document_data,
             lifecycle_state=lifecycle_state,
+            title=title,
+            subtitle=description,
         )
         
         # Preload fragments
@@ -362,6 +366,8 @@ async def get_document(
             project=project,
             is_htmx=is_htmx,
             lifecycle_state=getattr(document, 'lifecycle_state', None),
+            title=doc_type_name,
+            description=doc_type_description,
         )
         if response:
             return response
@@ -559,7 +565,6 @@ async def get_task_status(task_id: str):
         "result": task.result,
         "error": task.error,
     }
-
 
 
 
