@@ -18,7 +18,7 @@ env:
   ECS_SERVICE: the-combine-service
   ECS_TASK_FAMILY: the-combine-task
   CONTAINER_NAME: the-combine
-  DOMAIN_NAME: thecombine.ai
+  DOMAIN_NAME: www.thecombine.ai
   PYTHON_VERSION: '3.12'
 
 # Required for OIDC authentication
