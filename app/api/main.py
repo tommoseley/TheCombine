@@ -39,6 +39,7 @@ from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
 from app.api.routers.commands import router as commands_router  # WS-STORY-BACKLOG-COMMANDS
+from app.api.routers.config_routes import router as config_router
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
@@ -186,6 +187,7 @@ else:
 app.include_router(protected_router)
 app.include_router(accounts_router)
 app.include_router(commands_router)  # WS-STORY-BACKLOG-COMMANDS
+app.include_router(config_router)  # System config API
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions

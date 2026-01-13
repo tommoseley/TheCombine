@@ -1,4 +1,4 @@
-﻿"""
+"""
 Seed data for fragment_artifacts table.
 
 Per ADR-032: Canonical fragments are seeded as governed artifacts.
@@ -87,7 +87,7 @@ RISK_V1_FRAGMENT = '''<div class="risk {% if item.severity == 'critical' %}risk-
 OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
 <div class="open-questions-block" data-block-type="OpenQuestionsBlockV1">
   {% if block.context %}
-  <div class="block-context text-sm text-gray-500 mb-2">
+  <div class="block-context text-sm text-gray-500 dark:text-gray-400 mb-2">
     {% if block.context.epic_title %}Epic: {{ block.context.epic_title }}{% endif %}
   </div>
   {% endif %}
@@ -96,14 +96,14 @@ OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
     {% for item in block.data["items"] %}
       <div class="open-question-item border-l-4 border-amber-400 pl-4 py-2">
         <div class="question-header flex items-start gap-2">
-          <span class="question-id font-mono text-sm text-gray-500">{{ item.id }}</span>
+          <span class="question-id font-mono text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ item.id }}</span>
           {% if item.blocking %}
           <span class="blocking-badge bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded">Blocking</span>
           {% endif %}
         </div>
         <p class="question-text font-medium mt-1">{{ item.text }}</p>
         {% if item.why_it_matters %}
-        <p class="why-it-matters text-sm text-gray-600 mt-1">{{ item.why_it_matters }}</p>
+        <p class="why-it-matters text-sm text-gray-600 dark:text-gray-300 mt-1">{{ item.why_it_matters }}</p>
         {% endif %}
       </div>
     {% endfor %}
@@ -123,7 +123,7 @@ OPEN_QUESTIONS_BLOCK_V1_FRAGMENT = """
 STORY_V1_FRAGMENT = """
 <div class="story-item border-l-4 border-blue-400 pl-4 py-3 bg-white rounded shadow-sm">
   <div class="story-header flex items-center gap-2 mb-2">
-    <span class="story-id font-mono text-sm text-gray-500">{{ block.data.id }}</span>
+    <span class="story-id font-mono text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ block.data.id }}</span>
     <span class="story-status px-2 py-0.5 text-xs rounded 
       {% if block.data.status == 'done' %}bg-green-100 text-green-700
       {% elif block.data.status == 'blocked' %}bg-red-100 text-red-700
@@ -133,12 +133,12 @@ STORY_V1_FRAGMENT = """
       {{ block.data.status }}
     </span>
   </div>
-  <h4 class="story-title font-medium text-gray-900">{{ block.data.title }}</h4>
-  <p class="story-description text-sm text-gray-600 mt-1">{{ block.data.description }}</p>
+  <h4 class="story-title font-medium text-gray-900 dark:text-white">{{ block.data.title }}</h4>
+  <p class="story-description text-sm text-gray-600 dark:text-gray-300 mt-1">{{ block.data.description }}</p>
   {% if block.data.acceptance_criteria %}
   <div class="acceptance-criteria mt-2">
-    <span class="text-xs font-medium text-gray-500">Acceptance Criteria:</span>
-    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+    <span class="text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Acceptance Criteria:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 dark:text-gray-300 mt-1">
       {% for criterion in block.data.acceptance_criteria %}
       <li>{{ criterion }}</li>
       {% endfor %}
@@ -146,7 +146,7 @@ STORY_V1_FRAGMENT = """
   </div>
   {% endif %}
   {% if block.data.notes %}
-  <p class="story-notes text-xs text-gray-500 mt-2 italic">{{ block.data.notes }}</p>
+  <p class="story-notes text-xs text-gray-500 dark:text-gray-400 mt-2 italic">{{ block.data.notes }}</p>
   {% endif %}
 </div>
 """
@@ -155,7 +155,7 @@ STORY_V1_FRAGMENT = """
 STORIES_BLOCK_V1_FRAGMENT = """
 <div class="stories-block" data-block-type="StoriesBlockV1">
   {% if block.context %}
-  <div class="block-context text-sm text-gray-500 mb-3">
+  <div class="block-context text-sm text-gray-500 dark:text-gray-400 mb-3">
     {% if block.context.epic_title %}Epic: {{ block.context.epic_title }}{% endif %}
   </div>
   {% endif %}
@@ -164,7 +164,7 @@ STORIES_BLOCK_V1_FRAGMENT = """
     {% for item in block.data["items"] %}
       <div class="story-item border-l-4 border-blue-400 pl-4 py-3 bg-white rounded shadow-sm">
         <div class="story-header flex items-center gap-2 mb-2">
-          <span class="story-id font-mono text-sm text-gray-500">{{ item.id }}</span>
+          <span class="story-id font-mono text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ item.id }}</span>
           <span class="story-status px-2 py-0.5 text-xs rounded 
             {% if item.status == 'done' %}bg-green-100 text-green-700
             {% elif item.status == 'blocked' %}bg-red-100 text-red-700
@@ -174,12 +174,12 @@ STORIES_BLOCK_V1_FRAGMENT = """
             {{ item.status }}
           </span>
         </div>
-        <h4 class="story-title font-medium text-gray-900">{{ item.title }}</h4>
-        <p class="story-description text-sm text-gray-600 mt-1">{{ item.description }}</p>
+        <h4 class="story-title font-medium text-gray-900 dark:text-white">{{ item.title }}</h4>
+        <p class="story-description text-sm text-gray-600 dark:text-gray-300 mt-1">{{ item.description }}</p>
         {% if item.acceptance_criteria %}
         <div class="acceptance-criteria mt-2">
-          <span class="text-xs font-medium text-gray-500">Acceptance Criteria:</span>
-          <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+          <span class="text-xs font-medium text-gray-500 dark:text-gray-400 dark:text-gray-400">Acceptance Criteria:</span>
+          <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 dark:text-gray-300 mt-1">
             {% for criterion in item.acceptance_criteria %}
             <li>{{ criterion }}</li>
             {% endfor %}
@@ -207,7 +207,7 @@ STRING_LIST_BLOCK_V1_FRAGMENT = """
   {% set style = block.context.style | default(block.data.style) | default('bullet') %}
   
   {% if style == 'numbered' %}
-  <ol class="list-decimal list-inside space-y-2 text-gray-700">
+  <ol class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-200">
     {% for item in block.data["items"] %}
     <li>{{ item.value if item is mapping else item }}</li>
     {% endfor %}
@@ -219,12 +219,12 @@ STRING_LIST_BLOCK_V1_FRAGMENT = """
       <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
       </svg>
-      <span class="text-gray-700">{{ item.value if item is mapping else item }}</span>
+      <span class="text-gray-700 dark:text-gray-200">{{ item.value if item is mapping else item }}</span>
     </li>
     {% endfor %}
   </ul>
   {% else %}
-  <ul class="list-disc list-inside space-y-2 text-gray-700">
+  <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-200">
     {% for item in block.data["items"] %}
     <li>{{ item.value if item is mapping else item }}</li>
     {% endfor %}
@@ -320,7 +320,7 @@ RISKS_BLOCK_V1_FRAGMENT = """
       
       <div class="border-l-4 {{ border_class }} p-4 rounded-r-lg">
         <div class="flex items-center justify-between mb-1">
-          <p class="font-medium text-gray-900">{{ item.description }}</p>
+          <p class="font-medium text-gray-900 dark:text-white">{{ item.description }}</p>
           {% if item.likelihood %}
           <span class="px-2 py-0.5 text-xs font-medium rounded {{ badge_class }}">
             {{ likelihood | title }}
@@ -328,10 +328,10 @@ RISKS_BLOCK_V1_FRAGMENT = """
           {% endif %}
         </div>
         {% if item.impact %}
-        <p class="text-sm text-gray-600">{{ item.impact }}</p>
+        <p class="text-sm text-gray-600 dark:text-gray-300">{{ item.impact }}</p>
         {% endif %}
         {% if item.affected_epics and item.affected_epics | length > 0 %}
-        <p class="text-xs text-gray-500 mt-2">
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
           Affects: {{ item.affected_epics | join(', ') }}
         </p>
         {% endif %}
@@ -354,9 +354,9 @@ PARAGRAPH_BLOCK_V1_FRAGMENT = """
   
   {% set text = block.data.content or block.data.value or block.data %}
   {% if text is string %}
-  <p class="text-gray-700 leading-relaxed">{{ text }}</p>
+  <p class="text-gray-700 dark:text-gray-200 leading-relaxed">{{ text }}</p>
   {% elif text is mapping and text.value %}
-  <p class="text-gray-700 leading-relaxed">{{ text.value }}</p>
+  <p class="text-gray-700 dark:text-gray-200 leading-relaxed">{{ text.value }}</p>
   {% else %}
   <p class="text-gray-400 italic">No content.</p>
   {% endif %}
@@ -367,7 +367,7 @@ PARAGRAPH_BLOCK_V1_FRAGMENT = """
 INDICATOR_BLOCK_V1_FRAGMENT = """
 <div class="indicator-block inline-flex items-center gap-2" data-block-type="IndicatorBlockV1">
   {% if block.context and block.context.title %}
-  <span class="text-sm text-gray-600">{{ block.context.title }}:</span>
+  <span class="text-sm text-gray-600 dark:text-gray-300">{{ block.context.title }}:</span>
   {% endif %}
   
   {% set value = block.data.value | default('unknown') %}
@@ -384,7 +384,7 @@ INDICATOR_BLOCK_V1_FRAGMENT = """
     {{ value | title }}
   </span>
   {% else %}
-  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:text-gray-100">
     {{ value | title }}
   </span>
   {% endif %}
@@ -393,7 +393,7 @@ INDICATOR_BLOCK_V1_FRAGMENT = """
 
 
 EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
-<div class="epic-summary-block border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors" data-block-type="EpicSummaryBlockV1" data-epic-id="{{ block.data.epic_id | default(block.context.epic_id) }}">
+<div class="epic-summary-block border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-300 transition-colors" data-block-type="EpicSummaryBlockV1" data-epic-id="{{ block.data.epic_id | default(block.context.epic_id) }}">
   <div class="flex items-start justify-between gap-4">
     <div class="flex-1 min-w-0">
       <!-- Title -->
@@ -431,10 +431,10 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
   
   <!-- Detail Link -->
   {% if block.data.detail_ref %}
-  <div class="mt-3 pt-3 border-t border-gray-100">
+  <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
     <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium"
        data-detail-ref="{{ block.data.detail_ref | tojson }}">
-      View Details →
+      View Details â†’
     </a>
   </div>
   {% endif %}
@@ -447,7 +447,7 @@ DEPENDENCIES_BLOCK_V1_FRAGMENT = """
   {# Title handled by section header - don't duplicate #}
   <div class="space-y-2">
     {% for item in block.data["items"] %}
-    <div class="flex items-start gap-3 p-3 border border-gray-200 rounded-lg {% if item.blocking %}bg-amber-50 border-amber-200{% else %}bg-gray-50{% endif %}">
+    <div class="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg {% if item.blocking %}bg-amber-50 border-amber-200{% else %}bg-gray-50{% endif %}">
       <!-- Blocking indicator -->
       {% if item.blocking %}
       <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 flex-shrink-0">
@@ -461,16 +461,16 @@ DEPENDENCIES_BLOCK_V1_FRAGMENT = """
       
       <div class="flex-1 min-w-0">
         <!-- Target -->
-        <p class="font-medium text-gray-900">
+        <p class="font-medium text-gray-900 dark:text-white">
           {% if item.depends_on_type %}{{ item.depends_on_type }}:{% endif %}{{ item.depends_on_id }}
         </p>
         
         <!-- Reason -->
-        <p class="text-sm text-gray-600 mt-1">{{ item.reason }}</p>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ item.reason }}</p>
         
         <!-- Notes -->
         {% if item.notes %}
-        <p class="text-xs text-gray-500 mt-1 italic">{{ item.notes }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{{ item.notes }}</p>
         {% endif %}
       </div>
     </div>
@@ -485,11 +485,11 @@ DEPENDENCIES_BLOCK_V1_FRAGMENT = """
 
 
 STORY_SUMMARY_BLOCK_V1_FRAGMENT = """
-<div class="story-summary-card p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+<div class="story-summary-card p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-300 transition-colors">
   <div class="flex items-start justify-between gap-2">
     <div class="flex-1 min-w-0">
       <!-- Title -->
-      <p class="font-medium text-gray-900">{{ block.data.title }}</p>
+      <p class="font-medium text-gray-900 dark:text-white">{{ block.data.title }}</p>
       
       <!-- Intent -->
       <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ block.data.intent }}</p>
@@ -520,7 +520,7 @@ STORY_SUMMARY_BLOCK_V1_FRAGMENT = """
     {% if block.data.detail_ref %}
     <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0" 
        data-detail-ref="{{ block.data.detail_ref | tojson }}">
-      View →
+      View â†’
     </a>
     {% endif %}
   </div>
@@ -536,10 +536,10 @@ STORIES_BLOCK_V1_FRAGMENT = """
   
   <div class="space-y-2">
     {% for item in block.data["items"] %}
-    <div class="story-summary-card p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+    <div class="story-summary-card p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-300 transition-colors">
       <div class="flex items-start justify-between gap-2">
         <div class="flex-1 min-w-0">
-          <p class="font-medium text-gray-900">{{ item.title }}</p>
+          <p class="font-medium text-gray-900 dark:text-white">{{ item.title }}</p>
           <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ item.intent }}</p>
           <div class="flex items-center gap-2 mt-2">
             {% if item.phase %}
@@ -561,7 +561,7 @@ STORIES_BLOCK_V1_FRAGMENT = """
         {% if item.detail_ref %}
         <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0"
            data-detail-ref="{{ item.detail_ref | tojson }}">
-          View →
+          View â†’
         </a>
         {% endif %}
       </div>
@@ -581,11 +581,11 @@ STORIES_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 ARCH_COMPONENT_BLOCK_V1_FRAGMENT = """
-<div class="arch-component-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="ArchComponentBlockV1">
+<div class="arch-component-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="ArchComponentBlockV1">
   <div class="flex items-start justify-between gap-4 mb-3">
     <div>
-      <h4 class="text-lg font-semibold text-gray-900">{{ block.data.name }}</h4>
-      <span class="text-sm text-gray-500">{{ block.data.id }}</span>
+      <h4 class="text-lg font-semibold text-gray-900 dark:text-white">{{ block.data.name }}</h4>
+      <span class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ block.data.id }}</span>
     </div>
     <div class="flex items-center gap-2">
       {% if block.data.layer %}
@@ -603,13 +603,13 @@ ARCH_COMPONENT_BLOCK_V1_FRAGMENT = """
   </div>
   
   {% if block.data.purpose %}
-  <p class="text-gray-600 mb-3">{{ block.data.purpose }}</p>
+  <p class="text-gray-600 dark:text-gray-300 mb-3">{{ block.data.purpose }}</p>
   {% endif %}
   
   {% if block.data.responsibilities and block.data.responsibilities | length > 0 %}
   <div class="mb-3">
-    <span class="text-sm font-medium text-gray-700">Responsibilities:</span>
-    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Responsibilities:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 dark:text-gray-300 mt-1">
       {% for r in block.data.responsibilities %}
       <li>{{ r }}</li>
       {% endfor %}
@@ -619,17 +619,17 @@ ARCH_COMPONENT_BLOCK_V1_FRAGMENT = """
   
   {% if block.data.technology_choices and block.data.technology_choices | length > 0 %}
   <div class="mb-3">
-    <span class="text-sm font-medium text-gray-700">Technology:</span>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Technology:</span>
     <div class="flex flex-wrap gap-1 mt-1">
       {% for tech in block.data.technology_choices %}
-      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700">{{ tech }}</span>
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 dark:text-gray-200">{{ tech }}</span>
       {% endfor %}
     </div>
   </div>
   {% endif %}
   
   {% if block.data.depends_on_components and block.data.depends_on_components | length > 0 %}
-  <div class="text-sm text-gray-500">
+  <div class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">
     <span class="font-medium">Depends on:</span> {{ block.data.depends_on_components | join(', ') }}
   </div>
   {% endif %}
@@ -642,27 +642,27 @@ ARCH_COMPONENT_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 QUALITY_ATTRIBUTE_BLOCK_V1_FRAGMENT = """
-<div class="quality-attr-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="QualityAttributeBlockV1">
+<div class="quality-attr-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="QualityAttributeBlockV1">
   <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
   
   {% if block.data.target %}
   <div class="mb-2">
-    <span class="text-sm font-medium text-gray-700">Target:</span>
-    <p class="text-gray-600">{{ block.data.target }}</p>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Target:</span>
+    <p class="text-gray-600 dark:text-gray-300">{{ block.data.target }}</p>
   </div>
   {% endif %}
   
   {% if block.data.rationale %}
   <div class="mb-2">
-    <span class="text-sm font-medium text-gray-700">Rationale:</span>
-    <p class="text-sm text-gray-600">{{ block.data.rationale }}</p>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Rationale:</span>
+    <p class="text-sm text-gray-600 dark:text-gray-300">{{ block.data.rationale }}</p>
   </div>
   {% endif %}
   
   {% if block.data.acceptance_criteria and block.data.acceptance_criteria | length > 0 %}
   <div>
-    <span class="text-sm font-medium text-gray-700">Acceptance Criteria:</span>
-    <ul class="list-disc list-inside text-sm text-gray-600 mt-1">
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Acceptance Criteria:</span>
+    <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-300 dark:text-gray-300 mt-1">
       {% for c in block.data.acceptance_criteria %}
       <li>{{ c }}</li>
       {% endfor %}
@@ -678,11 +678,11 @@ QUALITY_ATTRIBUTE_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 INTERFACE_BLOCK_V1_FRAGMENT = """
-<div class="interface-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="InterfaceBlockV1">
+<div class="interface-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="InterfaceBlockV1">
   <div class="flex items-start justify-between gap-4 mb-3">
     <div>
-      <h4 class="text-lg font-semibold text-gray-900">{{ block.data.name }}</h4>
-      <span class="text-sm text-gray-500">{{ block.data.id }}</span>
+      <h4 class="text-lg font-semibold text-gray-900 dark:text-white">{{ block.data.name }}</h4>
+      <span class="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ block.data.id }}</span>
     </div>
     <div class="flex items-center gap-2">
       {% if block.data.type %}
@@ -691,7 +691,7 @@ INTERFACE_BLOCK_V1_FRAGMENT = """
       </span>
       {% endif %}
       {% if block.data.protocol %}
-      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:text-gray-200">
         {{ block.data.protocol }}
       </span>
       {% endif %}
@@ -699,15 +699,15 @@ INTERFACE_BLOCK_V1_FRAGMENT = """
   </div>
   
   {% if block.data.description %}
-  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  <p class="text-gray-600 dark:text-gray-300 mb-3">{{ block.data.description }}</p>
   {% endif %}
   
   {% if block.data.endpoints and block.data.endpoints | length > 0 %}
   <div class="mt-3">
-    <span class="text-sm font-medium text-gray-700">Endpoints:</span>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Endpoints:</span>
     <div class="mt-2 space-y-2">
       {% for ep in block.data.endpoints %}
-      <div class="bg-gray-50 rounded p-2 text-sm">
+      <div class="bg-gray-50 dark:bg-gray-700/50 rounded p-2 text-sm">
         <div class="flex items-center gap-2">
           <span class="font-mono px-1.5 py-0.5 rounded text-xs font-bold
             {% if ep.method == 'GET' %}bg-green-100 text-green-700
@@ -717,10 +717,10 @@ INTERFACE_BLOCK_V1_FRAGMENT = """
             {% else %}bg-gray-100 text-gray-700{% endif %}">
             {{ ep.method }}
           </span>
-          <span class="font-mono text-gray-800">{{ ep.path }}</span>
+          <span class="font-mono text-gray-800 dark:text-gray-100">{{ ep.path }}</span>
         </div>
         {% if ep.description %}
-        <p class="text-gray-600 mt-1">{{ ep.description }}</p>
+        <p class="text-gray-600 dark:text-gray-300 mt-1">{{ ep.description }}</p>
         {% endif %}
       </div>
       {% endfor %}
@@ -736,23 +736,23 @@ INTERFACE_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 WORKFLOW_BLOCK_V1_FRAGMENT = """
-<div class="workflow-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="WorkflowBlockV1">
+<div class="workflow-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="WorkflowBlockV1">
   <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
   
   {% if block.data.description %}
-  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  <p class="text-gray-600 dark:text-gray-300 mb-3">{{ block.data.description }}</p>
   {% endif %}
   
   {% if block.data.trigger %}
   <div class="mb-3 text-sm">
-    <span class="font-medium text-gray-700">Trigger:</span>
-    <span class="text-gray-600">{{ block.data.trigger }}</span>
+    <span class="font-medium text-gray-700 dark:text-gray-200">Trigger:</span>
+    <span class="text-gray-600 dark:text-gray-300">{{ block.data.trigger }}</span>
   </div>
   {% endif %}
   
   {% if block.data.steps and block.data.steps | length > 0 %}
   <div class="mt-3">
-    <span class="text-sm font-medium text-gray-700">Steps:</span>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Steps:</span>
     <div class="mt-2 space-y-2">
       {% for step in block.data.steps %}
       <div class="flex gap-3 text-sm">
@@ -761,9 +761,9 @@ WORKFLOW_BLOCK_V1_FRAGMENT = """
         </span>
         <div class="flex-1">
           <div class="flex items-center gap-2">
-            <span class="font-medium text-gray-800">{{ step.actor }}</span>
-            <span class="text-gray-400">→</span>
-            <span class="text-gray-600">{{ step.action }}</span>
+            <span class="font-medium text-gray-800 dark:text-gray-100">{{ step.actor }}</span>
+            <span class="text-gray-400">â†’</span>
+            <span class="text-gray-600 dark:text-gray-300">{{ step.action }}</span>
           </div>
         </div>
       </div>
@@ -780,40 +780,40 @@ WORKFLOW_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 DATA_MODEL_BLOCK_V1_FRAGMENT = """
-<div class="data-model-card border border-gray-200 rounded-lg p-4 mb-4 bg-white" data-block-type="DataModelBlockV1">
+<div class="data-model-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="DataModelBlockV1">
   <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
   
   {% if block.data.description %}
-  <p class="text-gray-600 mb-3">{{ block.data.description }}</p>
+  <p class="text-gray-600 dark:text-gray-300 mb-3">{{ block.data.description }}</p>
   {% endif %}
   
   {% if block.data.primary_keys and block.data.primary_keys | length > 0 %}
   <div class="mb-3 text-sm">
-    <span class="font-medium text-gray-700">Primary Key:</span>
-    <span class="font-mono text-gray-600">{{ block.data.primary_keys | join(', ') }}</span>
+    <span class="font-medium text-gray-700 dark:text-gray-200">Primary Key:</span>
+    <span class="font-mono text-gray-600 dark:text-gray-300">{{ block.data.primary_keys | join(', ') }}</span>
   </div>
   {% endif %}
   
   {% if block.data.fields and block.data.fields | length > 0 %}
   <div class="mt-3">
-    <span class="text-sm font-medium text-gray-700">Fields:</span>
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Fields:</span>
     <div class="mt-2 overflow-x-auto">
       <table class="min-w-full text-sm">
-        <thead class="bg-gray-50">
+        <thead class="bg-gray-50 dark:bg-gray-700/50 dark:bg-gray-700">
           <tr>
-            <th class="px-3 py-2 text-left font-medium text-gray-700">Name</th>
-            <th class="px-3 py-2 text-left font-medium text-gray-700">Type</th>
-            <th class="px-3 py-2 text-left font-medium text-gray-700">Required</th>
+            <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">Name</th>
+            <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">Type</th>
+            <th class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-200">Required</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
           {% for field in block.data.fields %}
           <tr>
-            <td class="px-3 py-2 font-mono text-gray-800">{{ field.name }}</td>
-            <td class="px-3 py-2 text-gray-600">{{ field.type }}</td>
+            <td class="px-3 py-2 font-mono text-gray-800 dark:text-gray-100">{{ field.name }}</td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ field.type }}</td>
             <td class="px-3 py-2">
               {% if field.required %}
-              <span class="text-green-600">✓</span>
+              <span class="text-green-600">âœ“</span>
               {% else %}
               <span class="text-gray-400">-</span>
               {% endif %}
@@ -833,17 +833,17 @@ DATA_MODEL_BLOCK_V1_FRAGMENT = """
 # =============================================================================
 
 EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT = """
-<div class="epic-stories-card border border-gray-200 rounded-lg bg-white shadow-sm mb-6" 
+<div class="epic-stories-card border border-gray-200 dark:border-gray-700 rounded-lg bg-white shadow-sm mb-6" 
      data-block-type="EpicStoriesCardBlockV1" data-epic-id="{{ block.data.epic_id }}">
   {# Epic Header #}
-  <div class="p-4 border-b border-gray-100">
+  <div class="p-4 border-b border-gray-100 dark:border-gray-700">
     <div class="flex items-start justify-between gap-4">
       <div class="flex-1 min-w-0">
-        <h3 class="text-lg font-semibold text-gray-900">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
           {{ block.data.epic_name | default(block.data.name) | default(block.data.epic_id) }}
         </h3>
         {% if block.data.intent %}
-        <p class="text-sm text-gray-600 mt-1">{{ block.data.intent }}</p>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ block.data.intent }}</p>
         {% endif %}
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
@@ -875,17 +875,17 @@ EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT = """
   {# Stories Section OR Generate Button #}
   {% if block.data.stories and block.data.stories | length > 0 %}
   <div class="stories-section">
-    <div class="px-4 py-2 bg-gray-50 border-b border-gray-100">
-      <span class="text-sm font-medium text-gray-700">Stories ({{ block.data.stories | length }})</span>
+    <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+      <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Stories ({{ block.data.stories | length }})</span>
     </div>
     <ul class="divide-y divide-gray-100">
       {% for story in block.data.stories %}
-      <li class="px-4 py-3 hover:bg-gray-50 transition-colors">
+      <li class="px-4 py-3 hover:bg-gray-50 dark:bg-gray-700/50 transition-colors">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-mono text-gray-500">{{ story.story_id | default(story.id) }}</span>
-              <span class="text-sm font-medium text-gray-900">{{ story.title }}</span>
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-400">{{ story.story_id | default(story.id) }}</span>
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ story.title }}</span>
             </div>
             {% set story_desc = story.intent | default(story.description) %}
             {% if story_desc %}
@@ -914,8 +914,8 @@ EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT = """
   </div>
   {% else %}
   {# No stories - show generate button #}
-  <div class="p-4 bg-gray-50 no-stories-section">
-      <p class="text-sm text-gray-500 mb-3 no-stories-text">No stories generated yet</p>
+  <div class="p-4 bg-gray-50 dark:bg-gray-700/50 no-stories-section">
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 no-stories-text">No stories generated yet</p>
     <button type="button"
             class="generate-epic-btn inline-flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             data-epic-id="{{ block.data.epic_id }}"
