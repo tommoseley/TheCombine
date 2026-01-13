@@ -100,6 +100,21 @@ class DocumentType(Base):
     # ADR-034: Document definition ID for new viewer rendering
     # Maps to document_definitions.document_def_id (e.g., 'EpicBacklogView')
     view_docdef = Column(String(100), nullable=True)
+
+    # =========================================================================
+    # PHASE 9: DATA-DRIVEN UX (WS-DOCUMENT-SYSTEM-CLEANUP)
+    # =========================================================================
+
+    # Status badges - configurable icons/colors per lifecycle state
+    # e.g., {"missing": {"icon": "file-plus", "color": "gray"}, ...}
+    status_badges = Column(JSONB, nullable=True)
+
+    # Primary action (CTA) configuration
+    # e.g., {"label": "Begin Research", "icon": "compass", "variant": "primary"}
+    primary_action = Column(JSONB, nullable=True)
+
+    # General display configuration (variants, visibility rules)
+    display_config = Column(JSONB, nullable=True)
     
     # Status
     is_active = Column(Boolean, nullable=False, default=True)
@@ -150,6 +165,9 @@ class DocumentType(Base):
             "scope": self.scope,
             "display_order": self.display_order,
             "view_docdef": self.view_docdef,
+            "status_badges": self.status_badges,
+            "primary_action": self.primary_action,
+            "display_config": self.display_config,
             "is_active": self.is_active,
             "version": self.version,
             "created_at": self.created_at.isoformat() if self.created_at else None,
