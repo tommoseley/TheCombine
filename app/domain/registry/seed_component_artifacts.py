@@ -1,4 +1,4 @@
-﻿"""
+"""
 Seed data for component_artifacts and document_definitions tables.
 
 Per ADR-034: Canonical components and document definitions are seeded as governed artifacts.
@@ -958,11 +958,11 @@ ARCHITECTURAL_SUMMARY_VIEW_DOCDEF = {
             "source_pointer": "/architecture_summary/mvp_scope_notes",
             "viewer_tab": "overview",
         },
-        # Problem Statement
+        # Problem Statement (first in overview)
         {
             "section_id": "problem_statement",
             "title": "Problem Statement",
-            "order": 40,
+            "order": 5,
             "component_id": "component:ParagraphBlockV1:1.0.0",
             "shape": "single",
             "source_pointer": "/context/problem_statement",

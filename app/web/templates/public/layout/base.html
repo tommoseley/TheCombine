@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="text-[14px]">
 <head>
     <meta charset="UTF-8">
@@ -139,13 +139,22 @@
 <body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors">
     <!-- Header -->
     <header class="bg-gray-900 dark:bg-gray-950 text-white shadow-lg sticky top-0 z-50 border-b border-gray-800">
-        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-4">
+        <div class="w-full px-4 py-3 flex items-center">
+            <!-- Left: Logo -->
+            <div class="flex items-center">
                 <a href="/" class="hover:opacity-80 transition-opacity"><h1 class="text-xl font-bold">The Combine</h1></a>
             </div>
             
+            <!-- Right: Search + Icons + User (pushed right with ml-auto) -->
+            <div class="flex items-center gap-6 ml-auto">
+            
+            <!-- Environment Badge -->
+            <div id="env-badge" class="hidden">
+                <span id="env-text" class="px-2 py-1 text-xs font-mono rounded bg-amber-500/20 text-amber-300"></span>
+            </div>
+            
             <!-- Global Search -->
-            <div class="flex-1 max-w-2xl mx-8">
+            <div class="w-80">
                 <div class="relative">
                     <input 
                         type="text" 
@@ -215,6 +224,7 @@
                     Sign In
                 </a>
             </div>
+            </div>
         </div>
     </header>
     
@@ -228,41 +238,9 @@
         <!-- Main Content Area -->
         <main id="main-content" class="flex-1 overflow-y-auto min-w-0 bg-gray-50 dark:bg-gray-900">
             {% block content %}
-            <!-- Default content when page first loads -->
-            <div class="p-6 max-w-7xl mx-auto">
-                <div class="text-center py-16">
-                    <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-50 mb-4">Welcome to The Combine</h1>
-                    <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">AI-driven pipeline automation for software development</p>
-                    
-                    <p class="text-gray-500 dark:text-gray-400">Select a project from the sidebar to get started</p>
-                </div>
-                
-                <!-- Feature Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                        <div class="flex items-center gap-3 mb-3">
-                            <i data-lucide="brain" class="w-5 h-5 text-violet-600 dark:text-violet-500"></i>
-                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">AI-Powered Mentors</h3>
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Specialized AI mentors for PM, BA, Development, and QA roles guide your project through the entire lifecycle.</p>
-                    </div>
-                    
-                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                        <div class="flex items-center gap-3 mb-3">
-                            <i data-lucide="git-branch" class="w-5 h-5 text-emerald-600 dark:text-emerald-500"></i>
-                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">Structured Pipeline</h3>
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Transform queries into complete implementations through a well-defined, auditable pipeline with full transparency.</p>
-                    </div>
-                    
-                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                        <div class="flex items-center gap-3 mb-3">
-                            <i data-lucide="dollar-sign" class="w-5 h-5 text-amber-600 dark:text-amber-500"></i>
-                            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-50">Cost Tracking</h3>
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Comprehensive cost tracking and attribution for every operation, enabling precise project budgeting.</p>
-                    </div>
-                </div>
+            <!-- Default fallback content -->
+            <div class="p-6 max-w-5xl mx-auto text-center py-16">
+                <p class="text-gray-500 dark:text-gray-400">Select a project from the sidebar to get started.</p>
             </div>
             {% endblock %}
         </main>
@@ -406,7 +384,38 @@
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             checkAuth();
+            loadEnvironmentBadge();
         });
+        
+        // Load environment badge from system config
+        async function loadEnvironmentBadge() {
+            try {
+                const response = await fetch('/api/config/environment');
+                const data = await response.json();
+                
+                const badge = document.getElementById('env-badge');
+                const text = document.getElementById('env-text');
+                
+                if (badge && text && data.name) {
+                    text.textContent = `${data.name} ${data.version}`;
+                    
+                    // Apply color based on badge_color setting
+                    const colorMap = {
+                        'amber': 'bg-amber-500/20 text-amber-300',
+                        'green': 'bg-green-500/20 text-green-300',
+                        'blue': 'bg-blue-500/20 text-blue-300',
+                        'red': 'bg-red-500/20 text-red-300',
+                        'gray': 'bg-gray-500/20 text-gray-300',
+                    };
+                    const colorClass = colorMap[data.badge_color] || colorMap['gray'];
+                    text.className = `px-2 py-1 text-xs font-mono rounded ${colorClass}`;
+                    
+                    badge.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Failed to load environment badge:', error);
+            }
+        }
         
         // Re-initialize icons after HTMX content swaps
         document.body.addEventListener('htmx:afterSwap', () => {

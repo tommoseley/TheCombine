@@ -19,13 +19,12 @@ async def home(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Home page - renders base.html with empty document container.
-    The base template includes the projects sidebar and a welcome message.
+    Home page - renders landing page with marketing content.
     """
     # Get user info if logged in
     user_info = await get_optional_user(request, db)
     user = user_info[0] if user_info else None
     
-    return templates.TemplateResponse(request, "public/layout/base.html", {
+    return templates.TemplateResponse(request, "public/pages/home.html", {
         "user": user,
     })
