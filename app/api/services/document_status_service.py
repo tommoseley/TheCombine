@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document Status Service - ADR-007 Implementation
 
 Derives document readiness and acceptance states for sidebar display.
@@ -145,6 +145,7 @@ class DocumentStatusService:
         # Build status for each document type
         statuses = []
         existing_type_ids = set(docs_by_type.keys())
+        logger.info(f"[STATUS] Project {project_id}: existing_type_ids = {existing_type_ids}")
         
         for doc_type in doc_types:
             document = docs_by_type.get(doc_type.doc_type_id)
@@ -284,6 +285,7 @@ class DocumentStatusService:
         # Check for missing required inputs
         required_inputs = doc_type.required_inputs or []
         missing = [dep for dep in required_inputs if dep not in existing_type_ids]
+        logger.info(f"[STATUS] {doc_type.doc_type_id}: required={required_inputs}, existing={existing_type_ids}, missing={missing}")
         
         if missing:
             return ReadinessStatus.BLOCKED, missing
@@ -351,7 +353,7 @@ class DocumentStatusService:
         
         # Stale + Accepted - warn about review needed (ADR-007 UI Rule)
         if readiness == ReadinessStatus.STALE and acceptance_state == AcceptanceState.ACCEPTED:
-            return "Inputs changed — review recommended"
+            return "Inputs changed â€” review recommended"
         
         # Needs acceptance - show responsible role
         if acceptance_state == AcceptanceState.NEEDS_ACCEPTANCE:
@@ -485,3 +487,4 @@ class DocumentStatusService:
 
 # Singleton instance for convenience
 document_status_service = DocumentStatusService()
+

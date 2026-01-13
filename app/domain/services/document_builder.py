@@ -23,7 +23,7 @@ import json
 import asyncio
 import logging
 import httpx
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from app.core.config import settings
 from app.domain.registry.loader import (
@@ -151,7 +151,7 @@ class DocumentBuilder:
         self.correlation_id = correlation_id  # Stored as UUID
         self.llm_logger = llm_logger  # ADR-010: Injected, not created here
         self.llm_parser = LLMResponseParser()
-        self.anthropic_client = Anthropic(
+        self.anthropic_client = AsyncAnthropic(
             api_key=settings.ANTHROPIC_API_KEY,
             timeout=httpx.Timeout(300.0, connect=10.0)
         )
@@ -497,14 +497,14 @@ class DocumentBuilder:
             final_message = None
             
             try:
-                with self.anthropic_client.messages.stream(
+                async with self.anthropic_client.messages.stream(
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_message}]
                 ) as stream:
-                    for text in stream.text_stream:
+                    async for text in stream.text_stream:
                         accumulated_text += text
                         if len(accumulated_text) % 100 < len(text):
                             preview = accumulated_text[:100] + "..." if len(accumulated_text) > 100 else accumulated_text
@@ -515,7 +515,7 @@ class DocumentBuilder:
                                 {"preview": preview}
                             ).to_sse()
                 
-                final_message = stream.get_final_message()
+                final_message = await stream.get_final_message()
                 input_tokens = final_message.usage.input_tokens
                 output_tokens = final_message.usage.output_tokens
                 
@@ -742,4 +742,7 @@ class DocumentBuilder:
         parts.append("\n\nRemember: Output ONLY valid JSON matching the schema. No markdown, no prose.")
         
         return "\n".join(parts)
+
+
+
 

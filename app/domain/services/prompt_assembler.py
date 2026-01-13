@@ -254,6 +254,7 @@ class PromptAssembler:
         # Schema reference
         lines.append(f"## Schema Bundle")
         lines.append(f"SHA256: {assembled.bundle_sha256}")
-        lines.append(f"Component schemas: {', '.join(assembled.component_ids)}")
+        lines.append(f"Components: {', '.join(assembled.component_ids)}")
         
         return "\n".join(lines)
+

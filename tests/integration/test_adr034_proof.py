@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from app.domain.services.prompt_assembler import PromptAssembler, AssembledPrompt
 from app.domain.services.render_model_builder import RenderModelBuilder, RenderModel
-from app.api.services.fragment_registry_service import FRAGMENT_ALIASES
+# WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS: FRAGMENT_ALIASES removed
 
 
 class TestADR034ProofOfConcept:
@@ -177,9 +177,9 @@ class TestADR034ProofOfConcept:
         fragment_id = open_question_component.view_bindings["web"]["fragment_id"]
         assert fragment_id == "fragment:OpenQuestionV1:web:1.0.0"
         
-        # Alias mapping exists
-        assert fragment_id in FRAGMENT_ALIASES
-        assert FRAGMENT_ALIASES[fragment_id] == "OpenQuestionV1Fragment"
+        # Fragment ID is canonical format (no aliases)
+        assert fragment_id.startswith("fragment:")
+        assert ":web:" in fragment_id
     
     @pytest.fixture
     def epic_backlog_v1_1_docdef(self):
@@ -608,7 +608,7 @@ class TestADR034ProofOfConcept:
         # Mock existing fragment lookup
         existing_fragment = FragmentArtifact(
             id=uuid4(),
-            fragment_id="OpenQuestionV1Fragment",
+            fragment_id="fragment:OpenQuestionV1:web:1.0.0",
             schema_type_id="OpenQuestionV1",
             fragment_markup="<div>{{ block.data.text }}</div>", sha256="abc123", status="accepted", version="1.0",
         )
@@ -618,13 +618,14 @@ class TestADR034ProofOfConcept:
         mock_db.execute.return_value = mock_result
         
         # Legacy lookup still works
-        result = await service.get_fragment("OpenQuestionV1Fragment")
+        result = await service.get_fragment("fragment:OpenQuestionV1:web:1.0.0")
         assert result is not None
-        assert result.fragment_id == "OpenQuestionV1Fragment"
+        assert result.fragment_id == "fragment:OpenQuestionV1:web:1.0.0"
         
         # Canonical lookup via alias also works
         result = await service.resolve_fragment_id("fragment:OpenQuestionV1:web:1.0.0")
         assert result is not None
+
 
 
 

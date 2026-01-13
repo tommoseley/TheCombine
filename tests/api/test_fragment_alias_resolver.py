@@ -1,22 +1,20 @@
 ﻿"""
-Tests for FragmentRegistryService alias resolver.
+Tests for FragmentRegistryService canonical ID resolution.
 
-Per WS-ADR-034-POC Phase 8.1: Tests for fragment alias resolution (D3).
+Per WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS: Aliases removed.
+Fragment IDs are now stored and looked up canonically.
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from app.api.services.fragment_registry_service import (
-    FragmentRegistryService,
-    FRAGMENT_ALIASES,
-)
+from app.api.services.fragment_registry_service import FragmentRegistryService
 from app.api.models.fragment_artifact import FragmentArtifact
 
 
-class TestFragmentAliasResolver:
-    """Tests for fragment alias resolution per ADR-034 D3."""
+class TestFragmentCanonicalResolver:
+    """Tests for fragment canonical ID resolution."""
     
     @pytest.fixture
     def mock_db(self):
@@ -28,17 +26,13 @@ class TestFragmentAliasResolver:
         """Create service instance with mock db."""
         return FragmentRegistryService(mock_db)
     
-    def test_fragment_aliases_contains_open_question_mapping(self):
-        """Verify FRAGMENT_ALIASES contains the OpenQuestion mapping."""
-        assert "fragment:OpenQuestionV1:web:1.0.0" in FRAGMENT_ALIASES
-        assert FRAGMENT_ALIASES["fragment:OpenQuestionV1:web:1.0.0"] == "OpenQuestionV1Fragment"
-    
     @pytest.mark.asyncio
-    async def test_resolve_canonical_id_via_alias(self, service, mock_db):
-        """Test resolving a canonical fragment ID through alias mapping."""
+    async def test_resolve_canonical_id_directly(self, service, mock_db):
+        """Test resolving a canonical fragment ID directly (no alias translation)."""
+        canonical_id = "fragment:OpenQuestionV1:web:1.0.0"
         expected_fragment = FragmentArtifact(
             id=uuid4(),
-            fragment_id="OpenQuestionV1Fragment",
+            fragment_id=canonical_id,
             schema_type_id="OpenQuestionV1",
         )
         
@@ -46,27 +40,10 @@ class TestFragmentAliasResolver:
         mock_result.scalar_one_or_none.return_value = expected_fragment
         mock_db.execute.return_value = mock_result
         
-        # Resolve canonical ID - should look up by legacy ID
-        result = await service.resolve_fragment_id("fragment:OpenQuestionV1:web:1.0.0")
+        result = await service.resolve_fragment_id(canonical_id)
         
         assert result == expected_fragment
-    
-    @pytest.mark.asyncio
-    async def test_resolve_legacy_id_directly(self, service, mock_db):
-        """Test resolving a legacy fragment ID directly (no alias)."""
-        expected_fragment = FragmentArtifact(
-            id=uuid4(),
-            fragment_id="SomeLegacyFragment",
-        )
-        
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = expected_fragment
-        mock_db.execute.return_value = mock_result
-        
-        # Legacy ID not in aliases - should look up directly
-        result = await service.resolve_fragment_id("SomeLegacyFragment")
-        
-        assert result == expected_fragment
+        assert result.fragment_id == canonical_id
     
     @pytest.mark.asyncio
     async def test_resolve_unknown_returns_none(self, service, mock_db):
@@ -78,3 +55,18 @@ class TestFragmentAliasResolver:
         result = await service.resolve_fragment_id("fragment:Unknown:web:1.0.0")
         
         assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_all_component_fragment_ids_use_canonical_format(self, service, mock_db):
+        """INVARIANT: All component fragment IDs follow canonical format."""
+        from app.domain.registry.seed_component_artifacts import INITIAL_COMPONENT_ARTIFACTS
+        
+        for component in INITIAL_COMPONENT_ARTIFACTS:
+            bindings = component.get("view_bindings", {})
+            web_binding = bindings.get("web", {})
+            fragment_id = web_binding.get("fragment_id")
+            
+            if fragment_id:
+                # Must be canonical format: fragment:XxxV1:web:1.0.0
+                assert fragment_id.startswith("fragment:"), f"{component['component_id']}: {fragment_id}"
+                assert ":web:" in fragment_id, f"{component['component_id']}: {fragment_id}"

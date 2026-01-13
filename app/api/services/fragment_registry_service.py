@@ -15,25 +15,10 @@ from app.api.models.fragment_artifact import FragmentArtifact, FragmentBinding
 
 
 # =============================================================================
-# FRAGMENT ALIASES (POC only - future: move to DB table or fragment_bindings)
-# Per ADR-034 D3: Maps canonical fragment IDs to legacy fragment IDs
+# WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS: Aliases removed
+# Fragment IDs are now stored canonically (e.g., fragment:XxxV1:web:1.0.0)
+# No translation layer needed.
 # =============================================================================
-
-FRAGMENT_ALIASES = {
-    "fragment:OpenQuestionV1:web:1.0.0": "OpenQuestionV1Fragment",
-    "fragment:OpenQuestionsBlockV1:web:1.0.0": "OpenQuestionsBlockV1Fragment",
-    "fragment:StoryV1:web:1.0.0": "StoryV1Fragment",
-    "fragment:StoriesBlockV1:web:1.0.0": "StoriesBlockV1Fragment",
-    "fragment:StringListBlockV1:web:1.0.0": "StringListBlockV1Fragment",
-    "fragment:SummaryBlockV1:web:1.0.0": "SummaryBlockV1Fragment",
-    "fragment:RisksBlockV1:web:1.0.0": "RisksBlockV1Fragment",
-    "fragment:ParagraphBlockV1:web:1.0.0": "ParagraphBlockV1Fragment",
-    "fragment:IndicatorBlockV1:web:1.0.0": "IndicatorBlockV1Fragment",
-    "fragment:EpicSummaryBlockV1:web:1.0.0": "EpicSummaryBlockV1Fragment",
-    "fragment:DependenciesBlockV1:web:1.0.0": "DependenciesBlockV1Fragment",
-    "fragment:StorySummaryBlockV1:web:1.0.0": "StorySummaryBlockV1Fragment",
-    "fragment:StoriesBlockV1:web:1.0.0": "StoriesBlockV1Fragment",
-}
 
 
 class FragmentNotFoundError(Exception):
@@ -348,17 +333,8 @@ class FragmentRegistryService:
         """
         Resolve a canonical fragment ID to a FragmentArtifact.
         
-        Per ADR-034 D3: Component specs store canonical fragment IDs
-        (e.g., fragment:OpenQuestionV1:web:1.0.0). This method resolves
-        them to existing legacy fragment records via alias mapping.
-        
-        Algorithm:
-        1. If canonical_id is in FRAGMENT_ALIASES, look up by legacy id
-        2. Otherwise, look up by canonical_id directly
-        3. Return FragmentArtifact or None
-        
-        Note: FRAGMENT_ALIASES is acceptable only for seeded POC mappings.
-        Future: move aliases into a DB table or fragment_bindings table.
+        Per WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS:
+        Fragment IDs are now stored canonically. Direct lookup, no aliases.
         
         Args:
             canonical_id: Canonical fragment ID (e.g., fragment:OpenQuestionV1:web:1.0.0)
@@ -366,11 +342,7 @@ class FragmentRegistryService:
         Returns:
             FragmentArtifact or None if not found
         """
-        # Check alias mapping first
-        lookup_id = FRAGMENT_ALIASES.get(canonical_id, canonical_id)
-        
-        # Look up fragment by resolved ID
-        return await self.get_fragment(lookup_id)
+        return await self.get_fragment(canonical_id)
     
     # =========================================================================
     # Utilities
@@ -382,6 +354,8 @@ class FragmentRegistryService:
         Compute deterministic SHA256 hash of fragment markup.
         """
         return hashlib.sha256(markup.encode('utf-8')).hexdigest()
+
+
 
 
 

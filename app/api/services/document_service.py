@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Service - CRUD and relationship management for documents.
 
 This service handles:
@@ -82,6 +82,7 @@ class DocumentService:
         created_by_type: str = "builder",
         builder_metadata: Optional[Dict[str, Any]] = None,
         derived_from: Optional[List[UUID]] = None,
+        schema_bundle_sha256: Optional[str] = None,
     ) -> Document:
         """
         Create a new document.
@@ -101,6 +102,7 @@ class DocumentService:
             created_by_type: 'user' | 'builder' | 'import'
             builder_metadata: Build metadata (model, tokens, etc.)
             derived_from: List of document IDs this was built from
+            schema_bundle_sha256: Schema bundle hash at generation time
             
         Returns:
             Created Document
@@ -129,6 +131,7 @@ class DocumentService:
             created_by=created_by,
             created_by_type=created_by_type,
             builder_metadata=builder_metadata,
+            schema_bundle_sha256=schema_bundle_sha256,
         )
         
         # Compute revision hash

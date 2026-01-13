@@ -1,4 +1,4 @@
-{# Document Not Found / Build UI #}
+﻿{# Document Not Found / Build UI #}
 {# Shared partial for when a document doesn't exist yet #}
 {# Expected variables: project, doc_type_id, doc_type_name, doc_type_icon, doc_type_description #}
 
@@ -41,12 +41,37 @@
             <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ doc_type_name }} Not Created</h2>
             <p class="text-gray-600 dark:text-gray-400 mb-6">This document has not been generated yet. Click below to create it.</p>
             
+            {% if is_blocked and missing_dependencies %}
+            <!-- Dependencies not met -->
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <p class="font-medium text-amber-900 dark:text-amber-100">Dependencies Required</p>
+                        <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                            Create these documents first:
+                            {% for dep in missing_dependencies %}
+                            <a href="/projects/{{ project.id if project.id is defined else project['id'] }}/documents/{{ dep }}"
+                               hx-get="/projects/{{ project.id if project.id is defined else project['id'] }}/documents/{{ dep }}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="inline-block px-2 py-1 mt-1 mr-1 bg-amber-200 dark:bg-amber-800 rounded text-amber-800 dark:text-amber-200 hover:bg-amber-300 dark:hover:bg-amber-700">
+                                {{ dep | replace('_', ' ') | title }}
+                            </a>
+                            {% endfor %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
             <!-- Build Button with Progress -->
             <div id="build-container">
                 <button 
                     id="build-btn"
+                    {% if is_blocked %}disabled{% endif %}
                     onclick="startDocumentBuild('{{ project.id if project.id is defined else project['id'] }}', '{{ doc_type_id }}')"
-                    class="w-full px-4 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center justify-center gap-2 font-medium">
+                    class="w-full px-4 py-3 {{ 'bg-gray-400 cursor-not-allowed' if is_blocked else 'bg-violet-600 hover:bg-violet-700' }} text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-medium">
                     <i data-lucide="sparkles" class="w-5 h-5" id="btn-icon"></i>
                     <span id="btn-text">Generate {{ doc_type_name }}</span>
                 </button>
@@ -71,8 +96,29 @@
 </div>
 
 <script>
-// Track last status to deduplicate
-let lastStatusMessage = '';
+// Build tracking - uses task_id from backend
+var BUILD_STORAGE_KEY = 'combine_document_builds';
+var lastStatusMessage = '';
+
+function trackBuildTask(projectId, docTypeId, taskId) {
+    const key = `${projectId}:${docTypeId}`;
+    const builds = JSON.parse(localStorage.getItem(BUILD_STORAGE_KEY) || '{}');
+    builds[key] = { projectId, docTypeId, taskId, startedAt: Date.now() };
+    localStorage.setItem(BUILD_STORAGE_KEY, JSON.stringify(builds));
+}
+
+function clearBuildTracking(projectId, docTypeId) {
+    const key = `${projectId}:${docTypeId}`;
+    const builds = JSON.parse(localStorage.getItem(BUILD_STORAGE_KEY) || '{}');
+    delete builds[key];
+    localStorage.setItem(BUILD_STORAGE_KEY, JSON.stringify(builds));
+}
+
+function getBuildTracking(projectId, docTypeId) {
+    const key = `${projectId}:${docTypeId}`;
+    const builds = JSON.parse(localStorage.getItem(BUILD_STORAGE_KEY) || '{}');
+    return builds[key] || null;
+}
 
 async function startDocumentBuild(projectId, docTypeId) {
     const btn = document.getElementById('build-btn');
@@ -80,8 +126,8 @@ async function startDocumentBuild(projectId, docTypeId) {
     const btnText = document.getElementById('btn-text');
     const progressContainer = document.getElementById('progress-container');
     const statusMessages = document.getElementById('status-messages');
-    
-    // Reset deduplication tracker
+
+    // Reset
     lastStatusMessage = '';
     
     // Update button to loading state
@@ -99,99 +145,204 @@ async function startDocumentBuild(projectId, docTypeId) {
     statusMessages.innerHTML = '';
     
     try {
-        // Use fetch with POST for SSE stream
+        // Start build task
         const response = await fetch(`/projects/${projectId}/documents/${docTypeId}/build`, {
             method: 'POST',
-            headers: {
-                'Accept': 'text/event-stream',
-            }
+            headers: { 'Content-Type': 'application/json' }
         });
         
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        const result = await response.json();
         
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            buffer += decoder.decode(value, { stream: true });
-            
-            // Process complete SSE messages
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // Keep incomplete line in buffer
-            
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    try {
-                        const data = JSON.parse(line.slice(6));
-                        
-                        // Update progress bar
-                        if (data.progress !== undefined) {
-                            document.getElementById('progress-fill').style.width = data.progress + '%';
-                            document.getElementById('progress-pct').textContent = data.progress + '%';
-                        }
-                        
-                        // Add status message (with deduplication)
-                        if (data.message) {
-                            addStatusMessage(data.message, data.status);
-                        }
-                        
-                        // Handle completion
-                        if (data.status === 'complete') {
-                            setTimeout(() => {
-                                // Refresh main content
-                                htmx.ajax('GET', window.location.pathname, {target: '#main-content', swap: 'innerHTML'});
-                                
-                                // Refresh project tree to update status indicators
-                                htmx.ajax('GET', '/projects/tree', {target: '#project-tree-root', swap: 'innerHTML'});
-                            }, 500);
-                        }
-                        
-                    } catch (e) {
-                        console.log('Parse error:', e, line);
-                    }
-                }
-            }
+        if (!result.task_id) {
+            throw new Error('No task_id returned');
         }
         
+        // Track the task
+        trackBuildTask(projectId, docTypeId, result.task_id);
+        addStatusMessage('Build started...', 'running');
+        
+        // Start polling
+        pollTaskStatus(result.task_id, projectId, docTypeId);
+        
     } catch (error) {
-        console.error('Build error:', error);
-        addStatusMessage('Connection error. Please try again.', 'error');
+        console.error('Build start error:', error);
+        addStatusMessage('Failed to start build. Please try again.', 'error');
+        btn.disabled = false;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
+}
+
+async function pollTaskStatus(taskId, projectId, docTypeId) {
+    try {
+        const response = await fetch(`/tasks/${taskId}/status`);
+        
+        // Handle 404 - task doesn't exist (server restarted or task expired)
+        if (response.status === 404) {
+            console.log('Task not found - clearing tracking');
+            clearBuildTracking(projectId, docTypeId);
+            addStatusMessage('Build interrupted. Please try again.', 'error');
+            resetButton();
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Status check failed: ${response.status}`);
+        }
+        
+        const status = await response.json();
+        
+        // Update progress bar
+        if (status.progress !== undefined) {
+            const pf = document.getElementById('progress-fill');
+            const pp = document.getElementById('progress-pct');
+            if (pf) pf.style.width = status.progress + '%';
+            if (pp) pp.textContent = status.progress + '%';
+        }
+        
+        // Add status message
+        if (status.message) {
+            addStatusMessage(status.message, status.status);
+        }
+        
+        // Handle completion
+        if (status.status === 'complete') {
+            clearBuildTracking(projectId, docTypeId);
+            addStatusMessage('Complete!', 'complete');
+            setTimeout(() => {
+                htmx.ajax('GET', window.location.pathname, {target: '#main-content', swap: 'innerHTML'});
+                htmx.ajax('GET', '/projects/tree', {target: '#project-tree-root', swap: 'innerHTML'});
+            }, 500);
+            return;
+        }
+        
+        // Handle failure
+        if (status.status === 'failed') {
+            clearBuildTracking(projectId, docTypeId);
+            addStatusMessage(status.error || 'Build failed', 'error');
+            resetButton();
+            return;
+        }
+        
+        // Continue polling
+        setTimeout(() => pollTaskStatus(taskId, projectId, docTypeId), 1000);
+        
+    } catch (error) {
+        console.error('Poll error:', error);
+        // Continue polling even on error (task might still be running)
+        setTimeout(() => pollTaskStatus(taskId, projectId, docTypeId), 2000);
+    }
+}
+
+function resetButton() {
+    const btn = document.getElementById('build-btn');
+    if (btn) {
         btn.disabled = false;
         btn.classList.remove('opacity-75', 'cursor-not-allowed');
     }
 }
 
 function addStatusMessage(message, status) {
-    // Deduplicate: skip if identical to last message
-    if (message === lastStatusMessage) {
-        return;
-    }
+    const container = document.getElementById('status-messages');
+    if (!container) return;
+    
+    // Deduplicate
+    if (message === lastStatusMessage) return;
     lastStatusMessage = message;
     
-    const container = document.getElementById('status-messages');
+    const iconMap = {
+        'pending': 'clock',
+        'running': 'loader',
+        'loading': 'loader',
+        'generating': 'sparkles',
+        'streaming': 'sparkles',
+        'parsing': 'file-check',
+        'saving': 'save',
+        'complete': 'check-circle',
+        'error': 'alert-circle',
+        'failed': 'alert-circle'
+    };
+    
+    const colorMap = {
+        'pending': 'text-gray-500',
+        'running': 'text-blue-500',
+        'loading': 'text-blue-500',
+        'generating': 'text-violet-500',
+        'streaming': 'text-violet-500',
+        'parsing': 'text-blue-500',
+        'saving': 'text-blue-500',
+        'complete': 'text-green-500',
+        'error': 'text-red-500',
+        'failed': 'text-red-500'
+    };
+    
+    const icon = iconMap[status] || 'info';
+    const color = colorMap[status] || 'text-gray-500';
+    const animateClass = (status === 'running' || status === 'loading' || status === 'generating' || status === 'streaming') ? 'animate-spin' : '';
+    
     const div = document.createElement('div');
-    div.className = 'flex items-start gap-2 text-sm py-0.5';
-    
-    let iconHtml = '';
-    if (status === 'complete') {
-        iconHtml = '<i data-lucide="check-circle" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>';
-    } else if (status === 'error') {
-        iconHtml = '<i data-lucide="x-circle" class="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5"></i>';
-    } else if (status === 'streaming') {
-        iconHtml = '<i data-lucide="radio" class="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5 animate-pulse"></i>';
-    } else {
-        iconHtml = '<i data-lucide="bot" class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 mt-0.5"></i>';
-    }
-    
-    div.innerHTML = `${iconHtml}<span class="text-gray-600 dark:text-gray-400">${message}</span>`;
+    div.className = `flex items-center gap-2 text-sm ${color}`;
+    div.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 ${animateClass}"></i><span>${message}</span>`;
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
     
-    // Re-init lucide icons
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 }
+
+// Check for in-progress build on page load
+(function checkForInProgressBuild() {
+    const projectId = '{{ project.id if project.id is defined else project["id"] }}';
+    const docTypeId = '{{ doc_type_id }}';
+    
+    const tracked = getBuildTracking(projectId, docTypeId);
+    if (!tracked || !tracked.taskId) return;
+    
+    // If build is too old (> 10 minutes), clear it
+    if (Date.now() - tracked.startedAt > 10 * 60 * 1000) {
+        clearBuildTracking(projectId, docTypeId);
+        return;
+    }
+    
+    // Resume polling for existing task
+    const btn = document.getElementById('build-btn');
+    const progressContainer = document.getElementById('progress-container');
+    const statusMessages = document.getElementById('status-messages');
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-75', 'cursor-not-allowed');
+        const btnText = btn.querySelector('#btn-text');
+        if (btnText) btnText.textContent = 'Generating...';
+    }
+    if (progressContainer) progressContainer.classList.remove('hidden');
+    if (statusMessages) {
+        statusMessages.classList.remove('hidden');
+        statusMessages.innerHTML = '';
+    }
+    
+    addStatusMessage('Resuming build...', 'running');
+    pollTaskStatus(tracked.taskId, projectId, docTypeId);
+})();
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

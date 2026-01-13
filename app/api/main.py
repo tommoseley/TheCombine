@@ -1,4 +1,4 @@
-﻿"""
+"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -32,12 +32,13 @@ from app.api.routers import health, auth
 from app.web import routes as web_routes
 from app.api.routers.documents import router as document_router
 from app.api.routers.document_status_router import router as document_status_router
-from app.web.routes.public.document_status_routes import router as document_status_ui_router
 from app.web.routes.admin.admin_routes import router as admin_router
-from app.api.routers.admin import router as api_admin_router  # ADR-010: Replay endpoint
+# Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Admin replay endpoint behind feature flag
+from app.core.config import ENABLE_DEBUG_ROUTES
 from app.auth.routes import router as auth_router
 from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
+from app.api.routers.commands import router as commands_router  # WS-STORY-BACKLOG-COMMANDS
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
@@ -173,9 +174,18 @@ app.include_router(web_routes.router)
 # Other routes - ALL at root level now
 app.include_router(document_status_router, prefix="/api")
 app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
-app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
+
+# Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Admin replay endpoint behind feature flag
+if ENABLE_DEBUG_ROUTES:
+    from app.api.routers.admin import router as api_admin_router
+    app.include_router(api_admin_router)  # ADR-010: /api/admin endpoints
+    logger.info("DEBUG_ROUTES_ENABLED: /api/admin/llm-runs/*/replay endpoint active")
+else:
+    logger.info("DEBUG_ROUTES_DISABLED: /api/admin endpoints disabled in production")
+
 app.include_router(protected_router)
 app.include_router(accounts_router)
+app.include_router(commands_router)  # WS-STORY-BACKLOG-COMMANDS
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions

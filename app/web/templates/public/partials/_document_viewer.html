@@ -1,0 +1,173 @@
+﻿{#
+  Document Viewer Partial
+  
+  Per DOCUMENT_VIEWER_CONTRACT v1.0:
+  - Renders any document type using RenderModelV1
+  - Generic viewer - no document-type-specific logic
+  - Uses fragment bindings for block rendering
+  - Graceful degradation for unknown blocks
+  
+  Per WS-DOCUMENT-VIEWER-TABS:
+  - Groups sections by viewer_tab
+  - Suppresses empty tabs
+  - Collapses to no-tab view if only one tab has content
+  - Supports dynamic tab names
+  
+  Variables:
+  - render_model: RenderModel with sections and blocks
+  - fragment_renderer: FragmentRenderer for block rendering
+#}
+
+{# Collect unique tabs and group sections #}
+{% set tab_sections = {} %}
+{% set tab_order = [] %}
+{% for section in render_model.sections %}
+    {% set tab = section.viewer_tab %}
+    {% if tab not in tab_sections %}
+        {% set _ = tab_sections.update({tab: []}) %}
+        {% set _ = tab_order.append(tab) %}
+    {% endif %}
+    {% set _ = tab_sections[tab].append(section) %}
+{% endfor %}
+
+{# Sort tabs: overview first, then details, then others alphabetically #}
+{% set sorted_tabs = [] %}
+{% if 'overview' in tab_order %}
+    {% set _ = sorted_tabs.append('overview') %}
+{% endif %}
+{% if 'details' in tab_order %}
+    {% set _ = sorted_tabs.append('details') %}
+{% endif %}
+{% for tab in tab_order | sort %}
+    {% if tab not in ['overview', 'details'] %}
+        {% set _ = sorted_tabs.append(tab) %}
+    {% endif %}
+{% endfor %}
+
+{# Tab display names - can be document-type specific #}
+{% set details_label = 'Epics' if render_model.document_type == 'epic_backlog' else 'Details' %}
+{% set tab_labels = {
+    'overview': 'Overview',
+    'details': details_label,
+    'implementation': 'Implementation Details',
+    'security': 'Security',
+    'observability': 'Observability'
+} %}
+
+{# Determine if we should show tabs #}
+{% set show_tabs = sorted_tabs | length > 1 %}
+
+<div class="document-viewer" data-document-id="{{ render_model.document_id }}" data-document-type="{{ render_model.document_type }}" data-project-id="{{ document_data.project_id if document_data else project.id }}">
+    
+    {% if show_tabs %}
+    {# Tab Navigation #}
+    <div class="tab-navigation mb-6 border-b border-gray-200 dark:border-gray-700">
+        <nav class="flex space-x-8" aria-label="Tabs">
+            {% for tab in sorted_tabs %}
+            <button type="button" 
+                    class="tab-btn py-3 px-1 border-b-2 font-medium text-sm transition-colors
+                           {% if loop.first %}border-blue-500 text-blue-600 dark:text-blue-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %}"
+                    data-tab="{{ tab }}"
+                    onclick="switchTab('{{ tab }}')">
+                {{ tab_labels.get(tab, tab | replace('_', ' ') | title) }}
+            </button>
+            {% endfor %}
+        </nav>
+    </div>
+    
+    {# Tab Content Panels #}
+    {% for tab in sorted_tabs %}
+    <div id="tab-{{ tab }}" class="tab-content {% if not loop.first %}hidden{% endif %}">
+        {% for section in tab_sections[tab] %}
+        <section id="section-{{ section.section_id }}" class="mb-8">
+            {% if section.title %}
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                {{ section.title }}
+            </h2>
+            {% endif %}
+            
+            {% if section.description %}
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {{ section.description }}
+            </p>
+            {% endif %}
+            
+            <div class="section-blocks space-y-4">
+                {% for block in section.blocks %}
+                <div class="block-wrapper" data-block-key="{{ block.key }}" data-block-type="{{ block.type }}">
+                    {{ fragment_renderer.render_block(block)|safe }}
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    
+    {# Tab Switching Script #}
+    <script>
+    function switchTab(tabName) {
+        // Hide all tab content
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        // Show selected tab content
+        document.getElementById('tab-' + tabName).classList.remove('hidden');
+        
+        // Update tab button styles
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            if (btn.dataset.tab === tabName) {
+                btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                btn.classList.add('border-blue-500', 'text-blue-600');
+            } else {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+            }
+        });
+    }
+    </script>
+    
+    {% else %}
+    {# Single tab or no tabs - render all sections inline #}
+    {% for section in render_model.sections %}
+    <section id="section-{{ section.section_id }}" class="mb-8">
+        
+        {% if section.title %}
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+            {{ section.title }}
+        </h2>
+        {% endif %}
+        
+        {% if section.description %}
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            {{ section.description }}
+        </p>
+        {% endif %}
+        
+        <div class="section-blocks space-y-4">
+            {% for block in section.blocks %}
+            <div class="block-wrapper" data-block-key="{{ block.key }}" data-block-type="{{ block.type }}">
+                {{ fragment_renderer.render_block(block)|safe }}
+            </div>
+            {% endfor %}
+        </div>
+        
+    </section>
+    {% endfor %}
+    {% endif %}
+    
+    {# Empty state #}
+    {% if not render_model.sections %}
+    <div class="text-center py-12">
+        <div class="text-gray-400 dark:text-gray-500">
+            <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="mt-4 text-sm">No content to display</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+
+

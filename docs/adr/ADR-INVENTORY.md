@@ -1,6 +1,6 @@
 ﻿# ADR Inventory & Status
 
-_Last updated: 2026-01-02_
+_Last updated: 2026-01-12_
 
 This document provides a complete inventory of Architecture Decision Records for The Combine.
 
@@ -58,6 +58,15 @@ Workflow definition, selection, and governance.
 ### Artifacts (028, 029)
 Reference documents, external inputs, document resolution.
 
+### Document System Architecture (030-034)
+BFF boundaries, schemas, fragments, rendering, and composition.
+
+### Document Lifecycle (036)
+State semantics, staleness, async generation.
+
+### Infrastructure (035)
+Job queues, background processing.
+
 ### Implementation (002, 007, 008)
 Feature-specific implementation decisions (pre-governance era).
 
@@ -96,6 +105,13 @@ Feature-specific implementation decisions (pre-governance era).
 | 027 | Workflow Definition & Governance | **Accepted** | Workflow | Workflow as governed construct |
 | 028 | Reference Document Management | Draft | Artifact | External docs, scopes, trust (post-MVP) |
 | 029 | Contextual Document Resolution | Draft | Artifact | Role-aware condensing (post-MVP) |
+| 030 | BFF Layer and ViewModel Boundary | **Accepted** | Architecture | Experience/BFF separation |
+| 031 | Canonical Schema Types | **Accepted** | Schema | DB-backed schema registry |
+| 032 | Fragment-Based Rendering | **Accepted** | Rendering | Schema-driven fragment composition |
+| 033 | Data-Only Experience Contracts | **Accepted** | Contracts | RenderModel standard |
+| 034 | Document Composition Manifest | **Accepted** | Composition | DocDef + canonical components |
+| 035 | Durable LLM Threaded Queue | Draft | Infrastructure | Async job orchestration |
+| 036 | Document Lifecycle & Staleness | **Accepted** | Lifecycle | State semantics (missing/partial/complete/stale) |
 
 ---
 
@@ -174,8 +190,7 @@ These ADRs predate the governance architecture and address specific features:
 
 | Number | Reserved For |
 |--------|--------------|
-| 030 | Developer/Construction Model (future) |
-| 031 | (available) |
+| 037 | (available) |
 
 ---
 
@@ -185,6 +200,7 @@ These ADRs predate the governance architecture and address specific features:
 - ADRs are append-only; superseded ADRs remain for history
 - Governance ADRs (009+) take precedence over implementation ADRs (002-008)
 - Session logs capture when ADRs were created/modified
+
 
 
 

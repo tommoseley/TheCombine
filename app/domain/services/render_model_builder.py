@@ -1,4 +1,4 @@
-﻿"""
+"""
 RenderModelBuilder for ADR-034 Document Composition.
 
 Builds RenderModels from document definitions and document data.
@@ -8,12 +8,15 @@ Per D6: Lives in app/domain/services/ (not web/bff) because it produces
 data structures. Channel-specific rendering happens downstream.
 """
 
+import hashlib
+import json
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
 from app.api.services.document_definition_service import DocumentDefinitionService
 from app.api.services.component_registry_service import ComponentRegistryService
+from app.api.services.schema_registry_service import SchemaRegistryService
 
 
 logger = logging.getLogger(__name__)
@@ -31,9 +34,9 @@ def derive_risk_level(risks: List[Dict[str, Any]]) -> str:
     Derive aggregate risk level from a list of risks.
     
     FROZEN RULE (2026-01-08):
-    - If any risk has likelihood="high" → "high"
-    - Else if any risk has likelihood="medium" → "medium"  
-    - Else → "low"
+    - If any risk has likelihood="high" ? "high"
+    - Else if any risk has likelihood="medium" ? "medium"  
+    - Else ? "low"
     
     Args:
         risks: List of RiskV1-shaped dicts with optional 'likelihood' field
@@ -59,8 +62,8 @@ def derive_integration_surface(obj: Dict[str, Any]) -> str:
     Derive integration surface indicator from architecture data.
     
     FROZEN RULE (2026-01-08):
-    - If external_integrations count > 0 → "external"
-    - Else → "none"
+    - If external_integrations count > 0 ? "external"
+    - Else ? "none"
     
     Args:
         obj: Architecture data object with optional 'external_integrations' field
@@ -84,9 +87,9 @@ def derive_complexity_level(obj: Dict[str, Any]) -> str:
     
     FROZEN RULE (2026-01-08):
     total = |systems_touched| + |key_interfaces| + |dependencies| + |external_integrations|
-    - 0-3 → "low"
-    - 4-7 → "medium"
-    - 8+ → "high"
+    - 0-3 ? "low"
+    - 4-7 ? "medium"
+    - 8+ ? "high"
     
     Args:
         obj: Architecture data object
@@ -153,7 +156,7 @@ class RenderBlock:
     
     Per ADR-034:
     - type: canonical schema id (e.g., "schema:OpenQuestionV1")
-    - key: unique key within document
+    - key: unique key within document (format: section_id:index)
     - data: validated block data
     - context: optional parent-supplied metadata
     """
@@ -161,6 +164,51 @@ class RenderBlock:
     key: str       # unique key within document
     data: Dict[str, Any]  # validated block data
     context: Optional[Dict[str, Any]] = None  # parent-supplied metadata
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "type": self.type,
+            "key": self.key,
+            "data": self.data,
+        }
+        if self.context:
+            result["context"] = self.context
+        return result
+
+
+@dataclass
+class RenderSection:
+    """
+    A section containing blocks in a RenderModel.
+    
+    Per DOCUMENT_VIEWER_CONTRACT v1.0:
+    - section_id: stable identifier
+    - title: display title (from docdef, not data)
+    - order: numeric ordering
+    - description: optional description
+    - blocks: list of RenderBlock
+    - viewer_tab: tab grouping ("overview", "details", or "both")
+    """
+    section_id: str
+    title: str
+    order: int
+    blocks: List[RenderBlock] = field(default_factory=list)
+    description: Optional[str] = None
+    viewer_tab: str = "details"  # Default per WS-DOCUMENT-VIEWER-TABS
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "section_id": self.section_id,
+            "title": self.title,
+            "order": self.order,
+            "blocks": [b.to_dict() for b in self.blocks],
+            "viewer_tab": self.viewer_tab,
+        }
+        if self.description:
+            result["description"] = self.description
+        return result
 
 
 @dataclass
@@ -168,99 +216,270 @@ class RenderModel:
     """
     Complete render model for a document.
     
-    Contains all RenderBlocks organized by document definition sections.
+    Per DOCUMENT_VIEWER_CONTRACT v1.0:
+    - render_model_version: "1.0"
+    - schema_id: "schema:RenderModelV1"
+    - schema_bundle_sha256: hash of schema bundle
+    - document_id: stable identifier
+    - document_type: short name (e.g., "EpicDetailView")
+    - title: display title
+    - sections: list of RenderSection (ordered)
+    - metadata: section_count and other metadata
     """
-    document_def_id: str
-    blocks: List[RenderBlock] = field(default_factory=list)
+    render_model_version: str
+    schema_id: str
+    document_id: str
+    document_type: str
+    title: str
+    sections: List[RenderSection] = field(default_factory=list)
+    schema_bundle_sha256: str = ""
+    subtitle: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # Legacy field for backward compatibility during migration
+    # TODO: Remove after all consumers updated
+    @property
+    def blocks(self) -> List[RenderBlock]:
+        """Flat list of all blocks (legacy compatibility)."""
+        result = []
+        for section in self.sections:
+            result.extend(section.blocks)
+        return result
+    
+    @property
+    def document_def_id(self) -> str:
+        """Legacy accessor for document_type."""
+        return f"docdef:{self.document_type}:1.0.0"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "render_model_version": self.render_model_version,
+            "schema_id": self.schema_id,
+            "schema_bundle_sha256": self.schema_bundle_sha256,
+            "document_id": self.document_id,
+            "document_type": self.document_type,
+            "title": self.title,
+            "sections": [s.to_dict() for s in self.sections if s.blocks],  # Omit empty sections
+            "metadata": self.metadata,
+        }
+        if self.subtitle:
+            result["subtitle"] = self.subtitle
+        return result
 
 
 class RenderModelBuilder:
     """
     Builds RenderModels from document definitions and document data.
     
-    Per ADR-034 and WS-ADR-034-POC:
-    - Loads document definition by exact ID
+    Per DOCUMENT_VIEWER_CONTRACT v1.0:
+    - Loads document definition by exact ID or short name
     - For each section (ordered):
       - Resolves component spec to get schema_id
-      - Based on shape (single, list, nested_list):
-        - Creates RenderBlock(s) with type = schema_id
-      - For nested_list: source_pointer and context are evaluated
-        relative to each parent object, not from document root
-    - Returns data-only RenderModel (no HTML)
+      - Creates RenderBlock(s) based on shape semantics
+      - Groups blocks under RenderSection
+    - Returns data-only RenderModel with nested sections structure
     """
     
     def __init__(
         self,
         docdef_service: DocumentDefinitionService,
         component_service: ComponentRegistryService,
+        schema_service: Optional[SchemaRegistryService] = None,
     ):
         self.docdef_service = docdef_service
         self.component_service = component_service
+        self.schema_service = schema_service
     
     async def build(
         self,
         document_def_id: str,
         document_data: Dict[str, Any],
+        document_id: Optional[str] = None,
+        title: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        lifecycle_state: Optional[str] = None,
     ) -> RenderModel:
         """
         Build a RenderModel from document definition and data.
         
-        Algorithm:
-        1. Load document definition by exact id
-        2. For each section (ordered by 'order' field):
-           - Resolve component spec to get schema_id
-           - Based on shape:
-             - single: Resolve source_pointer from root, create one RenderBlock
-             - list: Resolve source_pointer from root, iterate array, create RenderBlock per item
-             - nested_list: Iterate repeat_over array; for each parent object,
-               resolve source_pointer relative to that parent, create RenderBlock per item
-           - Set RenderBlock.type = component's schema_id
-           - Set RenderBlock.key = {section_id}:{index}
-           - Attach context by resolving context pointers relative to parent object
-        3. Return RenderModel with all blocks
+        Per DOCUMENT_VIEWER_CONTRACT v1.0:
+        - Emits nested sections[] structure
+        - Populates all envelope fields
+        - Empty sections are omitted in output
         
         Args:
-            document_def_id: Exact document definition ID
+            document_def_id: Exact document definition ID (e.g., docdef:EpicDetailView:1.0.0)
+                            or short name (e.g., EpicDetailView)
             document_data: Document data to render
+            document_id: Optional document ID (computed if not provided)
+            title: Optional title override
+            subtitle: Optional subtitle
             
         Returns:
-            RenderModel with all blocks (data-only, no HTML)
+            RenderModel with nested sections (data-only, no HTML)
             
         Raises:
             DocDefNotFoundError: If document definition not found
             ComponentNotFoundError: If any component not found
         """
+        # Resolve short name to full docdef ID if needed
+        if not document_def_id.startswith("docdef:"):
+            document_def_id = f"docdef:{document_def_id}:1.0.0"
+        
         # 1. Load document definition
         docdef = await self.docdef_service.get(document_def_id)
         if not docdef:
             raise DocDefNotFoundError(f"Document definition not found: {document_def_id}")
         
-        # Build render model
+        # Extract document_type from docdef ID
+        # Format: docdef:DocumentType:version
+        parts = document_def_id.split(":")
+        document_type = parts[1] if len(parts) >= 2 else document_def_id
+        
+        # Compute document_id if not provided
+        if not document_id:
+            document_id = self._compute_document_id(document_type, document_data)
+        
+        # Compute schema bundle SHA256
+        schema_bundle_sha256 = await self._compute_schema_bundle_sha256(docdef)
+        
+        # Determine title
+        display_title = title or document_data.get("title", document_type)
+        
+        # 2. Process sections in order
+        sections_config = docdef.sections or []
+        sorted_sections = sorted(sections_config, key=lambda s: s.get("order", 0))
+        
+        render_sections: List[RenderSection] = []
+        
+        for section_config in sorted_sections:
+            section_blocks = await self._process_section(
+                section=section_config,
+                document_data=document_data,
+            )
+            
+            # Per DOCUMENT_VIEWER_CONTRACT: omit empty sections
+            if not section_blocks:
+                continue
+            
+            # Create RenderSection
+            render_section = RenderSection(
+                section_id=section_config.get("section_id", "unknown"),
+                title=section_config.get("title", ""),
+                order=section_config.get("order", 0),
+                description=section_config.get("description"),
+                blocks=section_blocks,
+                viewer_tab=section_config.get("viewer_tab", "details"),
+            )
+            render_sections.append(render_section)
+        
+        # Build render model with envelope fields
         render_model = RenderModel(
-            document_def_id=document_def_id,
+            render_model_version="1.0",
+            schema_id="schema:RenderModelV1",
+            schema_bundle_sha256=schema_bundle_sha256,
+            document_id=document_id,
+            document_type=document_type,
+            title=display_title,
+            subtitle=subtitle,
+            sections=render_sections,
             metadata={
-                "section_count": len(docdef.sections or []),
+                "section_count": len(sections_config),
             },
         )
         
-        # 2. Process sections in order
-        sections = docdef.sections or []
-        sorted_sections = sorted(sections, key=lambda s: s.get("order", 0))
-        
-        for section in sorted_sections:
-            section_blocks = await self._process_section(
-                section=section,
-                document_data=document_data,
-            )
-            render_model.blocks.extend(section_blocks)
-        
+        total_blocks = sum(len(s.blocks) for s in render_sections)
         logger.info(
-            f"Built RenderModel for {document_def_id}: "
-            f"blocks={len(render_model.blocks)}"
+            f"Built RenderModel for {document_type}: "
+            f"sections={len(render_sections)}, blocks={total_blocks}"
         )
         
         return render_model
+    
+    def _compute_document_id(
+        self,
+        document_type: str,
+        document_data: Dict[str, Any],
+    ) -> str:
+        """
+        Compute deterministic document_id for preview/on-demand renders.
+        
+        Per DOCUMENT_VIEWER_CONTRACT v1.0:
+        document_id = sha256(document_type + canonical(params))[:16]
+        
+        For stored documents, the database UUID should be passed explicitly.
+        """
+        # Extract key identifying fields from data
+        params = {}
+        for key in ["id", "epic_id", "story_id", "project_id"]:
+            if key in document_data:
+                params[key] = str(document_data[key])
+        
+        # Canonical serialization: sorted keys, k=v&k2=v2 format
+        canonical = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+        
+        # Compute hash
+        content = f"{document_type}:{canonical}"
+        hash_value = hashlib.sha256(content.encode()).hexdigest()[:16]
+        
+        return hash_value
+    
+    def _build_metadata(
+        self,
+        section_count: int,
+        lifecycle_state: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Build metadata dict for RenderModel.
+        
+        Includes lifecycle_state (ADR-036) if provided.
+        """
+        metadata = {"section_count": section_count}
+        if lifecycle_state:
+            metadata["lifecycle_state"] = lifecycle_state
+        return metadata
+    
+    async def _compute_schema_bundle_sha256(
+        self,
+        docdef,
+    ) -> str:
+        """
+        Compute SHA256 hash of schema bundle for this document.
+        
+        Collects all component schemas and hashes the bundle.
+        """
+        sections = docdef.sections or []
+        
+        # Collect unique component IDs
+        component_ids = set()
+        for section in sections:
+            comp_id = section.get("component_id")
+            if comp_id:
+                component_ids.add(comp_id)
+        
+        # Build schema bundle
+        bundle = {"schemas": {}}
+        for comp_id in sorted(component_ids):
+            component = await self.component_service.get(comp_id)
+            if component and component.schema_id:
+                # Try to get full schema if service available
+                if self.schema_service:
+                    schema_id = component.schema_id
+                    if schema_id.startswith("schema:"):
+                        lookup_id = schema_id[7:]  # Remove prefix
+                    else:
+                        lookup_id = schema_id
+                    
+                    schema = await self.schema_service.get_by_id(lookup_id)
+                    if schema and schema.schema_json:
+                        bundle["schemas"][component.schema_id] = schema.schema_json
+                else:
+                    bundle["schemas"][component.schema_id] = {}
+        
+        # Compute hash
+        bundle_json = json.dumps(bundle, sort_keys=True, separators=(',', ':'))
+        return f"sha256:{hashlib.sha256(bundle_json.encode()).hexdigest()}"
     
     async def _process_section(
         self,
@@ -616,6 +835,12 @@ class RenderModelBuilder:
                 context[key] = value
         
         return context if context else None
+
+
+
+
+
+
 
 
 

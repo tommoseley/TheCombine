@@ -123,3 +123,23 @@ The following are explicitly **not supported** and require governance approval t
 ---
 
 *End of Specification*
+
+
+---
+
+## Metadata Semantics
+
+### `section_count`
+
+**Definition:** Number of docdef sections evaluated, including those omitted due to empty data.
+
+**NOT:** Number of blocks rendered.
+
+```
+docdef sections: 3 (summary, constraints, risks)
+source data: summary present, constraints present, risks empty
+section_count: 3
+blocks emitted: 2
+```
+
+This distinction is frozen. If "blocks rendered" is needed, it requires a new metadata field (out of scope for current semantics).
