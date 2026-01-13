@@ -1,4 +1,5 @@
-﻿"""
+import logging
+"""
 Documents API Routes - Unified endpoint for building any document type.
 
 Uses the new document-centric model with:
@@ -11,7 +12,7 @@ Week 2 (ADR-010): Integrated correlation_id for LLM execution logging.
 
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -230,7 +231,7 @@ async def get_type(
 # BUILD ROUTES
 # =============================================================================
 
-@router.post("/build/{doc_type_id}", response_model=BuildResultResponse)
+@router.post("/build/{doc_type_id}", response_model=BuildResultResponse, deprecated=True)
 async def build_document(
     doc_type_id: str,
     request: BuildDocumentRequest,
@@ -241,8 +242,8 @@ async def build_document(
     """
     Build a document synchronously.
     
-    Returns the completed result. For long-running builds,
-    use the streaming endpoint instead.
+    DEPRECATED: Use POST /api/commands/documents/{doc_type_id}/build instead.
+    Phase 7 (WS-DOCUMENT-SYSTEM-CLEANUP): This route will be removed.
     """
     result = await builder.build(
         doc_type_id=doc_type_id,
@@ -412,7 +413,7 @@ async def render_document(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{document_id}/mark-stale")
+@router.post("/{document_id}/mark-stale", deprecated=True)
 async def mark_stale(
     document_id: UUID,
     doc_service: DocumentService = Depends(get_document_service),

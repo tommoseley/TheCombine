@@ -40,6 +40,11 @@ DEPRECATED_ROUTES: Dict[str, Dict[str, str]] = {
         "redirect_to": "/projects/{project_id}/documents/project_discovery",
         "message": "Use /projects/{project_id}/documents/project_discovery instead",
     },
+    # Phase 7: API document routes -> command routes
+    "/api/documents/build/": {
+        "redirect_to": "/api/commands/documents/{doc_type_id}/build",
+        "message": "Use POST /api/commands/documents/{doc_type_id}/build instead",
+    },
 }
 
 
