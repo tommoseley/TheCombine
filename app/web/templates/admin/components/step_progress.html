@@ -1,13 +1,13 @@
-﻿<div class="step-progress">
+<div class="step-progress">
     {% for step in steps %}
     <div class="step-indicator {% if step.step_id in execution.completed_steps %}completed{% elif step.step_id == execution.current_step_id %}current{% else %}pending{% endif %}">
         <div class="step-marker">
             {% if step.step_id in execution.completed_steps %}
-            <span class="marker-icon">✓</span>
+            <span class="marker-icon"></span>
             {% elif step.step_id == execution.current_step_id %}
-            <span class="marker-icon pulse">→</span>
+            <span class="marker-icon pulse"></span>
             {% else %}
-            <span class="marker-icon">○</span>
+            <span class="marker-icon"></span>
             {% endif %}
         </div>
         <div class="step-info">

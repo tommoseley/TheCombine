@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ workflow.name }} - The Combine{% endblock %}
 
@@ -43,7 +43,7 @@
             <div class="scope-item">
                 <span class="scope-name">{{ scope_id }}</span>
                 {% if scope.parent %}
-                <span class="scope-parent">→ {{ scope.parent }}</span>
+                <span class="scope-parent"> {{ scope.parent }}</span>
                 {% else %}
                 <span class="scope-root">(root)</span>
                 {% endif %}

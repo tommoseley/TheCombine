@@ -211,9 +211,9 @@
                             btn.style.display = 'none';
                             
                             if (data.errors && data.errors.length > 0) {
-                                statusDiv.innerHTML = `<span class="text-amber-600 text-sm">✓ Generated ${data.total_stories} stories for ${data.total_epics} epics (${data.errors.length} errors)</span>`;
+                                statusDiv.innerHTML = `<span class="text-amber-600 text-sm"> Generated ${data.total_stories} stories for ${data.total_epics} epics (${data.errors.length} errors)</span>`;
                             } else {
-                                statusDiv.innerHTML = `<span class="text-green-600 text-sm">✓ Generated ${data.total_stories} stories for ${data.total_epics} epics</span>`;
+                                statusDiv.innerHTML = `<span class="text-green-600 text-sm"> Generated ${data.total_stories} stories for ${data.total_epics} epics</span>`;
                             }
                         }
                         else if (data.type === 'error') {

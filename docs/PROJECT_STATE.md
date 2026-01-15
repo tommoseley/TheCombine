@@ -30,8 +30,8 @@ Execution constraints for AI collaborators are defined in AI.MD and are consider
 
 | ADR | Status | Summary |
 |-----|--------|---------|
-| ADR-009 | Complete | Project Audit — state changes explicit/traceable |
-| ADR-010 | Complete | LLM Execution Logging — inputs, outputs, replay |
+| ADR-009 | Complete | Project Audit â€” state changes explicit/traceable |
+| ADR-010 | Complete | LLM Execution Logging â€” inputs, outputs, replay |
 | ADR-011-Part-2 | Complete | Document Ownership Implementation |
 | ADR-025 | Complete | Concierge Intake - Conversational Flow |
 | ADR-026 | Complete | Concierge Session Management |
@@ -42,6 +42,8 @@ Execution constraints for AI collaborators are defined in AI.MD and are consider
 | ADR-034 | Complete | Document Composition Manifest & Canonical Components |
 | ADR-035 | Draft | Durable LLM Threaded Queue |
 | ADR-036 | **Accepted** | Document Lifecycle & Staleness Semantics |
+| ADR-037 | **Accepted** | Concierge-Constrained Workflow Routing |
+| ADR-038 | **Accepted** | Workflow Plan Schema |
 
 ## Governing Policies
 * POL-ADR-EXEC-001: ADR Execution Authorization Process (6-step authorization)

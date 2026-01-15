@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Execution {{ execution.execution_id }} - The Combine{% endblock %}
 
@@ -50,18 +50,18 @@
             </div>
             <div class="overview-item">
                 <span class="overview-label">Started</span>
-                <span class="overview-value">{{ execution.started_at|default("—", true) }}</span>
+                <span class="overview-value">{{ execution.started_at|default("-", true) }}</span>
             </div>
             <div class="overview-item">
                 <span class="overview-label">Completed</span>
-                <span class="overview-value">{{ execution.completed_at|default("—", true) }}</span>
+                <span class="overview-value">{{ execution.completed_at|default("-", true) }}</span>
             </div>
         </div>
     </section>
     
     {% if execution.status == 'waiting_acceptance' %}
     <section class="card action-required">
-        <h3 class="card-title">⚠️ Action Required</h3>
+        <h3 class="card-title"> Action Required</h3>
         <p>Document awaiting acceptance: <strong>{{ execution.pending_acceptance }}</strong></p>
         <a href="/executions/{{ execution.execution_id }}/acceptance" class="btn btn-primary">
             Review Document
@@ -71,7 +71,7 @@
     
     {% if execution.status == 'waiting_clarification' %}
     <section class="card action-required">
-        <h3 class="card-title">⚠️ Action Required</h3>
+        <h3 class="card-title"> Action Required</h3>
         <p>Clarification needed for step: <strong>{{ execution.pending_clarification_step_id }}</strong></p>
         <a href="/executions/{{ execution.execution_id }}/clarification" class="btn btn-primary">
             Answer Questions
@@ -99,7 +99,7 @@
         <ul class="completed-list">
             {% for step_id in execution.completed_steps %}
             <li class="completed-item">
-                <span class="check-icon">✓</span>
+                <span class="check-icon"></span>
                 <span class="step-name">{{ step_id }}</span>
             </li>
             {% endfor %}

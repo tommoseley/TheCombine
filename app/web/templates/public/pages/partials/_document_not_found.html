@@ -96,6 +96,18 @@
 </div>
 
 <script>
+// DEBUG: Document not found page
+(function() {
+    console.log('=== Document Not Found Debug ===');
+    console.log('Checking button...');
+    var btn = document.getElementById('build-btn');
+    if (btn) {
+        console.log('Button found, disabled:', btn.disabled);
+    } else {
+        console.log('Button NOT found yet');
+    }
+})();
+
 // Build tracking - uses task_id from backend
 var BUILD_STORAGE_KEY = 'combine_document_builds';
 var lastStatusMessage = '';
