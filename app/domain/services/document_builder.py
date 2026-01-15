@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Builder - The one class that builds any document type.
 
 This replaces all the mentor classes with a single, registry-driven builder.
@@ -111,6 +111,22 @@ class ProgressUpdate:
             payload["data"] = self.data
         return f"data: {json.dumps(payload)}\n\n"
 
+@dataclass
+class BuildContext:
+    config: Dict[str, Any]
+    handler: Any
+    input_docs: Dict[str, Any]
+    input_ids: List[UUID]
+    system_prompt: str
+    prompt_id: str
+    schema: Optional[Dict[str, Any]]
+    user_message: str
+    model: str
+    max_tokens: int
+    temperature: float
+    doc_type_id: str
+    space_type: str
+    space_id: UUID
 
 # =============================================================================
 # DOCUMENT BUILDER
@@ -181,7 +197,108 @@ class DocumentBuilder:
         missing = [dep for dep in required if dep not in existing]
         
         return len(missing) == 0, missing
+    # =========================================================================
+    # PRIVATE - Build Preparation (Shared by build and build_stream)
+    # =========================================================================
     
+    async def _prepare_build(
+        self,
+        doc_type_id: str,
+        space_type: str,
+        space_id: UUID,
+        inputs: Dict[str, Any],
+        options: Dict[str, Any],
+    ) -> BuildContext:
+        config = await get_document_config(self.db, doc_type_id)
+        handler = get_handler(config["handler_id"])
+        can_build_now, missing = await self.can_build(doc_type_id, space_type, space_id)
+        if not can_build_now:
+            raise DependencyNotMetError(doc_type_id, missing)
+        input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
+        system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
+            role_name=config["builder_role"],
+            task_name=config["builder_task"]
+        )
+        user_message = self._build_user_message(config, inputs, input_docs)
+        model = options.get("model") or self.model
+        if model in (None, "", "string"):
+            model = self.model
+        max_tokens = options.get("max_tokens") or 4096
+        temperature = options.get("temperature") if options.get("temperature") is not None else 0.7
+        
+        return BuildContext(
+            config=config, handler=handler, input_docs=input_docs, input_ids=input_ids,
+            system_prompt=system_prompt, prompt_id=prompt_id, schema=schema,
+            user_message=user_message, model=model, max_tokens=max_tokens,
+            temperature=temperature, doc_type_id=doc_type_id,
+            space_type=space_type, space_id=space_id,
+        )
+    
+    async def _start_llm_logging(self, ctx: BuildContext, input_docs: Optional[Dict[str, Any]] = None) -> Optional[UUID]:
+        if not self.llm_logger:
+            return None
+        try:
+            run_id = await self.llm_logger.start_run(
+                correlation_id=self.correlation_id,
+                project_id=ctx.space_id if ctx.space_type == "project" else None,
+                artifact_type=ctx.doc_type_id, role=ctx.config["builder_role"],
+                model_provider="anthropic", model_name=ctx.model,
+                prompt_id=ctx.prompt_id, prompt_version="1.0.0",
+                effective_prompt=ctx.system_prompt,
+            )
+            await self.llm_logger.add_input(run_id, "system_prompt", ctx.system_prompt)
+            await self.llm_logger.add_input(run_id, "user_prompt", ctx.user_message)
+            if input_docs:
+                for input_doc_type, content in input_docs.items():
+                    await self.llm_logger.add_input(run_id, "context_doc", f"{input_doc_type}:\n{json.dumps(content, indent=2)}")
+            if ctx.schema:
+                await self.llm_logger.add_input(run_id, "schema", json.dumps(ctx.schema, indent=2))
+            return run_id
+        except Exception as e:
+            logger.warning(f"LLM logging failed at start: {e}")
+            return None
+    
+    async def _log_llm_output(self, run_id: Optional[UUID], raw_content: str) -> None:
+        if not self.llm_logger or not run_id:
+            return
+        try:
+            await self.llm_logger.add_output(run_id, "raw_text", raw_content)
+        except Exception as e:
+            logger.warning(f"LLM logging failed at output: {e}")
+    
+    async def _log_llm_error(self, run_id: Optional[UUID], stage: str, error_code: str, message: str, severity: str = "ERROR", details: Optional[Dict[str, Any]] = None) -> None:
+        if not self.llm_logger or not run_id:
+            return
+        try:
+            await self.llm_logger.log_error(run_id, stage=stage, severity=severity, error_code=error_code, message=message, details=details)
+            await self.llm_logger.complete_run(run_id, status="FAILED", usage={})
+        except Exception as e:
+            logger.warning(f"LLM logging failed: {e}")
+    
+    async def _complete_llm_logging(self, run_id: Optional[UUID], input_tokens: int, output_tokens: int, document_id: Optional[str] = None, parse_status: Optional[str] = None, validation_status: Optional[str] = None) -> None:
+        if not self.llm_logger or not run_id:
+            return
+        try:
+            metadata = {}
+            if document_id:
+                metadata["document_id"] = document_id
+            if parse_status:
+                metadata["parse_status"] = parse_status
+            if validation_status:
+                metadata["validation_status"] = validation_status
+            await self.llm_logger.complete_run(run_id, status="SUCCESS", usage={"input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": input_tokens + output_tokens}, metadata=metadata if metadata else None)
+        except Exception as e:
+            logger.warning(f"LLM logging failed at complete: {e}")
+    
+    async def _persist_document(self, ctx: BuildContext, result: Dict[str, Any], input_tokens: int, output_tokens: int, run_id: Optional[UUID], created_by: Optional[str]):
+        return await self.document_service.create_document(
+            space_type=ctx.space_type, space_id=ctx.space_id, doc_type_id=ctx.doc_type_id,
+            title=result["title"], content=result["data"], created_by=created_by,
+            created_by_type="builder",
+            builder_metadata={"prompt_id": ctx.prompt_id, "model": ctx.model, "input_tokens": input_tokens, "output_tokens": output_tokens, "llm_run_id": str(run_id) if run_id else None},
+            derived_from=ctx.input_ids,
+        )
+
     # =========================================================================
     # PUBLIC API - Sync Build
     # =========================================================================
@@ -195,163 +312,35 @@ class DocumentBuilder:
         options: Optional[Dict[str, Any]] = None,
         created_by: Optional[str] = None,
     ) -> BuildResult:
-        """
-        Build a document synchronously (non-streaming).
-        
-        Args:
-            doc_type_id: The document type to build
-            space_type: 'project' | 'organization' | 'team'
-            space_id: UUID of owning entity
-            inputs: Additional inputs (user_query, etc.)
-            options: Build options (model, temperature, etc.)
-            created_by: Creator identifier
-            
-        Returns:
-            BuildResult with document details or error
-        """
         inputs = inputs or {}
         options = options or {}
-        
-        # ADR-010: Use injected logger (graceful degradation if not provided)
-        llm_logger = self.llm_logger
         run_id = None
         
         try:
-            # 1. Load document config from registry
-            config = await get_document_config(self.db, doc_type_id)
+            ctx = await self._prepare_build(doc_type_id, space_type, space_id, inputs, options)
+            logger.info(f"LLM call: model={ctx.model!r}, max_tokens={ctx.max_tokens}, temp={ctx.temperature}")
             
-            # 2. Get handler
-            handler = get_handler(config["handler_id"])
+            run_id = await self._start_llm_logging(ctx)
             
-            # 3. Check dependencies
-            can_build_now, missing = await self.can_build(doc_type_id, space_type, space_id)
-            
-            if not can_build_now:
-                raise DependencyNotMetError(doc_type_id, missing)
-            
-            # 4. Gather input documents
-            input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
-            
-            # 5. Load prompts
-            system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
-                role_name=config["builder_role"],
-                task_name=config["builder_task"]
-            )
-            
-            # 6. Build user message
-            user_message = self._build_user_message(config, inputs, input_docs)
-            
-            # 7. Prepare LLM call
-            model = options.get("model") or self.model
-            if model in (None, "", "string"):
-                model = self.model
-            max_tokens = options.get("max_tokens") or 4096
-            temperature = options.get("temperature") if options.get("temperature") is not None else 0.7
-            
-            logger.info(f"LLM call: model={model!r}, max_tokens={max_tokens}, temp={temperature}")
-            
-            # =====================================================================
-            # ADR-010: START LLM RUN LOGGING
-            # =====================================================================
-            if llm_logger:
-                try:
-                    run_id = await llm_logger.start_run(
-                        correlation_id=self.correlation_id,
-                        project_id=space_id if space_type == "project" else None,
-                        artifact_type=doc_type_id,
-                        role=config["builder_role"],
-                        model_provider="anthropic",
-                        model_name=model,
-                        prompt_id=prompt_id,
-                        prompt_version="1.0.0",
-                        effective_prompt=system_prompt,
-                    )
-                    await llm_logger.add_input(run_id, "system_prompt", system_prompt)
-                    await llm_logger.add_input(run_id, "user_prompt", user_message)
-                    if schema:
-                        await llm_logger.add_input(run_id, "schema", json.dumps(schema, indent=2))
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at start: {e}")
-            # =====================================================================
-            
-            # 8. Call LLM
             response = self.anthropic_client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}]
+                model=ctx.model, max_tokens=ctx.max_tokens, temperature=ctx.temperature,
+                system=ctx.system_prompt, messages=[{"role": "user", "content": ctx.user_message}]
             )
             
             raw_content = response.content[0].text
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
             
-            # =====================================================================
-            # ADR-010: LOG OUTPUT
-            # =====================================================================
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.add_output(run_id, "raw_text", raw_content)
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at output: {e}")
-            # =====================================================================
-            
-            # 9. Process with handler
-            result = handler.process(raw_content, config.get("schema_definition"))
-            
-            # 10. Persist document with relationships
-            doc = await self.document_service.create_document(
-                space_type=space_type,
-                space_id=space_id,
-                doc_type_id=doc_type_id,
-                title=result["title"],
-                content=result["data"],
-                created_by=created_by,
-                created_by_type="builder",
-                builder_metadata={
-                    "prompt_id": prompt_id,
-                    "model": model,
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "llm_run_id": str(run_id) if run_id else None,
-                },
-                derived_from=input_ids,
-            )
-            
-            # 11. Render HTML
-            html = handler.render(result["data"])
-            
-            # =====================================================================
-            # ADR-010: COMPLETE RUN
-            # =====================================================================
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.complete_run(
-                        run_id,
-                        status="SUCCESS",
-                        usage={
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                            "total_tokens": input_tokens + output_tokens,
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at complete: {e}")
-            # =====================================================================
+            await self._log_llm_output(run_id, raw_content)
+            result = ctx.handler.process(raw_content, ctx.config.get("schema_definition"))
+            doc = await self._persist_document(ctx, result, input_tokens, output_tokens, run_id, created_by)
+            html = ctx.handler.render(result["data"])
+            await self._complete_llm_logging(run_id, input_tokens, output_tokens, str(doc.id))
             
             return BuildResult(
-                success=True,
-                doc_type_id=doc_type_id,
-                document_id=str(doc.id),
-                title=result["title"],
-                data=result["data"],
-                html=html,
-                tokens={
-                    "input": input_tokens,
-                    "output": output_tokens,
-                    "total": input_tokens + output_tokens,
-                }
+                success=True, doc_type_id=doc_type_id, document_id=str(doc.id),
+                title=result["title"], data=result["data"], html=html,
+                tokens={"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
             )
             
         except DocumentNotFoundError as e:
@@ -361,31 +350,16 @@ class DocumentBuilder:
         except DependencyNotMetError as e:
             return BuildResult(success=False, doc_type_id=doc_type_id, error=str(e))
         except DocumentParseError as e:
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.log_error(run_id, "PARSE", "ERROR", "PARSE_ERROR", str(e))
-                    await llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as log_err:
-                    logger.warning(f"LLM logging failed: {log_err}")
+            await self._log_llm_error(run_id, "PARSE", "PARSE_ERROR", str(e))
             return BuildResult(success=False, doc_type_id=doc_type_id, error=str(e))
         except DocumentValidationError as e:
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.log_error(run_id, "VALIDATE", "ERROR", "VALIDATION_ERROR", str(e))
-                    await llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as log_err:
-                    logger.warning(f"LLM logging failed: {log_err}")
+            await self._log_llm_error(run_id, "VALIDATE", "VALIDATION_ERROR", str(e))
             return BuildResult(success=False, doc_type_id=doc_type_id, error=str(e))
         except Exception as e:
             logger.error(f"Build failed for {doc_type_id}: {e}", exc_info=True)
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.log_error(run_id, "MODEL_CALL", "FATAL", "UNEXPECTED_ERROR", str(e))
-                    await llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as log_err:
-                    logger.warning(f"LLM logging failed: {log_err}")
+            await self._log_llm_error(run_id, "MODEL_CALL", "UNEXPECTED_ERROR", str(e), severity="FATAL")
             return BuildResult(success=False, doc_type_id=doc_type_id, error=str(e))
-    
+
     # =========================================================================
     # PUBLIC API - Streaming Build
     # =========================================================================
@@ -399,163 +373,73 @@ class DocumentBuilder:
         options: Optional[Dict[str, Any]] = None,
         created_by: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
-        """
-        Build a document with streaming progress updates.
-        
-        Yields SSE-formatted progress updates.
-        """
         inputs = inputs or {}
         options = options or {}
-        
-        # ADR-010: Use injected logger
-        llm_logger = self.llm_logger
         run_id = None
         
         try:
-            # Step 1: Load config
             yield ProgressUpdate("loading", "Loading document configuration...", 5).to_sse()
             config = await get_document_config(self.db, doc_type_id)
             
-            # Step 2: Get handler
             yield ProgressUpdate("loading", "Loading handler...", 10).to_sse()
             handler = get_handler(config["handler_id"])
             
-            # Step 3: Check dependencies
             yield ProgressUpdate("checking", "Checking dependencies...", 15).to_sse()
             can_build_now, missing = await self.can_build(doc_type_id, space_type, space_id)
             
             if not can_build_now:
-                yield ProgressUpdate(
-                    "error", 
-                    f"Missing dependencies: {', '.join(missing)}", 
-                    15,
-                    {"missing_dependencies": missing}
-                ).to_sse()
+                yield ProgressUpdate("error", f"Missing dependencies: {', '.join(missing)}", 15, {"missing_dependencies": missing}).to_sse()
                 return
             
-            # Step 4: Gather inputs
             yield ProgressUpdate("gathering", "Gathering input documents...", 20).to_sse()
             input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
             
-            # Step 5: Load prompts
             yield ProgressUpdate("prompts", "Loading prompts...", 25).to_sse()
             system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
-                role_name=config["builder_role"],
-                task_name=config["builder_task"]
+                role_name=config["builder_role"], task_name=config["builder_task"]
             )
             
-            # Step 6: Build user message
             user_message = self._build_user_message(config, inputs, input_docs)
             
-            # Step 7: Prepare LLM call
             model = options.get("model") or self.model
             if model in (None, "", "string"):
                 model = self.model
             max_tokens = options.get("max_tokens") or 4096
             temperature = options.get("temperature") if options.get("temperature") is not None else 0.7
             
-            # =====================================================================
-            # ADR-010: START LLM RUN LOGGING
-            # =====================================================================
-            if llm_logger:
-                try:
-                    run_id = await llm_logger.start_run(
-                        correlation_id=self.correlation_id,
-                        project_id=space_id if space_type == "project" else None,
-                        artifact_type=doc_type_id,
-                        role=config["builder_role"],
-                        model_provider="anthropic",
-                        model_name=model,
-                        prompt_id=prompt_id,
-                        prompt_version="1.0.0",
-                        effective_prompt=system_prompt,
-                    )
-                    
-                    # Log inputs
-                    await llm_logger.add_input(run_id, "system_prompt", system_prompt)
-                    await llm_logger.add_input(run_id, "user_prompt", user_message)
-                    
-                    # Log input documents
-                    for input_doc_type, content in input_docs.items():
-                        await llm_logger.add_input(
-                            run_id, 
-                            "context_doc", 
-                            f"{input_doc_type}:\n{json.dumps(content, indent=2)}"
-                        )
-                    
-                    if schema:
-                        await llm_logger.add_input(run_id, "schema", json.dumps(schema, indent=2))
-                        
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at start_run: {e}")
-            # =====================================================================
+            ctx = BuildContext(
+                config=config, handler=handler, input_docs=input_docs, input_ids=input_ids,
+                system_prompt=system_prompt, prompt_id=prompt_id, schema=schema,
+                user_message=user_message, model=model, max_tokens=max_tokens,
+                temperature=temperature, doc_type_id=doc_type_id,
+                space_type=space_type, space_id=space_id,
+            )
             
-            # Step 8: Call LLM (streaming)
+            run_id = await self._start_llm_logging(ctx, input_docs)
+            
             yield ProgressUpdate("generating", "Generating document...", 30).to_sse()
-            
             accumulated_text = ""
-            final_message = None
             
             try:
                 async with self.anthropic_client.messages.stream(
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": user_message}]
+                    model=model, max_tokens=max_tokens, temperature=temperature,
+                    system=system_prompt, messages=[{"role": "user", "content": user_message}]
                 ) as stream:
                     async for text in stream.text_stream:
                         accumulated_text += text
                         if len(accumulated_text) % 100 < len(text):
                             preview = accumulated_text[:100] + "..." if len(accumulated_text) > 100 else accumulated_text
-                            yield ProgressUpdate(
-                                "streaming", 
-                                "Generating...",
-                                min(30 + len(accumulated_text) // 50, 70),
-                                {"preview": preview}
-                            ).to_sse()
+                            yield ProgressUpdate("streaming", "Generating...", min(30 + len(accumulated_text) // 50, 70), {"preview": preview}).to_sse()
                 
                 final_message = await stream.get_final_message()
                 input_tokens = final_message.usage.input_tokens
                 output_tokens = final_message.usage.output_tokens
-                
-                # =================================================================
-                # ADR-010: LOG OUTPUT
-                # =================================================================
-                if llm_logger and run_id:
-                    try:
-                        await llm_logger.add_output(
-                            run_id,
-                            "raw_text",
-                            accumulated_text,
-                            parse_status=None,
-                            validation_status=None
-                        )
-                    except Exception as e:
-                        logger.warning(f"LLM logging failed at add_output: {e}")
-                # =================================================================
+                await self._log_llm_output(run_id, accumulated_text)
                 
             except Exception as e:
-                # =================================================================
-                # ADR-010: LOG LLM ERROR
-                # =================================================================
-                if llm_logger and run_id:
-                    try:
-                        await llm_logger.log_error(
-                            run_id,
-                            stage="MODEL_CALL",
-                            severity="FATAL",
-                            error_code="LLM_API_ERROR",
-                            message=str(e),
-                            details={"exception_type": type(e).__name__}
-                        )
-                        await llm_logger.complete_run(run_id, status="FAILED", usage={})
-                    except Exception as log_err:
-                        logger.warning(f"LLM logging failed during error handling: {log_err}")
-                # =================================================================
+                await self._log_llm_error(run_id, "MODEL_CALL", "LLM_API_ERROR", str(e), severity="FATAL", details={"exception_type": type(e).__name__})
                 raise
             
-            # Step 9: Parse
             yield ProgressUpdate("parsing", "Parsing response...", 75).to_sse()
             await asyncio.sleep(0.1)
             
@@ -566,115 +450,30 @@ class DocumentBuilder:
                 result = handler.process(accumulated_text, config.get("schema_definition"))
                 parse_status = "PARSED"
                 validation_status = "PASSED"
-                
             except DocumentParseError as e:
-                parse_status = "FAILED"
-                if llm_logger and run_id:
-                    try:
-                        await llm_logger.log_error(
-                            run_id,
-                            stage="PARSE",
-                            severity="ERROR",
-                            error_code="PARSE_ERROR",
-                            message=str(e)
-                        )
-                        await llm_logger.complete_run(run_id, status="FAILED", usage={
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                        })
-                    except Exception as log_err:
-                        logger.warning(f"LLM logging failed: {log_err}")
+                await self._log_llm_error(run_id, "PARSE", "PARSE_ERROR", str(e))
                 raise
-                
             except DocumentValidationError as e:
-                parse_status = "PARSED"
-                validation_status = "FAILED"
-                if llm_logger and run_id:
-                    try:
-                        await llm_logger.log_error(
-                            run_id,
-                            stage="VALIDATE",
-                            severity="ERROR",
-                            error_code="VALIDATION_ERROR",
-                            message=str(e)
-                        )
-                        await llm_logger.complete_run(run_id, status="FAILED", usage={
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                        })
-                    except Exception as log_err:
-                        logger.warning(f"LLM logging failed: {log_err}")
+                await self._log_llm_error(run_id, "VALIDATE", "VALIDATION_ERROR", str(e))
                 raise
             
-            # Step 10: Save
             yield ProgressUpdate("saving", "Saving document...", 85).to_sse()
+            doc = await self._persist_document(ctx, result, input_tokens, output_tokens, run_id, created_by)
             
-            doc = await self.document_service.create_document(
-                space_type=space_type,
-                space_id=space_id,
-                doc_type_id=doc_type_id,
-                title=result["title"],
-                content=result["data"],
-                created_by=created_by,
-                created_by_type="builder",
-                builder_metadata={
-                    "prompt_id": prompt_id,
-                    "model": model,
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "llm_run_id": str(run_id) if run_id else None,
-                },
-                derived_from=input_ids,
-            )
-            
-            # Step 11: Render
             yield ProgressUpdate("rendering", "Rendering document...", 95).to_sse()
             html = handler.render(result["data"])
             
-            # =====================================================================
-            # ADR-010: COMPLETE RUN LOGGING
-            # =====================================================================
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.complete_run(
-                        run_id,
-                        status="SUCCESS",
-                        usage={
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                            "total_tokens": input_tokens + output_tokens,
-                        },
-                        cost_usd=None,  # TODO: Calculate cost based on model pricing
-                        metadata={
-                            "document_id": str(doc.id),
-                            "parse_status": parse_status,
-                            "validation_status": validation_status,
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at complete_run: {e}")
-            # =====================================================================
+            await self._complete_llm_logging(run_id, input_tokens, output_tokens, str(doc.id), parse_status, validation_status)
             
-            # Complete!
-            yield ProgressUpdate(
-                "complete",
-                f"{config['name']} created!",
-                100,
-                {
-                    "document_id": str(doc.id),
-                    "title": result["title"],
-                    "tokens": {
-                        "input": input_tokens,
-                        "output": output_tokens,
-                        "total": input_tokens + output_tokens,
-                    }
-                }
-            ).to_sse()
+            yield ProgressUpdate("complete", f"{config['name']} created!", 100, {
+                "document_id": str(doc.id), "title": result["title"],
+                "tokens": {"input": input_tokens, "output": output_tokens, "total": input_tokens + output_tokens}
+            }).to_sse()
             
         except Exception as e:
             logger.error(f"Stream build failed for {doc_type_id}: {e}", exc_info=True)
             yield ProgressUpdate("error", f"Error: {str(e)}", 0).to_sse()
-    
+
     # =========================================================================
     # PRIVATE HELPERS
     # =========================================================================
@@ -685,12 +484,6 @@ class DocumentBuilder:
         space_type: str,
         space_id: UUID
     ) -> tuple[Dict[str, Any], List[UUID]]:
-        """
-        Gather required and optional input documents.
-        
-        Returns:
-            Tuple of (doc_type -> content dict, list of document IDs)
-        """
         inputs = {}
         input_ids = []
         
@@ -711,38 +504,23 @@ class DocumentBuilder:
         user_inputs: Dict[str, Any],
         input_docs: Dict[str, Any]
     ) -> str:
-        """
-        Build the user message for the LLM.
-        
-        Combines user inputs with gathered input documents.
-        """
         parts = []
-        
-        # Add document type context
         parts.append(f"Create a {config['name']}.")
         
         if config.get("description"):
             parts.append(f"\nDocument purpose: {config['description']}")
         
-        # Add user query if provided
         if user_inputs.get("user_query"):
             parts.append(f"\nUser request:\n{user_inputs['user_query']}")
         
-        # Add project description if provided
         if user_inputs.get("project_description"):
             parts.append(f"\nProject description:\n{user_inputs['project_description']}")
         
-        # Add input documents
         if input_docs:
             parts.append("\n\n--- Input Documents ---")
             for doc_type, content in input_docs.items():
-                parts.append(f"\n### {doc_type}:\n```json\n{json.dumps(content, indent=2)}\n```")
+                parts.append(f"\n### {doc_type}:\n" + '`json\n' + json.dumps(content, indent=2) + "\n" + '`')
         
-        # Add output instruction
         parts.append("\n\nRemember: Output ONLY valid JSON matching the schema. No markdown, no prose.")
         
         return "\n".join(parts)
-
-
-
-

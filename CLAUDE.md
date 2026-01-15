@@ -1,4 +1,4 @@
-﻿# AI Bootstrap — The Combine
+# CLAUDE.md Bootstrap - The Combine
 
 ## Purpose
 
@@ -21,7 +21,7 @@ All relative paths in this document are from this root. When using tools to read
 
 ## Read Order
 
-1. This file (`AI.md`) — in Project Knowledge
+1. This file (`CLAUDE.md`) - in Project Knowledge
 2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
 3. **Review all policies** in `docs/policies/` - these are mandatory governance constraints
 4. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
@@ -47,8 +47,8 @@ Per POL-ADR-EXEC-001, AI agents MUST:
 1. **Recognize ADR states**: Architectural status (Draft/Accepted/Deprecated/Superseded) is independent of execution state (null/authorized/active/complete)
 2. **Assess scope**: Determine if work is single-commit or multi-commit
 3. **Follow the appropriate path**:
-   - **Single-commit:** Work Statement → Acceptance → Execute
-   - **Multi-commit:** Implementation Plan → Acceptance → Work Statement(s) → Acceptance → Execute
+   - **Single-commit:** Work Statement -> Acceptance -> Execute
+   - **Multi-commit:** Implementation Plan -> Acceptance -> Work Statement(s) -> Acceptance -> Execute
 4. **Declare scope explicitly**: The expected scope MUST be stated in the Work Statement or Implementation Plan
 5. **Escalate if scope grows**: If single-commit work expands, STOP and draft an Implementation Plan
 6. **Refuse unauthorized execution**: Do NOT begin execution without explicit Work Statement acceptance
@@ -73,6 +73,14 @@ The following constraints apply to all work on this project:
 - **All file-writing commands MUST be provided or performed in PowerShell syntax.**
   - Do not use bash, sh, or Unix-style commands.
   - Do not assume a Unix-like environment.
+  
+- **HTML Encoding Compliance Check (Mandatory)**
+  - Before recognizing any HTML file as ready for delivery, verify:
+    1. No BOM (Byte Order Mark) at file start
+    2. No non-ASCII characters (all chars must be 0x00-0x7F)
+    3. No corrupted UTF-8 sequences (e.g., multi-byte chars displaying as garbage)
+  - If issues found, fix by stripping non-ASCII and writing with UTF8 no-BOM encoding
+  - Batch fix script available at: ops/scripts/fix_html_encoding.ps1
 
 - **The human operator executes all tests.**
   - Do NOT run tests automatically.
@@ -84,8 +92,8 @@ The following constraints apply to all work on this project:
   - The AI MAY propose commit messages and describe what should be committed.
   - The user performs all Git commits.
 
-- **Regarding “File not found” errors**
-  - You may encounter “File not found” errors for files that do in fact exist.
+- **Regarding File not found errors**
+  - You may encounter File not found errors for files that do in fact exist.
   - The human operator uses VS Code, which may hold file locks or have unsaved buffers that interfere with file access.
   - If a file access error occurs on a file that should exist, pause and ask Tom to close the file in VS Code, then retry the operation.
 
@@ -116,33 +124,74 @@ These layers do not compete. Each serves a distinct purpose.
 
 ---
 
-## Repository Structure (Four Buckets)
+## Repository Structure
 
 ```
-app/           # Runtime application code (always deployed)
-seed/          # Governed inputs: prompts, reference data (optionally deployed)
-ops/           # Operator tooling (never in runtime image)
-  aws/         # ECS, Route53, IAM scripts
-  db/          # Database seed/setup scripts
-  scripts/     # Dev/debug utilities
-docs/          # Human documentation, ADRs, session logs
-tests/         # Test suite (CI only)
+app/                    # Runtime application code (always deployed)
+  api/                  # FastAPI routers, services, models
+  auth/                 # Authentication (OAuth, session management)
+  core/                 # Configuration, database, shared utilities
+  domain/               # Domain models, repositories, services
+  web/                  # Web UI routes, templates, BFF layer
+  llm/                  # LLM client and integration
+  tasks/                # Background task infrastructure
+
+alembic/                # Database migrations
+  versions/             # Migration scripts
+
+seed/                   # Governed inputs (optionally deployed)
+  prompts/              # Role and task prompts (versioned, certified)
+  question_packs/       # Concierge question templates
+  reference_data/       # Static reference data
+  schemas/              # JSON schemas for validation
+  workflows/            # Workflow definitions
+
+ops/                    # Operator tooling (never in runtime image)
+  aws/                  # ECS, Route53, IAM scripts
+  db/                   # Database seed/setup scripts
+  scripts/              # Dev/debug utilities (including fix_html_encoding.ps1)
+  testing/              # Test infrastructure scripts
+
+docs/                   # Human documentation
+  adr/                  # Architecture Decision Records
+  policies/             # Governance policies (POL-*)
+  work-statements/      # Work Statement documents (WS-*)
+  implementation-plans/ # Multi-commit implementation plans
+  session_logs/         # AI session summaries (YYYY-MM-DD.md)
+  governance/           # Governance documentation
+  archive/              # Superseded/historical docs
+  project/              # Project-level documentation
+
+tests/                  # Test suite (CI only)
+  tier1/                # In-memory, no DB (fast unit tests)
+  tier2/                # Spy repositories (wiring tests)
+  unit/                 # Additional unit tests
+  integration/          # Integration tests
+  e2e/                  # End-to-end tests
+  fixtures/             # Test fixtures and data
+
+data/                   # Runtime data (gitignored)
+  workflow_state/       # Workflow execution state
+
+recycle/                # Deprecated code pending deletion
 ```
 
 Key implications:
-- Prompts live in `seed/prompts/` — they are **governed inputs**, not documentation
+- Prompts live in `seed/prompts/` - they are **governed inputs**, not documentation
 - Anything in `ops/` is operator-facing and never in the container
 - Docker copies only `app/`, `alembic/`, `alembic.ini` (explicit, not blanket)
+- ADRs go in `docs/adr/`, policies in `docs/policies/`, work statements in `docs/work-statements/`
+- Session logs go in `docs/session_logs/` with format `YYYY-MM-DD.md`
 
 ---
 
 ## Deployment Reality (Current)
 
 - **Compute**: AWS ECS Fargate (cluster: `the-combine-cluster`)
-- **Networking**: Route 53 A record → direct task public IP (no ALB)
+- **Networking**: Route 53 A record -> direct task public IP (no ALB)
 - **DNS**: `thecombine.ai` (port 8000, HTTP only)
 - **IP changes**: Handled via `ops/aws/fixip.ps1` after redeployment
-- **CI/CD**: GitHub Actions → ECR → ECS task definition update → Route 53 update
+- **CI/CD**: GitHub Actions -> ECR -> ECS task definition update -> Route 53 update
 - **Secrets**: Anthropic API key in AWS Secrets Manager, injected at runtime
 - **Database**: RDS PostgreSQL (publicly accessible for dev)
 
@@ -154,7 +203,7 @@ No blue/green. No canary. IP changes on every deploy.
 
 - **Tier-1**: In-memory repositories, no DB, pure business logic verification
 - **Tier-2**: Spy repositories for call contract verification (wiring tests)
-- **Tier-3**: Real PostgreSQL — **deferred** (requires test DB infrastructure)
+- **Tier-3**: Real PostgreSQL - **deferred** (requires test DB infrastructure)
 
 Tier-3 tests are not currently required. Do not suggest SQLite as a substitute.
 
@@ -173,7 +222,7 @@ All work operates on **documents**. The flow:
 
 Handlers:
 - Own input assembly, prompt selection, LLM invocation, output persistence
-- Do **not** infer missing inputs — they fail explicitly
+- Do **not** infer missing inputs - they fail explicitly
 
 ---
 
@@ -213,7 +262,7 @@ When a runtime error, exception, or incorrect behavior is observed, the followin
 
 ### Constraints
 
-- Tests **MUST NOT** be written after the fix to “prove” correctness.
+- Tests **MUST NOT** be written after the fix to prove correctness.
 - Code **MUST NOT** be changed before a reproducing test exists.
 - If a bug cannot be reliably reproduced in a test, the issue **MUST** be escalated rather than patched heuristically.
 
@@ -224,7 +273,7 @@ This rule ensures:
 - The defect is understood before modification
 - Fixes are causally linked to observed failures
 - Regressions are prevented by construction
-- “Vibe-based” fixes are explicitly disallowed
+- Vibe-based fixes are explicitly disallowed
 
 This rule is **non-negotiable** and applies to all runtime defects, including:
 
@@ -239,9 +288,9 @@ This rule is **non-negotiable** and applies to all runtime defects, including:
 
 | ADR | Status | Summary |
 |-----|--------|---------|
-| ADR-009 | ✅ Complete | Project Audit — all state changes explicit and traceable |
-| ADR-010 | ✅ Complete | LLM Execution Logging — inputs, outputs, replay capability |
-| ADR-011 | 🟡 In Progress | Project/Epic organization (draft exists) |
+| ADR-009 |  Complete | Project Audit - all state changes explicit and traceable |
+| ADR-010 |  Complete | LLM Execution Logging - inputs, outputs, replay capability |
+| ADR-011 |  In Progress | Project/Epic organization (draft exists) |
 
 ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation reports.
 
@@ -251,7 +300,7 @@ ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation
 
 | Content | Location | Why |
 |---------|----------|-----|
-| `AI.md` | Project Knowledge | Stable, immediate context |
+| `CLAUDE.md` | Project Knowledge | Stable, immediate context |
 | ADRs | Project Knowledge | Reference, searchable |
 | `PROJECT_STATE.md` | Filesystem (`docs/`) | Volatile, Claude updates it |
 | Session logs | Filesystem (`docs/session_logs/`) | Claude writes these |
@@ -271,7 +320,7 @@ ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation
 - Do not assume undocumented context
 - Do not suggest SQLite for testing
 - Do not edit prompts without version bump
-- Session summaries are logs — never edit after writing
+- Session summaries are logs - never edit after writing
 - Discipline > convenience
 
 ---
@@ -282,7 +331,7 @@ ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation
 
 Before any work:
 
-1. Read `AI.md` (this file, in Project Knowledge)
+1. Read `CLAUDE.md` (this file, in Project Knowledge)
 2. **Use tools to read** `docs/PROJECT_STATE.md` from filesystem
 3. Scan `docs/session_logs/` for recent context
 4. Scan `docs/adr/` for architectural guidance and a future vision
@@ -299,14 +348,14 @@ When the user says **"Prepare session close"** (or similar):
 
 1. Write session summary to `docs/session_logs/YYYY-MM-DD.md` (filesystem)
    - Use fixed template (scope, decisions, implemented, commits, open threads, risks)
-   - No prose, no reflection — facts only
+   - No prose, no reflection - facts only
    - Include git commits/PRs if applicable
 2. Update `docs/PROJECT_STATE.md` (filesystem)
    - Current state
    - Handoff notes for next session
 3. Pause and ask: **"Ready to close, or do you want to continue?"**
 
-Session summaries are **immutable logs**. They capture "what happened" — not decisions (ADRs) or current state (PROJECT_STATE.md).
+Session summaries are **immutable logs**. They capture "what happened- - not decisions (ADRs) or current state (PROJECT_STATE.md).
 
 If multiple sessions occur on the same day, use suffix: `2026-01-02.md`, `2026-01-02-2.md`
 
@@ -340,9 +389,9 @@ This log is used to restore context in future AI sessions. Accuracy and restrain
    - Use short, declarative bullets only.
 
 4. **Scope Discipline**
-   - "Decisions Made" = explicit agreements or resolutions.
-   - "Implemented" = concrete artifacts created or modified.
-   - "Discussed" items belong nowhere unless they resulted in a decision or implementation.
+   - "Decisions Made- = explicit agreements or resolutions.
+   - "Implemented- = concrete artifacts created or modified.
+   - "Discussed- items belong nowhere unless they resulted in a decision or implementation.
 
 5. **No New Information**
    - Do NOT introduce new risks, interpretations, or connections.
@@ -360,7 +409,7 @@ This log is used to restore context in future AI sessions. Accuracy and restrain
 **Template (Must Be Used Verbatim)**
 
 ```
-# Session Summary — YYYY-MM-DD
+# Session Summary - YYYY-MM-DD
 
 ## Scope
 - 
@@ -404,7 +453,7 @@ python -m pytest tests/ -v
 .\ops\aws\fixip.ps1
 
 # Regenerate seed manifest
-# (script TBD — currently manual)
+# (script TBD - currently manual)
 ```
 
 ---

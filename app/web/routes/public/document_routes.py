@@ -235,6 +235,21 @@ async def _get_document_by_type(db: AsyncSession, space_id: UUID, doc_type_id: s
 
 # ============================================================================
 # DOCUMENT VIEWS - Return content only (targets #document-content)
+
+async def _check_missing_dependencies(
+    db: AsyncSession,
+    proj_uuid: UUID,
+    doc_type: dict
+) -> list[str]:
+    """Check which required input documents are missing."""
+    missing = []
+    if doc_type and doc_type.get("required_inputs"):
+        for req_doc_type in doc_type["required_inputs"]:
+            req_doc = await _get_document_by_type(db, proj_uuid, req_doc_type)
+            if not req_doc:
+                missing.append(req_doc_type)
+    return missing
+
 # ============================================================================
 
 @router.get("/projects/{project_id}/documents/{doc_type_id}", response_class=HTMLResponse)
@@ -386,12 +401,7 @@ async def get_document(
         # Check if epic_backlog exists
         if not document:
             # Check dependencies before showing build option
-            missing_deps = []
-            if doc_type and doc_type.get("required_inputs"):
-                for req_doc_type in doc_type["required_inputs"]:
-                    req_doc = await _get_document_by_type(db, proj_uuid, req_doc_type)
-                    if not req_doc:
-                        missing_deps.append(req_doc_type)
+            missing_deps = await _check_missing_dependencies(db, proj_uuid, doc_type)
             
             logger.info(f"Epic backlog not found, missing deps: {missing_deps}")
             
@@ -454,17 +464,8 @@ async def get_document(
     
     if not document:
         # Check if dependencies are met before allowing build
-        missing_deps = []
-        logger.info(f"Checking dependencies for {doc_type_id}, doc_type={doc_type}")
-        if doc_type and doc_type.get("required_inputs"):
-            logger.info(f"Required inputs: {doc_type.get('required_inputs')}")
-            for req_doc_type in doc_type["required_inputs"]:
-                req_doc = await _get_document_by_type(db, proj_uuid, req_doc_type)
-                logger.info(f"  Checking {req_doc_type}: exists={req_doc is not None}")
-                if not req_doc:
-                    missing_deps.append(req_doc_type)
-        
-        logger.info(f"Missing deps: {missing_deps}, is_blocked: {len(missing_deps) > 0}")
+        missing_deps = await _check_missing_dependencies(db, proj_uuid, doc_type)
+        logger.info(f"Missing deps for {doc_type_id}: {missing_deps}")
         context["is_blocked"] = len(missing_deps) > 0
         context["missing_dependencies"] = missing_deps
         partial_template = "public/pages/partials/_document_not_found.html"

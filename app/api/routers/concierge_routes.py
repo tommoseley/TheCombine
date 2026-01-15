@@ -103,9 +103,10 @@ Your role has three modes:
 
 3. READY: When you have enough (clear problem + bounded unknowns, usually 3-6 exchanges):
    - Signal readiness to create Discovery document
+   - Suggest a concise project name (2-4 words, descriptive, no special characters)
 
 Respond with JSON only:
-{"response_type": "answer"|"question"|"recommend_discovery", "content": "your message", "mode": "informational"|"exploratory"|"ready"}"""
+{"response_type": "answer"|"question"|"recommend_discovery", "content": "your message", "mode": "informational"|"exploratory"|"ready", "suggested_name": "Project Name Here (only when mode is ready)"}"""
 
     try:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -351,7 +352,20 @@ async def submit_consent(
             # Create project
             project_id = uuid_module.uuid4()
             project_short_id = str(project_id)[:8].upper()
+            
+            # Get suggested name from last concierge message
             project_name = f"Project {project_short_id}"
+            last_concierge = await db.execute(text("""
+                SELECT payload_json FROM concierge_intake_event
+                WHERE session_id = :sid AND event_type = 'concierge_message'
+                ORDER BY seq DESC LIMIT 1
+            """), {"sid": str(session_id)})
+            last_msg = last_concierge.fetchone()
+            if last_msg:
+                payload = last_msg.payload_json if isinstance(last_msg.payload_json, dict) else json.loads(last_msg.payload_json)
+                suggested = payload.get("suggested_name")
+                if suggested and len(suggested.strip()) > 0 and len(suggested) <= 50:
+                    project_name = suggested.strip()
             
             user_id_str = str(current_user.user_id)
             await db.execute(text("""

@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Review Document - The Combine{% endblock %}
 
@@ -47,10 +47,10 @@
             
             <div class="form-actions">
                 <button type="submit" name="accepted" value="true" class="btn btn-success">
-                    ✓ Approve Document
+                     Approve Document
                 </button>
                 <button type="submit" name="accepted" value="false" class="btn btn-danger">
-                    ✗ Reject Document
+                     Reject Document
                 </button>
                 <a href="/executions/{{ execution.execution_id }}" class="btn btn-secondary">
                     Cancel

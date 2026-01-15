@@ -1,4 +1,4 @@
-﻿{# Epic Card Partial - Renders a single epic #}
+{# Epic Card Partial - Renders a single epic #}
 {# Expected variables: epic (EpicCardVM), fragment_renderer (optional SyncFragmentRenderer) #}
 
 <details class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow" open>
@@ -112,7 +112,7 @@
                         <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
                         <span class="ml-2 px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-xs">Blocking</span>
                         {% if q.directed_to %}
-                        <span class="ml-1 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-1 text-xs text-gray-500 dark:text-gray-400"> {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -124,7 +124,7 @@
                     <div class="flex-1">
                         <span class="text-gray-900 dark:text-gray-50 text-sm">{{ q.question }}</span>
                         {% if q.directed_to %}
-                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">→ {{ q.directed_to | replace('_', ' ') | title }}</span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400"> {{ q.directed_to | replace('_', ' ') | title }}</span>
                         {% endif %}
                     </div>
                 </div>

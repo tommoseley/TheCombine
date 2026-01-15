@@ -383,6 +383,102 @@ async def resolve_content_ref(db: AsyncSession, content_ref: str) -> Optional[st
         return None
 
 
+# ============================================================================
+# LLM RUN DETAIL HELPERS
+# ============================================================================
+
+async def _get_project_name(db: AsyncSession, project_id: Optional[UUID]) -> Optional[str]:
+    """Get project name from ID."""
+    if not project_id:
+        return None
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    return project.name if project else None
+
+
+async def _get_llm_run_inputs(db: AsyncSession, run_id: UUID) -> list[dict]:
+    """Get LLM run inputs with resolved content."""
+    result = await db.execute(
+        select(LLMRunInputRef).where(LLMRunInputRef.llm_run_id == run_id)
+    )
+    inputs = []
+    for ref in result.scalars().all():
+        content = await resolve_content_ref(db, ref.content_ref)
+        inputs.append({
+            "kind": ref.kind,
+            "content": content,
+            "size": len(content.encode('utf-8')) if content else 0,
+            "redacted": ref.content_redacted,
+        })
+    return inputs
+
+
+async def _get_llm_run_outputs(db: AsyncSession, run_id: UUID) -> list[dict]:
+    """Get LLM run outputs with resolved content."""
+    result = await db.execute(
+        select(LLMRunOutputRef).where(LLMRunOutputRef.llm_run_id == run_id)
+    )
+    outputs = []
+    for ref in result.scalars().all():
+        content = await resolve_content_ref(db, ref.content_ref)
+        outputs.append({
+            "kind": ref.kind,
+            "content": content,
+            "size": len(content.encode('utf-8')) if content else 0,
+            "parse_status": ref.parse_status,
+            "validation_status": ref.validation_status,
+        })
+    return outputs
+
+
+async def _get_llm_run_errors(db: AsyncSession, run_id: UUID) -> list[dict]:
+    """Get LLM run errors."""
+    result = await db.execute(
+        select(LLMRunError).where(LLMRunError.llm_run_id == run_id).order_by(LLMRunError.sequence)
+    )
+    return [
+        {
+            "sequence": e.sequence,
+            "stage": e.stage,
+            "severity": e.severity,
+            "error_code": e.error_code,
+            "message": e.message,
+            "details": e.details,
+        }
+        for e in result.scalars().all()
+    ]
+
+
+def _build_llm_run_vm(run: LLMRun, project_name: Optional[str]) -> dict:
+    """Build view model dict for LLM run."""
+    elapsed_seconds = None
+    if run.started_at and run.ended_at:
+        elapsed_seconds = (run.ended_at - run.started_at).total_seconds()
+    
+    return {
+        "id": str(run.id),
+        "correlation_id": str(run.correlation_id) if run.correlation_id else None,
+        "project_id": str(run.project_id) if run.project_id else None,
+        "project_name": project_name,
+        "artifact_type": run.artifact_type,
+        "role": run.role,
+        "model_provider": run.model_provider,
+        "model_name": run.model_name,
+        "prompt_id": run.prompt_id,
+        "prompt_version": run.prompt_version,
+        "status": run.status,
+        "started_at": run.started_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if run.started_at else None,
+        "ended_at": run.ended_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if run.ended_at else None,
+        "elapsed_seconds": elapsed_seconds,
+        "input_tokens": run.input_tokens,
+        "output_tokens": run.output_tokens,
+        "total_tokens": run.total_tokens,
+        "cost_usd": float(run.cost_usd) if run.cost_usd else None,
+        "primary_error_code": run.primary_error_code,
+        "primary_error_message": run.primary_error_message,
+        "metadata": run.run_metadata,
+    }
+
 @router.get("/executions/{execution_id}", response_class=HTMLResponse)
 async def execution_detail(
     request: Request,
@@ -398,7 +494,6 @@ async def execution_detail(
     try:
         state, context = await execution_service.get_execution(execution_id)
         
-        # Get workflow for step info
         try:
             workflow = registry.get(state.workflow_id)
             steps = workflow.steps
@@ -422,146 +517,41 @@ async def execution_detail(
         return templates.TemplateResponse(
             request,
             "pages/execution_detail.html",
-            {
-                "active_page": "executions",
-                "execution": execution,
-                "steps": steps,
-            },
+            {"active_page": "executions", "execution": execution, "steps": steps},
         )
     except ExecutionNotFoundError:
-        pass  # Try document build next
+        pass
     
     # Try document build (LLMRun)
     try:
         run_id = UUID(execution_id)
-        result = await db.execute(
-            select(LLMRun)
-            .where(LLMRun.id == run_id)
-        )
+        result = await db.execute(select(LLMRun).where(LLMRun.id == run_id))
         run = result.scalar_one_or_none()
         
         if not run:
             return templates.TemplateResponse(
-                request,
-                "pages/error.html",
-                {
-                    "active_page": "executions",
-                    "error_code": 404,
-                    "error_message": f"Execution '{execution_id}' not found",
-                },
+                request, "pages/error.html",
+                {"active_page": "executions", "error_code": 404, "error_message": f"Execution '{execution_id}' not found"},
                 status_code=404,
             )
         
-        # Get project info
-        project_name = None
-        if run.project_id:
-            proj_result = await db.execute(select(Project).where(Project.id == run.project_id))
-            project = proj_result.scalar_one_or_none()
-            if project:
-                project_name = project.name
-        
-        # Get inputs with content
-        inputs_result = await db.execute(
-            select(LLMRunInputRef).where(LLMRunInputRef.llm_run_id == run_id)
-        )
-        input_refs = inputs_result.scalars().all()
-        
-        inputs = []
-        for ref in input_refs:
-            content = await resolve_content_ref(db, ref.content_ref)
-            inputs.append({
-                "kind": ref.kind,
-                "content": content,
-                "size": len(content.encode('utf-8')) if content else 0,
-                "redacted": ref.content_redacted,
-            })
-        
-        # Get outputs with content
-        outputs_result = await db.execute(
-            select(LLMRunOutputRef).where(LLMRunOutputRef.llm_run_id == run_id)
-        )
-        output_refs = outputs_result.scalars().all()
-        
-        outputs = []
-        for ref in output_refs:
-            content = await resolve_content_ref(db, ref.content_ref)
-            outputs.append({
-                "kind": ref.kind,
-                "content": content,
-                "size": len(content.encode('utf-8')) if content else 0,
-                "parse_status": ref.parse_status,
-                "validation_status": ref.validation_status,
-            })
-        
-        # Get errors
-        errors_result = await db.execute(
-            select(LLMRunError).where(LLMRunError.llm_run_id == run_id).order_by(LLMRunError.sequence)
-        )
-        errors = errors_result.scalars().all()
-        
-        error_list = [
-            {
-                "sequence": e.sequence,
-                "stage": e.stage,
-                "severity": e.severity,
-                "error_code": e.error_code,
-                "message": e.message,
-                "details": e.details,
-            }
-            for e in errors
-        ]
-        
-        # Calculate elapsed time
-        elapsed_seconds = None
-        if run.started_at and run.ended_at:
-            elapsed_seconds = (run.ended_at - run.started_at).total_seconds()
+        project_name = await _get_project_name(db, run.project_id)
+        inputs = await _get_llm_run_inputs(db, run_id)
+        outputs = await _get_llm_run_outputs(db, run_id)
+        errors = await _get_llm_run_errors(db, run_id)
+        run_vm = _build_llm_run_vm(run, project_name)
         
         return templates.TemplateResponse(
             request,
             "pages/document_build_detail.html",
-            {
-                "active_page": "executions",
-                "run": {
-                    "id": str(run.id),
-                    "correlation_id": str(run.correlation_id) if run.correlation_id else None,
-                    "project_id": str(run.project_id) if run.project_id else None,
-                    "project_name": project_name,
-                    "artifact_type": run.artifact_type,
-                    "role": run.role,
-                    "model_provider": run.model_provider,
-                    "model_name": run.model_name,
-                    "prompt_id": run.prompt_id,
-                    "prompt_version": run.prompt_version,
-                    "status": run.status,
-                    "started_at": run.started_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if run.started_at else None,
-                    "ended_at": run.ended_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if run.ended_at else None,
-                    "elapsed_seconds": elapsed_seconds,
-                    "input_tokens": run.input_tokens,
-                    "output_tokens": run.output_tokens,
-                    "total_tokens": run.total_tokens,
-                    "cost_usd": float(run.cost_usd) if run.cost_usd else None,
-                    "primary_error_code": run.primary_error_code,
-                    "primary_error_message": run.primary_error_message,
-                    "metadata": run.run_metadata,
-                },
-                "inputs": inputs,
-                "outputs": outputs,
-                "errors": error_list,
-            },
+            {"active_page": "executions", "run": run_vm, "inputs": inputs, "outputs": outputs, "errors": errors},
         )
     except ValueError:
-        # Invalid UUID format
         return templates.TemplateResponse(
-            request,
-            "pages/error.html",
-            {
-                "active_page": "executions",
-                "error_code": 404,
-                "error_message": f"Execution '{execution_id}' not found",
-            },
+            request, "pages/error.html",
+            {"active_page": "executions", "error_code": 404, "error_message": f"Execution '{execution_id}' not found"},
             status_code=404,
         )
-
 
 @router.post("/executions/{execution_id}/cancel")
 async def cancel_execution_ui(
