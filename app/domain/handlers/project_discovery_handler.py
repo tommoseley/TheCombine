@@ -546,3 +546,69 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         
         html += '</ul></div>'
         return html
+    # =========================================================================
+    # GENERATION - WS-CONCIERGE-001 Integration
+    # =========================================================================
+    
+    def generate_with_profile(
+        self,
+        project_id: str,
+        user_id: str,
+        discovery_profile: str = "general",
+        handoff_context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate Project Discovery document with profile and handoff context.
+        
+        Args:
+            project_id: Target project ID
+            user_id: User generating the document
+            discovery_profile: Question pack profile (general, integrate_systems, change_existing, unknown)
+            handoff_context: Optional context from Concierge intake (intent_summary, clarifications, known_unknowns)
+        
+        Returns:
+            Generated discovery document data
+            
+        Note:
+            This is a placeholder for WS-CONCIERGE-001 Step 8.
+            Full implementation requires LLM integration with profile-specific prompts.
+        """
+        logger.info(
+            "Generate called with profile=%s, project_id=%s",
+            discovery_profile, project_id
+        )
+        
+        # Load profile-specific question pack if needed
+        # For v1, this is a placeholder that will be integrated with actual LLM generation
+        
+        # Incorporate handoff context if provided
+        if handoff_context:
+            intent_summary = handoff_context.get("intent_summary", "")
+            clarifications = handoff_context.get("clarifications", {})
+            known_unknowns = handoff_context.get("known_unknowns", [])
+            
+            logger.info(
+                "Handoff context: intent=%s, clarifications=%d, unknowns=%d",
+                intent_summary[:50] if intent_summary else "none",
+                len(clarifications),
+                len(known_unknowns)
+            )
+        
+        # TODO: Actual LLM generation with profile-specific prompts
+        # For now, return a minimal valid structure
+        return {
+            "project_name": f"Project {project_id}",
+            "preliminary_summary": {
+                "problem_understanding": handoff_context.get("intent_summary", "Project initiated via Concierge") if handoff_context else "Discovery initiated",
+                "architectural_intent": "",
+                "scope_pressure_points": ""
+            },
+            "unknowns": handoff_context.get("known_unknowns", []) if handoff_context else [],
+            "stakeholder_questions": [],
+            "early_decision_points": [],
+            "known_constraints": [],
+            "assumptions": [],
+            "identified_risks": [],
+            "mvp_guardrails": [],
+            "recommendations_for_pm": []
+        }

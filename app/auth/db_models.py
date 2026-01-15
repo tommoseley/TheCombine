@@ -14,9 +14,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, INET
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+
+from app.core.database import Base
 
 
 class UserORM(Base):

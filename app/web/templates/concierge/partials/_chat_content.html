@@ -1,0 +1,160 @@
+<!-- Chat Content Partial - injected into main-content -->
+<div class="h-full flex flex-col max-w-5xl mx-auto">
+    
+    <!-- Header -->
+    <div class="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">The Combine</h1>
+        <p class="text-gray-600 dark:text-gray-400">Ask me anything, or tell me what you want to build.</p>
+    </div>
+    
+    <!-- Messages Area -->
+    <div id="messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+        {% for msg in messages %}
+        {% include 'concierge/partials/message.html' %}
+        {% endfor %}
+        
+        {% if not messages %}
+        <!-- Initial greeting -->
+        <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-white text-sm font-bold">C</span>
+            </div>
+            <div class="flex-1">
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
+                    <p class="text-gray-900 dark:text-white">
+                        Hello! I am the Concierge for The Combine.
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-300 mt-2">
+                        You can ask me questions about how The Combine works, or describe something you want to build. 
+                        When you are ready, I will help you start a formal project.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Consent Prompt (hidden until ready) -->
+    <div id="consent-prompt" data-session-id="{{ session_id }}" class="hidden border-t border-gray-200 dark:border-gray-700 p-4 bg-amber-50 dark:bg-amber-900/20">
+        <p class="text-amber-900 dark:text-amber-300 mb-3">
+            I think I have enough to start a formal Discovery. This will create a project and generate a Discovery document you can review and challenge.
+        </p>
+        <div class="flex space-x-3">
+            <button 
+                type="button"
+                id="consent-btn"
+                onclick="submitConsent()"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+                Yes, create Discovery
+            </button>
+            <button 
+                type="button"
+                onclick="document.getElementById('consent-prompt').classList.add('hidden')"
+                class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                Not yet, keep talking
+            </button>
+        </div>
+    </div>
+    
+    <!-- Input Area -->
+    <div class="border-t border-gray-200 dark:border-gray-700 p-4">
+        <form id="message-form" class="flex items-end space-x-3">
+            <input type="hidden" name="session_id" value="{{ session_id }}">
+            <textarea 
+                name="content"
+                id="message-input"
+                rows="4"
+                placeholder="Ask a question or describe what you want to build..."
+                class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white overflow-y-auto"
+                style="min-height: 100px; max-height: 300px; resize: vertical;"
+                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('send-btn').click(); }"></textarea>
+            <button 
+                type="button"
+                id="send-btn"
+                hx-post="/concierge/{{ session_id }}/message"
+                hx-include="#message-form"
+                hx-target="#messages"
+                hx-swap="beforeend scroll:#messages:bottom"
+                hx-on::after-request="document.getElementById('message-input').value = ''"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center self-end">
+                <span>Send</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const CONCIERGE_SESSION_ID = '{{ session_id }}';
+    
+    console.log('Chat loaded. Session ID:', CONCIERGE_SESSION_ID);
+    console.log('Consent URL will be: /concierge/' + CONCIERGE_SESSION_ID + '/consent');
+    
+    // Verify HTMX is loaded
+    if (typeof htmx !== 'undefined') {
+        console.log('HTMX is loaded');
+    } else {
+        console.error('HTMX is NOT loaded!');
+    }
+    
+    // Submit consent via fetch (bypassing HTMX for debugging)
+    async function submitConsent() {
+        console.log('submitConsent() called');
+        const url = '/concierge/' + CONCIERGE_SESSION_ID + '/consent';
+        console.log('POST to:', url);
+        
+        const btn = document.getElementById('consent-btn');
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('accept', 'true');
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+            
+            console.log('Response status:', response.status);
+            const html = await response.text();
+            console.log('Response HTML:', html.substring(0, 200));
+            
+            // Hide consent prompt
+            document.getElementById('consent-prompt').classList.add('hidden');
+            
+            // Add response to messages (even if error - we want to see the error details)
+            document.getElementById('messages').insertAdjacentHTML('beforeend', html);
+            
+            // Scroll to bottom
+            var messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+            
+            if (!response.ok) {
+                console.error('Error response:', response.status, html);
+                btn.disabled = false;
+                btn.textContent = 'Yes, create Discovery';
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            // Display error in messages area
+            document.getElementById('messages').insertAdjacentHTML('beforeend', 
+                '<div class="p-4 bg-red-100 text-red-800 rounded">Network Error: ' + error.message + '</div>');
+            btn.disabled = false;
+            btn.textContent = 'Yes, create Discovery';
+        }
+    }
+    
+    // Scroll to bottom on load
+    (function() {
+        var messages = document.getElementById('messages');
+        if (messages) {
+            messages.scrollTop = messages.scrollHeight;
+        }
+    })();
+    
+    // Handle consent trigger from server (via HX-Trigger header)
+    document.body.addEventListener('showConsentPrompt', function(e) {
+        console.log('showConsentPrompt event received (HTMX trigger)');
+        document.getElementById('consent-prompt').classList.remove('hidden');
+    });
+</script>

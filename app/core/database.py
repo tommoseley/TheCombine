@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database configuration and session management.
 
 Provides async database sessions and metadata for ORM models.
@@ -69,6 +69,9 @@ async def init_database():
     from app.auth.db_models import (
         UserORM, UserOAuthIdentityORM, UserSessionORM,
         PersonalAccessTokenORM, AuthAuditLogORM, LinkIntentNonceORM
+    )
+    from app.api.models.concierge_intake import (
+        ConciergeIntakeSession, ConciergeIntakeEvent
     )
     
     async with engine.begin() as conn:
