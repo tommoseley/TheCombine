@@ -1,4 +1,4 @@
-"""
+﻿"""
 Project routes for The Combine UI - With User Ownership
 Handles different User model ID field names (id, user_id, uuid, etc.)
 """
@@ -102,11 +102,14 @@ async def new_project_form(
     request: Request,
     current_user: User = Depends(require_auth)
 ):
-    """Display form for creating a new project."""
-    return templates.TemplateResponse(request, "public/pages/partials/_project_new_content.html", {
-        "project": None,
-        "mode": "create"
-    })
+    """
+    Redirect to Concierge intake flow.
+    
+    Legacy route maintained for backward compatibility.
+    WS-CONCIERGE-001: All new project creation now goes through /start
+    """
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/start", status_code=302)
 
 @router.get("/list", response_class=HTMLResponse)
 async def get_project_list(
@@ -246,7 +249,13 @@ async def create_project_handler(
     icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create a new project - SET OWNER."""
+    """
+    Create a new project - SET OWNER.
+    
+    LEGACY ROUTE: Maintained for backward compatibility only.
+    WS-CONCIERGE-001: New projects should be created via Concierge flow (/start).
+    This route is kept functional but hidden from UI.
+    """
     user_id = _get_user_id(current_user)
     
     try:
@@ -485,7 +494,7 @@ async def get_project(
 async def update_project(
     request: Request,
     project_id: str,
-    _: None = Depends(verify_project_not_archived),  # ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ARCHIVE PROTECTION
+    _: None = Depends(verify_project_not_archived),  # ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ARCHIVE PROTECTION
     current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
@@ -526,3 +535,6 @@ async def update_project(
         },
         headers={"HX-Trigger": "refreshProjectList"}
     )
+
+
+

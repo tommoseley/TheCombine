@@ -1,0 +1,148 @@
+{
+  "version": "1.0",
+  "default_profile": "general",
+  "intent_mapping": {
+    "explore_problem": "general",
+    "plan_work": "general",
+    "change_existing": "change_existing",
+    "integrate_systems": "integrate_systems",
+    "produce_output": "general",
+    "unknown": "unknown"
+  },
+  "profiles": {
+    "general": {
+      "description": "Baseline discovery for new work",
+      "questions": [
+        {
+          "id": "audience",
+          "prompt": "Who is the primary user or audience?",
+          "reason": "Audience affects scope, UX design, and compliance assumptions",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "success",
+          "prompt": "What does success look like?",
+          "reason": "Defines acceptance criteria and scope boundaries",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "constraints",
+          "prompt": "What constraints matter most?",
+          "reason": "Constraints shape architecture and delivery choices",
+          "answer_type": "multi_select",
+          "required": false,
+          "options": ["time", "compliance", "budget", "integrations", "performance", "security"]
+        },
+        {
+          "id": "current_state",
+          "prompt": "What exists today?",
+          "reason": "Understanding the current state helps identify what can be reused or must be replaced",
+          "answer_type": "free_text",
+          "required": false
+        }
+      ]
+    },
+    "integrate_systems": {
+      "description": "Discovery focused on system integration",
+      "questions": [
+        {
+          "id": "systems",
+          "prompt": "Which systems need to be connected?",
+          "reason": "Defines integration surface and technical requirements",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "data_flows",
+          "prompt": "What data or events move between them?",
+          "reason": "Drives interface design and data model decisions",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "auth_security",
+          "prompt": "What are the authentication and security constraints?",
+          "reason": "Security requirements affect architecture and deployment",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "latency_volume",
+          "prompt": "What are your latency and volume expectations?",
+          "reason": "Performance requirements determine integration patterns and technology choices",
+          "answer_type": "free_text",
+          "required": false
+        }
+      ]
+    },
+    "change_existing": {
+      "description": "Discovery for modifying existing systems",
+      "questions": [
+        {
+          "id": "existing_stack",
+          "prompt": "What exists today (technology stack and owners)?",
+          "reason": "Understanding current state prevents incompatible changes",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "change_rationale",
+          "prompt": "What is changing and why?",
+          "reason": "Clear rationale helps assess scope and risk",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "cutover_strategy",
+          "prompt": "What are your cutover strategy constraints (big bang vs phased)?",
+          "reason": "Cutover approach affects architecture, testing, and rollback planning",
+          "answer_type": "single_select",
+          "required": true,
+          "options": ["big_bang", "phased_rollout", "parallel_run", "not_sure"]
+        },
+        {
+          "id": "risk_tolerance",
+          "prompt": "What are your risk and rollback expectations?",
+          "reason": "Risk tolerance shapes deployment strategy and backup planning",
+          "answer_type": "free_text",
+          "required": false
+        }
+      ]
+    },
+    "unknown": {
+      "description": "Discovery when intent is unclear",
+      "questions": [
+        {
+          "id": "pain_point",
+          "prompt": "What problem or pain are you experiencing?",
+          "reason": "Understanding the pain helps clarify actual needs",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "trigger",
+          "prompt": "What triggered this now?",
+          "reason": "Understanding timing and urgency helps prioritize and scope",
+          "answer_type": "free_text",
+          "required": true
+        },
+        {
+          "id": "attempts",
+          "prompt": "What have you tried so far?",
+          "reason": "Previous attempts reveal what works, what doesn't, and hidden constraints",
+          "answer_type": "free_text",
+          "required": false
+        },
+        {
+          "id": "hard_constraints",
+          "prompt": "Are there any hard constraints (deadlines, budgets, compliance)?",
+          "reason": "Hard constraints must be identified early to avoid wasted effort",
+          "answer_type": "free_text",
+          "required": false
+        }
+      ]
+    }
+  }
+}

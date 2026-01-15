@@ -36,6 +36,7 @@ from .public.project_routes import router as project_router
 from .public.document_routes import router as document_router  # DEPRECATED
 from .public.view_routes import router as view_router  # ADR-034
 from .public.search_routes import router as search_router
+from .public.concierge_routes import router as concierge_router  # WS-CONCIERGE-001
 
 # Create main router WITHOUT prefix - routes at root level
 router = APIRouter(tags=["web-ui"])
@@ -46,6 +47,7 @@ router.include_router(project_router)
 router.include_router(document_router)  # DEPRECATED - kept for backward compatibility
 router.include_router(view_router)  # ADR-034: Generic document viewer
 router.include_router(search_router)
+router.include_router(concierge_router)  # WS-CONCIERGE-001
 
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Debug routes behind feature flag
 if ENABLE_DEBUG_ROUTES:
