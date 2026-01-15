@@ -219,27 +219,39 @@ class AuthService:
         Get existing user or create new user from OIDC claims.
         
         Email collision handling (prevents account takeover):
-        - If email exists with verified match: Block auto-link, require user to login first
-        - If email exists with unverified match: Block auto-link, show error
+        - If email exists with verified match: Auto-link the new provider
+        - If email exists with unverified match: Block, show error
         - If email doesn't exist: Create new user
         
-        Args:
-            provider_id: OAuth provider ('google', 'microsoft')
-            provider_user_id: Provider's user ID (sub claim)
-            claims: Normalized claims dict with: sub, email, email_verified, name, picture
-            
         Returns:
             Tuple of (User, created: bool)
-            
-        Raises:
-            ValueError: If email collision detected (security protection)
         """
         email = claims['email']
         email_verified = claims.get('email_verified', False)
-        name = claims.get('name', '')
-        avatar_url = claims.get('picture')
         
-        # Check if OAuth identity exists (using ORM)
+        # Check if OAuth identity already exists
+        existing_user = await self._find_user_by_oauth_identity(provider_id, provider_user_id)
+        if existing_user:
+            await self._update_last_login(existing_user)
+            logger.info(f"Existing user {existing_user.user_id} logged in via {provider_id}")
+            return (self._orm_to_user(existing_user), False)
+        
+        # Check for email collision
+        existing_by_email = await self._find_user_by_email(email)
+        if existing_by_email:
+            return await self._handle_email_collision(
+                existing_by_email, provider_id, provider_user_id, claims, email_verified
+            )
+        
+        # Create new user
+        user = await self._create_new_user(provider_id, provider_user_id, claims)
+        logger.info(f"Created new user {user.user_id} from {provider_id} OAuth")
+        return (user, True)
+    
+    async def _find_user_by_oauth_identity(
+        self, provider_id: str, provider_user_id: str
+    ) -> Optional[UserORM]:
+        """Find user by OAuth identity."""
         result = await self.db.execute(
             select(UserORM)
             .join(UserOAuthIdentityORM)
@@ -248,99 +260,112 @@ class AuthService:
                 UserOAuthIdentityORM.provider_user_id == provider_user_id
             )
         )
-        user_orm = result.scalar_one_or_none()
-        
-        if user_orm:
-            # Existing user - update last_login
-            now = utcnow()
-            user_orm.last_login_at = now
-            await self.db.commit()
-            await self.db.refresh(user_orm)
-            
-            # Convert ORM to dataclass
-            user = User(
-                user_id=user_orm.user_id,
-                email=user_orm.email,
-                email_verified=user_orm.email_verified,
-                name=user_orm.name,
-                avatar_url=user_orm.avatar_url,
-                is_active=user_orm.is_active,
-                user_created_at=user_orm.user_created_at,
-                user_updated_at=user_orm.user_updated_at,
-                last_login_at=user_orm.last_login_at,
-            is_admin=_is_admin_email(user_orm.email)
-        )
-            
-            logger.info(f"Existing user {user.user_id} logged in via {provider_id}")
-            return (user, False)
-        
-        # Check for email collision (using ORM)
+        return result.scalar_one_or_none()
+    
+    async def _find_user_by_email(self, email: str) -> Optional[UserORM]:
+        """Find user by email."""
         result = await self.db.execute(
             select(UserORM).where(UserORM.email == email)
         )
-        existing_email = result.scalar_one_or_none()
+        return result.scalar_one_or_none()
+    
+    async def _update_last_login(self, user_orm: UserORM) -> None:
+        """Update user's last login timestamp."""
+        user_orm.last_login_at = utcnow()
+        await self.db.commit()
+        await self.db.refresh(user_orm)
+    
+    def _orm_to_user(self, user_orm: UserORM) -> User:
+        """Convert UserORM to User dataclass."""
+        return User(
+            user_id=user_orm.user_id,
+            email=user_orm.email,
+            email_verified=user_orm.email_verified,
+            name=user_orm.name or '',
+            avatar_url=user_orm.avatar_url,
+            is_active=user_orm.is_active,
+            user_created_at=user_orm.user_created_at,
+            user_updated_at=user_orm.user_updated_at,
+            last_login_at=user_orm.last_login_at,
+            is_admin=_is_admin_email(user_orm.email)
+        )
+    
+    async def _handle_email_collision(
+        self,
+        existing_user: UserORM,
+        provider_id: str,
+        provider_user_id: str,
+        claims: Dict[str, Any],
+        incoming_verified: bool
+    ) -> Tuple[User, bool]:
+        """Handle email collision when OAuth identity doesn't exist but email does."""
+        email = claims['email']
         
-        if existing_email:
-            # Both emails verified = same person, auto-link the new provider
-            if existing_email.email_verified and email_verified:
-                logger.info(
-                    f"Auto-linking {provider_id} to existing user {existing_email.user_id} "
-                    f"(both providers verified {email})"
-                )
-                
-                # Create OAuth identity link to existing user
-                now = utcnow()
-                oauth_identity = UserOAuthIdentityORM(
-                    user_id=existing_email.user_id,
-                    provider_id=provider_id,
-                    provider_user_id=provider_user_id,
-                    provider_email=email,
-                    email_verified=email_verified,
-                    provider_metadata={
-                        'sub': claims['sub'],
-                        'email': email,
-                        'name': name
-                    },
-                    identity_created_at=now,
-                    last_used_at=now
-                )
-                self.db.add(oauth_identity)
-                
-                # Update last login
-                existing_email.last_login_at = now
-                
-                await self.db.commit()
-                
-                user = User(
-                    user_id=str(existing_email.user_id),
-                    email=existing_email.email,
-                    name=existing_email.name or '',
-                    is_active=existing_email.is_active,
-                    email_verified=existing_email.email_verified,
-                    avatar_url=existing_email.avatar_url,
-                    user_created_at=existing_email.user_created_at,
-                    user_updated_at=existing_email.user_updated_at,
-                    last_login_at=existing_email.last_login_at
-                )
-                
-                return (user, False)  # False = not newly created
-            
-            elif existing_email.email_verified:
-                # Existing is verified but incoming is NOT - could be attacker
-                logger.warning(f"Email collision: {email} exists (verified), incoming NOT verified")
-                raise ValueError(
-                    f"An account with email {email} already exists. "
-                    f"Please sign in with your existing provider first, "
-                    f"then link {provider_id} from your account settings."
-                )
-            else:
-                logger.warning(f"Email collision: {email} exists (unverified)")
-                raise ValueError(
-                    f"An account with email {email} already exists but is not verified. "
-                    f"Please verify your existing account first."
-                )
-
-        # Create new user (using ORM)
+        if existing_user.email_verified and incoming_verified:
+            logger.info(
+                f"Auto-linking {provider_id} to existing user {existing_user.user_id} "
+                f"(both providers verified {email})"
+            )
+            await self._create_oauth_identity(
+                existing_user.user_id, provider_id, provider_user_id, claims, incoming_verified
+            )
+            existing_user.last_login_at = utcnow()
+            await self.db.commit()
+            return (self._orm_to_user(existing_user), False)
+        
+        elif existing_user.email_verified:
+            logger.warning(f"Email collision: {email} exists (verified), incoming NOT verified")
+            raise ValueError(
+                f"An account with email {email} already exists. "
+                f"Please sign in with your existing provider first, "
+                f"then link {provider_id} from your account settings."
+            )
+        else:
+            logger.warning(f"Email collision: {email} exists (unverified)")
+            raise ValueError(
+                f"An account with email {email} already exists but is not verified. "
+                f"Please verify your existing account first."
+            )
+    
+    async def _create_oauth_identity(
+        self,
+        user_id: UUID,
+        provider_id: str,
+        provider_user_id: str,
+        claims: Dict[str, Any],
+        email_verified: bool
+    ) -> UserOAuthIdentityORM:
+        """Create OAuth identity record for a user."""
+        now = utcnow()
+        oauth_identity = UserOAuthIdentityORM(
+            user_id=user_id,
+            provider_id=provider_id,
+            provider_user_id=provider_user_id,
+            provider_email=claims['email'],
+            email_verified=email_verified,
+            provider_metadata={
+                'sub': claims['sub'],
+                'email': claims['email'],
+                'name': claims.get('name', '')
+            },
+            identity_created_at=now,
+            last_used_at=now
+        )
+        self.db.add(oauth_identity)
+        return oauth_identity
+    
+    async def _create_new_user(
+        self,
+        provider_id: str,
+        provider_user_id: str,
+        claims: Dict[str, Any]
+    ) -> User:
+        """Create new user from OIDC claims."""
+        email = claims['email']
+        email_verified = claims.get('email_verified', False)
+        name = claims.get('name', '')
+        avatar_url = claims.get('picture')
+        
         now = utcnow()
         new_user = UserORM(
             email=email,
@@ -353,44 +378,16 @@ class AuthService:
             last_login_at=now
         )
         self.db.add(new_user)
-        await self.db.flush()  # Get user_id without full commit
+        await self.db.flush()
         
-        # Create OAuth identity (using ORM)
-        oauth_identity = UserOAuthIdentityORM(
-            user_id=new_user.user_id,
-            provider_id=provider_id,
-            provider_user_id=provider_user_id,
-            provider_email=email,
-            email_verified=email_verified,
-            provider_metadata={
-                'sub': claims['sub'],
-                'email': email,
-                'name': name
-            },
-            identity_created_at=now,
-            last_used_at=now
+        await self._create_oauth_identity(
+            new_user.user_id, provider_id, provider_user_id, claims, email_verified
         )
-        self.db.add(oauth_identity)
         await self.db.commit()
         await self.db.refresh(new_user)
         
-        # Convert ORM to dataclass
-        user = User(
-            user_id=new_user.user_id,
-            email=new_user.email,
-            email_verified=new_user.email_verified,
-            name=new_user.name,
-            avatar_url=new_user.avatar_url,
-            is_active=new_user.is_active,
-            user_created_at=new_user.user_created_at,
-            user_updated_at=new_user.user_updated_at,
-            last_login_at=new_user.last_login_at,
-            is_admin=_is_admin_email(new_user.email)
-        )
-        
-        logger.info(f"Created new user {user.user_id} from {provider_id} OAuth")
-        return (user, True)
-    
+        return self._orm_to_user(new_user)
+
     # ========================================================================
     # AUDIT LOGGING
     # ========================================================================

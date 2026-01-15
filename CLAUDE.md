@@ -1,4 +1,4 @@
-# AI Bootstrap - The Combine
+# CLAUDE.md Bootstrap - The Combine
 
 ## Purpose
 
@@ -21,7 +21,7 @@ All relative paths in this document are from this root. When using tools to read
 
 ## Read Order
 
-1. This file (`AI.md`) - in Project Knowledge
+1. This file (`CLAUDE.md`) - in Project Knowledge
 2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
 3. **Review all policies** in `docs/policies/` - these are mandatory governance constraints
 4. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
@@ -300,7 +300,7 @@ ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation
 
 | Content | Location | Why |
 |---------|----------|-----|
-| `AI.md` | Project Knowledge | Stable, immediate context |
+| `CLAUDE.md` | Project Knowledge | Stable, immediate context |
 | ADRs | Project Knowledge | Reference, searchable |
 | `PROJECT_STATE.md` | Filesystem (`docs/`) | Volatile, Claude updates it |
 | Session logs | Filesystem (`docs/session_logs/`) | Claude writes these |
@@ -331,7 +331,7 @@ ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation
 
 Before any work:
 
-1. Read `AI.md` (this file, in Project Knowledge)
+1. Read `CLAUDE.md` (this file, in Project Knowledge)
 2. **Use tools to read** `docs/PROJECT_STATE.md` from filesystem
 3. Scan `docs/session_logs/` for recent context
 4. Scan `docs/adr/` for architectural guidance and a future vision

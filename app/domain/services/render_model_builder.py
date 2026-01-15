@@ -486,25 +486,12 @@ class RenderModelBuilder:
         section: Dict[str, Any],
         document_data: Dict[str, Any],
     ) -> List[RenderBlock]:
-        """
-        Process a single section and return RenderBlocks.
-        
-        Args:
-            section: Section definition from docdef
-            document_data: Full document data
-            
-        Returns:
-            List of RenderBlock for this section
-        """
         section_id = section.get("section_id", "unknown")
         component_id = section.get("component_id")
         shape = section.get("shape", "single")
-        source_pointer = section.get("source_pointer", "")
-        repeat_over = section.get("repeat_over")
-        context_mapping = section.get("context", {})
         derived_from = section.get("derived_from")
+        context_mapping = section.get("context", {})
         
-        # Handle derived fields (frozen derivation rules)
         if derived_from:
             return await self._process_derived_section(
                 section_id=section_id,
@@ -514,189 +501,242 @@ class RenderModelBuilder:
                 context_mapping=context_mapping,
             )
         
-        # Resolve component to get schema_id
         component = await self.component_service.get(component_id)
         if not component:
             raise ComponentNotFoundError(f"Component not found: {component_id}")
         
-        schema_id = component.schema_id  # e.g., "schema:OpenQuestionV1"
+        schema_id = component.schema_id
+        
+        shape_handlers = {
+            "single": self._process_single_shape,
+            "list": self._process_list_shape,
+            "nested_list": self._process_nested_list_shape,
+            "container": self._process_container_shape,
+        }
+        
+        handler = shape_handlers.get(shape)
+        if handler:
+            return handler(section, schema_id, document_data)
+        
+        logger.warning(f"Unknown shape '{shape}' for section {section_id}")
+        return []
+    def _process_single_shape(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        section_id = section.get("section_id", "unknown")
+        source_pointer = section.get("source_pointer", "")
+        context_mapping = section.get("context", {})
+        
+        data = self._resolve_pointer(document_data, source_pointer)
+        if data is None:
+            return []
+        
+        static_context = context_mapping if context_mapping else None
+        block_data = data if isinstance(data, dict) else {"value": data}
+        
+        detail_ref_template = section.get("detail_ref_template")
+        if detail_ref_template:
+            block_data = dict(block_data) if isinstance(block_data, dict) else {"value": block_data}
+            block_data["detail_ref"] = {
+                "document_type": detail_ref_template.get("document_type", ""),
+                "params": {
+                    k: self._resolve_pointer(document_data, v) 
+                    for k, v in detail_ref_template.get("params", {}).items()
+                }
+            }
+        
+        return [RenderBlock(
+            type=schema_id,
+            key=f"{section_id}:0",
+            data=block_data,
+            context=static_context,
+        )]
+    def _process_list_shape(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        section_id = section.get("section_id", "unknown")
+        source_pointer = section.get("source_pointer", "")
+        
+        items = self._resolve_pointer(document_data, source_pointer)
+        if not items or not isinstance(items, list):
+            return []
         
         blocks = []
+        for idx, item in enumerate(items):
+            item_data = item if isinstance(item, dict) else {"value": item}
+            blocks.append(RenderBlock(
+                type=schema_id,
+                key=f"{section_id}:{idx}",
+                data=item_data,
+                context=None,
+            ))
+        return blocks
+
+    def _process_nested_list_shape(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        section_id = section.get("section_id", "unknown")
+        source_pointer = section.get("source_pointer", "")
+        repeat_over = section.get("repeat_over")
+        context_mapping = section.get("context", {})
         
-        if shape == "single":
-            # Single item at source_pointer
-            data = self._resolve_pointer(document_data, source_pointer)
-            if data is not None:
-                # Use static context from section config if provided
-                static_context = context_mapping if context_mapping else None
-                
-                block_data = data if isinstance(data, dict) else {"value": data}
-                
-                # Add detail_ref if detail_ref_template specified
-                detail_ref_template = section.get("detail_ref_template")
-                if detail_ref_template:
-                    block_data = dict(block_data) if isinstance(block_data, dict) else {"value": block_data}
-                    block_data["detail_ref"] = {
-                        "document_type": detail_ref_template.get("document_type", ""),
-                        "params": {
-                            k: self._resolve_pointer(document_data, v) 
-                            for k, v in detail_ref_template.get("params", {}).items()
-                        }
-                    }
-                
+        if not repeat_over:
+            logger.warning(f"nested_list shape requires repeat_over: {section_id}")
+            return []
+        
+        parents = self._resolve_pointer(document_data, repeat_over)
+        if not parents or not isinstance(parents, list):
+            return []
+        
+        blocks = []
+        for parent_idx, parent in enumerate(parents):
+            if not isinstance(parent, dict):
+                continue
+            
+            items = self._resolve_pointer(parent, source_pointer)
+            if not items or not isinstance(items, list):
+                continue
+            
+            context = self._build_context(parent, context_mapping)
+            
+            for item_idx, item in enumerate(items):
+                item_data = item if isinstance(item, dict) else {"value": item}
                 blocks.append(RenderBlock(
                     type=schema_id,
-                    key=f"{section_id}:0",
-                    data=block_data,
-                    context=static_context,
+                    key=f"{section_id}:{parent_idx}:{item_idx}",
+                    data=item_data,
+                    context=context,
                 ))
         
-        elif shape == "list":
-            # Array at source_pointer
-            items = self._resolve_pointer(document_data, source_pointer)
-            if items and isinstance(items, list):
-                for idx, item in enumerate(items):
-                    item_data = item if isinstance(item, dict) else {"value": item}
-                    blocks.append(RenderBlock(
-                        type=schema_id,
-                        key=f"{section_id}:{idx}",
-                        data=item_data,
-                        context=None,
-                    ))
+        return blocks
+    def _process_container_shape(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        repeat_over = section.get("repeat_over")
         
-        elif shape == "nested_list":
-            # Iterate repeat_over, then resolve source_pointer relative to each parent
-            if not repeat_over:
-                logger.warning(f"nested_list shape requires repeat_over: {section_id}")
-                return blocks
-            
-            parents = self._resolve_pointer(document_data, repeat_over)
-            if not parents or not isinstance(parents, list):
-                return blocks
-            
-            block_idx = 0
-            for parent_idx, parent in enumerate(parents):
-                if not isinstance(parent, dict):
-                    continue
-                
-                # Resolve source_pointer RELATIVE to parent object
-                items = self._resolve_pointer(parent, source_pointer)
-                if not items or not isinstance(items, list):
-                    continue
-                
-                # Build context from parent
-                context = self._build_context(parent, context_mapping)
-                
-                for item_idx, item in enumerate(items):
-                    item_data = item if isinstance(item, dict) else {"value": item}
-                    blocks.append(RenderBlock(
-                        type=schema_id,
-                        key=f"{section_id}:{parent_idx}:{item_idx}",
-                        data=item_data,
-                        context=context,
-                    ))
-                    block_idx += 1
+        if repeat_over:
+            return self._process_container_with_repeat(section, schema_id, document_data)
+        else:
+            return self._process_container_simple(section, schema_id, document_data)
+
+    def _process_container_simple(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        section_id = section.get("section_id", "unknown")
+        source_pointer = section.get("source_pointer", "")
+        context_mapping = section.get("context", {})
         
-        elif shape == "container":
-            # Container shape: one block per parent (if repeat_over), containing that parent's items
-            # Per ADR-034-EXP D2: explicit container shape, no magic
-            # Per ADR-034-EXP3: one container per parent for grouped display
-            if repeat_over:
-                # Iterate parents, produce one container block per parent
-                parents = self._resolve_pointer(document_data, repeat_over)
-                derived_fields = section.get("derived_fields", [])
-                
-                if parents and isinstance(parents, list):
-                    for parent_idx, parent in enumerate(parents):
-                        if not isinstance(parent, dict):
-                            continue
-                        
-                        # Check if source_pointer is "/" or empty - use parent as data directly
-                        if source_pointer in ("/", ""):
-                            # Use parent object as data (not wrapped in items)
-                            # Filter out heavy fields that shouldn't be in summaries
-                            exclude_fields = section.get("exclude_fields", [])
-                            block_data = {k: v for k, v in parent.items() if k not in exclude_fields}
-                            
-                            # Apply derived fields
-                            for df in derived_fields:
-                                field_name = df.get("field")
-                                func_name = df.get("function")
-                                source = df.get("source", "")
-                                
-                                if func_name in DERIVATION_FUNCTIONS:
-                                    # source "/" means pass entire parent object
-                                    if source in ("/", ""):
-                                        source_data = parent
-                                    else:
-                                        source_data = self._resolve_pointer(parent, source)
-                                        if source_data is None:
-                                            source_data = []
-                                    block_data[field_name] = DERIVATION_FUNCTIONS[func_name](source_data)
-                            
-                            # Add detail_ref if detail_ref_template specified
-                            detail_ref_template = section.get("detail_ref_template")
-                            if detail_ref_template:
-                                block_data["detail_ref"] = {
-                                    "document_type": detail_ref_template.get("document_type", ""),
-                                    "params": {
-                                        k: self._resolve_pointer(parent, v) 
-                                        for k, v in detail_ref_template.get("params", {}).items()
-                                    }
-                                }
-                            
-                            # Build context from this parent
-                            context = self._build_context(parent, context_mapping)
-                            
-                            blocks.append(RenderBlock(
-                                type=schema_id,
-                                key=f"{section_id}:container:{parent_idx}",
-                                data=block_data,
-                                context=context,
-                            ))
-                        else:
-                            # Resolve source_pointer RELATIVE to parent object
-                            parent_items = self._resolve_pointer(parent, source_pointer)
-                            if not parent_items or not isinstance(parent_items, list):
-                                continue
-                            
-                            # Build context from this parent
-                            context = self._build_context(parent, context_mapping)
-                            
-                            # Process items
-                            processed_items = []
-                            for item in parent_items:
-                                item_data = item if isinstance(item, dict) else {"value": item}
-                                processed_items.append(item_data)
-                            
-                            # One container block per parent
-                            blocks.append(RenderBlock(
-                                type=schema_id,
-                                key=f"{section_id}:container:{parent_idx}",
-                                data={"items": processed_items},
-                                context=context,
-                            ))
+        items = self._resolve_pointer(document_data, source_pointer)
+        if not items or not isinstance(items, list):
+            return []
+        
+        processed_items = []
+        for item in items:
+            item_data = item if isinstance(item, dict) else {"value": item}
+            processed_items.append(item_data)
+        
+        static_context = context_mapping if context_mapping else None
+        
+        return [RenderBlock(
+            type=schema_id,
+            key=f"{section_id}:container",
+            data={"items": processed_items},
+            context=static_context,
+        )]
+    def _process_container_with_repeat(
+        self,
+        section: Dict[str, Any],
+        schema_id: str,
+        document_data: Dict[str, Any],
+    ) -> List[RenderBlock]:
+        section_id = section.get("section_id", "unknown")
+        source_pointer = section.get("source_pointer", "")
+        repeat_over = section.get("repeat_over")
+        context_mapping = section.get("context", {})
+        derived_fields = section.get("derived_fields", [])
+        
+        parents = self._resolve_pointer(document_data, repeat_over)
+        if not parents or not isinstance(parents, list):
+            return []
+        
+        blocks = []
+        for parent_idx, parent in enumerate(parents):
+            if not isinstance(parent, dict):
+                continue
+            
+            if source_pointer in ("/", ""):
+                block_data = self._build_parent_as_data(section, parent, derived_fields)
             else:
-                # Simple container: items directly from source_pointer
-                items = self._resolve_pointer(document_data, source_pointer)
-                if items and isinstance(items, list):
-                    processed_items = []
-                    for item in items:
-                        item_data = item if isinstance(item, dict) else {"value": item}
-                        processed_items.append(item_data)
-                    
-                    # Use static context from section config if provided
-                    static_context = context_mapping if context_mapping else None
-                    
-                    blocks.append(RenderBlock(
-                        type=schema_id,
-                        key=f"{section_id}:container",
-                        data={"items": processed_items},
-                        context=static_context,
-                    ))
+                parent_items = self._resolve_pointer(parent, source_pointer)
+                if not parent_items or not isinstance(parent_items, list):
+                    continue
+                
+                processed_items = []
+                for item in parent_items:
+                    item_data = item if isinstance(item, dict) else {"value": item}
+                    processed_items.append(item_data)
+                block_data = {"items": processed_items}
+            
+            context = self._build_context(parent, context_mapping)
+            
+            blocks.append(RenderBlock(
+                type=schema_id,
+                key=f"{section_id}:container:{parent_idx}",
+                data=block_data,
+                context=context,
+            ))
         
         return blocks
-    
+    def _build_parent_as_data(
+        self,
+        section: Dict[str, Any],
+        parent: Dict[str, Any],
+        derived_fields: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        exclude_fields = section.get("exclude_fields", [])
+        block_data = {k: v for k, v in parent.items() if k not in exclude_fields}
+        
+        for df in derived_fields:
+            field_name = df.get("field")
+            func_name = df.get("function")
+            source = df.get("source", "")
+            
+            if func_name in DERIVATION_FUNCTIONS:
+                if source in ("/", ""):
+                    source_data = parent
+                else:
+                    source_data = self._resolve_pointer(parent, source)
+                    if source_data is None:
+                        source_data = []
+                block_data[field_name] = DERIVATION_FUNCTIONS[func_name](source_data)
+        
+        detail_ref_template = section.get("detail_ref_template")
+        if detail_ref_template:
+            block_data["detail_ref"] = {
+                "document_type": detail_ref_template.get("document_type", ""),
+                "params": {
+                    k: self._resolve_pointer(parent, v) 
+                    for k, v in detail_ref_template.get("params", {}).items()
+                }
+            }
+        
+        return block_data
+
     async def _process_derived_section(
         self,
         section_id: str,

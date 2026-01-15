@@ -1,4 +1,4 @@
-﻿"""
+"""
 Story Backlog Service - Business logic for story backlog operations.
 
 WS-STORY-BACKLOG-COMMANDS-SLICE-2: Generate stories for epics.
@@ -92,7 +92,66 @@ class StoryBacklogService:
         self.doc_service = DocumentService(db)
         self.prompt_service = RolePromptService(db)
         self.thread_service = ThreadExecutionService(db)
-        self.llm_logger = llm_logger  # ADR-010: Optional execution logger
+        self.llm_logger = llm_logger  # ADR-010: Optional execution logger    
+    # =========================================================================
+    # LLM LOGGING HELPERS (ADR-010)
+    # =========================================================================
+    
+    async def _start_llm_run(
+        self, llm_logger: Optional[LLMExecutionLogger], project_id: UUID,
+        epic_id: str, prompt_text: str, user_message: str,
+    ) -> Optional[UUID]:
+        if not llm_logger:
+            return None
+        try:
+            from uuid import uuid4
+            run_id = await llm_logger.start_run(
+                correlation_id=uuid4(), project_id=project_id, role="ba",
+                artifact_type="story_backlog", model_provider="anthropic",
+                model_name="claude-sonnet-4-20250514", prompt_id="ba:story_backlog",
+                prompt_version="1.0", effective_prompt=prompt_text,
+            )
+            await llm_logger.add_input(run_id, "system_prompt", prompt_text)
+            await llm_logger.add_input(run_id, "user_prompt", user_message)
+            await llm_logger.add_input(run_id, "context_doc", json.dumps({"epic_id": epic_id}))
+            return run_id
+        except Exception as e:
+            logger.warning(f"LLM logging failed at start for {epic_id}: {e}")
+            return None
+    
+    async def _log_llm_output(
+        self, llm_logger: Optional[LLMExecutionLogger], run_id: Optional[UUID],
+        epic_id: str, raw_response: str,
+    ) -> None:
+        if not llm_logger or not run_id:
+            return
+        try:
+            await llm_logger.add_output(run_id, "raw_text", raw_response)
+        except Exception as e:
+            logger.warning(f"LLM logging failed at output for {epic_id}: {e}")
+    
+    async def _complete_llm_run(
+        self, llm_logger: Optional[LLMExecutionLogger], run_id: Optional[UUID],
+        epic_id: str, success: bool, usage: dict = None,
+    ) -> None:
+        if not llm_logger or not run_id:
+            return
+        try:
+            await llm_logger.complete_run(run_id, status="SUCCESS" if success else "FAILED", usage=usage or {})
+        except Exception as e:
+            logger.warning(f"LLM logging failed at complete for {epic_id}: {e}")
+    
+    async def _log_llm_error(
+        self, llm_logger: Optional[LLMExecutionLogger], run_id: Optional[UUID],
+        epic_id: str, error_msg: str,
+    ) -> None:
+        if not llm_logger or not run_id:
+            return
+        try:
+            await llm_logger.log_error(run_id, "LLM_CALL", "ERROR", "LLM_ERROR", error_msg)
+            await llm_logger.complete_run(run_id, "FAILED", {})
+        except Exception as e:
+            logger.warning(f"LLM logging failed at error for {epic_id}: {e}")
     
     async def generate_epic_stories(
         self,
@@ -209,30 +268,9 @@ class StoryBacklogService:
             }
         )
         
-        # 8. Call LLM
-        run_id = None
-        
-        # ADR-010: Start LLM execution logging
-        if self.llm_logger:
-            try:
-                from uuid import uuid4
-                run_id = await self.llm_logger.start_run(
-                    correlation_id=uuid4(),
-                    project_id=project_id,
-                    role="ba",
-                    artifact_type="story_backlog",
-                    model_provider="anthropic",
-                    model_name="claude-sonnet-4-20250514",
-                    prompt_id="ba:story_backlog",
-                    prompt_version="1.0",
-                    effective_prompt=prompt_text,
-                )
-                await self.llm_logger.add_input(run_id, "system_prompt", prompt_text)
-                await self.llm_logger.add_input(run_id, "user_prompt", user_message)
-                await self.llm_logger.add_input(run_id, "context_doc", json.dumps({"epic_id": epic_id}))
-            except Exception as e:
-                logger.warning(f"LLM logging failed at start for {epic_id}: {e}")
-        
+        # 8. Call LLM with logging
+        run_id = await self._start_llm_run(self.llm_logger, project_id, epic_id, prompt_text, user_message)
+
         try:
             llm_output, raw_response, llm_usage = await self._call_llm_with_raw(prompt_text, user_message)
             await self.thread_service.record_response(
@@ -240,12 +278,7 @@ class StoryBacklogService:
                 response_data={"raw_content": raw_response, "parsed": llm_output}
             )
             
-            # ADR-010: Log output
-            if self.llm_logger and run_id:
-                try:
-                    await self.llm_logger.add_output(run_id, "raw_text", raw_response)
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at output for {epic_id}: {e}")
+            await self._log_llm_output(self.llm_logger, run_id, epic_id, raw_response)
                     
         except Exception as e:
             error_msg = str(e)
@@ -254,13 +287,7 @@ class StoryBacklogService:
                 error_data={"error": error_msg, "stage": "llm_call"}
             )
             
-            # ADR-010: Log failure
-            if self.llm_logger and run_id:
-                try:
-                    await self.llm_logger.log_error(run_id, "LLM_CALL", "ERROR", "LLM_ERROR", error_msg)
-                    await self.llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as log_err:
-                    logger.warning(f"LLM logging failed at error for {epic_id}: {log_err}")
+            await self._log_llm_error(self.llm_logger, run_id, epic_id, error_msg)
             
             error_code = ErrorCode.PROVIDER_TIMEOUT if "timeout" in error_msg.lower() else ErrorCode.UNKNOWN
             await self.thread_service.fail_work_item(work_item.id, error_code, error_msg)
@@ -278,12 +305,7 @@ class StoryBacklogService:
         )
         
         if not stories:
-            # ADR-010: Log failure
-            if self.llm_logger and run_id:
-                try:
-                    await self.llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at complete for {epic_id}: {e}")
+            await self._complete_llm_run(self.llm_logger, run_id, epic_id, success=False)
             
             await self.thread_service.fail_work_item(work_item.id, ErrorCode.SCHEMA_INVALID, "LLM returned no stories")
             await self.thread_service.fail_thread(thread.id)
@@ -292,16 +314,7 @@ class StoryBacklogService:
                 thread_id=thread.id, error="LLM returned no stories",
             )
         
-        # ADR-010: Complete successful run
-        if self.llm_logger and run_id:
-            try:
-                await self.llm_logger.complete_run(
-                    run_id,
-                    status="SUCCESS",
-                    usage=llm_usage,
-                )
-            except Exception as e:
-                logger.warning(f"LLM logging failed at complete for {epic_id}: {e}")
+        await self._complete_llm_run(self.llm_logger, run_id, epic_id, success=True, usage=llm_usage)
         
         # 10. Store StoryDetails and project summaries
         summaries, stories_written = await self._store_stories(project_id, epic_id, stories)
@@ -465,47 +478,19 @@ class StoryBacklogService:
                 await log_session.__aenter__()
                 log_repo = PostgresLLMLogRepository(log_session)
                 llm_logger = LLMExecutionLogger(log_repo)
-                
-                run_id = await llm_logger.start_run(
-                    correlation_id=uuid4(),
-                    project_id=project_id,
-                    role="ba",
-                    artifact_type="story_backlog",
-                    model_provider="anthropic",
-                    model_name="claude-sonnet-4-20250514",
-                    prompt_id="ba:story_backlog",
-                    prompt_version="1.0",
-                    effective_prompt=prompt_text,
-                )
-                await llm_logger.add_input(run_id, "system_prompt", prompt_text)
-                await llm_logger.add_input(run_id, "user_prompt", user_message)
-                await llm_logger.add_input(run_id, "context_doc", json.dumps({"epic_id": epic_id}))
+                run_id = await self._start_llm_run(llm_logger, project_id, epic_id, prompt_text, user_message)
             except Exception as e:
                 logger.warning(f"LLM logging failed at start for {epic_id}: {e}")
             
             # Call LLM
             llm_output, raw_response, llm_usage = await self._call_llm_with_raw(prompt_text, user_message)
             
-            # ADR-010: Log output
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.add_output(run_id, "raw_text", raw_response)
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at output for {epic_id}: {e}")
+            await self._log_llm_output(llm_logger, run_id, epic_id, raw_response)
             
             # Extract stories
             stories = self._extract_stories(llm_output)
             
-            # ADR-010: Complete run
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.complete_run(
-                        run_id,
-                        status="SUCCESS" if stories else "FAILED",
-                        usage=llm_usage,
-                    )
-                except Exception as e:
-                    logger.warning(f"LLM logging failed at complete for {epic_id}: {e}")
+            await self._complete_llm_run(llm_logger, run_id, epic_id, success=bool(stories), usage=llm_usage)
             
             if not stories:
                 return {"epic_id": epic_id, "stories": [], "error": "LLM returned no stories"}
@@ -515,13 +500,7 @@ class StoryBacklogService:
         except Exception as e:
             logger.error(f"Failed to generate stories for epic {epic_id}: {e}")
             
-            # ADR-010: Log failure
-            if llm_logger and run_id:
-                try:
-                    await llm_logger.log_error(run_id, "LLM_CALL", "ERROR", "LLM_ERROR", str(e))
-                    await llm_logger.complete_run(run_id, "FAILED", {})
-                except Exception as log_err:
-                    logger.warning(f"LLM logging failed at error for {epic_id}: {log_err}")
+            await self._log_llm_error(llm_logger, run_id, epic_id, str(e))
             
             return {"epic_id": epic_id, "stories": [], "error": str(e)}
         
