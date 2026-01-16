@@ -25,6 +25,7 @@ from app.domain.workflow.plan_executor import (
 from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
 from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
+from app.domain.workflow.nodes.mock_executors import create_mock_executors
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +88,11 @@ _load_seed_workflows()
 
 
 def get_executor() -> PlanExecutor:
-    """Dependency to get the plan executor."""
+    """Dependency to get the plan executor with mock executors for testing."""
     return PlanExecutor(
         persistence=_persistence,
         plan_registry=get_plan_registry(),
+        executors=create_mock_executors(),
     )
 
 
