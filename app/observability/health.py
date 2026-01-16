@@ -2,7 +2,7 @@
 
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Awaitable
 
@@ -22,7 +22,7 @@ class ComponentHealth:
     latency_ms: Optional[float] = None
     message: Optional[str] = None
     details: Dict[str, Any] = field(default_factory=dict)
-    checked_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -32,7 +32,7 @@ class SystemHealth:
     components: List[ComponentHealth]
     version: str = "unknown"
     uptime_seconds: float = 0.0
-    checked_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    checked_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON response."""
@@ -71,7 +71,7 @@ class HealthChecker:
         start_time: Optional[datetime] = None,
     ):
         self._version = version
-        self._start_time = start_time or datetime.now(UTC)
+        self._start_time = start_time or datetime.now(timezone.utc)
         self._checks: Dict[str, HealthCheckFn] = {}
     
     def register(self, name: str, check_fn: HealthCheckFn) -> None:
@@ -123,7 +123,7 @@ class HealthChecker:
         else:
             overall = HealthStatus.HEALTHY
         
-        uptime = (datetime.now(UTC) - self._start_time).total_seconds()
+        uptime = (datetime.now(timezone.utc) - self._start_time).total_seconds()
         
         return SystemHealth(
             status=overall,

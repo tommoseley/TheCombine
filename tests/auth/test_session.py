@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from app.auth import (
     User,
@@ -46,8 +46,8 @@ async def sample_user(user_repo):
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["operator"],
     )
@@ -64,9 +64,9 @@ class TestSessionModel:
             session_id="sess_expired",
             user_id="user_123",
             token_hash="hash123",
-            created_at=datetime.now(UTC) - timedelta(hours=2),
-            expires_at=datetime.now(UTC) - timedelta(hours=1),
-            last_activity=datetime.now(UTC) - timedelta(hours=1),
+            created_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         assert expired.is_expired() is True
         assert expired.is_valid() is False
@@ -77,9 +77,9 @@ class TestSessionModel:
             session_id="sess_valid",
             user_id="user_123",
             token_hash="hash123",
-            created_at=datetime.now(UTC),
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
-            last_activity=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc),
         )
         assert valid.is_expired() is False
         assert valid.is_valid() is True
@@ -95,9 +95,9 @@ class TestSessionRepository:
             session_id="sess_test",
             user_id="user_123",
             token_hash="hash123",
-            created_at=datetime.now(UTC),
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
-            last_activity=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc),
         )
         created = await session_repo.create(session)
         assert created.session_id == "sess_test"
@@ -109,9 +109,9 @@ class TestSessionRepository:
             session_id="sess_test",
             user_id="user_123",
             token_hash="unique_hash",
-            created_at=datetime.now(UTC),
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
-            last_activity=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc),
         )
         await session_repo.create(session)
         
@@ -127,9 +127,9 @@ class TestSessionRepository:
                 session_id=f"sess_{i}",
                 user_id="user_123",
                 token_hash=f"hash_{i}",
-                created_at=datetime.now(UTC),
-                expires_at=datetime.now(UTC) + timedelta(hours=1),
-                last_activity=datetime.now(UTC),
+                created_at=datetime.now(timezone.utc),
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                last_activity=datetime.now(timezone.utc),
             )
             await session_repo.create(session)
         
@@ -143,9 +143,9 @@ class TestSessionRepository:
             session_id="sess_delete",
             user_id="user_123",
             token_hash="hash_delete",
-            created_at=datetime.now(UTC),
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
-            last_activity=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc),
         )
         await session_repo.create(session)
         
@@ -162,9 +162,9 @@ class TestSessionRepository:
             session_id="sess_expired",
             user_id="user_123",
             token_hash="hash_expired",
-            created_at=datetime.now(UTC) - timedelta(hours=2),
-            expires_at=datetime.now(UTC) - timedelta(hours=1),
-            last_activity=datetime.now(UTC) - timedelta(hours=1),
+            created_at=datetime.now(timezone.utc) - timedelta(hours=2),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         await session_repo.create(expired)
         
@@ -173,9 +173,9 @@ class TestSessionRepository:
             session_id="sess_valid",
             user_id="user_123",
             token_hash="hash_valid",
-            created_at=datetime.now(UTC),
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
-            last_activity=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            last_activity=datetime.now(timezone.utc),
         )
         await session_repo.create(valid)
         

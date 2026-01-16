@@ -1,7 +1,7 @@
 ﻿"""PostgreSQL repository implementations."""
 
 import json
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 from uuid import UUID
 
@@ -88,7 +88,7 @@ class PostgresDocumentRepository:
             if existing:
                 # Update existing
                 orm_doc = _stored_to_orm_document(document, existing)
-                orm_doc.updated_at = datetime.now(UTC)
+                orm_doc.updated_at = datetime.now(timezone.utc)
             else:
                 # Create new
                 orm_doc = _stored_to_orm_document(document)

@@ -2,7 +2,7 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.auth.dependencies import require_admin
 from app.auth.models import User
@@ -124,8 +124,8 @@ class TestDocumentUIIntegration:
             content={"body": "Test requirement content"},
             status=DocumentStatus.DRAFT,
             version=1,
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by="test-user",
         )
         await doc_repo.save(doc)
@@ -147,8 +147,8 @@ class TestDocumentUIIntegration:
             content={"body": "# Detailed Content\n\nThis is the full content."},
             status=DocumentStatus.DRAFT,
             version=1,
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             created_by="test-user",
         )
         await doc_repo.save(doc)

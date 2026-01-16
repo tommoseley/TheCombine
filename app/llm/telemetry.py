@@ -1,7 +1,7 @@
 ﻿"""LLM telemetry service for cost tracking and metrics."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, date, UTC
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -50,7 +50,7 @@ class LLMCallRecord:
     latency_ms: float
     cached: bool = False
     cost_usd: Decimal = Decimal("0")
-    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
     error_type: Optional[str] = None
     error_message: Optional[str] = None
@@ -264,7 +264,7 @@ class TelemetryService:
             latency_ms=latency_ms,
             cached=cached,
             cost_usd=cost,
-            completed_at=datetime.now(UTC),
+            completed_at=datetime.now(timezone.utc),
             error_type=error_type,
             error_message=error_message,
             retry_count=retry_count,

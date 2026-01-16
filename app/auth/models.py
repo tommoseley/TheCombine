@@ -1,7 +1,7 @@
 """Authentication domain models."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import List, Optional
 from enum import Enum
 from uuid import UUID
@@ -77,7 +77,7 @@ class UserSession:
     
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.now(UTC) > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def is_valid(self) -> bool:
         """Check if session is valid (not expired)."""
@@ -98,7 +98,7 @@ class Session:
     
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.now(UTC) > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def is_valid(self) -> bool:
         """Check if session is valid (not expired)."""
@@ -144,7 +144,7 @@ class PersonalAccessToken:
         """Check if token has expired."""
         if self.expires_at is None:
             return False
-        return datetime.now(UTC) > self.expires_at
+        return datetime.now(timezone.utc) > self.expires_at
     
     def is_valid(self) -> bool:
         """Check if token is valid (active and not expired)."""

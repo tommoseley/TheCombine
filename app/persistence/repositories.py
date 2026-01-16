@@ -1,7 +1,7 @@
 ﻿"""Repository protocols and in-memory implementations."""
 
 from abc import ABC, abstractmethod
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Protocol, runtime_checkable
 from uuid import UUID
 
@@ -101,7 +101,7 @@ class InMemoryDocumentRepository:
     
     async def save(self, document: StoredDocument) -> StoredDocument:
         """Save a document."""
-        document.updated_at = datetime.now(UTC)
+        document.updated_at = datetime.now(timezone.utc)
         
         # Handle versioning - mark old versions as not latest
         if document.is_latest:

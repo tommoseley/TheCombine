@@ -1,7 +1,7 @@
 ﻿"""Tests for LLM telemetry service."""
 
 import pytest
-from datetime import date, datetime, UTC, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -162,7 +162,7 @@ class TestInMemoryTelemetryStore:
         )
         
         await store.record_call(record)
-        calls = await store.get_calls_by_date(datetime.now(UTC).date())
+        calls = await store.get_calls_by_date(datetime.now(timezone.utc).date())
         
         assert len(calls) == 1
 
@@ -260,7 +260,7 @@ class TestTelemetryService:
             latency_ms=1000.0,
         )
         
-        summary = await service.get_daily_summary(datetime.now(UTC).date())
+        summary = await service.get_daily_summary(datetime.now(timezone.utc).date())
         
         assert summary.call_count == 1
     

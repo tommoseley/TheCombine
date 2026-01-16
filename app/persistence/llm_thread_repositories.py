@@ -9,7 +9,7 @@ Repository layer for durable LLM execution:
 
 import hashlib
 import json
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 

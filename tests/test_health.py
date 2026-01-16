@@ -1,7 +1,7 @@
 ﻿"""Tests for health check functionality."""
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.health import (
     HealthStatus,
@@ -63,7 +63,7 @@ class TestHealthCheckResult:
             status=HealthStatus.HEALTHY,
             version="1.0.0",
             environment="test",
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
         )
         assert result.status == HealthStatus.HEALTHY
         assert result.version == "1.0.0"
@@ -74,7 +74,7 @@ class TestHealthCheckResult:
             status=HealthStatus.HEALTHY,
             version="1.0.0",
             environment="test",
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             components={
                 "db": ComponentHealth(
                     name="db",

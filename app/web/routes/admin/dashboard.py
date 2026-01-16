@@ -1,6 +1,6 @@
 """Dashboard pages for UI."""
 
-from datetime import date, timedelta, datetime, UTC
+from datetime import date, timedelta, datetime, timezone
 from typing import Optional
 from decimal import Decimal
 from collections import defaultdict
@@ -80,7 +80,7 @@ async def cost_dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Render cost dashboard page with unified workflow and document build costs."""
-    today = datetime.now(UTC).date()
+    today = datetime.now(timezone.utc).date()
     start_date = today - timedelta(days=days-1)
     
     # Initialize daily data structure
@@ -183,7 +183,7 @@ async def cost_daily_partial(
     service: TelemetryService = Depends(get_telemetry_svc),
 ):
     """Partial endpoint for daily cost data (HTMX)."""
-    today = datetime.now(UTC).date()
+    today = datetime.now(timezone.utc).date()
     
     daily_data = []
     for i in range(days):

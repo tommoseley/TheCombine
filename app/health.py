@@ -1,7 +1,7 @@
 ﻿"""Health check endpoint for production monitoring."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, Optional
 from enum import Enum
 
@@ -70,9 +70,9 @@ class HealthChecker:
         
         for name, check_fn in self._checks.items():
             try:
-                start = datetime.now(UTC)
+                start = datetime.now(timezone.utc)
                 result = await check_fn()
-                latency = (datetime.now(UTC) - start).total_seconds() * 1000
+                latency = (datetime.now(timezone.utc) - start).total_seconds() * 1000
                 
                 if isinstance(result, ComponentHealth):
                     result.latency_ms = latency
@@ -100,7 +100,7 @@ class HealthChecker:
             status=overall_status,
             version=self.version,
             environment=self.environment,
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             components=components,
         )
     

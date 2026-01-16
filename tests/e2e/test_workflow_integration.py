@@ -2,7 +2,7 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

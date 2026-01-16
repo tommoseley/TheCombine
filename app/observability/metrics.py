@@ -1,7 +1,7 @@
 ﻿"""Metrics collection for The Combine."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from decimal import Decimal
 from threading import Lock
 from typing import Dict, List, Optional
@@ -76,7 +76,7 @@ class HealthStatus:
     healthy: bool
     latency_ms: Optional[float] = None
     message: Optional[str] = None
-    last_check: datetime = field(default_factory=lambda: datetime.now(UTC))
+    last_check: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class MetricsCollector:
@@ -90,7 +90,7 @@ class MetricsCollector:
         self._lock = Lock()
         self._metrics = ExecutionMetrics()
         self._workflow_metrics: Dict[str, WorkflowMetrics] = {}
-        self._started_at = datetime.now(UTC)
+        self._started_at = datetime.now(timezone.utc)
     
     def record_execution_start(self, workflow_id: str) -> None:
         """Record an execution starting."""
@@ -198,14 +198,14 @@ class MetricsCollector:
     
     def uptime_seconds(self) -> float:
         """Get collector uptime in seconds."""
-        return (datetime.now(UTC) - self._started_at).total_seconds()
+        return (datetime.now(timezone.utc) - self._started_at).total_seconds()
     
     def reset(self) -> None:
         """Reset all metrics (for testing)."""
         with self._lock:
             self._metrics = ExecutionMetrics()
             self._workflow_metrics.clear()
-            self._started_at = datetime.now(UTC)
+            self._started_at = datetime.now(timezone.utc)
 
 
 # Global metrics collector instance

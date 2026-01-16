@@ -3,7 +3,7 @@
 import json
 import logging
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -27,7 +27,7 @@ class JSONFormatter(logging.Formatter):
         log_data: Dict[str, Any] = {}
         
         if self._include_timestamp:
-            log_data["timestamp"] = datetime.now(UTC).isoformat()
+            log_data["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         if self._include_level:
             log_data["level"] = record.levelname

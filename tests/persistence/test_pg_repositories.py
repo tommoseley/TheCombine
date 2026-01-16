@@ -2,7 +2,7 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.persistence.models import (
     StoredDocument,
@@ -99,8 +99,8 @@ class TestExecutionConversion:
         orm_exec.current_step = None
         orm_exec.step_states = {"step1": "done"}
         orm_exec.context_data = {}
-        orm_exec.started_at = datetime.now(UTC)
-        orm_exec.completed_at = datetime.now(UTC)
+        orm_exec.started_at = datetime.now(timezone.utc)
+        orm_exec.completed_at = datetime.now(timezone.utc)
         orm_exec.error_message = None
         orm_exec.created_by = "user-1"
         

@@ -1,7 +1,7 @@
 """Tests for AuthContext usage in routes."""
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.auth.models import AuthContext, User, AuthProvider
@@ -16,7 +16,7 @@ class TestAuthContextAccess:
             user_id=str(uuid4()),
             email="test@example.com",
             name="Test User",
-            user_created_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
         )
         
         auth_context = AuthContext(

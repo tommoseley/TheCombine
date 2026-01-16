@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 from fastapi import FastAPI, Request, HTTPException
@@ -26,8 +26,8 @@ def sample_user():
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["operator"],
     )
@@ -42,8 +42,8 @@ def admin_user():
         name="Admin User",
         provider=AuthProvider.LOCAL,
         provider_id="local_admin",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["admin"],
     )
@@ -58,8 +58,8 @@ def viewer_user():
         name="Viewer User",
         provider=AuthProvider.LOCAL,
         provider_id="local_viewer",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["viewer"],
     )

@@ -1,7 +1,7 @@
 """Tests for user model and repository."""
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.auth import (
     User,
@@ -27,8 +27,8 @@ def sample_user():
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["operator"],
     )
@@ -50,8 +50,8 @@ class TestUserModel:
             name="Admin",
             provider=AuthProvider.LOCAL,
             provider_id="local_admin",
-            user_created_at=datetime.now(UTC),
-            last_login_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
             roles=["admin"],
         )
         assert user.has_role("admin") is True
@@ -96,8 +96,8 @@ class TestUserRepository:
             name="Other",
             provider=AuthProvider.GOOGLE,
             provider_id="google_456",
-            user_created_at=datetime.now(UTC),
-            last_login_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
         )
         
         with pytest.raises(UserAlreadyExistsError):
@@ -114,8 +114,8 @@ class TestUserRepository:
             name="Other",
             provider=AuthProvider.GOOGLE,
             provider_id="google_456",
-            user_created_at=datetime.now(UTC),
-            last_login_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
         )
         
         with pytest.raises(UserAlreadyExistsError):
@@ -178,8 +178,8 @@ class TestUserRepository:
             name="Second User",
             provider=AuthProvider.MICROSOFT,
             provider_id="ms_123",
-            user_created_at=datetime.now(UTC),
-            last_login_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
         )
         await user_repo.create(user2)
         

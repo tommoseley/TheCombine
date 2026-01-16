@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 
 from app.auth.models import User, PersonalAccessToken, AuthProvider
 from app.auth.pat_service import (
@@ -36,8 +36,8 @@ def sample_user():
         name="Test User",
         provider=AuthProvider.GOOGLE,
         provider_id="google_123",
-        user_created_at=datetime.now(UTC),
-        last_login_at=datetime.now(UTC),
+        user_created_at=datetime.now(timezone.utc),
+        last_login_at=datetime.now(timezone.utc),
         is_active=True,
         roles=["operator"],
     )
@@ -90,7 +90,7 @@ class TestPATRepository:
             token_hash="unique_hash",
             token_display="pat_abc...xyz",
             key_id="abc12345",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
         )
         created = await pat_repo.create(pat)
         assert created.token_id == "pat_test"
@@ -105,7 +105,7 @@ class TestPATRepository:
             token_hash="unique_hash",
             token_display="pat_abc...xyz",
             key_id="abc12345",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
         )
         await pat_repo.create(pat)
         
@@ -124,7 +124,7 @@ class TestPATRepository:
                 token_hash=f"hash_{i}",
                 token_display=f"pat_...{i}",
                 key_id=f"key_{i}",
-                created_at=datetime.now(UTC),
+                created_at=datetime.now(timezone.utc),
             )
             await pat_repo.create(pat)
         
@@ -141,7 +141,7 @@ class TestPATRepository:
             token_hash="hash_delete",
             token_display="pat_...del",
             key_id="del12345",
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
         )
         await pat_repo.create(pat)
         

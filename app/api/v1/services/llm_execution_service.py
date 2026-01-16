@@ -2,7 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, AsyncGenerator
 from uuid import UUID, uuid4
@@ -47,7 +47,7 @@ class ProgressEvent:
     execution_id: UUID
     step_id: Optional[str] = None
     data: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass

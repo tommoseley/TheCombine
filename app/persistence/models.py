@@ -1,7 +1,7 @@
 ﻿"""Persistence domain models."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 from enum import Enum
@@ -32,8 +32,8 @@ class StoredDocument:
     content: Dict[str, Any]
     status: DocumentStatus = DocumentStatus.DRAFT
     summary: Optional[str] = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: Optional[str] = None
     created_by_step: Optional[str] = None
     execution_id: Optional[UUID] = None
@@ -86,7 +86,7 @@ class StoredExecutionState:
     current_step: Optional[str] = None
     step_states: Dict[str, Any] = field(default_factory=dict)
     context_data: Dict[str, Any] = field(default_factory=dict)
-    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     created_by: Optional[str] = None
@@ -117,13 +117,13 @@ class StoredExecutionState:
     def complete(self) -> None:
         """Mark execution as completed."""
         self.status = ExecutionStatus.COMPLETED
-        self.completed_at = datetime.now(UTC)
+        self.completed_at = datetime.now(timezone.utc)
     
     def fail(self, error: str) -> None:
         """Mark execution as failed."""
         self.status = ExecutionStatus.FAILED
         self.error_message = error
-        self.completed_at = datetime.now(UTC)
+        self.completed_at = datetime.now(timezone.utc)
 
 
 # =============================================================================
@@ -185,7 +185,7 @@ class LLMThread:
     parent_thread_id: Optional[UUID] = None
     idempotency_key: Optional[str] = None
     created_by: Optional[str] = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: Optional[datetime] = None
     
     @classmethod
@@ -218,17 +218,17 @@ class LLMThread:
     def complete(self) -> None:
         """Mark thread as complete."""
         self.status = ThreadStatus.COMPLETE
-        self.closed_at = datetime.now(UTC)
+        self.closed_at = datetime.now(timezone.utc)
     
     def fail(self) -> None:
         """Mark thread as failed."""
         self.status = ThreadStatus.FAILED
-        self.closed_at = datetime.now(UTC)
+        self.closed_at = datetime.now(timezone.utc)
     
     def cancel(self) -> None:
         """Mark thread as canceled."""
         self.status = ThreadStatus.CANCELED
-        self.closed_at = datetime.now(UTC)
+        self.closed_at = datetime.now(timezone.utc)
     
     @property
     def is_active(self) -> bool:
@@ -258,7 +258,7 @@ class LLMWorkItem:
     not_before: Optional[datetime] = None
     error_code: Optional[ErrorCode] = None
     error_message: Optional[str] = None  # Informational only; authoritative context in ledger
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     
@@ -280,7 +280,7 @@ class LLMWorkItem:
     def claim(self) -> None:
         """Claim work item for processing."""
         self.status = WorkItemStatus.CLAIMED
-        self.started_at = datetime.now(UTC)
+        self.started_at = datetime.now(timezone.utc)
     
     def start(self) -> None:
         """Mark work item as running."""
@@ -289,21 +289,21 @@ class LLMWorkItem:
     def apply(self) -> None:
         """Mark work item as successfully applied."""
         self.status = WorkItemStatus.APPLIED
-        self.finished_at = datetime.now(UTC)
+        self.finished_at = datetime.now(timezone.utc)
     
     def fail(self, error_code: ErrorCode, error_message: str) -> None:
         """Mark work item as failed."""
         self.status = WorkItemStatus.FAILED
         self.error_code = error_code
         self.error_message = error_message
-        self.finished_at = datetime.now(UTC)
+        self.finished_at = datetime.now(timezone.utc)
     
     def dead_letter(self, error_code: ErrorCode, error_message: str) -> None:
         """Move work item to dead letter."""
         self.status = WorkItemStatus.DEAD_LETTER
         self.error_code = error_code
         self.error_message = error_message
-        self.finished_at = datetime.now(UTC)
+        self.finished_at = datetime.now(timezone.utc)
     
     @property
     def is_terminal(self) -> bool:
@@ -325,7 +325,7 @@ class LLMLedgerEntry:
     entry_type: LedgerEntryType
     payload: Dict[str, Any]
     payload_hash: Optional[str] = None  # SHA256 for dedup/verification
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     @classmethod
     def create(

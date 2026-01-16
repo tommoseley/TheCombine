@@ -11,7 +11,7 @@ Orchestrates the durable LLM execution lifecycle:
 import hashlib
 import json
 import logging
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -114,7 +114,7 @@ class ThreadExecutionService:
         await self.thread_repo.update_status(
             thread_id,
             ThreadStatus.COMPLETE,
-            closed_at=datetime.now(UTC)
+            closed_at=datetime.now(timezone.utc)
         )
         logger.info(f"Thread {thread_id} completed")
     
@@ -123,7 +123,7 @@ class ThreadExecutionService:
         await self.thread_repo.update_status(
             thread_id,
             ThreadStatus.FAILED,
-            closed_at=datetime.now(UTC)
+            closed_at=datetime.now(timezone.utc)
         )
         logger.info(f"Thread {thread_id} failed")
     

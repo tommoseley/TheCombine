@@ -1,7 +1,7 @@
 """Tests for auth model and service consistency."""
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.auth.models import User, UserSession
@@ -20,9 +20,9 @@ class TestUserModelConstruction:
             name="Test User",
             avatar_url="https://example.com/avatar.jpg",
             is_active=True,
-            user_created_at=datetime.now(UTC),
-            user_updated_at=datetime.now(UTC),
-            last_login_at=datetime.now(UTC),
+            user_created_at=datetime.now(timezone.utc),
+            user_updated_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
         )
         
         assert user.email == "test@example.com"
@@ -59,7 +59,7 @@ class TestUserSessionModelConstruction:
     
     def test_session_from_orm_fields(self):
         """UserSession can be constructed with ORM-style fields."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         
         # These are the exact fields the service passes from ORM
         session = UserSession(
@@ -81,7 +81,7 @@ class TestUserSessionModelConstruction:
         """UserSession.is_expired works correctly."""
         from datetime import timedelta
         
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         
         # Expired session
         expired = UserSession(

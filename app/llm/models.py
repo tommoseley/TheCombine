@@ -1,7 +1,7 @@
 ﻿"""LLM domain models."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from enum import Enum
 

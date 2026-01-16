@@ -1,7 +1,7 @@
 ﻿"""Authentication repositories."""
 
 from typing import Dict, List, Optional, Protocol, runtime_checkable
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from .models import User, Session, AuthProvider
 
@@ -216,7 +216,7 @@ class InMemorySessionRepository:
     
     async def delete_expired(self) -> int:
         """Delete all expired sessions."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         expired_ids = [
             sid for sid, session in self._sessions.items()
             if session.expires_at < now

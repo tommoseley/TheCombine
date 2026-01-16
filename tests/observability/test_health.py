@@ -1,7 +1,7 @@
 ﻿"""Tests for health checks."""
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from app.observability.health import (
     HealthStatus,

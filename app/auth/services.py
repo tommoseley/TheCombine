@@ -2,7 +2,7 @@
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 from .models import User, Session, AuthProvider, OAuthUserInfo
@@ -61,7 +61,7 @@ class SessionService:
         """
         token = generate_session_token()
         token_hash = hash_token(token)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         
         session = Session(
             session_id=generate_session_id(),
@@ -101,7 +101,7 @@ class SessionService:
             return None
         
         # Update last activity
-        session.last_activity = datetime.now(UTC)
+        session.last_activity = datetime.now(timezone.utc)
         await self._session_repo.update(session)
         
         return user, session
@@ -153,7 +153,7 @@ class SessionService:
         if not session or session.is_expired():
             return None
         
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         session.expires_at = now + self._session_duration
         session.last_activity = now
         
@@ -184,7 +184,7 @@ class UserService:
         )
         if existing:
             # Update last login
-            existing.last_login = datetime.now(UTC)
+            existing.last_login = datetime.now(timezone.utc)
             await self._user_repo.update(existing)
             return existing, False
         
@@ -193,12 +193,12 @@ class UserService:
         if existing:
             # Could implement account linking here
             # For now, update last login
-            existing.last_login = datetime.now(UTC)
+            existing.last_login = datetime.now(timezone.utc)
             await self._user_repo.update(existing)
             return existing, False
         
         # Create new user
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         user = User(
             user_id=generate_user_id(),
             email=user_info.email,

@@ -2,7 +2,7 @@
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, List
 
 from .models import PersonalAccessToken, User
@@ -138,7 +138,7 @@ class PATService:
         """
         token = generate_pat_token()
         token_hash = hash_pat(token)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         
         expiry = expires_in or self._default_expiry
         expires_at = now + expiry if expiry else None
@@ -180,7 +180,7 @@ class PATService:
             return None
         
         # Update last used time
-        pat.last_used_at = datetime.now(UTC)
+        pat.last_used_at = datetime.now(timezone.utc)
         await self._pat_repo.update(pat)
         
         return pat

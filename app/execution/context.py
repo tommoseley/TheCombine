@@ -1,7 +1,7 @@
 ﻿"""Execution context for workflow runs."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -35,7 +35,7 @@ class ExecutionContext:
     document_repo: DocumentRepository
     execution_repo: ExecutionRepository
     created_by: Optional[str] = None
-    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     current_step: Optional[str] = None
     step_progress: Dict[str, StepProgress] = field(default_factory=dict)
     context_data: Dict[str, Any] = field(default_factory=dict)
@@ -164,21 +164,21 @@ class ExecutionContext:
         self.step_progress[step_id] = StepProgress(
             step_id=step_id,
             status="running",
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(timezone.utc),
         )
     
     def complete_step(self, step_id: str) -> None:
         """Mark a step as completed."""
         if step_id in self.step_progress:
             self.step_progress[step_id].status = "completed"
-            self.step_progress[step_id].completed_at = datetime.now(UTC)
+            self.step_progress[step_id].completed_at = datetime.now(timezone.utc)
     
     def fail_step(self, step_id: str, error: str) -> None:
         """Mark a step as failed."""
         if step_id in self.step_progress:
             self.step_progress[step_id].status = "failed"
             self.step_progress[step_id].error_message = error
-            self.step_progress[step_id].completed_at = datetime.now(UTC)
+            self.step_progress[step_id].completed_at = datetime.now(timezone.utc)
     
     def wait_for_input(self, step_id: str) -> None:
         """Mark a step as waiting for input."""
@@ -221,7 +221,7 @@ class ExecutionContext:
             self._state.status = ExecutionStatus.RUNNING
         elif all(p.status == "completed" for p in self.step_progress.values()):
             self._state.status = ExecutionStatus.COMPLETED
-            self._state.completed_at = datetime.now(UTC)
+            self._state.completed_at = datetime.now(timezone.utc)
         
         await self.execution_repo.save(self._state)
     
