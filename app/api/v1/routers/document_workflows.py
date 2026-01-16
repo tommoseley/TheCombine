@@ -10,6 +10,8 @@ This is the API layer that enables UI testing of the workflow engine.
 """
 
 import logging
+import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,6 +23,7 @@ from app.domain.workflow.plan_executor import (
     InMemoryStatePersistence,
 )
 from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
+from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,58 @@ router = APIRouter(prefix="/document-workflows", tags=["document-workflows"])
 
 # Singleton persistence for now (will be replaced with DB persistence)
 _persistence = InMemoryStatePersistence()
+
+# Load seed workflows at module initialization
+_seed_workflows_loaded = False
+
+
+def _load_seed_workflows():
+    """Load seed workflow plans from seed/workflows/ directory."""
+    global _seed_workflows_loaded
+    if _seed_workflows_loaded:
+        return
+
+    registry = get_plan_registry()
+    loader = PlanLoader()
+
+    # Find seed workflows directory
+    # Try multiple paths to handle different working directories
+    possible_paths = [
+        Path("seed/workflows"),
+        Path(__file__).parent.parent.parent.parent.parent / "seed" / "workflows",
+    ]
+
+    seed_dir = None
+    for path in possible_paths:
+        if path.exists():
+            seed_dir = path
+            break
+
+    if not seed_dir:
+        logger.warning("Seed workflows directory not found")
+        return
+
+    # Load ADR-039 format workflow plans
+    workflow_files = [
+        "concierge_intake.v1.json",
+    ]
+
+    for filename in workflow_files:
+        filepath = seed_dir / filename
+        if filepath.exists():
+            try:
+                plan = loader.load(str(filepath))
+                registry.register(plan)
+                logger.info(f"Loaded workflow plan: {plan.workflow_id} ({plan.document_type})")
+            except Exception as e:
+                logger.error(f"Failed to load workflow {filename}: {e}")
+
+    _seed_workflows_loaded = True
+    logger.info(f"Loaded {len(registry.list_plans())} workflow plans")
+
+
+# Load seed workflows when module is imported
+_load_seed_workflows()
 
 
 def get_executor() -> PlanExecutor:
