@@ -81,6 +81,11 @@ from app.domain.workflow.document_workflow_state import (
 )
 from app.domain.workflow.outcome_mapper import OutcomeMapper, OutcomeMapperError
 from app.domain.workflow.edge_router import EdgeRouter, EdgeRoutingError
+from app.domain.workflow.plan_executor import (
+    PlanExecutor,
+    PlanExecutorError,
+    InMemoryStatePersistence as PlanStatePersistence,
+)
 
 
 __all__ = [
@@ -178,4 +183,8 @@ __all__ = [
     "OutcomeMapperError",
     "EdgeRouter",
     "EdgeRoutingError",
+    # ADR-039: Plan Executor
+    "PlanExecutor",
+    "PlanExecutorError",
+    "PlanStatePersistence",
 ]
