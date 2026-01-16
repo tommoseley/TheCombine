@@ -53,6 +53,35 @@ from app.domain.workflow.persistence import (
     InMemoryStatePersistence,
 )
 
+# ADR-039: Document Interaction Workflow Plans
+from app.domain.workflow.plan_models import (
+    WorkflowPlan,
+    Node,
+    NodeType,
+    Edge,
+    EdgeKind,
+    EdgeCondition,
+    ConditionOperator,
+    OutcomeMapping,
+    ThreadOwnership,
+    CircuitBreaker,
+    Governance,
+)
+from app.domain.workflow.plan_validator import PlanValidator, PlanValidationError
+from app.domain.workflow.plan_loader import PlanLoader, PlanLoadError
+from app.domain.workflow.plan_registry import (
+    PlanRegistry,
+    PlanNotFoundError,
+    get_plan_registry,
+)
+from app.domain.workflow.document_workflow_state import (
+    DocumentWorkflowState,
+    DocumentWorkflowStatus,
+    NodeExecution,
+)
+from app.domain.workflow.outcome_mapper import OutcomeMapper, OutcomeMapperError
+from app.domain.workflow.edge_router import EdgeRouter, EdgeRoutingError
+
 
 __all__ = [
     # Types
@@ -120,4 +149,33 @@ __all__ = [
     "StatePersistence",
     "FileStatePersistence",
     "InMemoryStatePersistence",
+    # ADR-039: Plan Models
+    "WorkflowPlan",
+    "Node",
+    "NodeType",
+    "Edge",
+    "EdgeKind",
+    "EdgeCondition",
+    "ConditionOperator",
+    "OutcomeMapping",
+    "ThreadOwnership",
+    "CircuitBreaker",
+    "Governance",
+    # ADR-039: Plan Loading
+    "PlanValidator",
+    "PlanValidationError",
+    "PlanLoader",
+    "PlanLoadError",
+    "PlanRegistry",
+    "PlanNotFoundError",
+    "get_plan_registry",
+    # ADR-039: Document Workflow State
+    "DocumentWorkflowState",
+    "DocumentWorkflowStatus",
+    "NodeExecution",
+    # ADR-039: Routing
+    "OutcomeMapper",
+    "OutcomeMapperError",
+    "EdgeRouter",
+    "EdgeRoutingError",
 ]
