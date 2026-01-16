@@ -4,7 +4,7 @@
 **Date:** 2026-01-02  
 **Decision Type:** Architectural / Governance  
 **Supersedes:** N/A  
-**Related ADRs:** ADR-009, ADR-010, ADR-011, ADR-012, ADR-024
+**Related ADRs:** ADR-009, ADR-010, ADR-011, ADR-012, ADR-024, ADR-038, ADR-039
 
 ---
 
@@ -30,6 +30,12 @@ The Combine SHALL introduce a Concierge Intake Gate as a mandatory, first-class 
 No Project Discovery, Epic Backlog creation, or Architecture documentation MAY occur unless the Concierge Intake Gate concludes with a qualifying outcome.
 
 **This gate is a governance boundary, not a workflow.**
+
+### Clarification (Post ADR-039)
+
+The Intake Gate is a governance boundary, not a workflow in the sense of a scripted project pipeline. However, the Concierge Intake Document is a first-class document artifact, and its creation and refinement SHALL be implemented using a Document Interaction Workflow (ADR-039) expressed as a Workflow Plan (ADR-038).
+
+This does not change the governance semantics of the gate. It makes the execution model explicit: clarification, generation, QA, and stabilization (or blocked/abandoned), with admissibility controlled by the Intake Gate outcomes.
 
 ---
 
@@ -81,6 +87,8 @@ The Concierge Intake Gate concludes with exactly one of the following outcomes:
 Only a `qualified` outcome produces an artifact eligible for Project Discovery.
 
 All other outcomes explicitly halt downstream processing.
+
+**Note:** `redirect` and `out_of_scope` both terminate the current intake engagement. `redirect` MAY initiate a different workflow or engagement path, but the current intake document workflow concludes as `abandoned` (per ADR-039 terminal outcomes).
 
 ---
 
@@ -134,6 +142,15 @@ All gate decisions and artifacts are subject to:
 
 - **ADR-009** (Audit & Governance)
 - **ADR-010** (LLM Execution Logging)
+
+### Dual Outcome Recording (Post ADR-039)
+
+The system SHALL record both:
+
+- The Intake Gate outcome (governance vocabulary): `qualified`, `not_ready`, `out_of_scope`, `redirect`
+- The Document Workflow terminal outcome (execution vocabulary): `stabilized`, `blocked`, `abandoned`
+
+These are related but not identical. Both are auditable and required for governance traceability.
 
 ---
 
