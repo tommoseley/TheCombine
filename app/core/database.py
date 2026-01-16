@@ -3,6 +3,9 @@ Database configuration and session management.
 
 Provides async database sessions and metadata for ORM models.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker

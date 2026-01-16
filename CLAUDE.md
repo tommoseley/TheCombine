@@ -10,12 +10,12 @@ This file is the **primary entry point for AI collaborators**.
 
 ## Project Root
 
-**Filesystem path:** `C:\Dev\The Combine\`
+**Filesystem path:** `~/dev/TheCombine/` (Linux/WSL)
 
 All relative paths in this document are from this root. When using tools to read files:
-- `docs/PROJECT_STATE.md` -> `C:\Dev\The Combine\docs\PROJECT_STATE.md`
-- `docs/session_logs/` -> `C:\Dev\The Combine\docs\session_logs\`
-- `app/` -> `C:\Dev\The Combine\app\`
+- `docs/PROJECT_STATE.md` -> `~/dev/TheCombine/docs/PROJECT_STATE.md`
+- `docs/session_logs/` -> `~/dev/TheCombine/docs/session_logs/`
+- `app/` -> `~/dev/TheCombine/app/`
 
 ---
 
@@ -70,10 +70,7 @@ Per POL-WS-001, AI agents MUST:
 
 The following constraints apply to all work on this project:
 
-- **All file-writing commands MUST be provided or performed in PowerShell syntax.**
-  - Do not use bash, sh, or Unix-style commands.
-  - Do not assume a Unix-like environment.
-  
+
 - **HTML Encoding Compliance Check (Mandatory)**
   - Before recognizing any HTML file as ready for delivery, verify:
     1. No BOM (Byte Order Mark) at file start
@@ -81,16 +78,6 @@ The following constraints apply to all work on this project:
     3. No corrupted UTF-8 sequences (e.g., multi-byte chars displaying as garbage)
   - If issues found, fix by stripping non-ASCII and writing with UTF8 no-BOM encoding
   - Batch fix script available at: ops/scripts/fix_html_encoding.ps1
-
-- **The human operator executes all tests.**
-  - Do NOT run tests automatically.
-  - Do NOT simulate test execution.
-  - When tests are needed, provide instructions only.
-
-- **The human operator performs Git Operations**
-  - The AI MUST NOT perform Git commits.
-  - The AI MAY propose commit messages and describe what should be committed.
-  - The user performs all Git commits.
 
 - **Regarding File not found errors**
   - You may encounter File not found errors for files that do in fact exist.
@@ -442,15 +429,13 @@ If you cannot confidently populate a section, leave it as `- None`.
 
 ## Quick Commands
 
-```powershell
+```bash
 # Run locally
-.\run.ps1
+cd ~/dev/TheCombine && source venv/bin/activate
+python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run tests
 python -m pytest tests/ -v
-
-# Update Route53 after deploy
-.\ops\aws\fixip.ps1
 
 # Regenerate seed manifest
 # (script TBD - currently manual)
@@ -458,4 +443,4 @@ python -m pytest tests/ -v
 
 ---
 
-_Last reviewed: 2026-01-06_
+_Last reviewed: 2026-01-16_
