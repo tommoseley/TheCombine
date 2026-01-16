@@ -4,46 +4,58 @@ Last Updated: 2026-01-16
 
 ## Current Status
 
-**Phase:** Post-MVP maintenance and code quality improvements
+**Phase:** Document Interaction Workflow implementation
 **Test Suite:** 1,294 tests passing
 **Deployment:** Production on AWS ECS Fargate (thecombine.ai:8000)
+**Dev Environment:** Linux/WSL (~/dev/TheCombine)
 
 ## Recent Work
 
-### WS-CYCLO-001 & WS-CYCLO-002: Cyclomatic Complexity Reduction (2026-01-15 to 2026-01-16)
+### 2026-01-16: Linux Migration + ADR-039 Document Interaction Workflows
 
-Completed refactoring of 6 high-complexity files:
+**Linux/WSL Development Environment Migration**
+- Moved from `/mnt/c/dev/The Combine` to `~/dev/TheCombine` (native Linux filesystem)
+- Python 3.11 venv configured
+- PostgreSQL connectivity to Windows host (172.24.0.1)
+- SSH keys configured for GitHub
+- `.env` loading fixed in `database.py`
+- CLAUDE.md updated for Linux paths and commands
+- Windows copy deleted; single source of truth established
 
-| File | Before | After | Key Extractions |
-|------|--------|-------|-----------------|
-| render_model_builder.py | 859 lines | ~780 lines | Shape dispatch handlers |
-| document_builder.py | 749 lines | 527 lines | BuildContext, LLM logging helpers |
-| auth/service.py | 693 lines | 690 lines | OAuth identity helpers, _orm_to_user |
-| document_routes.py | 578 lines | 579 lines | _check_missing_dependencies (light) |
-| admin/pages.py | 734 lines | 724 lines | LLM run detail helpers |
-| story_backlog_service.py | 793 lines | 772 lines | ADR-010 logging helpers |
+**ADR-039: Document Interaction Workflow Model (Draft)**
+- Establishes document-scoped workflows as first-class concept
+- Documents own their clarification/generation/QA/remediation loops
+- Project workflows invoke document workflows and react only to terminal outcomes
+- Terminal outcomes: `stabilized`, `blocked`, `abandoned`
+- Orthogonal to ADR-036 lifecycle states (workflow execution vs artifact admissibility)
+- Integrates with ADR-035 (durable threads), ADR-038 (workflow plans)
 
-**Commits pending:**
-- WS-CYCLO-001: render_model_builder.py shape handlers
-- WS-CYCLO-002: 5-file complexity reduction
+**ADR-025 Amendment**
+- Clarified compatibility with ADR-039
+- Intake Gate = governance boundary (policy/semantics)
+- Document Interaction Workflow = execution model
+- Dual outcome recording: governance vocabulary + execution vocabulary
+- Gate outcome is authoritative; workflow terminal outcome mapped deterministically
 
 ## Active Work Items
 
-None - awaiting commit of completed refactoring work.
-
-## Handoff Notes
-
-1. **Two commits ready** - WS-CYCLO-001 and WS-CYCLO-002 changes are complete and tested
-2. **All 1,294 tests pass** - no regressions from refactoring
-3. **No behavioral changes** - purely structural improvements
-4. **Complexity analysis from 2026-01-15** documented remaining P4 targets (seed_fragment_artifacts.py at 1196 lines) but this is a data definition file, not recommended for refactoring
+**WS-INTAKE-WORKFLOW-001** (pending acceptance)
+- Reference Concierge Intake Document Workflow Plan
+- First implementation of ADR-039 pattern
 
 ## Architecture Snapshot
 
 - **10 implementation phases complete** (ADR-034 document composition)
 - **Document-centric model** with render manifests and canonical components
-- **ADR-010 LLM execution logging** now has consolidated helper patterns
+- **ADR-039** establishes document interaction workflows
+- **ADR-025/039 alignment** governance boundary + execution model layering
 - **Three-tier testing** (Tier-1 in-memory, Tier-2 spy, Tier-3 deferred)
+
+## Commits (2026-01-16)
+
+- `6588772` Linux/WSL development environment migration
+- `fb4db8e` ADR-039: Document Interaction Workflow Model (Draft)
+- `69ecfdf` ADR-025: Amendment for ADR-039 compatibility
 
 ## Known Issues
 
@@ -51,5 +63,5 @@ None.
 
 ## Next Logical Work
 
-- Commit pending refactoring work
-- Continue with MVP roadmap or new feature work as directed
+- Accept WS-INTAKE-WORKFLOW-001
+- Implement reference Concierge Intake Document Workflow Plan
