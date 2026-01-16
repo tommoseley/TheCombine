@@ -6,6 +6,7 @@ from app.api.v1.routers.websocket import router as websocket_router
 from app.api.v1.routers.sse import SSERouter, sse_router
 from app.api.v1.routers.documents import router as documents_router
 from app.api.v1.routers.telemetry import router as telemetry_router
+from app.api.v1.routers.document_workflows import router as document_workflows_router
 
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "sse_router",
     "documents_router",
     "telemetry_router",
+    "document_workflows_router",
 ]
