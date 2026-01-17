@@ -1,7 +1,8 @@
 # WS-ADR-025: Intake Gate Implementation
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-01-17
+**Accepted:** 2026-01-17
 **Related ADRs:** ADR-025 (Intake Gate), ADR-026 (Concierge Role), ADR-038 (Workflow Plan Schema), ADR-039 (Document Interaction Workflow Model)
 **Depends On:** WS-INTAKE-ENGINE-001 (Complete)
 
