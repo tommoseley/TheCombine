@@ -14,7 +14,7 @@ class TestComponentCompleteness:
     
     @pytest.fixture
     def components(self):
-        from app.domain.registry.seed_component_artifacts import INITIAL_COMPONENT_ARTIFACTS
+        from seed.registry.component_artifacts import INITIAL_COMPONENT_ARTIFACTS
         return INITIAL_COMPONENT_ARTIFACTS
     
     def test_all_components_have_guidance_bullets(self, components):
@@ -103,7 +103,7 @@ class TestFragmentCompleteness:
     
     @pytest.fixture
     def fragments(self):
-        from app.domain.registry.seed_fragment_artifacts import INITIAL_FRAGMENT_ARTIFACTS
+        from seed.registry.fragment_artifacts import INITIAL_FRAGMENT_ARTIFACTS
         return INITIAL_FRAGMENT_ARTIFACTS
     
     @pytest.fixture
@@ -147,12 +147,12 @@ class TestComponentFragmentAlignment:
     
     @pytest.fixture
     def components(self):
-        from app.domain.registry.seed_component_artifacts import INITIAL_COMPONENT_ARTIFACTS
+        from seed.registry.component_artifacts import INITIAL_COMPONENT_ARTIFACTS
         return INITIAL_COMPONENT_ARTIFACTS
     
     @pytest.fixture
     def fragments(self):
-        from app.domain.registry.seed_fragment_artifacts import INITIAL_FRAGMENT_ARTIFACTS
+        from seed.registry.fragment_artifacts import INITIAL_FRAGMENT_ARTIFACTS
         return INITIAL_FRAGMENT_ARTIFACTS
     
     def test_all_component_fragments_exist(self, components, fragments):
@@ -176,7 +176,7 @@ class TestSchemaGovernance:
     
     @pytest.fixture
     def schemas(self):
-        from app.domain.registry.seed_schema_artifacts import INITIAL_SCHEMA_ARTIFACTS
+        from seed.registry.schema_artifacts import INITIAL_SCHEMA_ARTIFACTS
         return INITIAL_SCHEMA_ARTIFACTS
     
     def test_all_schemas_disallow_additional_properties(self, schemas):

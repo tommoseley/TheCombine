@@ -140,7 +140,7 @@ class TestSeedDataIncludesViewDocdef:
     
     def test_all_seed_types_have_view_docdef(self):
         """Verify all seed document types include view_docdef."""
-        from app.domain.registry.seed_document_types import INITIAL_DOCUMENT_TYPES
+        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
         
         expected_mappings = {
             "project_discovery": "ProjectDiscovery",

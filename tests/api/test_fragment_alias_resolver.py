@@ -59,7 +59,7 @@ class TestFragmentCanonicalResolver:
     @pytest.mark.asyncio
     async def test_all_component_fragment_ids_use_canonical_format(self, service, mock_db):
         """INVARIANT: All component fragment IDs follow canonical format."""
-        from app.domain.registry.seed_component_artifacts import INITIAL_COMPONENT_ARTIFACTS
+        from seed.registry.component_artifacts import INITIAL_COMPONENT_ARTIFACTS
         
         for component in INITIAL_COMPONENT_ARTIFACTS:
             bindings = component.get("view_bindings", {})

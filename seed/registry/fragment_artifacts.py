@@ -434,7 +434,7 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
   <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
     <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium"
        data-detail-ref="{{ block.data.detail_ref | tojson }}">
-      View Details â†’
+      View Details &rarr;
     </a>
   </div>
   {% endif %}
@@ -520,7 +520,7 @@ STORY_SUMMARY_BLOCK_V1_FRAGMENT = """
     {% if block.data.detail_ref %}
     <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0" 
        data-detail-ref="{{ block.data.detail_ref | tojson }}">
-      View â†’
+      View &rarr;
     </a>
     {% endif %}
   </div>
@@ -561,14 +561,14 @@ STORIES_BLOCK_V1_FRAGMENT = """
         {% if item.detail_ref %}
         <a href="#" class="text-blue-600 hover:text-blue-800 text-xs flex-shrink-0"
            data-detail-ref="{{ item.detail_ref | tojson }}">
-          View â†’
+          View &rarr;
         </a>
         {% endif %}
       </div>
     </div>
     {% endfor %}
   </div>
-  
+
   {% if not block.data["items"] or block.data["items"] | length == 0 %}
   <p class="text-gray-400 italic text-sm">No stories.</p>
   {% endif %}
@@ -762,7 +762,7 @@ WORKFLOW_BLOCK_V1_FRAGMENT = """
         <div class="flex-1">
           <div class="flex items-center gap-2">
             <span class="font-medium text-gray-800 dark:text-gray-100">{{ step.actor }}</span>
-            <span class="text-gray-400">â†’</span>
+            <span class="text-gray-400">&rarr;</span>
             <span class="text-gray-600 dark:text-gray-300">{{ step.action }}</span>
           </div>
         </div>
@@ -813,7 +813,7 @@ DATA_MODEL_BLOCK_V1_FRAGMENT = """
             <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ field.type }}</td>
             <td class="px-3 py-2">
               {% if field.required %}
-              <span class="text-green-600">âœ“</span>
+              <span class="text-green-600">&check;</span>
               {% else %}
               <span class="text-gray-400">-</span>
               {% endif %}

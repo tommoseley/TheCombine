@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 
-from app.domain.registry.seed_schema_artifacts import (
+from seed.registry.schema_artifacts import (
     INITIAL_SCHEMA_ARTIFACTS,
     OPEN_QUESTION_V1_SCHEMA,
     RISK_V1_SCHEMA,
@@ -115,7 +115,7 @@ async def test_seed_creates_schemas():
     """Seed function creates schema artifacts."""
     mock_db = AsyncMock()
     
-    with patch("app.domain.registry.seed_schema_artifacts.SchemaRegistryService") as MockRegistry:
+    with patch("seed.registry.schema_artifacts.SchemaRegistryService") as MockRegistry:
         mock_registry = AsyncMock()
         mock_registry.get_by_id.return_value = None  # None exist
         mock_registry.create.return_value = MagicMock()
@@ -132,7 +132,7 @@ async def test_seed_skips_existing():
     """Seed function skips existing schemas."""
     mock_db = AsyncMock()
     
-    with patch("app.domain.registry.seed_schema_artifacts.SchemaRegistryService") as MockRegistry:
+    with patch("seed.registry.schema_artifacts.SchemaRegistryService") as MockRegistry:
         mock_registry = AsyncMock()
         # First one exists, rest don't
         side_effects = [MagicMock()] + [None] * (len(INITIAL_SCHEMA_ARTIFACTS) - 1)
@@ -150,7 +150,7 @@ async def test_seed_idempotent():
     """Running seed twice doesn't duplicate."""
     mock_db = AsyncMock()
     
-    with patch("app.domain.registry.seed_schema_artifacts.SchemaRegistryService") as MockRegistry:
+    with patch("seed.registry.schema_artifacts.SchemaRegistryService") as MockRegistry:
         mock_registry = AsyncMock()
         # All exist
         mock_registry.get_by_id.return_value = MagicMock()

@@ -26,13 +26,14 @@ if DATABASE_URL.startswith('postgresql://'):
 else:
     ASYNC_DATABASE_URL = DATABASE_URL
 
-# Create async engine
+# Create async engine with UTF-8 encoding
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
     pool_size=20,
-    max_overflow=10
+    max_overflow=10,
+    connect_args={"server_settings": {"client_encoding": "utf8"}}
 )
 
 # Create async session factory

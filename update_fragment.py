@@ -1,7 +1,7 @@
 ﻿import asyncio
 from app.core.database import async_session_factory
 from app.api.services.fragment_registry_service import FragmentRegistryService
-from app.domain.registry.seed_fragment_artifacts import EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT
+from seed.registry.fragment_artifacts import EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT
 
 async def update_fragment():
     async with async_session_factory() as db:
