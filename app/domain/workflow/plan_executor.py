@@ -60,6 +60,14 @@ class StatePersistence(Protocol):
         """Load workflow state by document and workflow ID."""
         ...
 
+    async def list_executions(
+        self,
+        status_filter: Optional[List[DocumentWorkflowStatus]] = None,
+        limit: int = 100,
+    ) -> List[DocumentWorkflowState]:
+        """List executions, optionally filtered by status."""
+        ...
+
 
 class InMemoryStatePersistence:
     """In-memory state persistence for testing."""
@@ -83,6 +91,24 @@ class InMemoryStatePersistence:
             if state.document_id == document_id and state.workflow_id == workflow_id:
                 return state
         return None
+
+    async def list_executions(
+        self,
+        status_filter: Optional[List[DocumentWorkflowStatus]] = None,
+        limit: int = 100,
+    ) -> List[DocumentWorkflowState]:
+        """List executions, optionally filtered by status."""
+        states = list(self._states.values())
+
+        # Filter by status if specified
+        if status_filter:
+            states = [s for s in states if s.status in status_filter]
+
+        # Sort by updated_at descending (most recent first)
+        states.sort(key=lambda s: s.updated_at, reverse=True)
+
+        # Apply limit
+        return states[:limit]
 
 
 class PlanExecutorError(Exception):
@@ -664,3 +690,45 @@ class PlanExecutor:
             "created_at": state.created_at.isoformat(),
             "updated_at": state.updated_at.isoformat(),
         }
+
+    async def list_executions(
+        self,
+        status_filter: Optional[List[str]] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """List workflow executions.
+
+        Args:
+            status_filter: Optional list of status values to filter by
+                          (e.g., ["running", "paused"])
+            limit: Maximum number of executions to return
+
+        Returns:
+            List of execution status dicts, sorted by most recent first
+        """
+        # Convert string statuses to enum if provided
+        enum_filter = None
+        if status_filter:
+            enum_filter = [DocumentWorkflowStatus(s) for s in status_filter]
+
+        states = await self._persistence.list_executions(
+            status_filter=enum_filter,
+            limit=limit,
+        )
+
+        return [
+            {
+                "execution_id": state.execution_id,
+                "document_id": state.document_id,
+                "document_type": state.document_type,
+                "workflow_id": state.workflow_id,
+                "status": state.status.value,
+                "current_node_id": state.current_node_id,
+                "terminal_outcome": state.terminal_outcome,
+                "pending_user_input": state.pending_user_input,
+                "step_count": len(state.node_history),
+                "created_at": state.created_at.isoformat(),
+                "updated_at": state.updated_at.isoformat(),
+            }
+            for state in states
+        ]

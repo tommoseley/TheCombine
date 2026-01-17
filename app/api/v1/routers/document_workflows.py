@@ -184,7 +184,51 @@ class WorkflowPlanSummary(BaseModel):
     version: str
 
 
+class ExecutionListItem(BaseModel):
+    """Item in execution list response."""
+
+    execution_id: str
+    document_id: str
+    document_type: str
+    workflow_id: str
+    status: str
+    current_node_id: str
+    terminal_outcome: Optional[str] = None
+    pending_user_input: bool = False
+    step_count: int = 0
+    created_at: str
+    updated_at: str
+
+
 # --- Endpoints ---
+
+
+@router.get("/executions", response_model=List[ExecutionListItem])
+async def list_executions(
+    status: Optional[str] = None,
+    limit: int = 100,
+    executor: PlanExecutor = Depends(get_executor),
+) -> List[ExecutionListItem]:
+    """List workflow executions.
+
+    Query parameters:
+    - status: Filter by status (running, paused, completed, failed, abandoned)
+              Can be comma-separated for multiple statuses (e.g., "running,paused")
+    - limit: Maximum number of results (default 100)
+
+    Returns executions sorted by most recent first.
+    """
+    # Parse comma-separated status filter
+    status_filter = None
+    if status:
+        status_filter = [s.strip() for s in status.split(",")]
+
+    executions = await executor.list_executions(
+        status_filter=status_filter,
+        limit=limit,
+    )
+
+    return [ExecutionListItem(**ex) for ex in executions]
 
 
 @router.post("/start", response_model=StartExecutionResponse)
