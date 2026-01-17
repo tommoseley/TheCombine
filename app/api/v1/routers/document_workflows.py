@@ -16,12 +16,14 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.domain.workflow.plan_executor import (
     PlanExecutor,
     PlanExecutorError,
-    InMemoryStatePersistence,
 )
+from app.domain.workflow.pg_state_persistence import PgStatePersistence
 from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
 from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
@@ -30,9 +32,6 @@ from app.domain.workflow.nodes.mock_executors import create_mock_executors
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/document-workflows", tags=["document-workflows"])
-
-# Singleton persistence for now (will be replaced with DB persistence)
-_persistence = InMemoryStatePersistence()
 
 # Load seed workflows at module initialization
 _seed_workflows_loaded = False
@@ -87,10 +86,10 @@ def _load_seed_workflows():
 _load_seed_workflows()
 
 
-def get_executor() -> PlanExecutor:
-    """Dependency to get the plan executor with mock executors for testing."""
+def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:
+    """Dependency to get the plan executor with PostgreSQL persistence."""
     return PlanExecutor(
-        persistence=_persistence,
+        persistence=PgStatePersistence(db),
         plan_registry=get_plan_registry(),
         executors=create_mock_executors(),
     )
