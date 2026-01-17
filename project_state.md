@@ -1,7 +1,7 @@
 ﻿# The Combine - Project State
 
-**Last Updated:** 2026-01-16
-**Last Session:** Seed Data Management & Environment Tooling
+**Last Updated:** 2026-01-17
+**Last Session:** PostgreSQL Persistence for Workflow Executions
 
 ## Current Status
 
@@ -25,7 +25,39 @@
 - **HTTPS_ONLY:** true
 - **ALB:** Redirect rule for non-www → www
 
-## Recent Changes (2026-01-16)
+## Recent Changes (2026-01-17)
+
+### Added
+- `GET /api/v1/document-workflows/executions` - List workflow executions endpoint
+  - Filter by status: `?status=running,paused`
+  - Limit results: `?limit=50`
+- `PlanExecutor.list_executions()` method
+- `StatePersistence.list_executions()` protocol + implementation
+- `docs/WS-INTAKE-ENGINE-001-SUMMARY.md` - Implementation documentation
+- **PostgreSQL persistence for workflow executions**
+  - `workflow_executions` table with minimal schema (6 fields)
+  - `PgStatePersistence` class derives document_id, workflow_id, status from execution_log
+  - Migration applied to dev and prod databases
+  - Replaces `InMemoryStatePersistence` in document_workflows router
+
+### Seeded
+- Production database registry tables seeded from backup
+
+### Status
+- WS-INTAKE-ENGINE-001 (Document Workflow Engine) complete
+- Workflow executions now persist to PostgreSQL
+- Concierge UI uses separate flow (concierge_intake_session tables)
+- Workflow engine ready but not yet integrated with Concierge UI
+
+## Next Steps
+
+### Immediate
+- Integrate workflow engine with Concierge UI
+- Connect real node executors (replace mocks with LLM calls)
+
+---
+
+## Previous Changes (2026-01-16)
 
 ### Fixed
 - Python 3.10 compatibility: `datetime.UTC` → `timezone.utc` across 34 files
@@ -88,6 +120,7 @@ python3 -m seed.registry.document_types
 - users, user_sessions, user_oauth_identities, auth_audit_log
 - link_intent_nonces (for account linking flow)
 - personal_access_tokens (for API auth)
+- workflow_executions (minimal state for Document Workflow Engine)
 
 ## Next Steps
 
@@ -108,6 +141,13 @@ python3 -m seed.registry.document_types
 - `app/auth/service.py` - Auth business logic
 - `app/auth/models.py` - Domain models, AuthEventType enum
 - `app/api/routers/accounts.py` - Account linking endpoints
+
+### Workflow Engine
+- `app/api/v1/routers/document_workflows.py` - REST API endpoints
+- `app/domain/workflow/plan_executor.py` - Main orchestrator
+- `app/domain/workflow/pg_state_persistence.py` - PostgreSQL persistence
+- `app/domain/workflow/document_workflow_state.py` - State model
+- `alembic/versions/20260117_001_add_workflow_executions.py` - Migration
 
 ### Seed Data
 - `seed/registry/schema_artifacts.py` - JSON schema definitions
