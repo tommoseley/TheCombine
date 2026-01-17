@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-from app.api.v1.routers.document_workflows import router, get_executor, _persistence
+from app.api.v1.routers.document_workflows import router, get_executor
 from app.domain.workflow.plan_executor import PlanExecutor, PlanExecutorError
 from app.domain.workflow.plan_registry import PlanRegistry
 from app.domain.workflow.plan_models import (
