@@ -1,7 +1,7 @@
 ﻿# The Combine - Project State
 
-**Last Updated:** 2026-01-07
-**Last Session:** Production OAuth Fix
+**Last Updated:** 2026-01-16
+**Last Session:** Seed Data Management & Environment Tooling
 
 ## Current Status
 
@@ -25,7 +25,46 @@
 - **HTTPS_ONLY:** true
 - **ALB:** Redirect rule for non-www → www
 
-## Recent Changes (2026-01-07)
+## Recent Changes (2026-01-16)
+
+### Fixed
+- Python 3.10 compatibility: `datetime.UTC` → `timezone.utc` across 34 files
+- UTF-8 encoding corruption in fragment seeds (`â†'` → `&rarr;`, `âœ"` → `&check;`)
+- Database UTF-8 client_encoding added to connection
+
+### Added
+- `seed/registry/` - Relocated seed files from `app/domain/registry/seed_*.py`
+  - `component_artifacts.py` - Components + document definitions
+  - `fragment_artifacts.py` - HTML fragment templates
+  - `schema_artifacts.py` - JSON schemas
+  - `document_types.py` - Document type configurations
+- `ops/db/seed_data_from_backup.sql` - Extracted seed data with DELETE + COPY
+- `ops/db/restore_documents.sql` - Document restoration from backup
+
+### Developer Tooling (Shell Aliases)
+Add to `~/.bashrc`:
+```bash
+# Database environment switching
+alias use-dev-db='export DATABASE_URL="postgresql://..."'
+alias use-prod-db='export DATABASE_URL="postgresql://..."'
+
+# Start web app
+alias combine-start='cd ~/dev/TheCombine && PYTHONPATH=. python3 ops/scripts/run.py'
+```
+
+### Seeding Commands
+```bash
+# Seed registry tables (schema_artifacts, fragment_artifacts, component_artifacts, document_definitions, document_types)
+psql "$DATABASE_URL" -f ops/db/seed_data_from_backup.sql
+
+# Or run individual Python seeders
+python3 -m seed.registry.schema_artifacts
+python3 -m seed.registry.fragment_artifacts
+python3 -m seed.registry.component_artifacts
+python3 -m seed.registry.document_types
+```
+
+## Previous Changes (2026-01-07)
 
 ### Fixed
 - OAuth cookie domain mismatch (www vs non-www)
@@ -70,11 +109,21 @@
 - `app/auth/models.py` - Domain models, AuthEventType enum
 - `app/api/routers/accounts.py` - Account linking endpoints
 
+### Seed Data
+- `seed/registry/schema_artifacts.py` - JSON schema definitions
+- `seed/registry/fragment_artifacts.py` - HTML fragment templates
+- `seed/registry/component_artifacts.py` - Components + document definitions
+- `seed/registry/document_types.py` - Document type configurations
+- `ops/db/seed_data_from_backup.sql` - Combined seed data (DELETE + COPY)
+- `ops/db/restore_documents.sql` - Document restoration
+
 ### Config
 - `app/api/main.py` - FastAPI app, SessionMiddleware config
+- `app/core/database.py` - Database connection with UTF-8 encoding
 - `Dockerfile` - Includes --proxy-headers for ALB
 
 ### Ops
+- `ops/scripts/run.py` - Local development server
 - `ops/aws/taskdef-www.json` - Current task definition template
 - `ops/testing/AUTH-MANUAL-TEST-PLAN.md` - Manual test checklist
 
