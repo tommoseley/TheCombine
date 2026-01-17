@@ -1,0 +1,33 @@
+<!-- Workflow State Update Partial -->
+{% if pending_choices and is_paused %}
+<div class="flex items-start space-x-3">
+    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+        <span class="text-white text-sm font-bold">C</span>
+    </div>
+    <div class="flex-1">
+        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
+            <p class="text-gray-900 dark:text-white mb-3">Please select an option:</p>
+            <div class="flex flex-wrap gap-2">
+                {% for choice in pending_choices %}
+                <button
+                    type="button"
+                    hx-post="/intake/{{ execution_id }}/choice"
+                    hx-vals='{"choice": "{{ choice }}"}'
+                    hx-target="#messages"
+                    hx-swap="beforeend scroll:#messages:bottom"
+                    class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                    {{ choice|replace('_', ' ')|title }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if is_completed %}
+<script>
+    // Reload to show completion banner
+    window.location.reload();
+</script>
+{% endif %}

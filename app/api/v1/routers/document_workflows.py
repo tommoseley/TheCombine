@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.config import USE_WORKFLOW_ENGINE_LLM
 from app.domain.workflow.plan_executor import (
     PlanExecutor,
     PlanExecutorError,
@@ -28,6 +29,7 @@ from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
 from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
 from app.domain.workflow.nodes.mock_executors import create_mock_executors
+from app.domain.workflow.nodes.llm_executors import create_llm_executors
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +88,25 @@ def _load_seed_workflows():
 _load_seed_workflows()
 
 
-def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:
-    """Dependency to get the plan executor with PostgreSQL persistence."""
+async def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:
+    """Dependency to get the plan executor with PostgreSQL persistence.
+
+    Uses feature flag USE_WORKFLOW_ENGINE_LLM to determine whether to use
+    real LLM executors or mocks (WS-ADR-025 Phase 5 migration strategy).
+    """
+    if USE_WORKFLOW_ENGINE_LLM:
+        # Real LLM executors with ADR-010 logging
+        executors = await create_llm_executors(db)
+        logger.info("Using real LLM executors for workflow engine")
+    else:
+        # Mock executors for testing
+        executors = create_mock_executors()
+        logger.debug("Using mock executors for workflow engine")
+
     return PlanExecutor(
         persistence=PgStatePersistence(db),
         plan_registry=get_plan_registry(),
-        executors=create_mock_executors(),
+        executors=executors,
     )
 
 

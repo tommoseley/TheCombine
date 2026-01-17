@@ -1,0 +1,158 @@
+<!-- Intake Workflow Chat Content - Document Interaction Workflow UI -->
+<div class="h-full flex flex-col max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">The Combine</h1>
+                <p class="text-gray-600 dark:text-gray-400">Workflow-Based Intake</p>
+            </div>
+            {% if execution_id %}
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                    {% if status == 'running' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
+                    {% elif status == 'paused' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                    {% elif status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                    {% else %}bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200{% endif %}">
+                    {{ status|title }}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Messages Area -->
+    <div id="messages" class="flex-1 overflow-y-auto p-6 space-y-4">
+        {% for msg in messages %}
+            {% include 'intake_workflow/partials/_message.html' %}
+        {% endfor %}
+
+        {% if not messages %}
+        <!-- Initial greeting -->
+        <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-white text-sm font-bold">C</span>
+            </div>
+            <div class="flex-1">
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
+                    <p class="text-gray-900 dark:text-white">
+                        Hello! I am the Concierge for The Combine.
+                    </p>
+                    <p class="text-gray-700 dark:text-gray-300 mt-2">
+                        {% if pending_prompt %}
+                            {{ pending_prompt }}
+                        {% else %}
+                            Tell me about what you want to build, and I will help you start a formal project.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if pending_prompt and messages %}
+        <!-- Pending prompt from workflow -->
+        <div class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-white text-sm font-bold">C</span>
+            </div>
+            <div class="flex-1">
+                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
+                    <p class="text-gray-900 dark:text-white">{{ pending_prompt }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Choice Buttons (for gate nodes) -->
+    {% if pending_choices and is_paused %}
+    <div id="choice-prompt" class="border-t border-gray-200 dark:border-gray-700 p-4 bg-amber-50 dark:bg-amber-900/20">
+        <p class="text-amber-900 dark:text-amber-300 mb-3">
+            Please select an option to continue:
+        </p>
+        <div class="flex flex-wrap gap-3">
+            {% for choice in pending_choices %}
+            <button
+                type="button"
+                hx-post="/intake/{{ execution_id }}/choice"
+                hx-vals='{"choice": "{{ choice }}"}'
+                hx-target="#messages"
+                hx-swap="beforeend scroll:#messages:bottom"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                {{ choice|replace('_', ' ')|title }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Escalation Options (circuit breaker) -->
+    {% if escalation_active %}
+    <div id="escalation-prompt" class="border-t border-gray-200 dark:border-gray-700 p-4 bg-red-50 dark:bg-red-900/20">
+        <p class="text-red-900 dark:text-red-300 mb-3">
+            <strong>Circuit Breaker Active:</strong> Multiple attempts have not succeeded. Please choose how to proceed:
+        </p>
+        <div class="flex flex-wrap gap-3">
+            {% for option in escalation_options %}
+            <button
+                type="button"
+                hx-post="/intake/{{ execution_id }}/choice"
+                hx-vals='{"choice": "{{ option }}"}'
+                hx-target="#messages"
+                hx-swap="beforeend scroll:#messages:bottom"
+                class="px-4 py-2 {% if option == 'abandon' %}bg-red-600 hover:bg-red-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %} text-white rounded-lg">
+                {{ option|replace('_', ' ')|title }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Completion Banner -->
+    {% if is_completed %}
+        {% include 'intake_workflow/partials/_completion.html' %}
+    {% endif %}
+
+    <!-- Input Area (hidden when completed or showing choices) -->
+    {% if not is_completed and not pending_choices and not escalation_active %}
+    <div class="border-t border-gray-200 dark:border-gray-700 p-4">
+        <form id="message-form" class="flex items-end space-x-3">
+            <input type="hidden" name="execution_id" value="{{ execution_id }}">
+            <textarea
+                name="content"
+                id="message-input"
+                rows="4"
+                placeholder="Describe what you want to build..."
+                class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white overflow-y-auto"
+                style="min-height: 100px; max-height: 300px; resize: vertical;"
+                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('send-btn').click(); }"></textarea>
+            <button
+                type="button"
+                id="send-btn"
+                hx-post="/intake/{{ execution_id }}/message"
+                hx-include="#message-form"
+                hx-target="#messages"
+                hx-swap="beforeend scroll:#messages:bottom"
+                hx-on::after-request="document.getElementById('message-input').value = ''"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center self-end">
+                <span>Send</span>
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    const WORKFLOW_EXECUTION_ID = '{{ execution_id }}';
+    console.log('Intake Workflow loaded. Execution ID:', WORKFLOW_EXECUTION_ID);
+
+    // Scroll to bottom on load
+    (function() {
+        var messages = document.getElementById('messages');
+        if (messages) {
+            messages.scrollTop = messages.scrollHeight;
+        }
+    })();
+</script>

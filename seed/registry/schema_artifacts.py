@@ -972,6 +972,110 @@ DATA_MODEL_BLOCK_V1_SCHEMA = {
 }
 
 # =============================================================================
+# ADR-025/ADR-039: Concierge Intake Document Schema
+# =============================================================================
+
+CONCIERGE_INTAKE_DOCUMENT_V1_SCHEMA = {
+    "$id": "schema:ConciergeIntakeDocumentV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Concierge Intake Document",
+    "description": "Structured intake document produced by the Concierge Document Interaction Workflow (ADR-039). Contains synthesized intent, constraints, and outcomes from the intake conversation.",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "document_id",
+        "captured_intent",
+        "project_type",
+        "gate_outcome",
+        "conversation_summary"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "concierge_intake_document.v1",
+            "description": "Schema version identifier"
+        },
+        "document_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique document identifier"
+        },
+        "workflow_execution_id": {
+            "type": "string",
+            "description": "Reference to the workflow execution that produced this document"
+        },
+        "captured_intent": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "Synthesized description of what the user wants to accomplish"
+        },
+        "constraints": {
+            "type": "array",
+            "description": "Known constraints mentioned during intake conversation",
+            "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+            },
+            "default": []
+        },
+        "known_unknowns": {
+            "type": "array",
+            "description": "Identified gaps or uncertainties that need resolution in Discovery",
+            "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+            },
+            "default": []
+        },
+        "project_type": {
+            "type": "string",
+            "enum": ["greenfield", "enhancement", "migration", "integration", "replacement", "unknown"],
+            "description": "Categorization of the project type based on intake conversation"
+        },
+        "gate_outcome": {
+            "type": "string",
+            "enum": ["qualified", "not_ready", "out_of_scope", "redirect"],
+            "description": "Intake Gate outcome per ADR-025 governance boundary"
+        },
+        "conversation_summary": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 3000,
+            "description": "LLM-synthesized summary of the intake conversation. INVARIANT: Must be derived, not copied verbatim from transcript."
+        },
+        "routing_rationale": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 1000,
+            "description": "Explanation of why this gate outcome was determined"
+        },
+        "ready_for": {
+            "type": ["string", "null"],
+            "enum": ["pm_discovery", None],
+            "description": "Next station if qualified, null otherwise"
+        },
+        "thread_id": {
+            "type": "string",
+            "description": "Reference to the durable conversation thread (ADR-035)"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Document creation timestamp"
+        },
+        "metadata": {
+            "type": "object",
+            "description": "Additional metadata",
+            "additionalProperties": True
+        }
+    },
+    "additionalProperties": False
+}
+
+
 # WS-STORY-BACKLOG-VIEW: Epic Stories Card Schema
 # =============================================================================
 
@@ -1376,6 +1480,18 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
         "governance_refs": {
             "adrs": ["ADR-034"],
             "policies": ["WS-STORY-BACKLOG-VIEW"]
+        },
+    },
+    # ADR-025/ADR-039: Concierge Intake Document
+    {
+        "schema_id": "ConciergeIntakeDocumentV1",
+        "version": "1.0",
+        "kind": "document",
+        "status": "accepted",
+        "schema_json": CONCIERGE_INTAKE_DOCUMENT_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-025", "ADR-039"],
+            "policies": []
         },
     },
 ]

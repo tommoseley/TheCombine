@@ -26,7 +26,7 @@ Route Structure:
 import logging
 from fastapi import APIRouter
 
-from app.core.config import ENABLE_DEBUG_ROUTES
+from app.core.config import ENABLE_DEBUG_ROUTES, USE_WORKFLOW_ENGINE_LLM
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,7 @@ from .public.document_routes import router as document_router  # DEPRECATED
 from .public.view_routes import router as view_router  # ADR-034
 from .public.search_routes import router as search_router
 from .public.concierge_routes import router as concierge_router  # WS-CONCIERGE-001
+from .public.intake_workflow_routes import router as intake_workflow_router  # WS-ADR-025
 
 # Create main router WITHOUT prefix - routes at root level
 router = APIRouter(tags=["web-ui"])
@@ -48,6 +49,7 @@ router.include_router(document_router)  # DEPRECATED - kept for backward compati
 router.include_router(view_router)  # ADR-034: Generic document viewer
 router.include_router(search_router)
 router.include_router(concierge_router)  # WS-CONCIERGE-001
+router.include_router(intake_workflow_router)  # WS-ADR-025: Workflow-based intake
 
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Debug routes behind feature flag
 if ENABLE_DEBUG_ROUTES:

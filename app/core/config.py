@@ -102,6 +102,11 @@ USE_LEGACY_TEMPLATES = os.getenv("USE_LEGACY_TEMPLATES", "false").lower() == "tr
 # Set ENABLE_DEBUG_ROUTES=true to enable /test-*, /api/admin/llm-runs/*/replay
 ENABLE_DEBUG_ROUTES = os.getenv("ENABLE_DEBUG_ROUTES", "false").lower() == "true"
 
+# Feature Flag (WS-ADR-025 Phase 5)
+# Use real LLM executors instead of mocks for workflow engine
+# Set USE_WORKFLOW_ENGINE_LLM=true to enable real LLM calls
+USE_WORKFLOW_ENGINE_LLM = os.getenv("USE_WORKFLOW_ENGINE_LLM", "false").lower() == "true"
+
 # Anthropic API configuration (for data-driven mode)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "false")
 
@@ -140,6 +145,7 @@ class Settings:
         self.MAX_REQUEST_BODY_SIZE = MAX_REQUEST_BODY_SIZE
         self.USE_LEGACY_TEMPLATES = USE_LEGACY_TEMPLATES
         self.ENABLE_DEBUG_ROUTES = ENABLE_DEBUG_ROUTES
+        self.USE_WORKFLOW_ENGINE_LLM = USE_WORKFLOW_ENGINE_LLM
 
 # Global settings instance
 settings = Settings()

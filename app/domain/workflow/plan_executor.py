@@ -19,6 +19,11 @@ Audit Invariants:
 - Every node execution is logged with timestamp
 - State transitions are recorded in node_history
 - Retry counts are tracked per (document_id, generating_node_id)
+
+Thread Ownership (WS-ADR-025 Phase 3):
+- Workflows that declare thread_ownership.owns_thread create durable threads
+- Conversation history is persisted to thread ledger
+- Threads can be resumed when workflow is interrupted
 """
 
 import logging
@@ -39,6 +44,8 @@ from app.domain.workflow.nodes.base import (
     NodeExecutor,
     NodeResult,
 )
+from app.domain.workflow.thread_manager import ThreadManager
+from app.domain.workflow.outcome_recorder import OutcomeRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +143,8 @@ class PlanExecutor:
         persistence: StatePersistence,
         plan_registry: Optional[PlanRegistry] = None,
         executors: Optional[Dict[NodeType, NodeExecutor]] = None,
+        thread_manager: Optional[ThreadManager] = None,
+        outcome_recorder: Optional[OutcomeRecorder] = None,
     ):
         """Initialize the executor.
 
@@ -144,9 +153,15 @@ class PlanExecutor:
             plan_registry: Optional plan registry (uses global if not provided)
             executors: Optional dict mapping NodeType to NodeExecutor instances.
                        If not provided, uses minimal stub executors for testing.
+            thread_manager: Optional thread manager for conversation persistence.
+                           If provided, enables thread ownership for workflows.
+            outcome_recorder: Optional outcome recorder for governance audit.
+                             If provided, records dual outcomes on completion.
         """
         self._persistence = persistence
         self._plan_registry = plan_registry or get_plan_registry()
+        self._thread_manager = thread_manager
+        self._outcome_recorder = outcome_recorder
 
         # Node executors by type - injectable for testing
         if executors:
@@ -202,6 +217,20 @@ class PlanExecutor:
         if not entry_node:
             raise PlanExecutorError(f"Plan {plan.workflow_id} has no entry node")
 
+        # Check if plan declares thread ownership
+        thread_id = None
+        if self._thread_manager and plan.thread_ownership.owns_thread:
+            thread_id = await self._thread_manager.create_workflow_thread(
+                workflow_id=plan.workflow_id,
+                document_id=document_id,
+                document_type=document_type,
+                execution_id=execution_id,
+                thread_purpose=plan.thread_ownership.thread_purpose,
+            )
+            logger.info(
+                f"Created thread {thread_id} for execution {execution_id}"
+            )
+
         state = DocumentWorkflowState(
             execution_id=execution_id,
             workflow_id=plan.workflow_id,
@@ -209,6 +238,7 @@ class PlanExecutor:
             document_type=document_type,
             current_node_id=entry_node.node_id,
             status=DocumentWorkflowStatus.PENDING,
+            thread_id=thread_id,
         )
 
         # Save initial state
@@ -270,7 +300,7 @@ class PlanExecutor:
             )
 
         # Build execution context
-        context = self._build_context(state, plan, user_input, user_choice)
+        context = await self._build_context(state, plan, user_input, user_choice)
 
         # Clear pause state if we have user input
         if state.pending_user_input and (user_input or user_choice):
@@ -288,8 +318,14 @@ class PlanExecutor:
             await self._persistence.save(state)
             raise PlanExecutorError(f"Node execution failed: {e}") from e
 
+        # Persist conversation turns to thread (if applicable)
+        await self._persist_conversation(result, current_node, state, context)
+
         # Handle result
         await self._handle_result(result, current_node, state, plan)
+
+        # Update thread status on workflow completion/failure
+        await self._sync_thread_status(state)
 
         # Persist state (INVARIANT: persist after every node completion)
         await self._persistence.save(state)
@@ -437,7 +473,7 @@ class PlanExecutor:
         await self._persistence.save(state)
         return state
 
-    def _build_context(
+    async def _build_context(
         self,
         state: DocumentWorkflowState,
         plan: WorkflowPlan,
@@ -466,12 +502,25 @@ class PlanExecutor:
         if user_choice:
             extra["user_choice"] = user_choice
 
+        # Load conversation history from thread if available
+        conversation_history = []
+        if state.thread_id and self._thread_manager:
+            try:
+                conversation_history = await self._thread_manager.load_conversation_history(
+                    state.thread_id
+                )
+                logger.debug(
+                    f"Loaded {len(conversation_history)} messages from thread {state.thread_id}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to load conversation history: {e}")
+
         return DocumentWorkflowContext(
             document_id=state.document_id,
             document_type=state.document_type,
             thread_id=state.thread_id,
             document_content={},  # TODO: Load current document
-            conversation_history=[],  # TODO: Load from thread
+            conversation_history=conversation_history,
             input_documents={},
             user_responses={},
             extra=extra,
@@ -609,6 +658,9 @@ class PlanExecutor:
                 gate_outcome=gate_outcome,
             )
 
+            # Record governance outcome (ADR-037)
+            await self._record_governance_outcome(state, plan, result)
+
             logger.info(
                 f"Execution {state.execution_id} reached terminal: "
                 f"{terminal_outcome} (gate: {gate_outcome})"
@@ -655,6 +707,127 @@ class PlanExecutor:
             if node and node.type == NodeType.TASK:
                 return execution.node_id
         return None
+
+    async def _persist_conversation(
+        self,
+        result: NodeResult,
+        node: Node,
+        state: DocumentWorkflowState,
+        context: DocumentWorkflowContext,
+    ) -> None:
+        """Persist conversation turns to thread.
+
+        Records user input and assistant responses to the thread ledger
+        for conversation continuity.
+
+        Args:
+            result: The node execution result
+            node: The executed node
+            state: Current execution state
+            context: Execution context with user input
+        """
+        if not state.thread_id or not self._thread_manager:
+            return
+
+        try:
+            # Record user input if present
+            user_input = context.extra.get("user_input")
+            if user_input:
+                await self._thread_manager.record_conversation_turn(
+                    thread_id=state.thread_id,
+                    role="user",
+                    content=user_input,
+                    node_id=node.node_id,
+                )
+
+            # Record assistant response if produced
+            if result.produced_document:
+                # For concierge nodes, the response might be in the document
+                response_content = result.produced_document.get("response")
+                if response_content:
+                    await self._thread_manager.record_conversation_turn(
+                        thread_id=state.thread_id,
+                        role="assistant",
+                        content=response_content,
+                        node_id=node.node_id,
+                    )
+
+            # Record user prompt for paused states
+            if result.requires_user_input and result.user_prompt:
+                await self._thread_manager.record_conversation_turn(
+                    thread_id=state.thread_id,
+                    role="assistant",
+                    content=result.user_prompt,
+                    node_id=node.node_id,
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to persist conversation to thread: {e}")
+
+    async def _sync_thread_status(
+        self,
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Sync thread status with workflow status.
+
+        Updates thread status to match workflow completion/failure.
+
+        Args:
+            state: Current execution state
+        """
+        if not state.thread_id or not self._thread_manager:
+            return
+
+        try:
+            if state.status == DocumentWorkflowStatus.RUNNING:
+                await self._thread_manager.start_thread(state.thread_id)
+            elif state.status == DocumentWorkflowStatus.COMPLETED:
+                await self._thread_manager.complete_thread(state.thread_id)
+            elif state.status == DocumentWorkflowStatus.FAILED:
+                await self._thread_manager.fail_thread(state.thread_id)
+        except Exception as e:
+            logger.warning(f"Failed to sync thread status: {e}")
+
+    async def _record_governance_outcome(
+        self,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+        result: NodeResult,
+    ) -> None:
+        """Record governance outcome for audit (ADR-037).
+
+        Records both gate outcome (governance vocabulary) and terminal outcome
+        (execution vocabulary) to the governance_outcomes table.
+
+        Args:
+            state: The completed workflow state
+            plan: The workflow plan
+            result: The final node result
+        """
+        if not self._outcome_recorder:
+            return
+
+        if not state.gate_outcome or not state.terminal_outcome:
+            logger.debug("Skipping outcome recording: no outcomes set")
+            return
+
+        try:
+            # Extract options offered from result metadata if available
+            options_offered = result.metadata.get("options_offered")
+            option_selected = result.metadata.get("option_selected")
+            selection_method = result.metadata.get("selection_method")
+
+            await self._outcome_recorder.record_outcome(
+                state=state,
+                plan=plan,
+                gate_type="intake_gate",  # Default for concierge intake
+                options_offered=options_offered,
+                option_selected=option_selected,
+                selection_method=selection_method,
+                recorded_by="workflow_engine",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to record governance outcome: {e}")
 
     async def get_execution_status(
         self,
