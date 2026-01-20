@@ -1,4 +1,4 @@
-"""
+﻿"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.
@@ -40,7 +40,6 @@ from app.api.routers.protected import router as protected_router
 from app.api.routers.accounts import router as accounts_router
 from app.api.routers.commands import router as commands_router  # WS-STORY-BACKLOG-COMMANDS
 from app.api.routers.config_routes import router as config_router
-from app.api.routers.concierge_routes import router as concierge_router  # WS-CONCIERGE-001
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router
@@ -54,11 +53,27 @@ from app.api.middleware import (
 )
 
 # Configure logging
+LOG_DIR = os.getenv("LOG_DIR", "/tmp")  # Directory for log files
+LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+# Generate timestamped log filename
+LOG_TIMESTAMP = datetime.now().strftime("%Y%m%d-%H%M%S")
+LOG_FILE = os.path.join(LOG_DIR, f"combine-{LOG_TIMESTAMP}.log")
+
+# Set up root logger
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format=LOG_FORMAT
 )
+
+# Add file handler
+file_handler = logging.FileHandler(LOG_FILE)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+logging.getLogger().addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
+logger.info(f"Logging to file: {LOG_FILE}")
 
 
 # ============================================================================
@@ -189,7 +204,6 @@ app.include_router(protected_router)
 app.include_router(accounts_router)
 app.include_router(commands_router)  # WS-STORY-BACKLOG-COMMANDS
 app.include_router(config_router)  # System config API
-app.include_router(concierge_router)  # WS-CONCIERGE-001: Concierge intake
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions

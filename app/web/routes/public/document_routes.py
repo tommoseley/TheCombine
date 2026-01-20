@@ -1,4 +1,4 @@
-"""
+﻿"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 
@@ -11,7 +11,7 @@ import warnings
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy import select, text
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -23,6 +23,8 @@ from app.api.services.document_status_service import document_status_service
 from app.api.services.role_prompt_service import RolePromptService
 from app.api.services.document_service import DocumentService
 from app.api.models import Document
+from app.api.models.project import Project
+from app.api.models.document_type import DocumentType
 
 # ADR-030: BFF imports
 from app.web.bff import get_epic_backlog_vm
@@ -174,49 +176,45 @@ DOCUMENT_CONFIG = {
 # ============================================================================
 
 async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict | None:
-    """Get project with icon field."""
+    """Get project with icon field via ORM."""
     result = await db.execute(
-        text("""
-            SELECT id, name, project_id, description, icon
-            FROM projects WHERE id = :project_id
-        """),
-        {"project_id": project_id}
+        select(Project).where(Project.project_id == project_id)
     )
-    row = result.fetchone()
-    if not row:
+    project = result.scalar_one_or_none()
+    if not project:
         return None
     
     return {
-        "id": str(row.id),
-        "name": row.name,
-        "project_id": row.project_id,
-        "description": row.description,
-        "icon": row.icon or "folder",
+        "id": str(project.id),
+        "name": project.name,
+        "project_id": project.project_id,
+        "description": project.description,
+        "icon": project.icon or "folder",
     }
 
 
 async def _get_document_type(db: AsyncSession, doc_type_id: str) -> dict | None:
-    """Get document type configuration from database."""
+    """Get document type configuration via ORM."""
     result = await db.execute(
-        text("""
-            SELECT doc_type_id, name, description, icon, required_inputs, optional_inputs, view_docdef
-            FROM document_types 
-            WHERE doc_type_id = :doc_type_id AND is_active = true
-        """),
-        {"doc_type_id": doc_type_id}
+        select(DocumentType).where(
+            and_(
+                DocumentType.doc_type_id == doc_type_id,
+                DocumentType.is_active == True
+            )
+        )
     )
-    row = result.fetchone()
-    if not row:
+    doc_type = result.scalar_one_or_none()
+    if not doc_type:
         return None
     
     return {
-        "doc_type_id": row.doc_type_id,
-        "name": row.name,
-        "description": row.description,
-        "icon": row.icon,
-        "required_inputs": row.required_inputs or [],
-        "optional_inputs": row.optional_inputs or [],
-        "view_docdef": row.view_docdef,
+        "doc_type_id": doc_type.doc_type_id,
+        "name": doc_type.name,
+        "description": doc_type.description,
+        "icon": doc_type.icon,
+        "required_inputs": doc_type.required_inputs or [],
+        "optional_inputs": doc_type.optional_inputs or [],
+        "view_docdef": doc_type.view_docdef,
     }
 
 
@@ -278,7 +276,7 @@ async def get_document(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    proj_uuid = UUID(project_id)
+    proj_uuid = UUID(project["id"])
     
     # Get document type from database
     doc_type = await _get_document_type(db, doc_type_id)

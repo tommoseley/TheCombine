@@ -1,4 +1,4 @@
-<!-- Completion banner - shows gate outcome -->
+﻿<!-- Completion banner - shows gate outcome -->
 <div class="border-t border-gray-200 dark:border-gray-700 p-6
     {% if outcome_color == 'green' %}bg-green-50 dark:bg-green-900/20
     {% elif outcome_color == 'yellow' %}bg-yellow-50 dark:bg-yellow-900/20
@@ -42,6 +42,11 @@
 
             <!-- Outcome details -->
             <div class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                {% if project_id %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 mr-2">
+                    Project: {{ project_id }}
+                </span>
+                {% endif %}
                 <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 mr-2">
                     Gate: {{ gate_outcome }}
                 </span>
@@ -52,7 +57,7 @@
 
             {% if next_action %}
             <div class="mt-4">
-                <a href="/" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white
+                <a href="{{ project_url or '/' }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white
                     {% if outcome_color == 'green' %}bg-green-600 hover:bg-green-700
                     {% elif outcome_color == 'yellow' %}bg-yellow-600 hover:bg-yellow-700
                     {% else %}bg-gray-600 hover:bg-gray-700{% endif %}">

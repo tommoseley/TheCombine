@@ -1,4 +1,4 @@
-"""Mock node executors for testing (ADR-039).
+﻿"""Mock node executors for testing (ADR-039).
 
 These executors simulate workflow node behavior without actual LLM calls,
 enabling end-to-end testing of the workflow engine.
@@ -21,80 +21,6 @@ from app.domain.workflow.nodes.base import (
 from app.domain.workflow.plan_models import NodeType
 
 logger = logging.getLogger(__name__)
-
-
-class MockConciergeExecutor(NodeExecutor):
-    """Mock concierge executor that simulates conversation.
-
-    Behavior:
-    - First call: requests user input (asks a question)
-    - Subsequent calls with user input: proceeds to success
-    - Can be configured to return out_of_scope or redirect
-    """
-
-    def __init__(self):
-        self._call_count: Dict[str, int] = {}
-
-    def supported_node_type(self) -> NodeType:
-        return NodeType.CONCIERGE
-
-    async def execute(
-        self,
-        node_id: str,
-        node_config: Dict[str, Any],
-        context: DocumentWorkflowContext,
-        state_snapshot: Dict[str, Any],
-    ) -> NodeResult:
-        doc_id = context.document_id
-        key = f"{doc_id}:{node_id}"
-
-        self._call_count[key] = self._call_count.get(key, 0) + 1
-        call_num = self._call_count[key]
-
-        user_input = context.extra.get("user_input", "")
-        user_choice = context.extra.get("user_choice", "")
-
-        logger.info(f"MockConcierge [{node_id}] call #{call_num}, input='{user_input}', choice='{user_choice}'")
-
-        # Check for special keywords in user input
-        if "out of scope" in user_input.lower():
-            return NodeResult(
-                outcome="out_of_scope",
-                metadata={"reason": "User indicated out of scope"},
-            )
-
-        if "redirect" in user_input.lower():
-            return NodeResult(
-                outcome="redirect",
-                metadata={"reason": "User requested redirect"},
-            )
-
-        # First call without input - ask for user input
-        if call_num == 1 and not user_input and not user_choice:
-            return NodeResult(
-                outcome="needs_user_input",
-                requires_user_input=True,
-                user_prompt="What would you like to build today? Please describe your project.",
-                metadata={"question_type": "initial_intake"},
-            )
-
-        # Second call - ask follow-up question
-        if call_num == 2 and user_input and "proceed" not in user_input.lower():
-            return NodeResult(
-                outcome="needs_user_input",
-                requires_user_input=True,
-                user_prompt="Thanks! Can you tell me more about the target users? Type 'proceed' when ready to continue.",
-                metadata={"question_type": "follow_up"},
-            )
-
-        # Ready to proceed
-        return NodeResult(
-            outcome="success",
-            metadata={
-                "conversation_summary": f"User wants to build: {user_input}",
-                "questions_asked": call_num,
-            },
-        )
 
 
 class MockTaskExecutor(NodeExecutor):
@@ -216,13 +142,13 @@ class MockGateExecutor(NodeExecutor):
         requires_consent = node_config.get("requires_consent", False)
         gate_outcomes = node_config.get("gate_outcomes", [])
 
-        user_choice = context.extra.get("user_choice", "")
+        selected_option_id = context.extra.get("selected_option_id", "")
 
-        logger.info(f"MockGate [{node_id}] consent={requires_consent}, outcomes={gate_outcomes}, choice='{user_choice}'")
+        logger.info(f"MockGate [{node_id}] consent={requires_consent}, outcomes={gate_outcomes}, choice='{selected_option_id}'")
 
         # Consent gate
         if requires_consent:
-            if not user_choice:
+            if not selected_option_id:
                 return NodeResult(
                     outcome="needs_user_input",
                     requires_user_input=True,
@@ -230,7 +156,7 @@ class MockGateExecutor(NodeExecutor):
                     user_choices=["Yes, proceed", "No, I need more time"],
                 )
 
-            if "yes" in user_choice.lower() or "proceed" in user_choice.lower():
+            if "yes" in selected_option_id.lower() or "proceed" in selected_option_id.lower():
                 return NodeResult.success(consent_given=True)
             else:
                 return NodeResult(
@@ -240,7 +166,7 @@ class MockGateExecutor(NodeExecutor):
 
         # Outcome gate (e.g., qualified, not_ready, out_of_scope, redirect)
         if gate_outcomes:
-            if not user_choice:
+            if not selected_option_id:
                 return NodeResult(
                     outcome="needs_user_input",
                     requires_user_input=True,
@@ -249,10 +175,10 @@ class MockGateExecutor(NodeExecutor):
                 )
 
             # Return the selected outcome
-            if user_choice in gate_outcomes:
+            if selected_option_id in gate_outcomes:
                 return NodeResult(
-                    outcome=user_choice,
-                    metadata={"gate_outcome": user_choice},
+                    outcome=selected_option_id,
+                    metadata={"gate_outcome": selected_option_id},
                 )
             else:
                 # Default to first outcome if invalid choice
@@ -307,7 +233,6 @@ def create_mock_executors(qa_fail_first_n: int = 0) -> Dict[NodeType, NodeExecut
         Dict mapping NodeType to mock executor instance
     """
     return {
-        NodeType.CONCIERGE: MockConciergeExecutor(),
         NodeType.TASK: MockTaskExecutor(),
         NodeType.QA: MockQAExecutor(fail_first_n=qa_fail_first_n),
         NodeType.GATE: MockGateExecutor(),

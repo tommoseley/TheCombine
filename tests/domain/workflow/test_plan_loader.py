@@ -1,4 +1,4 @@
-"""Tests for Document Interaction Workflow Plan loader (ADR-039)."""
+﻿"""Tests for Document Interaction Workflow Plan loader (ADR-039)."""
 
 import json
 import pytest
@@ -221,11 +221,11 @@ class TestLoadActualConciergeIntakePlan:
         plan = loader.load(plan_path)
 
         assert plan.workflow_id == "concierge_intake"
-        assert plan.version == "1.0.0"
+        assert plan.version == "1.2.0"  # Updated with intake gate
         assert plan.scope_type == "document"
         assert plan.document_type == "concierge_intake"
-        assert len(plan.nodes) == 9
+        assert len(plan.nodes) == 7
         assert len(plan.edges) >= 10
-        assert plan.thread_ownership.owns_thread is True
+        assert plan.thread_ownership.owns_thread is False  # Intake gate doesn't own thread
         assert plan.governance.circuit_breaker is not None
         assert plan.governance.circuit_breaker.max_retries == 2

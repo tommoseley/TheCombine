@@ -5,7 +5,6 @@ ADR-010 Week 3: LLM execution replay functionality.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID, uuid4
 from datetime import datetime
@@ -55,24 +54,21 @@ class ReplayResponse(BaseModel):
 
 async def reconstruct_inputs(db: AsyncSession, run_id: UUID) -> Dict[str, str]:
     """
-    Reconstruct inputs from llm_run_input_ref and llm_content tables.
+    Reconstruct inputs from llm_run_input_ref and llm_content tables via ORM.
     
     Returns dict mapping input kind -> content text.
-    Raises ValueError if any input is redacted.
     """
-    query = text("""
-        SELECT 
-            i.kind,
-            i.content_hash,
-            c.content_text
-        FROM llm_run_input_ref i
-        JOIN llm_content c ON i.content_hash = c.content_hash
-        WHERE i.llm_run_id = :run_id
-        ORDER BY i.created_at
-    """)
+    from sqlalchemy import select
+    from app.api.models.llm_log import LLMRunInputRef, LLMContent
     
-    result = await db.execute(query, {"run_id": run_id})
-    rows = result.fetchall()
+    # Join input refs with content
+    result = await db.execute(
+        select(LLMRunInputRef.kind, LLMContent.content_text)
+        .join(LLMContent, LLMRunInputRef.content_hash == LLMContent.content_hash)
+        .where(LLMRunInputRef.llm_run_id == run_id)
+        .order_by(LLMRunInputRef.created_at)
+    )
+    rows = result.all()
     
     if not rows:
         raise ValueError(f"No inputs found for run {run_id}")
@@ -82,9 +78,7 @@ async def reconstruct_inputs(db: AsyncSession, run_id: UUID) -> Dict[str, str]:
         kind = row.kind
         content = row.content_text
         
-        # Handle multiple inputs of same kind (e.g., multiple context_doc)
         if kind in inputs:
-            # Append with separator
             inputs[kind] = inputs[kind] + "\n---\n" + content
         else:
             inputs[kind] = content
@@ -94,19 +88,14 @@ async def reconstruct_inputs(db: AsyncSession, run_id: UUID) -> Dict[str, str]:
 
 
 async def get_original_run(db: AsyncSession, run_id: UUID) -> Dict[str, Any]:
-    """Load original run record."""
-    query = text("""
-        SELECT 
-            id, correlation_id, project_id, artifact_type, role,
-            model_provider, model_name, prompt_id, prompt_version,
-            effective_prompt_hash, status, started_at, ended_at,
-            input_tokens, output_tokens, total_tokens, cost_usd, metadata
-        FROM llm_run
-        WHERE id = :run_id
-    """)
+    """Load original run record via ORM."""
+    from sqlalchemy import select
+    from app.api.models.llm_log import LLMRun
     
-    result = await db.execute(query, {"run_id": run_id})
-    row = result.fetchone()
+    result = await db.execute(
+        select(LLMRun).where(LLMRun.id == run_id)
+    )
+    row = result.scalar_one_or_none()
     
     if not row:
         raise ValueError(f"Run {run_id} not found")
@@ -134,20 +123,24 @@ async def get_original_run(db: AsyncSession, run_id: UUID) -> Dict[str, Any]:
 
 
 async def get_run_output(db: AsyncSession, run_id: UUID) -> Optional[str]:
-    """Get the raw output text for a run."""
-    query = text("""
-        SELECT c.content_text, c.content_hash
-        FROM llm_run_output_ref o
-        JOIN llm_content c ON o.content_hash = c.content_hash
-        WHERE o.llm_run_id = :run_id
-        AND o.kind = 'raw_text'
-        LIMIT 1
-    """)
+    """Get the raw output text for a run via ORM."""
+    from sqlalchemy import select, and_
+    from app.api.models.llm_log import LLMRunOutputRef, LLMContent
     
-    result = await db.execute(query, {"run_id": run_id})
-    row = result.fetchone()
+    result = await db.execute(
+        select(LLMContent.content_text)
+        .join(LLMRunOutputRef, LLMRunOutputRef.content_hash == LLMContent.content_hash)
+        .where(
+            and_(
+                LLMRunOutputRef.llm_run_id == run_id,
+                LLMRunOutputRef.kind == 'raw_text'
+            )
+        )
+        .limit(1)
+    )
+    row = result.first()
     
-    return row.content_text if row else None
+    return row[0] if row else None
 
 def compare_runs(
     original: Dict[str, Any],
@@ -295,20 +288,19 @@ async def replay_llm_run(
         for kind, content in inputs.items():
             await llm_logger.add_input(replay_run_id, kind, content)
         
-        # 8. Mark as replay in metadata
-        # Build complete metadata in Python to avoid ::cast conflicts with :param syntax
-        replay_metadata = json.dumps({
-            "is_replay": True,
-            "original_run_id": str(run_id)
-        })
-        await db.execute(
-            text("""
-                UPDATE llm_run
-                SET metadata = COALESCE(metadata, '{}') || CAST(:replay_meta AS jsonb)
-                WHERE id = :run_id
-            """),
-            {"run_id": replay_run_id, "replay_meta": replay_metadata}
+        # 8. Mark as replay in metadata via ORM
+        from sqlalchemy import select as sel
+        from app.api.models.llm_log import LLMRun
+        
+        result = await db.execute(
+            sel(LLMRun).where(LLMRun.id == replay_run_id)
         )
+        run_record = result.scalar_one_or_none()
+        if run_record:
+            existing_meta = run_record.metadata or {}
+            existing_meta["is_replay"] = True
+            existing_meta["original_run_id"] = str(run_id)
+            run_record.metadata = existing_meta
         await db.commit()
         
         # 9. Execute LLM call

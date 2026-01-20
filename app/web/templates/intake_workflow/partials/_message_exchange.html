@@ -1,16 +1,18 @@
 <!-- Message exchange partial - user message + assistant response -->
 
-<!-- User message -->
+<!-- User message (only if not already shown optimistically) -->
+{% if user_message %}
 <div class="flex items-start space-x-3 justify-end">
     <div class="flex-1 flex justify-end">
         <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 max-w-prose">
-            <p class="text-gray-900 dark:text-white">{{ user_message }}</p>
+            <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ user_message }}</p>
         </div>
     </div>
     <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
         <span class="text-white text-sm font-bold">U</span>
     </div>
 </div>
+{% endif %}
 
 <!-- Assistant response -->
 {% if assistant_response %}
@@ -51,7 +53,7 @@
 <!-- Completion state -->
 {% if is_completed %}
 <script>
-    // Reload to show completion banner
-    window.location.reload();
+    // Redirect to show completion banner (use specific execution URL, not reload)
+    window.location.href = '/intake/{{ execution_id }}';
 </script>
 {% endif %}

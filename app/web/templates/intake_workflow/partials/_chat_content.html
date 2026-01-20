@@ -28,8 +28,8 @@
             {% include 'intake_workflow/partials/_message.html' %}
         {% endfor %}
 
-        {% if not messages %}
-        <!-- Initial greeting -->
+        {% if not messages and not is_completed %}
+        <!-- Initial greeting (only show if workflow hasn't completed) -->
         <div class="flex items-start space-x-3">
             <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <span class="text-white text-sm font-bold">C</span>
@@ -135,10 +135,19 @@
                 hx-include="#message-form"
                 hx-target="#messages"
                 hx-swap="beforeend scroll:#messages:bottom"
-                hx-on::after-request="document.getElementById('message-input').value = ''"
-                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center self-end">
+                hx-indicator="#send-spinner"
+                onclick="showUserMessageImmediately()"
+                hx-on::after-request="clearInputAfterSend()"
+                hx-disabled-elt="this"
+                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg flex items-center self-end">
                 <span>Send</span>
             </button>
+            <div id="send-spinner" class="htmx-indicator self-end pb-3">
+                <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
         </form>
     </div>
     {% endif %}
@@ -155,4 +164,46 @@
             messages.scrollTop = messages.scrollHeight;
         }
     })();
+
+    // Show user message immediately before HTMX request
+    // NOTE: Do NOT clear input here - HTMX needs the value for the POST
+    function showUserMessageImmediately() {
+        var input = document.getElementById('message-input');
+        var content = input.value.trim();
+        if (!content) return;
+
+        var messagesDiv = document.getElementById('messages');
+
+        // Create user message HTML
+        var userMessageHtml = `
+            <div class="flex items-start space-x-3 justify-end user-message-optimistic">
+                <div class="flex-1 flex justify-end">
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 max-w-prose">
+                        <p class="text-gray-900 dark:text-white whitespace-pre-wrap">${escapeHtml(content)}</p>
+                    </div>
+                </div>
+                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-sm font-bold">U</span>
+                </div>
+            </div>
+        `;
+
+        // Append user message
+        messagesDiv.insertAdjacentHTML('beforeend', userMessageHtml);
+
+        // Scroll to bottom
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Clear input after HTMX request completes
+    function clearInputAfterSend() {
+        document.getElementById('message-input').value = '';
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 </script>

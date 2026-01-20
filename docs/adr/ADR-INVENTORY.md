@@ -1,6 +1,6 @@
 ﻿# ADR Inventory & Status
 
-_Last updated: 2026-01-12_
+_Last updated: 2026-01-17_
 
 This document provides a complete inventory of Architecture Decision Records for The Combine.
 
@@ -22,8 +22,8 @@ This document provides a complete inventory of Architecture Decision Records for
 
 ## ADR Categories
 
-### Governance & Foundations (009-010)
-Core audit, logging, and replay infrastructure.
+### Governance & Foundations (009-010, 040)
+Core audit, logging, replay infrastructure, and execution invariants.
 
 ### Structure & Ownership (011)
 Document hierarchy and ownership boundaries.
@@ -52,8 +52,8 @@ External audit export and regulatory readiness.
 ### Intake & Qualification (025, 026)
 Intake gate, Concierge role definition.
 
-### Workflow (027)
-Workflow definition, selection, and governance.
+### Workflow (027, 037-039)
+Workflow definition, selection, governance, and document interaction model.
 
 ### Artifacts (028, 029)
 Reference documents, external inputs, document resolution.
@@ -112,6 +112,10 @@ Feature-specific implementation decisions (pre-governance era).
 | 034 | Document Composition Manifest | **Accepted** | Composition | DocDef + canonical components |
 | 035 | Durable LLM Threaded Queue | Draft | Infrastructure | Async job orchestration |
 | 036 | Document Lifecycle & Staleness | **Accepted** | Lifecycle | State semantics (missing/partial/complete/stale) |
+| 037 | Concierge-Constrained Workflow Routing | **Accepted** | Workflow | Engine-owned routing, Concierge as constrained router |
+| 038 | Workflow Plan Schema | **Accepted** | Workflow | JSON schema for workflow plans |
+| 039 | Document Interaction Workflow Model | **Accepted** | Workflow | Document-centric workflow execution |
+| 040 | Stateless LLM Execution Invariant | **Accepted** | Governance | No conversation history to LLMs |
 
 ---
 
@@ -190,7 +194,7 @@ These ADRs predate the governance architecture and address specific features:
 
 | Number | Reserved For |
 |--------|--------------|
-| 037 | (available) |
+| 041 | (available) |
 
 ---
 

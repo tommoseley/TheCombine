@@ -12,8 +12,8 @@ import os
 import sys
 from pathlib import Path
 
-# Add project root to path
-ROOT = Path(__file__).parent.parent
+# Add project root to path (ops/scripts/run.py -> ops/scripts -> ops -> TheCombine)
+ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 def load_env():

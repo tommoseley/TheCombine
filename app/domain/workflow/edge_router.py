@@ -1,4 +1,4 @@
-"""Edge router for Document Interaction Workflow Plans (ADR-039).
+﻿"""Edge router for Document Interaction Workflow Plans (ADR-039).
 
 Evaluates edges and conditions to determine the next node in workflow execution.
 
@@ -186,9 +186,12 @@ class EdgeRouter:
             The value to compare
         """
         if condition_type == "retry_count":
-            # Get retry count for current node
+            # Get retry count for the generating node (not current node)
             # Per WS-INTAKE-ENGINE-001: retry counter scoped to generating_node_id
-            return state.get_retry_count(state.current_node_id)
+            # When QA fails, retry is incremented for the generating node, so
+            # edge conditions should check that same counter
+            node_id = getattr(state, 'generating_node_id', None) or state.current_node_id
+            return state.get_retry_count(node_id)
 
         if condition_type == "status":
             return state.status.value
@@ -277,6 +280,20 @@ class EdgeRouter:
         if not node or node.type.value != "end":
             return None
         return node.terminal_outcome
+
+    def get_gate_outcome(self, node_id: str) -> Optional[str]:
+        """Get the gate outcome for an end node.
+
+        Args:
+            node_id: The end node ID
+
+        Returns:
+            The gate outcome or None if not defined
+        """
+        node = self.plan.get_node(node_id)
+        if not node or node.type.value != "end":
+            return None
+        return node.gate_outcome
 
     def validate_outcome(
         self,

@@ -117,26 +117,39 @@ class TaskNodeExecutor(NodeExecutor):
 
         Args:
             task_prompt: The task prompt template
-            context: Workflow context with conversation history
+            context: Workflow context
 
         Returns:
             List of message dicts for LLM
         """
         messages = []
 
-        # Include conversation history if present
-        for msg in context.conversation_history:
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"],
-            })
+        # Build context from multiple sources (ADR-040 compliant)
+        context_parts = []
 
-        # Add input documents as context
-        if context.input_documents:
-            input_context = self._format_input_documents(context.input_documents)
+        # 1. User's original request - check extra first, then context_state
+        user_input = context.extra.get("user_input") or context.context_state.get("user_input")
+        if user_input:
+            context_parts.append(f"## User Request\n{user_input}")
+
+        # 2. Structured context state (intake summary, project type, etc.)
+        if context.context_state:
+            relevant_state = {k: v for k, v in context.context_state.items()
+                           if not k.startswith("document_") and k != "last_produced_document"}
+            if relevant_state:
+                import json
+                context_parts.append(f"## Extracted Context\n{json.dumps(relevant_state, indent=2)}")
+
+        # 3. Produced documents from earlier nodes (from document_content, not input_documents)
+        if context.document_content:
+            doc_context = self._format_input_documents(context.document_content)
+            context_parts.append(f"## Previous Documents\n{doc_context}")
+
+        # Add context as first message if we have any
+        if context_parts:
             messages.append({
                 "role": "user",
-                "content": f"Input Context:\n{input_context}",
+                "content": "\n\n".join(context_parts),
             })
 
         # Add task prompt

@@ -85,17 +85,20 @@ class PromptLoader:
     
     def _load_file(self, path: Path, prompt_type: str, name: str) -> str:
         """Load and return file content."""
+        logger.info(f"PromptLoader: Loading {prompt_type} prompt '{name}' from {path}")
         if not path.exists():
             available = self._list_available(prompt_type)
+            logger.error(f"PromptLoader: File not found at {path}")
             raise PromptNotFoundError(
                 f"{prompt_type.title()} prompt '{name}' not found at {path}. "
                 f"Available: {available}"
             )
-        
+
         try:
             with open(path, "r", encoding="utf-8-sig") as f:
                 content = f.read()
-            logger.debug(f"Loaded {prompt_type} prompt: {name} ({len(content)} chars)")
+            logger.info(f"PromptLoader: Loaded {prompt_type} prompt: {name} ({len(content)} chars)")
+            logger.info(f"PromptLoader: First 200 chars: {content[:200]}...")
             return content
         except IOError as e:
             raise PromptNotFoundError(f"Error reading {prompt_type} prompt '{name}': {e}")

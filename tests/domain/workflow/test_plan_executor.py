@@ -1,4 +1,4 @@
-"""Tests for PlanExecutor (ADR-039)."""
+﻿"""Tests for PlanExecutor (ADR-039)."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch

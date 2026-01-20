@@ -1,4 +1,4 @@
-"""Plan Executor for Document Interaction Workflow Plans (ADR-039).
+﻿"""Plan Executor for Document Interaction Workflow Plans (ADR-039).
 
 The PlanExecutor is the main orchestrator that executes document workflows.
 It coordinates node executors, edge routing, and state persistence.
@@ -515,15 +515,30 @@ class PlanExecutor:
             except Exception as e:
                 logger.warning(f"Failed to load conversation history: {e}")
 
+        # Load produced documents from context_state
+        document_content = {}
+        for key, value in state.context_state.items():
+            if key.startswith("document_") and isinstance(value, dict):
+                # Extract document type from key (e.g., "document_discovery" -> "discovery")
+                doc_type = key[len("document_"):]
+                document_content[doc_type] = value
+
+        # Also include last_produced_document for easy access
+        if state.context_state.get("last_produced_document"):
+            document_content["_last"] = state.context_state["last_produced_document"]
+
+        logger.debug(f"Loaded {len(document_content)} documents from context_state")
+
         return DocumentWorkflowContext(
             document_id=state.document_id,
             document_type=state.document_type,
             thread_id=state.thread_id,
-            document_content={},  # TODO: Load current document
+            document_content=document_content,
             conversation_history=conversation_history,
             input_documents={},
             user_responses={},
             extra=extra,
+            context_state=state.context_state,
         )
 
     async def _execute_node(
@@ -612,6 +627,33 @@ class PlanExecutor:
             )
             return
 
+        # Store produced document in context_state for subsequent nodes (e.g., QA)
+        # Note: produced_document is a direct field on NodeResult, not in metadata
+        if result.produced_document:
+            produces_key = result.metadata.get("produces", "last_produced")
+            state.update_context_state({
+                f"document_{produces_key}": result.produced_document,
+                "last_produced_document": result.produced_document,
+            })
+            logger.info(f"Stored produced document as document_{produces_key}")
+
+        # Store intake gate metadata in context_state for downstream nodes
+        # This includes: intake_summary, project_type, user_input, etc.
+        if current_node.type == NodeType.INTAKE_GATE and result.outcome == "qualified":
+            intake_metadata = {}
+            for key in ["intake_summary", "project_type", "user_input", "extracted_data"]:
+                if key in result.metadata:
+                    intake_metadata[key] = result.metadata[key]
+            if intake_metadata:
+                state.update_context_state(intake_metadata)
+                logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
+
+        # Pre-routing: Set generating_node_id for QA failures (needed by edge router)
+        if current_node.type == NodeType.QA and result.outcome == "failed":
+            generating_node_id = self._find_generating_node(state, plan)
+            if generating_node_id:
+                state.generating_node_id = generating_node_id
+
         # Use EdgeRouter to determine next node
         router = EdgeRouter(plan)
         next_node_id, matched_edge = router.get_next_node(
@@ -649,8 +691,10 @@ class PlanExecutor:
         if router.is_terminal_node(next_node_id):
             terminal_outcome = router.get_terminal_outcome(next_node_id)
 
-            # Get gate outcome from result metadata if present
-            gate_outcome = result.metadata.get("gate_outcome")
+            # Get gate outcome: prefer end node definition, fallback to result metadata
+            gate_outcome = router.get_gate_outcome(next_node_id)
+            if not gate_outcome:
+                gate_outcome = result.metadata.get("gate_outcome")
 
             state.current_node_id = next_node_id
             state.set_completed(
@@ -671,18 +715,17 @@ class PlanExecutor:
         state.current_node_id = next_node_id
 
         # Handle QA failure -> increment retry for generating node
+        # Note: generating_node_id was already set on state before routing
         if (
             current_node.type == NodeType.QA
             and result.outcome == "failed"
+            and state.generating_node_id
         ):
-            # Find the generating node (previous task node)
-            generating_node_id = self._find_generating_node(state, plan)
-            if generating_node_id:
-                retry_count = state.increment_retry(generating_node_id)
-                logger.info(
-                    f"QA failed, incremented retry for {generating_node_id} "
-                    f"to {retry_count}"
-                )
+            retry_count = state.increment_retry(state.generating_node_id)
+            logger.info(
+                f"QA failed, incremented retry for {state.generating_node_id} "
+                f"to {retry_count}"
+            )
 
     def _find_generating_node(
         self,

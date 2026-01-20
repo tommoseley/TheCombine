@@ -94,6 +94,41 @@ The following constraints apply to all work on this project:
   -If you create something new, you must be able to justify why reuse was not appropriate.
   -Creating something new when a suitable existing artifact existed is a defect.
 
+- **Stateless LLM Execution Invariant (ADR-040)**
+
+  IMPORTANT: The Combine is NOT a chat system.
+
+  When developing or modifying The Combine, you MUST treat all LLM execution as stateless with respect to conversation transcripts.
+
+  **No transcript replay — even within the same execution.**
+
+  Raw transcripts carry contamination: tone leakage, accidental capability claims, "as I said earlier" references, role confusion. Replaying transcripts means debugging drift forever.
+
+  Each LLM invocation MUST receive:
+  - The canonical role prompt
+  - The task- or node-specific prompt
+  - The current user input (single turn only)
+  - **Structured context_state** (governed data derived from prior turns)
+
+  Each LLM invocation MUST NOT receive:
+  - Prior conversation history (even from same execution)
+  - Previous assistant responses
+  - Accumulated user messages
+  - Raw conversational transcripts
+
+  **Continuity comes from structured state, not transcripts.**
+
+  If continuity is required, use `context_state` with structured fields:
+  - `intake_summary`, `known_constraints[]`, `open_gaps[]`
+  - `questions_asked[]` (IDs, not prose), `answers{}`
+  - Never raw conversation text
+
+  **node_history is for audit. context_state is for memory. Keep them separate.**
+
+  **If you are about to load or replay conversation history, STOP — this is a violation.**
+
+  _See ADR-040 and session log 2026-01-17._
+
 Violation of these constraints is considered a failure to follow project rules.
 
 ---

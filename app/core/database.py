@@ -74,9 +74,6 @@ async def init_database():
         UserORM, UserOAuthIdentityORM, UserSessionORM,
         PersonalAccessTokenORM, AuthAuditLogORM, LinkIntentNonceORM
     )
-    from app.api.models.concierge_intake import (
-        ConciergeIntakeSession, ConciergeIntakeEvent
-    )
     
     async with engine.begin() as conn:
         # Create all tables (idempotent)

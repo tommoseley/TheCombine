@@ -1,127 +1,100 @@
 {
-  "$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
+"$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
   "workflow_id": "concierge_intake",
-  "version": "1.0.0",
-  "name": "Concierge Intake Document Workflow",
-  "description": "Document Interaction Workflow for creating the Concierge Intake Document (ADR-039). Implements the Intake Gate governance boundary (ADR-025).",
+  "version": "1.2.0",
+  "name": "Intake Gate Document Workflow",
+  "description": "Single-pass intake classification and document generation. Auto-completes when QA passes - no manual outcome selection.",
   "scope_type": "document",
   "document_type": "concierge_intake",
   "thread_ownership": {
-    "owns_thread": true,
-    "thread_purpose": "intake_conversation"
+    "owns_thread": false,
+    "thread_purpose": null
   },
-  "entry_node_ids": ["clarification"],
+  "entry_node_ids": ["intake"],
   "nodes": [
     {
-      "node_id": "clarification",
-      "type": "concierge",
-      "description": "Concierge-led questioning to capture user intent, constraints, and unknowns",
+      "node_id": "intake",
+      "type": "intake_gate",
+      "description": "Single-pass classification and extraction of user intent",
       "non_advancing": false,
-      "task_ref": "Concierge Intake v1.0"
-    },
-    {
-      "node_id": "consent_gate",
-      "type": "gate",
-      "description": "Explicit consent checkpoint before proceeding to document generation",
-      "requires_consent": true
+      "task_ref": "Intake Gate v1.0"
     },
     {
       "node_id": "generation",
       "type": "task",
-      "description": "Generate structured Concierge Intake Document from conversation",
-      "task_ref": "Concierge Intent Reflection v1.0",
+      "description": "Generate structured Intake Document from classified input",
+      "task_ref": "Intake Document Generation v1.0",
       "produces": "concierge_intake_document"
     },
     {
       "node_id": "qa",
       "type": "qa",
-      "description": "Quality assurance on generated intake document",
+      "description": "Structural QA on generated intake document",
       "task_ref": "Intake QA v1.0",
-      "requires_qa": true
+      "requires_qa": true,
+      "qa_mode": "structural"
     },
     {
       "node_id": "remediation",
       "type": "task",
       "description": "Rework intake document based on QA feedback",
-      "task_ref": "Concierge Intent Reflection v1.0",
+      "task_ref": "Intake Document Generation v1.0",
       "produces": "concierge_intake_document"
-    },
-    {
-      "node_id": "outcome_gate",
-      "type": "gate",
-      "description": "Determine Intake Gate outcome (qualified, not_ready, out_of_scope, redirect)",
-      "gate_outcomes": ["qualified", "not_ready", "out_of_scope", "redirect"]
     },
     {
       "node_id": "end_stabilized",
       "type": "end",
-      "description": "Document workflow concludes with stabilized outcome (maps to qualified)",
+      "description": "Intake qualified and document ready for Project Discovery",
       "terminal_outcome": "stabilized",
       "gate_outcome": "qualified"
     },
     {
       "node_id": "end_blocked",
       "type": "end",
-      "description": "Document workflow concludes with blocked outcome (maps to not_ready)",
+      "description": "Intake blocked - insufficient info or QA circuit breaker",
       "terminal_outcome": "blocked",
       "gate_outcome": "not_ready"
     },
     {
       "node_id": "end_abandoned",
       "type": "end",
-      "description": "Document workflow concludes with abandoned outcome (maps to out_of_scope or redirect)",
+      "description": "Request out of scope or redirected",
       "terminal_outcome": "abandoned",
       "gate_outcome": null
     }
   ],
   "edges": [
     {
-      "edge_id": "clarification_to_consent",
-      "from_node_id": "clarification",
-      "to_node_id": "consent_gate",
-      "outcome": "success",
-      "label": "Proceed to consent",
-      "kind": "user_choice"
+      "edge_id": "intake_qualified",
+      "from_node_id": "intake",
+      "to_node_id": "generation",
+      "outcome": "qualified",
+      "label": "Request qualified, generate document",
+      "kind": "auto"
     },
     {
-      "edge_id": "clarification_ask_more",
-      "from_node_id": "clarification",
+      "edge_id": "intake_insufficient",
+      "from_node_id": "intake",
       "to_node_id": null,
       "outcome": "needs_user_input",
-      "label": "Ask more questions",
-      "kind": "user_choice",
+      "label": "Request needs more detail (max 1 question)",
+      "kind": "auto",
       "non_advancing": true
     },
     {
-      "edge_id": "clarification_to_abandoned_scope",
-      "from_node_id": "clarification",
+      "edge_id": "intake_out_of_scope",
+      "from_node_id": "intake",
       "to_node_id": "end_abandoned",
       "outcome": "out_of_scope",
       "label": "Out of scope",
       "kind": "auto"
     },
     {
-      "edge_id": "clarification_to_abandoned_redirect",
-      "from_node_id": "clarification",
+      "edge_id": "intake_redirect",
+      "from_node_id": "intake",
       "to_node_id": "end_abandoned",
       "outcome": "redirect",
       "label": "Redirect to different engagement",
-      "kind": "auto"
-    },
-    {
-      "edge_id": "consent_proceed",
-      "from_node_id": "consent_gate",
-      "to_node_id": "generation",
-      "outcome": "success",
-      "label": "User consents to proceed",
-      "kind": "auto"
-    },
-    {
-      "edge_id": "consent_not_ready",
-      "from_node_id": "consent_gate",
-      "to_node_id": "end_blocked",
-      "outcome": "blocked",
-      "label": "User not ready to proceed",
       "kind": "auto"
     },
     {
@@ -129,15 +102,23 @@
       "from_node_id": "generation",
       "to_node_id": "qa",
       "outcome": "success",
-      "label": "Document generated, proceed to QA",
+      "label": "Document generated, run structural QA",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Document generation failed",
       "kind": "auto"
     },
     {
       "edge_id": "qa_pass",
       "from_node_id": "qa",
-      "to_node_id": "outcome_gate",
+      "to_node_id": "end_stabilized",
       "outcome": "success",
-      "label": "QA passed",
+      "label": "QA passed - auto-complete as qualified",
       "kind": "auto"
     },
     {
@@ -160,7 +141,7 @@
       "from_node_id": "qa",
       "to_node_id": "end_blocked",
       "outcome": "failed",
-      "label": "QA failed, circuit breaker tripped",
+      "label": "QA failed, circuit breaker - internal bug",
       "kind": "auto",
       "conditions": [
         {
@@ -168,12 +149,6 @@
           "operator": "gte",
           "value": 2
         }
-      ],
-      "escalation_options": [
-        "ask_more_questions",
-        "narrow_scope",
-        "switch_intent_class",
-        "abandon"
       ]
     },
     {
@@ -185,83 +160,36 @@
       "kind": "auto"
     },
     {
-      "edge_id": "outcome_qualified",
-      "from_node_id": "outcome_gate",
-      "to_node_id": "end_stabilized",
-      "outcome": "qualified",
-      "label": "Intake qualified",
-      "kind": "auto"
-    },
-    {
-      "edge_id": "outcome_not_ready",
-      "from_node_id": "outcome_gate",
+      "edge_id": "remediation_failed",
+      "from_node_id": "remediation",
       "to_node_id": "end_blocked",
-      "outcome": "not_ready",
-      "label": "Intake not ready",
-      "kind": "auto"
-    },
-    {
-      "edge_id": "outcome_out_of_scope",
-      "from_node_id": "outcome_gate",
-      "to_node_id": "end_abandoned",
-      "outcome": "out_of_scope",
-      "label": "Request out of scope",
-      "kind": "auto"
-    },
-    {
-      "edge_id": "outcome_redirect",
-      "from_node_id": "outcome_gate",
-      "to_node_id": "end_abandoned",
-      "outcome": "redirect",
-      "label": "Redirect to different engagement",
+      "outcome": "failed",
+      "label": "Remediation failed",
       "kind": "auto"
     }
   ],
-  "outcome_mapping": {
-    "description": "Deterministic mapping from Intake Gate outcome (governance) to Document Workflow terminal outcome (execution). Gate outcome is authoritative.",
-    "mappings": [
-      {
-        "gate_outcome": "qualified",
-        "terminal_outcome": "stabilized"
-      },
-      {
-        "gate_outcome": "not_ready",
-        "terminal_outcome": "blocked"
-      },
-      {
-        "gate_outcome": "out_of_scope",
-        "terminal_outcome": "abandoned"
-      },
-      {
-        "gate_outcome": "redirect",
-        "terminal_outcome": "abandoned"
-      }
-    ]
-  },
   "governance": {
     "adr_references": ["ADR-025", "ADR-035", "ADR-036", "ADR-037", "ADR-038", "ADR-039"],
-    "downstream_requirements": {
-      "description": "Downstream document creation MUST verify these conditions. Fail fast if not met.",
-      "conditions": [
-        "gate_outcome == qualified",
-        "document_workflow_terminal == stabilized",
-        "document_lifecycle_state == accepted"
-      ]
-    },
-    "staleness_handling": {
-      "description": "If intake becomes stale, do NOT auto-re-enter. Surface as blocker with explicit refresh option.",
-      "auto_reentry": false,
-      "refresh_option": "refresh_intake"
-    },
+    "design_principles": [
+      "Auto-complete on QA pass - no manual outcome selection",
+      "QA failures are internal bugs, not user-facing decisions",
+      "Max 1 clarifying question before user must provide more detail",
+      "Combine is a work system, not a wizard"
+    ],
     "circuit_breaker": {
       "max_retries": 2,
       "applies_to": ["qa", "remediation"],
-      "escalation_per_adr": "ADR-037"
+      "on_trip": "end_blocked with internal error flag"
     }
   },
   "metadata": {
     "created_date": "2026-01-16",
+    "updated_date": "2026-01-19",
     "work_statement": "WS-INTAKE-WORKFLOW-001",
-    "notes": "First implementation of ADR-039 Document Interaction Workflow pattern. Bootstrap/reference artifact for database seeding."
+    "changelog": [
+      "v1.0: Initial multi-turn Concierge",
+      "v1.1: Replaced Concierge with single-pass Intake Gate",
+      "v1.2: Removed outcome_gate - auto-complete on QA pass"
+    ]
   }
 }

@@ -1,4 +1,4 @@
-"""LLM-backed node executors for Document Interaction Workflows (ADR-039).
+﻿"""LLM-backed node executors for Document Interaction Workflows (ADR-039).
 
 This module provides factory functions to create node executors with real LLM
 integration, including ADR-010 logging compliance.
@@ -34,7 +34,7 @@ from app.domain.workflow.nodes.base import (
     PromptLoader,
 )
 from app.domain.workflow.nodes.task import TaskNodeExecutor
-from app.domain.workflow.nodes.concierge import ConciergeNodeExecutor
+from app.domain.workflow.nodes.intake_gate import IntakeGateExecutor
 from app.domain.workflow.nodes.qa import QANodeExecutor
 from app.domain.workflow.nodes.gate import GateNodeExecutor
 from app.domain.workflow.nodes.end import EndNodeExecutor
@@ -275,9 +275,9 @@ async def create_llm_executors(
     # Create logger if enabled (deferred import to avoid circular dependency)
     execution_logger = None
     if enable_logging:
-        from app.domain.repositories.llm_log_repository import LLMLogRepository
+        from app.domain.repositories.postgres_llm_log_repository import PostgresLLMLogRepository
         from app.domain.services.llm_execution_logger import LLMExecutionLogger
-        repo = LLMLogRepository(db)
+        repo = PostgresLLMLogRepository(db)
         execution_logger = LLMExecutionLogger(repo)
 
     # Create LLM service
@@ -291,7 +291,7 @@ async def create_llm_executors(
 
     # Create executors
     return {
-        NodeType.CONCIERGE: ConciergeNodeExecutor(
+        NodeType.INTAKE_GATE: IntakeGateExecutor(
             llm_service=llm_service,
             prompt_loader=prompt_loader,
         ),

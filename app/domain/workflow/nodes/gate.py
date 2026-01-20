@@ -54,25 +54,17 @@ class GateNodeExecutor(NodeExecutor):
         requires_consent = node_config.get("requires_consent", False)
         gate_outcomes = node_config.get("gate_outcomes", [])
 
-        # Check if we already have a user response for this gate
-        response_key = f"gate_{node_id}_outcome"
-        existing_response = context.get_user_response(response_key)
-
-        if existing_response:
-            # User already made a selection
-            logger.info(f"Gate {node_id} using existing response: {existing_response}")
-            return NodeResult(
-                outcome=existing_response,
-                metadata={"gate_id": node_id, "from_cache": True},
-            )
+        # Get user's selected option (ADR-037 compliant)
+        # Per ADR-037: Option selection arrives via context.extra["selected_option_id"]
+        selected_option_id = context.extra.get("selected_option_id")
 
         # Handle consent gate
         if requires_consent:
-            return self._handle_consent_gate(node_id, context)
+            return self._handle_consent_gate(node_id, selected_option_id)
 
         # Handle outcome gate (multiple choices)
         if gate_outcomes:
-            return self._handle_outcome_gate(node_id, gate_outcomes, context)
+            return self._handle_outcome_gate(node_id, gate_outcomes, selected_option_id)
 
         # Default: simple pass-through gate
         logger.info(f"Gate {node_id} passed (no conditions)")
@@ -81,21 +73,23 @@ class GateNodeExecutor(NodeExecutor):
     def _handle_consent_gate(
         self,
         node_id: str,
-        context: DocumentWorkflowContext,
+        selected_option_id: Optional[str],
     ) -> NodeResult:
         """Handle a consent gate that requires explicit user consent.
 
         Args:
             node_id: The gate node ID
-            context: Workflow context
+            selected_option_id: User's selected option (ADR-037 compliant)
 
         Returns:
             NodeResult requiring user input or with consent outcome
         """
-        response_key = f"gate_{node_id}_consent"
-        consent = context.get_user_response(response_key)
+        # ADR-037: Only explicit option selection can advance
+        # Valid consent options: "proceed", "not_ready"
+        consent_proceed_options = {"proceed", "yes", "consent_proceed"}
+        consent_decline_options = {"not_ready", "no", "consent_decline"}
 
-        if consent is None:
+        if selected_option_id is None:
             # Need to ask for consent
             logger.info(f"Gate {node_id} requesting consent")
             return NodeResult.needs_user_input(
@@ -105,66 +99,87 @@ class GateNodeExecutor(NodeExecutor):
                 consent_required=True,
             )
 
-        # User has responded
-        if consent in ("proceed", "yes", "true", True):
-            logger.info(f"Gate {node_id} consent granted")
+        # User has selected an option
+        if selected_option_id in consent_proceed_options:
+            logger.info(f"Gate {node_id} consent granted via '{selected_option_id}'")
             return NodeResult(
                 outcome="success",
-                metadata={"gate_id": node_id, "consent": True},
+                metadata={
+                    "gate_id": node_id,
+                    "consent": True,
+                    "selected_option_id": selected_option_id,
+                },
             )
-        else:
-            logger.info(f"Gate {node_id} consent denied")
+        elif selected_option_id in consent_decline_options:
+            logger.info(f"Gate {node_id} consent denied via '{selected_option_id}'")
             return NodeResult(
                 outcome="blocked",
-                metadata={"gate_id": node_id, "consent": False},
+                metadata={
+                    "gate_id": node_id,
+                    "consent": False,
+                    "selected_option_id": selected_option_id,
+                },
+            )
+        else:
+            # Invalid option - log and reject
+            logger.warning(
+                f"Gate {node_id} received invalid consent option: '{selected_option_id}'"
+            )
+            return NodeResult.needs_user_input(
+                prompt="Please select a valid option: proceed or not_ready",
+                choices=["proceed", "not_ready"],
+                gate_id=node_id,
+                consent_required=True,
+                invalid_selection=selected_option_id,
             )
 
     def _handle_outcome_gate(
         self,
         node_id: str,
         gate_outcomes: List[str],
-        context: DocumentWorkflowContext,
+        selected_option_id: Optional[str],
     ) -> NodeResult:
         """Handle a gate with multiple outcome choices.
 
         Args:
             node_id: The gate node ID
-            gate_outcomes: List of possible outcomes
-            context: Workflow context
+            gate_outcomes: List of possible outcomes (available_options per ADR-037)
+            selected_option_id: User's selected option (must be in gate_outcomes)
 
         Returns:
             NodeResult requiring user input or with selected outcome
         """
-        response_key = f"gate_{node_id}_outcome"
-        selected = context.get_user_response(response_key)
-
-        if selected is None:
+        if selected_option_id is None:
             # Need user to select outcome
             logger.info(f"Gate {node_id} requesting outcome selection from {gate_outcomes}")
             return NodeResult.needs_user_input(
-                prompt=f"Select the appropriate outcome for this gate",
+                prompt="Select the appropriate outcome for this gate",
                 choices=gate_outcomes,
                 gate_id=node_id,
                 outcome_selection=True,
             )
 
-        # Validate selection
-        if selected not in gate_outcomes:
+        # ADR-037: Validate selection is in available_options
+        if selected_option_id not in gate_outcomes:
             logger.warning(
-                f"Gate {node_id} received invalid outcome: {selected}. "
-                f"Valid: {gate_outcomes}"
+                f"Gate {node_id} received invalid option: '{selected_option_id}'. "
+                f"Valid options: {gate_outcomes}"
             )
-            # Return as-is; let EdgeRouter handle invalid outcomes
-            return NodeResult(
-                outcome=selected,
-                metadata={
-                    "gate_id": node_id,
-                    "warning": f"Outcome '{selected}' not in defined gate_outcomes",
-                },
+            # Re-prompt with valid options - do NOT advance with invalid selection
+            return NodeResult.needs_user_input(
+                prompt=f"Invalid selection. Please choose from: {', '.join(gate_outcomes)}",
+                choices=gate_outcomes,
+                gate_id=node_id,
+                outcome_selection=True,
+                invalid_selection=selected_option_id,
             )
 
-        logger.info(f"Gate {node_id} outcome selected: {selected}")
+        logger.info(f"Gate {node_id} outcome selected: {selected_option_id}")
         return NodeResult(
-            outcome=selected,
-            metadata={"gate_id": node_id},
+            outcome=selected_option_id,
+            metadata={
+                "gate_id": node_id,
+                "gate_outcome": selected_option_id,
+                "selected_option_id": selected_option_id,
+            },
         )

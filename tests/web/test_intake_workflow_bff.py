@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for Intake Workflow BFF context builders (WS-ADR-025).
 
 Tests the template context builder functions that transform workflow state
@@ -6,7 +6,8 @@ into view-ready data for the intake workflow UI.
 """
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
 from app.domain.workflow.document_workflow_state import (
@@ -201,7 +202,7 @@ class TestBuildMessageContext:
 
         assert context["request"] == mock_request
         assert context["execution_id"] == "exec-123"
-        assert context["user_message"] == "Hello"
+        assert context["user_message"] is None  # Shown optimistically in frontend
 
     def test_assistant_response_from_history(self, mock_request, state_with_history):
         """Test assistant response is extracted from last history entry."""
@@ -239,12 +240,19 @@ class TestBuildMessageContext:
 class TestBuildCompletionContext:
     """Tests for _build_completion_context function."""
 
-    def test_qualified_outcome(self, mock_request, base_state):
-        """Test qualified outcome display."""
+    @pytest.fixture
+    def mock_db(self):
+        """Create mock database session."""
+        return AsyncMock(spec=AsyncSession)
+
+    @pytest.mark.asyncio
+    async def test_qualified_outcome(self, mock_request, base_state, mock_db):
+        """Test qualified outcome display (no project created in mock)."""
         base_state.set_completed(
             terminal_outcome="stabilized", gate_outcome="qualified"
         )
-        context = _build_completion_context(mock_request, base_state)
+        # Note: mock db won't actually create project, so outcome is "Project Qualified"
+        context = await _build_completion_context(mock_request, base_state, mock_db, None)
 
         assert context["execution_id"] == "exec-123"
         assert context["gate_outcome"] == "qualified"
@@ -254,48 +262,52 @@ class TestBuildCompletionContext:
         assert context["outcome_color"] == "green"
         assert context["next_action"] == "View Discovery Document"
 
-    def test_not_ready_outcome(self, mock_request, base_state):
+    @pytest.mark.asyncio
+    async def test_not_ready_outcome(self, mock_request, base_state, mock_db):
         """Test not_ready outcome display."""
         base_state.set_completed(
             terminal_outcome="blocked", gate_outcome="not_ready"
         )
-        context = _build_completion_context(mock_request, base_state)
+        context = await _build_completion_context(mock_request, base_state, mock_db, None)
 
         assert context["outcome_title"] == "Not Ready"
         assert "Additional information" in context["outcome_description"]
         assert context["outcome_color"] == "yellow"
         assert context["next_action"] == "Start Over"
 
-    def test_out_of_scope_outcome(self, mock_request, base_state):
+    @pytest.mark.asyncio
+    async def test_out_of_scope_outcome(self, mock_request, base_state, mock_db):
         """Test out_of_scope outcome display."""
         base_state.set_completed(
             terminal_outcome="abandoned", gate_outcome="out_of_scope"
         )
-        context = _build_completion_context(mock_request, base_state)
+        context = await _build_completion_context(mock_request, base_state, mock_db, None)
 
         assert context["outcome_title"] == "Out of Scope"
         assert "outside the scope" in context["outcome_description"]
         assert context["outcome_color"] == "gray"
         assert context["next_action"] is None
 
-    def test_redirect_outcome(self, mock_request, base_state):
+    @pytest.mark.asyncio
+    async def test_redirect_outcome(self, mock_request, base_state, mock_db):
         """Test redirect outcome display."""
         base_state.set_completed(
             terminal_outcome="stabilized", gate_outcome="redirect"
         )
-        context = _build_completion_context(mock_request, base_state)
+        context = await _build_completion_context(mock_request, base_state, mock_db, None)
 
         assert context["outcome_title"] == "Redirected"
         assert "engagement type" in context["outcome_description"]
         assert context["outcome_color"] == "blue"
         assert context["next_action"] is None
 
-    def test_unknown_outcome_fallback(self, mock_request, base_state):
+    @pytest.mark.asyncio
+    async def test_unknown_outcome_fallback(self, mock_request, base_state, mock_db):
         """Test fallback for unknown outcome."""
         base_state.set_completed(
             terminal_outcome="custom", gate_outcome="unknown_gate"
         )
-        context = _build_completion_context(mock_request, base_state)
+        context = await _build_completion_context(mock_request, base_state, mock_db, None)
 
         assert context["outcome_title"] == "Complete"
         assert "completed" in context["outcome_description"].lower()

@@ -1,19 +1,18 @@
-"""
-Unit tests for ProjectAuditService.
+﻿"""
+Unit tests for ProjectAuditService (ORM version).
 """
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
-import json
 
 from app.core.audit_service import audit_service
 
 
 @pytest.mark.asyncio
 async def test_log_event_creates_audit_entry():
-    """Test basic audit event creation."""
+    """Test basic audit event creation via ORM."""
     # Arrange
     db = AsyncMock(spec=AsyncSession)
     project_id = uuid4()
@@ -28,18 +27,14 @@ async def test_log_event_creates_audit_entry():
         metadata={'test': True}
     )
     
-    # Assert
-    db.execute.assert_called_once()
-    call_args = db.execute.call_args
+    # Assert - ORM uses db.add()
+    db.add.assert_called_once()
+    audit_entry = db.add.call_args[0][0]
     
-    # call_args[0] is the positional args tuple: (query, params)
-    query = str(call_args[0][0])  # The SQL query
-    params = call_args[0][1]       # The parameters dict
-    
-    assert 'INSERT INTO project_audit' in query
-    assert params['project_id'] == str(project_id)
-    assert params['actor_user_id'] == str(user_id)
-    assert params['action'] == 'CREATED'
+    assert audit_entry.project_id == project_id
+    assert audit_entry.actor_user_id == user_id
+    assert audit_entry.action == 'CREATED'
+    assert audit_entry.meta['test'] == True
 
 
 @pytest.mark.asyncio
@@ -54,6 +49,9 @@ async def test_log_event_rejects_invalid_action():
             action='INVALID_ACTION',
             actor_user_id=uuid4()
         )
+    
+    # Should not add anything if validation fails
+    db.add.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -73,12 +71,10 @@ async def test_log_event_adds_meta_version():
     )
     
     # Assert
-    call_args = db.execute.call_args
-    params = call_args[0][1]
-    metadata = json.loads(params['metadata'])
+    audit_entry = db.add.call_args[0][0]
     
-    assert metadata['meta_version'] == '1.0'
-    assert metadata['changed_fields'] == ['name']
+    assert audit_entry.meta['meta_version'] == '1.0'
+    assert audit_entry.meta['changed_fields'] == ['name']
 
 
 @pytest.mark.asyncio
@@ -100,12 +96,10 @@ async def test_log_event_with_correlation_id():
     )
     
     # Assert
-    call_args = db.execute.call_args
-    params = call_args[0][1]
-    metadata = json.loads(params['metadata'])
+    audit_entry = db.add.call_args[0][0]
     
-    assert metadata['correlation_id'] == correlation_id
-    assert params['reason'] == 'Testing'
+    assert audit_entry.meta['correlation_id'] == correlation_id
+    assert audit_entry.reason == 'Testing'
 
 
 @pytest.mark.asyncio
@@ -128,10 +122,7 @@ async def test_log_event_with_null_actor():
     )
     
     # Assert
-    call_args = db.execute.call_args
-    params = call_args[0][1]
+    audit_entry = db.add.call_args[0][0]
     
-    assert params['actor_user_id'] is None
-    
-    metadata = json.loads(params['metadata'])
-    assert metadata['actor_type'] == 'system'
+    assert audit_entry.actor_user_id is None
+    assert audit_entry.meta['actor_type'] == 'system'

@@ -5,6 +5,7 @@
             <tr>
                 <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Source</th>
                 <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Type</th>
+                <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">User</th>
                 <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Project</th>
                 <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Status</th>
                 <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Started</th>
@@ -26,6 +27,7 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3">{{ exec.workflow_id }}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ exec.user_email or '-' }}</td>
                 <td class="px-4 py-3 font-mono text-xs">{{ exec.project_id[:8] if exec.project_id and exec.project_id != '-' else '-' }}...</td>
                 <td class="px-4 py-3">
                     {% set status = exec.status %}

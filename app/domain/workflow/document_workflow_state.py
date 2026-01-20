@@ -73,6 +73,9 @@ class DocumentWorkflowState:
     current_node_id: str
     status: DocumentWorkflowStatus
 
+    # User who initiated this execution
+    user_id: Optional[str] = None
+
     # Execution history (ordered)
     node_history: List[NodeExecution] = field(default_factory=list)
 
@@ -81,12 +84,21 @@ class DocumentWorkflowState:
     # Only QA failures increment retries for the upstream generating node
     retry_counts: Dict[str, int] = field(default_factory=dict)
 
+    # Track which node generated content being QA'd (for retry routing)
+    generating_node_id: Optional[str] = None
+
     # Outcomes (set when reaching terminal)
     gate_outcome: Optional[str] = None
     terminal_outcome: Optional[str] = None
 
     # Thread reference (ADR-035)
     thread_id: Optional[str] = None
+
+    # Structured context state (ADR-040)
+    # This is the ONLY source of continuity for LLM invocations.
+    # Contains governed data derived from prior turns, NOT raw transcripts.
+    # Example: {"intake_summary": "...", "known_constraints": [], "open_gaps": []}
+    context_state: Dict[str, Any] = field(default_factory=dict)
 
     # Timestamps
     created_at: datetime = field(default_factory=datetime.utcnow)
@@ -193,6 +205,18 @@ class DocumentWorkflowState:
         self.escalation_options = []
         self.updated_at = datetime.utcnow()
 
+    def update_context_state(self, delta: Dict[str, Any]) -> None:
+        """Update context state with delta from node execution.
+
+        Per ADR-040: context_state is the ONLY source of continuity for LLM
+        invocations. It contains structured, governed data — NOT transcripts.
+
+        Args:
+            delta: State updates to merge. Keys are replaced, not deep-merged.
+        """
+        self.context_state.update(delta)
+        self.updated_at = datetime.utcnow()
+
     def set_completed(
         self,
         terminal_outcome: str,
@@ -230,6 +254,7 @@ class DocumentWorkflowState:
             "workflow_id": self.workflow_id,
             "document_id": self.document_id,
             "document_type": self.document_type,
+            "user_id": self.user_id,
             "current_node_id": self.current_node_id,
             "status": self.status.value,
             "node_history": [n.to_dict() for n in self.node_history],
@@ -237,6 +262,7 @@ class DocumentWorkflowState:
             "gate_outcome": self.gate_outcome,
             "terminal_outcome": self.terminal_outcome,
             "thread_id": self.thread_id,
+            "context_state": self.context_state,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "pending_user_input": self.pending_user_input,
@@ -254,6 +280,7 @@ class DocumentWorkflowState:
             workflow_id=data["workflow_id"],
             document_id=data["document_id"],
             document_type=data["document_type"],
+            user_id=data.get("user_id"),
             current_node_id=data["current_node_id"],
             status=DocumentWorkflowStatus(data["status"]),
             node_history=[
@@ -263,6 +290,7 @@ class DocumentWorkflowState:
             gate_outcome=data.get("gate_outcome"),
             terminal_outcome=data.get("terminal_outcome"),
             thread_id=data.get("thread_id"),
+            context_state=data.get("context_state", {}),
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
             pending_user_input=data.get("pending_user_input", False),

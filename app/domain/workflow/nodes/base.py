@@ -106,6 +106,13 @@ class DocumentWorkflowContext:
     # Additional context data
     extra: Dict[str, Any] = field(default_factory=dict)
 
+    # Structured context state (ADR-040) - persisted between node executions
+    context_state: Dict[str, Any] = field(default_factory=dict)
+
+    # Intent capsule for QA validation (capped ~500 chars)
+    # Used when qa_mode is "structural+intent" to verify document aligns with user intent
+    intent_capsule: Optional[str] = None
+
     def add_message(self, role: str, content: str) -> None:
         """Add a message to conversation history."""
         self.conversation_history.append({

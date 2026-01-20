@@ -1,4 +1,4 @@
-"""Tests for node executors (ADR-039)."""
+﻿"""Tests for node executors (ADR-039)."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -9,7 +9,6 @@ from app.domain.workflow.nodes.base import (
 )
 from app.domain.workflow.nodes.task import TaskNodeExecutor
 from app.domain.workflow.nodes.gate import GateNodeExecutor
-from app.domain.workflow.nodes.concierge import ConciergeNodeExecutor
 from app.domain.workflow.nodes.qa import QANodeExecutor
 from app.domain.workflow.nodes.end import EndNodeExecutor
 
@@ -177,7 +176,8 @@ class TestGateNodeExecutor:
     @pytest.mark.asyncio
     async def test_consent_gate_with_consent(self, executor, context, state_snapshot):
         """Consent gate with user consent proceeds."""
-        context.set_user_response("gate_consent_gate_consent", "proceed")
+        # ADR-037: Option selection via context.extra["selected_option_id"]
+        context.extra["selected_option_id"] = "proceed"
 
         result = await executor.execute(
             node_id="consent_gate",
@@ -192,7 +192,8 @@ class TestGateNodeExecutor:
     @pytest.mark.asyncio
     async def test_consent_gate_denied(self, executor, context, state_snapshot):
         """Consent gate with denied consent returns blocked."""
-        context.set_user_response("gate_consent_gate_consent", "not_ready")
+        # ADR-037: Option selection via context.extra["selected_option_id"]
+        context.extra["selected_option_id"] = "not_ready"
 
         result = await executor.execute(
             node_id="consent_gate",
@@ -219,7 +220,8 @@ class TestGateNodeExecutor:
     @pytest.mark.asyncio
     async def test_outcome_gate_with_selection(self, executor, context, state_snapshot):
         """Outcome gate with user selection returns that outcome."""
-        context.set_user_response("gate_outcome_gate_outcome", "qualified")
+        # ADR-037: Option selection via context.extra["selected_option_id"]
+        context.extra["selected_option_id"] = "qualified"
 
         result = await executor.execute(
             node_id="outcome_gate",
@@ -232,8 +234,9 @@ class TestGateNodeExecutor:
 
     @pytest.mark.asyncio
     async def test_cached_response_used(self, executor, context, state_snapshot):
-        """Previously cached response is used."""
-        context.set_user_response("gate_cached_gate_outcome", "not_ready")
+        """Previously selected response is used."""
+        # ADR-037: Option selection via context.extra["selected_option_id"]
+        context.extra["selected_option_id"] = "not_ready"
 
         result = await executor.execute(
             node_id="cached_gate",
@@ -243,142 +246,8 @@ class TestGateNodeExecutor:
         )
 
         assert result.outcome == "not_ready"
-        assert result.metadata.get("from_cache") is True
-
-
-# =============================================================================
-# ConciergeNodeExecutor Tests
-# =============================================================================
-
-class TestConciergeNodeExecutor:
-    """Tests for ConciergeNodeExecutor."""
-
-    @pytest.fixture
-    def executor(self, mock_llm_service, mock_prompt_loader):
-        """Create a ConciergeNodeExecutor."""
-        return ConciergeNodeExecutor(
-            llm_service=mock_llm_service,
-            prompt_loader=mock_prompt_loader,
-        )
-
-    def test_supported_node_type(self, executor):
-        """Executor reports correct node type."""
-        assert executor.get_supported_node_type() == "concierge"
-
-    @pytest.mark.asyncio
-    async def test_initial_execution_needs_input(
-        self, executor, context, state_snapshot, mock_llm_service
-    ):
-        """Initial execution requests user input."""
-        mock_llm_service.complete = AsyncMock(
-            return_value="Hello! What would you like to build today?"
-        )
-
-        result = await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        assert result.outcome == "needs_user_input"
-        assert result.requires_user_input is True
-        assert "Hello" in result.user_prompt
-
-    @pytest.mark.asyncio
-    async def test_user_wants_to_proceed(self, executor, context, state_snapshot):
-        """User indicating proceed returns success."""
-        context.set_user_response("concierge_clarification_proceed", True)
-
-        result = await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        assert result.outcome == "success"
-
-    @pytest.mark.asyncio
-    async def test_out_of_scope_detection(
-        self, executor, context, state_snapshot, mock_llm_service
-    ):
-        """Out of scope response is detected."""
-        mock_llm_service.complete = AsyncMock(
-            return_value="I'm sorry, but this request is out of scope for our services."
-        )
-
-        result = await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        assert result.outcome == "out_of_scope"
-
-    @pytest.mark.asyncio
-    async def test_redirect_detection(
-        self, executor, context, state_snapshot, mock_llm_service
-    ):
-        """Redirect response is detected."""
-        mock_llm_service.complete = AsyncMock(
-            return_value="This would be better suited for our support team."
-        )
-
-        result = await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        assert result.outcome == "redirect"
-
-    @pytest.mark.asyncio
-    async def test_conversation_history_updated(
-        self, executor, context, state_snapshot, mock_llm_service
-    ):
-        """Conversation history is updated during execution."""
-        mock_llm_service.complete = AsyncMock(return_value="How can I help?")
-
-        await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        # Should have initial user message and assistant response
-        assert len(context.conversation_history) >= 2
-
-    @pytest.mark.asyncio
-    async def test_does_not_make_routing_decisions(
-        self, executor, context, state_snapshot, mock_llm_service
-    ):
-        """Executor does NOT make routing decisions (boundary constraint)."""
-        # This test documents the invariant that ConciergeNodeExecutor
-        # does not access edges or make routing decisions
-
-        mock_llm_service.complete = AsyncMock(return_value="Normal response")
-
-        result = await executor.execute(
-            node_id="clarification",
-            node_config={"task_ref": "Concierge v1.0"},
-            context=context,
-            state_snapshot=state_snapshot,
-        )
-
-        # Executor returns an outcome; it does NOT decide which edge to take
-        assert result.outcome in ("needs_user_input", "success", "out_of_scope", "redirect", "failed")
-        # No edge-related metadata
-        assert "next_node" not in result.metadata
-        assert "edge_id" not in result.metadata
-
-
-# =============================================================================
-# QANodeExecutor Tests
-# =============================================================================
+        # Note: from_cache is no longer set since we use the new selection mechanism
+        assert result.metadata.get("gate_outcome") == "not_ready"
 
 class TestQANodeExecutor:
     """Tests for QANodeExecutor."""

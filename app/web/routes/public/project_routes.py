@@ -1,19 +1,20 @@
 ﻿"""
 Project routes for The Combine UI - With User Ownership
-Handles different User model ID field names (id, user_id, uuid, etc.)
+Uses SQLAlchemy ORM instead of raw SQL.
 """
 
 from fastapi import APIRouter, Depends, Request, HTTPException, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import select, and_, or_
 from typing import Optional
 from uuid import UUID
+from datetime import datetime, timezone
 import logging
 
 from app.core.database import get_db
 from ..shared import templates
-from app.api.services import project_service
+from app.api.models.project import Project
 from app.api.services.document_status_service import document_status_service
 from app.auth.dependencies import require_auth
 from app.auth.models import User
@@ -30,68 +31,79 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 def _get_user_id(user: User) -> str:
-    """
-    Get the user's ID, handling different field names.
-    The User model might use 'id', 'user_id', 'uuid', or other field names.
-    """
-    # Try common field names
+    """Get the user's ID as string."""
     for field_name in ['id', 'user_id', 'uuid', 'pk']:
         if hasattr(user, field_name):
             value = getattr(user, field_name)
-            # Convert to string if it's a UUID
             return str(value) if value else None
     
-    # If we can't find the ID, raise a helpful error
     available_attrs = [attr for attr in dir(user) if not attr.startswith('_')]
     raise AttributeError(
-        f"User model has no 'id' attribute. Available attributes: {available_attrs}. "
-        f"Please update _get_user_id() in project_routes.py to use the correct field."
+        f"User model has no 'id' attribute. Available: {available_attrs}"
     )
+
+
+def _get_user_uuid(user: User) -> UUID:
+    """Get user ID as UUID object."""
+    return UUID(_get_user_id(user))
+
+
+def _project_to_dict(project: Project) -> dict:
+    """Convert Project ORM object to dict for templates."""
+    return {
+        "id": str(project.id),
+        "name": project.name,
+        "project_id": project.project_id,
+        "description": project.description,
+        "icon": project.icon or "folder",
+        "created_at": project.created_at,
+        "updated_at": project.updated_at,
+        "owner_id": str(project.owner_id) if project.owner_id else None,
+        "archived_at": project.archived_at,
+        "archived_by": str(project.archived_by) if project.archived_by else None,
+        "archived_reason": project.archived_reason,
+        "is_archived": project.archived_at is not None,
+    }
+
+
+def _get_project_id_condition(project_id: str):
+    """Get the appropriate WHERE condition for project lookup.
+    
+    Handles both UUID (id column) and string (project_id column).
+    """
+    try:
+        project_uuid = UUID(project_id)
+        return Project.id == project_uuid
+    except (ValueError, TypeError):
+        return Project.project_id == project_id
 
 
 async def _get_project_with_icon(db: AsyncSession, project_id: str, user: User) -> dict | None:
-    """Get project with icon AND archive state - VERIFY OWNERSHIP."""
-    user_id = _get_user_id(user)
+    """Get project with ownership check via ORM.
+    
+    Handles both UUID (id column) and string (project_id column) lookups.
+    """
+    user_uuid = _get_user_uuid(user)
     
     result = await db.execute(
-        text("""
-            SELECT id, name, project_id, description, icon, 
-                   created_at, updated_at, owner_id,
-                   archived_at, archived_by, archived_reason
-            FROM projects 
-            WHERE id = :project_id AND owner_id = :user_id
-        """),
-        {"project_id": project_id, "user_id": user_id}
+        select(Project).where(
+            and_(
+                _get_project_id_condition(project_id),
+                Project.owner_id == user_uuid
+            )
+        )
     )
-    row = result.fetchone()
-    if not row:
+    project = result.scalar_one_or_none()
+    
+    if not project:
         return None
     
-    return {
-        "id": str(row.id),
-        "name": row.name,
-        "project_id": row.project_id,
-        "description": row.description,
-        "icon": row.icon or "folder",
-        "created_at": row.created_at,
-        "updated_at": row.updated_at,
-        "owner_id": str(row.owner_id) if row.owner_id else None,
-        "archived_at": row.archived_at,
-        "archived_by": str(row.archived_by) if row.archived_by else None,
-        "archived_reason": row.archived_reason,
-        "is_archived": row.archived_at is not None,  # Computed convenience field
-    }
+    return _project_to_dict(project)
 
 
 def _is_htmx_request(request: Request) -> bool:
     """Check if this is an HTMX request."""
     return request.headers.get("HX-Request") == "true"
-
-
-def _get_htmx_target(request: Request) -> str | None:
-    """Get the HTMX target element."""
-    return request.headers.get("HX-Target")
-
 
 # ============================================================================
 # STATIC ROUTES (must come BEFORE parameterized routes)
@@ -102,14 +114,10 @@ async def new_project_form(
     request: Request,
     current_user: User = Depends(require_auth)
 ):
-    """
-    Redirect to Concierge intake flow.
-    
-    Legacy route maintained for backward compatibility.
-    WS-CONCIERGE-001: All new project creation now goes through /start
-    """
+    """Redirect to intake flow."""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/start", status_code=302)
+
 
 @router.get("/list", response_class=HTMLResponse)
 async def get_project_list(
@@ -118,37 +126,32 @@ async def get_project_list(
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get list of projects for sidebar - USER'S PROJECTS ONLY."""
-    user_id = _get_user_id(current_user)
+    """Get list of projects for sidebar via ORM."""
+    user_uuid = _get_user_uuid(current_user)
+    
+    query = select(Project).where(Project.owner_id == user_uuid)
     
     if search:
-        result = await db.execute(
-            text("""
-                SELECT id, name, project_id, icon, archived_at FROM projects
-                WHERE owner_id = :user_id 
-                AND (name ILIKE :search OR project_id ILIKE :search)
-                ORDER BY archived_at NULLS FIRST, name ASC
-            """),
-            {"user_id": user_id, "search": f"%{search}%"}
-        )
-    else:
-        result = await db.execute(
-            text("""
-                SELECT id, name, project_id, icon, archived_at FROM projects 
-                WHERE owner_id = :user_id
-                ORDER BY archived_at NULLS FIRST, name ASC
-            """),
-            {"user_id": user_id}
+        search_pattern = f"%{search}%"
+        query = query.where(
+            or_(
+                Project.name.ilike(search_pattern),
+                Project.project_id.ilike(search_pattern)
+            )
         )
     
-    rows = result.fetchall()
+    query = query.order_by(Project.archived_at.nulls_first(), Project.name.asc())
+    
+    result = await db.execute(query)
+    rows = result.scalars().all()
+    
     projects = [
         {
             "id": str(row.id), 
             "name": row.name, 
             "project_id": row.project_id, 
             "icon": row.icon or "folder",
-            "is_archived": row.archived_at is not None  # Add this line
+            "is_archived": row.archived_at is not None
         }
         for row in rows
     ]
@@ -156,6 +159,7 @@ async def get_project_list(
     return templates.TemplateResponse(request, "public/components/project_list.html", {
         "projects": projects
     })
+
 
 @router.get("/tree", response_class=HTMLResponse)
 async def get_project_tree(
@@ -165,75 +169,52 @@ async def get_project_tree(
     limit: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project tree with documents for accordion sidebar navigation - USER'S PROJECTS ONLY."""
-    user_id = _get_user_id(current_user)
+    """Get project tree with documents via ORM."""
+    user_uuid = _get_user_uuid(current_user)
     
-    # Get ONLY user's projects - WITH ARCHIVE STATUS
-    result = await db.execute(
-        text("""
-            SELECT id, name, project_id, icon, archived_at FROM projects
-            WHERE owner_id = :user_id
-            ORDER BY archived_at NULLS FIRST, name ASC
-            LIMIT :limit OFFSET :offset
-        """),
-        {"user_id": user_id, "limit": limit, "offset": offset}
+    query = (
+        select(Project)
+        .where(Project.owner_id == user_uuid)
+        .order_by(Project.archived_at.nulls_first(), Project.name.asc())
+        .limit(limit)
+        .offset(offset)
     )
     
-    rows = result.fetchall()
+    result = await db.execute(query)
+    rows = result.scalars().all()
+    
     projects = []
     
     for row in rows:
-        project_id = str(row.id)
-        project_uuid = UUID(project_id)
-        is_archived = row.archived_at is not None  # Calculate once
+        project_uuid = row.id
+        is_archived = row.archived_at is not None
         
-        # Get document statuses for this project
         document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
         
-        # Calculate status summary
-        status_summary = {
-            "ready": 0,
-            "stale": 0,
-            "blocked": 0,
-            "waiting": 0,
-            "needs_acceptance": 0
-        }
+        status_summary = {"ready": 0, "stale": 0, "blocked": 0, "waiting": 0, "needs_acceptance": 0}
         
-        # Convert DocumentStatus objects to dicts
         documents = []
         for doc in document_statuses:
             if hasattr(doc, 'readiness'):
-                readiness = doc.readiness
-                acceptance_state = getattr(doc, 'acceptance_state', None)
                 documents.append({
                     "doc_type_id": doc.doc_type_id,
                     "title": doc.title,
                     "icon": doc.icon,
-                    "readiness": readiness,
-                    "acceptance_state": acceptance_state,
+                    "readiness": doc.readiness,
+                    "acceptance_state": getattr(doc, 'acceptance_state', None),
                     "subtitle": getattr(doc, 'subtitle', None)
                 })
             else:
-                readiness = doc.get("readiness", "waiting")
-                acceptance_state = doc.get("acceptance_state")
                 documents.append(doc)
-            
-            # # Count statuses
-            # if acceptance_state == "needs_acceptance":
-            #     status_summary["needs_acceptance"] += 1
-            # elif acceptance_state == "rejected":
-            #     status_summary["blocked"] += 1
-            # elif readiness in status_summary:
-            #     status_summary[readiness] += 1
         
         projects.append({
-            "id": project_id,
+            "id": str(project_uuid),
             "name": row.name,
             "project_id": row.project_id,
             "icon": row.icon or "folder",
             "documents": documents,
             "status_summary": status_summary,
-            "is_archived": is_archived  # Add this line
+            "is_archived": is_archived
         })
     
     return templates.TemplateResponse(request, "public/components/project_list.html", {
@@ -249,44 +230,30 @@ async def create_project_handler(
     icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Create a new project - SET OWNER.
-    
-    LEGACY ROUTE: Maintained for backward compatibility only.
-    WS-CONCIERGE-001: New projects should be created via Concierge flow (/start).
-    This route is kept functional but hidden from UI.
-    """
+    """Create a new project via ORM (legacy route)."""
+    user_uuid = _get_user_uuid(current_user)
     user_id = _get_user_id(current_user)
     
     try:
-        # Create project with owner_id and organization_id
-        # For individual users: organization_id = user_id
-        result = await db.execute(
-            text("""
-                INSERT INTO projects (id, project_id, name, description, icon, owner_id, organization_id, created_by, created_at, updated_at)
-                VALUES (gen_random_uuid(), :project_id, :name, :description, :icon, :owner_id, :organization_id, :created_by, NOW(), NOW())
-                RETURNING id
-            """),
-            {
-                "project_id": name.strip().upper().replace(" ", "_")[:20],
-                "name": name.strip(),
-                "description": description.strip(),
-                "icon": icon,
-                "owner_id": user_id,
-                "organization_id": user_id,  # Individual user = own org
-                "created_by": user_id
-            }
+        project = Project(
+            project_id=name.strip().upper().replace(" ", "_")[:20],
+            name=name.strip(),
+            description=description.strip(),
+            icon=icon,
+            owner_id=user_uuid,
+            organization_id=user_uuid,
+            created_by=user_id,
         )
-        await db.commit()
         
-        row = result.fetchone()
-        project_id = str(row.id)
+        db.add(project)
+        await db.commit()
+        await db.refresh(project)
         
         return templates.TemplateResponse(request, "public/components/alerts/success.html", {
                 "title": "Project Created",
                 "message": f'Project "{name}" has been created.',
             },
-            headers={"HX-Redirect": f"/projects/{project_id}"}
+            headers={"HX-Redirect": f"/projects/{project.project_id}"}
         )
         
     except Exception as e:
@@ -305,59 +272,37 @@ async def archive_project(
     reason: str = Form(""),
     db: AsyncSession = Depends(get_db)
 ):
-    """Archive a project - TRANSACTIONAL STATE + AUDIT."""
-    user_id = _get_user_id(current_user)
+    """Archive a project via ORM."""
+    user_uuid = _get_user_uuid(current_user)
     
     try:
-        # Verify ownership and not already archived
         result = await db.execute(
-            text("""
-                SELECT archived_at 
-                FROM projects 
-                WHERE id = :project_id AND owner_id = :user_id
-            """),
-            {"project_id": project_id, "user_id": user_id}
+            select(Project).where(
+                and_(_get_project_id_condition(project_id), Project.owner_id == user_uuid)
+            )
         )
-        row = result.fetchone()
-        if not row:
+        project = result.scalar_one_or_none()
+        
+        if not project:
             raise HTTPException(status_code=404, detail="Project not found or access denied")
         
-        if row.archived_at is not None:
+        if project.archived_at is not None:
             raise HTTPException(status_code=400, detail="Project is already archived")
         
-        # Update project state
-        result = await db.execute(
-            text("""
-                UPDATE projects 
-                SET archived_at = NOW(),
-                    archived_by = :user_id,
-                    archived_reason = :reason,
-                    updated_at = NOW()
-                WHERE id = :project_id AND owner_id = :user_id
-            """),
-            {
-                "project_id": project_id,
-                "user_id": user_id,
-                "reason": reason.strip() if reason else None
-            }
+        project.archived_at = datetime.now(timezone.utc)
+        project.archived_by = user_uuid
+        project.archived_reason = reason.strip() if reason else None
+        
+        await audit_service.log_event(
+            db=db,
+            project_id=project.id,
+            action='ARCHIVED',
+            actor_user_id=user_uuid,
+            reason=reason.strip() if reason else None,
+            metadata={'client': 'web', 'ui_source': 'edit_modal'},
+            correlation_id=request.headers.get('X-Request-ID')
         )
         
-        # Only audit if update succeeded
-        if result.rowcount > 0:
-            await audit_service.log_event(
-                db=db,
-                project_id=UUID(project_id),
-                action='ARCHIVED',
-                actor_user_id=UUID(user_id),
-                reason=reason.strip() if reason else None,
-                metadata={
-                    'client': 'web',
-                    'ui_source': 'edit_modal'
-                },
-                correlation_id=request.headers.get('X-Request-ID')
-            )
-        
-        # Commit the transaction
         await db.commit()
         
         return templates.TemplateResponse(request, "public/components/alerts/success.html", {
@@ -377,7 +322,6 @@ async def archive_project(
             "message": str(e)
         })
 
-
 @router.post("/{project_id}/unarchive", response_class=HTMLResponse)
 async def unarchive_project(
     request: Request,
@@ -385,57 +329,36 @@ async def unarchive_project(
     current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """Unarchive a project - RESTORE FULL ACCESS + AUDIT."""
-    user_id = _get_user_id(current_user)
+    """Unarchive a project via ORM."""
+    user_uuid = _get_user_uuid(current_user)
     
     try:
-        # Verify ownership and currently archived
         result = await db.execute(
-            text("""
-                SELECT archived_at 
-                FROM projects 
-                WHERE id = :project_id AND owner_id = :user_id
-            """),
-            {"project_id": project_id, "user_id": user_id}
+            select(Project).where(
+                and_(_get_project_id_condition(project_id), Project.owner_id == user_uuid)
+            )
         )
-        row = result.fetchone()
-        if not row:
+        project = result.scalar_one_or_none()
+        
+        if not project:
             raise HTTPException(status_code=404, detail="Project not found or access denied")
         
-        if row.archived_at is None:
+        if project.archived_at is None:
             raise HTTPException(status_code=400, detail="Project is not archived")
         
-        # Clear archive state
-        result = await db.execute(
-            text("""
-                UPDATE projects 
-                SET archived_at = NULL,
-                    archived_by = NULL,
-                    archived_reason = NULL,
-                    updated_at = NOW()
-                WHERE id = :project_id AND owner_id = :user_id
-            """),
-            {
-                "project_id": project_id,
-                "user_id": user_id
-            }
+        project.archived_at = None
+        project.archived_by = None
+        project.archived_reason = None
+        
+        await audit_service.log_event(
+            db=db,
+            project_id=project.id,
+            action='UNARCHIVED',
+            actor_user_id=user_uuid,
+            metadata={'client': 'web', 'ui_source': 'edit_modal'},
+            correlation_id=request.headers.get('X-Request-ID')
         )
         
-        # Only audit if update succeeded
-        if result.rowcount > 0:
-            await audit_service.log_event(
-                db=db,
-                project_id=UUID(project_id),
-                action='UNARCHIVED',
-                actor_user_id=UUID(user_id),
-                metadata={
-                    'client': 'web',
-                    'ui_source': 'edit_modal'
-                },
-                correlation_id=request.headers.get('X-Request-ID')
-            )
-        
-        # Commit the transaction
         await db.commit()
         
         return templates.TemplateResponse(request, "public/components/alerts/success.html", {
@@ -467,12 +390,12 @@ async def get_project(
     current_user: User = Depends(require_auth),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project view - VERIFY OWNERSHIP."""
+    """Get project view via ORM."""
     project = await _get_project_with_icon(db, project_id, current_user)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found or access denied")
     
-    project_uuid = UUID(project_id)
+    project_uuid = UUID(project["id"])
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
     
     context = {
@@ -482,11 +405,9 @@ async def get_project(
         "active_doc_type": None,
     }
     
-    # HTMX request - return just the document container partial
     if _is_htmx_request(request):
         return templates.TemplateResponse(request, "public/pages/partials/_document_container.html", context)
     
-    # Full page request - return page with base.html
     return templates.TemplateResponse(request, "public/pages/project_detail.html", context)
 
 
@@ -494,47 +415,39 @@ async def get_project(
 async def update_project(
     request: Request,
     project_id: str,
-    _: None = Depends(verify_project_not_archived),  # ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ARCHIVE PROTECTION
+    _: None = Depends(verify_project_not_archived),
     current_user: User = Depends(require_auth),
     name: str = Form(...),
     description: str = Form(""),
     icon: str = Form("folder"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project - VERIFY OWNERSHIP."""
-    user_id = _get_user_id(current_user)
+    """Update project via ORM."""
+    user_uuid = _get_user_uuid(current_user)
     
-    # Verify ownership first
-    project = await _get_project_with_icon(db, project_id, current_user)
+    result = await db.execute(
+        select(Project).where(
+            and_(_get_project_id_condition(project_id), Project.owner_id == user_uuid)
+        )
+    )
+    project = result.scalar_one_or_none()
+    
     if not project:
         raise HTTPException(status_code=404, detail="Project not found or access denied")
     
-    await db.execute(
-        text("""
-            UPDATE projects 
-            SET name = :name, description = :description, icon = :icon, updated_at = NOW()
-            WHERE id = :project_id AND owner_id = :user_id
-        """),
-        {
-            "name": name.strip(),
-            "description": description.strip(),
-            "icon": icon,
-            "project_id": project_id,
-            "user_id": user_id
-        }
-    )
-    await db.commit()
+    project.name = name.strip()
+    project.description = description.strip()
+    project.icon = icon
     
-    project = await _get_project_with_icon(db, project_id, current_user)
-    project_uuid = UUID(project_id)
-    document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
+    await db.commit()
+    await db.refresh(project)
+    
+    project_dict = _project_to_dict(project)
+    document_statuses = await document_status_service.get_project_document_statuses(db, project.id)
     
     return templates.TemplateResponse(request, "public/pages/partials/_project_overview.html", {
-            "project": project,
+            "project": project_dict,
             "document_statuses": document_statuses,
         },
         headers={"HX-Trigger": "refreshProjectList"}
     )
-
-
-

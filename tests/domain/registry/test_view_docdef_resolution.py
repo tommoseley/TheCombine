@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for Phase 1: Config Consolidation (WS-DOCUMENT-SYSTEM-CLEANUP)
 
 Verifies that view_docdef is read from document_types table
@@ -15,25 +15,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # =============================================================================
 
 class TestViewDocdefFromDatabase:
-    """Tests for view_docdef resolution from database."""
+    """Tests for view_docdef resolution from database via ORM."""
     
     @pytest.mark.asyncio
     async def test_get_document_type_includes_view_docdef(self):
-        """Test that _get_document_type returns view_docdef from DB."""
+        """Test that _get_document_type returns view_docdef from DB via ORM."""
         from app.web.routes.public.document_routes import _get_document_type
+        from app.api.models.document_type import DocumentType
         
         # Arrange
         db = AsyncMock(spec=AsyncSession)
+        
+        # Create mock DocumentType ORM object
+        mock_doc_type = MagicMock(spec=DocumentType)
+        mock_doc_type.doc_type_id = "epic_backlog"
+        mock_doc_type.name = "Epic Backlog"
+        mock_doc_type.description = "Project epics"
+        mock_doc_type.icon = "layers"
+        mock_doc_type.required_inputs = []
+        mock_doc_type.optional_inputs = []
+        mock_doc_type.view_docdef = "EpicBacklogView"
+        
         mock_result = MagicMock()
-        mock_row = MagicMock()
-        mock_row.doc_type_id = "epic_backlog"
-        mock_row.name = "Epic Backlog"
-        mock_row.description = "Project epics"
-        mock_row.icon = "layers"
-        mock_row.required_inputs = []
-        mock_row.optional_inputs = []
-        mock_row.view_docdef = "EpicBacklogView"  # This is the key field
-        mock_result.fetchone.return_value = mock_row
+        mock_result.scalar_one_or_none.return_value = mock_doc_type
         db.execute.return_value = mock_result
         
         # Act
@@ -46,21 +50,24 @@ class TestViewDocdefFromDatabase:
     
     @pytest.mark.asyncio
     async def test_get_document_type_null_view_docdef(self):
-        """Test handling of NULL view_docdef in database."""
+        """Test handling of NULL view_docdef in database via ORM."""
         from app.web.routes.public.document_routes import _get_document_type
+        from app.api.models.document_type import DocumentType
         
         # Arrange
         db = AsyncMock(spec=AsyncSession)
+        
+        mock_doc_type = MagicMock(spec=DocumentType)
+        mock_doc_type.doc_type_id = "custom_doc"
+        mock_doc_type.name = "Custom Document"
+        mock_doc_type.description = None
+        mock_doc_type.icon = None
+        mock_doc_type.required_inputs = []
+        mock_doc_type.optional_inputs = []
+        mock_doc_type.view_docdef = None
+        
         mock_result = MagicMock()
-        mock_row = MagicMock()
-        mock_row.doc_type_id = "custom_doc"
-        mock_row.name = "Custom Document"
-        mock_row.description = None
-        mock_row.icon = None
-        mock_row.required_inputs = []
-        mock_row.optional_inputs = []
-        mock_row.view_docdef = None  # No view_docdef configured
-        mock_result.fetchone.return_value = mock_row
+        mock_result.scalar_one_or_none.return_value = mock_doc_type
         db.execute.return_value = mock_result
         
         # Act
@@ -72,13 +79,13 @@ class TestViewDocdefFromDatabase:
     
     @pytest.mark.asyncio
     async def test_get_document_type_not_found(self):
-        """Test handling of non-existent document type."""
+        """Test handling of non-existent document type via ORM."""
         from app.web.routes.public.document_routes import _get_document_type
         
         # Arrange
         db = AsyncMock(spec=AsyncSession)
         mock_result = MagicMock()
-        mock_result.fetchone.return_value = None
+        mock_result.scalar_one_or_none.return_value = None
         db.execute.return_value = mock_result
         
         # Act
@@ -93,13 +100,9 @@ class TestViewDocdefResolutionPriority:
     
     def test_db_value_preferred_over_fallback(self):
         """Test that DB value is used when available."""
-        # This tests the resolution logic:
-        # view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
-        
         doc_type = {"view_docdef": "DBDocdef"}
         fallback_config = {"view_docdef": "FallbackDocdef"}
         
-        # Simulate the resolution logic
         view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
         
         assert view_docdef == "DBDocdef"
@@ -109,7 +112,6 @@ class TestViewDocdefResolutionPriority:
         doc_type = {"view_docdef": None}
         fallback_config = {"view_docdef": "FallbackDocdef"}
         
-        # Simulate the resolution logic
         view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
         
         assert view_docdef == "FallbackDocdef"
@@ -119,7 +121,6 @@ class TestViewDocdefResolutionPriority:
         doc_type = None
         fallback_config = {"view_docdef": "FallbackDocdef"}
         
-        # Simulate the resolution logic
         view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
         
         assert view_docdef == "FallbackDocdef"
@@ -129,7 +130,6 @@ class TestViewDocdefResolutionPriority:
         doc_type = {"view_docdef": None}
         fallback_config = {}
         
-        # Simulate the resolution logic
         view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
         
         assert view_docdef is None
@@ -165,7 +165,6 @@ class TestDocumentTypeModelIncludesViewDocdef:
         """Verify DocumentType model includes view_docdef."""
         from app.api.models.document_type import DocumentType
         
-        # Check column exists
         assert hasattr(DocumentType, 'view_docdef'), "DocumentType missing view_docdef column"
     
     def test_to_dict_includes_view_docdef(self):
@@ -173,7 +172,6 @@ class TestDocumentTypeModelIncludesViewDocdef:
         from app.api.models.document_type import DocumentType
         import uuid
         
-        # Create instance
         doc_type = DocumentType(
             id=uuid.uuid4(),
             doc_type_id="test_doc",
@@ -185,7 +183,6 @@ class TestDocumentTypeModelIncludesViewDocdef:
             view_docdef="TestDocdef",
         )
         
-        # Get dict
         result = doc_type.to_dict()
         
         assert "view_docdef" in result

@@ -1,4 +1,4 @@
-"""PostgreSQL persistence for Document Workflow State.
+﻿"""PostgreSQL persistence for Document Workflow State via ORM.
 
 Minimal implementation - stores only essential fields.
 Everything else derived at runtime from execution_log.
@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import text
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.workflow.document_workflow_state import (
@@ -22,24 +22,16 @@ logger = logging.getLogger(__name__)
 
 
 class PgStatePersistence:
-    """PostgreSQL-backed state persistence.
-
-    Stores minimal state in workflow_executions table:
-    - execution_id (PK)
-    - current_node_id
-    - execution_log (JSONB)
-    - retry_counts (JSONB)
-    - gate_outcome
-    - terminal_outcome
-
-    All other fields derived from execution_log at load time.
-    """
+    """PostgreSQL-backed state persistence via ORM."""
 
     def __init__(self, db: AsyncSession):
         self._db = db
 
     async def save(self, state: DocumentWorkflowState) -> None:
-        """Save workflow state to database."""
+        """Save workflow state to database via ORM."""
+        # Lazy import to avoid circular dependency
+        from app.api.models.workflow_execution import WorkflowExecution
+        
         # Serialize execution log
         execution_log = [
             {
@@ -51,42 +43,65 @@ class PgStatePersistence:
             for ne in state.node_history
         ]
 
-        # Upsert using INSERT ... ON CONFLICT
-        await self._db.execute(
-            text("""
-                INSERT INTO workflow_executions
-                    (execution_id, current_node_id, execution_log, retry_counts, gate_outcome, terminal_outcome)
-                VALUES
-                    (:execution_id, :current_node_id, :execution_log, :retry_counts, :gate_outcome, :terminal_outcome)
-                ON CONFLICT (execution_id) DO UPDATE SET
-                    current_node_id = EXCLUDED.current_node_id,
-                    execution_log = EXCLUDED.execution_log,
-                    retry_counts = EXCLUDED.retry_counts,
-                    gate_outcome = EXCLUDED.gate_outcome,
-                    terminal_outcome = EXCLUDED.terminal_outcome
-            """),
-            {
-                "execution_id": state.execution_id,
-                "current_node_id": state.current_node_id,
-                "execution_log": json.dumps(execution_log),
-                "retry_counts": json.dumps(state.retry_counts),
-                "gate_outcome": state.gate_outcome,
-                "terminal_outcome": state.terminal_outcome,
-            },
+        # Check if exists
+        result = await self._db.execute(
+            select(WorkflowExecution).where(WorkflowExecution.execution_id == state.execution_id)
         )
+        existing = result.scalar_one_or_none()
+        
+        if existing:
+            # Update existing record
+            existing.current_node_id = state.current_node_id
+            existing.execution_log = execution_log
+            existing.retry_counts = state.retry_counts
+            existing.gate_outcome = state.gate_outcome
+            existing.terminal_outcome = state.terminal_outcome
+            existing.status = state.status.value
+            existing.pending_user_input = state.pending_user_input
+            existing.pending_prompt = state.pending_prompt
+            existing.pending_choices = state.pending_choices
+            existing.thread_id = state.thread_id
+            existing.context_state = state.context_state
+        else:
+            # Create new record
+            from uuid import UUID as UUIDType
+            user_uuid = None
+            if state.user_id:
+                try:
+                    user_uuid = UUIDType(state.user_id) if isinstance(state.user_id, str) else state.user_id
+                except (ValueError, TypeError):
+                    user_uuid = None
+            
+            execution = WorkflowExecution(
+                execution_id=state.execution_id,
+                document_id=state.document_id,
+                document_type=state.document_type,
+                workflow_id=state.workflow_id,
+                user_id=user_uuid,
+                current_node_id=state.current_node_id,
+                execution_log=execution_log,
+                retry_counts=state.retry_counts,
+                gate_outcome=state.gate_outcome,
+                terminal_outcome=state.terminal_outcome,
+                status=state.status.value,
+                pending_user_input=state.pending_user_input,
+                pending_prompt=state.pending_prompt,
+                pending_choices=state.pending_choices,
+                thread_id=state.thread_id,
+                context_state=state.context_state,
+            )
+            self._db.add(execution)
+        
         await self._db.commit()
 
     async def load(self, execution_id: str) -> Optional[DocumentWorkflowState]:
-        """Load workflow state by execution ID."""
+        """Load workflow state by execution ID via ORM."""
+        from app.api.models.workflow_execution import WorkflowExecution
+        
         result = await self._db.execute(
-            text("""
-                SELECT execution_id, current_node_id, execution_log, retry_counts, gate_outcome, terminal_outcome
-                FROM workflow_executions
-                WHERE execution_id = :execution_id
-            """),
-            {"execution_id": execution_id},
+            select(WorkflowExecution).where(WorkflowExecution.execution_id == execution_id)
         )
-        row = result.fetchone()
+        row = result.scalar_one_or_none()
 
         if not row:
             return None
@@ -96,66 +111,60 @@ class PgStatePersistence:
     async def load_by_document(
         self, document_id: str, workflow_id: str
     ) -> Optional[DocumentWorkflowState]:
-        """Load state by document and workflow ID.
-
-        Scans execution_log for matching document_id/workflow_id in first entry.
-        """
-        # Query all and filter - not optimal but keeps schema minimal
+        """Load state by document and workflow ID via ORM."""
+        from app.api.models.workflow_execution import WorkflowExecution
+        
         result = await self._db.execute(
-            text("""
-                SELECT execution_id, current_node_id, execution_log, retry_counts, gate_outcome, terminal_outcome
-                FROM workflow_executions
-                WHERE terminal_outcome IS NULL
-            """)
+            select(WorkflowExecution).where(
+                and_(
+                    WorkflowExecution.document_id == document_id,
+                    WorkflowExecution.workflow_id == workflow_id,
+                    WorkflowExecution.terminal_outcome.is_(None)
+                )
+            ).limit(1)
         )
+        row = result.scalar_one_or_none()
 
-        for row in result.fetchall():
-            state = self._row_to_state(row)
-            if state.document_id == document_id and state.workflow_id == workflow_id:
-                return state
+        if not row:
+            return None
 
-        return None
+        return self._row_to_state(row)
 
     async def list_executions(
         self,
         status_filter: Optional[List[DocumentWorkflowStatus]] = None,
         limit: int = 100,
     ) -> List[DocumentWorkflowState]:
-        """List executions, optionally filtered by status."""
-        # Fetch all (up to limit) and filter in Python
-        # Status is derived, so we can't filter in SQL efficiently
-        result = await self._db.execute(
-            text("""
-                SELECT execution_id, current_node_id, execution_log, retry_counts, gate_outcome, terminal_outcome
-                FROM workflow_executions
-                ORDER BY execution_id DESC
-                LIMIT :limit
-            """),
-            {"limit": limit * 2},  # Fetch extra to account for filtering
-        )
+        """List executions, optionally filtered by status via ORM."""
+        from app.api.models.workflow_execution import WorkflowExecution
+        
+        query = select(WorkflowExecution)
+        
+        if status_filter:
+            status_values = [s.value for s in status_filter]
+            query = query.where(WorkflowExecution.status.in_(status_values))
+        
+        query = query.order_by(WorkflowExecution.execution_id.desc()).limit(limit)
+        
+        result = await self._db.execute(query)
+        rows = result.scalars().all()
 
-        states = []
-        for row in result.fetchall():
-            state = self._row_to_state(row)
-
-            # Apply status filter
-            if status_filter and state.status not in status_filter:
-                continue
-
-            states.append(state)
-
-            if len(states) >= limit:
-                break
-
-        return states
+        return [self._row_to_state(row) for row in rows]
 
     def _row_to_state(self, row) -> DocumentWorkflowState:
-        """Convert database row to DocumentWorkflowState.
+        """Convert ORM object to DocumentWorkflowState."""
+        execution_log = row.execution_log if isinstance(row.execution_log, list) else json.loads(row.execution_log or '[]')
+        retry_counts = row.retry_counts if isinstance(row.retry_counts, dict) else json.loads(row.retry_counts or '{}')
 
-        Derives document_id, workflow_id, status, timestamps from execution_log.
-        """
-        execution_log = row.execution_log if isinstance(row.execution_log, list) else json.loads(row.execution_log)
-        retry_counts = row.retry_counts if isinstance(row.retry_counts, dict) else json.loads(row.retry_counts)
+        # Parse pending_choices if present
+        pending_choices = None
+        if row.pending_choices:
+            pending_choices = row.pending_choices if isinstance(row.pending_choices, list) else json.loads(row.pending_choices)
+
+        # Parse context_state
+        context_state = {}
+        if row.context_state:
+            context_state = row.context_state if isinstance(row.context_state, dict) else json.loads(row.context_state)
 
         # Parse node history
         node_history = [
@@ -168,37 +177,31 @@ class PgStatePersistence:
             for entry in execution_log
         ]
 
-        # Derive fields from first log entry metadata
-        first_entry = execution_log[0] if execution_log else {}
-        first_meta = first_entry.get("metadata", {})
-
-        document_id = first_meta.get("document_id", "unknown")
-        document_type = first_meta.get("document_type", "unknown")
-        workflow_id = first_meta.get("workflow_id", "unknown")
-
-        # Derive timestamps
-        created_at = datetime.fromisoformat(first_entry["timestamp"]) if execution_log else datetime.now(timezone.utc)
+        # Derive timestamps from execution log
+        first_entry = execution_log[0] if execution_log else None
+        created_at = datetime.fromisoformat(first_entry["timestamp"]) if first_entry else datetime.now(timezone.utc)
         updated_at = datetime.fromisoformat(execution_log[-1]["timestamp"]) if execution_log else created_at
 
-        # Derive status
-        if row.terminal_outcome:
-            status = DocumentWorkflowStatus.COMPLETED
-        elif row.gate_outcome:
-            status = DocumentWorkflowStatus.PAUSED
-        else:
-            status = DocumentWorkflowStatus.RUNNING
+        # Use stored status
+        status = DocumentWorkflowStatus(row.status) if row.status else DocumentWorkflowStatus.RUNNING
 
         return DocumentWorkflowState(
             execution_id=row.execution_id,
-            document_id=document_id,
-            document_type=document_type,
-            workflow_id=workflow_id,
+            document_id=row.document_id or "unknown",
+            document_type=row.document_type or "unknown",
+            workflow_id=row.workflow_id or "unknown",
+            user_id=str(row.user_id) if row.user_id else None,
             current_node_id=row.current_node_id,
             status=status,
             node_history=node_history,
             retry_counts=retry_counts,
             gate_outcome=row.gate_outcome,
             terminal_outcome=row.terminal_outcome,
+            thread_id=row.thread_id,
+            context_state=context_state,
+            pending_user_input=row.pending_user_input or False,
+            pending_prompt=row.pending_prompt,
+            pending_choices=pending_choices,
             created_at=created_at,
             updated_at=updated_at,
         )

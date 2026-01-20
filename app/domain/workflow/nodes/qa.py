@@ -4,6 +4,7 @@ QA nodes validate generated documents against quality criteria.
 """
 
 import logging
+import re
 from typing import Any, Dict, List, Optional, Protocol
 
 from app.domain.workflow.nodes.base import (
@@ -113,9 +114,12 @@ class QANodeExecutor(NodeExecutor):
                 feedback["schema_errors"] = schema_errors
 
         # Run LLM-based QA if configured
+        # qa_mode: "structural" (default) or "structural+intent"
+        qa_mode = node_config.get("qa_mode", "structural")
+
         if task_ref and self.llm_service and self.prompt_loader:
             llm_result = await self._run_llm_qa(
-                node_id, task_ref, document, context
+                node_id, task_ref, document, context, qa_mode
             )
             if not llm_result["passed"]:
                 issues = llm_result.get("issues", [])
@@ -176,6 +180,7 @@ class QANodeExecutor(NodeExecutor):
         task_ref: str,
         document: Dict[str, Any],
         context: DocumentWorkflowContext,
+        qa_mode: str = "structural",
     ) -> Dict[str, Any]:
         """Run LLM-based quality assessment.
 
@@ -184,6 +189,7 @@ class QANodeExecutor(NodeExecutor):
             task_ref: Reference to QA prompt
             document: Document to validate
             context: Workflow context
+            qa_mode: "structural" or "structural+intent"
 
         Returns:
             Dict with keys: passed, issues, feedback
@@ -192,17 +198,35 @@ class QANodeExecutor(NodeExecutor):
             # Load QA prompt
             qa_prompt = self.prompt_loader.load_task_prompt(task_ref)
 
-            # Build messages
+            # Build the content based on qa_mode
             import json
+            content_parts = [qa_prompt]
+
+            # Include intent capsule for structural+intent mode
+            if qa_mode == "structural+intent" and context.intent_capsule:
+                content_parts.append(
+                    f"\n\n## User Intent (for alignment validation)\n{context.intent_capsule}"
+                )
+                logger.info(f"QA mode: {qa_mode} - including intent capsule")
+            else:
+                logger.info(f"QA mode: {qa_mode} - structural validation only")
+
+            content_parts.append(
+                f"\n\nDocument to review:\n```json\n{json.dumps(document, indent=2)}\n```"
+            )
+
             messages = [
                 {
                     "role": "user",
-                    "content": f"{qa_prompt}\n\nDocument to review:\n```json\n{json.dumps(document, indent=2)}\n```",
+                    "content": "".join(content_parts),
                 }
             ]
 
             # Get LLM assessment
             response = await self.llm_service.complete(messages)
+
+            # Log the raw response for debugging
+            logger.info(f"QA LLM response (first 1500 chars): {response[:1500]}")
 
             # Parse response
             return self._parse_qa_response(response)
@@ -226,12 +250,18 @@ class QANodeExecutor(NodeExecutor):
         """
         response_lower = response.lower()
 
-        # Simple heuristic parsing
-        # Look for explicit pass/fail indicators
+        # Look for explicit Result: PASS/FAIL from the QA prompt format
+        # The prompt outputs: **Result:** PASS or **Result:** FAIL
         passed = False
         issues = []
 
-        if any(indicator in response_lower for indicator in [
+        # Check for explicit Result line (matches prompt output format)
+        result_match = re.search(r'\*?\*?result\*?\*?:?\s*(pass|fail)', response_lower)
+        if result_match:
+            passed = result_match.group(1) == "pass"
+            logger.info(f"QA response parsed - Result: {'PASS' if passed else 'FAIL'}")
+        # Fallback to keyword heuristics
+        elif any(indicator in response_lower for indicator in [
             "passes all",
             "meets requirements",
             "approved",
@@ -239,6 +269,7 @@ class QANodeExecutor(NodeExecutor):
             "quality: pass",
         ]):
             passed = True
+            logger.info("QA response parsed via keyword heuristic - PASS")
         elif any(indicator in response_lower for indicator in [
             "fails",
             "issues found",
@@ -247,18 +278,29 @@ class QANodeExecutor(NodeExecutor):
             "quality: fail",
         ]):
             passed = False
-            # Extract issues if present
-            if "issues:" in response_lower:
-                issues_section = response[response_lower.index("issues:"):]
-                # Simple line extraction
-                for line in issues_section.split("\n")[1:5]:
-                    line = line.strip()
-                    if line and line.startswith(("-", "*", "•")):
-                        issues.append(line.lstrip("-*• "))
+            logger.info("QA response parsed via keyword heuristic - FAIL")
         else:
             # Ambiguous - default to pass with warning
             passed = True
-            logger.warning("QA response ambiguous, defaulting to pass")
+            logger.warning("QA response ambiguous, defaulting to PASS")
+
+        # Extract issues if failed
+        if not passed:
+            if "issues found" in response_lower or "### issues" in response_lower:
+                # Find the issues section
+                issues_start = response_lower.find("### issues")
+                if issues_start == -1:
+                    issues_start = response_lower.find("issues found")
+                if issues_start != -1:
+                    issues_section = response[issues_start:]
+                    # Extract bullet points
+                    for line in issues_section.split("\n")[1:10]:
+                        line = line.strip()
+                        if line and line.startswith(("-", "*", "•", "[")):
+                            # Clean up the line
+                            cleaned = re.sub(r'^[-*•\[\]]+\s*', '', line)
+                            if cleaned and len(cleaned) > 5:
+                                issues.append(cleaned)
 
         return {
             "passed": passed,

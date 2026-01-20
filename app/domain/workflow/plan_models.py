@@ -1,4 +1,4 @@
-"""Typed models for Document Interaction Workflow Plans (ADR-039).
+﻿"""Typed models for Document Interaction Workflow Plans (ADR-039).
 
 These dataclasses represent a validated workflow plan definition.
 Created by PlanLoader after validation passes.
@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 class NodeType(str, Enum):
     """Valid node types per ADR-039."""
-    CONCIERGE = "concierge"
+    INTAKE_GATE = "intake_gate"  # Single-pass intake classification
     TASK = "task"
     QA = "qa"
     GATE = "gate"

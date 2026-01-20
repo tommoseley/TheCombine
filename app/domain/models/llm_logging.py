@@ -107,7 +107,14 @@ class LLMRun(Base):
         nullable=True,
         doc="Project this run belongs to (if applicable)"
     )
-    
+
+    workflow_execution_id: Mapped[Optional[str]] = Column(
+        String(36),
+        nullable=True,
+        index=True,
+        doc="Parent workflow execution ID for bundling (if part of a workflow)"
+    )
+
     artifact_type: Mapped[Optional[str]] = Column(
         Text,
         nullable=True,

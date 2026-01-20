@@ -269,7 +269,7 @@ document.body.addEventListener('htmx:afterSwap', function() {
 window.addEventListener('storage', function(e) {
     if (e.key === BUILD_STORAGE_KEY) updateBuildingIndicators();
 });
-setInterval(updateBuildingIndicators, 2000);
+// Note: Removed setInterval polling - storage events and htmx:afterSwap handle updates
 </script>
 
 

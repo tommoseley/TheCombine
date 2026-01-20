@@ -1,4 +1,4 @@
-"""Outcome Recorder for Document Interaction Workflows (ADR-037, ADR-039).
+﻿"""Outcome Recorder for Document Interaction Workflows (ADR-037, ADR-039).
 
 Records dual outcomes (governance + execution) for audit compliance.
 
@@ -12,11 +12,9 @@ INVARIANTS (WS-ADR-025 Phase 4):
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.workflow.document_workflow_state import DocumentWorkflowState
@@ -32,7 +30,7 @@ class OutcomeRecorderError(Exception):
 
 
 class OutcomeRecorder:
-    """Records dual outcomes for governance audit.
+    """Records dual outcomes for governance audit via ORM.
 
     Per ADR-037:
     - Records the full available_options[] snapshot at decision time
@@ -46,11 +44,6 @@ class OutcomeRecorder:
     """
 
     def __init__(self, db: AsyncSession):
-        """Initialize outcome recorder.
-
-        Args:
-            db: Database session
-        """
         self._db = db
 
     async def record_outcome(
@@ -63,23 +56,10 @@ class OutcomeRecorder:
         selection_method: Optional[str] = None,
         recorded_by: Optional[str] = None,
     ) -> str:
-        """Record governance and execution outcomes.
-
-        Args:
-            state: The workflow state with outcomes
-            plan: The workflow plan for outcome mapping validation
-            gate_type: Type of gate (intake_gate, qa_gate, etc.)
-            options_offered: Snapshot of available_options[] at decision time
-            option_selected: The option_id that was selected
-            selection_method: How selection was made (auto, recommended, user_confirmed)
-            recorded_by: Who/what recorded this outcome
-
-        Returns:
-            The ID of the recorded governance outcome
-
-        Raises:
-            OutcomeRecorderError: If outcome is invalid or recording fails
-        """
+        """Record governance and execution outcomes via ORM."""
+        # Lazy import to avoid circular dependency
+        from app.api.models.governance_outcome import GovernanceOutcome
+        
         # Validate gate outcome exists
         if not state.gate_outcome:
             raise OutcomeRecorderError(
@@ -116,70 +96,31 @@ class OutcomeRecorder:
         # Check if circuit breaker was active
         circuit_breaker_active = state.escalation_active
 
-        # Insert governance outcome record
-        result = await self._db.execute(
-            text("""
-                INSERT INTO governance_outcomes (
-                    execution_id,
-                    document_id,
-                    document_type,
-                    workflow_id,
-                    thread_id,
-                    gate_type,
-                    gate_outcome,
-                    terminal_outcome,
-                    ready_for,
-                    routing_rationale,
-                    options_offered,
-                    option_selected,
-                    selection_method,
-                    retry_count,
-                    circuit_breaker_active,
-                    recorded_by
-                ) VALUES (
-                    :execution_id,
-                    :document_id,
-                    :document_type,
-                    :workflow_id,
-                    :thread_id,
-                    :gate_type,
-                    :gate_outcome,
-                    :terminal_outcome,
-                    :ready_for,
-                    :routing_rationale,
-                    :options_offered,
-                    :option_selected,
-                    :selection_method,
-                    :retry_count,
-                    :circuit_breaker_active,
-                    :recorded_by
-                )
-                RETURNING id
-            """),
-            {
-                "execution_id": state.execution_id,
-                "document_id": state.document_id,
-                "document_type": state.document_type,
-                "workflow_id": state.workflow_id,
-                "thread_id": state.thread_id,
-                "gate_type": gate_type,
-                "gate_outcome": state.gate_outcome,
-                "terminal_outcome": state.terminal_outcome,
-                "ready_for": ready_for,
-                "routing_rationale": self._build_routing_rationale(state),
-                "options_offered": options_offered,
-                "option_selected": option_selected,
-                "selection_method": selection_method,
-                "retry_count": retry_count,
-                "circuit_breaker_active": circuit_breaker_active,
-                "recorded_by": recorded_by or "workflow_engine",
-            },
+        # Create via ORM
+        outcome = GovernanceOutcome(
+            execution_id=state.execution_id,
+            document_id=state.document_id,
+            document_type=state.document_type,
+            workflow_id=state.workflow_id,
+            thread_id=state.thread_id,
+            gate_type=gate_type,
+            gate_outcome=state.gate_outcome,
+            terminal_outcome=state.terminal_outcome,
+            ready_for=ready_for,
+            routing_rationale=self._build_routing_rationale(state),
+            options_offered=options_offered,
+            option_selected=option_selected,
+            selection_method=selection_method,
+            retry_count=retry_count,
+            circuit_breaker_active=circuit_breaker_active,
+            recorded_by=recorded_by or "workflow_engine",
         )
 
-        row = result.fetchone()
-        outcome_id = str(row[0])
-
+        self._db.add(outcome)
         await self._db.commit()
+        await self._db.refresh(outcome)
+
+        outcome_id = str(outcome.id)
 
         logger.info(
             f"Recorded governance outcome {outcome_id}: "
@@ -193,67 +134,21 @@ class OutcomeRecorder:
         self,
         execution_id: str,
     ) -> Optional[Dict[str, Any]]:
-        """Get governance outcome for an execution.
-
-        Args:
-            execution_id: The workflow execution ID
-
-        Returns:
-            Outcome record dict or None if not found
-        """
+        """Get governance outcome for an execution via ORM."""
+        from app.api.models.governance_outcome import GovernanceOutcome
+        
         result = await self._db.execute(
-            text("""
-                SELECT
-                    id,
-                    execution_id,
-                    document_id,
-                    document_type,
-                    workflow_id,
-                    thread_id,
-                    gate_type,
-                    gate_outcome,
-                    terminal_outcome,
-                    ready_for,
-                    routing_rationale,
-                    options_offered,
-                    option_selected,
-                    selection_method,
-                    retry_count,
-                    circuit_breaker_active,
-                    recorded_at,
-                    recorded_by
-                FROM governance_outcomes
-                WHERE execution_id = :execution_id
-                ORDER BY recorded_at DESC
-                LIMIT 1
-            """),
-            {"execution_id": execution_id},
+            select(GovernanceOutcome)
+            .where(GovernanceOutcome.execution_id == execution_id)
+            .order_by(GovernanceOutcome.recorded_at.desc())
+            .limit(1)
         )
 
-        row = result.fetchone()
-        if not row:
+        outcome = result.scalar_one_or_none()
+        if not outcome:
             return None
 
-        return {
-            "id": str(row[0]),
-            "execution_id": row[1],
-            "document_id": row[2],
-            "document_type": row[3],
-            "workflow_id": row[4],
-            "thread_id": row[5],
-            "gate_type": row[6],
-            "gate_outcome": row[7],
-            "terminal_outcome": row[8],
-            "ready_for": row[9],
-            "routing_rationale": row[10],
-            "options_offered": row[11],
-            "option_selected": row[12],
-            "selection_method": row[13],
-            "retry_count": row[14],
-            "circuit_breaker_active": row[15],
-            "recorded_at": row[16].isoformat() if row[16] else None,
-            "recorded_by": row[17],
-        }
+        return outcome.to_dict()
 
     async def list_outcomes_by_document(
         self,
@@ -261,64 +156,40 @@ class OutcomeRecorder:
         document_id: str,
         limit: int = 10,
     ) -> List[Dict[str, Any]]:
-        """List governance outcomes for a document.
-
-        Args:
-            document_type: Type of document
-            document_id: Document ID
-            limit: Maximum results to return
-
-        Returns:
-            List of outcome records
-        """
+        """List governance outcomes for a document via ORM."""
+        from app.api.models.governance_outcome import GovernanceOutcome
+        
         result = await self._db.execute(
-            text("""
-                SELECT
-                    id,
-                    execution_id,
-                    gate_type,
-                    gate_outcome,
-                    terminal_outcome,
-                    ready_for,
-                    recorded_at
-                FROM governance_outcomes
-                WHERE document_type = :document_type
-                  AND document_id = :document_id
-                ORDER BY recorded_at DESC
-                LIMIT :limit
-            """),
-            {
-                "document_type": document_type,
-                "document_id": document_id,
-                "limit": limit,
-            },
+            select(GovernanceOutcome)
+            .where(
+                and_(
+                    GovernanceOutcome.document_type == document_type,
+                    GovernanceOutcome.document_id == document_id
+                )
+            )
+            .order_by(GovernanceOutcome.recorded_at.desc())
+            .limit(limit)
         )
 
+        outcomes = result.scalars().all()
         return [
             {
-                "id": str(row[0]),
-                "execution_id": row[1],
-                "gate_type": row[2],
-                "gate_outcome": row[3],
-                "terminal_outcome": row[4],
-                "ready_for": row[5],
-                "recorded_at": row[6].isoformat() if row[6] else None,
+                "id": str(o.id),
+                "execution_id": o.execution_id,
+                "gate_type": o.gate_type,
+                "gate_outcome": o.gate_outcome,
+                "terminal_outcome": o.terminal_outcome,
+                "ready_for": o.ready_for,
+                "recorded_at": o.recorded_at.isoformat() if o.recorded_at else None,
             }
-            for row in result.fetchall()
+            for o in outcomes
         ]
 
     def _build_routing_rationale(
         self,
         state: DocumentWorkflowState,
     ) -> str:
-        """Build routing rationale from state.
-
-        Args:
-            state: The workflow state
-
-        Returns:
-            Human-readable routing rationale
-        """
+        """Build routing rationale from state."""
         parts = []
 
         if state.gate_outcome == "qualified":

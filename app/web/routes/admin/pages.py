@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 # Default display timezone (Eastern Time for US)
 DISPLAY_TZ = ZoneInfo('America/New_York')
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, text
 from app.core.database import get_db
 from app.domain.models.llm_logging import LLMRun, LLMRunInputRef, LLMRunOutputRef, LLMRunError, LLMContent
 from app.api.models.project import Project
@@ -270,52 +270,75 @@ async def executions_list(
         })
     
     executions = []
-    
-    # Get workflow executions (unless filtered to documents only)
+
+    # Get Document Workflow executions from workflow_executions table (unless filtered to documents only)
     if source != "documents":
-        status_enum = None
+        # Query workflow_executions table directly with user email join
+        wf_query = """
+            SELECT we.execution_id, we.workflow_id, we.document_id, we.status,
+                   we.user_id, u.email as user_email,
+                   (SELECT MIN(timestamp) FROM jsonb_array_elements(we.execution_log) AS e(entry)
+                    WHERE e.entry->>'timestamp' IS NOT NULL) as started_at
+            FROM workflow_executions we
+            LEFT JOIN users u ON we.user_id = u.user_id
+            WHERE 1=1
+        """
+        params = {}
+
         if status:
-            try:
-                status_enum = WorkflowStatus(status)
-            except ValueError:
-                pass
-        
-        all_executions = await execution_service.list_executions(
-            workflow_id=workflow_id,
-            status=status_enum,
-        )
-        
-        for e in all_executions:
+            wf_query += " AND we.status = :status"
+            params["status"] = status
+
+        wf_query += " ORDER BY started_at DESC NULLS LAST LIMIT 100"
+
+        result = await db.execute(text(wf_query), params)
+        wf_executions = result.fetchall()
+
+        for row in wf_executions:
+            # Parse started_at from the query result
+            started_at = None
+            if row.started_at:
+                try:
+                    started_at = datetime.fromisoformat(row.started_at.replace('"', ''))
+                except (ValueError, AttributeError):
+                    pass
+
             # Apply date filter
-            if date_from_dt and e.started_at and e.started_at.replace(tzinfo=None) < date_from_dt:
+            if date_from_dt and started_at and started_at.replace(tzinfo=None) < date_from_dt:
                 continue
-            if date_to_dt and e.started_at and e.started_at.replace(tzinfo=None) >= date_to_dt:
+            if date_to_dt and started_at and started_at.replace(tzinfo=None) >= date_to_dt:
                 continue
+
             executions.append({
-                "execution_id": e.execution_id,
-                "workflow_id": e.workflow_id,
-                "project_id": e.project_id,
-                "status": e.status.value if hasattr(e.status, 'value') else str(e.status),
-                "started_at": e.started_at,
+                "execution_id": row.execution_id,
+                "workflow_id": row.workflow_id,
+                "project_id": row.document_id or "-",
+                "status": row.status or "unknown",
+                "started_at": started_at,
                 "source": "workflow",
                 "source_label": "Workflow",
+                "user_email": row.user_email,
             })
     
     # Get document builds (unless filtered to workflows only)
+    # Exclude LLM runs that belong to a workflow (they're bundled)
     if source != "workflows":
-        query = select(LLMRun).where(LLMRun.artifact_type.isnot(None)).order_by(desc(LLMRun.started_at)).limit(100)
-        
+        query = select(LLMRun).where(
+            LLMRun.artifact_type.isnot(None),
+            LLMRun.workflow_execution_id.is_(None)  # Exclude bundled runs
+        ).order_by(desc(LLMRun.started_at)).limit(100)
+
         if status:
             query = query.where(LLMRun.status == status.upper())
-        
+
         if date_from_dt:
             query = query.where(LLMRun.started_at >= date_from_dt)
         if date_to_dt:
             query = query.where(LLMRun.started_at < date_to_dt)
-        
+
         result = await db.execute(query)
         llm_runs = result.scalars().all()
-        
+
         for run in llm_runs:
             executions.append({
                 "execution_id": str(run.id),

@@ -1,4 +1,4 @@
-"""Tests for Document Interaction Workflow Plan models (ADR-039)."""
+﻿"""Tests for Document Interaction Workflow Plan models (ADR-039)."""
 
 import pytest
 
@@ -24,7 +24,6 @@ class TestNodeType:
 
     def test_valid_node_types(self):
         """All valid node types are defined."""
-        assert NodeType.CONCIERGE.value == "concierge"
         assert NodeType.TASK.value == "task"
         assert NodeType.QA.value == "qa"
         assert NodeType.GATE.value == "gate"
@@ -32,7 +31,6 @@ class TestNodeType:
 
     def test_node_type_from_string(self):
         """NodeType can be created from string."""
-        assert NodeType("concierge") == NodeType.CONCIERGE
         assert NodeType("task") == NodeType.TASK
 
 
@@ -119,20 +117,6 @@ class TestEdge:
 
 class TestNode:
     """Tests for Node model."""
-
-    def test_concierge_node(self):
-        """Concierge node parses correctly."""
-        raw = {
-            "node_id": "clarification",
-            "type": "concierge",
-            "description": "Clarification conversation",
-            "task_ref": "Concierge Intake v1.0",
-        }
-        node = Node.from_dict(raw)
-
-        assert node.node_id == "clarification"
-        assert node.type == NodeType.CONCIERGE
-        assert node.task_ref == "Concierge Intake v1.0"
 
     def test_gate_node(self):
         """Gate node parses correctly."""

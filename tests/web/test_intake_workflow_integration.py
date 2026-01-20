@@ -340,7 +340,7 @@ class TestSubmitIntakeChoice:
         assert response.status_code == 200
         mock_executor.submit_user_input.assert_called_once_with(
             execution_id="exec-test-123",
-            user_choice="qualified",
+            selected_option_id="qualified",
         )
 
     @patch("app.web.routes.public.intake_workflow_routes._get_executor")

@@ -158,13 +158,19 @@ class ExecutionStatusResponse(BaseModel):
 
 
 class SubmitInputRequest(BaseModel):
-    """Request to submit user input."""
+    """Request to submit user input.
+
+    Per ADR-037: Free text (user_input) is for conversation.
+    Option selection (selected_option_id) is for workflow advancement.
+    Only explicit option selection can advance past decision points.
+    """
 
     user_input: Optional[str] = Field(
-        default=None, description="Free-text user input"
+        default=None, description="Free-text user input for conversation"
     )
-    user_choice: Optional[str] = Field(
-        default=None, description="Selected choice from options"
+    selected_option_id: Optional[str] = Field(
+        default=None,
+        description="Selected option ID from available_options[] (ADR-037 compliant)",
     )
 
 
@@ -378,7 +384,7 @@ async def submit_user_input(
         state = await executor.submit_user_input(
             execution_id=execution_id,
             user_input=request.user_input,
-            user_choice=request.user_choice,
+            selected_option_id=request.selected_option_id,
         )
 
         return ExecuteStepResponse(

@@ -1,13 +1,11 @@
-"""
+﻿"""
 Project audit logging service.
 Provides transactional audit event creation with metadata validation.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 from typing import Optional, Dict, Any
 from uuid import UUID
-import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,34 +38,14 @@ class ProjectAuditService:
         correlation_id: Optional[str] = None
     ) -> None:
         """
-        Write audit event to project_audit table.
+        Write audit event to project_audit table via ORM.
         
         MUST be called within an active transaction.
         Validates action against allowed values.
-        
-        Args:
-            db: Database session (must be in transaction)
-            project_id: Project being audited
-            action: One of CREATED, UPDATED, ARCHIVED, UNARCHIVED, EDIT_BLOCKED_ARCHIVED
-            actor_user_id: User who performed action (NULL for system)
-            reason: Optional human-readable reason
-            metadata: Structured audit context (meta_version, client, changed_fields, etc.)
-            correlation_id: Request correlation ID for tracing
-        
-        Raises:
-            ValueError: If action is not valid
-            
-        Example:
-            async with db.begin():
-                await db.execute(text("UPDATE projects ..."))
-                await audit_service.log_event(
-                    db=db,
-                    project_id=project_uuid,
-                    action='UPDATED',
-                    actor_user_id=user_uuid,
-                    metadata={'changed_fields': ['name'], 'before': {...}, 'after': {...}}
-                )
         """
+        # Lazy import to avoid circular dependency
+        from app.api.models.project_audit import ProjectAudit
+        
         # Validate action
         if action not in ProjectAuditService.VALID_ACTIONS:
             raise ValueError(
@@ -83,28 +61,14 @@ class ProjectAuditService:
             audit_metadata['correlation_id'] = correlation_id
         
         try:
-            await db.execute(
-                text("""
-                    INSERT INTO project_audit (
-                        id, project_id, actor_user_id, action, reason, metadata, created_at
-                    ) VALUES (
-                        gen_random_uuid(), 
-                        :project_id, 
-                        :actor_user_id, 
-                        :action, 
-                        :reason, 
-                        :metadata, 
-                        NOW()
-                    )
-                """),
-                {
-                    "project_id": str(project_id),
-                    "actor_user_id": str(actor_user_id) if actor_user_id else None,
-                    "action": action,
-                    "reason": reason,
-                    "metadata": json.dumps(audit_metadata)
-                }
+            audit_entry = ProjectAudit(
+                project_id=project_id,
+                actor_user_id=actor_user_id,
+                action=action,
+                reason=reason,
+                meta=audit_metadata,
             )
+            db.add(audit_entry)
             
             logger.info(
                 f"Audit event logged: action={action}, project_id={project_id}, "

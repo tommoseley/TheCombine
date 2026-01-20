@@ -212,3 +212,106 @@ ADR-037 establishes a hard boundary:
 - Staleness and consent are reflected and enforced through explicit options and outcomes
 
 **The law is the graph. The Concierge is the judge - within the law.**
+---
+
+## Amendment: Dynamic Kind Determination for Gate Options
+
+**Added:** 2026-01-19
+**Context:** Outcome gates following document QA (e.g., Intake Gate per ADR-025)
+
+### Problem
+
+ADR-037 defines `kind` as a static property on edges/options (`auto`, `user_choice`, `blocked`). This forces a choice:
+
+- Always auto-route (loses governance)
+- Always require user selection (creates friction for clear cases)
+
+Neither serves expert users or defensible governance well.
+
+### Decision
+
+The Step Engine MAY dynamically compute option `kind` at runtime based on document contract signals, rather than relying solely on static edge definitions.
+
+For outcome gates following document QA, the engine SHALL evaluate:
+
+| Signal | Source | Purpose |
+|--------|--------|---------|
+| `qa_pass` | QA node outcome | Structural validity |
+| `confidence` | Document contract field | Intent clarity |
+| `intent_class` | Document contract field | Recognized vs unknown |
+| `missing_critical` | Document contract field | Completeness |
+
+### Auto-Qualification Rule
+
+The engine SHALL auto-select `qualified` (kind = `auto`) when ALL of:
+
+- `qa_pass == true`
+- `confidence >= 0.8`
+- `missing_critical == false`
+- `intent_class` is recognized (not `unknown` or `mixed`)
+
+### User-Choice Presentation Rule
+
+When auto-qualification criteria are NOT met, the engine SHALL:
+
+1. Set `kind = user_choice`
+2. Pre-select a recommended outcome based on available signals
+3. Display 1-2 supporting reasons for the recommendation
+4. Offer easy override via alternate options
+
+**Example presentation:**
+
+```
+Recommended: Qualified
+Because: QA passed; intent confidence 0.85; required fields present.
+[Proceed] [Change outcome ▼]
+```
+
+This reduces cognitive load while preserving the governance checkpoint.
+
+### Signals That Trigger User-Choice
+
+The engine SHALL require user selection when ANY of:
+
+- `confidence < 0.8`
+- `missing_critical == true`
+- `intent_class` is `unknown` or `mixed`
+- QA passed structurally but flagged semantic uncertainty
+- Downstream step is high-cost (e.g., full architecture generation)
+- Policy risk indicators present
+
+### Governance Invariants
+
+- Auto-qualification MUST be logged with full signal values
+- User override of recommendations MUST be logged
+- The Andon cord (manual override) is always available
+- QA validates structure, not truth — gate decisions are driven by document contract signals
+
+### Audit Requirements
+
+The system MUST record:
+
+- All signal values evaluated at gate decision time
+- Whether `kind` was computed as `auto` or `user_choice`
+- The recommended outcome (if user_choice)
+- The actual outcome selected
+- Whether user overrode the recommendation
+
+### Non-Goals
+
+This amendment does NOT:
+
+- Allow Concierge to compute `kind` (engine-owned)
+- Replace QA validation (QA remains one input among several)
+- Enable content inspection beyond declared contract fields
+- Permit confidence thresholds to be workflow-defined (engine policy)
+
+### Summary
+
+Dynamic kind determination enables the system to:
+
+- Auto-qualify when signals are unambiguous
+- Pause for human judgment when signals are uncertain
+- Present recommendations that reduce friction without removing control
+
+**The gate remains governance. The signals determine friction.**
