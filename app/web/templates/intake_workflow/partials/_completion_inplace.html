@@ -1,0 +1,164 @@
+<!-- In-Place Completion Card (Single-Page Progressive Flow)
+     Replaces #main-content, dims messages via OOB swap -->
+
+<!-- Main: Completion Card replaces interpretation panel (single-page flow) -->
+<section class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm rounded-lg overflow-hidden font-sans">
+    
+    <!-- Header: Locked Record Status -->
+    <div class="bg-slate-50 dark:bg-slate-900 px-6 py-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-700">
+        <div class="flex items-center gap-3">
+            {% if gate_outcome == 'qualified' %}
+            <i data-lucide="lock" class="w-5 h-5 text-emerald-600 dark:text-emerald-500"></i>
+            <span class="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Intake Qualified // Finalized</span>
+            {% elif gate_outcome == 'not_ready' %}
+            <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600 dark:text-amber-500"></i>
+            <span class="font-mono text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Intake Incomplete // Review Required</span>
+            {% else %}
+            <i data-lucide="x-circle" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
+            <span class="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">Intake Record // {{ gate_outcome | replace('_', ' ') | title }}</span>
+            {% endif %}
+        </div>
+        <div class="text-right">
+            <span class="block font-mono text-[9px] text-slate-400 dark:text-slate-500 uppercase">Project ID</span>
+            <span class="block font-mono text-[10px] text-slate-600 dark:text-slate-300 font-bold">{{ project_id or 'Pending' }}</span>
+        </div>
+    </div>
+
+    <div class="p-6 space-y-6">
+        
+        <!-- Problem Statement (from summary.description, mechanically cleaned) -->
+        <div>
+            <h3 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">// Problem Statement</h3>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 mb-3 italic">This statement will anchor all downstream work unless revised later.</p>
+            {% if problem_statement %}
+            <p class="text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed border-l-4 border-violet-600 dark:border-violet-500 pl-4 bg-slate-50 dark:bg-slate-900/50 py-3 pr-4 rounded-r-lg">
+                {{ problem_statement }}
+            </p>
+            {% elif project_name %}
+            <p class="text-base font-medium text-slate-900 dark:text-slate-100 leading-relaxed border-l-4 border-violet-600 dark:border-violet-500 pl-4 bg-slate-50 dark:bg-slate-900/50 py-3 pr-4 rounded-r-lg">
+                {{ project_name }}
+            </p>
+            {% else %}
+            <p class="text-slate-500 dark:text-slate-400 italic">No problem statement captured.</p>
+            {% endif %}
+        </div>
+
+        <!-- Two Column: Constraints + Next Phase -->
+        <div class="grid md:grid-cols-2 gap-6">
+            
+            <!-- Left Column: Open Questions + Constraints -->
+            <div class="space-y-4">
+                
+                <!-- Downstream Phases -->
+                <div>
+                    <h3 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">// Next Steps</h3>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 italic">
+                        Scope and implementation questions will be addressed during Discovery and Architecture.
+                    </p>
+                </div>
+                
+                <!-- Stated Constraints (explicit only) -->
+                {% if constraints_explicit and constraints_explicit | length > 0 %}
+                <div>
+                    <h3 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">// Stated Constraints</h3>
+                    <ul class="space-y-2">
+                        {% for constraint in constraints_explicit %}
+                        <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 uppercase flex-shrink-0 mt-0.5">Stated</span>
+                            <span>{{ constraint }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right Column: Discovery Handoff Panel -->
+            {% if gate_outcome == 'qualified' %}
+            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="arrow-right-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-500"></i>
+                    <h4 class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 uppercase font-bold">Next Phase: Project Discovery</h4>
+                </div>
+                <p class="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed mb-4">
+                    Intake is finalized. All identified gaps will be addressed in the Discovery phase.
+                </p>
+                <a href="/projects/{{ project_id }}/documents/project_discovery" 
+                   class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    <span class="flex items-center justify-center gap-2">
+                        Begin Project Discovery
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </span>
+                </a>
+            </div>
+            {% elif gate_outcome == 'not_ready' %}
+            <div class="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-lg border border-amber-100 dark:border-amber-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-500"></i>
+                    <h4 class="text-[10px] font-mono text-amber-700 dark:text-amber-400 uppercase font-bold">Additional Information Needed</h4>
+                </div>
+                <p class="text-sm text-amber-800 dark:text-amber-300 leading-relaxed mb-4">
+                    {{ routing_rationale or 'The intake process identified gaps that prevent qualification.' }}
+                </p>
+                <a href="/intake" class="block w-full bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    Start New Intake
+                </a>
+            </div>
+            {% else %}
+            <div class="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                    {{ routing_rationale or outcome_description }}
+                </p>
+                <a href="/" class="block w-full bg-slate-600 hover:bg-slate-700 text-white py-2.5 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    Return Home
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Project Type Badge -->
+        {% if project_type and project_type != 'unknown' %}
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-700">
+            <span class="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-xs text-slate-600 dark:text-slate-400">
+                <i data-lucide="tag" class="w-3 h-3"></i>
+                Project Type: <span class="font-medium text-slate-800 dark:text-slate-200">{{ project_type | replace('_', ' ') | title }}</span>
+            </span>
+        </div>
+        {% endif %}
+        
+    </div>
+    
+    <!-- Footer -->
+    <div class="bg-slate-50 dark:bg-slate-900 px-6 py-2 border-t border-slate-200 dark:border-slate-700">
+        <div class="flex justify-between items-center text-[9px] font-mono text-slate-400 dark:text-slate-500">
+            <span>Correlation ID: {{ execution_id[:8] if execution_id else 'N/A' }}...</span>
+            <span>Gate: {{ gate_outcome | upper }}</span>
+        </div>
+    </div>
+    
+</section>
+
+<script>
+    // Initialize Lucide icons in the new content
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+    
+    // Dim and collapse the messages area (single-page progressive flow)
+    (function() {
+        var messages = document.getElementById('messages');
+        if (messages) {
+            messages.style.transition = 'all 0.5s ease-out';
+            messages.style.opacity = '0.4';
+            messages.style.maxHeight = '150px';
+            messages.style.overflow = 'hidden';
+        }
+        
+        // Hide the header status badge (workflow is complete)
+        var headerStatus = document.querySelector('.text-sm.text-gray-500 .rounded-full');
+        if (headerStatus) {
+            headerStatus.textContent = 'Finalized';
+            headerStatus.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
+        }
+    })();
+</script>

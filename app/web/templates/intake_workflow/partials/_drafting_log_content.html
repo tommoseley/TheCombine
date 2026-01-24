@@ -1,0 +1,166 @@
+<!-- Drafting Log Content Partial - returned after message/choice submission -->
+
+<!-- Messages Area -->
+<div id="messages" class="space-y-4 {% if is_completed %}opacity-40{% endif %}">
+    <!-- Initial Concierge greeting (always shown) -->
+    <div class="flex items-start space-x-3">
+        <div class="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-sm font-bold">C</span>
+        </div>
+        <div class="flex-1">
+            <div class="bg-violet-50 dark:bg-violet-900/30 rounded-lg p-4 max-w-prose">
+                <p class="text-gray-900 dark:text-white">
+                    Hello! I am the Concierge for The Combine.
+                </p>
+                <p class="text-gray-700 dark:text-gray-300 mt-2">
+                    Tell me about what you want to build, and I will help you start a formal project.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% for msg in messages %}
+        {% include 'intake_workflow/partials/_message.html' %}
+    {% endfor %}
+
+    <!-- Concierge prompt (always show when exists) -->
+    {% if pending_prompt %}
+    <div class="flex items-start space-x-3">
+        <div class="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-white text-sm font-bold">C</span>
+        </div>
+        <div class="flex-1">
+            <div class="bg-violet-50 dark:bg-violet-900/30 rounded-lg p-4 max-w-prose">
+                <p class="text-gray-900 dark:text-white">{{ pending_prompt }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- INLINE INPUT -->
+{% if not is_completed and not pending_choices and not escalation_active and phase not in ['review', 'generating'] %}
+<div id="inline-input-area" class="flex items-start space-x-3">
+    <div class="w-8 h-8 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0 opacity-50">
+        <span class="text-white text-sm font-bold">U</span>
+    </div>
+    <div class="flex-1">
+        <form id="message-form" class="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 focus-within:border-violet-500 dark:focus-within:border-violet-400 transition-colors">
+            <input type="hidden" name="execution_id" value="{{ execution_id }}">
+            <textarea
+                name="content"
+                id="message-input"
+                rows="3"
+                placeholder="Type your response..."
+                class="w-full bg-transparent border-0 focus:ring-0 p-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none"
+                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('send-btn').click(); }"></textarea>
+            <div class="flex justify-end items-center mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <span class="text-xs text-gray-400 dark:text-gray-500 mr-3">Press Enter to send</span>
+                <button
+                    type="button"
+                    id="send-btn"
+                    hx-post="/intake/{{ execution_id }}/message"
+                    hx-include="#message-form"
+                    hx-target="#drafting-log"
+                    hx-swap="innerHTML"
+                    hx-indicator="#send-spinner"
+                    hx-on::after-request="showProcessingState()"
+                    hx-disabled-elt="this"
+                    class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-medium rounded-lg flex items-center">
+                    <span>Send</span>
+                    <svg id="send-spinner" class="htmx-indicator ml-2 animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Choice Buttons -->
+{% if pending_choices and is_paused %}
+<div id="choice-prompt" class="flex items-start space-x-3">
+    <div class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
+        <span class="text-white text-sm font-bold">?</span>
+    </div>
+    <div class="flex-1">
+        <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+            <p class="text-amber-900 dark:text-amber-300 text-sm mb-3">Please select an option:</p>
+            <div class="flex flex-wrap gap-2">
+                {% for choice in pending_choices %}
+                <button
+                    type="button"
+                    hx-post="/intake/{{ execution_id }}/choice"
+                    hx-vals='{"choice": "{{ choice }}"}'
+                    hx-target="#drafting-log"
+                    hx-swap="innerHTML"
+                    class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg">
+                    {{ choice|replace('_', ' ')|title }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Escalation -->
+{% if escalation_active %}
+<div id="escalation-prompt" class="flex items-start space-x-3">
+    <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+        <span class="text-white text-sm font-bold">!</span>
+    </div>
+    <div class="flex-1">
+        <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+            <p class="text-red-900 dark:text-red-300 text-sm mb-3"><strong>Circuit Breaker:</strong> Multiple attempts failed.</p>
+            <div class="flex flex-wrap gap-2">
+                {% for option in escalation_options %}
+                <button
+                    type="button"
+                    hx-post="/intake/{{ execution_id }}/choice"
+                    hx-vals='{"choice": "{{ option }}"}'
+                    hx-target="#drafting-log"
+                    hx-swap="innerHTML"
+                    class="px-3 py-1.5 {% if option == 'abandon' %}bg-red-600 hover:bg-red-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %} text-white text-sm rounded-lg">
+                    {{ option|replace('_', ' ')|title }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Interpretation Panel (shown during review, generating, and completed phases) -->
+{% if phase in ['review', 'generating'] or is_completed %}
+<div id="interpretation-section" class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+    {% include 'intake_workflow/partials/_interpretation_panel.html' %}
+</div>
+{% endif %}
+
+<!-- Status Panel: Generating spinner or Completion card (below interpretation) -->
+{% if phase == 'generating' %}
+<div id="main-content" class="mt-4">
+    {% include 'intake_workflow/partials/_generating.html' %}
+</div>
+{% elif is_completed %}
+<div id="main-content" class="mt-4">
+    {% include 'intake_workflow/partials/_completion_inplace.html' %}
+</div>
+{% endif %}
+
+<script>
+    // Focus input and scroll
+    (function() {
+        var input = document.getElementById('message-input');
+        if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    })();
+</script>

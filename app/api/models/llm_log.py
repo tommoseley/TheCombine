@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM execution logging models for The Combine (ADR-010).
 
 Content storage, execution records, input/output refs, and errors.
@@ -15,6 +15,7 @@ class LLMContent(Base):
     """Content storage for LLM inputs/outputs (ADR-010)."""
     
     __tablename__ = "llm_content"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content_hash = Column(Text, nullable=False, unique=True, index=True)
@@ -28,6 +29,7 @@ class LLMRun(Base):
     """LLM execution records (ADR-010)."""
     
     __tablename__ = "llm_run"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     correlation_id = Column(UUID(as_uuid=True), nullable=False, index=True)
@@ -52,7 +54,7 @@ class LLMRun(Base):
     primary_error_code = Column(Text, nullable=True)
     primary_error_message = Column(Text, nullable=True)
     error_count = Column(Integer, nullable=False, default=0)
-    metadata = Column(JSONB, nullable=True)
+    run_metadata = Column("metadata", JSONB, nullable=True)  # "metadata" is reserved in SQLAlchemy
     workflow_execution_id = Column(String(36), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -62,6 +64,7 @@ class LLMRunInputRef(Base):
     """LLM input references by content_ref (ADR-010)."""
     
     __tablename__ = "llm_run_input_ref"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     llm_run_id = Column(UUID(as_uuid=True), ForeignKey('llm_run.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -76,6 +79,7 @@ class LLMRunOutputRef(Base):
     """LLM output references by content_ref (ADR-010)."""
     
     __tablename__ = "llm_run_output_ref"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     llm_run_id = Column(UUID(as_uuid=True), ForeignKey('llm_run.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -91,6 +95,7 @@ class LLMRunError(Base):
     """LLM execution errors (ADR-010)."""
     
     __tablename__ = "llm_run_error"
+    __table_args__ = {"extend_existing": True}
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     llm_run_id = Column(UUID(as_uuid=True), ForeignKey('llm_run.id', ondelete='CASCADE'), nullable=False, index=True)

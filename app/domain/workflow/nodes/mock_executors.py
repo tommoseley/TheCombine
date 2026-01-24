@@ -1,4 +1,4 @@
-﻿"""Mock node executors for testing (ADR-039).
+"""Mock node executors for testing (ADR-039).
 
 These executors simulate workflow node behavior without actual LLM calls,
 enabling end-to-end testing of the workflow engine.
@@ -59,7 +59,7 @@ class MockTaskExecutor(NodeExecutor):
                 ],
             },
             "metadata": {
-                "document_id": context.document_id,
+                "project_id": context.project_id,
                 "node_id": node_id,
             },
         }
@@ -98,7 +98,7 @@ class MockQAExecutor(NodeExecutor):
         context: DocumentWorkflowContext,
         state_snapshot: Dict[str, Any],
     ) -> NodeResult:
-        doc_id = context.document_id
+        doc_id = context.project_id
         key = f"{doc_id}:{node_id}"
 
         self._call_count[key] = self._call_count.get(key, 0) + 1
@@ -232,8 +232,10 @@ def create_mock_executors(qa_fail_first_n: int = 0) -> Dict[NodeType, NodeExecut
     Returns:
         Dict mapping NodeType to mock executor instance
     """
+    task_executor = MockTaskExecutor()
     return {
-        NodeType.TASK: MockTaskExecutor(),
+        NodeType.TASK: task_executor,
+        NodeType.PGC: task_executor,  # PGC uses same executor as TASK
         NodeType.QA: MockQAExecutor(fail_first_n=qa_fail_first_n),
         NodeType.GATE: MockGateExecutor(),
         NodeType.END: MockEndExecutor(),

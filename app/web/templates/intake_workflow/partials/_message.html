@@ -1,23 +1,23 @@
-<!-- Single message in conversation -->
+<!-- Single message in conversation (Drafting Log block) -->
 {% if msg.role == 'user' %}
 <div class="flex items-start space-x-3 justify-end">
     <div class="flex-1 flex justify-end">
         <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 max-w-prose">
-            <p class="text-gray-900 dark:text-white">{{ msg.content }}</p>
+            <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ msg.content }}</p>
         </div>
     </div>
-    <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
+    <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center flex-shrink-0">
         <span class="text-white text-sm font-bold">U</span>
     </div>
 </div>
 {% else %}
 <div class="flex items-start space-x-3">
-    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+    <div class="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center flex-shrink-0">
         <span class="text-white text-sm font-bold">C</span>
     </div>
     <div class="flex-1">
-        <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
-            <p class="text-gray-900 dark:text-white">{{ msg.content }}</p>
+        <div class="bg-violet-50 dark:bg-violet-900/30 rounded-lg p-4 max-w-prose">
+            <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ msg.content }}</p>
         </div>
     </div>
 </div>

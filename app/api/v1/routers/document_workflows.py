@@ -12,7 +12,7 @@ This is the API layer that enables UI testing of the workflow engine.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -26,10 +26,11 @@ from app.domain.workflow.plan_executor import (
 )
 from app.domain.workflow.pg_state_persistence import PgStatePersistence
 from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
-from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
 from app.domain.workflow.nodes.mock_executors import create_mock_executors
 from app.domain.workflow.nodes.llm_executors import create_llm_executors
+from app.api.models.document import Document
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -40,48 +41,20 @@ _seed_workflows_loaded = False
 
 
 def _load_seed_workflows():
-    """Load seed workflow plans from seed/workflows/ directory."""
+    """Ensure seed workflow plans are loaded.
+    
+    The global registry auto-loads from seed/workflows/ on first access,
+    so this just ensures it's initialized and logs the result.
+    """
     global _seed_workflows_loaded
     if _seed_workflows_loaded:
         return
 
+    # get_plan_registry() auto-loads all workflows from seed/workflows/
     registry = get_plan_registry()
-    loader = PlanLoader()
-
-    # Find seed workflows directory
-    # Try multiple paths to handle different working directories
-    possible_paths = [
-        Path("seed/workflows"),
-        Path(__file__).parent.parent.parent.parent.parent / "seed" / "workflows",
-    ]
-
-    seed_dir = None
-    for path in possible_paths:
-        if path.exists():
-            seed_dir = path
-            break
-
-    if not seed_dir:
-        logger.warning("Seed workflows directory not found")
-        return
-
-    # Load ADR-039 format workflow plans
-    workflow_files = [
-        "concierge_intake.v1.json",
-    ]
-
-    for filename in workflow_files:
-        filepath = seed_dir / filename
-        if filepath.exists():
-            try:
-                plan = loader.load(str(filepath))
-                registry.register(plan)
-                logger.info(f"Loaded workflow plan: {plan.workflow_id} ({plan.document_type})")
-            except Exception as e:
-                logger.error(f"Failed to load workflow {filename}: {e}")
-
+    
     _seed_workflows_loaded = True
-    logger.info(f"Loaded {len(registry.list_plans())} workflow plans")
+    logger.info(f"Plan registry initialized with {len(registry.list_plans())} workflow plans")
 
 
 # Load seed workflows when module is imported
@@ -107,6 +80,7 @@ async def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:
         persistence=PgStatePersistence(db),
         plan_registry=get_plan_registry(),
         executors=executors,
+        db_session=db,
     )
 
 
@@ -116,9 +90,9 @@ async def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:
 class StartExecutionRequest(BaseModel):
     """Request to start a workflow execution."""
 
-    document_id: str = Field(..., description="ID of the document to process")
+    project_id: str = Field(..., description="ID of the project containing source documents")
     document_type: str = Field(
-        ..., description="Type of document (determines workflow)"
+        ..., description="Type of document to generate (determines workflow)"
     )
     initial_context: Optional[Dict[str, Any]] = Field(
         default=None, description="Optional initial context data"
@@ -129,7 +103,7 @@ class StartExecutionResponse(BaseModel):
     """Response after starting execution."""
 
     execution_id: str
-    document_id: str
+    project_id: str
     document_type: str
     workflow_id: str
     status: str
@@ -140,7 +114,7 @@ class ExecutionStatusResponse(BaseModel):
     """Response with execution status."""
 
     execution_id: str
-    document_id: str
+    project_id: str
     document_type: str
     workflow_id: str
     status: str
@@ -148,13 +122,16 @@ class ExecutionStatusResponse(BaseModel):
     terminal_outcome: Optional[str] = None
     gate_outcome: Optional[str] = None
     pending_user_input: bool = False
-    pending_prompt: Optional[str] = None
+    pending_user_input_rendered: Optional[str] = None
     pending_choices: Optional[List[str]] = None
+    pending_user_input_payload: Optional[Dict[str, Any]] = None
+    pending_user_input_schema_ref: Optional[str] = None
     escalation_active: bool = False
     escalation_options: List[str] = []
     step_count: int = 0
     created_at: str
     updated_at: str
+    produced_documents: Optional[Dict[str, Any]] = None
 
 
 class SubmitInputRequest(BaseModel):
@@ -163,10 +140,14 @@ class SubmitInputRequest(BaseModel):
     Per ADR-037: Free text (user_input) is for conversation.
     Option selection (selected_option_id) is for workflow advancement.
     Only explicit option selection can advance past decision points.
+    
+    For PGC questions, user_input can be a structured dict mapping
+    question IDs to answers (string for single_choice, array for multi_choice).
     """
 
-    user_input: Optional[str] = Field(
-        default=None, description="Free-text user input for conversation"
+    user_input: Optional[Union[str, Dict[str, Any]]] = Field(
+        default=None, 
+        description="User input - string for free text, or dict for structured PGC answers"
     )
     selected_option_id: Optional[str] = Field(
         default=None,
@@ -188,8 +169,10 @@ class ExecuteStepResponse(BaseModel):
     current_node_id: str
     terminal_outcome: Optional[str] = None
     pending_user_input: bool = False
-    pending_prompt: Optional[str] = None
+    pending_user_input_rendered: Optional[str] = None
     pending_choices: Optional[List[str]] = None
+    pending_user_input_payload: Optional[Dict[str, Any]] = None
+    pending_user_input_schema_ref: Optional[str] = None
     escalation_active: bool = False
     escalation_options: List[str] = []
 
@@ -208,7 +191,7 @@ class ExecutionListItem(BaseModel):
     """Item in execution list response."""
 
     execution_id: str
-    document_id: str
+    project_id: str
     document_type: str
     workflow_id: str
     status: str
@@ -255,22 +238,59 @@ async def list_executions(
 async def start_execution(
     request: StartExecutionRequest,
     executor: PlanExecutor = Depends(get_executor),
+    db: AsyncSession = Depends(get_db),
 ) -> StartExecutionResponse:
     """Start a new workflow execution for a document.
 
-    If an active execution already exists for this document,
+    Loads required input documents from the project based on workflow
+    requires_inputs configuration.
+
+    If an active execution already exists for this project,
     returns the existing execution instead of creating a new one.
     """
     try:
+        # Get workflow plan to check required inputs
+        registry = get_plan_registry()
+        plan = registry.get_by_document_type(request.document_type)
+        if not plan:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No workflow plan found for document type: {request.document_type}",
+            )
+        
+        # Load required input documents from project
+        input_documents = {}
+        if plan.requires_inputs:
+            for required_type in plan.requires_inputs:
+                result = await db.execute(
+                    select(Document)
+                    .where(Document.space_type == "project")
+                    .where(Document.space_id == request.project_id)
+                    .where(Document.doc_type_id == required_type)
+                    .where(Document.is_latest == True)
+                )
+                doc = result.scalar_one_or_none()
+                if doc is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Required input document '{required_type}' not found in project {request.project_id}",
+                    )
+                input_documents[required_type] = doc.content
+                logger.info(f"Loaded required input: {required_type} (doc {doc.id})")
+        
+        # Merge input documents with any provided initial_context
+        initial_context = request.initial_context or {}
+        initial_context["input_documents"] = input_documents
+        
         state = await executor.start_execution(
-            document_id=request.document_id,
+            project_id=request.project_id,
             document_type=request.document_type,
-            initial_context=request.initial_context,
+            initial_context=initial_context,
         )
 
         return StartExecutionResponse(
             execution_id=state.execution_id,
-            document_id=state.document_id,
+            project_id=state.project_id,
             document_type=state.document_type,
             workflow_id=state.workflow_id,
             status=state.status.value,
@@ -321,8 +341,10 @@ async def execute_step(
             current_node_id=state.current_node_id,
             terminal_outcome=state.terminal_outcome,
             pending_user_input=state.pending_user_input,
-            pending_prompt=state.pending_prompt,
+            pending_user_input_rendered=state.pending_user_input_rendered,
             pending_choices=state.pending_choices,
+            pending_user_input_payload=state.pending_user_input_payload,
+            pending_user_input_schema_ref=state.pending_user_input_schema_ref,
             escalation_active=state.escalation_active,
             escalation_options=state.escalation_options,
         )
@@ -356,8 +378,10 @@ async def run_to_completion(
             current_node_id=state.current_node_id,
             terminal_outcome=state.terminal_outcome,
             pending_user_input=state.pending_user_input,
-            pending_prompt=state.pending_prompt,
+            pending_user_input_rendered=state.pending_user_input_rendered,
             pending_choices=state.pending_choices,
+            pending_user_input_payload=state.pending_user_input_payload,
+            pending_user_input_schema_ref=state.pending_user_input_schema_ref,
             escalation_active=state.escalation_active,
             escalation_options=state.escalation_options,
         )
@@ -384,7 +408,7 @@ async def submit_user_input(
         state = await executor.submit_user_input(
             execution_id=execution_id,
             user_input=request.user_input,
-            selected_option_id=request.selected_option_id,
+            user_choice=request.selected_option_id,
         )
 
         return ExecuteStepResponse(
@@ -393,8 +417,10 @@ async def submit_user_input(
             current_node_id=state.current_node_id,
             terminal_outcome=state.terminal_outcome,
             pending_user_input=state.pending_user_input,
-            pending_prompt=state.pending_prompt,
+            pending_user_input_rendered=state.pending_user_input_rendered,
             pending_choices=state.pending_choices,
+            pending_user_input_payload=state.pending_user_input_payload,
+            pending_user_input_schema_ref=state.pending_user_input_schema_ref,
             escalation_active=state.escalation_active,
             escalation_options=state.escalation_options,
         )
@@ -432,8 +458,10 @@ async def handle_escalation(
             current_node_id=state.current_node_id,
             terminal_outcome=state.terminal_outcome,
             pending_user_input=state.pending_user_input,
-            pending_prompt=state.pending_prompt,
+            pending_user_input_rendered=state.pending_user_input_rendered,
             pending_choices=state.pending_choices,
+            pending_user_input_payload=state.pending_user_input_payload,
+            pending_user_input_schema_ref=state.pending_user_input_schema_ref,
             escalation_active=state.escalation_active,
             escalation_options=state.escalation_options,
         )

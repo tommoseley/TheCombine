@@ -1,0 +1,18 @@
+# Test Template
+
+This is a generic clarification generator template.
+
+---
+
+$$PGC_CONTEXT
+
+---
+
+## Output Schema
+
+$$OUTPUT_SCHEMA
+
+## Rules
+
+- Do not invent
+- Stay factual

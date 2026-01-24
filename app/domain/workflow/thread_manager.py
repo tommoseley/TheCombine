@@ -57,7 +57,7 @@ class ThreadManager:
     async def create_workflow_thread(
         self,
         workflow_id: str,
-        document_id: str,
+        project_id: str,
         document_type: str,
         execution_id: str,
         thread_purpose: Optional[str] = None,
@@ -67,7 +67,7 @@ class ThreadManager:
 
         Args:
             workflow_id: The workflow plan ID
-            document_id: The document being processed
+            project_id: The document being processed
             document_type: Type of document
             execution_id: The workflow execution ID
             thread_purpose: Optional thread purpose (from plan)
@@ -82,12 +82,12 @@ class ThreadManager:
             space_type="document",
             space_id=UUID(int=0),  # Placeholder - could use project ID
             target_doc_type=document_type,
-            target_id=document_id,
+            target_id=project_id,
         )
 
         # Build target reference
         target_ref = {
-            "document_id": document_id,
+            "project_id": project_id,
             "document_type": document_type,
             "execution_id": execution_id,
             "thread_purpose": thread_purpose,

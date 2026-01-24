@@ -183,10 +183,21 @@ def get_plan_registry() -> PlanRegistry:
     """Get the global plan registry instance.
 
     Creates a new instance if one doesn't exist.
+    Auto-loads workflows from seed/workflows directory.
     """
     global _global_registry
     if _global_registry is None:
         _global_registry = PlanRegistry()
+        # Auto-load workflows from seed directory
+        workflow_dir = Path("seed/workflows")
+        if workflow_dir.exists():
+            try:
+                count = _global_registry.load_from_directory(workflow_dir)
+                import logging
+                logging.getLogger(__name__).info(f"Loaded {count} workflow plans from {workflow_dir}")
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to auto-load workflows: {e}")
     return _global_registry
 
 

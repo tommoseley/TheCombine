@@ -47,7 +47,9 @@ class PromptLoader:
         """Load a role prompt by name.
         
         Args:
-            role_name: Role name (e.g., "Technical Architect 1.0")
+            role_name: Role name. Supports two formats:
+                - Legacy: "Technical Architect 1.0" -> seed/prompts/roles/Technical Architect 1.0.txt
+                - ADR-041: "roles/Technical Architect 1.0" -> seed/prompts/roles/Technical Architect 1.0.txt
             
         Returns:
             Role prompt content
@@ -58,7 +60,13 @@ class PromptLoader:
         if role_name in self._role_cache:
             return self._role_cache[role_name]
         
-        path = self._roles_dir / f"{role_name}.txt"
+        # ADR-041 format: role_ref includes subfolder
+        if role_name.startswith("roles/"):
+            path = self._prompts_dir / f"{role_name}.txt"
+        else:
+            # Legacy format: just the role name
+            path = self._roles_dir / f"{role_name}.txt"
+        
         content = self._load_file(path, "role", role_name)
         self._role_cache[role_name] = content
         return content
@@ -67,7 +75,9 @@ class PromptLoader:
         """Load a task prompt by name.
         
         Args:
-            task_name: Task name (e.g., "Project Discovery v1.0")
+            task_name: Task name. Supports two formats:
+                - Legacy: "Project Discovery v1.0" -> seed/prompts/tasks/Project Discovery v1.0.txt
+                - ADR-041: "tasks/Project Discovery v1.0" -> seed/prompts/tasks/Project Discovery v1.0.txt
             
         Returns:
             Task prompt content
@@ -78,7 +88,13 @@ class PromptLoader:
         if task_name in self._task_cache:
             return self._task_cache[task_name]
         
-        path = self._tasks_dir / f"{task_name}.txt"
+        # ADR-041 format: task_ref includes subfolder (tasks/, templates/)
+        if task_name.startswith("tasks/") or task_name.startswith("templates/"):
+            path = self._prompts_dir / f"{task_name}.txt"
+        else:
+            # Legacy format: just the task name
+            path = self._tasks_dir / f"{task_name}.txt"
+        
         content = self._load_file(path, "task", task_name)
         self._task_cache[task_name] = content
         return content

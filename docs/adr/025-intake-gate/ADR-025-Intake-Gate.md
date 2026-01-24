@@ -1,4 +1,4 @@
-﻿# ADR-025 — Intake Gate & Project Qualification
+# ADR-025 — Intake Gate & Project Qualification
 
 **Status:** Draft  
 **Date:** 2026-01-02  
@@ -188,3 +188,44 @@ The Concierge Intake Gate establishes a formal, auditable boundary between unstr
 It ensures that The Combine proceeds only when clarity exists — and halts cleanly when it does not.
 
 **This gate is foundational to safety, predictability, and accountability across the system.**
+
+---
+
+## Amendment: Artifact-Based Consent (2026-01-22)
+
+**Context:** The original ADR implied conversational consent ("user decides when conversation is closed"). Implementation revealed that artifact-based consent is more defensible and auditable.
+
+**Decision:**
+
+Explicit consent is expressed through **UI action on a reviewable artifact**, not conversational affirmation.
+
+**Consent Mechanism:**
+
+1. User provides initial intent description
+2. System extracts and presents interpretation as editable fields
+3. User reviews, optionally edits fields (edits auto-lock)
+4. User clicks **"Lock & Write Concierge Intake"** to confirm
+5. Only after explicit lock action does document generation proceed
+
+**Rationale:**
+
+This consent model is stronger than conversational affirmation because:
+- User sees exactly what will be locked (no hidden interpretation)
+- User can correct errors before commitment
+- Lock action is unambiguous and auditable
+- No "I think we're done" ambiguity
+
+**Supersedes:**
+- Section 4 "User control is explicit: The user decides when the intake conversation is closed"
+- Conversational consent patterns
+
+**Preserved:**
+- No Project Discovery without qualified intake
+- Gate outcomes remain authoritative
+- Downstream processes fail fast without qualified artifact
+
+**Implementation Note:**
+
+The "Lock" action serves dual purpose:
+1. Governance consent (user approves interpretation)
+2. Single-writer lock (user edits are preserved, LLM cannot overwrite)

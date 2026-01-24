@@ -1,4 +1,4 @@
-﻿"""
+"""
 WorkflowExecution model for The Combine.
 
 Minimal persistence for Document Workflow Engine (ADR-039).
@@ -45,8 +45,10 @@ class WorkflowExecution(Base):
     
     # Pause state
     pending_user_input = Column(Boolean, nullable=False, default=False)
-    pending_prompt = Column(Text, nullable=True)
+    pending_user_input_rendered = Column("pending_prompt", Text, nullable=True)  # DB column: pending_prompt
     pending_choices = Column(JSONB, nullable=True)
+    pending_user_input_payload = Column(JSONB, nullable=True)
+    pending_user_input_schema_ref = Column(String(255), nullable=True)
     
     # Conversation thread
     thread_id = Column(String(36), nullable=True)
@@ -68,8 +70,10 @@ class WorkflowExecution(Base):
             "gate_outcome": self.gate_outcome,
             "terminal_outcome": self.terminal_outcome,
             "pending_user_input": self.pending_user_input,
-            "pending_prompt": self.pending_prompt,
+            "pending_user_input_rendered": self.pending_user_input_rendered,
             "pending_choices": self.pending_choices,
+            "pending_user_input_payload": self.pending_user_input_payload,
+            "pending_user_input_schema_ref": self.pending_user_input_schema_ref,
             "thread_id": self.thread_id,
             "context_state": self.context_state,
         }

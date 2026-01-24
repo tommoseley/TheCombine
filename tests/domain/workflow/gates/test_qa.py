@@ -13,8 +13,10 @@ class TestQAGate:
     
     @pytest.fixture
     def gate(self):
-        """Create a gate instance."""
-        return QAGate()
+        """Create a gate instance with explicit schema path."""
+        from pathlib import Path
+        # Use path relative to repo root
+        return QAGate(schemas_dir=Path("seed/schemas"))
     
     def test_check_valid_dict_passes(self, gate):
         """Valid dict passes structural checks."""
@@ -83,15 +85,16 @@ class TestQAGate:
         """Document with registered schema is validated."""
         # Use the clarification schema which exists
         valid_clarification = {
-            "schema_version": "clarification_question_set.v1",
+            "schema_version": "clarification_question_set.v2",
             "mode": "questions_only",
             "correlation_id": str(uuid.uuid4()),
             "question_set_kind": "discovery",
+            "artifact_scope": "project",
             "questions": [
                 {
                     "id": "Q01",
                     "text": "What is the goal?",
-                    "intent": "Understanding",
+                    "why_it_matters": "Understanding",
                     "priority": "must",
                     "answer_type": "free_text",
                     "required": True,
@@ -108,12 +111,12 @@ class TestQAGate:
         result = gate.check(valid_clarification, doc_type="clarification_questions")
         
         assert result.passed is True
-        assert result.schema_used == "clarification_question_set.v1.json"
+        assert result.schema_used == "clarification_question_set.v2.json"
     
     def test_check_schema_violation_fails(self, gate):
         """Schema violation produces error."""
         invalid_clarification = {
-            "schema_version": "clarification_question_set.v1",
+            "schema_version": "clarification_question_set.v2",
             # Missing required fields
         }
         

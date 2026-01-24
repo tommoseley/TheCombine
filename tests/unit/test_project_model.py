@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for Project model and project routes.
 
 These tests codify current behavior BEFORE refactoring.
@@ -249,11 +249,10 @@ class TestProjectCreationBehavior:
         mock_id_result.scalars.return_value = mock_scalars
         db.execute.return_value = mock_id_result
         
-        # Capture the Project object passed to db.add()
-        added_project = None
+        # Capture all objects passed to db.add()
+        added_objects = []
         def capture_add(obj):
-            nonlocal added_project
-            added_project = obj
+            added_objects.append(obj)
         db.add.side_effect = capture_add
         
         # Mock refresh to update project_id
@@ -268,9 +267,11 @@ class TestProjectCreationBehavior:
         assert result is not None
         assert result.project_id == "TP-001"
         
-        # Verify db.add was called with Project instance
-        db.add.assert_called_once()
-        assert added_project is not None
+        # Verify db.add was called with Project and Document
+        assert db.add.call_count == 2  # Project + Document
+        assert len(added_objects) == 2
+        # First object should be Project
+        added_project = added_objects[0]
         assert isinstance(added_project, Project)
         
         # Verify ownership fields are set correctly

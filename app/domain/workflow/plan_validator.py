@@ -60,7 +60,7 @@ class PlanValidator:
     6. No orphan nodes (unreachable from entry)
     """
 
-    VALID_NODE_TYPES = {"concierge", "intake_gate", "task", "qa", "gate", "end"}
+    VALID_NODE_TYPES = {"concierge", "intake_gate", "task", "qa", "gate", "end", "pgc"}
     VALID_EDGE_KINDS = {"auto", "user_choice"}
     VALID_CONDITION_OPERATORS = {"eq", "ne", "lt", "lte", "gt", "gte"}
     REQUIRED_TOP_LEVEL_FIELDS = {

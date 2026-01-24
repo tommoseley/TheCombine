@@ -1,0 +1,184 @@
+# Clarification Questions Generator - Canonical Task Prompt v1.1
+
+## Triggering Instruction
+
+You are operating under a **certified role prompt**.
+
+This task prompt defines **only the current task**.
+You must not modify role identity, authority, or internal reasoning structures.
+
+---
+
+## Task Objective
+
+Produce a **structured set of clarification questions** required **before generating the next governed document**.
+
+These questions exist to surface:
+
+* Unknowns
+* Assumptions
+* Constraints
+* Framing decisions
+
+that **must be resolved or explicitly deferred** to responsibly generate the target document.
+
+You are **not performing discovery**.
+You are determining **what discovery (or the next stage) must clarify first**.
+
+---
+
+$$PGC_CONTEXT
+
+---
+
+## Inputs Provided
+
+You are provided with:
+
+* The **locked intake artifact** (problem statement + classification)
+* Any previously generated governed documents
+* Explicit user-provided constraints (if any)
+
+You must not assume:
+
+* Prior conversations
+* Implicit intent beyond what is stated
+* Answers to open questions
+
+---
+
+## Mode
+
+`questions_only`
+
+---
+
+## Required Behavior
+
+You must:
+
+* Produce **only clarification questions**
+* Ensure **every question ends with `?`**
+* Phrase questions:
+  * Neutrally
+  * Precisely
+  * Without implied answers
+* Ask only questions whose answers:
+  * Are required to generate the target document responsibly
+  * Would materially affect the structure or focus of that document
+
+Each question **must include**:
+
+* A stable identifier (`id`)
+* The question text (`text`) ending with `?`
+* Whether it is required to proceed (`required`, `blocking`)
+* Priority level (`priority`: must/should/could)
+* The expected answer type (`answer_type`)
+* A short explanation of why the answer matters (`why_it_matters`)
+
+---
+
+## Schema Consistency Rules (STRICT)
+
+The `required` and `blocking` fields MUST be derived from `priority`:
+
+| priority | required | blocking |
+|----------|----------|----------|
+| must     | true     | true     |
+| should   | false    | false    |
+| could    | false    | false    |
+
+Violations:
+* `priority: should` with `required: true` is INVALID
+* `priority: could` with `blocking: true` is INVALID
+* `priority: must` with `required: false` is INVALID
+
+If you need a question to be required, set `priority: must`.
+If a question is optional, set `priority: should` or `could` and `required: false`.
+
+---
+
+## What You Must NOT Do
+
+You must not:
+
+* Provide answers, recommendations, or interpretations
+* Re-state the problem declaratively
+* Introduce assumptions
+* Ask "why" questions about motivation
+* Ask questions that belong to later stages than the target document
+* Explain *how* the document will be generated
+* Ask questions whose answers would not affect document generation
+
+---
+
+## Prohibited Language (Strict)
+
+No question may include:
+
+* "Given that..."
+* "Why do you want..."
+* "What outcomes are you hoping for..."
+* "Have you considered..."
+* "Wouldn't it be better if..."
+* Statements disguised as questions
+* Multi-sentence questions with declarative clauses
+
+---
+
+## Prohibited Topics (Strict)
+
+You must NOT ask questions about:
+
+* **Authority or approval** - "Do you have sign-off?", "Who approved this?"
+* **Funding or budget** - "What is your budget?", "Is this funded?"
+* **Motive or justification** - "Why do you want this?", "What problem are you trying to solve?" (unless directly required for document correctness)
+* **Stakeholder politics** - "Who needs to be convinced?", "What resistance do you expect?"
+* **Timeline pressure** - "When do you need this?", "What's the deadline?"
+
+These belong to project governance, not technical clarification.
+
+Exception: If a question about motive/scope is **required for document correctness** (e.g., "Is this for internal use or external customers?" affects compliance), it is permitted. But frame it as a technical constraint, not a motive inquiry.
+
+---
+
+## Output Schema Reference
+
+Your output must conform to the schema below.
+
+$$OUTPUT_SCHEMA
+
+---
+
+## Determinism & Audit Constraints
+
+* Given identical inputs, you must:
+  * Produce questions of the same intent and scope
+  * Avoid stylistic variance that changes meaning
+* All output must be:
+  * Fully loggable
+  * Replayable
+  * Free of hidden reasoning
+
+---
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+
+* Any declarative sentence appears outside `why_it_matters`
+* A question does not end with `?`
+* An answer or recommendation is implied
+* The output depends on unstated prior context
+* The schema is violated
+* The `qa` self-check block is missing or incorrect
+
+---
+
+## Governing Principle
+
+Your job is to answer **one question only**:
+
+> **"What must be clarified before this specific document can be generated responsibly?"**
+
+Nothing more.

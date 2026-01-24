@@ -1,5 +1,5 @@
-<!-- Intake Workflow Chat Content - Document Interaction Workflow UI -->
-<div class="h-full flex flex-col max-w-5xl mx-auto">
+<!-- Intake Workflow Chat Content - Single-Page Progressive Drafting -->
+<div id="chat-container" class="h-full flex flex-col max-w-5xl mx-auto">
 
     <!-- Header -->
     <div class="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -10,10 +10,10 @@
             </div>
             {% if execution_id %}
             <div class="text-sm text-gray-500 dark:text-gray-400">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                <span id="status-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                     {% if status == 'running' %}bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200
                     {% elif status == 'paused' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
-                    {% elif status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                    {% elif status == 'completed' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200
                     {% else %}bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200{% endif %}">
                     {{ status|title }}
                 </span>
@@ -22,185 +22,196 @@
         </div>
     </div>
 
-    <!-- Messages Area -->
-    <div id="messages" class="flex-1 overflow-y-auto p-6 space-y-4">
-        {% for msg in messages %}
-            {% include 'intake_workflow/partials/_message.html' %}
-        {% endfor %}
-
-        {% if not messages and not is_completed %}
-        <!-- Initial greeting (only show if workflow hasn't completed) -->
-        <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <span class="text-white text-sm font-bold">C</span>
-            </div>
-            <div class="flex-1">
-                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
-                    <p class="text-gray-900 dark:text-white">
-                        Hello! I am the Concierge for The Combine.
-                    </p>
-                    <p class="text-gray-700 dark:text-gray-300 mt-2">
-                        {% if pending_prompt %}
-                            {{ pending_prompt }}
-                        {% else %}
+    <!-- Vertical Flow: All content in single scrollable area -->
+    <div id="drafting-log" class="flex-1 overflow-y-auto p-6 space-y-4">
+        
+        <!-- Messages Area -->
+        <div id="messages" class="space-y-4 {% if is_completed %}opacity-40{% endif %}">
+            <!-- Initial Concierge greeting (always shown) -->
+            <div class="flex items-start space-x-3">
+                <div class="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-sm font-bold">C</span>
+                </div>
+                <div class="flex-1">
+                    <div class="bg-violet-50 dark:bg-violet-900/30 rounded-lg p-4 max-w-prose">
+                        <p class="text-gray-900 dark:text-white">
+                            Hello! I am the Concierge for The Combine.
+                        </p>
+                        <p class="text-gray-700 dark:text-gray-300 mt-2">
                             Tell me about what you want to build, and I will help you start a formal project.
-                        {% endif %}
-                    </p>
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
-        {% endif %}
 
-        {% if pending_prompt and messages %}
-        <!-- Pending prompt from workflow -->
-        <div class="flex items-start space-x-3">
-            <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <span class="text-white text-sm font-bold">C</span>
+            {% for msg in messages %}
+                {% include 'intake_workflow/partials/_message.html' %}
+            {% endfor %}
+
+            <!-- Concierge prompt (when paused for clarification) -->
+            {% if pending_prompt %}
+            <div class="flex items-start space-x-3">
+                <div class="w-8 h-8 bg-violet-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-sm font-bold">C</span>
+                </div>
+                <div class="flex-1">
+                    <div class="bg-violet-50 dark:bg-violet-900/30 rounded-lg p-4 max-w-prose">
+                        <p class="text-gray-900 dark:text-white">{{ pending_prompt }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- INLINE INPUT: Appears directly under messages (not fixed at bottom) -->
+        {% if not is_completed and not pending_choices and not escalation_active and phase not in ['review', 'generating'] %}
+        <div id="inline-input-area" class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0 opacity-50">
+                <span class="text-white text-sm font-bold">U</span>
             </div>
             <div class="flex-1">
-                <div class="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 max-w-prose">
-                    <p class="text-gray-900 dark:text-white">{{ pending_prompt }}</p>
+                <form id="message-form" class="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 focus-within:border-violet-500 dark:focus-within:border-violet-400 transition-colors">
+                    <input type="hidden" name="execution_id" value="{{ execution_id }}">
+                    <textarea
+                        name="content"
+                        id="message-input"
+                        rows="3"
+                        placeholder="Type your response..."
+                        class="w-full bg-transparent border-0 focus:ring-0 p-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 resize-none"
+                        onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('send-btn').click(); }"></textarea>
+                    <div class="flex justify-end items-center mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <span class="text-xs text-gray-400 dark:text-gray-500 mr-3">Press Enter to send</span>
+                        <button
+                            type="button"
+                            id="send-btn"
+                            hx-post="/intake/{{ execution_id }}/message"
+                            hx-include="#message-form"
+                            hx-target="#drafting-log"
+                            hx-swap="innerHTML"
+                            hx-indicator="#send-spinner"
+                            hx-on::after-request="showProcessingState()"
+                            hx-disabled-elt="this"
+                            class="px-4 py-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white text-sm font-medium rounded-lg flex items-center">
+                            <span>Send</span>
+                            <svg id="send-spinner" class="htmx-indicator ml-2 animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Choice Buttons (inline) -->
+        {% if pending_choices and is_paused %}
+        <div id="choice-prompt" class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-white text-sm font-bold">?</span>
+            </div>
+            <div class="flex-1">
+                <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <p class="text-amber-900 dark:text-amber-300 text-sm mb-3">Please select an option:</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for choice in pending_choices %}
+                        <button
+                            type="button"
+                            hx-post="/intake/{{ execution_id }}/choice"
+                            hx-vals='{"choice": "{{ choice }}"}'
+                            hx-target="#drafting-log"
+                            hx-swap="innerHTML"
+                            class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm rounded-lg">
+                            {{ choice|replace('_', ' ')|title }}
+                        </button>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
         {% endif %}
-    </div>
 
-    <!-- Choice Buttons (for gate nodes) -->
-    {% if pending_choices and is_paused %}
-    <div id="choice-prompt" class="border-t border-gray-200 dark:border-gray-700 p-4 bg-amber-50 dark:bg-amber-900/20">
-        <p class="text-amber-900 dark:text-amber-300 mb-3">
-            Please select an option to continue:
-        </p>
-        <div class="flex flex-wrap gap-3">
-            {% for choice in pending_choices %}
-            <button
-                type="button"
-                hx-post="/intake/{{ execution_id }}/choice"
-                hx-vals='{"choice": "{{ choice }}"}'
-                hx-target="#messages"
-                hx-swap="beforeend scroll:#messages:bottom"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-                {{ choice|replace('_', ' ')|title }}
-            </button>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Escalation Options (circuit breaker) -->
-    {% if escalation_active %}
-    <div id="escalation-prompt" class="border-t border-gray-200 dark:border-gray-700 p-4 bg-red-50 dark:bg-red-900/20">
-        <p class="text-red-900 dark:text-red-300 mb-3">
-            <strong>Circuit Breaker Active:</strong> Multiple attempts have not succeeded. Please choose how to proceed:
-        </p>
-        <div class="flex flex-wrap gap-3">
-            {% for option in escalation_options %}
-            <button
-                type="button"
-                hx-post="/intake/{{ execution_id }}/choice"
-                hx-vals='{"choice": "{{ option }}"}'
-                hx-target="#messages"
-                hx-swap="beforeend scroll:#messages:bottom"
-                class="px-4 py-2 {% if option == 'abandon' %}bg-red-600 hover:bg-red-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %} text-white rounded-lg">
-                {{ option|replace('_', ' ')|title }}
-            </button>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Completion Banner -->
-    {% if is_completed %}
-        {% include 'intake_workflow/partials/_completion.html' %}
-    {% endif %}
-
-    <!-- Input Area (hidden when completed or showing choices) -->
-    {% if not is_completed and not pending_choices and not escalation_active %}
-    <div class="border-t border-gray-200 dark:border-gray-700 p-4">
-        <form id="message-form" class="flex items-end space-x-3">
-            <input type="hidden" name="execution_id" value="{{ execution_id }}">
-            <textarea
-                name="content"
-                id="message-input"
-                rows="4"
-                placeholder="Describe what you want to build..."
-                class="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white overflow-y-auto"
-                style="min-height: 100px; max-height: 300px; resize: vertical;"
-                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); document.getElementById('send-btn').click(); }"></textarea>
-            <button
-                type="button"
-                id="send-btn"
-                hx-post="/intake/{{ execution_id }}/message"
-                hx-include="#message-form"
-                hx-target="#messages"
-                hx-swap="beforeend scroll:#messages:bottom"
-                hx-indicator="#send-spinner"
-                onclick="showUserMessageImmediately()"
-                hx-on::after-request="clearInputAfterSend()"
-                hx-disabled-elt="this"
-                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg flex items-center self-end">
-                <span>Send</span>
-            </button>
-            <div id="send-spinner" class="htmx-indicator self-end pb-3">
-                <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+        <!-- Escalation Options (inline) -->
+        {% if escalation_active %}
+        <div id="escalation-prompt" class="flex items-start space-x-3">
+            <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-white text-sm font-bold">!</span>
             </div>
-        </form>
+            <div class="flex-1">
+                <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                    <p class="text-red-900 dark:text-red-300 text-sm mb-3">
+                        <strong>Circuit Breaker:</strong> Multiple attempts failed.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for option in escalation_options %}
+                        <button
+                            type="button"
+                            hx-post="/intake/{{ execution_id }}/choice"
+                            hx-vals='{"choice": "{{ option }}"}'
+                            hx-target="#drafting-log"
+                            hx-swap="innerHTML"
+                            class="px-3 py-1.5 {% if option == 'abandon' %}bg-red-600 hover:bg-red-700{% else %}bg-gray-600 hover:bg-gray-700{% endif %} text-white text-sm rounded-lg">
+                            {{ option|replace('_', ' ')|title }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Interpretation Panel (shown during review, generating, and completed phases) -->
+        {% if phase in ['review', 'generating'] or is_completed %}
+        <div id="interpretation-section" class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+            {% include 'intake_workflow/partials/_interpretation_panel.html' %}
+        </div>
+        {% endif %}
+
+        <!-- Status Panel: Generating spinner or Completion card (below interpretation) -->
+        {% if phase == 'generating' %}
+        <div id="main-content" class="mt-4">
+            {% include 'intake_workflow/partials/_generating.html' %}
+        </div>
+        {% elif is_completed %}
+        <div id="main-content" class="mt-4">
+            {% include 'intake_workflow/partials/_completion_inplace.html' %}
+        </div>
+        {% endif %}
+
     </div>
-    {% endif %}
 </div>
 
 <script>
     const WORKFLOW_EXECUTION_ID = '{{ execution_id }}';
-    console.log('Intake Workflow loaded. Execution ID:', WORKFLOW_EXECUTION_ID);
 
-    // Scroll to bottom on load
+    // Scroll to input on load
     (function() {
-        var messages = document.getElementById('messages');
-        if (messages) {
-            messages.scrollTop = messages.scrollHeight;
+        var input = document.getElementById('message-input');
+        if (input) {
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            input.focus();
+        }
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
         }
     })();
 
-    // Show user message immediately before HTMX request
-    // NOTE: Do NOT clear input here - HTMX needs the value for the POST
-    function showUserMessageImmediately() {
+    // Show processing state after request is sent (don't destroy form before HTMX reads it)
+    function showProcessingState() {
         var input = document.getElementById('message-input');
-        var content = input.value.trim();
-        if (!content) return;
-
-        var messagesDiv = document.getElementById('messages');
-
-        // Create user message HTML
-        var userMessageHtml = `
-            <div class="flex items-start space-x-3 justify-end user-message-optimistic">
-                <div class="flex-1 flex justify-end">
-                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 max-w-prose">
-                        <p class="text-gray-900 dark:text-white whitespace-pre-wrap">${escapeHtml(content)}</p>
-                    </div>
-                </div>
-                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span class="text-white text-sm font-bold">U</span>
-                </div>
-            </div>
-        `;
-
-        // Append user message
-        messagesDiv.insertAdjacentHTML('beforeend', userMessageHtml);
-
-        // Scroll to bottom
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        if (!input) return;
+        
+        // Disable input and show processing indicator
+        input.disabled = true;
+        input.classList.add('opacity-50');
+        
+        var btn = document.getElementById('send-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Processing...';
+        }
     }
 
-    // Clear input after HTMX request completes
-    function clearInputAfterSend() {
-        document.getElementById('message-input').value = '';
-    }
-
-    // Escape HTML to prevent XSS
     function escapeHtml(text) {
         var div = document.createElement('div');
         div.textContent = text;

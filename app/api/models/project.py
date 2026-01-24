@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project model for The Combine.
 
 Represents top-level project containers (e.g., HMP, ACME).
@@ -47,6 +47,11 @@ class Project(Base):
     archived_by = Column(UUID(as_uuid=True), nullable=True)
     archived_reason = Column(Text, nullable=True)
     
+    # Soft delete fields (WS-SOFT-DELETE-001)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(UUID(as_uuid=True), nullable=True)
+    deleted_reason = Column(Text, nullable=True)
+    
     # Metadata
     meta = Column(JSONB, default={}, name='metadata')
     
@@ -56,6 +61,7 @@ class Project(Base):
         Index('idx_projects_status', 'status'),
         Index('idx_projects_created_at', 'created_at'),
         Index('idx_projects_owner_id', 'owner_id'),
+        Index('idx_projects_deleted_at', 'deleted_at'),
     )
     
     def __repr__(self):
@@ -79,5 +85,9 @@ class Project(Base):
             'archived_by': str(self.archived_by) if self.archived_by else None,
             'archived_reason': self.archived_reason,
             'is_archived': self.archived_at is not None,
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'deleted_by': str(self.deleted_by) if self.deleted_by else None,
+            'deleted_reason': self.deleted_reason,
+            'is_deleted': self.deleted_at is not None,
             'metadata': self.meta
         }

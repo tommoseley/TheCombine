@@ -1,4 +1,4 @@
-﻿"""Outcome Recorder for Document Interaction Workflows (ADR-037, ADR-039).
+"""Outcome Recorder for Document Interaction Workflows (ADR-037, ADR-039).
 
 Records dual outcomes (governance + execution) for audit compliance.
 
@@ -99,7 +99,7 @@ class OutcomeRecorder:
         # Create via ORM
         outcome = GovernanceOutcome(
             execution_id=state.execution_id,
-            document_id=state.document_id,
+            document_id=state.project_id,
             document_type=state.document_type,
             workflow_id=state.workflow_id,
             thread_id=state.thread_id,
@@ -153,7 +153,7 @@ class OutcomeRecorder:
     async def list_outcomes_by_document(
         self,
         document_type: str,
-        document_id: str,
+        project_id: str,
         limit: int = 10,
     ) -> List[Dict[str, Any]]:
         """List governance outcomes for a document via ORM."""
@@ -164,7 +164,7 @@ class OutcomeRecorder:
             .where(
                 and_(
                     GovernanceOutcome.document_type == document_type,
-                    GovernanceOutcome.document_id == document_id
+                    GovernanceOutcome.document_id == project_id
                 )
             )
             .order_by(GovernanceOutcome.recorded_at.desc())

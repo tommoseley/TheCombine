@@ -1,4 +1,4 @@
-﻿"""
+"""
 Admin API routes for The Combine.
 
 ADR-010 Week 3: LLM execution replay functionality.
@@ -360,3 +360,150 @@ async def replay_llm_run(
     except Exception as e:
         logger.error(f"[ADR-010] Replay error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Replay failed: {str(e)}")
+
+
+# ================================================================================
+# Prompt Assembly Debug Endpoint (ADR-041)
+# ===============================================================================
+
+class PromptAssemblyRequest(BaseModel):
+    """Request to assemble a prompt."""
+    task_ref: str
+    includes: Dict[str, str] = {}
+
+
+class PromptAssemblyResponse(BaseModel):
+    """Response from prompt assembly."""
+    task_ref: str
+    content: str
+    content_hash: str
+    includes_resolved: Dict[str, str]
+    assembled_at: str
+    content_length: int
+
+
+def get_prompt_assembly_service():
+    """Dependency for PromptAssemblyService."""
+    from app.domain.services.prompt_assembly_service import PromptAssemblyService
+    return PromptAssemblyService()
+
+
+@router.post("/prompts/assemble", response_model=PromptAssemblyResponse)
+async def assemble_prompt(request: PromptAssemblyRequest):
+    """
+    Assemble a prompt from template and includes.
+    
+    For testing ADR-041 prompt template assembly.
+    
+    Example request:
+    ```json
+    {
+        "task_ref": "Clarification Questions Generator v1.0",
+        "includes": {
+            "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
+            "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json"
+        }
+    }
+    ```
+    """
+    from app.domain.services.prompt_assembly_service import PromptAssemblyService
+    from app.domain.prompt.errors import PromptAssemblyError
+    
+    service = PromptAssemblyService()
+    
+    try:
+        result = service.assemble(
+            task_ref=request.task_ref,
+            includes=request.includes,
+            correlation_id=str(uuid4()),
+        )
+        
+        return PromptAssemblyResponse(
+            task_ref=result.task_ref,
+            content=result.content,
+            content_hash=result.content_hash,
+            includes_resolved=result.includes_resolved,
+            assembled_at=result.assembled_at.isoformat(),
+            content_length=len(result.content),
+        )
+        
+    except PromptAssemblyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[ADR-041] Assembly error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Assembly failed: {str(e)}")
+
+
+@router.get("/prompts/workflows/{workflow_id}/nodes/{node_id}/assemble", response_model=PromptAssemblyResponse)
+async def assemble_prompt_from_workflow(workflow_id: str, node_id: str):
+    """
+    Assemble a prompt using workflow node configuration.
+    
+    Loads the workflow, finds the node, and assembles the prompt
+    using the node's task_ref and includes map.
+    
+    Example: GET /api/admin/prompts/workflows/pm_discovery/nodes/pgc/assemble
+    """
+    from app.domain.services.prompt_assembly_service import PromptAssemblyService
+    from app.domain.prompt.errors import PromptAssemblyError
+    
+    service = PromptAssemblyService()
+    
+    try:
+        result = service.assemble_from_workflow(
+            workflow_id=workflow_id,
+            node_id=node_id,
+            correlation_id=str(uuid4()),
+        )
+        
+        return PromptAssemblyResponse(
+            task_ref=result.task_ref,
+            content=result.content,
+            content_hash=result.content_hash,
+            includes_resolved=result.includes_resolved,
+            assembled_at=result.assembled_at.isoformat(),
+            content_length=len(result.content),
+        )
+        
+    except PromptAssemblyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[ADR-041] Assembly error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Assembly failed: {str(e)}")
+
+
+@router.get("/prompts/workflows")
+async def list_workflows():
+    """List available workflows with assembler-compatible nodes."""
+    from app.domain.services.prompt_assembly_service import PromptAssemblyService
+    
+    service = PromptAssemblyService()
+    workflows = service.list_workflows()
+    
+    result = []
+    for wf_id in workflows:
+        try:
+            nodes = service.list_workflow_nodes(wf_id)
+            # Filter to nodes that have includes (assembler-compatible)
+            assembler_nodes = []
+            for node_id in nodes:
+                try:
+                    node = service.get_workflow_node(wf_id, node_id)
+                    if node.includes:
+                        assembler_nodes.append({
+                            "node_id": node.node_id,
+                            "task_ref": node.task_ref,
+                            "includes": list(node.includes.keys()),
+                        })
+                except:
+                    pass
+            
+            if assembler_nodes:
+                result.append({
+                    "workflow_id": wf_id,
+                    "nodes_with_includes": assembler_nodes,
+                })
+        except:
+            pass
+    
+    return {"workflows": result}

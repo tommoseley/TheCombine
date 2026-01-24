@@ -1,0 +1,217 @@
+<!-- Concierge Intake Content Template
+     WS-INTAKE-SEP-001: Styled to match Project Discovery format -->
+
+<div class="p-6 max-w-7xl mx-auto">
+    {% set doc_title = "Concierge Intake" %}
+    {% set doc_icon = "message-square" %}
+    {% set doc_description = "Original user input and project classification" %}
+    {% include "public/pages/partials/_document_header.html" %}
+
+    {% set content = artifact.content if artifact else {} %}
+
+    {% if content and content.summary %}
+    <div class="space-y-6">
+    
+    <!-- Project Summary Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">{{ content.project_name or 'Project Summary' }}</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            {% if content.summary.description %}
+            <div class="border-l-4 border-violet-600 dark:border-violet-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Description</h3>
+                <p class="text-gray-900 dark:text-gray-50 whitespace-pre-wrap">{{ content.summary.description }}</p>
+            </div>
+            {% endif %}
+            {% if content.summary.user_statement %}
+            <div class="border-l-4 border-gray-400 dark:border-gray-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Original User Statement</h3>
+                <p class="text-gray-700 dark:text-gray-300 italic whitespace-pre-wrap">"{{ content.summary.user_statement }}"</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Project Type -->
+    {% if content.project_type %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <i data-lucide="tag" class="w-5 h-5 text-violet-600 dark:text-violet-500"></i>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">Project Type</h2>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400">
+                    {{ content.project_type.category | replace('_', ' ') | title }}
+                </span>
+                {% if content.project_type.confidence %}
+                <span class="text-sm text-gray-500 dark:text-gray-400">Confidence: {{ content.project_type.confidence | title }}</span>
+                {% endif %}
+            </div>
+            {% if content.project_type.rationale %}
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ content.project_type.rationale }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Constraints -->
+    {% if content.constraints and (content.constraints.explicit or content.constraints.inferred) %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <i data-lucide="lock" class="w-5 h-5 text-gray-600 dark:text-gray-400"></i>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">Constraints</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            {% if content.constraints.explicit and content.constraints.explicit | length > 0 %}
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Explicit</h3>
+                <ul class="space-y-2">
+                    {% for c in content.constraints.explicit %}
+                    <li class="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                        <i data-lucide="lock" class="w-4 h-4 mr-3 mt-0.5 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
+                        {{ c }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if content.constraints.inferred and content.constraints.inferred | length > 0 %}
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Inferred</h3>
+                <ul class="space-y-2">
+                    {% for c in content.constraints.inferred %}
+                    <li class="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                        <i data-lucide="lightbulb" class="w-4 h-4 mr-3 mt-0.5 text-amber-500 flex-shrink-0"></i>
+                        {{ c }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <!-- Open Gaps -->
+    {% if content.open_gaps and (content.open_gaps.questions or content.open_gaps.missing_context or content.open_gaps.assumptions_made) %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <i data-lucide="help-circle" class="w-5 h-5 text-amber-600 dark:text-amber-500"></i>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">Open Gaps</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            {% if content.open_gaps.questions and content.open_gaps.questions | length > 0 %}
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Questions</h3>
+                <ul class="space-y-2">
+                    {% for q in content.open_gaps.questions %}
+                    <li class="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                        <i data-lucide="help-circle" class="w-4 h-4 mr-3 mt-0.5 text-amber-500 flex-shrink-0"></i>
+                        {{ q }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if content.open_gaps.missing_context and content.open_gaps.missing_context | length > 0 %}
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Missing Context</h3>
+                <ul class="space-y-2">
+                    {% for m in content.open_gaps.missing_context %}
+                    <li class="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                        <i data-lucide="alert-circle" class="w-4 h-4 mr-3 mt-0.5 text-gray-400 flex-shrink-0"></i>
+                        {{ m }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if content.open_gaps.assumptions_made and content.open_gaps.assumptions_made | length > 0 %}
+            <div>
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Assumptions</h3>
+                <ul class="space-y-2">
+                    {% for a in content.open_gaps.assumptions_made %}
+                    <li class="flex items-start text-sm text-gray-700 dark:text-gray-300">
+                        <i data-lucide="lightbulb" class="w-4 h-4 mr-3 mt-0.5 text-violet-500 flex-shrink-0"></i>
+                        {{ a }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <!-- Intake Outcome -->
+    {% if content.outcome %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600 dark:text-emerald-500"></i>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">Intake Outcome</h2>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center gap-3 mb-3">
+                {% if content.outcome.status == 'qualified' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                    Qualified
+                </span>
+                {% elif content.outcome.status == 'not_ready' %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                    Not Ready
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    {{ content.outcome.status | replace('_', ' ') | title }}
+                </span>
+                {% endif %}
+            </div>
+            {% if content.outcome.rationale %}
+            <p class="text-sm text-gray-600 dark:text-gray-400">{{ content.outcome.rationale }}</p>
+            {% endif %}
+            {% if content.outcome.next_action %}
+            <div class="mt-4 border-l-4 border-emerald-600 dark:border-emerald-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-r-lg">
+                <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Next Action</h3>
+                <p class="text-gray-900 dark:text-gray-50">{{ content.outcome.next_action }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Raw JSON -->
+    <details class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <summary class="px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+            <i data-lucide="code" class="w-5 h-5 text-gray-600 dark:text-gray-400"></i>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-50">Raw Data (JSON)</h2>
+        </summary>
+        <div class="p-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <pre class="text-sm text-gray-700 dark:text-gray-300 overflow-x-auto"><code>{{ content | tojson(indent=2) }}</code></pre>
+            </div>
+        </div>
+    </details>
+    
+    </div>
+    
+    {% elif content %}
+    <!-- Unknown format - show raw JSON -->
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+            <p class="text-amber-800 dark:text-amber-200">Unexpected document format. Raw data shown below.</p>
+        </div>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+            <pre class="text-sm text-gray-700 dark:text-gray-300 overflow-x-auto"><code>{{ content | tojson(indent=2) }}</code></pre>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- No document -->
+    {% set doc_type_icon = 'message-square' %}
+    {% set doc_type_name = 'Concierge Intake' %}
+    {% set doc_type_id = 'concierge_intake' %}
+    {% include "public/pages/partials/_document_not_found.html" %}
+    {% endif %}
+</div>

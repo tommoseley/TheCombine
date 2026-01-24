@@ -1,4 +1,4 @@
-﻿"""Plan Executor for Document Interaction Workflow Plans (ADR-039).
+"""Plan Executor for Document Interaction Workflow Plans (ADR-039).
 
 The PlanExecutor is the main orchestrator that executes document workflows.
 It coordinates node executors, edge routing, and state persistence.
@@ -18,7 +18,7 @@ Separation Invariants:
 Audit Invariants:
 - Every node execution is logged with timestamp
 - State transitions are recorded in node_history
-- Retry counts are tracked per (document_id, generating_node_id)
+- Retry counts are tracked per (project_id, generating_node_id)
 
 Thread Ownership (WS-ADR-025 Phase 3):
 - Workflows that declare thread_ownership.owns_thread create durable threads
@@ -46,6 +46,7 @@ from app.domain.workflow.nodes.base import (
 )
 from app.domain.workflow.thread_manager import ThreadManager
 from app.domain.workflow.outcome_recorder import OutcomeRecorder
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class StatePersistence(Protocol):
         ...
 
     async def load_by_document(
-        self, document_id: str, workflow_id: str
+        self, project_id: str, workflow_id: str
     ) -> Optional[DocumentWorkflowState]:
         """Load workflow state by document and workflow ID."""
         ...
@@ -91,11 +92,11 @@ class InMemoryStatePersistence:
         return self._states.get(execution_id)
 
     async def load_by_document(
-        self, document_id: str, workflow_id: str
+        self, project_id: str, workflow_id: str
     ) -> Optional[DocumentWorkflowState]:
         """Load state by document and workflow."""
         for state in self._states.values():
-            if state.document_id == document_id and state.workflow_id == workflow_id:
+            if state.project_id == project_id and state.workflow_id == workflow_id:
                 return state
         return None
 
@@ -145,6 +146,7 @@ class PlanExecutor:
         executors: Optional[Dict[NodeType, NodeExecutor]] = None,
         thread_manager: Optional[ThreadManager] = None,
         outcome_recorder: Optional[OutcomeRecorder] = None,
+        db_session: Optional[AsyncSession] = None,
     ):
         """Initialize the executor.
 
@@ -162,6 +164,7 @@ class PlanExecutor:
         self._plan_registry = plan_registry or get_plan_registry()
         self._thread_manager = thread_manager
         self._outcome_recorder = outcome_recorder
+        self._db_session = db_session
 
         # Node executors by type - injectable for testing
         if executors:
@@ -173,14 +176,14 @@ class PlanExecutor:
 
     async def start_execution(
         self,
-        document_id: str,
+        project_id: str,
         document_type: str,
         initial_context: Optional[Dict[str, Any]] = None,
     ) -> DocumentWorkflowState:
         """Start a new workflow execution for a document.
 
         Args:
-            document_id: The document being processed
+            project_id: The document being processed
             document_type: Type of document (determines which plan to use)
             initial_context: Optional initial context data
 
@@ -199,7 +202,7 @@ class PlanExecutor:
 
         # Check for existing execution
         existing = await self._persistence.load_by_document(
-            document_id, plan.workflow_id
+            project_id, plan.workflow_id
         )
         if existing and existing.status not in (
             DocumentWorkflowStatus.COMPLETED,
@@ -207,7 +210,7 @@ class PlanExecutor:
         ):
             logger.info(
                 f"Resuming existing execution {existing.execution_id} "
-                f"for document {document_id}"
+                f"for document {project_id}"
             )
             return existing
 
@@ -222,7 +225,7 @@ class PlanExecutor:
         if self._thread_manager and plan.thread_ownership.owns_thread:
             thread_id = await self._thread_manager.create_workflow_thread(
                 workflow_id=plan.workflow_id,
-                document_id=document_id,
+                project_id=project_id,
                 document_type=document_type,
                 execution_id=execution_id,
                 thread_purpose=plan.thread_ownership.thread_purpose,
@@ -234,18 +237,19 @@ class PlanExecutor:
         state = DocumentWorkflowState(
             execution_id=execution_id,
             workflow_id=plan.workflow_id,
-            document_id=document_id,
+            project_id=project_id,
             document_type=document_type,
             current_node_id=entry_node.node_id,
             status=DocumentWorkflowStatus.PENDING,
             thread_id=thread_id,
+            context_state=initial_context or {},
         )
 
         # Save initial state
         await self._persistence.save(state)
 
         logger.info(
-            f"Started execution {execution_id} for document {document_id} "
+            f"Started execution {execution_id} for document {project_id} "
             f"at node {entry_node.node_id}"
         )
 
@@ -254,7 +258,7 @@ class PlanExecutor:
     async def execute_step(
         self,
         execution_id: str,
-        user_input: Optional[str] = None,
+        user_input: Optional[Any] = None,
         user_choice: Optional[str] = None,
     ) -> DocumentWorkflowState:
         """Execute the next step in the workflow.
@@ -305,6 +309,28 @@ class PlanExecutor:
         # Clear pause state if we have user input
         if state.pending_user_input and (user_input or user_choice):
             state.clear_pause()
+            
+            # Special handling for PGC nodes: store answers and advance to generation
+            # Don't re-execute PGC - that would generate new questions
+            if current_node.type == NodeType.PGC and user_input:
+                logger.info(f"PGC node {current_node.node_id} received user answers - advancing to generation")
+                state.update_context_state({"pgc_answers": user_input})
+                
+                # Route to next node using "success" outcome (user answered, proceed)
+                router = EdgeRouter(plan)
+                next_node_id, edge = router.get_next_node(
+                    current_node_id=current_node.node_id,
+                    outcome="success",
+                    state=state,
+                )
+                if next_node_id:
+                    state.current_node_id = next_node_id
+                    state.status = DocumentWorkflowStatus.RUNNING
+                    await self._persistence.save(state)
+                    # Continue execution at the new node
+                    return await self.execute_step(execution_id)
+                else:
+                    raise PlanExecutorError(f"No edge from PGC node {current_node.node_id} with outcome 'success'")
 
         # Update status to running
         state.status = DocumentWorkflowStatus.RUNNING
@@ -386,7 +412,7 @@ class PlanExecutor:
     async def submit_user_input(
         self,
         execution_id: str,
-        user_input: Optional[str] = None,
+        user_input: Optional[Any] = None,
         user_choice: Optional[str] = None,
     ) -> DocumentWorkflowState:
         """Submit user input for a paused execution.
@@ -477,7 +503,7 @@ class PlanExecutor:
         self,
         state: DocumentWorkflowState,
         plan: WorkflowPlan,
-        user_input: Optional[str],
+        user_input: Optional[Any],
         user_choice: Optional[str],
     ) -> DocumentWorkflowContext:
         """Build execution context for a node.
@@ -530,12 +556,12 @@ class PlanExecutor:
         logger.debug(f"Loaded {len(document_content)} documents from context_state")
 
         return DocumentWorkflowContext(
-            document_id=state.document_id,
+            project_id=state.project_id,
             document_type=state.document_type,
             thread_id=state.thread_id,
             document_content=document_content,
             conversation_history=conversation_history,
-            input_documents={},
+            input_documents=state.context_state.get("input_documents", {}),
             user_responses={},
             extra=extra,
             context_state=state.context_state,
@@ -573,6 +599,7 @@ class PlanExecutor:
             "gate_outcomes": node.gate_outcomes,
             "terminal_outcome": node.terminal_outcome,
             "gate_outcome": node.gate_outcome,
+            "includes": node.includes,  # ADR-041 template includes
         }
 
         # Build state snapshot
@@ -612,18 +639,24 @@ class PlanExecutor:
             state: Current execution state
             plan: Workflow plan
         """
-        # Record execution in history
+        # Record execution in history (include user_prompt for clarification questions)
+        execution_metadata = dict(result.metadata) if result.metadata else {}
+        if result.user_prompt:
+            execution_metadata["user_prompt"] = result.user_prompt
         state.record_execution(
             node_id=current_node.node_id,
             outcome=result.outcome,
-            metadata=result.metadata,
+            metadata=execution_metadata,
         )
 
         # Handle user input requirement
         if result.requires_user_input:
+            logger.info(f"Setting paused state with payload={result.user_input_payload is not None}, schema_ref={result.user_input_schema_ref}")
             state.set_paused(
                 prompt=result.user_prompt,
                 choices=result.user_choices,
+                payload=result.user_input_payload,
+                schema_ref=result.user_input_schema_ref,
             )
             return
 
@@ -638,15 +671,35 @@ class PlanExecutor:
             logger.info(f"Stored produced document as document_{produces_key}")
 
         # Store intake gate metadata in context_state for downstream nodes
-        # This includes: intake_summary, project_type, user_input, etc.
+        # This includes: intake_summary, project_type, user_input, interpretation, phase
         if current_node.type == NodeType.INTAKE_GATE and result.outcome == "qualified":
             intake_metadata = {}
-            for key in ["intake_summary", "project_type", "user_input", "extracted_data"]:
+            for key in ["intake_summary", "project_type", "user_input", "intent_canon", "extracted_data", "interpretation", "phase"]:
                 if key in result.metadata:
                     intake_metadata[key] = result.metadata[key]
             if intake_metadata:
                 state.update_context_state(intake_metadata)
                 logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
+            
+            # Pause for user review if phase is "review" (WS-INTAKE-001)
+            # But don't pause again if we're already past review (phase == "generating")
+            current_phase = state.context_state.get("phase")
+            if result.metadata.get("phase") == "review" and current_phase != "generating":
+                # Advance to next node BEFORE pausing (so resume starts at generation, not intake)
+                router = EdgeRouter(plan)
+                next_node_id, _ = router.get_next_node(
+                    current_node_id=current_node.node_id,
+                    outcome=result.outcome,
+                    state=state,
+                )
+                if next_node_id:
+                    state.current_node_id = next_node_id
+                    logger.info(f"Advanced to {next_node_id} before pausing for review")
+                
+                state.set_paused(prompt=None, choices=None)
+                await self._persistence.save(state)
+                logger.info("Intake qualified - pausing for user review")
+                return  # Don't execute next node until user clicks Initialize
 
         # Pre-routing: Set generating_node_id for QA failures (needed by edge router)
         if current_node.type == NodeType.QA and result.outcome == "failed":
@@ -704,6 +757,10 @@ class PlanExecutor:
 
             # Record governance outcome (ADR-037)
             await self._record_governance_outcome(state, plan, result)
+
+            # Persist produced documents to database on successful completion
+            if terminal_outcome == "stabilized":
+                await self._persist_produced_documents(state, plan)
 
             logger.info(
                 f"Execution {state.execution_id} reached terminal: "
@@ -776,10 +833,13 @@ class PlanExecutor:
             # Record user input if present
             user_input = context.extra.get("user_input")
             if user_input:
+                # Convert dict to JSON string for thread recording
+                import json
+                content = json.dumps(user_input, indent=2) if isinstance(user_input, dict) else user_input
                 await self._thread_manager.record_conversation_turn(
                     thread_id=state.thread_id,
                     role="user",
-                    content=user_input,
+                    content=content,
                     node_id=node.node_id,
                 )
 
@@ -872,6 +932,108 @@ class PlanExecutor:
         except Exception as e:
             logger.warning(f"Failed to record governance outcome: {e}")
 
+    async def _persist_produced_documents(
+        self,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+    ) -> None:
+        """Persist produced documents to the documents table.
+
+        Called on successful workflow completion (stabilized).
+        Saves the primary output document to the database.
+        
+        System-owned fields (meta.created_at, meta.artifact_id) are
+        overwritten with system values - LLM must not mint these.
+
+        Args:
+            state: The completed workflow state
+            plan: The workflow plan
+        """
+        if not self._db_session:
+            logger.warning("No db_session - skipping document persistence")
+            return
+
+        # Import here to avoid circular dependencies
+        from app.api.models.document import Document
+        from uuid import UUID
+        import copy
+
+        # Find the primary produced document (e.g., document_project_discovery)
+        doc_key = f"document_{state.document_type}"
+        produced_doc = state.context_state.get(doc_key)
+        
+        if not produced_doc:
+            logger.warning(f"No produced document found at {doc_key}")
+            return
+
+        try:
+            # Deep copy to avoid mutating context_state
+            doc_content = copy.deepcopy(produced_doc)
+            
+            # Enforce system-owned meta fields
+            if "meta" not in doc_content:
+                doc_content["meta"] = {}
+            
+            meta = doc_content["meta"]
+            
+            # Log if LLM minted values that differ from system values
+            llm_created_at = meta.get("created_at")
+            llm_artifact_id = meta.get("artifact_id")
+            
+            # System-owned: created_at = now
+            system_created_at = datetime.utcnow().isoformat() + "Z"
+            if llm_created_at and llm_created_at != system_created_at:
+                logger.warning(
+                    f"LLM minted meta.created_at={llm_created_at}, "
+                    f"overwriting with system value"
+                )
+            meta["created_at"] = system_created_at
+            
+            # System-owned: artifact_id = execution_id based
+            system_artifact_id = f"{state.document_type.upper()}-{state.execution_id}"
+            if llm_artifact_id and llm_artifact_id != system_artifact_id:
+                logger.warning(
+                    f"LLM minted meta.artifact_id={llm_artifact_id}, "
+                    f"overwriting with system value"
+                )
+            meta["artifact_id"] = system_artifact_id
+            
+            # Add provenance: correlation_id links to execution
+            meta["correlation_id"] = state.execution_id
+            meta["workflow_id"] = state.workflow_id
+
+            # Create the document record
+            document = Document(
+                space_type="project",
+                space_id=UUID(state.project_id),
+                doc_type_id=state.document_type,
+                title=doc_content.get("project_name", f"{state.document_type} Document"),
+                content=doc_content,
+                version=1,
+                is_latest=True,
+                status="draft",
+                created_by=None,  # System-generated
+            )
+            document.update_revision_hash()
+
+            self._db_session.add(document)
+            await self._db_session.commit()
+            
+            # Update context_state with system-corrected document
+            # so API responses show corrected values
+            doc_key = f"document_{state.document_type}"
+            state.context_state[doc_key] = doc_content
+            await self._persistence.save(state)
+            
+            logger.info(
+                f"Persisted {state.document_type} document to database "
+                f"(id={document.id}, artifact_id={system_artifact_id}, project={state.project_id})"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to persist document: {e}")
+            # Don't fail the workflow - document is still in context_state
+            await self._db_session.rollback()
     async def get_execution_status(
         self,
         execution_id: str,
@@ -890,7 +1052,7 @@ class PlanExecutor:
 
         return {
             "execution_id": state.execution_id,
-            "document_id": state.document_id,
+            "project_id": state.project_id,
             "document_type": state.document_type,
             "workflow_id": state.workflow_id,
             "status": state.status.value,
@@ -898,13 +1060,16 @@ class PlanExecutor:
             "terminal_outcome": state.terminal_outcome,
             "gate_outcome": state.gate_outcome,
             "pending_user_input": state.pending_user_input,
-            "pending_prompt": state.pending_prompt,
+            "pending_user_input_rendered": state.pending_user_input_rendered,
             "pending_choices": state.pending_choices,
+            "pending_user_input_payload": state.pending_user_input_payload,
+            "pending_user_input_schema_ref": state.pending_user_input_schema_ref,
             "escalation_active": state.escalation_active,
             "escalation_options": state.escalation_options,
             "step_count": len(state.node_history),
             "created_at": state.created_at.isoformat(),
             "updated_at": state.updated_at.isoformat(),
+            "produced_documents": {k: v for k, v in state.context_state.items() if k.startswith("document_")},
         }
 
     async def list_executions(
@@ -935,7 +1100,7 @@ class PlanExecutor:
         return [
             {
                 "execution_id": state.execution_id,
-                "document_id": state.document_id,
+                "project_id": state.project_id,
                 "document_type": state.document_type,
                 "workflow_id": state.workflow_id,
                 "status": state.status.value,

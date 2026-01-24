@@ -115,7 +115,7 @@ class TestDocumentWorkflowState:
 
         assert state.status == DocumentWorkflowStatus.PAUSED
         assert state.pending_user_input is True
-        assert state.pending_prompt == "What is your project about?"
+        assert state.pending_user_input_rendered == "What is your project about?"
         assert state.pending_choices == ["Option A", "Option B"]
 
     def test_clear_pause(self, state):
@@ -125,7 +125,7 @@ class TestDocumentWorkflowState:
 
         assert state.status == DocumentWorkflowStatus.RUNNING
         assert state.pending_user_input is False
-        assert state.pending_prompt is None
+        assert state.pending_user_input_rendered is None
         assert state.pending_choices is None
 
     def test_set_escalation(self, state):

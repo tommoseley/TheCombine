@@ -1,0 +1,24 @@
+## Replaceable Context Block (Authoritative)
+
+Next Document: Project Discovery Document
+
+Purpose of This Document:
+To explore solution space, validate assumptions, identify risks, and define scope and constraints - without committing to architecture or implementation.
+
+What This Document Assumes Is Already True:
+
+* The problem statement is correct
+* The project intent is valid
+* The project type (greenfield, enhancement, etc.) is correct
+
+This Clarification Step Exists To Prevent:
+
+* Starting discovery under the wrong framing (e.g., personal vs commercial, internal vs external)
+* Discovering too late that the scope category is incorrect
+* Producing a discovery document that answers the wrong questions
+
+Questions Asked Here Must:
+
+* Affect how discovery is run
+* Change what discovery needs to explore
+* Or determine whether discovery should proceed as planned

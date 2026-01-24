@@ -1,70 +1,172 @@
-﻿<!-- Completion banner - shows gate outcome -->
-<div class="border-t border-gray-200 dark:border-gray-700 p-6
-    {% if outcome_color == 'green' %}bg-green-50 dark:bg-green-900/20
-    {% elif outcome_color == 'yellow' %}bg-yellow-50 dark:bg-yellow-900/20
-    {% elif outcome_color == 'blue' %}bg-blue-50 dark:bg-blue-900/20
-    {% else %}bg-gray-50 dark:bg-gray-900/20{% endif %}">
+<!-- Intake Completion - Hardened Record (Immutable)
+     Design: Industrial System of Record, not a chat output
+     Per ChatGPT/Gemini feedback: Frozen artifact with provenance -->
 
-    <div class="flex items-start space-x-4">
-        <!-- Status icon -->
-        <div class="flex-shrink-0">
-            {% if outcome_color == 'green' %}
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            {% elif outcome_color == 'yellow' %}
-            <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
+<section class="max-w-4xl mx-auto border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm rounded-lg overflow-hidden font-sans">
+    
+    <!-- Header: Locked Record Status -->
+    <div class="bg-slate-50 dark:bg-slate-900 px-6 py-4 flex justify-between items-center border-b border-slate-200 dark:border-slate-700">
+        <div class="flex items-center gap-3">
+            {% if gate_outcome == 'qualified' %}
+            <i data-lucide="lock" class="w-5 h-5 text-emerald-600 dark:text-emerald-500"></i>
+            <span class="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Intake Qualified // Finalized</span>
+            {% elif gate_outcome == 'not_ready' %}
+            <i data-lucide="alert-circle" class="w-5 h-5 text-amber-600 dark:text-amber-500"></i>
+            <span class="font-mono text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Intake Incomplete // Review Required</span>
             {% else %}
-            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+            <i data-lucide="x-circle" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
+            <span class="font-mono text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">Intake Record // {{ gate_outcome | replace('_', ' ') | title }}</span>
+            {% endif %}
+        </div>
+        <div class="text-right">
+            <span class="block font-mono text-[9px] text-slate-400 dark:text-slate-500 uppercase">Project ID</span>
+            <span class="block font-mono text-[10px] text-slate-600 dark:text-slate-300 font-bold">{{ project_id or 'Pending' }}</span>
+        </div>
+    </div>
+
+    <div class="p-8 space-y-8">
+        
+        <!-- Project Statement (renamed from Primary Goal) -->
+        <div>
+            <h3 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">// Project Statement</h3>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 mb-3 italic">This statement will anchor all downstream work unless revised later.</p>
+            {% if captured_intent %}
+            <p class="text-lg font-medium text-slate-900 dark:text-slate-100 leading-relaxed border-l-4 border-violet-600 dark:border-violet-500 pl-6 bg-slate-50 dark:bg-slate-900/50 py-4 pr-4 rounded-r-lg">
+                {{ captured_intent }}
+            </p>
+            {% elif project_name %}
+            <p class="text-lg font-medium text-slate-900 dark:text-slate-100 leading-relaxed border-l-4 border-violet-600 dark:border-violet-500 pl-6 bg-slate-50 dark:bg-slate-900/50 py-4 pr-4 rounded-r-lg">
+                {{ project_name }}
+            </p>
+            {% else %}
+            <p class="text-slate-500 dark:text-slate-400 italic">No project statement captured.</p>
             {% endif %}
         </div>
 
-        <!-- Content -->
-        <div class="flex-1">
-            <h3 class="text-lg font-semibold
-                {% if outcome_color == 'green' %}text-green-900 dark:text-green-100
-                {% elif outcome_color == 'yellow' %}text-yellow-900 dark:text-yellow-100
-                {% elif outcome_color == 'blue' %}text-blue-900 dark:text-blue-100
-                {% else %}text-gray-900 dark:text-gray-100{% endif %}">
-                {{ outcome_title }}
-            </h3>
-            <p class="mt-1 text-sm
-                {% if outcome_color == 'green' %}text-green-700 dark:text-green-300
-                {% elif outcome_color == 'yellow' %}text-yellow-700 dark:text-yellow-300
-                {% elif outcome_color == 'blue' %}text-blue-700 dark:text-blue-300
-                {% else %}text-gray-700 dark:text-gray-300{% endif %}">
-                {{ outcome_description }}
-            </p>
-
-            <!-- Outcome details -->
-            <div class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                {% if project_id %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 mr-2">
-                    Project: {{ project_id }}
-                </span>
+        <!-- Two Column Layout: Gaps + Next Phase -->
+        <div class="grid md:grid-cols-2 gap-8">
+            
+            <!-- Open Questions with Provenance Tags -->
+            <div class="space-y-4">
+                <h3 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest">// Open Questions for Discovery</h3>
+                
+                {% if known_unknowns and known_unknowns | length > 0 %}
+                <ul class="space-y-3">
+                    {% for gap in known_unknowns %}
+                    <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                        <span class="bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-1.5 py-0.5 rounded border border-violet-100 dark:border-violet-800 uppercase flex-shrink-0 mt-0.5">Inferred</span>
+                        <span>{{ gap }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-sm text-slate-500 dark:text-slate-400 italic">No open questions identified.</p>
                 {% endif %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 mr-2">
-                    Gate: {{ gate_outcome }}
-                </span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
-                    Terminal: {{ terminal_outcome }}
-                </span>
+                
+                <!-- Constraints (User-Stated) -->
+                {% if constraints_explicit and constraints_explicit | length > 0 %}
+                <div class="mt-6">
+                    <h4 class="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">// Stated Constraints</h4>
+                    <ul class="space-y-2">
+                        {% for constraint in constraints_explicit %}
+                        <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <span class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[8px] font-bold px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 uppercase flex-shrink-0 mt-0.5">Stated</span>
+                            <span>{{ constraint }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                
+                <!-- Inferred Constraints -->
+                {% if constraints_inferred and constraints_inferred | length > 0 %}
+                <div class="mt-4">
+                    <ul class="space-y-2">
+                        {% for constraint in constraints_inferred %}
+                        <li class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <span class="bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[8px] font-bold px-1.5 py-0.5 rounded border border-violet-100 dark:border-violet-800 uppercase flex-shrink-0 mt-0.5">Inferred</span>
+                            <span>{{ constraint }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
 
-            {% if next_action %}
-            <div class="mt-4">
-                <a href="{{ project_url or '/' }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white
-                    {% if outcome_color == 'green' %}bg-green-600 hover:bg-green-700
-                    {% elif outcome_color == 'yellow' %}bg-yellow-600 hover:bg-yellow-700
-                    {% else %}bg-gray-600 hover:bg-gray-700{% endif %}">
-                    {{ next_action }}
+            <!-- Discovery Handoff Panel -->
+            {% if gate_outcome == 'qualified' %}
+            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="arrow-right-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-500"></i>
+                    <h4 class="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 uppercase font-bold">Next Phase: PM Discovery</h4>
+                </div>
+                <p class="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed mb-6">
+                    Intake is finalized. {% if known_unknowns and known_unknowns | length > 0 %}<strong>{{ known_unknowns | length }}</strong> open questions{% else %}All identified gaps{% endif %} will be addressed in the Discovery phase.
+                </p>
+                <a href="{{ project_url }}" 
+                   class="block w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    <span class="flex items-center justify-center gap-2">
+                        Begin Discovery
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </span>
+                </a>
+            </div>
+            {% elif gate_outcome == 'not_ready' %}
+            <div class="bg-amber-50 dark:bg-amber-900/20 p-6 rounded-lg border border-amber-100 dark:border-amber-800">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 dark:text-amber-500"></i>
+                    <h4 class="text-[10px] font-mono text-amber-700 dark:text-amber-400 uppercase font-bold">Additional Information Needed</h4>
+                </div>
+                <p class="text-sm text-amber-800 dark:text-amber-300 leading-relaxed mb-6">
+                    {{ routing_rationale or 'The intake process identified gaps that prevent qualification. Please provide more details to proceed.' }}
+                </p>
+                <a href="/intake" 
+                   class="block w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    Start New Intake
+                </a>
+            </div>
+            {% else %}
+            <div class="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="info" class="w-4 h-4 text-slate-500 dark:text-slate-400"></i>
+                    <h4 class="text-[10px] font-mono text-slate-600 dark:text-slate-400 uppercase font-bold">{{ outcome_title }}</h4>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                    {{ routing_rationale or outcome_description }}
+                </p>
+                <a href="/" 
+                   class="block w-full bg-slate-600 hover:bg-slate-700 text-white py-3 rounded-lg font-bold text-sm uppercase tracking-widest shadow-md text-center transition-colors">
+                    Return Home
                 </a>
             </div>
             {% endif %}
         </div>
+        
+        <!-- Project Type Badge -->
+        {% if project_type and project_type != 'unknown' %}
+        <div class="pt-4 border-t border-slate-100 dark:border-slate-700">
+            <span class="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-full text-xs text-slate-600 dark:text-slate-400">
+                <i data-lucide="tag" class="w-3 h-3"></i>
+                Project Type: <span class="font-medium text-slate-800 dark:text-slate-200">{{ project_type | title }}</span>
+            </span>
+        </div>
+        {% endif %}
+        
     </div>
-</div>
+    
+    <!-- Footer: Correlation ID and Timestamp -->
+    <div class="bg-slate-50 dark:bg-slate-900 px-6 py-3 border-t border-slate-200 dark:border-slate-700">
+        <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 dark:text-slate-500">
+            <span>Correlation ID: {{ execution_id[:8] if execution_id else 'N/A' }}...</span>
+            <span>Gate: {{ gate_outcome | upper }}</span>
+        </div>
+    </div>
+    
+</section>
+
+<script>
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+</script>

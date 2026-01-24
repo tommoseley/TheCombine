@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project routes for The Combine UI - With User Ownership
 Uses SQLAlchemy ORM instead of raw SQL.
 """
@@ -15,6 +15,7 @@ import logging
 from app.core.database import get_db
 from ..shared import templates
 from app.api.models.project import Project
+from app.api.models.document import Document
 from app.api.services.document_status_service import document_status_service
 from app.auth.dependencies import require_auth
 from app.auth.models import User
@@ -63,6 +64,10 @@ def _project_to_dict(project: Project) -> dict:
         "archived_by": str(project.archived_by) if project.archived_by else None,
         "archived_reason": project.archived_reason,
         "is_archived": project.archived_at is not None,
+        "deleted_at": project.deleted_at,
+        "deleted_by": str(project.deleted_by) if project.deleted_by else None,
+        "deleted_reason": project.deleted_reason,
+        "is_deleted": project.deleted_at is not None,
     }
 
 
@@ -129,7 +134,7 @@ async def get_project_list(
     """Get list of projects for sidebar via ORM."""
     user_uuid = _get_user_uuid(current_user)
     
-    query = select(Project).where(Project.owner_id == user_uuid)
+    query = select(Project).where(and_(Project.owner_id == user_uuid, Project.deleted_at.is_(None)))
     
     if search:
         search_pattern = f"%{search}%"
@@ -166,7 +171,7 @@ async def get_project_tree(
     request: Request,
     current_user: User = Depends(require_auth),
     offset: int = 0,
-    limit: int = 20,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
     """Get project tree with documents via ORM."""
@@ -174,7 +179,7 @@ async def get_project_tree(
     
     query = (
         select(Project)
-        .where(Project.owner_id == user_uuid)
+        .where(and_(Project.owner_id == user_uuid, Project.deleted_at.is_(None)))
         .order_by(Project.archived_at.nulls_first(), Project.name.asc())
         .limit(limit)
         .offset(offset)
@@ -379,6 +384,91 @@ async def unarchive_project(
         })
 
 
+@router.post("/{project_id}/delete", response_class=HTMLResponse)
+async def soft_delete_project(
+    request: Request,
+    project_id: str,
+    current_user: User = Depends(require_auth),
+    confirmation: str = Form(...),
+    reason: str = Form(""),
+    db: AsyncSession = Depends(get_db)
+):
+    """Soft delete an archived project (WS-SOFT-DELETE-001).
+    
+    Requires:
+    - Project must be archived first
+    - Confirmation must match project_id (case-insensitive)
+    
+    Sets deleted_at timestamp, project remains in DB for audit/recovery.
+    """
+    user_uuid = _get_user_uuid(current_user)
+    
+    try:
+        result = await db.execute(
+            select(Project).where(
+                and_(_get_project_id_condition(project_id), Project.owner_id == user_uuid)
+            )
+        )
+        project = result.scalar_one_or_none()
+        
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found or access denied")
+        
+        # Must be archived first
+        if project.archived_at is None:
+            raise HTTPException(status_code=400, detail="Project must be archived before deletion")
+        
+        # Already deleted (idempotent)
+        if project.deleted_at is not None:
+            return templates.TemplateResponse(request, "public/components/alerts/info.html", {
+                    "title": "Already Deleted",
+                    "message": "This project has already been deleted.",
+                },
+                headers={"HX-Redirect": "/", "HX-Trigger": "refreshProjectList"}
+            )
+        
+        # Confirmation must match project_id
+        if confirmation.strip().upper() != project.project_id.upper():
+            return templates.TemplateResponse(request, "public/components/alerts/error.html", {
+                "title": "Confirmation Failed",
+                "message": f"Please type '{project.project_id}' to confirm deletion."
+            })
+        
+        # Soft delete
+        project.deleted_at = datetime.now(timezone.utc)
+        project.deleted_by = user_uuid
+        project.deleted_reason = reason.strip() if reason else None
+        
+        await audit_service.log_event(
+            db=db,
+            project_id=project.id,
+            action='DELETED',
+            actor_user_id=user_uuid,
+            reason=reason.strip() if reason else None,
+            metadata={'client': 'web', 'ui_source': 'delete_modal', 'soft_delete': True},
+            correlation_id=request.headers.get('X-Request-ID')
+        )
+        
+        await db.commit()
+        
+        return templates.TemplateResponse(request, "public/components/alerts/success.html", {
+                "title": "Project Deleted",
+                "message": f"Project '{project.name}' has been deleted.",
+            },
+            headers={"HX-Redirect": "/", "HX-Trigger": "refreshProjectList"}
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}", exc_info=True)
+        await db.rollback()
+        return templates.TemplateResponse(request, "public/components/alerts/error.html", {
+            "title": "Error Deleting Project",
+            "message": str(e)
+        })
+
+
 # ============================================================================
 # PARAMETERIZED ROUTES (must come AFTER static routes)
 # ============================================================================
@@ -398,10 +488,43 @@ async def get_project(
     project_uuid = UUID(project["id"])
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
     
+    # Fetch intake document for Original Input tab (WS-INTAKE-SEP-002)
+    # Try concierge_intake first, fall back to project_discovery for older projects
+    intake_content = None
+    intake_result = await db.execute(
+        select(Document).where(
+            and_(
+                Document.space_type == "project",
+                Document.space_id == project_uuid,
+                Document.doc_type_id == "concierge_intake",
+                Document.is_latest == True
+            )
+        )
+    )
+    intake_doc = intake_result.scalar_one_or_none()
+    if intake_doc and intake_doc.content:
+        intake_content = intake_doc.content
+    else:
+        # Fallback: check for project_discovery (legacy projects)
+        discovery_result = await db.execute(
+            select(Document).where(
+                and_(
+                    Document.space_type == "project",
+                    Document.space_id == project_uuid,
+                    Document.doc_type_id == "project_discovery",
+                    Document.is_latest == True
+                )
+            )
+        )
+        discovery_doc = discovery_result.scalar_one_or_none()
+        if discovery_doc and discovery_doc.content:
+            intake_content = discovery_doc.content
+    
     context = {
         "request": request,
         "project": project,
         "document_statuses": document_statuses,
+        "intake_content": intake_content,
         "active_doc_type": None,
     }
     
@@ -445,9 +568,42 @@ async def update_project(
     project_dict = _project_to_dict(project)
     document_statuses = await document_status_service.get_project_document_statuses(db, project.id)
     
+    # Fetch intake document for Original Input tab (WS-INTAKE-SEP-002)
+    # Try concierge_intake first, fall back to project_discovery for older projects
+    intake_content = None
+    intake_result = await db.execute(
+        select(Document).where(
+            and_(
+                Document.space_type == "project",
+                Document.space_id == project.id,
+                Document.doc_type_id == "concierge_intake",
+                Document.is_latest == True
+            )
+        )
+    )
+    intake_doc = intake_result.scalar_one_or_none()
+    if intake_doc and intake_doc.content:
+        intake_content = intake_doc.content
+    else:
+        # Fallback: check for project_discovery (legacy projects)
+        discovery_result = await db.execute(
+            select(Document).where(
+                and_(
+                    Document.space_type == "project",
+                    Document.space_id == project.id,
+                    Document.doc_type_id == "project_discovery",
+                    Document.is_latest == True
+                )
+            )
+        )
+        discovery_doc = discovery_result.scalar_one_or_none()
+        if discovery_doc and discovery_doc.content:
+            intake_content = discovery_doc.content
+    
     return templates.TemplateResponse(request, "public/pages/partials/_project_overview.html", {
             "project": project_dict,
             "document_statuses": document_statuses,
+            "intake_content": intake_content,
         },
         headers={"HX-Trigger": "refreshProjectList"}
     )

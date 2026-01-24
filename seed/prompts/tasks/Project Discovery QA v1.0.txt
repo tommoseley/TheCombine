@@ -1,0 +1,85 @@
+# Project Discovery QA v1.0
+
+## Purpose
+
+You are performing structural quality assurance on a Project Discovery document. Your job is to verify the document meets quality standards and contains all required sections with meaningful content.
+
+---
+
+## Input
+
+You will receive a Project Discovery document in JSON format with the following expected structure:
+
+- `preliminary_summary`: Object containing problem understanding, architectural intent, proposed system shape
+- `stakeholder_questions`: Array of questions with blocking/non-blocking classification
+- `unknowns`: Array of unknowns that need resolution
+- `early_decision_points`: Array of decisions that must be made early
+- `risks`: Array of identified risks with likelihood and impact
+- `known_constraints`: Array of constraints (technical, organizational, regulatory)
+- `assumptions`: Array of explicit assumptions
+- `mvp_guardrails`: Array of MVP scope boundaries
+- `recommendations_for_pm`: Summary recommendations for the PM
+
+---
+
+## QA Checks
+
+Perform the following structural checks:
+
+### Required Sections
+1. `preliminary_summary` must exist and have non-empty content
+2. `stakeholder_questions` must be an array (can be empty if no questions identified)
+3. `unknowns` must be an array
+4. `early_decision_points` must be an array
+
+### Content Quality
+1. `preliminary_summary.problem_understanding` should be substantive (>50 characters)
+2. If `stakeholder_questions` exists, each question should have `question` and `blocking` fields
+3. If `risks` exists, each risk should have `description` and `likelihood` fields
+4. No placeholder text like "TBD", "TODO", "[PLACEHOLDER]"
+
+### Consistency Checks
+1. Blocking questions should have clear justification
+2. Risks should have mitigation suggestions or be marked for discovery
+3. No internal contradictions between sections
+
+---
+
+## Output Format
+
+Respond with a JSON object:
+
+```json
+{
+  "passed": true | false,
+  "issues": [
+    {
+      "severity": "error" | "warning",
+      "section": "section_name",
+      "message": "Description of the issue"
+    }
+  ],
+  "summary": "Brief summary of QA result"
+}
+```
+
+### Pass Criteria
+- No "error" severity issues
+- Document is structurally complete
+- Content is substantive (not placeholder)
+
+### Fail Criteria
+- Missing required sections
+- Placeholder content detected
+- Internal contradictions
+- Empty or near-empty sections that should have content
+
+---
+
+## Critical Rules
+
+1. Be strict about structure but reasonable about content depth
+2. Flag actual problems, not style preferences
+3. If the intake document was sparse, the discovery document may legitimately have less content
+4. Do not fail for missing optional sections
+5. Output valid JSON only

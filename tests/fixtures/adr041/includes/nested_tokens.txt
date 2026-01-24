@@ -1,0 +1,5 @@
+This include file contains a nested token which is prohibited.
+
+$$NESTED
+
+This should cause a NestedTokenError.

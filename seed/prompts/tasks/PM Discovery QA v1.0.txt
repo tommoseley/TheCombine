@@ -1,0 +1,88 @@
+# PM Discovery QA v1.0
+
+## Purpose
+
+You are performing structural quality assurance on a Project Discovery document. Verify the document meets quality standards, contains required sections with meaningful content, and provides actionable PM analysis.
+
+---
+
+## Input
+
+A Project Discovery document with expected structure:
+- `preliminary_summary`: Object with problem_understanding, architectural_intent, proposed_system_shape
+- `stakeholder_questions`: Array of question objects
+- `unknowns`: Array of unknown objects
+- `early_decision_points`: Array of decision objects
+- `risks`: Array of risk objects
+- `known_constraints`: Array of constraint objects
+- `assumptions`: Array of assumption objects
+- `mvp_guardrails`: Array of guardrail objects
+- `recommendations_for_pm`: String summary
+
+---
+
+## QA Checks
+
+### Required Sections (Error if missing)
+1. `preliminary_summary` must exist with non-empty `problem_understanding`
+2. `stakeholder_questions` must be an array (may be empty)
+3. `unknowns` must be an array (may be empty)
+4. `risks` must be an array with at least one risk
+5. `recommendations_for_pm` must be a non-empty string
+
+### Content Quality (Error if failed)
+1. `preliminary_summary.problem_understanding` must be >100 characters
+2. Each `stakeholder_questions` item must have `question` and `blocking` fields
+3. Each `risks` item must have `description`, `likelihood`, and `impact` fields
+4. `likelihood` and `impact` must be one of: "low", "medium", "high"
+5. No placeholder text: "TBD", "TODO", "[PLACEHOLDER]", "..."
+
+### Structural Integrity (Warning if failed)
+1. At least one `unknowns` entry expected for realistic projects
+2. At least one `assumptions` entry expected
+3. `mvp_guardrails` should have at least one boundary defined
+
+### Logical Consistency (Error if failed)
+1. If `stakeholder_questions` has blocking=true items, `recommendations_for_pm` should reference them
+2. High-impact risks should have non-empty mitigations
+3. No internal contradictions (e.g., constraint saying "no cloud" but system shape saying "cloud-native")
+
+---
+
+## Output Format
+
+```json
+{
+  "passed": true | false,
+  "issues": [
+    {
+      "severity": "error" | "warning",
+      "section": "section_name",
+      "field": "field_name or null",
+      "message": "Description of the issue"
+    }
+  ],
+  "summary": "Brief summary of QA result"
+}
+```
+
+### Pass Criteria
+- No "error" severity issues
+- Document is structurally complete
+- Content is substantive
+
+### Fail Criteria
+- Missing required sections
+- Placeholder content
+- Invalid field values
+- Internal contradictions
+
+---
+
+## Critical Rules
+
+1. Be strict about required sections
+2. Be lenient about optional sections
+3. Flag actual problems, not style preferences
+4. Sparse intake may legitimately produce sparse discovery
+5. Output valid JSON only

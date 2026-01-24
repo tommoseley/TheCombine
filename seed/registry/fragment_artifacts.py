@@ -434,7 +434,7 @@ EPIC_SUMMARY_BLOCK_V1_FRAGMENT = """
   <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
     <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium"
        data-detail-ref="{{ block.data.detail_ref | tojson }}">
-      View Details &rarr;
+      View Details <i data-lucide="arrow-right" class="w-4 h-4 inline ml-1"></i>
     </a>
   </div>
   {% endif %}

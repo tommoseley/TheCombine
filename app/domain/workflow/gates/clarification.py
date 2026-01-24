@@ -19,7 +19,7 @@ class ClarificationQuestion:
     
     id: str
     text: str
-    intent: str
+    why_it_matters: str
     priority: str  # "must", "should", "could"
     answer_type: str
     required: bool
@@ -71,10 +71,10 @@ class ClarificationGate:
         """Initialize gate.
         
         Args:
-            schema_path: Path to clarification_question_set.v1.json schema.
-                        Defaults to seed/schemas/clarification_question_set.v1.json
+            schema_path: Path to clarification_question_set.v2.json schema.
+                        Defaults to seed/schemas/clarification_question_set.v2.json
         """
-        self._schema_path = schema_path or Path("seed/schemas/clarification_question_set.v1.json")
+        self._schema_path = schema_path or Path("seed/schemas/clarification_question_set.v2.json")
         self._schema: Optional[Dict] = None
     
     @property
@@ -198,7 +198,7 @@ class ClarificationGate:
             questions.append(ClarificationQuestion(
                 id=q["id"],
                 text=q["text"],
-                intent=q["intent"],
+                why_it_matters=q["why_it_matters"],
                 priority=q["priority"],
                 answer_type=q["answer_type"],
                 required=q["required"],

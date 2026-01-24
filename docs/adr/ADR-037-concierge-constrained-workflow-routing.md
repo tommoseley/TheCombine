@@ -264,7 +264,7 @@ When auto-qualification criteria are NOT met, the engine SHALL:
 ```
 Recommended: Qualified
 Because: QA passed; intent confidence 0.85; required fields present.
-[Proceed] [Change outcome ▼]
+[Proceed] [Change outcome â–¼]
 ```
 
 This reduces cognitive load while preserving the governance checkpoint.
@@ -285,7 +285,7 @@ The engine SHALL require user selection when ANY of:
 - Auto-qualification MUST be logged with full signal values
 - User override of recommendations MUST be logged
 - The Andon cord (manual override) is always available
-- QA validates structure, not truth — gate decisions are driven by document contract signals
+- QA validates structure, not truth â€” gate decisions are driven by document contract signals
 
 ### Audit Requirements
 
@@ -315,3 +315,40 @@ Dynamic kind determination enables the system to:
 - Present recommendations that reduce friction without removing control
 
 **The gate remains governance. The signals determine friction.**
+
+---
+
+## Amendment: Scope Clarification (2026-01-22)
+
+**Context:** ADR-037 defines the `available_options[]` contract for Concierge-constrained routing. This pattern applies to decision-heavy workflows, not all workflows.
+
+**Scope Clarification:**
+
+ADR-037 **applies to**:
+- Project Discovery (ambiguity resolution, branching paths)
+- Architecture decisions (options and tradeoffs)
+- Planning workflows (scope decisions, prioritization)
+- Any workflow where user must choose between legitimate alternatives
+
+ADR-037 **does not apply to**:
+- Intake qualification (mechanical sufficiency, not options selection)
+- Linear execution workflows (no branching decisions)
+- Auto-completing workflows (QA pass → done)
+
+**Rationale:**
+
+The `available_options[]` contract is valuable when:
+1. Multiple legitimate paths exist
+2. User judgment is required to select
+3. Selection has governance implications
+
+Intake qualification does not meet these criteria. Intake determines whether intent is sufficiently bounded, not which of several paths to take.
+
+**Implementation Note:**
+
+The Concierge Intake workflow (`concierge_intake.v1.json`) uses:
+- Mechanical sufficiency checks (not options selection)
+- Auto-routing on field completion
+- User consent via Lock action (not options contract)
+
+This is intentional and correct. The full ADR-037 pattern will apply to Discovery and Architecture workflows.

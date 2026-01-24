@@ -1,0 +1,7 @@
+# Template with undefined token
+
+This template references a token that won't be in the includes map.
+
+$$UNDEFINED_TOKEN
+
+End of template.

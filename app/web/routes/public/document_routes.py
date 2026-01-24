@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document routes for The Combine UI - Simplified
 Returns document content only, targeting #document-content
 
@@ -51,6 +51,8 @@ from app.tasks import (
     set_task,
     find_task,
     run_document_build,
+    run_workflow_build,
+    WORKFLOW_DOCUMENT_TYPES,
 )
 
 import logging
@@ -144,11 +146,17 @@ async def _render_with_new_viewer(
 # ============================================================================
 
 DOCUMENT_CONFIG = {
+    "concierge_intake": {
+        "title": "Concierge Intake",
+        "icon": "clipboard-check",
+        "template": "public/pages/partials/_concierge_intake_content.html",
+        # No view_docdef - uses legacy template
+    },
     "project_discovery": {
         "title": "Project Discovery",
         "icon": "compass",
         "template": "public/pages/partials/_project_discovery_content.html",
-        "view_docdef": "ProjectDiscovery",  # ADR-034: New viewer docdef
+        # NOTE: view_docdef removed - intake format uses different schema than ProjectDiscovery docdef
     },
     "epic_backlog": {
         "title": "Epic Backlog",
@@ -176,10 +184,21 @@ DOCUMENT_CONFIG = {
 # ============================================================================
 
 async def _get_project_with_icon(db: AsyncSession, project_id: str) -> dict | None:
-    """Get project with icon field via ORM."""
-    result = await db.execute(
-        select(Project).where(Project.project_id == project_id)
-    )
+    """Get project with icon field via ORM.
+    
+    Handles both UUID (id column) and string (project_id column) lookups.
+    """
+    # Try UUID lookup first
+    try:
+        project_uuid = UUID(project_id)
+        result = await db.execute(
+            select(Project).where(Project.id == project_uuid)
+        )
+    except (ValueError, TypeError):
+        # Not a UUID, try string lookup
+        result = await db.execute(
+            select(Project).where(Project.project_id == project_id)
+        )
     project = result.scalar_one_or_none()
     if not project:
         return None
@@ -369,6 +388,9 @@ async def get_document(
     # ADR-034: Try new viewer if view_docdef is configured and document exists
     # Phase 1 (WS-DOCUMENT-SYSTEM-CLEANUP): Prefer DB value, fallback to DOCUMENT_CONFIG
     view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
+    # Skip new viewer for project_discovery - intake workflow uses different schema than ProjectDiscovery docdef
+    if doc_type_id == "project_discovery":
+        view_docdef = None
     if document and view_docdef and document.content:
         logger.info(f"Attempting new viewer for {doc_type_id} -> {view_docdef}")
         response = await _render_with_new_viewer(
@@ -528,15 +550,27 @@ async def build_document(
     logger.info(f"[Background] Created task {task_id} for {doc_type_id}")
     
     # Start background task (fire and forget)
-    asyncio.create_task(
-        run_document_build(
-            task_id=task_id,
-            project_id=proj_uuid,
-            project_description=project.get('description', ''),
-            doc_type_id=doc_type_id,
-            correlation_id=correlation_id,
+    # WS-INTAKE-SEP-003: Use workflow build for document types with workflows
+    if doc_type_id in WORKFLOW_DOCUMENT_TYPES:
+        logger.info(f"[Background] Using workflow build for {doc_type_id}")
+        asyncio.create_task(
+            run_workflow_build(
+                task_id=task_id,
+                project_id=proj_uuid,
+                doc_type_id=doc_type_id,
+                correlation_id=correlation_id,
+            )
         )
-    )
+    else:
+        asyncio.create_task(
+            run_document_build(
+                task_id=task_id,
+                project_id=proj_uuid,
+                project_description=project.get('description', ''),
+                doc_type_id=doc_type_id,
+                correlation_id=correlation_id,
+            )
+        )
     
     return {"task_id": str(task_id), "status": "pending"}
 

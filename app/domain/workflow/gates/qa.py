@@ -38,7 +38,7 @@ class QAGate:
     # Mapping of document types to their schemas
     # For MVP, most doc types don't have strict schemas yet
     DOC_TYPE_SCHEMAS: Dict[str, str] = {
-        "clarification_questions": "clarification_question_set.v1.json",
+        "clarification_questions": "clarification_question_set.v2.json",
         "intake_gate_result": "intake_gate_result.v1.json",
     }
     

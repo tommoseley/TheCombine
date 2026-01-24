@@ -1,4 +1,4 @@
-﻿"""Tests for PlanExecutor (ADR-039)."""
+"""Tests for PlanExecutor (ADR-039)."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -417,7 +417,7 @@ class TestPlanExecutorPauseResume:
 
         assert state.status == DocumentWorkflowStatus.PAUSED
         assert state.pending_user_input is True
-        assert state.pending_prompt == "Do you consent?"
+        assert state.pending_user_input_rendered == "Do you consent?"
         assert state.pending_choices == ["Yes", "No"]
 
     @pytest.mark.asyncio

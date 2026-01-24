@@ -1,6 +1,6 @@
 # WS-INTAKE-WORKFLOW-001: Concierge Intake Document Workflow Plan
 
-**Status:** Draft
+**Status:** **COMPLETE**
 **Date:** 2026-01-16
 **Scope:** Single-commit (workflow plan artifact only)
 **Related ADRs:** ADR-025, ADR-035, ADR-036, ADR-037, ADR-038, ADR-039

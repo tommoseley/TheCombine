@@ -1,4 +1,4 @@
-﻿"""Typed models for Document Interaction Workflow Plans (ADR-039).
+"""Typed models for Document Interaction Workflow Plans (ADR-039).
 
 These dataclasses represent a validated workflow plan definition.
 Created by PlanLoader after validation passes.
@@ -17,6 +17,7 @@ class NodeType(str, Enum):
     TASK = "task"
     QA = "qa"
     GATE = "gate"
+    PGC = "pgc"  # Pre-Generation Clarification (ADR-041)
     END = "end"
 
 
@@ -100,6 +101,7 @@ class Node:
     terminal_outcome: Optional[str] = None
     gate_outcome: Optional[str] = None
     non_advancing: bool = False
+    includes: Dict[str, str] = field(default_factory=dict)  # ADR-041 template includes
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "Node":
@@ -116,6 +118,7 @@ class Node:
             terminal_outcome=raw.get("terminal_outcome"),
             gate_outcome=raw.get("gate_outcome"),
             non_advancing=raw.get("non_advancing", False),
+            includes=raw.get("includes", {}),
         )
 
 
@@ -243,6 +246,7 @@ class WorkflowPlan:
     description: str
     scope_type: str  # "document" per ADR-039
     document_type: str
+    requires_inputs: List[str]  # Document types required as input (e.g., ["concierge_intake"])
     entry_node_ids: List[str]
     nodes: List[Node]
     edges: List[Edge]
@@ -320,6 +324,7 @@ class WorkflowPlan:
             description=raw.get("description", ""),
             scope_type=raw.get("scope_type", "document"),
             document_type=raw.get("document_type", ""),
+            requires_inputs=raw.get("requires_inputs", []),
             entry_node_ids=raw.get("entry_node_ids", []),
             nodes=nodes,
             edges=edges,

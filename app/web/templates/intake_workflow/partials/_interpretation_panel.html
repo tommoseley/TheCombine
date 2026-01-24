@@ -1,0 +1,119 @@
+<!-- Interpretation Panel - Review & Lock (WS-INTAKE-001) -->
+<div id="interpretation-panel" class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+    <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wide">
+        {% if phase == 'generating' or is_completed %}
+        // Interpreted Intake (Locked)
+        {% else %}
+        // Interpreted Intake (Draft)
+        {% endif %}
+    </h3>
+    
+    {% for key, field in interpretation.items() %}
+    <div class="mb-4">
+        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+            {{ key | replace('_', ' ') | title }}
+            {% if field.locked %}
+            <span class="ml-1 text-green-600 dark:text-green-400">&#10003; Verified</span>
+            {% endif %}
+        </label>
+        
+        {% if key == 'project_type' %}
+        <!-- Dropdown for project_type -->
+        <select
+            hx-patch="/intake/{{ execution_id }}/field/{{ key }}"
+            hx-trigger="change"
+            hx-target="#interpretation-panel"
+            hx-swap="outerHTML"
+            hx-include="this"
+            name="value"
+            {% if phase == 'generating' or is_completed %}disabled{% endif %}
+            class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                   {% if not field.value %}border-yellow-400 dark:border-yellow-500{% endif %}
+                   {% if field.locked %}bg-green-50 dark:bg-green-900/20{% endif %}">
+            <option value="">-- Select --</option>
+            <option value="product" {% if field.value == 'product' %}selected{% endif %}>Product</option>
+            <option value="service" {% if field.value == 'service' %}selected{% endif %}>Service</option>
+            <option value="research" {% if field.value == 'research' %}selected{% endif %}>Research</option>
+            <option value="internal" {% if field.value == 'internal' %}selected{% endif %}>Internal</option>
+            <option value="greenfield" {% if field.value == 'greenfield' %}selected{% endif %}>Greenfield</option>
+            <option value="migration" {% if field.value == 'migration' %}selected{% endif %}>Migration</option>
+            <option value="enhancement" {% if field.value == 'enhancement' %}selected{% endif %}>Enhancement</option>
+        </select>
+        {% elif key == 'problem_statement' %}
+        <!-- Textarea for problem_statement -->
+        <textarea
+            name="value"
+            rows="4"
+            hx-patch="/intake/{{ execution_id }}/field/{{ key }}"
+            hx-trigger="blur changed"
+            hx-target="#interpretation-panel"
+            hx-swap="outerHTML"
+            {% if phase == 'generating' or is_completed %}disabled{% endif %}
+            class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm
+                   {% if not field.value %}border-yellow-400 dark:border-yellow-500{% endif %}
+                   {% if field.locked %}bg-green-50 dark:bg-green-900/20{% endif %}"
+            placeholder="Curated problem statement (1-2 paragraphs)"
+        >{{ field.value or '' }}</textarea>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">A clear, scannable synopsis that anchors downstream work.</p>
+        {% else %}
+        <!-- Text input for other fields -->
+        <input
+            type="text"
+            name="value"
+            value="{{ field.value or '' }}"
+            hx-patch="/intake/{{ execution_id }}/field/{{ key }}"
+            hx-trigger="blur changed, keyup[key=='Enter']"
+            hx-target="#interpretation-panel"
+            hx-swap="outerHTML"
+            {% if phase == 'generating' or is_completed %}disabled{% endif %}
+            class="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                   {% if not field.value %}border-yellow-400 dark:border-yellow-500{% endif %}
+                   {% if field.locked %}bg-green-50 dark:bg-green-900/20{% endif %}"
+            placeholder="Enter {{ key | replace('_', ' ') }}"
+        />
+        {% endif %}
+    </div>
+    {% endfor %}
+    
+    <!-- Intent Canon (Original Statement) - Collapsible, Read-Only -->
+    {% if intent_canon %}
+    <details class="mb-4 border border-gray-200 dark:border-gray-600 rounded">
+        <summary class="px-3 py-2 bg-gray-100 dark:bg-gray-700 cursor-pointer text-xs text-gray-600 dark:text-gray-400 font-medium">
+            Original Statement (immutable)
+        </summary>
+        <div class="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap max-h-48 overflow-y-auto">{{ intent_canon }}</div>
+    </details>
+    {% endif %}
+    
+    {% if missing_fields %}
+    <div class="text-sm text-yellow-600 dark:text-yellow-400 mb-4">
+        <span class="font-medium">Missing:</span> {{ missing_fields | join(', ') | replace('_', ' ') | title }}
+    </div>
+    {% endif %}
+    
+
+    
+    {% if phase == 'review' %}
+    <button
+        type="button"
+        hx-post="/intake/{{ execution_id }}/initialize"
+        hx-target="#drafting-log"
+        hx-swap="innerHTML"
+        hx-indicator="#init-spinner"
+        hx-disabled-elt="this"
+        {% if not can_initialize %}disabled{% endif %}
+        class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold text-sm uppercase tracking-widest rounded-lg flex items-center justify-center shadow-md transition-colors">
+        <i data-lucide="lock" class="w-4 h-4 mr-2"></i>
+        <span>Lock &amp; Write Concierge Intake</span>
+        <svg id="init-spinner" class="htmx-indicator ml-2 animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </button>
+    {% elif phase == 'generating' or is_completed %}
+    <div class="text-center text-sm text-gray-500 dark:text-gray-400 py-2">
+        <i data-lucide="lock" class="w-4 h-4 inline mr-1"></i>
+        Interpretation locked
+    </div>
+    {% endif %}
+</div>

@@ -1,4 +1,4 @@
-﻿# ADR-026 — Concierge Role Definition & Conversation Control
+# ADR-026 — Concierge Role Definition & Conversation Control
 
 **Status:** Draft  
 **Date:** 2026-01-02  
@@ -166,3 +166,49 @@ Primary risks include:
 The Concierge role establishes a disciplined, auditable boundary between raw user intent and structured execution.
 
 It protects The Combine from ambiguity, inferred intent, and premature execution — while preserving user agency and transparency.
+
+---
+
+## Amendment: Mechanical Intake Boundary (2026-01-22)
+
+**Context:** The original ADR envisioned the Concierge as a conversational agent with multi-turn LLM interaction. Implementation revealed that conversational resolution at intake creates ambiguity, not clarity.
+
+**Decision:**
+
+The Concierge is **not a conversational agent**. It is a **bounded interpretation and qualification function** whose purpose is to produce a lockable intake artifact.
+
+**Revised Role Identity:**
+
+The Concierge:
+- Extracts intent mechanically from user input
+- Presents a reviewable interpretation for user verification
+- Gates downstream work on explicit user confirmation (Lock action)
+- Does NOT engage in multi-turn conversation to "understand" intent
+
+**Rationale:**
+
+Intake exists to establish an intent boundary, not to resolve ambiguity. Ambiguity resolution belongs downstream in Discovery, where structured questioning and options contracts (ADR-037) apply.
+
+Attempting to make Intake "conversational" introduced:
+- Infinite question loops
+- Unclear completion criteria  
+- Scope creep into Discovery territory
+
+**Stage Separation Principle:**
+
+| Stage | Purpose | Interaction Model |
+|-------|---------|-------------------|
+| Intake | Establish intent boundary | Mechanical + Review |
+| Discovery | Resolve ambiguity | Guided questioning |
+| Architecture | Constrain solution | Options & tradeoffs |
+| Execution | Produce artifacts | Agentic workflows |
+
+**Supersedes:**
+- Multi-turn LLM intake conversation
+- User-controlled conversation closure (Section 5)
+- Question-based clarification loops
+
+**Preserved:**
+- Concierge does not infer unstated intent
+- Concierge does not propose solutions
+- Gate outcomes remain authoritative

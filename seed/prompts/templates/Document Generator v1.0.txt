@@ -1,0 +1,15 @@
+# Document Generator - Canonical Template v1.0
+
+$$ROLE_PROMPT
+
+---
+
+$$TASK_PROMPT
+
+---
+
+## Output Schema
+
+Your output must conform to the schema below.
+
+$$OUTPUT_SCHEMA

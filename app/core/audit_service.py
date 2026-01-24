@@ -1,4 +1,4 @@
-﻿"""
+"""
 Project audit logging service.
 Provides transactional audit event creation with metadata validation.
 """
@@ -24,6 +24,7 @@ class ProjectAuditService:
         'UPDATED', 
         'ARCHIVED', 
         'UNARCHIVED', 
+        'DELETED',
         'EDIT_BLOCKED_ARCHIVED'
     }
     

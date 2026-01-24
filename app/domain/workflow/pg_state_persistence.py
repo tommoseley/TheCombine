@@ -1,4 +1,4 @@
-﻿"""PostgreSQL persistence for Document Workflow State via ORM.
+"""PostgreSQL persistence for Document Workflow State via ORM.
 
 Minimal implementation - stores only essential fields.
 Everything else derived at runtime from execution_log.
@@ -58,8 +58,10 @@ class PgStatePersistence:
             existing.terminal_outcome = state.terminal_outcome
             existing.status = state.status.value
             existing.pending_user_input = state.pending_user_input
-            existing.pending_prompt = state.pending_prompt
+            existing.pending_user_input_rendered = state.pending_user_input_rendered
             existing.pending_choices = state.pending_choices
+            existing.pending_user_input_payload = state.pending_user_input_payload
+            existing.pending_user_input_schema_ref = state.pending_user_input_schema_ref
             existing.thread_id = state.thread_id
             existing.context_state = state.context_state
         else:
@@ -74,7 +76,7 @@ class PgStatePersistence:
             
             execution = WorkflowExecution(
                 execution_id=state.execution_id,
-                document_id=state.document_id,
+                document_id=state.project_id,
                 document_type=state.document_type,
                 workflow_id=state.workflow_id,
                 user_id=user_uuid,
@@ -85,8 +87,10 @@ class PgStatePersistence:
                 terminal_outcome=state.terminal_outcome,
                 status=state.status.value,
                 pending_user_input=state.pending_user_input,
-                pending_prompt=state.pending_prompt,
+                pending_user_input_rendered=state.pending_user_input_rendered,
                 pending_choices=state.pending_choices,
+                pending_user_input_payload=state.pending_user_input_payload,
+                pending_user_input_schema_ref=state.pending_user_input_schema_ref,
                 thread_id=state.thread_id,
                 context_state=state.context_state,
             )
@@ -109,7 +113,7 @@ class PgStatePersistence:
         return self._row_to_state(row)
 
     async def load_by_document(
-        self, document_id: str, workflow_id: str
+        self, project_id: str, workflow_id: str
     ) -> Optional[DocumentWorkflowState]:
         """Load state by document and workflow ID via ORM."""
         from app.api.models.workflow_execution import WorkflowExecution
@@ -117,7 +121,7 @@ class PgStatePersistence:
         result = await self._db.execute(
             select(WorkflowExecution).where(
                 and_(
-                    WorkflowExecution.document_id == document_id,
+                    WorkflowExecution.document_id == project_id,
                     WorkflowExecution.workflow_id == workflow_id,
                     WorkflowExecution.terminal_outcome.is_(None)
                 )
@@ -187,7 +191,7 @@ class PgStatePersistence:
 
         return DocumentWorkflowState(
             execution_id=row.execution_id,
-            document_id=row.document_id or "unknown",
+            project_id=row.document_id or "unknown",
             document_type=row.document_type or "unknown",
             workflow_id=row.workflow_id or "unknown",
             user_id=str(row.user_id) if row.user_id else None,
@@ -200,8 +204,10 @@ class PgStatePersistence:
             thread_id=row.thread_id,
             context_state=context_state,
             pending_user_input=row.pending_user_input or False,
-            pending_prompt=row.pending_prompt,
+            pending_user_input_rendered=row.pending_user_input_rendered,
             pending_choices=pending_choices,
+            pending_user_input_payload=row.pending_user_input_payload,
+            pending_user_input_schema_ref=row.pending_user_input_schema_ref,
             created_at=created_at,
             updated_at=updated_at,
         )

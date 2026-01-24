@@ -1,75 +1,88 @@
-"""Intake Gate executor for Document Interaction Workflows.
+"""Intake Gate Node - Mechanical Sufficiency Check.
 
-The Intake Gate replaces the multi-turn Concierge with a single-pass
-classification and extraction mechanism.
+Implements the Intake Sufficiency Rule:
+- Intake is complete once: audience, artifact_type, project_category are known
+- One question at a time for missing fields only
+- Never re-ask about filled fields
+- No LLM-based "readiness" checks
 
-DESIGN PRINCIPLES:
-- Zero LLM calls when request is obviously actionable (fast path)
-- Maximum one LLM call for classification + extraction
-- No conversation - each submission evaluated fresh
-- Clear outcomes: qualified / insufficient / out_of_scope / redirect
-
-TOKEN EFFICIENCY:
-- Fast path: 0 tokens (heuristic classification)
-- LLM path: ~3-5k tokens (single call)
-- Compare to Concierge: 15-50k tokens (multi-turn)
+This replaces prompt-based conversational logic with a hard checklist.
 """
 
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, Optional, List
 
-from app.domain.workflow.nodes.base import (
-    DocumentWorkflowContext,
-    LLMService,
-    NodeExecutor,
-    NodeResult,
-    PromptLoader,
-)
+from app.domain.workflow.nodes.base import NodeExecutor, NodeResult, DocumentWorkflowContext
 
 logger = logging.getLogger(__name__)
 
-# Fast path thresholds
-MIN_SUBSTANTIAL_LENGTH = 200  # Characters for fast path consideration
-MIN_STRUCTURE_INDICATORS = 2  # Newlines, bullets, or numbered items
+# Minimum length for fast-path (substantial input)
+MIN_SUBSTANTIAL_LENGTH = 100
+
+
+@dataclass
+class IntakeFrame:
+    """Mechanical intake sufficiency frame.
+    
+    Intake is COMPLETE when all three fields are non-null.
+    No other criteria. No "understanding". No "readiness".
+    """
+    audience: Optional[str] = None        # Who is this for?
+    artifact_type: Optional[str] = None   # What is being built? (web app, mobile app, API, etc.)
+    project_category: str = "greenfield"  # greenfield/enhancement/migration/integration
+    
+    # Accumulated raw input for context
+    raw_inputs: List[str] = field(default_factory=list)
+    
+    def is_complete(self) -> bool:
+        """Mechanical check: all required fields present."""
+        return self.audience is not None and self.artifact_type is not None
+    
+    def missing_field(self) -> Optional[str]:
+        """Return first missing field name, or None if complete."""
+        if self.artifact_type is None:
+            return "artifact_type"
+        if self.audience is None:
+            return "audience"
+        return None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+# Questions for each missing field - ONE question only, no lists
+FIELD_QUESTIONS = {
+    "artifact_type": "What type of software do you want to build? (e.g., web app, mobile app, API, desktop application)",
+    "audience": "Who will use this? (e.g., internal team, customers, children, general public)",
+}
 
 
 class IntakeGateExecutor(NodeExecutor):
-    """Executor for intake gate nodes.
-
-    The intake gate classifies user requests and extracts structured fields
-    in a single pass, replacing multi-turn conversational clarification.
-
-    OUTCOMES:
-    - "qualified": Request is actionable, proceed to discovery
-    - "insufficient": Request needs more information (returns what's missing)
-    - "out_of_scope": Request is outside supported scope
-    - "redirect": Request should be handled elsewhere
-
-    FAST PATH:
-    When a request is clearly substantial (length + structure), the gate
-    can proceed without an LLM call, extracting basic fields heuristically.
+    """Intake gate with mechanical sufficiency check.
+    
+    Rules:
+    1. Extract fields from user input
+    2. If frame complete -> qualified -> review phase
+    3. If frame incomplete -> ask ONE question about first missing field
+    4. Never re-ask about filled fields
+    5. No multi-question prompts
     """
-
+    
     def __init__(
         self,
-        llm_service: Optional[LLMService] = None,
-        prompt_loader: Optional[PromptLoader] = None,
+        llm_service=None,
+        prompt_loader=None,
     ):
-        """Initialize with optional LLM dependencies.
-
-        Args:
-            llm_service: LLM service for classification (None = fast path only)
-            prompt_loader: Prompt loader for intake gate prompt
-        """
         self.llm_service = llm_service
         self.prompt_loader = prompt_loader
-
+    
     def get_supported_node_type(self) -> str:
         """Return the node type this executor handles."""
         return "intake_gate"
-
+    
     async def execute(
         self,
         node_id: str,
@@ -77,437 +90,194 @@ class IntakeGateExecutor(NodeExecutor):
         context: DocumentWorkflowContext,
         state_snapshot: Dict[str, Any],
     ) -> NodeResult:
-        """Execute the intake gate.
-
-        Args:
-            node_id: The gate node ID
-            node_config: Node configuration with task_ref for prompt
-            context: Workflow context with user input
-            state_snapshot: Read-only workflow state
-
-        Returns:
-            NodeResult with classification outcome and extracted fields
-        """
-        # Get user input
+        """Execute intake gate with mechanical sufficiency check."""
+        
         user_input = context.extra.get("user_input", "")
-
+        
+        # Load existing frame from last execution's metadata (persists across calls)
+        frame_data = {}
+        node_history = state_snapshot.get("node_history", [])
+        for execution in reversed(node_history):
+            if "intake_frame" in execution.get("metadata", {}):
+                frame_data = execution["metadata"]["intake_frame"]
+                break
+        
+        frame = IntakeFrame(
+            audience=frame_data.get("audience"),
+            artifact_type=frame_data.get("artifact_type"),
+            project_category=frame_data.get("project_category", "greenfield"),
+            raw_inputs=frame_data.get("raw_inputs", []),
+        )
+        
+        # No input yet - ask for initial description
         if not user_input or not user_input.strip():
-            # No input - need user to provide request
-            logger.info(f"Intake gate {node_id}: No user input, requesting")
+            logger.info(f"Intake gate {node_id}: No input, requesting initial description")
             return NodeResult.needs_user_input(
                 prompt="Please describe what you'd like to build or accomplish.",
                 node_id=node_id,
             )
-
-        # Try fast path first (zero LLM calls)
-        fast_result = self._try_fast_path(user_input, node_id)
-        if fast_result:
-            logger.info(f"Intake gate {node_id}: Fast path -> {fast_result.outcome}")
-            return fast_result
-
-        # Need LLM classification
-        if not self.llm_service:
-            # No LLM available - can only use fast path
-            logger.warning(f"Intake gate {node_id}: No LLM service, defaulting to qualified")
-            return self._build_qualified_result(
-                node_id=node_id,
-                intake_summary=user_input[:500],
-                project_type="unknown",
-                source="no_llm_fallback",
-            )
-
-        # Single LLM call for classification + extraction
-        return await self._classify_with_llm(user_input, node_id, node_config)
-
-    def _try_fast_path(
-        self,
-        user_input: str,
-        node_id: str,
-    ) -> Optional[NodeResult]:
-        """Attempt fast path classification without LLM.
-
-        Fast path triggers when:
-        - Input is substantial (>= MIN_SUBSTANTIAL_LENGTH chars)
-        - Input has structure (newlines, bullets, numbered items)
-
-        Args:
-            user_input: The user's request
-            node_id: The gate node ID
-
-        Returns:
-            NodeResult if fast path applies, None otherwise
-        """
-        # Check length
-        if len(user_input) < MIN_SUBSTANTIAL_LENGTH:
-            return None
-
-        # Check for structure indicators
-        structure_score = 0
-
-        # Newlines indicate structure
-        if "\n" in user_input:
-            structure_score += user_input.count("\n")
-
-        # Bullet points
-        if re.search(r"^[\s]*[-*•]", user_input, re.MULTILINE):
-            structure_score += 2
-
-        # Numbered items
-        if re.search(r"^[\s]*\d+[.)]\s", user_input, re.MULTILINE):
-            structure_score += 2
-
-        # Multiple sentences
-        sentence_count = len(re.findall(r"[.!?]+", user_input))
-        if sentence_count >= 3:
-            structure_score += 1
-
-        if structure_score < MIN_STRUCTURE_INDICATORS:
-            return None
-
-        # Fast path applies - extract basic fields heuristically
-        project_type = self._infer_project_type(user_input)
-        intake_summary = self._extract_summary(user_input)
-
-        logger.info(
-            f"Intake gate {node_id}: Fast path triggered "
-            f"(len={len(user_input)}, structure={structure_score})"
-        )
-
-        return self._build_qualified_result(
+        
+        # Accumulate input
+        frame.raw_inputs.append(user_input)
+        all_input = " ".join(frame.raw_inputs)
+        
+        # Extract fields from accumulated input
+        frame = self._extract_fields(frame, all_input)
+        
+        logger.info(f"Intake gate {node_id}: Frame state - audience={frame.audience}, artifact_type={frame.artifact_type}")
+        
+        # Check mechanical sufficiency
+        if frame.is_complete():
+            logger.info(f"Intake gate {node_id}: Frame COMPLETE - proceeding to review")
+            return self._build_qualified_result(node_id, frame)
+        
+        # Frame incomplete - ask ONE question for first missing field
+        missing = frame.missing_field()
+        question = FIELD_QUESTIONS.get(missing, "Please provide more details.")
+        
+        logger.info(f"Intake gate {node_id}: Missing '{missing}', asking single question")
+        
+        return NodeResult.needs_user_input(
+            prompt=question,
             node_id=node_id,
-            intake_summary=intake_summary,
-            project_type=project_type,
-            source="fast_path",
+            intake_frame=frame.to_dict(),
             user_input=user_input,
         )
-
-    def _infer_project_type(self, user_input: str) -> str:
-        """Infer project type from user input heuristically.
-
-        Args:
-            user_input: The user's request
-
-        Returns:
-            Inferred project type
-        """
-        input_lower = user_input.lower()
-
-        # Check for explicit greenfield indicators first (highest priority)
-        greenfield_indicators = [
-            "from scratch", "brand new", "new project", "no existing",
-            "start fresh", "build new", "create new", "building new",
+    
+    def _extract_fields(self, frame: IntakeFrame, text: str) -> IntakeFrame:
+        """Extract intake fields from text. Simple pattern matching."""
+        text_lower = text.lower()
+        
+        # Extract artifact_type
+        if frame.artifact_type is None:
+            frame.artifact_type = self._extract_artifact_type(text_lower)
+        
+        # Extract audience
+        if frame.audience is None:
+            frame.audience = self._extract_audience(text_lower)
+        
+        # Extract project_category
+        frame.project_category = self._extract_category(text_lower)
+        
+        return frame
+    
+    def _extract_artifact_type(self, text: str) -> Optional[str]:
+        """Extract what is being built."""
+        patterns = [
+            (r"\bweb\s*app(?:lication)?\b", "web_application"),
+            (r"\bwebsite\b", "website"),
+            (r"\bmobile\s*app(?:lication)?\b", "mobile_application"),
+            (r"\bios\s*app\b", "mobile_application"),
+            (r"\bandroid\s*app\b", "mobile_application"),
+            (r"\bdesktop\s*app(?:lication)?\b", "desktop_application"),
+            (r"\bapi\b", "api"),
+            (r"\bbackend\b", "backend_service"),
+            (r"\bservice\b", "backend_service"),
+            (r"\btool\b", "tool"),
+            (r"\bplatform\b", "platform"),
+            (r"\bsystem\b", "system"),
+            (r"\bdashboard\b", "dashboard"),
+            (r"\bportal\b", "portal"),
+            (r"\bapp\b", "application"),  # Generic fallback
+            (r"\bapplication\b", "application"),
+            (r"\bsoftware\b", "software"),
         ]
-        if any(ind in input_lower for ind in greenfield_indicators):
-            return "greenfield"
-
-        # Check for migration indicators
-        migration_indicators = [
-            "migrate", "migration", "move from", "convert",
-            "transition", "replace existing", "legacy",
+        
+        for pattern, artifact_type in patterns:
+            if re.search(pattern, text):
+                return artifact_type
+        
+        return None
+    
+    def _extract_audience(self, text: str) -> Optional[str]:
+        """Extract who the artifact is for."""
+        patterns = [
+            # Age-based
+            (r"\b(?:kids?|children)\b.*?(\d+[-–]\d+|\d+\s*(?:to|and)\s*\d+)", lambda m: f"children_{m.group(1).replace(' ', '').replace('to', '-').replace('and', '-')}"),
+            (r"\b(\d+[-–]\d+)\s*year\s*olds?\b", lambda m: f"children_{m.group(1)}"),
+            (r"\bkids?\b|\bchildren\b", lambda m: "children"),
+            (r"\bteenagers?\b|\bteens?\b", lambda m: "teenagers"),
+            (r"\badults?\b", lambda m: "adults"),
+            (r"\bstudents?\b", lambda m: "students"),
+            (r"\blearners?\b", lambda m: "learners"),
+            # Role-based
+            (r"\bteachers?\b", lambda m: "teachers"),
+            (r"\bparents?\b", lambda m: "parents"),
+            (r"\bdevelopers?\b", lambda m: "developers"),
+            (r"\bemployees?\b", lambda m: "employees"),
+            (r"\bcustomers?\b", lambda m: "customers"),
+            (r"\busers?\b", lambda m: "users"),
+            (r"\bteam\b", lambda m: "internal_team"),
+            (r"\binternal\b", lambda m: "internal_team"),
+            (r"\bpublic\b", lambda m: "general_public"),
         ]
-        if any(ind in input_lower for ind in migration_indicators):
-            return "migration"
-
-        # Check for enhancement indicators
-        enhancement_indicators = [
-            "add to", "extend", "improve", "update existing",
-            "modify existing", "enhance existing", "existing system",
-            "current system", "already have", "we have",
-        ]
-        if any(ind in input_lower for ind in enhancement_indicators):
+        
+        for pattern, extractor in patterns:
+            match = re.search(pattern, text)
+            if match:
+                if callable(extractor):
+                    return extractor(match)
+                return extractor
+        
+        return None
+    
+    def _extract_category(self, text: str) -> str:
+        """Extract project category."""
+        if any(word in text for word in ["existing", "current", "upgrade", "improve", "enhance", "add to", "extend"]):
             return "enhancement"
-
-        # Default to greenfield
+        if any(word in text for word in ["migrate", "migration", "move", "convert", "port"]):
+            return "migration"
+        if any(word in text for word in ["integrate", "integration", "connect", "api"]):
+            return "integration"
         return "greenfield"
-
-    def _extract_summary(self, user_input: str, max_length: int = 500) -> str:
-        """Extract a summary from user input.
-
-        Args:
-            user_input: The user's request
-            max_length: Maximum summary length
-
-        Returns:
-            Extracted summary
-        """
-        # Take first paragraph or first N characters
-        paragraphs = user_input.split("\n\n")
-        if paragraphs:
-            first_para = paragraphs[0].strip()
-            if len(first_para) >= 50:
-                return first_para[:max_length]
-
-        return user_input[:max_length]
-
-    async def _classify_with_llm(
-        self,
-        user_input: str,
-        node_id: str,
-        node_config: Dict[str, Any],
-    ) -> NodeResult:
-        """Classify request using single LLM call.
-
-        Args:
-            user_input: The user's request
-            node_id: The gate node ID
-            node_config: Node configuration with task_ref
-
-        Returns:
-            NodeResult with classification outcome
-        """
-        task_ref = node_config.get("task_ref")
-
-        # Load prompt
-        system_prompt = ""
-        if task_ref and self.prompt_loader:
-            try:
-                system_prompt = self.prompt_loader.load_task_prompt(task_ref)
-            except Exception as e:
-                logger.warning(f"Failed to load intake gate prompt: {e}")
-                system_prompt = self._get_default_prompt()
-        else:
-            system_prompt = self._get_default_prompt()
-
-        # Single message - no conversation
-        messages = [{"role": "user", "content": user_input}]
-
-        try:
-            response = await self.llm_service.complete(
-                messages=messages,
-                system_prompt=system_prompt,
-                node_id=node_id,
-                task_ref=task_ref or "intake_gate",
-            )
-
-            # Parse LLM response
-            return self._parse_llm_response(response, node_id, user_input)
-
-        except Exception as e:
-            logger.exception(f"Intake gate {node_id} LLM call failed: {e}")
-            # Fail open - let it through with warning
-            return self._build_qualified_result(
-                node_id=node_id,
-                intake_summary=user_input[:500],
-                project_type="unknown",
-                source="llm_error_fallback",
-                error=str(e),
-            )
-
-    def _parse_llm_response(
-        self,
-        response: str,
-        node_id: str,
-        user_input: str,
-    ) -> NodeResult:
-        """Parse LLM classification response.
-
-        Expected JSON format:
-        {
-            "classification": "qualified|insufficient|out_of_scope|redirect",
-            "project_type": "greenfield|enhancement|migration|...",
-            "intake_summary": "...",
-            "missing": ["question1", ...],  // if insufficient
-            "reason": "..."  // if out_of_scope or redirect
+    
+    def _build_qualified_result(self, node_id: str, frame: IntakeFrame) -> NodeResult:
+        """Build qualified result with interpretation for review phase."""
+        
+        # Build project name from inputs
+        first_input = frame.raw_inputs[0] if frame.raw_inputs else ""
+        project_name = self._extract_project_name(first_input)
+        
+        # Build problem statement from all inputs
+        problem_statement = " ".join(frame.raw_inputs)
+        if len(problem_statement) > 500:
+            problem_statement = problem_statement[:500] + "..."
+        
+        interpretation = {
+            "project_name": {"value": project_name, "source": "llm", "locked": False},
+            "problem_statement": {"value": problem_statement, "source": "llm", "locked": False},
+            "project_type": {"value": frame.project_category, "source": "llm", "locked": False},
         }
-
-        Args:
-            response: Raw LLM response
-            node_id: The gate node ID
-            user_input: Original user input
-
-        Returns:
-            NodeResult based on classification
-        """
-        # Try to extract JSON from response
-        try:
-            # Handle markdown code blocks
-            json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", response)
-            if json_match:
-                json_str = json_match.group(1)
-            else:
-                # Try to find JSON object directly
-                json_match = re.search(r"\{[\s\S]*\}", response)
-                if json_match:
-                    json_str = json_match.group(0)
-                else:
-                    raise ValueError("No JSON found in response")
-
-            data = json.loads(json_str)
-
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"Intake gate {node_id}: Failed to parse LLM response: {e}")
-            # Fallback: try to infer from response text
-            return self._infer_from_text_response(response, node_id, user_input)
-
-        classification = data.get("classification", "qualified")
-        project_type = data.get("project_type", "unknown")
-        intake_summary = data.get("intake_summary", user_input[:500])
-
-        if classification == "qualified":
-            return self._build_qualified_result(
-                node_id=node_id,
-                intake_summary=intake_summary,
-                project_type=project_type,
-                source="llm",
-                extracted_data=data,
-            )
-
-        elif classification == "insufficient":
-            missing = data.get("missing", ["Please provide more details about your request."])
-            # Format missing items as a single prompt
-            if isinstance(missing, list):
-                prompt = "To proceed, please provide:\n" + "\n".join(f"- {m}" for m in missing)
-            else:
-                prompt = str(missing)
-
-            return NodeResult.needs_user_input(
-                prompt=prompt,
-                node_id=node_id,
-                classification="insufficient",
-                missing=missing,
-            )
-
-        elif classification == "out_of_scope":
-            reason = data.get("reason", "This request is outside the scope of supported projects.")
-            return NodeResult(
-                outcome="out_of_scope",
-                metadata={
-                    "node_id": node_id,
-                    "reason": reason,
-                    "classification": classification,
-                },
-            )
-
-        elif classification == "redirect":
-            reason = data.get("reason", "This request should be handled by a different service.")
-            return NodeResult(
-                outcome="redirect",
-                metadata={
-                    "node_id": node_id,
-                    "reason": reason,
-                    "classification": classification,
-                },
-            )
-
-        else:
-            # Unknown classification - default to qualified
-            logger.warning(f"Intake gate {node_id}: Unknown classification '{classification}'")
-            return self._build_qualified_result(
-                node_id=node_id,
-                intake_summary=intake_summary,
-                project_type=project_type,
-                source="llm_unknown_classification",
-            )
-
-    def _infer_from_text_response(
-        self,
-        response: str,
-        node_id: str,
-        user_input: str,
-    ) -> NodeResult:
-        """Infer classification from non-JSON response text.
-
-        Args:
-            response: Raw LLM response (not JSON)
-            node_id: The gate node ID
-            user_input: Original user input
-
-        Returns:
-            NodeResult based on inferred classification
-        """
-        response_lower = response.lower()
-
-        # Check for out-of-scope indicators
-        if any(phrase in response_lower for phrase in [
-            "out of scope", "cannot help", "not supported", "outside"
-        ]):
-            return NodeResult(
-                outcome="out_of_scope",
-                metadata={
-                    "node_id": node_id,
-                    "reason": response[:500],
-                    "source": "text_inference",
-                },
-            )
-
-        # Check for insufficient indicators
-        if any(phrase in response_lower for phrase in [
-            "need more", "please provide", "clarify", "what do you mean"
-        ]):
-            return NodeResult.needs_user_input(
-                prompt=response,
-                node_id=node_id,
-                classification="insufficient",
-                source="text_inference",
-            )
-
-        # Default to qualified
-        return self._build_qualified_result(
-            node_id=node_id,
-            intake_summary=user_input[:500],
-            project_type="unknown",
-            source="text_inference_fallback",
-        )
-
-    def _build_qualified_result(
-        self,
-        node_id: str,
-        intake_summary: str,
-        project_type: str,
-        source: str,
-        **extra_metadata: Any,
-    ) -> NodeResult:
-        """Build a qualified (success) result.
-
-        Args:
-            node_id: The gate node ID
-            intake_summary: Extracted summary
-            project_type: Inferred project type
-            source: How classification was determined
-            **extra_metadata: Additional metadata
-
-        Returns:
-            NodeResult with qualified outcome
-        """
+        
         return NodeResult(
             outcome="qualified",
             metadata={
                 "node_id": node_id,
                 "classification": "qualified",
-                "intake_summary": intake_summary,
-                "project_type": project_type,
-                "source": source,
-                **extra_metadata,
+                "intake_frame": frame.to_dict(),
+                "intake_summary": problem_statement,
+                "project_type": frame.project_category,
+                "artifact_type": frame.artifact_type,
+                "audience": frame.audience,
+                "source": "mechanical_sufficiency",
+                "user_input": " ".join(frame.raw_inputs),
+                "intent_canon": " ".join(frame.raw_inputs),
+                "interpretation": interpretation,
+                "phase": "review",
             },
         )
-
-    def _get_default_prompt(self) -> str:
-        """Get default intake gate prompt when none configured.
-
-        Returns:
-            Default system prompt for intake classification
-        """
-        return """You are an intake classifier for a software development service.
-
-Analyze the user's request and respond with a JSON object:
-
-{
-    "classification": "qualified|insufficient|out_of_scope|redirect",
-    "project_type": "greenfield|enhancement|migration",
-    "intake_summary": "Brief summary of what the user wants to build",
-    "missing": ["list", "of", "missing", "info"],  // only if insufficient
-    "reason": "explanation"  // only if out_of_scope or redirect
-}
-
-CLASSIFICATION RULES:
-- "qualified": Request is clear and actionable. We understand what to build.
-- "insufficient": Request is too vague. List specific missing information.
-- "out_of_scope": Request is for something we don't support (e.g., illegal, harmful).
-- "redirect": Request should go to a different service (e.g., support, sales).
-
-PROJECT TYPES:
-- "greenfield": Building something new from scratch
-- "enhancement": Adding to or improving existing software
-- "migration": Moving from one system/technology to another
-
-Be concise. Respond only with the JSON object."""
+    
+    def _extract_project_name(self, text: str) -> str:
+        """Extract a concise project name."""
+        # Take first line or first sentence
+        first_line = text.split('\n')[0].strip()
+        if len(first_line) <= 50:
+            return first_line
+        
+        # Try first sentence
+        sentences = re.split(r'[.!?]', text)
+        if sentences and len(sentences[0]) <= 50:
+            return sentences[0].strip()
+        
+        # Truncate
+        return text[:47] + "..."

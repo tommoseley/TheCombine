@@ -5,21 +5,42 @@
   Targets #main-content swap.
 #}
 
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <!-- Header -->
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div class="max-w-5xl mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-xl font-semibold text-gray-900 dark:text-white">
-                        {{ render_model.title }}
-                    </h1>
-                    {% if render_model.subtitle %}
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{ render_model.subtitle }}
-                    </p>
-                    {% endif %}
-                </div>
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Document Header -->
+    <div class="mb-8">
+        {% if project %}
+        <nav class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <a href="/projects/{{ project.id if project.id is defined else project['id'] }}" 
+               hx-get="/projects/{{ project.id if project.id is defined else project['id'] }}"
+               hx-target="#main-content"
+               hx-push-url="true"
+               class="hover:text-gray-700 dark:hover:text-gray-300">
+                {{ project.name if project.name is defined else project['name'] }}
+            </a>
+            <span class="mx-2">/</span>
+            <span class="font-medium text-gray-900 dark:text-gray-50">{{ render_model.title }}</span>
+        </nav>
+        {% endif %}
+        
+        <div class="flex items-center gap-3">
+            {% set doc_icons = {
+            'EpicBacklogView': 'layers',
+            'epic_backlog': 'layers',
+            'StoryBacklogView': 'list-checks',
+            'story_backlog': 'list-checks',
+            'ArchitecturalSummaryView': 'building',
+            'technical_architecture': 'building',
+            'ProjectDiscoveryView': 'compass',
+            'project_discovery': 'compass'
+        } %}
+        {% set doc_icon = doc_icons.get(render_model.document_type, 'file-text') %}
+            <i data-lucide="{{ doc_icon }}" class="w-10 h-10 text-violet-600 dark:text-violet-500"></i>
+            <div class="flex-1">
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-50">{{ render_model.title }}</h1>
+                {% if render_model.subtitle %}
+                <p class="text-gray-600 dark:text-gray-400">{{ render_model.subtitle }}</p>
+                {% endif %}
+            </div>
                 <div class="flex items-center gap-4">
                     {# Generate All Stories button for StoryBacklogView #}
                     {% if render_model.document_type == 'StoryBacklogView' and document_data and document_data.project_id %}
@@ -38,15 +59,15 @@
                     {% endif %}
                 </div>
             </div>
-            {# Status message area #}
-            <div id="generate-status" class="mt-2"></div>
-        </div>
-    </header>
+        {# Status message area #}
+        <div id="generate-status" class="mt-2"></div>
+    </div>
+    
+    <!-- Divider -->
+    <hr class="border-gray-200 dark:border-gray-700 mb-8">
     
     <!-- Main content -->
-    <main class="max-w-5xl mx-auto px-6 py-8">
-        {% include "public/partials/_document_viewer.html" %}
-    </main>
+    {% include "public/partials/_document_viewer.html" %}
     
     {# Story generation scripts #}
     <script>

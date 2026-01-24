@@ -1,4 +1,4 @@
-﻿"""
+"""
 PostgreSQL implementation via ORM.
 
 IMPORTANT: Does NOT commit. Caller owns transaction.
@@ -128,7 +128,7 @@ class PostgresLLMLogRepository:
             run.output_tokens = output_tokens
             run.total_tokens = total_tokens
             run.cost_usd = cost_usd
-            run.metadata = metadata
+            run.run_metadata = metadata
     
     async def bump_error_summary(
         self,

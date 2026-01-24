@@ -23,15 +23,16 @@ class TestClarificationGate:
     def valid_question_set(self):
         """Create a valid clarification question set."""
         return {
-            "schema_version": "clarification_question_set.v1",
+            "schema_version": "clarification_question_set.v2",
             "mode": "questions_only",
             "correlation_id": str(uuid.uuid4()),
             "question_set_kind": "discovery",
+            "artifact_scope": "project",
             "questions": [
                 {
                     "id": "Q01",
                     "text": "What is the primary goal of this project?",
-                    "intent": "Understanding the core objective",
+                    "why_it_matters": "Understanding the core objective",
                     "priority": "must",
                     "answer_type": "free_text",
                     "required": True,
@@ -77,7 +78,7 @@ class TestClarificationGate:
     def test_check_invalid_schema_reports_errors(self, gate):
         """Invalid question set reports validation errors."""
         invalid = {
-            "schema_version": "clarification_question_set.v1",
+            "schema_version": "clarification_question_set.v2",
             "mode": "questions_only",
             # Missing required fields
         }
@@ -92,15 +93,16 @@ class TestClarificationGate:
     def test_check_parses_all_question_fields(self, gate):
         """All question fields are parsed correctly."""
         question_set = {
-            "schema_version": "clarification_question_set.v1",
+            "schema_version": "clarification_question_set.v2",
             "mode": "questions_only",
             "correlation_id": str(uuid.uuid4()),
             "question_set_kind": "discovery",
+            "artifact_scope": "project",
             "questions": [
                 {
                     "id": "CHOICE_Q",
                     "text": "Which option do you prefer?",
-                    "intent": "Determining preference",
+                    "why_it_matters": "Determining preference",
                     "priority": "should",
                     "answer_type": "single_choice",
                     "required": False,
@@ -166,15 +168,15 @@ class TestClarificationGate:
         """get_blocking_questions filters correctly."""
         questions = [
             ClarificationQuestion(
-                id="Q1", text="?", intent="", priority="must",
+                id="Q1", text="?", why_it_matters="", priority="must",
                 answer_type="free_text", required=True, blocking=True
             ),
             ClarificationQuestion(
-                id="Q2", text="?", intent="", priority="could",
+                id="Q2", text="?", why_it_matters="", priority="could",
                 answer_type="free_text", required=False, blocking=False
             ),
             ClarificationQuestion(
-                id="Q3", text="?", intent="", priority="should",
+                id="Q3", text="?", why_it_matters="", priority="should",
                 answer_type="free_text", required=True, blocking=True
             ),
         ]

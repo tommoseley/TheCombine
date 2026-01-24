@@ -56,7 +56,7 @@ def mock_workflow_state():
         current_node_id="concierge",
         status=DocumentWorkflowStatus.PAUSED,
         pending_user_input=True,
-        pending_prompt="What is the main goal of your project?",
+        pending_user_input_rendered="What is the main goal of your project?",
     )
 
 

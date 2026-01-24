@@ -9,7 +9,7 @@ Tracks the state of a document workflow execution including:
 INVARIANTS (WS-INTAKE-ENGINE-001):
 - State is persisted after every node completion
 - State mutations are performed only by PlanExecutor
-- Retry counter is scoped to (document_id, generating_node_id)
+- Retry counter is scoped to (project_id, generating_node_id)
 """
 
 from dataclasses import dataclass, field
@@ -66,7 +66,7 @@ class DocumentWorkflowState:
     # Identity
     execution_id: str
     workflow_id: str  # ID of the workflow plan
-    document_id: str
+    project_id: str
     document_type: str
 
     # Current position
@@ -106,8 +106,10 @@ class DocumentWorkflowState:
 
     # Pause state
     pending_user_input: bool = False
-    pending_prompt: Optional[str] = None
+    pending_user_input_rendered: Optional[str] = None  # Human-readable rendering (optional)
     pending_choices: Optional[List[str]] = None
+    pending_user_input_payload: Optional[Dict[str, Any]] = None  # Structured payload (object)
+    pending_user_input_schema_ref: Optional[str] = None  # Schema reference for validation
 
     # Escalation (when circuit breaker trips)
     escalation_active: bool = False
@@ -138,7 +140,7 @@ class DocumentWorkflowState:
         """Increment retry count for a generating node.
 
         Per WS-INTAKE-ENGINE-001:
-        - Retry counter is scoped to (document_id, generating_node_id)
+        - Retry counter is scoped to (project_id, generating_node_id)
         - Only QA failures increment retries
 
         Args:
@@ -167,25 +169,33 @@ class DocumentWorkflowState:
         self,
         prompt: Optional[str] = None,
         choices: Optional[List[str]] = None,
+        payload: Optional[Dict[str, Any]] = None,
+        schema_ref: Optional[str] = None,
     ) -> None:
         """Set state to paused waiting for user input.
 
         Args:
-            prompt: Optional prompt to show user
+            prompt: Optional human-readable prompt to show user
             choices: Optional list of choices
+            payload: Optional structured payload (object, not string)
+            schema_ref: Optional schema reference for payload validation
         """
         self.status = DocumentWorkflowStatus.PAUSED
         self.pending_user_input = True
-        self.pending_prompt = prompt
+        self.pending_user_input_rendered = prompt
         self.pending_choices = choices
+        self.pending_user_input_payload = payload
+        self.pending_user_input_schema_ref = schema_ref
         self.updated_at = datetime.utcnow()
 
     def clear_pause(self) -> None:
         """Clear pause state and resume running."""
         self.status = DocumentWorkflowStatus.RUNNING
         self.pending_user_input = False
-        self.pending_prompt = None
+        self.pending_user_input_rendered = None
         self.pending_choices = None
+        self.pending_user_input_payload = None
+        self.pending_user_input_schema_ref = None
         self.updated_at = datetime.utcnow()
 
     def set_escalation(self, options: List[str]) -> None:
@@ -209,7 +219,7 @@ class DocumentWorkflowState:
         """Update context state with delta from node execution.
 
         Per ADR-040: context_state is the ONLY source of continuity for LLM
-        invocations. It contains structured, governed data — NOT transcripts.
+        invocations. It contains structured, governed data ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â NOT transcripts.
 
         Args:
             delta: State updates to merge. Keys are replaced, not deep-merged.
@@ -252,7 +262,7 @@ class DocumentWorkflowState:
         return {
             "execution_id": self.execution_id,
             "workflow_id": self.workflow_id,
-            "document_id": self.document_id,
+            "project_id": self.project_id,
             "document_type": self.document_type,
             "user_id": self.user_id,
             "current_node_id": self.current_node_id,
@@ -266,8 +276,10 @@ class DocumentWorkflowState:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "pending_user_input": self.pending_user_input,
-            "pending_prompt": self.pending_prompt,
+            "pending_user_input_rendered": self.pending_user_input_rendered,
             "pending_choices": self.pending_choices,
+            "pending_user_input_payload": self.pending_user_input_payload,
+            "pending_user_input_schema_ref": self.pending_user_input_schema_ref,
             "escalation_active": self.escalation_active,
             "escalation_options": self.escalation_options,
         }
@@ -278,7 +290,7 @@ class DocumentWorkflowState:
         return cls(
             execution_id=data["execution_id"],
             workflow_id=data["workflow_id"],
-            document_id=data["document_id"],
+            project_id=data["project_id"],
             document_type=data["document_type"],
             user_id=data.get("user_id"),
             current_node_id=data["current_node_id"],
@@ -294,8 +306,10 @@ class DocumentWorkflowState:
             created_at=datetime.fromisoformat(data["created_at"]),
             updated_at=datetime.fromisoformat(data["updated_at"]),
             pending_user_input=data.get("pending_user_input", False),
-            pending_prompt=data.get("pending_prompt"),
+            pending_user_input_rendered=data.get("pending_user_input_rendered"),
             pending_choices=data.get("pending_choices"),
+            pending_user_input_payload=data.get("pending_user_input_payload"),
+            pending_user_input_schema_ref=data.get("pending_user_input_schema_ref"),
             escalation_active=data.get("escalation_active", False),
             escalation_options=data.get("escalation_options", []),
         )

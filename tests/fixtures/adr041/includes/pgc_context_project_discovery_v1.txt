@@ -1,0 +1,9 @@
+## Context Block
+
+Next Document: Project Discovery Document
+
+Purpose: Explore solution space, validate assumptions, identify risks.
+
+Questions Asked Here Must:
+- Affect how discovery is run
+- Change what discovery needs to explore

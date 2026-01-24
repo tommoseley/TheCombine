@@ -1,6 +1,34 @@
+
+---
+
+## Completion Note (2026-01-22)
+
+**This Work Statement is COMPLETE with simplification.**
+
+### Implemented
+- Phase 1: LLM Node Executors ✓ (`app/domain/workflow/nodes/llm_executors.py`)
+- Phase 2: Concierge Intake Document Schema ✓ (`seed/schemas/concierge_intake_document.v1.json`)
+- Phase 3: Thread Ownership ✓ (`app/domain/workflow/thread_manager.py`)
+- Phase 4: Dual Outcome Recording ✓ (gate_outcome + terminal_outcome in state)
+- Phase 5: UI Integration ✓ (`app/web/routes/public/intake_workflow_routes.py`)
+
+### Simplified from Original Spec
+- **Concierge node replaced by IntakeGateExecutor** - Mechanical sufficiency, not multi-turn LLM conversation
+- **No available_options[] contract** - Auto-routes on field completion
+- **Consent via Lock action** - Not conversational affirmation
+
+### Why Simplification
+The original spec treated intake as a decision-heavy workflow requiring ADR-037 constrained routing. Implementation revealed intake is a qualification boundary, not a decision point.
+
+See:
+- ADR-025 Amendment (2026-01-22) - Artifact-based consent
+- ADR-026 Amendment (2026-01-22) - Concierge as qualification function
+- ADR-037 Amendment (2026-01-22) - Scope clarification
+
+---
 # WS-ADR-025: Intake Gate Implementation
 
-**Status:** Accepted
+**Status:** **COMPLETE**
 **Date:** 2026-01-17
 **Accepted:** 2026-01-17
 **Related ADRs:** ADR-025 (Intake Gate), ADR-026 (Concierge Role), ADR-038 (Workflow Plan Schema), ADR-039 (Document Interaction Workflow Model)
@@ -86,7 +114,7 @@ Replace mock executors with real LLM integration.
 - User language SHALL NOT directly advance workflow execution.
 - LLM executors MUST NOT emit routing decisions or terminal outcomes.
 - Workflow advancement occurs only via explicit option selection
-  where `option_id ∈ available_options[]` (ADR-037).
+  where `option_id âˆˆ available_options[]` (ADR-037).
 - Attempts to bypass the gate via natural language MUST be logged
   and result in no state transition.
 
@@ -151,15 +179,15 @@ Implement thread ownership per ADR-035.
 
 **Thread Lifecycle:**
 
-1. Workflow starts → Create thread (`thread_purpose: intake_conversation`)
-2. Each concierge turn → Append to thread
-3. Workflow completes → Thread finalized (immutable)
+1. Workflow starts â†’ Create thread (`thread_purpose: intake_conversation`)
+2. Each concierge turn â†’ Append to thread
+3. Workflow completes â†’ Thread finalized (immutable)
 
 ---
 
 ### Phase 4: Dual Outcome Recording
 
-Record both governance outcome and execution outcome per ADR-025 §8.
+Record both governance outcome and execution outcome per ADR-025 Â§8.
 
 **Authority:**
 
@@ -201,18 +229,18 @@ Connect Concierge UI to workflow engine, replacing direct LLM calls.
 
 **Key Changes:**
 
-1. **Start Conversation** → `POST /api/v1/document-workflows/start`
+1. **Start Conversation** â†’ `POST /api/v1/document-workflows/start`
    - `document_type: "concierge_intake"`
    - Returns `execution_id`
 
-2. **Send Message** → `POST /api/v1/document-workflows/executions/{id}/input`
+2. **Send Message** â†’ `POST /api/v1/document-workflows/executions/{id}/input`
    - User message as `user_input`
    - Returns next prompt/response
 
-3. **Run to Pause** → `POST /api/v1/document-workflows/executions/{id}/run`
+3. **Run to Pause** â†’ `POST /api/v1/document-workflows/executions/{id}/run`
    - Engine executes until user input needed
 
-4. **Get Status** → `GET /api/v1/document-workflows/executions/{id}`
+4. **Get Status** â†’ `GET /api/v1/document-workflows/executions/{id}`
    - Shows current node, pending input, etc.
 
 **State Mapping:**
@@ -259,13 +287,13 @@ Deprecated `concierge_intake_session` and `concierge_intake_event` tables MUST N
 
 ### Integration Tests
 
-- Full workflow execution (start → clarification → consent → generation → QA → outcome)
-- Circuit breaker behavior (QA failure → remediation → escalation)
+- Full workflow execution (start â†’ clarification â†’ consent â†’ generation â†’ QA â†’ outcome)
+- Circuit breaker behavior (QA failure â†’ remediation â†’ escalation)
 - Thread persistence and replay
 
 ### E2E Tests
 
-- Concierge UI → Workflow Engine → LLM → Document artifact
+- Concierge UI â†’ Workflow Engine â†’ LLM â†’ Document artifact
 - All gate outcome paths (qualified, not_ready, out_of_scope, redirect)
 
 ---

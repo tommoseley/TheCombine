@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Intake Workflow BFF context builders (WS-ADR-025).
 
 Tests the template context builder functions that transform workflow state
@@ -153,7 +153,7 @@ class TestBuildTemplateContext:
         context = _build_template_context(mock_request, paused_state)
 
         assert context["pending_user_input"] is True
-        assert context["pending_prompt"] == "What is the main goal of your project?"
+        assert context["pending_user_input_rendered"] == "What is the main goal of your project?"
         assert context["is_paused"] is True
         assert context["is_completed"] is False
 
@@ -212,8 +212,8 @@ class TestBuildMessageContext:
 
         assert "timeline" in context["assistant_response"]
 
-    def test_fallback_to_pending_prompt(self, mock_request, paused_state):
-        """Test fallback to pending_prompt when no history response."""
+    def test_fallback_to_pending_user_input_rendered(self, mock_request, paused_state):
+        """Test fallback to pending_user_input_rendered when no history response."""
         context = _build_message_context(mock_request, paused_state, "Hello")
 
         assert context["assistant_response"] == "What is the main goal of your project?"
@@ -347,7 +347,7 @@ class TestEdgeCases:
         """Test handling of None values in pending fields."""
         context = _build_template_context(mock_request, base_state)
 
-        assert context["pending_prompt"] is None
+        assert context["pending_user_input_rendered"] is None
         assert context["pending_choices"] is None
         assert context["gate_outcome"] is None
         assert context["terminal_outcome"] is None
@@ -363,5 +363,5 @@ class TestEdgeCases:
         """Test message context with empty history."""
         context = _build_message_context(mock_request, base_state, "Hello")
 
-        # Should use pending_prompt as fallback (None in this case)
+        # Should use pending_user_input_rendered as fallback (None in this case)
         assert context["assistant_response"] is None

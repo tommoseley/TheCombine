@@ -38,8 +38,10 @@ class NodeResult:
     outcome: str  # e.g., "success", "failed", "qualified", "needs_user_input"
     produced_document: Optional[Dict[str, Any]] = None
     requires_user_input: bool = False
-    user_prompt: Optional[str] = None
+    user_prompt: Optional[str] = None  # Human-readable prompt (optional)
     user_choices: Optional[List[str]] = None  # For gate nodes
+    user_input_payload: Optional[Dict[str, Any]] = None  # Structured payload (object)
+    user_input_schema_ref: Optional[str] = None  # Schema reference for validation
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -87,7 +89,7 @@ class DocumentWorkflowContext:
     Contains the document being created, thread reference, and
     any context accumulated during execution.
     """
-    document_id: str
+    project_id: str
     document_type: str
     thread_id: Optional[str] = None
 

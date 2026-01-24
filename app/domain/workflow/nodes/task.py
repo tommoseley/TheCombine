@@ -77,8 +77,24 @@ class TaskNodeExecutor(NodeExecutor):
             )
 
         try:
-            # Load task prompt
-            task_prompt = self.prompt_loader.load_task_prompt(task_ref)
+            # Check if node has includes (ADR-041 template assembly)
+            includes = node_config.get("includes")
+            if includes:
+                # Use PromptAssemblyService for template assembly
+                from app.domain.services.prompt_assembly_service import PromptAssemblyService
+                from uuid import uuid4
+                
+                assembly_service = PromptAssemblyService()
+                assembled = assembly_service.assemble(
+                    task_ref=task_ref,
+                    includes=includes,
+                    correlation_id=str(uuid4()),
+                )
+                task_prompt = assembled.content
+                logger.info(f"Task node {node_id} assembled prompt via ADR-041 ({len(task_prompt)} chars)")
+            else:
+                # Legacy: load task prompt directly
+                task_prompt = self.prompt_loader.load_task_prompt(task_ref)
 
             # Build messages from context
             messages = self._build_messages(task_prompt, context)
@@ -93,6 +109,26 @@ class TaskNodeExecutor(NodeExecutor):
             if produces:
                 context.document_content[produces] = produced_document
 
+            # PGC nodes return needs_user_input to pause for user answers
+            node_type = node_config.get("type", "task")
+            if node_type == "pgc":
+                # Extract schema version for reference
+                schema_version = produced_document.get("schema_version", "clarification_question_set.v2")
+                schema_ref = f"schema://{schema_version}"
+                
+                # Payload is the structured object; prompt is optional human-readable rendering
+                questions_prompt = self._format_pgc_questions(produced_document)
+                logger.info(f"PGC node {node_id} completed - pausing for user input ({len(produced_document.get('questions', []))} questions), schema_ref={schema_ref}")
+                return NodeResult(
+                    outcome="needs_user_input",
+                    produced_document=produced_document,
+                    requires_user_input=True,
+                    user_prompt=questions_prompt,  # Optional human-readable
+                    user_input_payload=produced_document,  # Structured object
+                    user_input_schema_ref=schema_ref,  # Schema reference
+                    metadata={"task_ref": task_ref, "produces": produces},
+                )
+            
             logger.info(f"Task node {node_id} completed successfully")
 
             return NodeResult.success(
@@ -140,7 +176,12 @@ class TaskNodeExecutor(NodeExecutor):
                 import json
                 context_parts.append(f"## Extracted Context\n{json.dumps(relevant_state, indent=2)}")
 
-        # 3. Produced documents from earlier nodes (from document_content, not input_documents)
+        # 3. Input documents from project (loaded via requires_inputs)
+        if context.input_documents:
+            input_context = self._format_input_documents(context.input_documents)
+            context_parts.append(f"## Input Documents\n{input_context}")
+        
+        # 4. Produced documents from earlier nodes in this workflow
         if context.document_content:
             doc_context = self._format_input_documents(context.document_content)
             context_parts.append(f"## Previous Documents\n{doc_context}")
@@ -188,6 +229,45 @@ class TaskNodeExecutor(NodeExecutor):
         """
         import json
         return json.dumps(content, indent=2, default=str)
+
+    def _format_pgc_questions(self, produced_document: Dict[str, Any]) -> str:
+        """Return human-readable text for PGC questions (optional rendering).
+        
+        Args:
+            produced_document: The clarification questions document
+            
+        Returns:
+            Human-readable formatted questions (NOT JSON)
+        """
+        questions = produced_document.get("questions", [])
+        if not questions:
+            return "No clarification questions needed."
+        
+        lines = ["Please answer the following questions:\n"]
+        for i, q in enumerate(questions, 1):
+            if isinstance(q, dict):
+                qid = q.get("id", f"Q{i}")
+                text = q.get("text", "")
+                priority = q.get("priority", "")
+                answer_type = q.get("answer_type", "")
+                choices = q.get("choices", [])
+                
+                priority_marker = {"must": "[REQUIRED]", "should": "[Recommended]", "could": "[Optional]"}.get(priority, "")
+                lines.append(f"{i}. {priority_marker} {text}")
+                
+                if answer_type == "yes_no":
+                    lines.append("   Answer: Yes / No")
+                elif answer_type == "free_text":
+                    lines.append("   Answer: (free text)")
+                elif choices:
+                    lines.append("   Options:")
+                    for c in choices:
+                        label = c.get("label", c.get("value", "")) if isinstance(c, dict) else c
+                        lines.append(f"     - {label}")
+            lines.append("")
+        
+        lines.append("Note: Use pending_user_input_payload for structured data.")
+        return "\n".join(lines)
 
     def _parse_response(
         self,

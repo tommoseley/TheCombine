@@ -248,6 +248,37 @@ class QANodeExecutor(NodeExecutor):
         Returns:
             Dict with passed, issues, feedback
         """
+        import json
+        
+        # First, try to parse as JSON (many QA prompts return structured JSON)
+        try:
+            # Strip markdown code fences if present
+            json_str = response.strip()
+            if json_str.startswith("```json"):
+                json_str = json_str[7:]
+            if json_str.startswith("```"):
+                json_str = json_str[3:]
+            if json_str.endswith("```"):
+                json_str = json_str[:-3]
+            json_str = json_str.strip()
+            
+            parsed = json.loads(json_str)
+            if isinstance(parsed, dict) and "passed" in parsed:
+                passed = bool(parsed["passed"])
+                issues = parsed.get("issues", [])
+                # Normalize issues to list of strings
+                if issues and isinstance(issues[0], dict):
+                    issues = [issue.get("message", str(issue)) for issue in issues]
+                summary = parsed.get("summary", "")
+                logger.info(f"QA response parsed as JSON - passed: {passed}")
+                return {
+                    "passed": passed,
+                    "issues": issues,
+                    "feedback": summary or response,
+                }
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass  # Not valid JSON, fall through to text parsing
+        
         response_lower = response.lower()
 
         # Look for explicit Result: PASS/FAIL from the QA prompt format
@@ -296,9 +327,9 @@ class QANodeExecutor(NodeExecutor):
                     # Extract bullet points
                     for line in issues_section.split("\n")[1:10]:
                         line = line.strip()
-                        if line and line.startswith(("-", "*", "•", "[")):
+                        if line and line.startswith(("-", "*", "â€¢", "[")):
                             # Clean up the line
-                            cleaned = re.sub(r'^[-*•\[\]]+\s*', '', line)
+                            cleaned = re.sub(r'^[-*â€¢\[\]]+\s*', '', line)
                             if cleaned and len(cleaned) > 5:
                                 issues.append(cleaned)
 

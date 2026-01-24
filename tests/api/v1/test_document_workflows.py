@@ -154,7 +154,7 @@ class TestGetExecutionStatus:
                 "terminal_outcome": None,
                 "gate_outcome": None,
                 "pending_user_input": False,
-                "pending_prompt": None,
+                "pending_user_input_rendered": None,
                 "pending_choices": None,
                 "escalation_active": False,
                 "escalation_options": [],
@@ -203,7 +203,7 @@ class TestExecuteStep:
         """Execute step pauses for user input."""
         test_state.status = DocumentWorkflowStatus.PAUSED
         test_state.pending_user_input = True
-        test_state.pending_prompt = "Please confirm"
+        test_state.pending_user_input_rendered = "Please confirm"
         test_state.pending_choices = ["Yes", "No"]
         mock_executor.execute_step = AsyncMock(return_value=test_state)
         app.dependency_overrides[get_executor] = lambda: mock_executor
@@ -214,7 +214,7 @@ class TestExecuteStep:
         data = response.json()
         assert data["status"] == "paused"
         assert data["pending_user_input"] is True
-        assert data["pending_prompt"] == "Please confirm"
+        assert data["pending_user_input_rendered"] == "Please confirm"
 
 
 class TestRunToCompletion:

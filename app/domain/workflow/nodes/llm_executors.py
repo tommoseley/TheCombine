@@ -1,4 +1,4 @@
-﻿"""LLM-backed node executors for Document Interaction Workflows (ADR-039).
+"""LLM-backed node executors for Document Interaction Workflows (ADR-039).
 
 This module provides factory functions to create node executors with real LLM
 integration, including ADR-010 logging compliance.
@@ -290,15 +290,18 @@ async def create_llm_executors(
     prompt_loader = PromptLoaderAdapter()
 
     # Create executors
+    task_executor = TaskNodeExecutor(
+        llm_service=llm_service,
+        prompt_loader=prompt_loader,
+    )
+    
     return {
         NodeType.INTAKE_GATE: IntakeGateExecutor(
             llm_service=llm_service,
             prompt_loader=prompt_loader,
         ),
-        NodeType.TASK: TaskNodeExecutor(
-            llm_service=llm_service,
-            prompt_loader=prompt_loader,
-        ),
+        NodeType.TASK: task_executor,
+        NodeType.PGC: task_executor,  # PGC uses same executor as TASK
         NodeType.QA: QANodeExecutor(
             llm_service=llm_service,
             prompt_loader=prompt_loader,

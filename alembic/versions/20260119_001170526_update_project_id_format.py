@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'update_project_id_fmt'
+revision = '20260119_001' 
 down_revision = '20260118_001'
 branch_labels = None
 depends_on = None

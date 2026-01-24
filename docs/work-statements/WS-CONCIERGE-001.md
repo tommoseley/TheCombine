@@ -1,6 +1,47 @@
-﻿# Work Statement: Concierge Project Ingestion (WS-CONCIERGE-001)
 
-**Status:** Draft  
+---
+
+## SUPERSEDED NOTICE (2026-01-22)
+
+**This Work Statement has been superseded by the mechanical sufficiency implementation.**
+
+### What Changed
+
+The 6-phase wizard model (Phases A-F) with question packs and LLM-driven conversation was replaced by:
+
+1. **Mechanical sufficiency check** - Intake is complete when required fields (audience, artifact_type) are extractable
+2. **Pattern-based extraction** - Regex extraction, not LLM conversation
+3. **Interpretation panel** - User reviews and locks fields via UI, not chat
+4. **Auto-qualification** - No multi-turn question loops
+
+### Why
+
+Conversational intake at the boundary created:
+- Infinite question loops (no hard completion criteria)
+- Unclear "done" state
+- Scope creep into Discovery territory
+
+Intake should establish an intent boundary, not resolve ambiguity. Ambiguity resolution belongs in Discovery.
+
+### Replacement Artifacts
+
+- `app/domain/workflow/nodes/intake_gate.py` - Mechanical sufficiency implementation
+- `app/domain/workflow/interpretation.py` - Field management and confidence
+- `seed/workflows/concierge_intake.v1.json` - Simplified workflow plan
+- ADR-025 Amendment (2026-01-22) - Artifact-based consent
+- ADR-026 Amendment (2026-01-22) - Concierge as qualification function
+
+### Preserved from Original
+
+- Gate outcomes (qualified, not_ready, out_of_scope, redirect)
+- No project creation without explicit consent
+- Append-only event storage for audit
+- ADR-010 LLM execution logging
+
+---
+# Work Statement: Concierge Project Ingestion (WS-CONCIERGE-001)
+
+**Status:** **SUPERSEDED**  
 **Created:** 2026-01-14  
 **Author:** AI (Claude)  
 **Scope:** Single-commit implementation  

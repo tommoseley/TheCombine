@@ -1,0 +1,136 @@
+Triggering Instruction
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+Task Objective
+
+Produce a Project Discovery artifact that establishes a clear, shared understanding of the problem space before solution design or execution begins.
+
+This task exists to surface intent, constraints, unknowns, and decision boundaries - not to propose solutions or plans.
+
+Inputs Provided
+
+You will be given:
+
+A project identifier
+
+A project brief or initiating question (may be incomplete or ambiguous)
+
+Clarification answers from PGC (Pre-Generation Clarification) questions
+
+Optional contextual artifacts (if provided explicitly):
+
+Prior documents
+
+Stakeholder notes
+
+Business context summaries
+
+Constraints or mandates
+
+If information is missing, it must be identified explicitly rather than assumed.
+
+Grounding Rules (CRITICAL)
+
+Every claim in the output MUST be traceable to one of:
+1. Explicit statement in the intake/brief
+2. Explicit answer from PGC clarification questions
+3. Declared as an assumption (with validation approach)
+4. Declared as an unknown (requiring resolution)
+
+The following sections have strict grounding requirements:
+
+mvp_guardrails: ONLY include items explicitly stated in inputs. If not explicitly stated, move to assumptions or early_decision_points.
+
+known_constraints: ONLY include items explicitly stated in inputs or logically entailed (e.g., "web app" entails "requires browser"). Do not invent form factors, device types, or capabilities not stated.
+
+Do NOT:
+- Add guardrails that "seem reasonable" but weren't stated
+- Convert your inferences into hard constraints
+- Expand scope beyond what was explicitly requested
+- Assume specific devices, modes, or features not mentioned
+
+Decision Promotion Rules (PGC to PD) - STRICT
+
+Promotion to known_constraints requires EXPLICIT justification:
+
+ONLY promote to known_constraints if:
+1. Question priority was "must" AND user provided a specific answer (not "undecided")
+2. Item is explicitly stated in the intake brief
+
+NEVER promote to known_constraints if:
+- Question priority was "should" or "could" (even if answered)
+- Answer was "undecided" or not provided
+- Item is inferred but not explicitly stated
+
+Correct placement by priority:
+- "must" with answer -> known_constraints
+- "must" with "undecided" -> early_decision_points (blocking)
+- "should" with answer -> assumptions (medium confidence)
+- "should" without answer -> unknowns or stakeholder_questions
+- "could" with answer -> assumptions (low confidence)
+- "could" without answer -> omit or note in recommendations
+
+Internal consistency rule:
+- If an item appears in assumptions, it CANNOT also appear in known_constraints
+- If confidence is "medium" or "low", it is NOT a constraint
+
+Prohibited in unknowns and stakeholder_questions:
+- Questions about budget, funding, or financial constraints
+- Frame resource questions as: timeline, staffing, approval gates, compliance requirements
+
+If you believe something SHOULD be a guardrail but it wasn't explicitly stated:
+- Place it in early_decision_points with options, OR
+- Place it in assumptions with validation_approach, OR
+- Place it in stakeholder_questions to get explicit confirmation
+
+Constraints
+
+Do not propose solutions, architectures, plans, or implementation approaches
+
+Do not infer intent beyond what is supported by inputs
+
+Do not resolve ambiguity silently - surface it as unknowns or stakeholder_questions
+
+All assumptions must be stated explicitly and labeled as assumptions
+
+Unknowns must remain visible, not "filled in"
+
+All statements must be attributable to provided input or declared inference
+
+Expected Output Form
+
+Produce a Project Discovery document in JSON format matching the project_discovery schema.
+
+Required sections:
+- meta (schema_version, artifact_id, created_at, source)
+- project_name
+- unknowns (known unknowns requiring resolution)
+- preliminary_summary (problem_understanding, architectural_intent, proposed_system_shape)
+
+Optional sections (include when supported by inputs):
+- assumptions (with confidence and validation_approach)
+- mvp_guardrails (ONLY if explicitly stated in inputs)
+- known_constraints (ONLY if explicitly stated or logically entailed)
+- risks (with likelihood, impact, mitigation_direction)
+- early_decision_points (for scope items requiring decision)
+- stakeholder_questions (for blocking/non-blocking questions)
+- recommendations_for_pm
+
+Governance Notes
+
+All conclusions, assumptions, and open questions must be explicit
+
+The produced artifact must be suitable for full logging under ADR-010
+
+No hidden reasoning, implicit context, or unstated judgment is permitted
+
+System will overwrite meta.created_at and meta.artifact_id with system values
+
+Version: 1.3
+Changelog:
+- v1.0: Initial task prompt
+- v1.1: Added Grounding Rules section to prevent untraced guardrails/constraints
+- v1.2: Added Decision Promotion Rules for PGC to PD traceability
+- v1.3: Strict promotion rules, prohibited budget questions, internal consistency

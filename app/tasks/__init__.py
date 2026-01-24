@@ -1,4 +1,4 @@
-﻿"""Background task infrastructure."""
+"""Background task infrastructure."""
 from app.tasks.registry import (
     TaskStatus,
     TaskInfo,
@@ -8,7 +8,7 @@ from app.tasks.registry import (
     find_task,
     cleanup_old_tasks,
 )
-from app.tasks.document_builder import run_document_build
+from app.tasks.document_builder import run_document_build, run_workflow_build, WORKFLOW_DOCUMENT_TYPES
 
 __all__ = [
     "TaskStatus",
