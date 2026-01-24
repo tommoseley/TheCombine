@@ -1,10 +1,14 @@
 """QA node executor for Document Interaction Workflow Plans (ADR-039).
 
 QA nodes validate generated documents against quality criteria.
+
+Per WS-PGC-VALIDATION-001, code-based validation runs BEFORE LLM-based QA
+to catch promotion violations and internal contradictions deterministically.
 """
 
 import logging
 import re
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Protocol
 
 from app.domain.workflow.nodes.base import (
@@ -13,6 +17,11 @@ from app.domain.workflow.nodes.base import (
     NodeExecutor,
     NodeResult,
     PromptLoader,
+)
+from app.domain.workflow.validation import (
+    PromotionValidator,
+    PromotionValidationInput,
+    PromotionValidationResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,6 +112,37 @@ class QANodeExecutor(NodeExecutor):
 
         errors: List[str] = []
         feedback: Dict[str, Any] = {}
+        code_validation_warnings: List[Dict[str, Any]] = []
+
+        # Run code-based validation BEFORE LLM QA (per WS-PGC-VALIDATION-001)
+        code_validation_result = self._run_code_based_validation(
+            document=document,
+            context=context,
+        )
+
+        if code_validation_result is not None:
+            # Fail immediately on validation errors
+            if not code_validation_result.passed:
+                logger.warning(
+                    f"QA node {node_id} failed code-based validation with "
+                    f"{len(code_validation_result.errors)} errors"
+                )
+                return NodeResult(
+                    outcome="failed",
+                    metadata={
+                        "node_id": node_id,
+                        "validation_errors": [asdict(e) for e in code_validation_result.errors],
+                        "validation_warnings": [asdict(w) for w in code_validation_result.warnings],
+                        "validation_source": "code_based",
+                    },
+                )
+
+            # Collect warnings for inclusion in final result
+            if code_validation_result.warnings:
+                code_validation_warnings = [asdict(w) for w in code_validation_result.warnings]
+                logger.info(
+                    f"QA node {node_id}: {len(code_validation_warnings)} code validation warnings"
+                )
 
         # Run schema validation if configured
         if schema_ref and self.schema_validator:
@@ -144,10 +184,16 @@ class QANodeExecutor(NodeExecutor):
             )
 
         logger.info(f"QA node {node_id} passed")
-        return NodeResult.success(
-            node_id=node_id,
-            qa_passed=True,
-        )
+        success_metadata = {
+            "node_id": node_id,
+            "qa_passed": True,
+        }
+
+        # Include code validation warnings in success result
+        if code_validation_warnings:
+            success_metadata["code_validation_warnings"] = code_validation_warnings
+
+        return NodeResult.success(**success_metadata)
 
     def _get_document_to_validate(
         self,
@@ -173,6 +219,68 @@ class QANodeExecutor(NodeExecutor):
                 return context.input_documents[key]
 
         return None
+
+    def _run_code_based_validation(
+        self,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+    ) -> Optional[PromotionValidationResult]:
+        """Run code-based validation before LLM QA.
+
+        Checks for:
+        - Promotion violations (should/could answers becoming constraints)
+        - Internal contradictions (same concept in constraints and assumptions)
+        - Policy conformance (prohibited terms in unknowns)
+        - Grounding issues (guardrails not traceable to input)
+
+        Per WS-PGC-VALIDATION-001 Phase 1.
+
+        Args:
+            document: The document to validate
+            context: Workflow context with PGC data
+
+        Returns:
+            PromotionValidationResult or None if no PGC data available
+        """
+        # Get PGC data from context
+        # These may come from context_state or be loaded separately
+        pgc_questions = []
+        pgc_answers = {}
+        intake = None
+
+        # Try to get from context_state if available
+        if hasattr(context, "context_state") and context.context_state:
+            pgc_questions = context.context_state.get("pgc_questions", [])
+            pgc_answers = context.context_state.get("pgc_answers", {})
+            intake = context.context_state.get("concierge_intake")
+
+        # Also check direct context attributes
+        if hasattr(context, "pgc_questions") and context.pgc_questions:
+            pgc_questions = context.pgc_questions
+        if hasattr(context, "pgc_answers") and context.pgc_answers:
+            pgc_answers = context.pgc_answers
+        if hasattr(context, "intake") and context.intake:
+            intake = context.intake
+
+        # If no PGC data available, skip validation
+        if not pgc_questions and not pgc_answers:
+            logger.debug("No PGC data available, skipping code-based validation")
+            return None
+
+        logger.info(
+            f"Running code-based validation with {len(pgc_questions)} questions, "
+            f"{len(pgc_answers)} answers"
+        )
+
+        validator = PromotionValidator()
+        validation_input = PromotionValidationInput(
+            pgc_questions=pgc_questions,
+            pgc_answers=pgc_answers,
+            generated_document=document,
+            intake=intake,
+        )
+
+        return validator.validate(validation_input)
 
     async def _run_llm_qa(
         self,

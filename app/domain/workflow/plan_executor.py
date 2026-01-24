@@ -335,6 +335,10 @@ class PlanExecutor:
         # Update status to running
         state.status = DocumentWorkflowStatus.RUNNING
 
+        # Load PGC answers from database for QA nodes (WS-PGC-VALIDATION-001 Phase 2)
+        if current_node.type == NodeType.QA and self._db_session:
+            await self._load_pgc_answers_for_qa(state, context)
+
         # Execute the node
         try:
             result = await self._execute_node(current_node, context, state)
@@ -566,6 +570,44 @@ class PlanExecutor:
             extra=extra,
             context_state=state.context_state,
         )
+
+    async def _load_pgc_answers_for_qa(
+        self,
+        state: DocumentWorkflowState,
+        context: DocumentWorkflowContext,
+    ) -> None:
+        """Load PGC answers from database for QA validation.
+
+        Per WS-PGC-VALIDATION-001 Phase 2: When executing a QA node,
+        load persisted PGC answers to enable code-based validation.
+
+        Args:
+            state: Current execution state
+            context: Execution context to update
+        """
+        if not self._db_session:
+            return
+
+        try:
+            from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+
+            repo = PGCAnswerRepository(self._db_session)
+            pgc_answer = await repo.get_by_execution(state.execution_id)
+
+            if pgc_answer:
+                # Add to context_state for validation
+                context.context_state["pgc_questions"] = pgc_answer.questions
+                context.context_state["pgc_answers"] = pgc_answer.answers
+                logger.info(
+                    f"Loaded PGC answers for QA validation: "
+                    f"{len(pgc_answer.questions)} questions"
+                )
+            else:
+                logger.debug(
+                    f"No PGC answers found for execution {state.execution_id}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load PGC answers for QA: {e}")
 
     async def _execute_node(
         self,

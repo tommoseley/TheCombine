@@ -399,12 +399,49 @@ async def submit_user_input(
     execution_id: str,
     request: SubmitInputRequest,
     executor: PlanExecutor = Depends(get_executor),
+    db: AsyncSession = Depends(get_db),
 ) -> ExecuteStepResponse:
     """Submit user input for a paused execution.
 
     This resumes a paused workflow by providing the requested input.
+    Per WS-PGC-VALIDATION-001: Persists PGC answers when submitting at PGC node.
     """
     try:
+        # Load current state to check if this is a PGC node submission
+        current_state = await executor.get_execution_status(execution_id)
+        if current_state:
+            # Check if this is a PGC node with pending questions
+            # PGC payload contains "questions" key
+            payload = current_state.get("pending_user_input_payload")
+            if (
+                payload
+                and isinstance(payload, dict)
+                and "questions" in payload
+                and request.user_input
+                and isinstance(request.user_input, dict)
+            ):
+                # Persist PGC answers (WS-PGC-VALIDATION-001 Phase 2)
+                from app.api.models.pgc_answer import PGCAnswer
+                from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+                from uuid import UUID
+
+                repo = PGCAnswerRepository(db)
+                pgc_answer = PGCAnswer(
+                    execution_id=execution_id,
+                    workflow_id=current_state.get("workflow_id", "unknown"),
+                    project_id=UUID(current_state.get("project_id")),
+                    pgc_node_id=current_state.get("current_node_id", "pgc"),
+                    schema_ref=current_state.get("pending_user_input_schema_ref") or "unknown",
+                    questions=payload.get("questions", []),
+                    answers=request.user_input,
+                )
+                await repo.add(pgc_answer)
+                logger.info(
+                    f"Persisted PGC answers for execution {execution_id}: "
+                    f"{len(payload.get('questions', []))} questions"
+                )
+                # Note: commit happens with state save in executor
+
         state = await executor.submit_user_input(
             execution_id=execution_id,
             user_input=request.user_input,
@@ -510,4 +547,55 @@ async def get_workflow_plan(workflow_id: str) -> WorkflowPlanSummary:
         description=plan.description,
         document_type=plan.document_type,
         version=plan.version,
+    )
+
+
+# --- PGC Answers Endpoints (WS-PGC-VALIDATION-001 Phase 2) ---
+
+
+class PGCAnswersResponse(BaseModel):
+    """Response with PGC questions and answers."""
+
+    id: str
+    execution_id: str
+    workflow_id: str
+    project_id: str
+    pgc_node_id: str
+    schema_ref: str
+    questions: List[Dict[str, Any]]
+    answers: Dict[str, Any]
+    created_at: Optional[str] = None
+
+
+@router.get("/executions/{execution_id}/pgc-answers", response_model=PGCAnswersResponse)
+async def get_pgc_answers(
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> PGCAnswersResponse:
+    """Get PGC questions and answers for an execution.
+
+    Returns the persisted PGC clarification questions and user answers
+    for audit and validation purposes.
+    """
+    from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+
+    repo = PGCAnswerRepository(db)
+    answer = await repo.get_by_execution(execution_id)
+
+    if not answer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PGC answers not found for execution: {execution_id}",
+        )
+
+    return PGCAnswersResponse(
+        id=str(answer.id),
+        execution_id=answer.execution_id,
+        workflow_id=answer.workflow_id,
+        project_id=str(answer.project_id),
+        pgc_node_id=answer.pgc_node_id,
+        schema_ref=answer.schema_ref,
+        questions=answer.questions,
+        answers=answer.answers,
+        created_at=answer.created_at.isoformat() if answer.created_at else None,
     )

@@ -15,6 +15,8 @@ from app.api.models.component_artifact import ComponentArtifact
 from app.api.models.document_definition import DocumentDefinition
 # ADR-035: LLM Thread Queue
 from app.api.models.llm_thread import LLMThreadModel, LLMWorkItemModel, LLMLedgerEntryModel
+# WS-PGC-VALIDATION-001: PGC Answer Persistence
+from app.api.models.pgc_answer import PGCAnswer
 
 __all__ = [
     'Project',
@@ -34,4 +36,6 @@ __all__ = [
     'LLMThreadModel',
     'LLMWorkItemModel',
     'LLMLedgerEntryModel',
+    # WS-PGC-VALIDATION-001: PGC Answer Persistence
+    'PGCAnswer',
 ]
