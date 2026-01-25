@@ -46,7 +46,7 @@ class TestPromptAssemblyService:
             correlation_id="550e8400-e29b-41d4-a716-446655440002",
         )
 
-        assert result.task_ref == "tasks/Clarification Questions Generator v1.0"
+        assert result.task_ref == "tasks/Clarification Questions Generator v1.1"
         assert len(result.content) > 0
         assert "PGC_CONTEXT" in result.includes_resolved
 
@@ -55,7 +55,7 @@ class TestPromptAssemblyService:
         node = service.get_workflow_node("project_discovery", "pgc")
 
         assert node.node_id == "pgc"
-        assert node.task_ref == "tasks/Clarification Questions Generator v1.0"
+        assert node.task_ref == "tasks/Clarification Questions Generator v1.1"
         assert "PGC_CONTEXT" in node.includes
         assert "OUTPUT_SCHEMA" in node.includes
 

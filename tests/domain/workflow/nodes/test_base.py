@@ -66,11 +66,11 @@ class TestDocumentWorkflowContext:
     def test_initialization(self):
         """Context initializes with required fields."""
         context = DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_document",
         )
 
-        assert context.document_id == "doc-123"
+        assert context.project_id == "proj-123"
         assert context.document_type == "test_document"
         assert context.thread_id is None
         assert context.document_content == {}
@@ -79,7 +79,7 @@ class TestDocumentWorkflowContext:
     def test_add_message(self):
         """add_message adds to conversation history."""
         context = DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test",
         )
 
@@ -93,7 +93,7 @@ class TestDocumentWorkflowContext:
     def test_get_last_assistant_message(self):
         """get_last_assistant_message returns last assistant message."""
         context = DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test",
         )
 
@@ -107,7 +107,7 @@ class TestDocumentWorkflowContext:
     def test_get_last_assistant_message_none(self):
         """get_last_assistant_message returns None if no assistant messages."""
         context = DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test",
         )
 
@@ -118,7 +118,7 @@ class TestDocumentWorkflowContext:
     def test_user_responses(self):
         """set_user_response and get_user_response work correctly."""
         context = DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test",
         )
 

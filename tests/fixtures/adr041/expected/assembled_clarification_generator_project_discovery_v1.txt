@@ -18,15 +18,7 @@ Questions Asked Here Must:
 
 ## Output Schema
 
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "questions": {
-      "type": "array"
-    }
-  }
-}
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","properties":{"questions":{"type":"array"}}}
 
 ## Rules
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Repository protocol for LLM execution logging.
 
 Key design rules:
@@ -48,6 +48,7 @@ class LLMRunRecord:
     primary_error_message: Optional[str] = None
     error_count: int = 0
     metadata: Optional[Dict[str, Any]] = None
+    workflow_execution_id: Optional[str] = None
 
 
 @dataclass

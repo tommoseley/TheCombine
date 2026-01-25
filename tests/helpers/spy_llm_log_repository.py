@@ -1,4 +1,4 @@
-﻿"""
+"""
 Spy repository for Tier-2 wiring tests.
 
 Records all calls + payloads for contract verification.
@@ -154,6 +154,20 @@ class SpyLLMLogRepository:
             raise AssertionError(
                 f"insert_run correlation_id mismatch: expected {correlation_id}, got {record.correlation_id}"
             )
+    
+    def assert_insert_run_has_workflow_execution_id(self, workflow_execution_id: str):
+        """Assert insert_run was called with specific workflow_execution_id."""
+        call = self.assert_called("insert_run")
+        record = call.kwargs.get("record")
+        if record.workflow_execution_id != workflow_execution_id:
+            raise AssertionError(
+                f"insert_run workflow_execution_id mismatch: expected {workflow_execution_id}, got {record.workflow_execution_id}"
+            )
+    
+    def get_insert_run_record(self) -> Optional[LLMRunRecord]:
+        """Get the LLMRunRecord from insert_run call."""
+        call = self.assert_called("insert_run")
+        return call.kwargs.get("record")
     
     def assert_input_logged(self, kind: str):
         """Assert an input ref was logged with given kind."""

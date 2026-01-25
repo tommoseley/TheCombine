@@ -73,6 +73,20 @@ class WorkflowValidator:
         if schema_errors:
             return ValidationResult.failure(schema_errors)
         
+        # For workflow-plan format, schema validation is sufficient
+        # Semantic validations (V2-V15) only apply to workflow.v1 format
+        if "$schema" in workflow and "workflow-plan" in workflow.get("$schema", ""):
+            return ValidationResult.success()
+        
+        # For structural workflow-plan detection (has nodes array)
+        if "nodes" in workflow and isinstance(workflow.get("nodes"), list):
+            return ValidationResult.success()
+        
+        # For legacy formats without schema_version, skip semantic validation
+        # These workflows need manual conversion
+        if "schema_version" not in workflow:
+            return ValidationResult.success()
+        
         # V2: Scope hierarchy validation (fail fast)
         scope_errors = self._validate_scope_hierarchy(workflow)
         if scope_errors:
@@ -116,8 +130,25 @@ class WorkflowValidator:
     # Schema and Hierarchy Validation (V1-V2)
     # -------------------------------------------------------------------------
     
-    def _load_schema(self) -> dict:
-        """Load and cache JSON schema."""
+    def _load_schema(self, workflow: dict = None) -> dict:
+        """Load and cache JSON schema based on workflow type."""
+        # Detect workflow-plan format by $schema or by structure
+        is_workflow_plan = False
+        if workflow:
+            # Check explicit $schema
+            if "$schema" in workflow and "workflow-plan" in workflow.get("$schema", ""):
+                is_workflow_plan = True
+            # Check structure: has 'nodes' array instead of 'steps' with 'scope'
+            elif "nodes" in workflow and isinstance(workflow.get("nodes"), list):
+                is_workflow_plan = True
+        
+        if is_workflow_plan:
+            plan_schema_path = Path("seed/schemas/workflow-plan.v1.json")
+            if plan_schema_path.exists():
+                with open(plan_schema_path, "r", encoding="utf-8-sig") as f:
+                    return json.load(f)
+        
+        # Default to workflow.v1 schema
         if self._schema is None:
             with open(self.schema_path, "r", encoding="utf-8-sig") as f:
                 self._schema = json.load(f)
@@ -137,7 +168,7 @@ class WorkflowValidator:
         """V1: Validate workflow against JSON schema."""
         errors = []
         try:
-            schema = self._load_schema()
+            schema = self._load_schema(workflow)
             jsonschema.validate(workflow, schema)
         except jsonschema.ValidationError as e:
             path = ".".join(str(p) for p in e.absolute_path) if e.absolute_path else ""

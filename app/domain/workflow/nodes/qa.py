@@ -418,8 +418,17 @@ class QANodeExecutor(NodeExecutor):
                 }
             ]
 
-            # Get LLM assessment
-            response = await self.llm_service.complete(messages)
+            # Get LLM assessment with execution tracking
+            execution_id = context.extra.get("execution_id")
+            response = await self.llm_service.complete(
+                messages,
+                workflow_execution_id=execution_id,
+                role="QA Validator",
+                task_ref=task_ref,
+                artifact_type=context.document_type,
+                node_id=node_id,
+                project_id=context.project_id,
+            )
 
             # Log the raw response for debugging
             logger.info(f"QA LLM response (first 1500 chars): {response[:1500]}")
@@ -523,9 +532,9 @@ class QANodeExecutor(NodeExecutor):
                     # Extract bullet points
                     for line in issues_section.split("\n")[1:10]:
                         line = line.strip()
-                        if line and line.startswith(("-", "*", "â€¢", "[")):
+                        if line and line.startswith(("-", "*", "Ã¢â‚¬Â¢", "[")):
                             # Clean up the line
-                            cleaned = re.sub(r'^[-*â€¢\[\]]+\s*', '', line)
+                            cleaned = re.sub(r'^[-*Ã¢â‚¬Â¢\[\]]+\s*', '', line)
                             if cleaned and len(cleaned) > 5:
                                 issues.append(cleaned)
 

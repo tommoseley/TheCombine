@@ -132,6 +132,7 @@ class LoggingLLMService:
         artifact_type = kwargs.pop("artifact_type", "workflow_node")
         task_ref = kwargs.pop("task_ref", "unknown")
         node_id = kwargs.pop("node_id", None)
+        workflow_execution_id = kwargs.pop("workflow_execution_id", None)
 
         # Extract LLM parameters
         model = kwargs.pop("model", self._default_model)
@@ -153,12 +154,13 @@ class LoggingLLMService:
                     correlation_id=correlation_id if isinstance(correlation_id, UUID) else UUID(str(correlation_id)),
                     project_id=project_id,
                     artifact_type=artifact_type,
-                    role="workflow_executor",
+                    role=kwargs.get("role", "workflow_executor"),
                     model_provider="anthropic",
                     model_name=model,
                     prompt_id=task_ref,
                     prompt_version="1.0",
                     effective_prompt=effective_prompt,
+                    workflow_execution_id=workflow_execution_id,
                 )
 
                 # Log inputs

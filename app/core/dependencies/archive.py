@@ -1,4 +1,4 @@
-﻿"""
+"""
 FastAPI dependencies for archive enforcement.
 
 Provides dependency injection for verifying projects are not archived
@@ -8,11 +8,27 @@ before allowing mutation operations.
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from uuid import UUID
 import logging
 
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
+
+
+def _get_project_id_condition(project_id: str):
+    """Get the appropriate WHERE condition for project lookup.
+    
+    Handles both UUID (id column) and string (project_id column).
+    """
+    # Lazy import to avoid circular dependency
+    from app.api.models.project import Project
+    
+    try:
+        project_uuid = UUID(project_id)
+        return Project.id == project_uuid
+    except (ValueError, TypeError):
+        return Project.project_id == project_id
 
 
 async def verify_project_not_archived(
@@ -27,7 +43,7 @@ async def verify_project_not_archived(
     Server-side enforcement is critical - UI-only checks can be bypassed.
     
     Args:
-        project_id: project_id string (e.g., 'LIR-001')
+        project_id: project_id string (e.g., 'LIR-001') or UUID string
         db: Database session
         
     Raises:
@@ -38,7 +54,7 @@ async def verify_project_not_archived(
     from app.api.models.project import Project
     
     result = await db.execute(
-        select(Project.archived_at).where(Project.project_id == project_id)
+        select(Project.archived_at).where(_get_project_id_condition(project_id))
     )
     row = result.first()
     

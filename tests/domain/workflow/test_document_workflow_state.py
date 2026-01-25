@@ -55,7 +55,7 @@ class TestDocumentWorkflowState:
         return DocumentWorkflowState(
             execution_id="exec-123",
             workflow_id="concierge_intake",
-            document_id="doc-456",
+            project_id="proj-456",
             document_type="concierge_intake",
             current_node_id="clarification",
             status=DocumentWorkflowStatus.RUNNING,
@@ -65,7 +65,7 @@ class TestDocumentWorkflowState:
         """State initializes with required fields."""
         assert state.execution_id == "exec-123"
         assert state.workflow_id == "concierge_intake"
-        assert state.document_id == "doc-456"
+        assert state.project_id == "proj-456"
         assert state.current_node_id == "clarification"
         assert state.status == DocumentWorkflowStatus.RUNNING
         assert state.node_history == []

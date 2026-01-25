@@ -1,4 +1,4 @@
-﻿"""Tests for Telemetry API."""
+"""Tests for Telemetry API."""
 
 import pytest
 from uuid import uuid4
@@ -115,7 +115,7 @@ class TestGetWorkflowStats:
     
     def test_workflow_stats_endpoint_exists(self, client):
         """Workflow stats endpoint returns 200."""
-        response = client.get("/api/v1/telemetry/workflows/strategy-document/stats")
+        response = client.get("/api/v1/telemetry/workflows/test-workflow/stats")
         assert response.status_code == 200
     
     def test_workflow_stats_returns_expected_fields(self, client):

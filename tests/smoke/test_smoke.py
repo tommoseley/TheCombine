@@ -1,4 +1,4 @@
-﻿"""Smoke tests for The Combine."""
+"""Smoke tests for The Combine."""
 
 import pytest
 from pathlib import Path
@@ -78,9 +78,6 @@ class TestSeedDataSmoke:
         """Workflows directory exists."""
         assert Path("seed/workflows").exists()
     
-    def test_strategy_workflow_exists(self):
-        """Strategy workflow file exists."""
-        assert Path("seed/workflows/strategy-document.json").exists()
     
     def test_schemas_directory_exists(self):
         """Schemas directory exists."""

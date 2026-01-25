@@ -99,8 +99,27 @@ class TaskNodeExecutor(NodeExecutor):
             # Build messages from context
             messages = self._build_messages(task_prompt, context)
 
-            # Execute LLM completion
-            response = await self.llm_service.complete(messages)
+            # Execute LLM completion with execution tracking
+            execution_id = context.extra.get("execution_id")
+            node_type = node_config.get("type", "task")
+            
+            # Determine role based on node type
+            if node_type == "pgc":
+                role = "PGC Generator"
+            elif node_type == "generation" or produces:
+                role = "Document Generator"
+            else:
+                role = f"Task: {node_id}"
+            
+            response = await self.llm_service.complete(
+                messages,
+                workflow_execution_id=execution_id,
+                role=role,
+                task_ref=task_ref,
+                artifact_type=context.document_type,
+                node_id=node_id,
+                project_id=context.project_id,
+            )
 
             # Parse and store produced document
             produced_document = self._parse_response(response, produces)
@@ -256,7 +275,7 @@ class TaskNodeExecutor(NodeExecutor):
             return None
 
         lines = [
-            "## Bound Constraints (FINAL — DO NOT REOPEN)",
+            "## Bound Constraints (FINAL â€” DO NOT REOPEN)",
             "These decisions are settled. Do not present alternatives or questions about them.",
             "",
         ]
@@ -268,7 +287,7 @@ class TaskNodeExecutor(NodeExecutor):
 
             # Add source annotation for exclusions
             if binding_source == "exclusion":
-                lines.append(f"- {constraint_id}: {label} (EXCLUDED — do not suggest)")
+                lines.append(f"- {constraint_id}: {label} (EXCLUDED â€” do not suggest)")
             else:
                 lines.append(f"- {constraint_id}: {label}")
 

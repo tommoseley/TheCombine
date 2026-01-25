@@ -1,4 +1,4 @@
-﻿"""Tests for Document Interaction Workflow Plan loader (ADR-039)."""
+"""Tests for Document Interaction Workflow Plan loader (ADR-039)."""
 
 import json
 import pytest
@@ -221,7 +221,7 @@ class TestLoadActualConciergeIntakePlan:
         plan = loader.load(plan_path)
 
         assert plan.workflow_id == "concierge_intake"
-        assert plan.version == "1.2.0"  # Updated with intake gate
+        assert plan.version == "1.3.0"  # Updated with constraint binding
         assert plan.scope_type == "document"
         assert plan.document_type == "concierge_intake"
         assert len(plan.nodes) == 7

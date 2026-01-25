@@ -1,4 +1,4 @@
-﻿"""Tests for PostgreSQL repository implementations."""
+"""Tests for PostgreSQL repository implementations."""
 
 import pytest
 from uuid import uuid4
@@ -72,7 +72,7 @@ class TestExecutionConversion:
         """Convert StoredExecutionState to ORM."""
         stored = StoredExecutionState(
             execution_id=uuid4(),
-            workflow_id="strategy-document",
+            workflow_id="test-workflow",
             scope_type="project",
             scope_id="proj-123",
             status=ExecutionStatus.RUNNING,
@@ -82,7 +82,7 @@ class TestExecutionConversion:
         orm_exec = _stored_to_orm_execution(stored)
         
         assert orm_exec.id == stored.execution_id
-        assert orm_exec.workflow_id == "strategy-document"
+        assert orm_exec.workflow_id == "test-workflow"
         assert orm_exec.status == "running"
         assert orm_exec.current_step == "discovery"
     

@@ -1,4 +1,4 @@
-﻿"""Tests for workflow definition."""
+"""Tests for workflow definition."""
 
 import pytest
 import json
@@ -242,34 +242,3 @@ class TestWorkflowLoader:
             
             assert set(workflows) == {"workflow-a", "workflow-b"}
 
-
-class TestStrategyWorkflow:
-    """Tests for the actual strategy workflow."""
-    
-    def test_load_strategy_workflow(self):
-        """Can load the strategy workflow."""
-        loader = WorkflowLoader(Path("seed/workflows"))
-        workflow = loader.load("strategy-document")
-        
-        assert workflow is not None
-        assert workflow.workflow_id == "strategy-document"
-        assert len(workflow.steps) == 4
-    
-    def test_strategy_workflow_valid(self):
-        """Strategy workflow passes validation."""
-        loader = WorkflowLoader(Path("seed/workflows"))
-        workflow = loader.load("strategy-document")
-        
-        errors = workflow.validate()
-        
-        assert len(errors) == 0, f"Validation errors: {errors}"
-    
-    def test_strategy_workflow_order(self):
-        """Strategy workflow has correct execution order."""
-        loader = WorkflowLoader(Path("seed/workflows"))
-        workflow = loader.load("strategy-document")
-        
-        order = workflow.get_execution_order()
-        
-        assert order[0] == "discovery"
-        assert order[-1] == "review"

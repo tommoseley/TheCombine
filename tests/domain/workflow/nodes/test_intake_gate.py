@@ -59,7 +59,7 @@ class TestIntakeGateBasics:
     @pytest.fixture
     def context(self):
         return DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_document",
             conversation_history=[],
             input_documents={},
@@ -87,7 +87,7 @@ class TestMechanicalSufficiency:
     @pytest.fixture
     def context(self):
         return DocumentWorkflowContext(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_document",
             conversation_history=[],
             input_documents={},

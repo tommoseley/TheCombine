@@ -17,17 +17,29 @@ from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.api.v1.dependencies import get_workflow_registry, get_persistence
+from app.api.v1.dependencies import get_persistence
 from app.api.v1.routers.executions import get_execution_service
 from app.api.v1.services.execution_service import ExecutionService
-from app.domain.workflow import (
-    WorkflowRegistry,
-    WorkflowStatus,
-    WorkflowNotFoundError,
-    StatePersistence,
-)
+from app.domain.workflow import WorkflowStatus, StatePersistence
+from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
 from app.auth.dependencies import require_admin
 from app.auth.models import User
+
+
+def _sort_key_datetime(x):
+    """Sort key that handles mixed timezone-aware/naive datetimes."""
+    dt = x.get("started_at")
+    if dt is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+        except:
+            return datetime.min.replace(tzinfo=timezone.utc)
+    # Ensure timezone-aware
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 router = APIRouter(prefix="/admin", tags=["admin-pages"], dependencies=[Depends(require_admin)])
@@ -46,7 +58,7 @@ def get_exec_service(
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
     execution_service: ExecutionService = Depends(get_exec_service),
     db: AsyncSession = Depends(get_db),
 ):
@@ -59,7 +71,7 @@ async def dashboard(
         workflows.append({
             "workflow_id": wf.workflow_id,
             "name": wf.name,
-            "step_count": len(wf.steps),
+            "step_count": len(wf.nodes),
         })
     
     executions = []
@@ -94,7 +106,7 @@ async def dashboard(
         })
     
     # Sort by started_at descending and take top 10
-    executions.sort(key=lambda x: x["started_at"] or "", reverse=True)
+    executions.sort(key=_sort_key_datetime, reverse=True)
     executions = executions[:10]
     
     # Format dates for display (convert UTC to local timezone)
@@ -140,7 +152,7 @@ async def dashboard(
 @router.get("/workflows", response_class=HTMLResponse)
 async def workflows_list(
     request: Request,
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
 ):
     """Render workflows list page."""
     workflow_ids = registry.list_ids()
@@ -151,9 +163,9 @@ async def workflows_list(
             "workflow_id": wf.workflow_id,
             "name": wf.name,
             "description": wf.description,
-            "revision": wf.revision,
-            "step_count": len(wf.steps),
-            "doc_count": len(wf.document_types),
+            "version": wf.version,
+            "step_count": len(wf.nodes),
+            "doc_count": 1  # Single document type per plan,
         })
     
     return templates.TemplateResponse(
@@ -170,12 +182,12 @@ async def workflows_list(
 async def workflow_detail(
     request: Request,
     workflow_id: str,
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
 ):
     """Render workflow detail page."""
     try:
         workflow = registry.get(workflow_id)
-    except WorkflowNotFoundError:
+    except Exception:  # Plan not found
         return templates.TemplateResponse(
             request,
             "pages/error.html",
@@ -202,13 +214,13 @@ async def start_workflow_ui(
     request: Request,
     workflow_id: str,
     project_id: str = Form(default="proj_new"),
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
     execution_service: ExecutionService = Depends(get_exec_service),
 ):
     """Start a workflow and redirect to execution page."""
     try:
         workflow = registry.get(workflow_id)
-    except WorkflowNotFoundError:
+    except Exception:  # Plan not found
         return templates.TemplateResponse(
             request,
             "pages/error.html",
@@ -239,7 +251,7 @@ async def executions_list(
     source: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
     execution_service: ExecutionService = Depends(get_exec_service),
     db: AsyncSession = Depends(get_db),
 ):
@@ -277,7 +289,7 @@ async def executions_list(
         wf_query = """
             SELECT we.execution_id, we.workflow_id, we.document_id, we.status,
                    we.user_id, u.email as user_email,
-                   (SELECT MIN(timestamp) FROM jsonb_array_elements(we.execution_log) AS e(entry)
+                   (SELECT MIN(e.entry->>'timestamp') FROM jsonb_array_elements(we.execution_log) AS e(entry)
                     WHERE e.entry->>'timestamp' IS NOT NULL) as started_at
             FROM workflow_executions we
             LEFT JOIN users u ON we.user_id = u.user_id
@@ -351,7 +363,7 @@ async def executions_list(
             })
     
     # Sort by started_at descending
-    executions.sort(key=lambda x: x["started_at"] or "", reverse=True)
+    executions.sort(key=_sort_key_datetime, reverse=True)
     
     # Format dates for display (convert UTC to local timezone)
     for e in executions:
@@ -506,7 +518,7 @@ def _build_llm_run_vm(run: LLMRun, project_name: Optional[str]) -> dict:
 async def execution_detail(
     request: Request,
     execution_id: str,
-    registry: WorkflowRegistry = Depends(get_workflow_registry),
+    registry: PlanRegistry = Depends(get_plan_registry),
     execution_service: ExecutionService = Depends(get_exec_service),
     db: AsyncSession = Depends(get_db),
 ):
@@ -519,8 +531,8 @@ async def execution_detail(
         
         try:
             workflow = registry.get(state.workflow_id)
-            steps = workflow.steps
-        except WorkflowNotFoundError:
+            steps = workflow.nodes
+        except Exception:  # Plan not found
             steps = []
         
         execution = {
@@ -545,36 +557,73 @@ async def execution_detail(
     except ExecutionNotFoundError:
         pass
     
-    # Try document build (LLMRun)
+    # Try document build (LLMRun) - first by UUID, then by workflow_execution_id
+    run = None
+    runs_by_workflow = []
+    
+    # Try as UUID (direct LLMRun lookup)
     try:
         run_id = UUID(execution_id)
         result = await db.execute(select(LLMRun).where(LLMRun.id == run_id))
         run = result.scalar_one_or_none()
-        
-        if not run:
-            return templates.TemplateResponse(
-                request, "pages/error.html",
-                {"active_page": "executions", "error_code": 404, "error_message": f"Execution '{execution_id}' not found"},
-                status_code=404,
-            )
-        
-        project_name = await _get_project_name(db, run.project_id)
-        inputs = await _get_llm_run_inputs(db, run_id)
-        outputs = await _get_llm_run_outputs(db, run_id)
-        errors = await _get_llm_run_errors(db, run_id)
-        run_vm = _build_llm_run_vm(run, project_name)
-        
-        return templates.TemplateResponse(
-            request,
-            "pages/document_build_detail.html",
-            {"active_page": "executions", "run": run_vm, "inputs": inputs, "outputs": outputs, "errors": errors},
-        )
     except ValueError:
+        pass  # Not a UUID, try workflow_execution_id below
+    
+    # If not found by UUID, try by workflow_execution_id
+    if not run:
+        result = await db.execute(
+            select(LLMRun)
+            .where(LLMRun.workflow_execution_id == execution_id)
+            .order_by(LLMRun.started_at)
+        )
+        runs_by_workflow = list(result.scalars().all())
+        
+        if runs_by_workflow:
+            # Show workflow execution summary with all LLM runs
+            first_run = runs_by_workflow[0]
+            project_name = await _get_project_name(db, first_run.project_id) if first_run.project_id else None
+            
+            # Get document type from first run (should be consistent across workflow)
+            document_type = first_run.artifact_type
+            # Format for display: "project_discovery" -> "Project Discovery"
+            document_type_display = document_type.replace("_", " ").title() if document_type else None
+            
+            run_vms = []
+            for r in runs_by_workflow:
+                run_vms.append(_build_llm_run_vm(r, project_name))
+            
+            return templates.TemplateResponse(
+                request,
+                "pages/workflow_execution_detail.html",
+                {
+                    "active_page": "executions",
+                    "execution_id": execution_id,
+                    "runs": run_vms,
+                    "project_name": project_name,
+                    "total_runs": len(run_vms),
+                    "document_type": document_type_display,
+                },
+            )
+    
+    if not run:
         return templates.TemplateResponse(
             request, "pages/error.html",
             {"active_page": "executions", "error_code": 404, "error_message": f"Execution '{execution_id}' not found"},
             status_code=404,
         )
+    
+    # Single LLM run detail
+    project_name = await _get_project_name(db, run.project_id)
+    inputs = await _get_llm_run_inputs(db, run.id)
+    outputs = await _get_llm_run_outputs(db, run.id)
+    errors = await _get_llm_run_errors(db, run.id)
+    run_vm = _build_llm_run_vm(run, project_name)
+    
+    return templates.TemplateResponse(
+        request,
+        "pages/document_build_detail.html",
+        {"active_page": "executions", "run": run_vm, "inputs": inputs, "outputs": outputs, "errors": errors},
+    )
 
 @router.post("/executions/{execution_id}/cancel")
 async def cancel_execution_ui(

@@ -101,6 +101,7 @@ class PostgresLLMLogRepository:
             status=record.status,
             started_at=record.started_at,
             error_count=0,
+            workflow_execution_id=record.workflow_execution_id,
         )
         self.db.add(run)
     

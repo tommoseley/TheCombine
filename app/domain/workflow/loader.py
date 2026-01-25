@@ -92,7 +92,17 @@ class WorkflowLoader:
         return self._parse(raw)
     
     def _parse(self, raw: Dict[str, Any]) -> Workflow:
-        """Parse raw dict into typed Workflow model."""
+        """Parse raw dict into typed Workflow model.
+
+        Expects ADR-027 workflow.v1 format with schema_version, revision, etc.
+        Files in ADR-039 workflow-plan format (with nodes/edges) are not supported.
+        """
+        # Check for required ADR-027 format fields
+        if "schema_version" not in raw:
+            raise WorkflowLoadError(
+                "Missing schema_version - file may be in ADR-039 workflow-plan format "
+                "(use PlanLoader for workflow plans with nodes/edges)"
+            )
         return Workflow(
             schema_version=raw["schema_version"],
             workflow_id=raw["workflow_id"],

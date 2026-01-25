@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM execution logging service.
 
 Key design:
@@ -14,7 +14,6 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
-from app.domain.utils.pricing import calculate_cost
 from app.domain.repositories.llm_log_repository import (
     LLMLogRepository,
     LLMRunRecord,
@@ -55,6 +54,7 @@ class LLMExecutionLogger:
         schema_version: Optional[str] = None,
         schema_id: Optional[str] = None,
         schema_bundle_hash: Optional[str] = None,
+        workflow_execution_id: Optional[str] = None,
     ) -> UUID:
         """Create llm_run record. Commits on success."""
         if correlation_id is None:
@@ -80,6 +80,7 @@ class LLMExecutionLogger:
             schema_id=schema_id,
             schema_bundle_hash=schema_bundle_hash,
             status="IN_PROGRESS",
+            workflow_execution_id=workflow_execution_id,
             started_at=datetime.now(timezone.utc),
         )
         
@@ -216,6 +217,7 @@ class LLMExecutionLogger:
                 input_tokens = usage.get("input_tokens", 0)
                 output_tokens = usage.get("output_tokens", 0)
                 if input_tokens > 0 or output_tokens > 0:
+                    from app.domain.utils.pricing import calculate_cost
                     cost_usd = Decimal(str(calculate_cost(input_tokens, output_tokens)))
             
             await self.repo.update_run_completion(

@@ -369,14 +369,34 @@ GET /api/v1/document-workflows/executions/{id}
 
 **Files affected:** `app/domain/workflow/validation/constraint_drift_validator.py`
 
-### LLM Run workflow_execution_id Not Populated (2026-01-24)
-**Issue:** The `workflow_execution_id` column in the `llm_run` table is NULL for all records. This makes it difficult to correlate LLM calls with their workflow executions for debugging and audit purposes.
+### ~~LLM Run workflow_execution_id Not Populated~~ → IN PROGRESS (2026-01-25)
+**Issue:** The `workflow_execution_id` column in the `llm_run` table was NULL for all records.
 
-**Impact:** Cannot easily query "show me all LLM calls for execution X" without joining through correlation_id.
+**Status:** Implementation complete, pending test verification. The full chain now passes `execution_id` from `PlanExecutor` context through node executors to the LLM logger.
 
-**Preferred approach:** Populate `workflow_execution_id` when LLM calls are made within workflow context.
+**Files modified:**
+- `app/domain/repositories/llm_log_repository.py` - Added field to `LLMRunRecord`
+- `app/domain/services/llm_execution_logger.py` - Added parameter to `start_run()`
+- `app/domain/repositories/postgres_llm_log_repository.py` - Passes to DB model
+- `app/domain/workflow/nodes/llm_executors.py` - Extracts from kwargs
+- `app/domain/workflow/nodes/task.py` - Extracts from context.extra
 
-**Files affected:** `app/domain/services/llm_execution_logger.py`, `app/domain/workflow/nodes/task.py`
+### Circular Import in llm_execution_logger.py (2026-01-25)
+**Issue:** `app.domain.services.llm_execution_logger` imported `calculate_cost` from `app.domain.utils.pricing` at module load time. This created a circular import chain:
+```
+llm_execution_logger → pricing → config → core/__init__ → dependencies → llm_logging → llm_execution_logger
+```
+
+**Current workaround:** Moved `from app.domain.utils.pricing import calculate_cost` to a lazy import inside `complete_run()` method.
+
+**Preferred approach:** Restructure dependencies so `app.core/__init__.py` doesn't import from `app.core.dependencies`. The core package shouldn't depend on dependencies that import domain services.
+
+**Root cause:** `app.core/__init__.py` line 12 imports `get_oidc_config` from `app.core.dependencies`, which cascades to import `LLMExecutionLogger`.
+
+**Files affected:** 
+- `app/domain/services/llm_execution_logger.py` (workaround applied)
+- `app/core/__init__.py` (root cause)
+- `app/core/dependencies/__init__.py` (imports llm_logging)
 
 ## Recently Completed
 

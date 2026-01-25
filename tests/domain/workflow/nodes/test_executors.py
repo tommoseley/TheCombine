@@ -38,7 +38,7 @@ def mock_prompt_loader():
 def context():
     """Create a basic workflow context."""
     return DocumentWorkflowContext(
-        document_id="doc-123",
+        project_id="proj-123",
         document_type="test_document",
     )
 

@@ -1,4 +1,4 @@
-﻿"""Tests for Concierge Intake Workflow Plan v1.2.0 schema structure.
+"""Tests for Concierge Intake Workflow Plan v1.3.0 schema structure.
 
 This test validates the JSON structure of the intake workflow plan.
 """
@@ -23,7 +23,7 @@ class TestWorkflowPlanStructure:
         assert workflow_plan["workflow_id"] == "concierge_intake"
 
     def test_has_version(self, workflow_plan):
-        assert workflow_plan["version"] == "1.2.0"
+        assert workflow_plan["version"] == "1.3.0"
 
     def test_has_entry_node(self, workflow_plan):
         assert "entry_node_ids" in workflow_plan

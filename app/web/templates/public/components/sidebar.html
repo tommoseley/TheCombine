@@ -17,7 +17,7 @@
         <div 
             id="project-tree-root"
             hx-get="/projects/tree"
-            hx-trigger="load"
+            hx-trigger="load, refreshProjectList from:body"
             hx-swap="innerHTML"
             hx-indicator="#tree-loading"
             class="py-1">

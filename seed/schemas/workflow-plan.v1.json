@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/workflow-plan.v1.json",
+  "title": "Workflow Plan Definition",
+  "description": "Schema for The Combine workflow plans - document generation workflows with nodes and edges",
+  "type": "object",
+  "required": [
+    "workflow_id",
+    "name",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URL"
+    },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique workflow identifier (snake_case)"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the workflow"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable workflow name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional workflow description"
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": ["document", "project", "epic"],
+      "description": "Scope level this workflow operates at"
+    },
+    "document_type": {
+      "type": "string",
+      "description": "Document type this workflow produces"
+    },
+    "thread_ownership": {
+      "type": "object",
+      "properties": {
+        "owns_thread": {
+          "type": "boolean"
+        },
+        "thread_purpose": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "entry_node_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Starting node IDs for the workflow"
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" },
+      "minItems": 1,
+      "description": "Workflow nodes"
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" },
+      "description": "Workflow edges connecting nodes"
+    },
+    "governance": {
+      "type": "object",
+      "description": "Governance metadata"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata"
+    },
+    "requires_inputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required upstream document types"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["node_id", "type"],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "Unique node identifier"
+        },
+        "type": {
+          "type": "string",
+          "type": "string",
+          "description": "Node type"
+        },
+        "description": {
+          "type": "string"
+        },
+        "task_ref": {
+          "type": "string",
+          "description": "Reference to task template"
+        },
+        "includes": {
+          "type": "object",
+          "description": "Template includes for prompt assembly"
+        },
+        "produces": {
+          "type": "string",
+          "description": "Document type this node produces"
+        },
+        "requires_qa": {
+          "type": "boolean"
+        },
+        "qa_mode": {
+          "type": "string",
+          "enum": ["semantic", "structural", "hybrid"]
+        },
+        "terminal_outcome": {
+          "type": "string"
+        },
+        "gate_outcome": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "edge": {
+      "type": "object",
+      "required": ["edge_id", "from_node_id", "outcome"],
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "description": "Unique edge identifier"
+        },
+        "from_node_id": {
+          "type": "string",
+          "description": "Source node ID"
+        },
+        "to_node_id": {
+          "type": ["string", "null"],
+          "description": "Target node ID (null for pause/wait)"
+        },
+        "outcome": {
+          "type": "string",
+          "description": "Outcome that triggers this edge"
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["auto", "manual"]
+        },
+        "non_advancing": {
+          "type": "boolean"
+        },
+        "conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/condition" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "condition": {
+      "type": "object",
+      "required": ["type", "operator", "value"],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "ne", "lt", "lte", "gt", "gte"]
+        },
+        "value": {
+          "type": ["string", "number", "boolean"]
+        }
+      }
+    }
+  }
+}
