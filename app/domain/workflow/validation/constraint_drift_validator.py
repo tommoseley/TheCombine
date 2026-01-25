@@ -131,27 +131,13 @@ class ConstraintDriftValidator:
         )
 
         return DriftValidationResult(passed=passed, violations=violations)
-
     def _check_contradiction(
         self,
         artifact: Dict[str, Any],
         artifact_text: str,
         invariant: Dict[str, Any],
     ) -> Optional[DriftViolation]:
-        """QA-PGC-001: Check if artifact contradicts a bound constraint.
-
-        Contradiction detected when:
-        - Exclusion constraint: Excluded value is mentioned positively
-        - Selection constraint: Different value is mentioned as the choice
-
-        Args:
-            artifact: The generated artifact
-            artifact_text: Lowercased JSON string of artifact
-            invariant: The bound constraint to check
-
-        Returns:
-            DriftViolation if contradiction found, None otherwise
-        """
+        """QA-PGC-001: Check if artifact contradicts a bound constraint."""
         clarification_id = invariant.get("id", "UNKNOWN")
         constraint_kind = invariant.get("constraint_kind", "selection")
         user_answer = invariant.get("user_answer")
@@ -160,10 +146,7 @@ class ConstraintDriftValidator:
 
         # For exclusions, check if excluded value appears positively
         if constraint_kind == "exclusion":
-            # The user's answer is what they excluded
             excluded_label = user_answer_label.lower() if user_answer_label else str(user_answer).lower()
-
-            # Check if artifact recommends/suggests the excluded option
             for pattern in CONTRADICTION_PATTERNS:
                 matches = re.findall(f"{excluded_label}.*{pattern}|{pattern}.*{excluded_label}", artifact_text)
                 if matches:
@@ -175,7 +158,6 @@ class ConstraintDriftValidator:
                         remediation="Remove references to the excluded option and respect the user's exclusion.",
                     )
 
-            # Also check if excluded option appears as a recommendation
             if f"recommend {excluded_label}" in artifact_text or f"use {excluded_label}" in artifact_text:
                 return DriftViolation(
                     check_id="QA-PGC-001",
@@ -189,8 +171,6 @@ class ConstraintDriftValidator:
         if constraint_kind == "selection" and choices:
             selected_value = str(user_answer).lower() if user_answer else ""
             selected_label = user_answer_label.lower() if user_answer_label else selected_value
-
-            # Build list of non-selected options
             other_options = []
             for choice in choices:
                 choice_id = (choice.get("id") or choice.get("value", "")).lower()
@@ -198,11 +178,9 @@ class ConstraintDriftValidator:
                 if choice_id != selected_value and choice_label != selected_label:
                     other_options.extend([choice_id, choice_label])
 
-            # Check if artifact states a different option as the choice
             for other in other_options:
                 if not other:
                     continue
-                # Look for patterns like "platform is mobile" or "using mobile"
                 if f"platform is {other}" in artifact_text or f"using {other}" in artifact_text:
                     return DriftViolation(
                         check_id="QA-PGC-001",
@@ -213,7 +191,6 @@ class ConstraintDriftValidator:
                     )
 
         return None
-
     def _check_reopened_decision(
         self,
         artifact: Dict[str, Any],
@@ -222,33 +199,49 @@ class ConstraintDriftValidator:
     ) -> Optional[DriftViolation]:
         """QA-PGC-002: Check if resolved clarification appears as open decision.
 
-        Detected when:
-        - Question topic appears with decision-pending language
-        - Artifact presents alternatives for an already-decided topic
-
-        Args:
-            artifact: The generated artifact
-            artifact_text: Lowercased JSON string of artifact
-            invariant: The bound constraint to check
-
-        Returns:
-            DriftViolation if reopened, None otherwise
+        ADR-042 Fix #4: Section-aware validation.
+        
+        FAIL if excluded topic appears in decision-bearing sections:
+        - early_decision_points[].decision_area or options
+        - stakeholder_questions[] that ask "should we" about the topic
+        - recommendations_for_pm[] that propose investigating the topic
+        
+        PASS if topic appears only in compliant sections:
+        - known_constraints[] or mvp_guardrails[] as exclusion
+        - risks[] as compliance note
         """
         clarification_id = invariant.get("id", "UNKNOWN")
-        question_text = invariant.get("text", "").lower()
         user_answer_label = invariant.get("user_answer_label", "")
-
-        # Extract key topic from question (simplified - focus on noun phrases)
-        # E.g., "What platform should the app target?" -> "platform"
-        topic_words = self._extract_topic_words(question_text)
-
-        if not topic_words:
+        invariant_kind = invariant.get("invariant_kind")
+        
+        # Get canonical tags (ADR-042 Fix #3) or derive from question
+        canonical_tags = invariant.get("canonical_tags", [])
+        if not canonical_tags:
+            question_text = invariant.get("text", "").lower()
+            canonical_tags = self._extract_topic_words(question_text)
+        
+        if not canonical_tags:
             return None
-
-        # Check for reopen patterns near topic words
+        
+        # Only check exclusions for section-aware reopening
+        if invariant_kind != "exclusion":
+            return self._check_reopened_simple(artifact_text, invariant, canonical_tags)
+        
+        # Check decision-bearing sections for exclusion violations
+        return self._check_decision_bearing_sections(artifact, invariant, canonical_tags)
+    
+    def _check_reopened_simple(
+        self,
+        artifact_text: str,
+        invariant: Dict[str, Any],
+        topic_words: List[str],
+    ) -> Optional[DriftViolation]:
+        """Simple reopening check for non-exclusion constraints."""
+        clarification_id = invariant.get("id", "UNKNOWN")
+        user_answer_label = invariant.get("user_answer_label", "")
+        
         for topic in topic_words:
             for pattern in REOPEN_PATTERNS:
-                # Look for pattern within 100 chars of topic mention
                 topic_pattern = f"{topic}.{{0,100}}{pattern}|{pattern}.{{0,100}}{topic}"
                 if re.search(topic_pattern, artifact_text, re.IGNORECASE):
                     return DriftViolation(
@@ -258,36 +251,109 @@ class ConstraintDriftValidator:
                         message=f"Artifact reopens '{topic}' as an open decision, but it was already resolved to '{user_answer_label}'",
                         remediation=f"Remove decision language around '{topic}'. The user already decided: {user_answer_label}",
                     )
-
-        # Check for options/alternatives presentation for this topic
-        for topic in topic_words:
-            if f"{topic} options" in artifact_text or f"choose.*{topic}" in artifact_text:
-                return DriftViolation(
-                    check_id="QA-PGC-002",
-                    severity="ERROR",
-                    clarification_id=clarification_id,
-                    message=f"Artifact presents options for '{topic}', but this was already decided",
-                    remediation=f"Remove options presentation. User selected: {user_answer_label}",
-                )
-
         return None
-
+    def _check_decision_bearing_sections(
+        self,
+        artifact: Dict[str, Any],
+        invariant: Dict[str, Any],
+        canonical_tags: List[str],
+    ) -> Optional[DriftViolation]:
+        """Check decision-bearing sections for exclusion constraint violations."""
+        clarification_id = invariant.get("id", "UNKNOWN")
+        user_answer_label = invariant.get("user_answer_label", "")
+        normalized_text = invariant.get("normalized_text", f"No {clarification_id}")
+        
+        tags_lower = [t.lower() for t in canonical_tags]
+        
+        # Check early_decision_points
+        decision_points = artifact.get("early_decision_points", [])
+        for dp in decision_points:
+            dp_text = json.dumps(dp).lower() if isinstance(dp, dict) else str(dp).lower()
+            for tag in tags_lower:
+                if tag in dp_text:
+                    decision_area = dp.get("decision_area", "") if isinstance(dp, dict) else ""
+                    options = dp.get("options", []) if isinstance(dp, dict) else []
+                    options_text = json.dumps(options).lower() if options else ""
+                    
+                    if tag in decision_area.lower() or tag in options_text:
+                        return DriftViolation(
+                            check_id="QA-PGC-002",
+                            severity="ERROR",
+                            clarification_id=clarification_id,
+                            message=f"early_decision_points reopens '{tag}' as undecided, but constraint resolved: {normalized_text}",
+                            remediation=f"Remove this decision point. It was already resolved: {user_answer_label}",
+                        )
+        
+        # Check stakeholder_questions for "should we" framing
+        stakeholder_questions = artifact.get("stakeholder_questions", [])
+        for sq in stakeholder_questions:
+            sq_text = sq.get("question", "") if isinstance(sq, dict) else str(sq)
+            sq_lower = sq_text.lower()
+            
+            for tag in tags_lower:
+                if tag in sq_lower and self._is_reopening_question(sq_lower, tag):
+                    return DriftViolation(
+                        check_id="QA-PGC-002",
+                        severity="ERROR",
+                        clarification_id=clarification_id,
+                        message=f"stakeholder_questions asks about '{tag}' as if undecided, but constraint resolved: {normalized_text}",
+                        remediation=f"Remove or rephrase this question. The decision was already made: {user_answer_label}",
+                    )
+        
+        # Check recommendations_for_pm for investigation proposals
+        recommendations = artifact.get("recommendations_for_pm", [])
+        for rec in recommendations:
+            rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
+            rec_lower = rec_text.lower()
+            
+            for tag in tags_lower:
+                if tag in rec_lower and self._is_investigation_proposal(rec_lower, tag):
+                    return DriftViolation(
+                        check_id="QA-PGC-002",
+                        severity="ERROR",
+                        clarification_id=clarification_id,
+                        message=f"recommendations_for_pm proposes investigating '{tag}', but this was excluded: {normalized_text}",
+                        remediation=f"Remove this recommendation. The topic was explicitly excluded: {user_answer_label}",
+                    )
+        
+        return None
+    def _is_reopening_question(self, question: str, topic: str) -> bool:
+        """Check if a stakeholder question reopens a decision vs confirms it's out of scope."""
+        reopening_patterns = [
+            f"should we.*{topic}", f"do we need.*{topic}", f"consider.*{topic}",
+            f"evaluate.*{topic}", f"what.*{topic}.*option", f"which.*{topic}",
+        ]
+        compliant_patterns = [
+            f"confirm.*no.*{topic}", f"verify.*no.*{topic}", f"ensure.*no.*{topic}",
+            f"document.*exclusion.*{topic}", f"{topic}.*not.*required",
+            f"{topic}.*out of scope", f"no.*{topic}.*needed",
+        ]
+        
+        for pattern in compliant_patterns:
+            if re.search(pattern, question, re.IGNORECASE):
+                return False
+        for pattern in reopening_patterns:
+            if re.search(pattern, question, re.IGNORECASE):
+                return True
+        return False
+    
+    def _is_investigation_proposal(self, recommendation: str, topic: str) -> bool:
+        """Check if a recommendation proposes investigating an excluded topic."""
+        investigation_patterns = [
+            f"investigate.*{topic}", f"explore.*{topic}", f"evaluate.*{topic}",
+            f"consider.*{topic}", f"research.*{topic}", f"add.*{topic}",
+            f"implement.*{topic}", f"integrate.*{topic}",
+        ]
+        for pattern in investigation_patterns:
+            if re.search(pattern, recommendation, re.IGNORECASE):
+                return True
+        return False
     def _check_constraint_stated(
         self,
         artifact_text: str,
         invariant: Dict[str, Any],
     ) -> Optional[DriftViolation]:
-        """QA-PGC-003: Check if bound constraint is stated or implied in artifact.
-
-        Warning if constraint value/label not mentioned anywhere.
-
-        Args:
-            artifact_text: Lowercased JSON string of artifact
-            invariant: The bound constraint to check
-
-        Returns:
-            DriftViolation (WARNING) if omitted, None otherwise
-        """
+        """QA-PGC-003: Check if bound constraint is stated or implied in artifact."""
         clarification_id = invariant.get("id", "UNKNOWN")
         user_answer = invariant.get("user_answer")
         user_answer_label = invariant.get("user_answer_label") or str(user_answer or "")
@@ -295,11 +361,8 @@ class ConstraintDriftValidator:
         if not user_answer_label:
             return None
 
-        # Check if answer label appears in artifact
         if user_answer_label.lower() in artifact_text:
             return None
-
-        # Also check the raw answer value
         if user_answer and str(user_answer).lower() in artifact_text:
             return None
 
@@ -316,17 +379,7 @@ class ConstraintDriftValidator:
         known_constraints: List[Dict[str, Any]],
         invariant: Dict[str, Any],
     ) -> Optional[DriftViolation]:
-        """QA-PGC-004: Check if bound constraint is traceable in known_constraints.
-
-        Warning if constraint not found in the known_constraints section.
-
-        Args:
-            known_constraints: List of constraint objects from artifact
-            invariant: The bound constraint to check
-
-        Returns:
-            DriftViolation (WARNING) if not traceable, None otherwise
-        """
+        """QA-PGC-004: Check if bound constraint is traceable in known_constraints."""
         clarification_id = invariant.get("id", "UNKNOWN")
         user_answer_label = invariant.get("user_answer_label") or str(invariant.get("user_answer", ""))
 
@@ -339,7 +392,6 @@ class ConstraintDriftValidator:
                 remediation="Add a known_constraints section with bound constraints.",
             )
 
-        # Check if any constraint mentions this clarification or its value
         constraints_text = json.dumps(known_constraints).lower()
         answer_lower = user_answer_label.lower() if user_answer_label else ""
 
@@ -354,58 +406,25 @@ class ConstraintDriftValidator:
             remediation="Add this constraint to known_constraints for traceability.",
         )
 
-    def _extract_constraints(
-        self,
-        artifact: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
-        """Extract known_constraints section from artifact.
-
-        Args:
-            artifact: The generated artifact
-
-        Returns:
-            List of constraint objects
-        """
+    def _extract_constraints(self, artifact: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Extract known_constraints section from artifact."""
         constraints = artifact.get("known_constraints", [])
-
         if isinstance(constraints, list):
             return constraints
         if isinstance(constraints, dict):
-            # Convert dict format to list
             return [{"id": k, **v} if isinstance(v, dict) else {"id": k, "text": str(v)}
                     for k, v in constraints.items()]
         return []
-
-    def _extract_topic_words(
-        self,
-        question_text: str,
-    ) -> List[str]:
-        """Extract key topic words from a question for matching.
-
-        Simple extraction focusing on nouns that likely represent the topic.
-        Very conservative to avoid false positives from common words.
-
-        Args:
-            question_text: The question text
-
-        Returns:
-            List of topic words
-        """
-        # Remove common question words, verbs, prepositions, and punctuation
-        # This list is intentionally broad to avoid false positives
-        # Words that commonly appear in questions but aren't specific topics
+    def _extract_topic_words(self, question_text: str) -> List[str]:
+        """Extract key topic words from a question for matching."""
         stopwords = {
-            # Question words
             "what", "which", "how", "should", "would", "will", "can", "does",
             "when", "where", "why", "who", "whom", "whose",
-            # Articles and determiners
             "the", "a", "an", "this", "that", "these", "those",
             "any", "some", "all", "most", "other", "such", "each", "every",
-            # Prepositions
             "to", "for", "of", "in", "on", "at", "by", "with", "without",
             "from", "into", "onto", "about", "over", "under", "through",
             "between", "among", "before", "after", "during", "within",
-            # Common verbs
             "is", "are", "be", "been", "being", "was", "were",
             "have", "has", "had", "having", "do", "does", "did", "doing",
             "work", "works", "working", "support", "supports", "supporting",
@@ -421,11 +440,8 @@ class ConstraintDriftValidator:
             "intend", "intends", "intended", "intention",
             "select", "selects", "selected", "selection",
             "deploy", "deploys", "deployed", "deployment",
-            # Modals
             "could", "might", "may", "must", "shall",
-            # Pronouns
             "you", "your", "we", "our", "they", "their", "it", "its",
-            # Generic tech terms (too common to be meaningful topics)
             "app", "application", "system", "software", "feature", "data",
             "user", "users", "client", "server", "service",
             "interface", "interfaces",
@@ -440,12 +456,9 @@ class ConstraintDriftValidator:
             "primary", "primarily", "secondary",
             "device", "devices", "local", "locally",
             "operating", "operated", "operation",
-            # Domain terms common in educational/business apps
             "educational", "education", "learning", "teaching",
             "deployment", "deployed", "environment",
             "requirement", "requirements", "required",
-            "align", "aligned", "alignment",
-            # Other common words
             "also", "well", "just", "only", "even", "still", "already",
             "yes", "no", "not", "and", "or", "but", "if", "then",
             "able", "like", "way", "thing", "things",
@@ -453,11 +466,9 @@ class ConstraintDriftValidator:
             "certain", "particular", "general", "overall",
         }
 
-        # Tokenize and filter
         words = re.findall(r'\b[a-z]+\b', question_text.lower())
         topics = [w for w in words if w not in stopwords and len(w) > 3]
 
-        # Return unique topics (first occurrences)
         seen = set()
         result = []
         for w in topics:
@@ -465,4 +476,4 @@ class ConstraintDriftValidator:
                 seen.add(w)
                 result.append(w)
 
-        return result[:3]  # Limit to top 3 topic words
+        return result[:3]

@@ -791,9 +791,16 @@ class PlanExecutor:
         # Note: produced_document is a direct field on NodeResult, not in metadata
         if result.produced_document:
             produces_key = result.metadata.get("produces", "last_produced")
+            
+            # ADR-042: Pin invariants into known_constraints BEFORE storing
+            # This runs after generation, before QA, making constraints mechanical
+            pinned_document = self._pin_invariants_to_known_constraints(
+                result.produced_document, state
+            )
+            
             state.update_context_state({
-                f"document_{produces_key}": result.produced_document,
-                "last_produced_document": result.produced_document,
+                f"document_{produces_key}": pinned_document,
+                "last_produced_document": pinned_document,
             })
             logger.info(f"Stored produced document as document_{produces_key}")
 
@@ -1058,6 +1065,85 @@ class PlanExecutor:
             )
         except Exception as e:
             logger.warning(f"Failed to record governance outcome: {e}")
+
+    def _pin_invariants_to_known_constraints(
+        self,
+        document: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> Dict[str, Any]:
+        """Pin binding invariants into document's known_constraints[].
+        
+        ADR-042 Fix #2: This runs AFTER generation, BEFORE QA.
+        
+        The LLM may forget to include binding constraints in known_constraints.
+        This method mechanically injects them, making QA-PGC-003/004 structural
+        rather than relying on LLM memory.
+        
+        Args:
+            document: The produced document (will be copied, not mutated)
+            state: Workflow state containing pgc_invariants
+            
+        Returns:
+            Document with invariants pinned into known_constraints
+        """
+        import copy
+        
+        invariants = state.context_state.get("pgc_invariants", [])
+        if not invariants:
+            return document
+        
+        # Work on a copy to avoid mutating the original
+        pinned = copy.deepcopy(document)
+        
+        # Get or create known_constraints
+        known_constraints = pinned.get("known_constraints", [])
+        if not isinstance(known_constraints, list):
+            known_constraints = []
+        
+        # Build set of existing constraint texts for deduplication
+        existing_texts = set()
+        for kc in known_constraints:
+            if isinstance(kc, str):
+                existing_texts.add(kc.lower().strip())
+            elif isinstance(kc, dict):
+                existing_texts.add(kc.get("text", "").lower().strip())
+        
+        # Pin each invariant into known_constraints
+        pinned_count = 0
+        for inv in invariants:
+            constraint_id = inv.get("id", "UNKNOWN")
+            answer_label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
+            question_text = inv.get("question_text", "")
+            
+            # Build constraint text
+            # Format: "[CONSTRAINT_ID] answer_label" or just answer_label
+            constraint_text = f"[{constraint_id}] {answer_label}"
+            
+            # Check if already present (fuzzy match on answer)
+            if answer_label.lower().strip() in existing_texts:
+                continue
+            if constraint_text.lower().strip() in existing_texts:
+                continue
+            
+            # Add as structured constraint
+            known_constraints.append({
+                "text": constraint_text,
+                "source": "pgc_binding",
+                "constraint_id": constraint_id,
+                "binding": True,
+            })
+            existing_texts.add(constraint_text.lower().strip())
+            pinned_count += 1
+        
+        pinned["known_constraints"] = known_constraints
+        
+        if pinned_count > 0:
+            logger.info(
+                f"ADR-042: Pinned {pinned_count} binding invariants into known_constraints "
+                f"(total: {len(known_constraints)})"
+            )
+        
+        return pinned
 
     def _promote_pgc_invariants_to_document(
         self,

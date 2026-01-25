@@ -306,10 +306,23 @@ class WorkflowPlan:
         nodes = [Node.from_dict(n) for n in raw.get("nodes", [])]
         edges = [Edge.from_dict(e) for e in raw.get("edges", [])]
 
+        # Try explicit outcome_mapping first
         outcome_mapping = [
             OutcomeMapping.from_dict(m)
             for m in raw.get("outcome_mapping", {}).get("mappings", [])
         ]
+        
+        # If no explicit mapping, derive from end nodes
+        if not outcome_mapping:
+            for node_raw in raw.get("nodes", []):
+                if node_raw.get("type") == "end":
+                    gate = node_raw.get("gate_outcome")
+                    terminal = node_raw.get("terminal_outcome")
+                    if gate and terminal:
+                        outcome_mapping.append(OutcomeMapping(
+                            gate_outcome=gate,
+                            terminal_outcome=terminal
+                        ))
 
         thread_ownership = ThreadOwnership.from_dict(
             raw.get("thread_ownership", {})

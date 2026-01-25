@@ -51,6 +51,22 @@ def merge_clarifications(
             resolved=resolved,
         )
 
+        # Get answer label for use in normalization
+        answer_label = _get_answer_label(question, user_answer)
+        
+        # ADR-042 Fix #3: Derive exclusion normalization for binding constraints
+        invariant_kind = None
+        normalized_text = None
+        canonical_tags = None
+        
+        if binding:
+            invariant_kind, normalized_text, canonical_tags = _derive_exclusion_normalization(
+                question_id=question_id,
+                question_text=question.get("text", ""),
+                answer=user_answer,
+                answer_label=answer_label,
+            )
+        
         # Build the merged clarification
         clarification = {
             "id": question_id,
@@ -60,11 +76,15 @@ def merge_clarifications(
             "constraint_kind": question.get("constraint_kind", "selection"),
             "choices": question.get("choices"),
             "user_answer": user_answer,
-            "user_answer_label": _get_answer_label(question, user_answer),
+            "user_answer_label": answer_label,
             "resolved": resolved,
             "binding": binding,
             "binding_source": binding_source,
             "binding_reason": binding_reason,
+            # ADR-042 exclusion normalization fields
+            "invariant_kind": invariant_kind,
+            "normalized_text": normalized_text,
+            "canonical_tags": canonical_tags,
         }
 
         clarifications.append(clarification)
@@ -162,6 +182,117 @@ def _is_resolved(answer: Any) -> bool:
 
     # Any other value (bool, number, non-empty string, dict) is resolved
     return True
+
+
+def _derive_exclusion_normalization(
+    question_id: str,
+    question_text: str,
+    answer: Any,
+    answer_label: Optional[str],
+) -> Tuple[str, str, List[str]]:
+    """Derive exclusion normalization fields for binding constraints.
+    
+    ADR-042 Fix #3: Converts "No" answers into explicit exclusion invariants
+    with canonical tags for structural QA validation.
+    
+    Args:
+        question_id: The constraint ID (e.g., "EXISTING_SYSTEMS")
+        question_text: The question text for context
+        answer: Raw user answer
+        answer_label: Human-readable answer label
+        
+    Returns:
+        Tuple of (invariant_kind, normalized_text, canonical_tags)
+    """
+    # Determine if this is an exclusion (answer is "No" or False)
+    is_exclusion = False
+    if isinstance(answer, bool) and answer is False:
+        is_exclusion = True
+    elif isinstance(answer, str) and answer.lower().strip() in ("no", "none", "n/a", "not required"):
+        is_exclusion = True
+    elif answer_label and answer_label.lower().strip() in ("no", "none", "n/a", "not required"):
+        is_exclusion = True
+    
+    # Derive canonical tags from question_id
+    # E.g., "EXISTING_SYSTEMS" -> ["existing", "systems", "integration"]
+    canonical_tags = _derive_canonical_tags(question_id)
+    
+    if is_exclusion:
+        invariant_kind = "exclusion"
+        # Build normalized exclusion text
+        # E.g., "No integrations with existing systems are in scope."
+        normalized_text = _build_exclusion_text(question_id, question_text)
+    else:
+        invariant_kind = "requirement"
+        # Build normalized requirement text
+        # E.g., "MATH_CONCEPTS: Counting (1-10, 1-20, 1-100), Addition, Subtraction"
+        normalized_text = f"{question_id}: {answer_label}" if answer_label else f"{question_id}: {answer}"
+    
+    return invariant_kind, normalized_text, canonical_tags
+
+
+def _derive_canonical_tags(question_id: str) -> List[str]:
+    """Derive canonical tags from a question/constraint ID.
+    
+    Tags are used for structural QA matching.
+    
+    Args:
+        question_id: E.g., "EXISTING_SYSTEMS", "MATH_CONCEPTS"
+        
+    Returns:
+        List of lowercase tags
+    """
+    # Split on underscores and convert to lowercase
+    base_tags = [t.lower() for t in question_id.split("_") if t]
+    
+    # Add semantic aliases for common constraint types
+    tag_aliases = {
+        "systems": ["integration", "external"],
+        "existing": ["legacy", "current"],
+        "math": ["mathematics", "calculation"],
+        "platform": ["deployment", "infrastructure"],
+        "auth": ["authentication", "security"],
+        "users": ["audience", "personas"],
+    }
+    
+    expanded_tags = list(base_tags)
+    for tag in base_tags:
+        if tag in tag_aliases:
+            expanded_tags.extend(tag_aliases[tag])
+    
+    return list(set(expanded_tags))  # Deduplicate
+
+
+def _build_exclusion_text(question_id: str, question_text: str) -> str:
+    """Build normalized exclusion text from question context.
+    
+    Args:
+        question_id: The constraint ID
+        question_text: The original question text
+        
+    Returns:
+        Normalized exclusion statement
+    """
+    # Common patterns for exclusion normalization
+    exclusion_templates = {
+        "EXISTING_SYSTEMS": "No integrations with existing systems are in scope.",
+        "PLATFORM": "No specific platform constraints apply.",
+        "AUTH": "No authentication requirements specified.",
+        "COMPLIANCE": "No compliance requirements specified.",
+    }
+    
+    # Check for exact match first
+    if question_id in exclusion_templates:
+        return exclusion_templates[question_id]
+    
+    # Check for partial match
+    for key, template in exclusion_templates.items():
+        if key in question_id:
+            return template
+    
+    # Fallback: generic exclusion based on question ID
+    readable_id = question_id.replace("_", " ").lower()
+    return f"No {readable_id} requirements are in scope."
 
 
 def _get_answer_label(question: Dict[str, Any], answer: Any) -> Optional[str]:
