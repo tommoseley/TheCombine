@@ -30,6 +30,7 @@ def make_plan(nodes, edges, outcome_mapping=None) -> WorkflowPlan:
         description="Test workflow plan",
         scope_type="document",
         document_type="test_doc",
+        requires_inputs=[],
         entry_node_ids=["start"] if any(n.node_id == "start" for n in nodes) else [nodes[0].node_id if nodes else "start"],
         nodes=nodes,
         edges=edges,
@@ -97,7 +98,7 @@ class TestEdgeRouter:
         return DocumentWorkflowState(
             execution_id="exec-123",
             workflow_id="test_workflow",
-            document_id="doc-456",
+            project_id="proj-456",
             document_type="test_doc",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -159,7 +160,7 @@ class TestEdgeRouter:
         state = DocumentWorkflowState(
             execution_id="e1",
             workflow_id="test",
-            document_id="d1",
+            project_id="proj-1",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -219,7 +220,7 @@ class TestEdgeConditions:
         state = DocumentWorkflowState(
             execution_id="e1",
             workflow_id="conditional_workflow",
-            document_id="d1",
+            project_id="proj-1",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -235,7 +236,7 @@ class TestEdgeConditions:
         state = DocumentWorkflowState(
             execution_id="e1",
             workflow_id="conditional_workflow",
-            document_id="d1",
+            project_id="proj-1",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -313,7 +314,7 @@ class TestEdgeConditions:
         state = DocumentWorkflowState(
             execution_id="e1",
             workflow_id="test",
-            document_id="d1",
+            project_id="proj-1",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -448,7 +449,7 @@ class TestNonAdvancingEdges:
         state = DocumentWorkflowState(
             execution_id="e1",
             workflow_id="test",
-            document_id="d1",
+            project_id="proj-1",
             document_type="test",
             current_node_id="qa",
             status=DocumentWorkflowStatus.RUNNING,

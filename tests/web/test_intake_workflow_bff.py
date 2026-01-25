@@ -39,7 +39,7 @@ def base_state():
     return DocumentWorkflowState(
         execution_id="exec-123",
         workflow_id="wf-intake",
-        document_id="doc-456",
+        project_id="proj-456",
         document_type="concierge_intake",
         current_node_id="concierge",
         status=DocumentWorkflowStatus.RUNNING,
@@ -119,7 +119,7 @@ class TestBuildTemplateContext:
 
         assert context["request"] == mock_request
         assert context["execution_id"] == "exec-123"
-        assert context["document_id"] == "doc-456"
+        assert context["document_id"] == "proj-456"
         assert context["status"] == "running"
         assert context["current_node"] == "concierge"
 

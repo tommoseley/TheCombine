@@ -33,6 +33,7 @@ def make_test_plan() -> WorkflowPlan:
         description="A test workflow for API testing",
         scope_type="document",
         document_type="test_doc",
+        requires_inputs=[],
         entry_node_ids=["start"],
         nodes=[
             Node(
@@ -90,7 +91,7 @@ def test_state():
     return DocumentWorkflowState(
         execution_id="exec-123",
         workflow_id="test_workflow",
-        document_id="doc-456",
+        project_id="proj-456",
         document_type="test_doc",
         current_node_id="start",
         status=DocumentWorkflowStatus.RUNNING,
@@ -105,19 +106,26 @@ class TestStartExecution:
         mock_executor.start_execution = AsyncMock(return_value=test_state)
         app.dependency_overrides[get_executor] = lambda: mock_executor
 
-        response = client.post(
-            "/api/v1/document-workflows/start",
-            json={
-                "document_id": "doc-456",
-                "document_type": "test_doc",
-            },
-        )
+        with patch(
+            "app.api.v1.routers.document_workflows.get_plan_registry"
+        ) as mock_get_registry:
+            mock_registry = MagicMock()
+            mock_registry.get_by_document_type.return_value = make_test_plan()
+            mock_get_registry.return_value = mock_registry
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["execution_id"] == "exec-123"
-        assert data["document_id"] == "doc-456"
-        assert data["status"] == "running"
+            response = client.post(
+                "/api/v1/document-workflows/start",
+                json={
+                    "project_id": "proj-456",
+                    "document_type": "test_doc",
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["execution_id"] == "exec-123"
+            assert data["project_id"] == "proj-456"
+            assert data["status"] == "running"
 
     def test_start_execution_unknown_type(self, client, mock_executor, app):
         """Start execution with unknown document type returns 400."""
@@ -129,7 +137,7 @@ class TestStartExecution:
         response = client.post(
             "/api/v1/document-workflows/start",
             json={
-                "document_id": "doc-456",
+                "project_id": "proj-456",
                 "document_type": "unknown_type",
             },
         )
@@ -146,7 +154,7 @@ class TestGetExecutionStatus:
         mock_executor.get_execution_status = AsyncMock(
             return_value={
                 "execution_id": "exec-123",
-                "document_id": "doc-456",
+                "project_id": "proj-456",
                 "document_type": "test_doc",
                 "workflow_id": "test_workflow",
                 "status": "running",

@@ -51,7 +51,7 @@ def mock_workflow_state():
     return DocumentWorkflowState(
         execution_id="exec-test-123",
         workflow_id="concierge_intake",
-        document_id="doc-test-456",
+        project_id="proj-test-456",
         document_type="concierge_intake",
         current_node_id="concierge",
         status=DocumentWorkflowStatus.PAUSED,
@@ -66,7 +66,7 @@ def mock_completed_state():
     state = DocumentWorkflowState(
         execution_id="exec-test-123",
         workflow_id="concierge_intake",
-        document_id="doc-test-456",
+        project_id="proj-test-456",
         document_type="concierge_intake",
         current_node_id="terminal_qualified",
         status=DocumentWorkflowStatus.COMPLETED,

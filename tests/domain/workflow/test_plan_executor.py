@@ -32,6 +32,7 @@ def make_simple_plan() -> WorkflowPlan:
         description="Simple test workflow",
         scope_type="document",
         document_type="test_doc",
+        requires_inputs=[],
         entry_node_ids=["start"],
         nodes=[
             Node(
@@ -88,6 +89,7 @@ def make_plan_with_gate() -> WorkflowPlan:
         description="Workflow with gate",
         scope_type="document",
         document_type="gate_doc",
+        requires_inputs=[],
         entry_node_ids=["start"],
         nodes=[
             Node(
@@ -195,12 +197,12 @@ class TestPlanExecutorStartExecution:
     async def test_start_execution_creates_state(self, executor, persistence):
         """Starting execution creates new state."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
         assert state is not None
-        assert state.document_id == "doc-123"
+        assert state.project_id == "proj-123"
         assert state.document_type == "test_doc"
         assert state.workflow_id == "test_workflow"
         assert state.current_node_id == "start"
@@ -210,7 +212,7 @@ class TestPlanExecutorStartExecution:
     async def test_start_execution_persists_state(self, executor, persistence):
         """Starting execution persists the state."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -223,13 +225,13 @@ class TestPlanExecutorStartExecution:
         """Starting execution resumes existing non-terminal execution."""
         # Start first execution
         state1 = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
         # Try to start again - should return existing
         state2 = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -240,7 +242,7 @@ class TestPlanExecutorStartExecution:
         """Starting execution with unknown document type raises error."""
         with pytest.raises(PlanExecutorError) as exc_info:
             await executor.start_execution(
-                document_id="doc-123",
+                project_id="proj-123",
                 document_type="unknown_type",
             )
 
@@ -292,7 +294,7 @@ class TestPlanExecutorExecuteStep:
         """Execute step advances through workflow to terminal."""
         # Start execution
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -313,7 +315,7 @@ class TestPlanExecutorExecuteStep:
     async def test_execute_step_records_history(self, executor, persistence, mock_executors):
         """Execute step records execution in history."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -327,7 +329,7 @@ class TestPlanExecutorExecuteStep:
     async def test_execute_step_handles_failure(self, executor, persistence, mock_executors):
         """Execute step handles failed outcome correctly."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -404,7 +406,7 @@ class TestPlanExecutorPauseResume:
     async def test_pauses_at_gate(self, executor, persistence, mock_executors):
         """Execution pauses when gate requires user input."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="gate_doc",
         )
 
@@ -426,7 +428,7 @@ class TestPlanExecutorPauseResume:
         from app.domain.workflow.plan_models import NodeType
 
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="gate_doc",
         )
 
@@ -461,7 +463,7 @@ class TestPlanExecutorPauseResume:
     async def test_submit_input_not_paused_raises(self, executor, persistence):
         """Submitting input to non-paused execution raises error."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="gate_doc",
         )
 
@@ -527,7 +529,7 @@ class TestPlanExecutorRunToCompletion:
     async def test_runs_to_completion(self, executor, persistence):
         """Run to completion executes all steps."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -539,7 +541,7 @@ class TestPlanExecutorRunToCompletion:
     async def test_stops_at_pause(self, executor, persistence):
         """Run stops when execution pauses."""
         state = await executor.start_execution(
-            document_id="doc-456",
+            project_id="proj-456",
             document_type="gate_doc",
         )
 
@@ -567,6 +569,7 @@ class TestPlanExecutorEscalation:
             description="Workflow with escalation",
             scope_type="document",
             document_type="escalation_doc",
+            requires_inputs=[],
             entry_node_ids=["start"],
             nodes=[
                 Node(
@@ -591,7 +594,7 @@ class TestPlanExecutorEscalation:
         )
 
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="escalation_doc",
         )
 
@@ -619,6 +622,7 @@ class TestPlanExecutorEscalation:
             description="Workflow with escalation",
             scope_type="document",
             document_type="escalation_doc",
+            requires_inputs=[],
             entry_node_ids=["start"],
             nodes=[
                 Node(
@@ -643,7 +647,7 @@ class TestPlanExecutorEscalation:
         )
 
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="escalation_doc",
         )
 
@@ -673,6 +677,7 @@ class TestPlanExecutorEscalation:
             description="Workflow with escalation",
             scope_type="document",
             document_type="escalation_doc",
+            requires_inputs=[],
             entry_node_ids=["start"],
             nodes=[
                 Node(
@@ -697,7 +702,7 @@ class TestPlanExecutorEscalation:
         )
 
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="escalation_doc",
         )
 
@@ -753,7 +758,7 @@ class TestPlanExecutorStatus:
     async def test_get_execution_status(self, executor, persistence):
         """Get execution status returns correct data."""
         state = await executor.start_execution(
-            document_id="doc-123",
+            project_id="proj-123",
             document_type="test_doc",
         )
 
@@ -761,7 +766,7 @@ class TestPlanExecutorStatus:
 
         assert status is not None
         assert status["execution_id"] == state.execution_id
-        assert status["document_id"] == "doc-123"
+        assert status["project_id"] == "proj-123"
         assert status["status"] == "pending"
         assert status["current_node_id"] == "start"
 
@@ -789,7 +794,7 @@ class TestInMemoryStatePersistence:
         state = DocumentWorkflowState(
             execution_id="exec-123",
             workflow_id="wf-1",
-            document_id="doc-456",
+            project_id="proj-456",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
@@ -814,17 +819,17 @@ class TestInMemoryStatePersistence:
         state = DocumentWorkflowState(
             execution_id="exec-123",
             workflow_id="wf-1",
-            document_id="doc-456",
+            project_id="proj-456",
             document_type="test",
             current_node_id="start",
             status=DocumentWorkflowStatus.RUNNING,
         )
 
         await persistence.save(state)
-        loaded = await persistence.load_by_document("doc-456", "wf-1")
+        loaded = await persistence.load_by_document("proj-456", "wf-1")
 
         assert loaded is not None
-        assert loaded.document_id == "doc-456"
+        assert loaded.project_id == "proj-456"
 
     @pytest.mark.asyncio
     async def test_load_not_found(self):

@@ -701,12 +701,13 @@ def _build_template_context(request: Request, state) -> dict:
     context = {
         "request": request,
         "execution_id": state.execution_id,
-        "document_id": state.document_id,
+        "document_id": state.project_id,
         "status": state.status.value,
         "current_node": state.current_node_id,
         "messages": messages,
         "pending_user_input": state.pending_user_input,
         "pending_user_input_rendered": state.pending_user_input_rendered,
+        "pending_prompt": state.pending_user_input_rendered,  # Template alias
         "pending_choices": state.pending_choices,
         "escalation_active": state.escalation_active,
         "escalation_options": state.escalation_options,
