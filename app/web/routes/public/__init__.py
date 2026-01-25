@@ -1,10 +1,11 @@
-﻿"""Public UI routes."""
+"""Public UI routes."""
 from .home_routes import router as home_router
 from .project_routes import router as project_router
 from .document_routes import router as document_router
 from .search_routes import router as search_router
 from .debug_routes import router as debug_router
 from .view_routes import router as view_router
+from .workflow_build_routes import router as workflow_build_router
 
 __all__ = [
     "home_router",
@@ -13,4 +14,5 @@ __all__ = [
     "search_router",
     "debug_router",
     "view_router",
+    "workflow_build_router",
 ]

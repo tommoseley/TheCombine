@@ -93,6 +93,12 @@
             "type": "string",
             "enum": ["must", "should", "could"]
           },
+          "constraint_kind": {
+            "type": "string",
+            "enum": ["selection", "exclusion", "requirement", "preference"],
+            "default": "selection",
+            "description": "Schema-level hint for binding derivation per ADR-042. selection=user picks from options (binding if must-priority), exclusion=user explicitly excludes (always binding if resolved), requirement=hard requirement (always binding if resolved), preference=informational only (never binding)."
+          },
           "answer_type": {
             "type": "string",
             "enum": [

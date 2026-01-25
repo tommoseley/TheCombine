@@ -1,6 +1,6 @@
 # WS-PGC-VALIDATION-001: Code-Based Validation and PGC Answer Persistence
 
-**Status:** âœ… Complete
+**Status:** Complete
 **Created:** 2026-01-24
 **Completed:** 2026-01-24
 **Scope:** Multi-commit (two phases)

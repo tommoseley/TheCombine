@@ -38,6 +38,7 @@ from .public.view_routes import router as view_router  # ADR-034
 from .public.search_routes import router as search_router
 from .public.concierge_routes import router as concierge_router  # WS-CONCIERGE-001
 from .public.intake_workflow_routes import router as intake_workflow_router  # WS-ADR-025
+from .public.workflow_build_routes import router as workflow_build_router  # WS-PGC-UX-001
 
 # Create main router WITHOUT prefix - routes at root level
 router = APIRouter(tags=["web-ui"])
@@ -50,6 +51,7 @@ router.include_router(view_router)  # ADR-034: Generic document viewer
 router.include_router(search_router)
 router.include_router(concierge_router)  # WS-CONCIERGE-001
 router.include_router(intake_workflow_router)  # WS-ADR-025: Workflow-based intake
+router.include_router(workflow_build_router)  # WS-PGC-UX-001: PGC Questions UI
 
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Debug routes behind feature flag
 if ENABLE_DEBUG_ROUTES:
@@ -58,3 +60,4 @@ if ENABLE_DEBUG_ROUTES:
     logger.info("DEBUG_ROUTES_ENABLED: /test-template, /test-template-engine, /test-db routes active")
 else:
     logger.info("DEBUG_ROUTES_DISABLED: Set ENABLE_DEBUG_ROUTES=true to enable debug routes")
+

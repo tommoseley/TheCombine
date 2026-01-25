@@ -2,8 +2,11 @@
 
 QA nodes validate generated documents against quality criteria.
 
-Per WS-PGC-VALIDATION-001, code-based validation runs BEFORE LLM-based QA
-to catch promotion violations and internal contradictions deterministically.
+Validation order (per ADR-042 and WS-PGC-VALIDATION-001):
+1. Constraint drift validation (ADR-042) - fails fast on bound constraint violations
+2. Promotion validation (WS-PGC-VALIDATION-001) - catches promotion and contradiction issues
+3. Schema validation
+4. LLM-based semantic QA
 """
 
 import logging
@@ -22,6 +25,8 @@ from app.domain.workflow.validation import (
     PromotionValidator,
     PromotionValidationInput,
     PromotionValidationResult,
+    ConstraintDriftValidator,
+    DriftValidationResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,8 +118,48 @@ class QANodeExecutor(NodeExecutor):
         errors: List[str] = []
         feedback: Dict[str, Any] = {}
         code_validation_warnings: List[Dict[str, Any]] = []
+        drift_warnings: List[Dict[str, Any]] = []
 
-        # Run code-based validation BEFORE LLM QA (per WS-PGC-VALIDATION-001)
+        # 1. Run constraint drift validation FIRST (ADR-042)
+        # Fails fast if bound constraints are violated
+        drift_result = self._run_drift_validation(
+            document=document,
+            context=context,
+        )
+
+        if drift_result is not None:
+            if not drift_result.passed:
+                # Log full error details for debugging
+                for err in drift_result.errors:
+                    logger.warning(
+                        f"ADR-042 drift ERROR: {err.check_id} - {err.clarification_id}: {err.message}"
+                    )
+                for warn in drift_result.warnings:
+                    logger.info(
+                        f"ADR-042 drift WARNING: {warn.check_id} - {warn.clarification_id}: {warn.message}"
+                    )
+                logger.warning(
+                    f"QA node {node_id} failed drift validation with "
+                    f"{len(drift_result.errors)} errors"
+                )
+                return NodeResult(
+                    outcome="failed",
+                    metadata={
+                        "node_id": node_id,
+                        "drift_errors": [v.to_dict() for v in drift_result.errors],
+                        "drift_warnings": [v.to_dict() for v in drift_result.warnings],
+                        "validation_source": "constraint_drift",
+                    },
+                )
+
+            # Collect drift warnings
+            if drift_result.warnings:
+                drift_warnings = [v.to_dict() for v in drift_result.warnings]
+                logger.info(
+                    f"QA node {node_id}: {len(drift_warnings)} drift validation warnings"
+                )
+
+        # 2. Run promotion validation (WS-PGC-VALIDATION-001)
         code_validation_result = self._run_code_based_validation(
             document=document,
             context=context,
@@ -188,6 +233,10 @@ class QANodeExecutor(NodeExecutor):
             "node_id": node_id,
             "qa_passed": True,
         }
+
+        # Include drift warnings in success result (ADR-042)
+        if drift_warnings:
+            success_metadata["drift_warnings"] = drift_warnings
 
         # Include code validation warnings in success result
         if code_validation_warnings:
@@ -281,6 +330,45 @@ class QANodeExecutor(NodeExecutor):
         )
 
         return validator.validate(validation_input)
+
+    def _run_drift_validation(
+        self,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+    ) -> Optional[DriftValidationResult]:
+        """Run constraint drift validation (ADR-042).
+
+        Validates artifact against bound constraints (pgc_invariants) to detect:
+        - QA-PGC-001: Contradictions of bound constraints (ERROR)
+        - QA-PGC-002: Reopened decisions (ERROR)
+        - QA-PGC-003: Silent omissions of constraints (WARNING)
+        - QA-PGC-004: Missing traceability (WARNING)
+
+        This runs FIRST, before promotion validation.
+
+        Args:
+            document: The document to validate
+            context: Workflow context with pgc_invariants
+
+        Returns:
+            DriftValidationResult or None if no invariants available
+        """
+        # Get invariants from context_state
+        invariants = []
+        if hasattr(context, "context_state") and context.context_state:
+            invariants = context.context_state.get("pgc_invariants", [])
+
+        if not invariants:
+            logger.debug("ADR-042: No invariants available, skipping drift validation")
+            return None
+
+        logger.info(f"ADR-042: Running drift validation against {len(invariants)} binding invariants")
+
+        validator = ConstraintDriftValidator()
+        return validator.validate(
+            artifact=document,
+            invariants=invariants,
+        )
 
     async def _run_llm_qa(
         self,

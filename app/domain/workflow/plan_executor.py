@@ -313,8 +313,27 @@ class PlanExecutor:
             # Special handling for PGC nodes: store answers and advance to generation
             # Don't re-execute PGC - that would generate new questions
             if current_node.type == NodeType.PGC and user_input:
-                logger.info(f"PGC node {current_node.node_id} received user answers - advancing to generation")
-                state.update_context_state({"pgc_answers": user_input})
+                logger.info(f"PGC node {current_node.node_id} received user answers - merging clarifications (ADR-042)")
+
+                # ADR-042: Get questions (with DB fallback for restart scenarios)
+                questions = await self._get_pgc_questions_for_merge(state)
+
+                # ADR-042: Merge questions with answers and derive binding
+                from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+
+                clarifications = merge_clarifications(questions, user_input)
+                invariants = extract_invariants(clarifications)
+
+                state.update_context_state({
+                    "pgc_answers": user_input,  # backward compat
+                    "pgc_clarifications": clarifications,  # ADR-042: Full merged structure
+                    "pgc_invariants": invariants,  # ADR-042: Binding constraints only
+                })
+
+                logger.info(
+                    f"ADR-042: Merged {len(clarifications)} clarifications, "
+                    f"{len(invariants)} binding invariants"
+                )
                 
                 # Route to next node using "success" outcome (user answered, proceed)
                 router = EdgeRouter(plan)
@@ -571,6 +590,46 @@ class PlanExecutor:
             context_state=state.context_state,
         )
 
+    async def _get_pgc_questions_for_merge(
+        self,
+        state: DocumentWorkflowState,
+    ) -> list:
+        """Get PGC questions for merging with answers (ADR-042).
+
+        Questions come from state.pending_user_input_payload first,
+        with DB fallback for restart scenarios.
+
+        Args:
+            state: Current execution state
+
+        Returns:
+            List of PGC question objects
+        """
+        # Try in-memory first (normal case)
+        if state.pending_user_input_payload:
+            questions = state.pending_user_input_payload.get("questions", [])
+            if questions:
+                logger.debug(f"ADR-042: Got {len(questions)} questions from pending payload")
+                return questions
+
+        # Fallback: load from DB (handles restart scenario)
+        if self._db_session:
+            try:
+                from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+
+                repo = PGCAnswerRepository(self._db_session)
+                pgc_record = await repo.get_by_execution(state.execution_id)
+                if pgc_record and pgc_record.questions:
+                    logger.info(
+                        f"ADR-042: Loaded {len(pgc_record.questions)} questions from DB fallback"
+                    )
+                    return pgc_record.questions
+            except Exception as e:
+                logger.warning(f"ADR-042: Failed to load questions from DB: {e}")
+
+        logger.warning("ADR-042: No questions available for merge")
+        return []
+
     async def _load_pgc_answers_for_qa(
         self,
         state: DocumentWorkflowState,
@@ -581,11 +640,18 @@ class PlanExecutor:
         Per WS-PGC-VALIDATION-001 Phase 2: When executing a QA node,
         load persisted PGC answers to enable code-based validation.
 
+        Per ADR-042: Also loads merged clarifications if not already in context.
+
         Args:
             state: Current execution state
             context: Execution context to update
         """
         if not self._db_session:
+            return
+
+        # Check if clarifications already in context (normal flow)
+        if context.context_state.get("pgc_clarifications"):
+            logger.debug("ADR-042: Clarifications already in context, skipping DB load")
             return
 
         try:
@@ -598,6 +664,25 @@ class PlanExecutor:
                 # Add to context_state for validation
                 context.context_state["pgc_questions"] = pgc_answer.questions
                 context.context_state["pgc_answers"] = pgc_answer.answers
+
+                # ADR-042: Also merge clarifications if not present
+                if not context.context_state.get("pgc_clarifications"):
+                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+
+                    clarifications = merge_clarifications(
+                        pgc_answer.questions,
+                        pgc_answer.answers,
+                    )
+                    invariants = extract_invariants(clarifications)
+
+                    context.context_state["pgc_clarifications"] = clarifications
+                    context.context_state["pgc_invariants"] = invariants
+
+                    logger.info(
+                        f"ADR-042: Merged {len(clarifications)} clarifications "
+                        f"({len(invariants)} binding) from DB for QA"
+                    )
+
                 logger.info(
                     f"Loaded PGC answers for QA validation: "
                     f"{len(pgc_answer.questions)} questions"
@@ -974,6 +1059,149 @@ class PlanExecutor:
         except Exception as e:
             logger.warning(f"Failed to record governance outcome: {e}")
 
+    def _promote_pgc_invariants_to_document(
+        self,
+        doc_content: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Promote PGC invariants into document structure.
+
+        Per ADR-042: At document completion, mechanically transform binding
+        constraints from context_state into a structured pgc_invariants[]
+        section in the output document.
+
+        This makes binding constraints explicit and traceable in the artifact,
+        separate from known_constraints (which may include non-PGC items).
+
+        Args:
+            doc_content: The document content dict (mutated in place)
+            state: The workflow state containing pgc_invariants
+        """
+        context_invariants = state.context_state.get("pgc_invariants", [])
+        if not context_invariants:
+            return
+
+        # Get existing known_constraints for cross-referencing
+        known_constraints = doc_content.get("known_constraints", [])
+
+        # Build structured invariants
+        pgc_invariants = []
+        for idx, inv in enumerate(context_invariants, start=1):
+            constraint_id = inv.get("id", f"UNKNOWN-{idx}")
+            answer_label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
+            binding_source = inv.get("binding_source", "priority")
+
+            # Generate invariant ID
+            invariant_id = f"INV-{constraint_id}"
+
+            # Find matching constraint ID in known_constraints (if present)
+            source_constraint_id = None
+            for i, kc in enumerate(known_constraints):
+                kc_text = kc if isinstance(kc, str) else kc.get("text", "")
+                if answer_label.lower() in kc_text.lower():
+                    source_constraint_id = f"CNS-{i + 1}"
+                    break
+
+            # Derive domain from constraint ID (heuristic)
+            domain = self._derive_constraint_domain(constraint_id)
+
+            # Build statement from question context
+            question_text = inv.get("text", "")
+            statement = self._build_invariant_statement(
+                constraint_id, question_text, answer_label, binding_source
+            )
+
+            pgc_invariants.append({
+                "invariant_id": invariant_id,
+                "source_constraint_id": source_constraint_id,
+                "statement": statement,
+                "domain": domain,
+                "binding": True,
+                "origin": "pgc",
+                "change_policy": "explicit_renegotiation_only",
+                "pgc_question_id": constraint_id,
+                "user_answer": inv.get("user_answer"),
+                "user_answer_label": answer_label,
+            })
+
+        doc_content["pgc_invariants"] = pgc_invariants
+        logger.info(
+            f"ADR-042: Promoted {len(pgc_invariants)} PGC invariants to document structure"
+        )
+
+    def _derive_constraint_domain(self, constraint_id: str) -> str:
+        """Derive semantic domain from constraint ID.
+
+        Args:
+            constraint_id: The PGC question ID (e.g., TARGET_PLATFORM)
+
+        Returns:
+            Domain string (e.g., "platform", "user", "scope")
+        """
+        # Map common patterns to domains
+        domain_patterns = {
+            "PLATFORM": "platform",
+            "TARGET": "platform",
+            "USER": "user",
+            "PRIMARY": "user",
+            "DEPLOYMENT": "deployment",
+            "CONTEXT": "deployment",
+            "SCOPE": "scope",
+            "MATH": "scope",
+            "FEATURE": "feature",
+            "TRACKING": "feature",
+            "STANDARD": "compliance",
+            "EDUCATIONAL": "compliance",
+            "SYSTEM": "integration",
+            "EXISTING": "integration",
+        }
+
+        constraint_upper = constraint_id.upper()
+        for pattern, domain in domain_patterns.items():
+            if pattern in constraint_upper:
+                return domain
+
+        return "general"
+
+    def _build_invariant_statement(
+        self,
+        constraint_id: str,
+        question_text: str,
+        answer_label: str,
+        binding_source: str,
+    ) -> str:
+        """Build human-readable invariant statement.
+
+        Args:
+            constraint_id: The PGC question ID
+            question_text: The original question text
+            answer_label: The user's answer label
+            binding_source: How binding was derived (priority, exclusion, etc.)
+
+        Returns:
+            Statement string describing the invariant
+        """
+        # Handle exclusions specially
+        if binding_source == "exclusion":
+            return f"{answer_label} is explicitly excluded"
+
+        # Build statement based on constraint type
+        if "PLATFORM" in constraint_id.upper():
+            return f"Application must be deployed as {answer_label}"
+        elif "USER" in constraint_id.upper():
+            return f"Primary users are {answer_label}"
+        elif "DEPLOYMENT" in constraint_id.upper() or "CONTEXT" in constraint_id.upper():
+            return f"Deployment context is {answer_label}"
+        elif "SCOPE" in constraint_id.upper():
+            return f"Scope includes {answer_label}"
+        elif "TRACKING" in constraint_id.upper():
+            return f"System will provide {answer_label}"
+        elif "STANDARD" in constraint_id.upper():
+            return f"Educational standards: {answer_label}"
+        else:
+            # Generic statement
+            return f"{constraint_id}: {answer_label}"
+
     async def _persist_produced_documents(
         self,
         state: DocumentWorkflowState,
@@ -983,7 +1211,7 @@ class PlanExecutor:
 
         Called on successful workflow completion (stabilized).
         Saves the primary output document to the database.
-        
+
         System-owned fields (meta.created_at, meta.artifact_id) are
         overwritten with system values - LLM must not mint these.
 
@@ -1043,6 +1271,9 @@ class PlanExecutor:
             # Add provenance: correlation_id links to execution
             meta["correlation_id"] = state.execution_id
             meta["workflow_id"] = state.workflow_id
+
+            # ADR-042: Promote PGC invariants into document structure
+            self._promote_pgc_invariants_to_document(doc_content, state)
 
             # Create the document record
             document = Document(

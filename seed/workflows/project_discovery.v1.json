@@ -1,7 +1,7 @@
 {
     "$schema":  "https://thecombine.ai/schemas/workflow-plan.v1.json",
     "workflow_id":  "project_discovery",
-    "version":  "1.7.0",
+    "version":  "1.8.0",
     "name":  "PM Discovery Document Workflow",
     "description":  "Generates Project Discovery document from Concierge Intake. Includes pre-generation clarification (PGC) step to surface unknowns before document generation.",
     "scope_type":  "document",
@@ -31,7 +31,7 @@
                       "task_ref":  "templates/Document Generator v1.0",
                       "includes":  {
                                        "ROLE_PROMPT":  "seed/prompts/roles/Technical Architect 1.0.txt",
-                                       "TASK_PROMPT":  "seed/prompts/tasks/Project Discovery v1.3.txt",
+                                       "TASK_PROMPT":  "seed/prompts/tasks/Project Discovery v1.4.txt",
                                        "OUTPUT_SCHEMA":  "seed/schemas/project_discovery.v1.json"
                                    },
                       "produces":  "project_discovery"
@@ -51,7 +51,7 @@
                       "task_ref":  "templates/Document Generator v1.0",
                       "includes":  {
                                        "ROLE_PROMPT":  "seed/prompts/roles/Technical Architect 1.0.txt",
-                                       "TASK_PROMPT":  "seed/prompts/tasks/Project Discovery v1.3.txt",
+                                       "TASK_PROMPT":  "seed/prompts/tasks/Project Discovery v1.4.txt",
                                        "OUTPUT_SCHEMA":  "seed/schemas/project_discovery.v1.json"
                                    },
                       "produces":  "project_discovery"
@@ -165,7 +165,8 @@
                                               "ADR-012",
                                               "ADR-025",
                                               "ADR-039",
-                                              "ADR-041"
+                                              "ADR-041",
+                                              "ADR-042"
                                           ],
                        "design_principles":  [
                                                  "Auto-complete on QA pass",
@@ -184,12 +185,14 @@
                    },
     "metadata":  {
                      "created_date":  "2026-01-21",
-                     "updated_date":  "2026-01-23",
-                     "work_statement":  "WS-ADR-041-001",
+                     "updated_date":  "2026-01-24",
+                     "work_statement":  "WS-ADR-042-001",
                      "changelog":  [
                                        "v1.0: Initial PM Discovery workflow",
                                        "v1.1: Added PGC node with ADR-041 template includes",
-                                       "v1.2: All task_refs use explicit paths (tasks/, templates/); generation/remediation use Document Generator template"
+                                       "v1.2: All task_refs use explicit paths (tasks/, templates/); generation/remediation use Document Generator template",
+                                       "v1.7: Code-based promotion validation integrated (WS-PGC-VALIDATION-001)",
+                                       "v1.8: Constraint binding and drift enforcement per ADR-042 (WS-ADR-042-001)"
                                    ]
                  },
     "requires_inputs":  [

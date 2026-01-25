@@ -168,7 +168,12 @@ class TaskNodeExecutor(NodeExecutor):
         if user_input:
             context_parts.append(f"## User Request\n{user_input}")
 
-        # 2. Structured context state (intake summary, project type, etc.)
+        # 2. Bound constraints summary (ADR-042) - BEFORE JSON for prominence
+        bound_summary = self._render_bound_constraints_summary(context.context_state)
+        if bound_summary:
+            context_parts.append(bound_summary)
+
+        # 3. Structured context state (intake summary, project type, etc.)
         if context.context_state:
             relevant_state = {k: v for k, v in context.context_state.items()
                            if not k.startswith("document_") and k != "last_produced_document"}
@@ -176,12 +181,12 @@ class TaskNodeExecutor(NodeExecutor):
                 import json
                 context_parts.append(f"## Extracted Context\n{json.dumps(relevant_state, indent=2)}")
 
-        # 3. Input documents from project (loaded via requires_inputs)
+        # 4. Input documents from project (loaded via requires_inputs)
         if context.input_documents:
             input_context = self._format_input_documents(context.input_documents)
             context_parts.append(f"## Input Documents\n{input_context}")
-        
-        # 4. Produced documents from earlier nodes in this workflow
+
+        # 5. Produced documents from earlier nodes in this workflow
         if context.document_content:
             doc_context = self._format_input_documents(context.document_content)
             context_parts.append(f"## Previous Documents\n{doc_context}")
@@ -229,6 +234,49 @@ class TaskNodeExecutor(NodeExecutor):
         """
         import json
         return json.dumps(content, indent=2, default=str)
+
+    def _render_bound_constraints_summary(
+        self,
+        context_state: Dict[str, Any],
+    ) -> Optional[str]:
+        """Render prominent human-readable summary of binding constraints.
+
+        Per ADR-042: Bound constraints must be presented prominently so the LLM
+        cannot miss them. This renders a natural-language summary BEFORE the
+        JSON context dump to ensure the model sees settled decisions first.
+
+        Args:
+            context_state: The workflow context state
+
+        Returns:
+            Formatted summary string, or None if no invariants
+        """
+        invariants = context_state.get("pgc_invariants", [])
+        if not invariants:
+            return None
+
+        lines = [
+            "## Bound Constraints (FINAL — DO NOT REOPEN)",
+            "These decisions are settled. Do not present alternatives or questions about them.",
+            "",
+        ]
+
+        for inv in invariants:
+            label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
+            constraint_id = inv.get("id", "UNKNOWN")
+            binding_source = inv.get("binding_source", "")
+
+            # Add source annotation for exclusions
+            if binding_source == "exclusion":
+                lines.append(f"- {constraint_id}: {label} (EXCLUDED — do not suggest)")
+            else:
+                lines.append(f"- {constraint_id}: {label}")
+
+        logger.info(
+            f"ADR-042: Rendered {len(invariants)} bound constraints for LLM context"
+        )
+
+        return "\n".join(lines)
 
     def _format_pgc_questions(self, produced_document: Dict[str, Any]) -> str:
         """Return human-readable text for PGC questions (optional rendering).

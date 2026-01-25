@@ -1,11 +1,108 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-01-24
-**Updated By:** Claude (WS-PGC-VALIDATION-001 Complete)
+**Last Updated:** 2026-01-24 (Session 3)
+**Updated By:** Claude (WS-ADR-042-001 Refinements)
 
 ## Current Focus
 
-WS-PGC-VALIDATION-001 complete. Code-based promotion validation implemented and integrated. PGC answers now persist as first-class documents with full provenance. Ready for UX integration to surface PGC questions in document workflow experience.
+WS-ADR-042-001 complete with refinements. End-to-end document generation working:
+- Bound constraints rendered prominently in natural language before JSON context
+- pgc_invariants mechanically promoted into output document structure
+- QA correctly rejects non-compliant artifacts and accepts after remediation
+- Live testing confirmed: generation → QA reject → remediation → QA pass → persist
+
+## WS-ADR-042-001 - COMPLETE (2026-01-24)
+
+### What Was Built
+
+#### Constraint Binding System (ADR-042)
+
+PGC questions and answers are merged into `pgc_clarifications` with binding status:
+
+| Binding Source | Condition | Result |
+|----------------|-----------|--------|
+| priority | must + resolved | binding=true |
+| exclusion | constraint_kind=exclusion + resolved | binding=true |
+| requirement | constraint_kind=requirement + resolved | binding=true |
+| should/could | any resolution | binding=false |
+
+**Implementation:**
+```
+app/domain/workflow/
+├── clarification_merger.py    # merge_clarifications(), extract_invariants()
+
+app/domain/workflow/validation/
+├── constraint_drift_validator.py  # QA-PGC-001 through QA-PGC-004
+├── validation_result.py           # Added DriftViolation, DriftValidationResult
+```
+
+#### Drift Validation Checks
+
+| Check ID | Severity | Description |
+|----------|----------|-------------|
+| QA-PGC-001 | ERROR | Artifact contradicts bound constraint |
+| QA-PGC-002 | ERROR | Resolved decision reopened as open |
+| QA-PGC-003 | WARNING | Bound constraint silently omitted |
+| QA-PGC-004 | WARNING | Missing traceability in known_constraints |
+
+#### Validation Order
+
+1. **Drift validation** (ADR-042) - fails fast on bound constraint violations
+2. **Promotion validation** (WS-PGC-VALIDATION-001) - catches promotion/contradiction issues
+3. **Schema validation**
+4. **LLM-based semantic QA**
+
+#### Key Files
+
+- `seed/schemas/pgc_clarifications.v1.json` - Merged clarification schema
+- `app/domain/workflow/clarification_merger.py` - Deterministic merge logic
+- `app/domain/workflow/validation/constraint_drift_validator.py` - Drift checks
+- `seed/prompts/tasks/Project Discovery v1.4.txt` - Bound Constraints section added
+- `seed/workflows/project_discovery.v1.json` - Updated to v1.8.0
+
+### Test Coverage
+
+- 44 new tests (16 drift validator + 28 merger)
+- All passing
+
+### Bugfix: False Positive in QA-PGC-002 (2026-01-24)
+
+**Issue:** Live testing revealed that `_extract_topic_words()` was extracting common words like "without" from question text (e.g., "Should the app work without internet?"). When the artifact innocuously contained "without" near a reopen pattern, QA-PGC-002 would fire a false positive.
+
+**Fix:** Expanded stopwords list in `constraint_drift_validator.py` to include:
+- Prepositions: "without", "with", "from", "into", "about", etc.
+- Common verbs: "work", "support", "need", "require", "use", etc.
+- Generic tech terms: "app", "system", "feature", "data", "user", etc.
+- Changed minimum word length from 2 to 3 characters
+
+**Regression tests added:** 2 tests in `TestFalsePositiveRegression` class
+
+### Bugfix: Multi-Choice Form Parsing (2026-01-24)
+
+**Issue:** PGC answers for multi-choice questions were being stored with malformed keys (e.g., `MATH_SCOPE]` instead of `MATH_SCOPE`). This caused the clarification merger to fail to match answers to questions, resulting in `resolved: false` and `binding: false` for questions the user actually answered.
+
+**Root Cause:** In `_parse_pgc_form()`, the slice `key[8:-2]` was incorrect for extracting question IDs from `answers[X][]` format. The suffix `][]` is 3 characters, not 2.
+
+**Fix:** Changed `key[8:-2]` to `key[8:-3]` in `workflow_build_routes.py`.
+
+**Regression tests added:** 8 tests in `tests/unit/test_pgc_form_parsing.py`
+
+### Bugfix: Choice Value Attribute (2026-01-24)
+
+**Issue:** All PGC form values were empty strings. Form was submitting but no values captured.
+
+**Root Cause:** HTML template used `c.id` for choice values but the schema uses `c.value`:
+```html
+<!-- Before (wrong) -->
+<option value="{{ c.id }}">{{ c.label }}</option>
+
+<!-- After (correct) -->
+<option value="{{ c.value or c.id }}">{{ c.label }}</option>
+```
+
+**Fix:** Updated `_pgc_questions.html` to use `c.value or c.id` for both single_choice and multi_choice inputs.
+
+**Logging added:** Form parser now logs raw form items and parsed answers for debugging.
 
 ## WS-PGC-VALIDATION-001 - COMPLETE (2026-01-24)
 
@@ -255,6 +352,31 @@ GET /api/v1/document-workflows/executions/{id}
 **Issue:** Real PostgreSQL integration tests are deferred.
 
 **Preferred approach:** Implement with real test database infrastructure.
+
+### QA-PGC-002 Stopwords Approach (2026-01-24)
+**Issue:** The `_extract_topic_words()` function in `constraint_drift_validator.py` uses a manually-maintained stopwords list to filter common words before checking for reopened decisions. This is fragile:
+- False positives require reactively adding words to stopwords
+- False negatives occur when legitimate topic words are over-filtered
+- The list has grown to 100+ words and requires ongoing maintenance
+
+**Current workaround:** Expanded stopwords list + prominent bound constraints summary reduces false positives.
+
+**Preferred approaches:**
+1. Focus on answer values rather than question words for detection
+2. Require multiple signals before flagging (topic + reopen pattern + missing answer mention)
+3. Demote QA-PGC-002 from ERROR to WARNING (other checks catch real issues)
+4. Use semantic similarity instead of keyword extraction
+
+**Files affected:** `app/domain/workflow/validation/constraint_drift_validator.py`
+
+### LLM Run workflow_execution_id Not Populated (2026-01-24)
+**Issue:** The `workflow_execution_id` column in the `llm_run` table is NULL for all records. This makes it difficult to correlate LLM calls with their workflow executions for debugging and audit purposes.
+
+**Impact:** Cannot easily query "show me all LLM calls for execution X" without joining through correlation_id.
+
+**Preferred approach:** Populate `workflow_execution_id` when LLM calls are made within workflow context.
+
+**Files affected:** `app/domain/services/llm_execution_logger.py`, `app/domain/workflow/nodes/task.py`
 
 ## Recently Completed
 

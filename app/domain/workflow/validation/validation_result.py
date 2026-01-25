@@ -1,10 +1,77 @@
 """Data classes for validation input and output contracts.
 
 Per WS-PGC-VALIDATION-001 Phase 1.
+Extended for ADR-042 constraint drift validation.
 """
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
+
+
+# =============================================================================
+# Shared Drift Validation Types (ADR-042)
+# =============================================================================
+
+@dataclass
+class DriftViolation:
+    """A constraint drift violation per ADR-042.
+
+    Attributes:
+        check_id: Check identifier (e.g., QA-PGC-001)
+        severity: ERROR fails validation, WARNING is informational
+        clarification_id: ID of the violated clarification
+        message: Human-readable description
+        remediation: Optional guidance for fixing the issue
+    """
+    check_id: str
+    severity: Literal["ERROR", "WARNING"]
+    clarification_id: str
+    message: str
+    remediation: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "check_id": self.check_id,
+            "severity": self.severity,
+            "clarification_id": self.clarification_id,
+            "message": self.message,
+            "remediation": self.remediation,
+        }
+
+
+@dataclass
+class DriftValidationResult:
+    """Result of constraint drift validation per ADR-042.
+
+    Attributes:
+        passed: True if no ERROR-level violations
+        violations: All violations found during validation
+    """
+    passed: bool
+    violations: List[DriftViolation] = field(default_factory=list)
+
+    @property
+    def errors(self) -> List[DriftViolation]:
+        """Get only ERROR-severity violations."""
+        return [v for v in self.violations if v.severity == "ERROR"]
+
+    @property
+    def warnings(self) -> List[DriftViolation]:
+        """Get only WARNING-severity violations."""
+        return [v for v in self.violations if v.severity == "WARNING"]
+
+    @property
+    def error_summary(self) -> str:
+        """Get a summary of all errors for logging/display."""
+        if not self.errors:
+            return ""
+        return "; ".join(f"{e.check_id}: {e.message}" for e in self.errors)
+
+
+# =============================================================================
+# Promotion Validation Types (WS-PGC-VALIDATION-001)
+# =============================================================================
 
 
 @dataclass

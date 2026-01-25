@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.dev/schemas/pgc_clarifications.v1.json",
+  "title": "PGCClarificationsV1",
+  "description": "Merged PGC questions and answers with binding status per ADR-042",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "clarifications"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "pgc_clarifications.v1"
+    },
+    "execution_id": {
+      "type": "string",
+      "description": "Workflow execution ID for traceability"
+    },
+    "workflow_id": {
+      "type": "string",
+      "description": "Workflow definition ID"
+    },
+    "merged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when merge occurred"
+    },
+    "clarifications": {
+      "type": "array",
+      "description": "Merged question-answer pairs with binding status",
+      "items": {
+        "$ref": "#/$defs/clarification"
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "description": "Subset of clarifications where binding=true (convenience field)",
+      "items": {
+        "$ref": "#/$defs/clarification"
+      }
+    }
+  },
+  "$defs": {
+    "clarification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "priority", "answer_type", "resolved", "binding"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z0-9_\\-]{3,64}$",
+          "description": "Stable question ID (e.g., TARGET_PLATFORM)"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 300,
+          "description": "Original question text"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["must", "should", "could"],
+          "description": "Question priority from PGC"
+        },
+        "answer_type": {
+          "type": "string",
+          "enum": [
+            "free_text",
+            "single_choice",
+            "multi_choice",
+            "yes_no",
+            "number",
+            "date",
+            "uuid",
+            "json_object"
+          ]
+        },
+        "constraint_kind": {
+          "type": "string",
+          "enum": ["selection", "exclusion", "requirement", "preference"],
+          "default": "selection",
+          "description": "Schema-level hint for binding derivation"
+        },
+        "choices": {
+          "type": ["array", "null"],
+          "description": "Available choices for single_choice/multi_choice",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "user_answer": {
+          "type": ["string", "number", "boolean", "array", "object", "null"],
+          "description": "User's answer value"
+        },
+        "user_answer_label": {
+          "type": ["string", "null"],
+          "description": "Human-readable label for the answer (for choice types)"
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "True if question has been answered"
+        },
+        "binding": {
+          "type": "boolean",
+          "description": "True if this is a bound constraint per ADR-042"
+        },
+        "binding_source": {
+          "type": ["string", "null"],
+          "enum": ["priority", "exclusion", "requirement", "user_marked", "system", null],
+          "description": "Why this clarification is binding (null if not binding)"
+        },
+        "binding_reason": {
+          "type": ["string", "null"],
+          "description": "Human-readable explanation for binding status"
+        }
+      }
+    }
+  }
+}

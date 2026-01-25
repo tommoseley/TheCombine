@@ -1,0 +1,65 @@
+{# Workflow Build Container - Handles workflow states for document generation #}
+{# Expected: project, project_id, execution_id, doc_type_id, doc_type_name, doc_type_icon, workflow_state #}
+
+<div id="workflow-container" class="p-6 max-w-5xl mx-auto">
+    {% if workflow_state == 'paused_pgc' %}
+        {% include "public/pages/partials/_pgc_questions.html" %}
+
+    {% elif workflow_state == 'running' %}
+        {# Generating State - with polling #}
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
+            <div class="max-w-md mx-auto text-center">
+                <div class="relative mx-auto mb-6 w-16 h-16">
+                    <div class="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-700"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-violet-600 border-t-transparent animate-spin"></div>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Generating {{ doc_type_name }}</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">{{ status_message }}</p>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div class="bg-violet-600 h-2.5 rounded-full transition-all" style="width: {{ progress }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        {# Poll for updates #}
+        <div hx-get="/projects/{{ project_id }}/workflows/{{ execution_id }}/status"
+             hx-trigger="every 2s"
+             hx-target="#workflow-container"
+             hx-swap="innerHTML"></div>
+
+    {% elif workflow_state == 'complete' %}
+        {# Auto-redirect to document #}
+        <div hx-get="/projects/{{ project_id }}/documents/{{ doc_type_id }}"
+             hx-target="#main-content"
+             hx-trigger="load"
+             hx-push-url="/projects/{{ project_id }}/documents/{{ doc_type_id }}"
+             class="bg-white dark:bg-gray-800 rounded-lg border border-green-200 dark:border-green-800 p-8">
+            <div class="max-w-md mx-auto text-center">
+                <div class="mx-auto mb-6 w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <i data-lucide="check" class="w-8 h-8 text-green-600"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Document Created</h2>
+                <p class="text-gray-600 dark:text-gray-400">Loading document...</p>
+            </div>
+        </div>
+
+    {% elif workflow_state == 'failed' %}
+        {# Error #}
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-800 p-8">
+            <div class="max-w-md mx-auto text-center">
+                <div class="mx-auto mb-6 w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <i data-lucide="alert-circle" class="w-8 h-8 text-red-600"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Generation Failed</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">{{ error_message }}</p>
+                <button onclick="window.location.reload()"
+                        class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium">
+                    Try Again
+                </button>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+
