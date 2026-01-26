@@ -213,9 +213,10 @@ def _derive_exclusion_normalization(
     elif answer_label and answer_label.lower().strip() in ("no", "none", "n/a", "not required"):
         is_exclusion = True
     
-    # Derive canonical tags from question_id
-    # E.g., "EXISTING_SYSTEMS" -> ["existing", "systems", "integration"]
-    canonical_tags = _derive_canonical_tags(question_id)
+    # Derive canonical tags from question_id AND answer_label
+    # Answer-derived tags are more specific and reduce false positives
+    # E.g., MATH_SCOPE with answer "Addition, Subtraction" -> ["addition", "subtraction"]
+    canonical_tags = _derive_canonical_tags(question_id, answer_label)
     
     if is_exclusion:
         invariant_kind = "exclusion"
@@ -231,34 +232,81 @@ def _derive_exclusion_normalization(
     return invariant_kind, normalized_text, canonical_tags
 
 
-def _derive_canonical_tags(question_id: str) -> List[str]:
-    """Derive canonical tags from a question/constraint ID.
+# Generic words that appear in constraint IDs but are too common to be meaningful tags
+TAG_STOPWORDS = {
+    # Generic descriptors
+    "scope", "target", "type", "level", "needs", "requirements",
+    "platform", "kind", "mode", "style", "format", "status",
+    "count", "size", "range", "limit", "area", "zone",
+    "primary", "secondary", "main", "other", "additional",
+    "current", "new", "old", "default", "custom",
+    # Common software/domain terms that appear everywhere
+    "user", "users", "context", "data", "system", "systems",
+    "feature", "features", "app", "application", "service",
+    "project", "document", "config", "settings", "options",
+}
+
+
+def _derive_canonical_tags(question_id: str, answer_label: Optional[str] = None) -> List[str]:
+    """Derive canonical tags from question ID and answer content.
     
-    Tags are used for structural QA matching.
+    PRIORITY: Answer-derived tags take precedence over ID-derived tags.
+    Answer content is specific (e.g., "Addition, Subtraction") while
+    question IDs are generic (e.g., "MATH_SCOPE").
+    
+    Tags are used for structural QA matching. Generic words are filtered.
     
     Args:
         question_id: E.g., "EXISTING_SYSTEMS", "MATH_CONCEPTS"
+        answer_label: E.g., "Number counting, Basic addition, Basic subtraction"
         
     Returns:
-        List of lowercase tags
+        List of lowercase tags (excluding stopwords)
     """
-    # Split on underscores and convert to lowercase
-    base_tags = [t.lower() for t in question_id.split("_") if t]
+    import re
     
-    # Add semantic aliases for common constraint types
+    all_tags = []
+    
+    # 1. Extract tags from answer_label (PRIORITY - most specific)
+    if answer_label:
+        # Split on commas, "and", parentheses, common separators
+        answer_parts = re.split(r'[,;()]|\band\b', answer_label.lower())
+        for part in answer_parts:
+            # Extract meaningful words (3+ chars, not stopwords)
+            words = re.findall(r'\b[a-z]{3,}\b', part)
+            for word in words:
+                if word not in TAG_STOPWORDS and len(word) > 3:
+                    all_tags.append(word)
+    
+    # 2. Extract tags from question_id (fallback - more generic)
+    id_tags = [t.lower() for t in question_id.split("_") if t]
+    id_tags = [t for t in id_tags if t not in TAG_STOPWORDS]
+    
+    # Only use ID tags if we got nothing specific from the answer
+    # This prevents generic ID words like "math" from causing false positives
+    if not all_tags:
+        all_tags.extend(id_tags)
+    
+    # 3. Add semantic aliases for answer-derived tags only
+    # (ID-derived aliases are too broad)
     tag_aliases = {
-        "systems": ["integration", "external"],
-        "existing": ["legacy", "current"],
-        "math": ["mathematics", "calculation"],
-        "platform": ["deployment", "infrastructure"],
-        "auth": ["authentication", "security"],
-        "users": ["audience", "personas"],
+        "counting": ["count", "numbers"],
+        "addition": ["add", "plus"],
+        "subtraction": ["subtract", "minus"],
+        "accessibility": ["wcag", "a11y"],
+        "integration": ["integrations", "external"],
     }
     
-    expanded_tags = list(base_tags)
-    for tag in base_tags:
+    expanded_tags = list(all_tags)
+    for tag in all_tags:
         if tag in tag_aliases:
             expanded_tags.extend(tag_aliases[tag])
+    
+    # If all tags were filtered, this constraint can't be validated via tags
+    # The constraint will still be enforced via pinning and exclusion filtering
+    if not expanded_tags:
+        logger.debug(f"ADR-042: No tags derived for {question_id}, skipping tag-based validation")
+        return []
     
     return list(set(expanded_tags))  # Deduplicate
 

@@ -192,6 +192,13 @@ class TaskNodeExecutor(NodeExecutor):
         if bound_summary:
             context_parts.append(bound_summary)
 
+        # 2b. QA feedback from previous failed attempt (if any)
+        qa_feedback = context.context_state.get("qa_feedback")
+        if qa_feedback:
+            feedback_text = self._render_qa_feedback(qa_feedback)
+            if feedback_text:
+                context_parts.append(feedback_text)
+
         # 3. Structured context state (intake summary, project type, etc.)
         if context.context_state:
             relevant_state = {k: v for k, v in context.context_state.items()
@@ -295,6 +302,56 @@ class TaskNodeExecutor(NodeExecutor):
             f"ADR-042: Rendered {len(invariants)} bound constraints for LLM context"
         )
 
+        return "\n".join(lines)
+
+    def _render_qa_feedback(self, qa_feedback: Dict[str, Any]) -> Optional[str]:
+        """Render QA feedback for remediation context.
+        
+        Makes previous QA failures prominent so the LLM can learn from them.
+        
+        Args:
+            qa_feedback: Dict with issues, summary, source
+            
+        Returns:
+            Formatted feedback string, or None if empty
+        """
+        issues = qa_feedback.get("issues", [])
+        if not issues:
+            return None
+            
+        lines = [
+            "## Previous QA Feedback (MUST ADDRESS)",
+            "The previous generation attempt failed QA. Fix these issues:",
+            "",
+        ]
+        
+        for i, issue in enumerate(issues, 1):
+            issue_type = issue.get("type", "unknown")
+            message = issue.get("message", "No details")
+            remediation = issue.get("remediation")
+            section = issue.get("section")
+            check_id = issue.get("check_id")
+            
+            # Build issue line
+            prefix = f"{i}. "
+            if check_id:
+                prefix += f"[{check_id}] "
+            if section:
+                prefix += f"({section}) "
+                
+            lines.append(f"{prefix}{message}")
+            
+            if remediation:
+                lines.append(f"   → Fix: {remediation}")
+        
+        # Add summary if present
+        summary = qa_feedback.get("summary")
+        if summary and len(summary) > 10:
+            lines.append("")
+            lines.append(f"Summary: {summary[:500]}")
+        
+        logger.info(f"Rendered {len(issues)} QA feedback issues for remediation")
+        
         return "\n".join(lines)
 
     def _format_pgc_questions(self, produced_document: Dict[str, Any]) -> str:

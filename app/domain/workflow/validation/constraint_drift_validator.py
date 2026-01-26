@@ -24,15 +24,44 @@ from app.domain.workflow.validation.validation_result import (
 
 logger = logging.getLogger(__name__)
 
-# Patterns that indicate reopening a decision
-REOPEN_PATTERNS = [
-    r"(needs? to be decided|still needs? clarification)",
-    r"(decision required|requires? decision)",
-    r"(to be determined|tbd)",
-    r"(open question|unresolved)",
-    r"(consider (whether|if)|should we)",
-    r"(option[s]? include|alternatives? (are|include))",
-    r"(pending (decision|input))",
+# Patterns that indicate reopening a decision (open framing)
+OPEN_FRAMING_PATTERNS = [
+    r"needs? to be decided",
+    r"still needs? clarification",
+    r"decision required",
+    r"requires? decision",
+    r"to be determined",
+    r"\btbd\b",
+    r"open question",
+    r"unresolved",
+    r"should we",
+    r"do we need",
+    r"options? include",
+    r"alternatives? (are|include)",
+    r"pending (decision|input)",
+    r"choose between",
+    r"either[/\s]or",
+    r"consider (whether|if)",
+    r"evaluate options",
+    r"which .+ (should|to use)",
+]
+
+# Patterns that indicate finality (decision is settled)
+FINALITY_PATTERNS = [
+    r"(is|are|will be) (selected|chosen|decided)",
+    r"(has been|was) (selected|chosen|decided)",
+    r"out of scope",
+    r"not in scope",
+    r"excluded",
+    r"will (use|be)",
+    r"must (use|be)",
+    r"(selected|chosen):?",
+    r"decision:? ",
+    r"resolved to",
+    r"confirmed:?",
+    r"final:?",
+    r"not required",
+    r"not needed",
 ]
 
 # Patterns that indicate contradiction
@@ -41,6 +70,9 @@ CONTRADICTION_PATTERNS = [
     r"(alternative(ly)?|could also|might consider)",
     r"(override|bypass|ignore)",
 ]
+
+# Legacy alias for backward compatibility
+REOPEN_PATTERNS = OPEN_FRAMING_PATTERNS
 
 
 class ConstraintDriftValidator:
@@ -96,14 +128,12 @@ class ConstraintDriftValidator:
             if contradiction:
                 violations.append(contradiction)
 
-            # QA-PGC-002: Check for reopened decisions
-            reopened = self._check_reopened_decision(
-                artifact=artifact,
-                artifact_text=artifact_text,
-                invariant=invariant,
-            )
-            if reopened:
-                violations.append(reopened)
+            # QA-PGC-002: DISABLED - requires semantic understanding
+            # Keyword matching can't distinguish:
+            # - "How many family members?" (valid follow-up)
+            # - "Should we target classroom instead of family?" (reopening)
+            # TODO: Implement as LLM-based semantic check (Layer 2 QA)
+            # reopened = self._check_reopened_decision(...)
 
             # QA-PGC-003: Check constraint is stated
             omission = self._check_constraint_stated(
@@ -199,124 +229,182 @@ class ConstraintDriftValidator:
     ) -> Optional[DriftViolation]:
         """QA-PGC-002: Check if resolved clarification appears as open decision.
 
-        ADR-042 Fix #4: Section-aware validation.
+        STRUCTURAL CHECK ONLY - does not scan global text.
         
-        FAIL if excluded topic appears in decision-bearing sections:
+        Checks only decision-bearing sections:
         - early_decision_points[].decision_area or options
-        - stakeholder_questions[] that ask "should we" about the topic
-        - recommendations_for_pm[] that propose investigating the topic
+        - stakeholder_questions[] with uncertainty framing
+        - unknowns[] that question the bound topic
+        - recommendations_for_pm[] that propose investigating (exclusions only)
         
-        PASS if topic appears only in compliant sections:
-        - known_constraints[] or mvp_guardrails[] as exclusion
-        - risks[] as compliance note
+        PASS if topic appears elsewhere (summary, assumptions, known_constraints).
+        Restatement as fact is allowed and expected.
         """
-        clarification_id = invariant.get("id", "UNKNOWN")
-        user_answer_label = invariant.get("user_answer_label", "")
-        invariant_kind = invariant.get("invariant_kind")
-        
-        # Get canonical tags (ADR-042 Fix #3) or derive from question
+        # Get canonical tags - if none, skip tag-based validation
         canonical_tags = invariant.get("canonical_tags", [])
         if not canonical_tags:
-            question_text = invariant.get("text", "").lower()
-            canonical_tags = self._extract_topic_words(question_text)
-        
-        if not canonical_tags:
+            # No tags means this constraint isn't checkable via tags
+            # It's still enforced via pinning and filtering
             return None
         
-        # Only check exclusions for section-aware reopening
-        if invariant_kind != "exclusion":
-            return self._check_reopened_simple(artifact_text, invariant, canonical_tags)
-        
-        # Check decision-bearing sections for exclusion violations
+        # ALL constraints use structural checking - no global text search
         return self._check_decision_bearing_sections(artifact, invariant, canonical_tags)
-    
-    def _check_reopened_simple(
-        self,
-        artifact_text: str,
-        invariant: Dict[str, Any],
-        topic_words: List[str],
-    ) -> Optional[DriftViolation]:
-        """Simple reopening check for non-exclusion constraints."""
-        clarification_id = invariant.get("id", "UNKNOWN")
-        user_answer_label = invariant.get("user_answer_label", "")
-        
-        for topic in topic_words:
-            for pattern in REOPEN_PATTERNS:
-                topic_pattern = f"{topic}.{{0,100}}{pattern}|{pattern}.{{0,100}}{topic}"
-                if re.search(topic_pattern, artifact_text, re.IGNORECASE):
-                    return DriftViolation(
-                        check_id="QA-PGC-002",
-                        severity="ERROR",
-                        clarification_id=clarification_id,
-                        message=f"Artifact reopens '{topic}' as an open decision, but it was already resolved to '{user_answer_label}'",
-                        remediation=f"Remove decision language around '{topic}'. The user already decided: {user_answer_label}",
-                    )
-        return None
     def _check_decision_bearing_sections(
         self,
         artifact: Dict[str, Any],
         invariant: Dict[str, Any],
         canonical_tags: List[str],
     ) -> Optional[DriftViolation]:
-        """Check decision-bearing sections for exclusion constraint violations."""
+        """Check decision-bearing sections for constraint violations.
+        
+        STRUCTURAL + FRAMING-AWARE validation:
+        - Only checks decision-bearing sections, not global text
+        - Fails only if BOTH topic AND open framing are in the same item
+        - Passes if topic is restated as fact elsewhere
+        
+        Allowed: "The app is for home use by parents." (restatement)
+        Allowed: "Platform is web (selected)." (finality)
+        Not allowed: "Choose platform: web/mobile/desktop." (open framing)
+        """
         clarification_id = invariant.get("id", "UNKNOWN")
         user_answer_label = invariant.get("user_answer_label", "")
-        normalized_text = invariant.get("normalized_text", f"No {clarification_id}")
+        normalized_text = invariant.get("normalized_text", f"{clarification_id}")
+        invariant_kind = invariant.get("invariant_kind", "requirement")
         
         tags_lower = [t.lower() for t in canonical_tags]
+        answer_lower = user_answer_label.lower() if user_answer_label else ""
         
-        # Check early_decision_points
+        # Check early_decision_points - applies to ALL constraints
+        # A decision point about a bound topic is always a violation
         decision_points = artifact.get("early_decision_points", [])
         for dp in decision_points:
-            dp_text = json.dumps(dp).lower() if isinstance(dp, dict) else str(dp).lower()
-            for tag in tags_lower:
-                if tag in dp_text:
-                    decision_area = dp.get("decision_area", "") if isinstance(dp, dict) else ""
-                    options = dp.get("options", []) if isinstance(dp, dict) else []
-                    options_text = json.dumps(options).lower() if options else ""
-                    
-                    if tag in decision_area.lower() or tag in options_text:
-                        return DriftViolation(
-                            check_id="QA-PGC-002",
-                            severity="ERROR",
-                            clarification_id=clarification_id,
-                            message=f"early_decision_points reopens '{tag}' as undecided, but constraint resolved: {normalized_text}",
-                            remediation=f"Remove this decision point. It was already resolved: {user_answer_label}",
-                        )
+            if isinstance(dp, dict):
+                decision_area = dp.get("decision_area", "").lower()
+                options = dp.get("options", [])
+                options_text = json.dumps(options).lower() if options else ""
+                
+                for tag in tags_lower:
+                    # Check if decision_area explicitly mentions the bound topic
+                    if tag in decision_area:
+                        # This is presenting the bound topic as needing a decision
+                        if not self._has_finality_language(decision_area, answer_lower):
+                            return DriftViolation(
+                                check_id="QA-PGC-002",
+                                severity="ERROR",
+                                clarification_id=clarification_id,
+                                message=f"early_decision_points[].decision_area reopens '{tag}' as undecided",
+                                remediation=f"Remove this decision point. Already resolved: {user_answer_label}",
+                            )
         
-        # Check stakeholder_questions for "should we" framing
-        stakeholder_questions = artifact.get("stakeholder_questions", [])
-        for sq in stakeholder_questions:
-            sq_text = sq.get("question", "") if isinstance(sq, dict) else str(sq)
-            sq_lower = sq_text.lower()
-            
-            for tag in tags_lower:
-                if tag in sq_lower and self._is_reopening_question(sq_lower, tag):
-                    return DriftViolation(
-                        check_id="QA-PGC-002",
-                        severity="ERROR",
-                        clarification_id=clarification_id,
-                        message=f"stakeholder_questions asks about '{tag}' as if undecided, but constraint resolved: {normalized_text}",
-                        remediation=f"Remove or rephrase this question. The decision was already made: {user_answer_label}",
-                    )
+        # Check unknowns - applies to ALL constraints
+        unknowns = artifact.get("unknowns", [])
+        for unk in unknowns:
+            if isinstance(unk, dict):
+                question = unk.get("question", "").lower()
+                
+                for tag in tags_lower:
+                    if tag in question:
+                        # Check if it's questioning the bound constraint
+                        if self._is_uncertainty_about_topic(question, tag) and not self._has_finality_language(question, answer_lower):
+                            return DriftViolation(
+                                check_id="QA-PGC-002",
+                                severity="ERROR",
+                                clarification_id=clarification_id,
+                                message=f"unknowns[].question presents '{tag}' as uncertain, but was resolved",
+                                remediation=f"Remove or rephrase. Already resolved: {user_answer_label}",
+                            )
         
-        # Check recommendations_for_pm for investigation proposals
-        recommendations = artifact.get("recommendations_for_pm", [])
-        for rec in recommendations:
-            rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
-            rec_lower = rec_text.lower()
-            
-            for tag in tags_lower:
-                if tag in rec_lower and self._is_investigation_proposal(rec_lower, tag):
-                    return DriftViolation(
-                        check_id="QA-PGC-002",
-                        severity="ERROR",
-                        clarification_id=clarification_id,
-                        message=f"recommendations_for_pm proposes investigating '{tag}', but this was excluded: {normalized_text}",
-                        remediation=f"Remove this recommendation. The topic was explicitly excluded: {user_answer_label}",
-                    )
+        # Check stakeholder_questions - for exclusions with "should we" framing
+        if invariant_kind == "exclusion":
+            stakeholder_questions = artifact.get("stakeholder_questions", [])
+            for sq in stakeholder_questions:
+                sq_text = sq.get("question", "") if isinstance(sq, dict) else str(sq)
+                sq_lower = sq_text.lower()
+                
+                for tag in tags_lower:
+                    if tag in sq_lower:
+                        if self._is_reopening_question(sq_lower, tag):
+                            return DriftViolation(
+                                check_id="QA-PGC-002",
+                                severity="ERROR",
+                                clarification_id=clarification_id,
+                                message=f"stakeholder_questions asks about excluded '{tag}'",
+                                remediation=f"Remove. Topic explicitly excluded: {user_answer_label}",
+                            )
+        
+        # Check recommendations_for_pm - only for exclusions proposing investigation
+        if invariant_kind == "exclusion":
+            recommendations = artifact.get("recommendations_for_pm", [])
+            for rec in recommendations:
+                rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
+                rec_lower = rec_text.lower()
+                
+                for tag in tags_lower:
+                    if tag in rec_lower:
+                        if self._is_investigation_proposal(rec_lower, tag):
+                            return DriftViolation(
+                                check_id="QA-PGC-002",
+                                severity="ERROR",
+                                clarification_id=clarification_id,
+                                message=f"recommendations_for_pm proposes investigating excluded '{tag}'",
+                                remediation=f"Remove. Topic explicitly excluded: {user_answer_label}",
+                            )
         
         return None
+    
+    def _is_uncertainty_about_topic(self, text: str, topic: str) -> bool:
+        """Check if text expresses uncertainty about a topic."""
+        uncertainty_patterns = [
+            f"what.*{topic}", f"which.*{topic}", f"how.*{topic}",
+            f"{topic}.*unclear", f"{topic}.*unknown", f"{topic}.*tbd",
+            f"determine.*{topic}", f"decide.*{topic}", f"confirm.*{topic}",
+        ]
+        for pattern in uncertainty_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        return False
+    
+    def _has_open_framing_without_finality(
+        self,
+        text: str,
+        topic: str,
+        bound_answer: str,
+    ) -> bool:
+        """Check if text has open framing without finality language.
+        
+        Returns True only if:
+        - Open framing patterns are found near the topic
+        - AND no finality patterns are found
+        - AND the bound answer is not mentioned
+        """
+        # Check for open framing patterns
+        has_open_framing = False
+        for pattern in OPEN_FRAMING_PATTERNS:
+            if re.search(pattern, text, re.IGNORECASE):
+                has_open_framing = True
+                break
+        
+        if not has_open_framing:
+            return False
+        
+        # Check for finality language
+        if self._has_finality_language(text, bound_answer):
+            return False
+        
+        return True
+    
+    def _has_finality_language(self, text: str, bound_answer: str) -> bool:
+        """Check if text contains finality language or the bound answer."""
+        # Check if bound answer is mentioned
+        if bound_answer and bound_answer in text:
+            return True
+        
+        # Check for finality patterns
+        for pattern in FINALITY_PATTERNS:
+            if re.search(pattern, text, re.IGNORECASE):
+                return True
+        
+        return False
     def _is_reopening_question(self, question: str, topic: str) -> bool:
         """Check if a stakeholder question reopens a decision vs confirms it's out of scope."""
         reopening_patterns = [

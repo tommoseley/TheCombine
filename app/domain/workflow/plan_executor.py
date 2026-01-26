@@ -798,8 +798,12 @@ class PlanExecutor:
                 result.produced_document, state
             )
             
+            # ADR-042: Filter excluded topics from recommendations
+            # Prevents boilerplate recs from violating exclusion constraints
+            filtered_document = self._filter_excluded_topics(pinned_document, state)
+            
             state.update_context_state({
-                f"document_{produces_key}": pinned_document,
+                f"document_{produces_key}": filtered_document,
                 "last_produced_document": pinned_document,
             })
             logger.info(f"Stored produced document as document_{produces_key}")
@@ -917,6 +921,87 @@ class PlanExecutor:
                 f"QA failed, incremented retry for {state.generating_node_id} "
                 f"to {retry_count}"
             )
+            
+            # Store QA feedback in context_state for remediation node
+            # This enables the LLM to learn from the failure
+            qa_feedback = self._extract_qa_feedback(result)
+            if qa_feedback:
+                state.update_context_state({"qa_feedback": qa_feedback})
+                logger.info(f"Stored QA feedback for remediation: {len(qa_feedback.get('issues', []))} issues")
+        
+        # Clear QA feedback on success (to prevent stale feedback on subsequent runs)
+        elif current_node.type == NodeType.QA and result.outcome == "success":
+            if state.context_state.get("qa_feedback"):
+                state.context_state.pop("qa_feedback", None)
+                logger.debug("Cleared QA feedback after successful validation")
+
+    def _extract_qa_feedback(self, result: NodeResult) -> Optional[Dict[str, Any]]:
+        """Extract actionable QA feedback from failed result.
+        
+        Builds a structured feedback object that can be included in the
+        remediation context to help the LLM understand what went wrong.
+        
+        Args:
+            result: The failed QA NodeResult
+            
+        Returns:
+            Dict with issues, summary, and remediation hints, or None
+        """
+        if not result.metadata:
+            return None
+            
+        feedback = {
+            "issues": [],
+            "summary": "",
+            "source": result.metadata.get("validation_source", "qa"),
+        }
+        
+        # Extract drift validation errors (ADR-042)
+        drift_errors = result.metadata.get("drift_errors", [])
+        for err in drift_errors:
+            feedback["issues"].append({
+                "type": "constraint_drift",
+                "check_id": err.get("check_id"),
+                "message": err.get("message"),
+                "remediation": err.get("remediation"),
+            })
+        
+        # Extract code-based validation errors
+        validation_errors = result.metadata.get("validation_errors", [])
+        for err in validation_errors:
+            feedback["issues"].append({
+                "type": "validation",
+                "check_id": err.get("check_id"),
+                "message": err.get("message"),
+            })
+        
+        # Extract LLM QA errors (list of strings or dicts)
+        qa_errors = result.metadata.get("errors", [])
+        for err in qa_errors:
+            if isinstance(err, dict):
+                feedback["issues"].append({
+                    "type": "semantic_qa",
+                    "severity": err.get("severity", "error"),
+                    "section": err.get("section"),
+                    "message": err.get("message"),
+                })
+            elif isinstance(err, str):
+                feedback["issues"].append({
+                    "type": "semantic_qa",
+                    "message": err,
+                })
+        
+        # Extract feedback summary
+        qa_feedback = result.metadata.get("feedback", {})
+        if isinstance(qa_feedback, dict):
+            feedback["summary"] = qa_feedback.get("llm_feedback", "")
+        elif isinstance(qa_feedback, str):
+            feedback["summary"] = qa_feedback
+        
+        if not feedback["issues"]:
+            return None
+            
+        return feedback
 
     def _find_generating_node(
         self,
@@ -1075,16 +1160,16 @@ class PlanExecutor:
         
         ADR-042 Fix #2: This runs AFTER generation, BEFORE QA.
         
-        The LLM may forget to include binding constraints in known_constraints.
-        This method mechanically injects them, making QA-PGC-003/004 structural
-        rather than relying on LLM memory.
+        Strategy: Build canonical pinned constraints from invariants, then
+        REMOVE any LLM-generated constraints that duplicate them. This ensures
+        consistent schema and no duplicates.
         
         Args:
             document: The produced document (will be copied, not mutated)
             state: Workflow state containing pgc_invariants
             
         Returns:
-            Document with invariants pinned into known_constraints
+            Document with clean known_constraints (pinned + non-duplicate LLM)
         """
         import copy
         
@@ -1095,55 +1180,199 @@ class PlanExecutor:
         # Work on a copy to avoid mutating the original
         pinned = copy.deepcopy(document)
         
-        # Get or create known_constraints
-        known_constraints = pinned.get("known_constraints", [])
-        if not isinstance(known_constraints, list):
-            known_constraints = []
+        # Get existing LLM-generated constraints
+        llm_constraints = pinned.get("known_constraints", [])
+        if not isinstance(llm_constraints, list):
+            llm_constraints = []
         
-        # Build set of existing constraint texts for deduplication
-        existing_texts = set()
-        for kc in known_constraints:
-            if isinstance(kc, str):
-                existing_texts.add(kc.lower().strip())
-            elif isinstance(kc, dict):
-                existing_texts.add(kc.get("text", "").lower().strip())
+        # Build canonical pinned constraints from invariants
+        pinned_constraints = []
+        pinned_keywords = set()  # Keywords to check for duplicates
         
-        # Pin each invariant into known_constraints
-        pinned_count = 0
         for inv in invariants:
             constraint_id = inv.get("id", "UNKNOWN")
             answer_label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
-            question_text = inv.get("question_text", "")
             
-            # Build constraint text
-            # Format: "[CONSTRAINT_ID] answer_label" or just answer_label
-            constraint_text = f"[{constraint_id}] {answer_label}"
-            
-            # Check if already present (fuzzy match on answer)
-            if answer_label.lower().strip() in existing_texts:
-                continue
-            if constraint_text.lower().strip() in existing_texts:
+            if not answer_label:
                 continue
             
-            # Add as structured constraint
-            known_constraints.append({
+            # Use normalized_text if available, otherwise clean format
+            normalized = inv.get("normalized_text")
+            constraint_text = normalized if normalized else answer_label
+            
+            # Add as structured constraint with clean text
+            pinned_constraints.append({
                 "text": constraint_text,
-                "source": "pgc_binding",
+                "source": "user_clarification",
                 "constraint_id": constraint_id,
                 "binding": True,
             })
-            existing_texts.add(constraint_text.lower().strip())
-            pinned_count += 1
+            
+            # Build keywords for duplicate detection
+            # Include answer label words, normalized text words, and constraint ID
+            for word in answer_label.lower().split():
+                if len(word) > 3:  # Skip short words
+                    pinned_keywords.add(word)
+            if normalized:
+                for word in normalized.lower().split():
+                    if len(word) > 3:
+                        pinned_keywords.add(word)
+            # Add constraint ID parts (e.g., PLATFORM -> platform, TARGET -> target)
+            for part in constraint_id.split("_"):
+                if len(part) > 2:
+                    pinned_keywords.add(part.lower())
         
-        pinned["known_constraints"] = known_constraints
+        def _is_duplicate_of_pinned(constraint: Any) -> bool:
+            """Check if LLM constraint duplicates a pinned constraint."""
+            # Extract text from constraint
+            if isinstance(constraint, str):
+                text = constraint.lower()
+            elif isinstance(constraint, dict):
+                # Check multiple fields where the constraint might be
+                text = " ".join([
+                    str(constraint.get("text", "")),
+                    str(constraint.get("constraint", "")),
+                    str(constraint.get("description", "")),
+                ]).lower()
+            else:
+                return False
+            
+            # Count how many pinned keywords appear in this constraint
+            matches = sum(1 for kw in pinned_keywords if kw in text)
+            
+            # If 2+ keyword matches, likely a duplicate
+            return matches >= 2
         
-        if pinned_count > 0:
-            logger.info(
-                f"ADR-042: Pinned {pinned_count} binding invariants into known_constraints "
-                f"(total: {len(known_constraints)})"
-            )
+        # Filter out LLM constraints that duplicate pinned ones
+        filtered_llm = []
+        removed_count = 0
+        for kc in llm_constraints:
+            if _is_duplicate_of_pinned(kc):
+                removed_count += 1
+                logger.debug(f"ADR-042: Removed duplicate LLM constraint: {kc}")
+            else:
+                filtered_llm.append(kc)
+        
+        # Final list: pinned constraints first, then filtered LLM constraints
+        final_constraints = pinned_constraints + filtered_llm
+        pinned["known_constraints"] = final_constraints
+        
+        logger.info(
+            f"ADR-042: Pinned {len(pinned_constraints)} binding invariants, "
+            f"removed {removed_count} duplicates, kept {len(filtered_llm)} LLM constraints "
+            f"(total: {len(final_constraints)})"
+        )
         
         return pinned
+
+    def _filter_excluded_topics(
+        self,
+        document: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> Dict[str, Any]:
+        """Filter recommendations and decision points mentioning excluded topics.
+        
+        ADR-042: Mechanical post-processing to remove boilerplate content
+        that violates exclusion constraints. Runs after generation, before QA.
+        
+        Args:
+            document: The produced document (will be copied, not mutated)
+            state: Workflow state containing pgc_invariants
+            
+        Returns:
+            Document with excluded topics filtered out
+        """
+        import copy
+        import json
+        
+        invariants = state.context_state.get("pgc_invariants", [])
+        
+        # Get exclusion invariants with their canonical tags
+        exclusions = []
+        for inv in invariants:
+            if inv.get("invariant_kind") == "exclusion":
+                tags = inv.get("canonical_tags", [])
+                if tags:
+                    exclusions.append({
+                        "id": inv.get("id", "UNKNOWN"),
+                        "tags": [t.lower() for t in tags],
+                    })
+        
+        if not exclusions:
+            return document
+        
+        # Work on a copy
+        filtered = copy.deepcopy(document)
+        removed_count = 0
+        
+        # Filter recommendations_for_pm
+        recommendations = filtered.get("recommendations_for_pm", [])
+        if recommendations:
+            original_count = len(recommendations)
+            filtered_recs = []
+            for rec in recommendations:
+                rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
+                rec_lower = rec_text.lower()
+                
+                # Check if any exclusion tag is mentioned
+                should_remove = False
+                for excl in exclusions:
+                    for tag in excl["tags"]:
+                        if tag in rec_lower:
+                            logger.debug(f"ADR-042: Removing recommendation mentioning excluded '{tag}'")
+                            should_remove = True
+                            break
+                    if should_remove:
+                        break
+                
+                if not should_remove:
+                    filtered_recs.append(rec)
+            
+            filtered["recommendations_for_pm"] = filtered_recs
+            removed_count += original_count - len(filtered_recs)
+        
+        # Filter early_decision_points that overlap ANY binding invariant
+        # Decision points are for unresolved items - bound constraints are resolved
+        all_bindings = []
+        for inv in invariants:
+            tags = inv.get("canonical_tags", [])
+            if tags:
+                all_bindings.append({
+                    "id": inv.get("id", "UNKNOWN"),
+                    "tags": [t.lower() for t in tags],
+                    "kind": inv.get("invariant_kind", "requirement"),
+                })
+        
+        decision_points = filtered.get("early_decision_points", [])
+        if decision_points and all_bindings:
+            original_count = len(decision_points)
+            filtered_dps = []
+            for dp in decision_points:
+                dp_text = json.dumps(dp).lower() if isinstance(dp, dict) else str(dp).lower()
+                
+                should_remove = False
+                for binding in all_bindings:
+                    for tag in binding["tags"]:
+                        if tag in dp_text:
+                            logger.debug(
+                                f"ADR-042: Removing decision point overlapping bound "
+                                f"'{binding['id']}' ({binding['kind']})"
+                            )
+                            should_remove = True
+                            break
+                    if should_remove:
+                        break
+                
+                if not should_remove:
+                    filtered_dps.append(dp)
+            
+            filtered["early_decision_points"] = filtered_dps
+            removed_count += original_count - len(filtered_dps)
+        
+        if removed_count > 0:
+            logger.info(f"ADR-042: Filtered {removed_count} items mentioning excluded topics")
+        
+        return filtered
 
     def _promote_pgc_invariants_to_document(
         self,

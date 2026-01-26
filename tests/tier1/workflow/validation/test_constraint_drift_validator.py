@@ -24,6 +24,7 @@ class TestConstraintDriftValidator:
             "priority": "must",
             "answer_type": "single_choice",
             "constraint_kind": "selection",
+            "invariant_kind": "requirement",
             "choices": [
                 {"id": "web", "label": "Web browser"},
                 {"id": "mobile", "label": "Mobile application"},
@@ -32,6 +33,8 @@ class TestConstraintDriftValidator:
             "user_answer_label": "Web browser",
             "resolved": True,
             "binding": True,
+            # ADR-042: canonical_tags for structural validation
+            "canonical_tags": ["web", "browser", "mobile", "desktop"],
             "binding_source": "priority",
             "binding_reason": "must-priority question with resolved answer",
         }
@@ -103,17 +106,35 @@ class TestQAPGC001Contradiction(TestConstraintDriftValidator):
         assert result.passed is True
 
 
+@pytest.mark.skip(reason="QA-PGC-002 disabled - requires semantic LLM-based checking")
 class TestQAPGC002ReopenedDecision(TestConstraintDriftValidator):
     """Tests for QA-PGC-002: Reopened decision detection.
 
-    Detection uses regex patterns to find "decision required", "needs to be decided",
+    DISABLED: QA-PGC-002 keyword matching causes false positives.
+    Semantic understanding required to distinguish:
+    - "How many family members?" (valid follow-up)
+    - "Should we target classroom instead?" (reopening)
+    
+    TODO: Re-enable when Layer 2 LLM QA is implemented.
+    
+    Original detection used regex patterns to find "decision required", "needs to be decided",
     "options include", etc. near topic words from the question.
     """
 
-    def test_decision_required_language_fails(self, validator, web_platform_invariant):
-        """Using 'decision required' near topic should fail QA-PGC-002."""
+    def test_decision_required_in_decision_point_fails(self, validator, web_platform_invariant):
+        """Decision point with 'decision required' for bound topic should fail QA-PGC-002.
+        
+        ADR-042: Structural check - only decision-bearing sections trigger failures.
+        Summary mentioning 'decision required' is allowed (restatement as fact).
+        """
         artifact = {
-            "summary": "The platform decision required before development",
+            "summary": "Web browser application",
+            "early_decision_points": [
+                {
+                    "decision_area": "Platform selection - web vs mobile",
+                    "options": ["Web browser", "Mobile app"],
+                }
+            ],
             "known_constraints": [{"text": "web browser"}],
         }
 
@@ -204,14 +225,19 @@ class TestQAPGC004Traceability(TestConstraintDriftValidator):
 class TestIntegrationScenarios(TestConstraintDriftValidator):
     """Integration tests matching WS-ADR-042-001 scenarios."""
 
+    @pytest.mark.skip(reason="QA-PGC-002 disabled - requires semantic LLM checking")
     def test_scenario_1_platform_reopened(self, validator, web_platform_invariant):
-        """Scenario 1: Reopening platform decision should fail QA-PGC-002."""
+        """Scenario 1: Reopening platform decision should fail QA-PGC-002.
+        
+        DISABLED: See TestQAPGC002ReopenedDecision class.
+        ADR-042: Structural check - decision_area containing bound topic triggers failure.
+        """
         artifact = {
-            "summary": "The target platform needs to be decided before development",
+            "summary": "Web browser application",
             "early_decision_points": [
                 {
-                    "topic": "Platform Selection",
-                    "description": "Decision required for platform",
+                    "decision_area": "Web vs Mobile platform choice",
+                    "options": ["Web browser", "Mobile native", "Desktop"],
                 }
             ],
             "known_constraints": [{"text": "web browser"}],
@@ -219,7 +245,7 @@ class TestIntegrationScenarios(TestConstraintDriftValidator):
 
         result = validator.validate(artifact, [web_platform_invariant])
 
-        # Should fail due to reopening platform decision
+        # Should fail due to reopening platform decision in decision_area
         assert result.passed is False
         errors = [v for v in result.violations if v.check_id == "QA-PGC-002"]
         assert len(errors) >= 1
