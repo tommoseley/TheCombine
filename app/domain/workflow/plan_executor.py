@@ -844,6 +844,11 @@ class PlanExecutor:
             generating_node_id = self._find_generating_node(state, plan)
             if generating_node_id:
                 state.generating_node_id = generating_node_id
+                current_retries = state.get_retry_count(generating_node_id)
+                logger.info(
+                    f"Circuit breaker check: {generating_node_id} has {current_retries} retries "
+                    f"(threshold: 2)"
+                )
 
         # Use EdgeRouter to determine next node
         router = EdgeRouter(plan)
@@ -886,6 +891,18 @@ class PlanExecutor:
             gate_outcome = router.get_gate_outcome(next_node_id)
             if not gate_outcome:
                 gate_outcome = result.metadata.get("gate_outcome")
+
+            # Detect circuit breaker trigger
+            if (
+                current_node.type == NodeType.QA
+                and result.outcome == "failed"
+                and terminal_outcome == "blocked"
+            ):
+                retry_count = state.get_retry_count(state.generating_node_id) if state.generating_node_id else 0
+                logger.warning(
+                    f"CIRCUIT BREAKER TRIPPED: QA failed {retry_count} times for "
+                    f"{state.generating_node_id}, routing to {next_node_id}"
+                )
 
             state.current_node_id = next_node_id
             state.set_completed(
@@ -1024,8 +1041,12 @@ class PlanExecutor:
     ) -> Optional[str]:
         """Find the generating node for QA retry tracking.
 
-        Looks back in execution history to find the last task node
-        that generated content being QA'd.
+        Returns a STABLE identifier for the QA loop to track retries correctly.
+
+        FIX: Previously returned the "last task node" which changed from
+        "generation" to "remediation" after each retry, resetting the counter.
+        Now returns the FIRST task node that produces the document being QA'd,
+        giving a stable ID for the entire QA loop.
 
         Args:
             state: Current execution state
@@ -1034,8 +1055,17 @@ class PlanExecutor:
         Returns:
             Node ID of generating node or None
         """
-        # Look back through history for the last task node
-        for execution in reversed(state.node_history):
+        # Find the FIRST task node that produces content (stable for retry tracking)
+        # This ensures retries are counted correctly across generation -> remediation cycles
+        for execution in state.node_history:  # Forward order, not reversed
+            node = plan.get_node(execution.node_id)
+            if node and node.type == NodeType.TASK:
+                # Check if this node produces something (is a generating node)
+                if hasattr(node, 'produces') and node.produces:
+                    return execution.node_id
+
+        # Fallback: return first task node
+        for execution in state.node_history:
             node = plan.get_node(execution.node_id)
             if node and node.type == NodeType.TASK:
                 return execution.node_id
