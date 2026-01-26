@@ -1,15 +1,18 @@
-"""Constraint drift validator for document workflow.
+"""Constraint drift validator for document workflow (Layer 1 - Mechanical).
 
 Validates generated artifacts against bound constraints (pgc_invariants)
 to detect constraint drift per ADR-042.
 
-QA Check IDs:
+Layer 1 QA Check IDs (Mechanical):
 - QA-PGC-001 (ERROR): Artifact must not contradict resolved clarifications
-- QA-PGC-002 (ERROR): Resolved clarifications must not appear as open decisions
 - QA-PGC-003 (WARNING): Bound constraints must be stated or implied in artifact
 - QA-PGC-004 (WARNING): Bound constraints should be traceable in known_constraints
 
-Per ADR-042 and WS-ADR-042-001 Phase 5.
+Layer 2 QA Check (Semantic - handled by qa.py._run_semantic_qa):
+- QA-PGC-002: Resolved clarifications must not appear as open decisions
+  (Requires LLM-based semantic understanding to distinguish follow-up vs reopening)
+
+Per ADR-042, WS-ADR-042-001, and WS-SEMANTIC-QA-001.
 """
 
 import json
@@ -24,46 +27,6 @@ from app.domain.workflow.validation.validation_result import (
 
 logger = logging.getLogger(__name__)
 
-# Patterns that indicate reopening a decision (open framing)
-OPEN_FRAMING_PATTERNS = [
-    r"needs? to be decided",
-    r"still needs? clarification",
-    r"decision required",
-    r"requires? decision",
-    r"to be determined",
-    r"\btbd\b",
-    r"open question",
-    r"unresolved",
-    r"should we",
-    r"do we need",
-    r"options? include",
-    r"alternatives? (are|include)",
-    r"pending (decision|input)",
-    r"choose between",
-    r"either[/\s]or",
-    r"consider (whether|if)",
-    r"evaluate options",
-    r"which .+ (should|to use)",
-]
-
-# Patterns that indicate finality (decision is settled)
-FINALITY_PATTERNS = [
-    r"(is|are|will be) (selected|chosen|decided)",
-    r"(has been|was) (selected|chosen|decided)",
-    r"out of scope",
-    r"not in scope",
-    r"excluded",
-    r"will (use|be)",
-    r"must (use|be)",
-    r"(selected|chosen):?",
-    r"decision:? ",
-    r"resolved to",
-    r"confirmed:?",
-    r"final:?",
-    r"not required",
-    r"not needed",
-]
-
 # Patterns that indicate contradiction
 CONTRADICTION_PATTERNS = [
     r"(instead of|rather than|not .+? but)",
@@ -71,21 +34,20 @@ CONTRADICTION_PATTERNS = [
     r"(override|bypass|ignore)",
 ]
 
-# Legacy alias for backward compatibility
-REOPEN_PATTERNS = OPEN_FRAMING_PATTERNS
-
 
 class ConstraintDriftValidator:
-    """Validates artifacts against bound constraints from PGC.
+    """Validates artifacts against bound constraints from PGC (Layer 1 - Mechanical).
 
     This validator runs as part of QA to detect when generated artifacts
-    drift from user-provided binding constraints.
+    drift from user-provided binding constraints using mechanical checks.
 
-    Drift includes:
-    - Direct contradiction of bound values
-    - Reopening resolved decisions as open questions
-    - Silently omitting bound constraints
-    - Missing traceability in known_constraints
+    Layer 1 drift detection includes:
+    - Direct contradiction of bound values (QA-PGC-001)
+    - Silently omitting bound constraints (QA-PGC-003)
+    - Missing traceability in known_constraints (QA-PGC-004)
+
+    Note: QA-PGC-002 (reopened decisions) requires semantic understanding
+    and is handled by Layer 2 semantic QA in qa.py._run_semantic_qa().
     """
 
     def validate(
@@ -117,9 +79,7 @@ class ConstraintDriftValidator:
         known_constraints = self._extract_constraints(artifact)
 
         for invariant in invariants:
-            clarification_id = invariant.get("id", "UNKNOWN")
-
-            # QA-PGC-001: Check for contradictions
+            # QA-PGC-001: Check for contradictions (mechanical)
             contradiction = self._check_contradiction(
                 artifact=artifact,
                 artifact_text=artifact_text,
@@ -128,14 +88,13 @@ class ConstraintDriftValidator:
             if contradiction:
                 violations.append(contradiction)
 
-            # QA-PGC-002: DISABLED - requires semantic understanding
-            # Keyword matching can't distinguish:
+            # QA-PGC-002: HANDLED BY LAYER 2 SEMANTIC QA
+            # Keyword matching cannot distinguish:
             # - "How many family members?" (valid follow-up)
             # - "Should we target classroom instead of family?" (reopening)
-            # TODO: Implement as LLM-based semantic check (Layer 2 QA)
-            # reopened = self._check_reopened_decision(...)
+            # See qa.py._run_semantic_qa() and WS-SEMANTIC-QA-001
 
-            # QA-PGC-003: Check constraint is stated
+            # QA-PGC-003: Check constraint is stated (mechanical)
             omission = self._check_constraint_stated(
                 artifact_text=artifact_text,
                 invariant=invariant,
@@ -143,7 +102,7 @@ class ConstraintDriftValidator:
             if omission:
                 violations.append(omission)
 
-            # QA-PGC-004: Check traceability in known_constraints
+            # QA-PGC-004: Check traceability in known_constraints (mechanical)
             traceability = self._check_traceability(
                 known_constraints=known_constraints,
                 invariant=invariant,
@@ -161,6 +120,7 @@ class ConstraintDriftValidator:
         )
 
         return DriftValidationResult(passed=passed, violations=violations)
+
     def _check_contradiction(
         self,
         artifact: Dict[str, Any],
@@ -221,221 +181,7 @@ class ConstraintDriftValidator:
                     )
 
         return None
-    def _check_reopened_decision(
-        self,
-        artifact: Dict[str, Any],
-        artifact_text: str,
-        invariant: Dict[str, Any],
-    ) -> Optional[DriftViolation]:
-        """QA-PGC-002: Check if resolved clarification appears as open decision.
 
-        STRUCTURAL CHECK ONLY - does not scan global text.
-        
-        Checks only decision-bearing sections:
-        - early_decision_points[].decision_area or options
-        - stakeholder_questions[] with uncertainty framing
-        - unknowns[] that question the bound topic
-        - recommendations_for_pm[] that propose investigating (exclusions only)
-        
-        PASS if topic appears elsewhere (summary, assumptions, known_constraints).
-        Restatement as fact is allowed and expected.
-        """
-        # Get canonical tags - if none, skip tag-based validation
-        canonical_tags = invariant.get("canonical_tags", [])
-        if not canonical_tags:
-            # No tags means this constraint isn't checkable via tags
-            # It's still enforced via pinning and filtering
-            return None
-        
-        # ALL constraints use structural checking - no global text search
-        return self._check_decision_bearing_sections(artifact, invariant, canonical_tags)
-    def _check_decision_bearing_sections(
-        self,
-        artifact: Dict[str, Any],
-        invariant: Dict[str, Any],
-        canonical_tags: List[str],
-    ) -> Optional[DriftViolation]:
-        """Check decision-bearing sections for constraint violations.
-        
-        STRUCTURAL + FRAMING-AWARE validation:
-        - Only checks decision-bearing sections, not global text
-        - Fails only if BOTH topic AND open framing are in the same item
-        - Passes if topic is restated as fact elsewhere
-        
-        Allowed: "The app is for home use by parents." (restatement)
-        Allowed: "Platform is web (selected)." (finality)
-        Not allowed: "Choose platform: web/mobile/desktop." (open framing)
-        """
-        clarification_id = invariant.get("id", "UNKNOWN")
-        user_answer_label = invariant.get("user_answer_label", "")
-        normalized_text = invariant.get("normalized_text", f"{clarification_id}")
-        invariant_kind = invariant.get("invariant_kind", "requirement")
-        
-        tags_lower = [t.lower() for t in canonical_tags]
-        answer_lower = user_answer_label.lower() if user_answer_label else ""
-        
-        # Check early_decision_points - applies to ALL constraints
-        # A decision point about a bound topic is always a violation
-        decision_points = artifact.get("early_decision_points", [])
-        for dp in decision_points:
-            if isinstance(dp, dict):
-                decision_area = dp.get("decision_area", "").lower()
-                options = dp.get("options", [])
-                options_text = json.dumps(options).lower() if options else ""
-                
-                for tag in tags_lower:
-                    # Check if decision_area explicitly mentions the bound topic
-                    if tag in decision_area:
-                        # This is presenting the bound topic as needing a decision
-                        if not self._has_finality_language(decision_area, answer_lower):
-                            return DriftViolation(
-                                check_id="QA-PGC-002",
-                                severity="ERROR",
-                                clarification_id=clarification_id,
-                                message=f"early_decision_points[].decision_area reopens '{tag}' as undecided",
-                                remediation=f"Remove this decision point. Already resolved: {user_answer_label}",
-                            )
-        
-        # Check unknowns - applies to ALL constraints
-        unknowns = artifact.get("unknowns", [])
-        for unk in unknowns:
-            if isinstance(unk, dict):
-                question = unk.get("question", "").lower()
-                
-                for tag in tags_lower:
-                    if tag in question:
-                        # Check if it's questioning the bound constraint
-                        if self._is_uncertainty_about_topic(question, tag) and not self._has_finality_language(question, answer_lower):
-                            return DriftViolation(
-                                check_id="QA-PGC-002",
-                                severity="ERROR",
-                                clarification_id=clarification_id,
-                                message=f"unknowns[].question presents '{tag}' as uncertain, but was resolved",
-                                remediation=f"Remove or rephrase. Already resolved: {user_answer_label}",
-                            )
-        
-        # Check stakeholder_questions - for exclusions with "should we" framing
-        if invariant_kind == "exclusion":
-            stakeholder_questions = artifact.get("stakeholder_questions", [])
-            for sq in stakeholder_questions:
-                sq_text = sq.get("question", "") if isinstance(sq, dict) else str(sq)
-                sq_lower = sq_text.lower()
-                
-                for tag in tags_lower:
-                    if tag in sq_lower:
-                        if self._is_reopening_question(sq_lower, tag):
-                            return DriftViolation(
-                                check_id="QA-PGC-002",
-                                severity="ERROR",
-                                clarification_id=clarification_id,
-                                message=f"stakeholder_questions asks about excluded '{tag}'",
-                                remediation=f"Remove. Topic explicitly excluded: {user_answer_label}",
-                            )
-        
-        # Check recommendations_for_pm - only for exclusions proposing investigation
-        if invariant_kind == "exclusion":
-            recommendations = artifact.get("recommendations_for_pm", [])
-            for rec in recommendations:
-                rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
-                rec_lower = rec_text.lower()
-                
-                for tag in tags_lower:
-                    if tag in rec_lower:
-                        if self._is_investigation_proposal(rec_lower, tag):
-                            return DriftViolation(
-                                check_id="QA-PGC-002",
-                                severity="ERROR",
-                                clarification_id=clarification_id,
-                                message=f"recommendations_for_pm proposes investigating excluded '{tag}'",
-                                remediation=f"Remove. Topic explicitly excluded: {user_answer_label}",
-                            )
-        
-        return None
-    
-    def _is_uncertainty_about_topic(self, text: str, topic: str) -> bool:
-        """Check if text expresses uncertainty about a topic."""
-        uncertainty_patterns = [
-            f"what.*{topic}", f"which.*{topic}", f"how.*{topic}",
-            f"{topic}.*unclear", f"{topic}.*unknown", f"{topic}.*tbd",
-            f"determine.*{topic}", f"decide.*{topic}", f"confirm.*{topic}",
-        ]
-        for pattern in uncertainty_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        return False
-    
-    def _has_open_framing_without_finality(
-        self,
-        text: str,
-        topic: str,
-        bound_answer: str,
-    ) -> bool:
-        """Check if text has open framing without finality language.
-        
-        Returns True only if:
-        - Open framing patterns are found near the topic
-        - AND no finality patterns are found
-        - AND the bound answer is not mentioned
-        """
-        # Check for open framing patterns
-        has_open_framing = False
-        for pattern in OPEN_FRAMING_PATTERNS:
-            if re.search(pattern, text, re.IGNORECASE):
-                has_open_framing = True
-                break
-        
-        if not has_open_framing:
-            return False
-        
-        # Check for finality language
-        if self._has_finality_language(text, bound_answer):
-            return False
-        
-        return True
-    
-    def _has_finality_language(self, text: str, bound_answer: str) -> bool:
-        """Check if text contains finality language or the bound answer."""
-        # Check if bound answer is mentioned
-        if bound_answer and bound_answer in text:
-            return True
-        
-        # Check for finality patterns
-        for pattern in FINALITY_PATTERNS:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        
-        return False
-    def _is_reopening_question(self, question: str, topic: str) -> bool:
-        """Check if a stakeholder question reopens a decision vs confirms it's out of scope."""
-        reopening_patterns = [
-            f"should we.*{topic}", f"do we need.*{topic}", f"consider.*{topic}",
-            f"evaluate.*{topic}", f"what.*{topic}.*option", f"which.*{topic}",
-        ]
-        compliant_patterns = [
-            f"confirm.*no.*{topic}", f"verify.*no.*{topic}", f"ensure.*no.*{topic}",
-            f"document.*exclusion.*{topic}", f"{topic}.*not.*required",
-            f"{topic}.*out of scope", f"no.*{topic}.*needed",
-        ]
-        
-        for pattern in compliant_patterns:
-            if re.search(pattern, question, re.IGNORECASE):
-                return False
-        for pattern in reopening_patterns:
-            if re.search(pattern, question, re.IGNORECASE):
-                return True
-        return False
-    
-    def _is_investigation_proposal(self, recommendation: str, topic: str) -> bool:
-        """Check if a recommendation proposes investigating an excluded topic."""
-        investigation_patterns = [
-            f"investigate.*{topic}", f"explore.*{topic}", f"evaluate.*{topic}",
-            f"consider.*{topic}", f"research.*{topic}", f"add.*{topic}",
-            f"implement.*{topic}", f"integrate.*{topic}",
-        ]
-        for pattern in investigation_patterns:
-            if re.search(pattern, recommendation, re.IGNORECASE):
-                return True
-        return False
     def _check_constraint_stated(
         self,
         artifact_text: str,
@@ -503,65 +249,3 @@ class ConstraintDriftValidator:
             return [{"id": k, **v} if isinstance(v, dict) else {"id": k, "text": str(v)}
                     for k, v in constraints.items()]
         return []
-    def _extract_topic_words(self, question_text: str) -> List[str]:
-        """Extract key topic words from a question for matching."""
-        stopwords = {
-            "what", "which", "how", "should", "would", "will", "can", "does",
-            "when", "where", "why", "who", "whom", "whose",
-            "the", "a", "an", "this", "that", "these", "those",
-            "any", "some", "all", "most", "other", "such", "each", "every",
-            "to", "for", "of", "in", "on", "at", "by", "with", "without",
-            "from", "into", "onto", "about", "over", "under", "through",
-            "between", "among", "before", "after", "during", "within",
-            "is", "are", "be", "been", "being", "was", "were",
-            "have", "has", "had", "having", "do", "does", "did", "doing",
-            "work", "works", "working", "support", "supports", "supporting",
-            "need", "needs", "needed", "needing", "require", "requires",
-            "want", "wants", "use", "uses", "using", "used",
-            "get", "gets", "make", "makes", "take", "takes",
-            "provide", "provides", "allow", "allows", "enable", "enables",
-            "include", "includes", "contain", "contains",
-            "track", "tracks", "tracking", "tracked",
-            "store", "stores", "storing", "stored", "storage",
-            "align", "aligns", "aligned", "alignment",
-            "target", "targets", "targeting", "targeted",
-            "intend", "intends", "intended", "intention",
-            "select", "selects", "selected", "selection",
-            "deploy", "deploys", "deployed", "deployment",
-            "could", "might", "may", "must", "shall",
-            "you", "your", "we", "our", "they", "their", "it", "its",
-            "app", "application", "system", "software", "feature", "data",
-            "user", "users", "client", "server", "service",
-            "interface", "interfaces",
-            "test", "tests", "testing", "tested",
-            "result", "results", "resulting",
-            "context", "contexts", "contextual",
-            "standard", "standards", "standardized",
-            "specific", "specifically", "specification",
-            "option", "options", "optional",
-            "question", "questions", "questioning",
-            "answer", "answers", "answered",
-            "primary", "primarily", "secondary",
-            "device", "devices", "local", "locally",
-            "operating", "operated", "operation",
-            "educational", "education", "learning", "teaching",
-            "deployment", "deployed", "environment",
-            "requirement", "requirements", "required",
-            "also", "well", "just", "only", "even", "still", "already",
-            "yes", "no", "not", "and", "or", "but", "if", "then",
-            "able", "like", "way", "thing", "things",
-            "there", "here", "being", "based", "following",
-            "certain", "particular", "general", "overall",
-        }
-
-        words = re.findall(r'\b[a-z]+\b', question_text.lower())
-        topics = [w for w in words if w not in stopwords and len(w) > 3]
-
-        seen = set()
-        result = []
-        for w in topics:
-            if w not in seen:
-                seen.add(w)
-                result.append(w)
-
-        return result[:3]

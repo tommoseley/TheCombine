@@ -980,17 +980,31 @@ class PlanExecutor:
         for err in qa_errors:
             if isinstance(err, dict):
                 feedback["issues"].append({
-                    "type": "semantic_qa",
+                    "type": "llm_qa",
                     "severity": err.get("severity", "error"),
                     "section": err.get("section"),
                     "message": err.get("message"),
                 })
             elif isinstance(err, str):
                 feedback["issues"].append({
-                    "type": "semantic_qa",
+                    "type": "llm_qa",
                     "message": err,
                 })
-        
+
+        # Extract semantic QA findings (WS-SEMANTIC-QA-001)
+        semantic_report = result.metadata.get("semantic_qa_report")
+        if semantic_report:
+            for finding in semantic_report.get("findings", []):
+                if finding.get("severity") == "error":
+                    feedback["issues"].append({
+                        "type": "semantic_qa",
+                        "check_id": finding.get("code"),
+                        "constraint_id": finding.get("constraint_id"),
+                        "message": finding.get("message"),
+                        "remediation": finding.get("suggested_fix"),
+                        "evidence": finding.get("evidence_pointers", []),
+                    })
+
         # Extract feedback summary
         qa_feedback = result.metadata.get("feedback", {})
         if isinstance(qa_feedback, dict):

@@ -2,17 +2,22 @@
 
 QA nodes validate generated documents against quality criteria.
 
-Validation order (per ADR-042 and WS-PGC-VALIDATION-001):
-1. Constraint drift validation (ADR-042) - fails fast on bound constraint violations
+Validation order (per ADR-042, WS-PGC-VALIDATION-001, and WS-SEMANTIC-QA-001):
+1. Constraint drift validation (ADR-042 Layer 1) - mechanical checks, fails fast
 2. Promotion validation (WS-PGC-VALIDATION-001) - catches promotion and contradiction issues
 3. Schema validation
-4. LLM-based semantic QA
+4. LLM-based semantic QA (WS-SEMANTIC-QA-001 Layer 2) - semantic constraint compliance
 """
 
+import json
 import logging
+import os
 import re
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
+
+import jsonschema
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
@@ -198,6 +203,52 @@ class QANodeExecutor(NodeExecutor):
                 errors.extend(schema_errors)
                 feedback["schema_errors"] = schema_errors
 
+        # 3. Run semantic QA (Layer 2) - only if mechanical checks passed
+        # This detects constraint violations requiring semantic understanding
+        # (e.g., distinguishing follow-up questions from reopening decisions)
+        semantic_qa_report = None
+        semantic_warnings: List[Dict[str, Any]] = []
+
+        try:
+            semantic_qa_report = await self._run_semantic_qa(node_id, document, context)
+        except ValueError as e:
+            # Schema/contract validation failed - treat as error
+            logger.error(f"Semantic QA validation error: {e}")
+            errors.append(f"Semantic QA validation error: {str(e)}")
+
+        if semantic_qa_report:
+            if semantic_qa_report.get("gate") == "fail":
+                # Convert findings to feedback format
+                semantic_feedback = self._convert_semantic_findings_to_feedback(
+                    semantic_qa_report
+                )
+                error_findings = [
+                    f for f in semantic_feedback if f.get("severity") == "error"
+                ]
+                warning_findings = [
+                    f for f in semantic_feedback if f.get("severity") == "warning"
+                ]
+
+                logger.warning(
+                    f"QA node {node_id} failed semantic QA with "
+                    f"{len(error_findings)} errors, {len(warning_findings)} warnings"
+                )
+
+                return NodeResult(
+                    outcome="failed",
+                    metadata={
+                        "node_id": node_id,
+                        "semantic_qa_report": semantic_qa_report,
+                        "errors": [f["message"] for f in error_findings],
+                        "validation_source": "semantic_qa",
+                    },
+                )
+
+            # Collect semantic QA warnings for success result
+            for finding in semantic_qa_report.get("findings", []):
+                if finding.get("severity") in ["warning", "info"]:
+                    semantic_warnings.append(finding)
+
         # Run LLM-based QA if configured
         # qa_mode: "structural" (default) or "structural+intent"
         qa_mode = node_config.get("qa_mode", "structural")
@@ -241,6 +292,14 @@ class QANodeExecutor(NodeExecutor):
         # Include code validation warnings in success result
         if code_validation_warnings:
             success_metadata["code_validation_warnings"] = code_validation_warnings
+
+        # Include semantic QA warnings in success result (WS-SEMANTIC-QA-001)
+        if semantic_warnings:
+            success_metadata["semantic_qa_warnings"] = semantic_warnings
+
+        # Include full semantic QA report if available
+        if semantic_qa_report:
+            success_metadata["semantic_qa_report"] = semantic_qa_report
 
         return NodeResult.success(**success_metadata)
 
@@ -369,6 +428,331 @@ class QANodeExecutor(NodeExecutor):
             artifact=document,
             invariants=invariants,
         )
+
+    async def _run_semantic_qa(
+        self,
+        node_id: str,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+    ) -> Optional[Dict[str, Any]]:
+        """Run Layer 2 semantic QA validation (WS-SEMANTIC-QA-001).
+
+        Uses LLM to evaluate bound constraints for semantic compliance that
+        mechanical checks cannot detect (e.g., follow-up vs reopening questions).
+
+        Args:
+            node_id: QA node identifier
+            document: Generated document to validate
+            context: Workflow context with PGC data
+
+        Returns:
+            Parsed semantic QA report or None if skipped/disabled
+        """
+        # Check if semantic QA is enabled
+        if not os.environ.get("SEMANTIC_QA_ENABLED", "true").lower() == "true":
+            logger.info("Semantic QA disabled via SEMANTIC_QA_ENABLED=false")
+            return None
+
+        # Check if we have LLM service
+        if not self.llm_service:
+            logger.debug("No LLM service, skipping semantic QA")
+            return None
+
+        # Get invariants from context_state
+        invariants = []
+        if hasattr(context, "context_state") and context.context_state:
+            invariants = context.context_state.get("pgc_invariants", [])
+
+        if not invariants:
+            logger.debug("No invariants available, skipping semantic QA")
+            return None
+
+        # Get PGC questions and answers
+        pgc_questions = []
+        pgc_answers = {}
+        if hasattr(context, "context_state") and context.context_state:
+            pgc_questions = context.context_state.get("pgc_questions", [])
+            pgc_answers = context.context_state.get("pgc_answers", {})
+
+        logger.info(
+            f"WS-SEMANTIC-QA-001: Running semantic QA against {len(invariants)} "
+            f"binding invariants"
+        )
+
+        # Get correlation ID for traceability
+        correlation_id = ""
+        if hasattr(context, "extra") and context.extra:
+            correlation_id = context.extra.get("execution_id", "")
+
+        # Build semantic QA context
+        message_content = self._build_semantic_qa_context(
+            pgc_questions=pgc_questions,
+            pgc_answers=pgc_answers,
+            invariants=invariants,
+            document=document,
+            correlation_id=correlation_id,
+        )
+
+        try:
+            # Call LLM with semantic QA policy
+            execution_id = context.extra.get("execution_id") if hasattr(context, "extra") else None
+            response = await self.llm_service.complete(
+                messages=[{"role": "user", "content": message_content}],
+                workflow_execution_id=execution_id,
+                role="Semantic Compliance Auditor",
+                task_ref="qa_semantic_compliance_v1.0",
+                artifact_type=context.document_type,
+                node_id=node_id,
+                project_id=context.project_id,
+            )
+
+            # Parse and validate response
+            report = self._parse_semantic_qa_response(
+                response=response,
+                expected_constraint_count=len(invariants),
+                provided_constraint_ids=[inv.get("id", "") for inv in invariants],
+            )
+
+            return report
+
+        except Exception as e:
+            logger.exception(f"Semantic QA failed: {e}")
+            # Return a failing report on error
+            return {
+                "schema_version": "qa_semantic_compliance_output.v1",
+                "correlation_id": correlation_id,
+                "gate": "fail",
+                "summary": {
+                    "errors": 1,
+                    "warnings": 0,
+                    "infos": 0,
+                    "expected_constraints": len(invariants),
+                    "evaluated_constraints": 0,
+                    "blocked_reasons": [f"Semantic QA error: {str(e)}"],
+                },
+                "coverage": {
+                    "expected_count": len(invariants),
+                    "evaluated_count": 0,
+                    "items": [],
+                },
+                "findings": [
+                    {
+                        "severity": "error",
+                        "code": "OTHER",
+                        "constraint_id": "SYSTEM",
+                        "message": f"Semantic QA execution failed: {str(e)}",
+                        "evidence_pointers": [],
+                    }
+                ],
+            }
+
+    def _build_semantic_qa_context(
+        self,
+        pgc_questions: List[Dict[str, Any]],
+        pgc_answers: Dict[str, Any],
+        invariants: List[Dict[str, Any]],
+        document: Dict[str, Any],
+        correlation_id: str,
+    ) -> str:
+        """Assemble the inputs for semantic QA.
+
+        Args:
+            pgc_questions: PGC question definitions
+            pgc_answers: User answers keyed by question ID
+            invariants: Bound constraints to evaluate
+            document: Generated document to audit
+            correlation_id: Workflow correlation ID
+
+        Returns:
+            Formatted message content for LLM
+        """
+        # Load policy prompt
+        policy_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "prompts" / "tasks" / "qa_semantic_compliance_v1.0.txt"
+        try:
+            policy_prompt = policy_path.read_text()
+        except FileNotFoundError:
+            logger.error(f"Semantic QA policy prompt not found at {policy_path}")
+            policy_prompt = "# Semantic QA Policy\nEvaluate constraints for compliance."
+
+        parts = [policy_prompt]
+
+        # PGC Questions with answers
+        parts.append("\n\n---\n\n## PGC Questions and Answers\n")
+        for q in pgc_questions:
+            qid = q.get("id", "UNKNOWN")
+            answer = pgc_answers.get(qid)
+            priority = q.get("priority", "could")
+            answer_label = ""
+            if isinstance(answer, dict):
+                answer_label = answer.get("label", str(answer))
+            elif answer is not None:
+                answer_label = str(answer)
+            parts.append(f"- {qid} (priority={priority}): {answer_label}\n")
+
+        # Bound constraints
+        parts.append("\n## Bound Constraints (MUST evaluate each)\n")
+        for inv in invariants:
+            cid = inv.get("id", "UNKNOWN")
+            kind = inv.get("invariant_kind", "requirement")
+            text = inv.get("normalized_text") or inv.get("user_answer_label") or str(inv.get("user_answer", ""))
+            parts.append(f"- {cid} [{kind}]: {text}\n")
+
+        # Document
+        parts.append("\n## Generated Document\n```json\n")
+        parts.append(json.dumps(document, indent=2))
+        parts.append("\n```\n")
+
+        # Correlation ID and output instructions
+        parts.append(f"\ncorrelation_id for output: {correlation_id}\n")
+        parts.append("\nOutput ONLY valid JSON matching qa_semantic_compliance_output.v1 schema. No prose.\n")
+
+        return "".join(parts)
+
+    def _parse_semantic_qa_response(
+        self,
+        response: str,
+        expected_constraint_count: int,
+        provided_constraint_ids: List[str],
+    ) -> Dict[str, Any]:
+        """Parse and validate LLM response against schema.
+
+        Args:
+            response: Raw LLM response
+            expected_constraint_count: Number of constraints provided
+            provided_constraint_ids: List of valid constraint IDs
+
+        Returns:
+            Parsed and validated report dict
+
+        Raises:
+            ValueError: If response is invalid
+        """
+        # Extract JSON from response
+        json_str = response.strip()
+        if json_str.startswith("```json"):
+            json_str = json_str[7:]
+        if json_str.startswith("```"):
+            json_str = json_str[3:]
+        if json_str.endswith("```"):
+            json_str = json_str[:-3]
+        json_str = json_str.strip()
+
+        try:
+            report = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"Semantic QA response is not valid JSON: {e}")
+            raise ValueError(f"Invalid JSON response: {e}")
+
+        # Load and validate against schema
+        schema_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "schemas" / "qa_semantic_compliance_output.v1.json"
+        try:
+            schema = json.loads(schema_path.read_text())
+            jsonschema.validate(instance=report, schema=schema)
+        except FileNotFoundError:
+            logger.warning(f"Schema not found at {schema_path}, skipping validation")
+        except jsonschema.ValidationError as e:
+            logger.error(f"Semantic QA response failed schema validation: {e.message}")
+            raise ValueError(f"Schema validation failed: {e.message}")
+
+        # Validate contract rules
+        self._validate_semantic_qa_contract(
+            report=report,
+            expected_constraint_count=expected_constraint_count,
+            provided_constraint_ids=provided_constraint_ids,
+        )
+
+        return report
+
+    def _validate_semantic_qa_contract(
+        self,
+        report: Dict[str, Any],
+        expected_constraint_count: int,
+        provided_constraint_ids: List[str],
+    ) -> None:
+        """Validate semantic QA contract rules.
+
+        Args:
+            report: Parsed report
+            expected_constraint_count: Expected number of constraints
+            provided_constraint_ids: Valid constraint IDs
+
+        Raises:
+            ValueError: If contract rules are violated
+        """
+        coverage = report.get("coverage", {})
+        findings = report.get("findings", [])
+        summary = report.get("summary", {})
+        gate = report.get("gate")
+
+        # Rule 1: Coverage count must match
+        if coverage.get("expected_count") != expected_constraint_count:
+            logger.warning(
+                f"Coverage expected_count mismatch: got {coverage.get('expected_count')}, "
+                f"expected {expected_constraint_count}"
+            )
+
+        # Rule 2: All constraint IDs must be valid
+        provided_ids_lower = [cid.lower() for cid in provided_constraint_ids]
+        for item in coverage.get("items", []):
+            cid = item.get("constraint_id", "")
+            if cid.lower() not in provided_ids_lower and cid != "SYSTEM":
+                logger.warning(f"Unknown constraint_id in coverage: {cid}")
+
+        for finding in findings:
+            cid = finding.get("constraint_id", "")
+            if cid.lower() not in provided_ids_lower and cid != "SYSTEM":
+                logger.warning(f"Unknown constraint_id in findings: {cid}")
+
+        # Rule 3: Gate must be fail if any contradicted/reopened
+        has_error_status = any(
+            item.get("status") in ["contradicted", "reopened"]
+            for item in coverage.get("items", [])
+        )
+        if has_error_status and gate != "fail":
+            logger.warning(
+                f"Gate should be 'fail' due to contradicted/reopened status, but got '{gate}'"
+            )
+
+        # Rule 4: Summary counts should match findings
+        error_count = len([f for f in findings if f.get("severity") == "error"])
+        warning_count = len([f for f in findings if f.get("severity") == "warning"])
+        if summary.get("errors") != error_count:
+            logger.warning(
+                f"Summary errors mismatch: got {summary.get('errors')}, "
+                f"counted {error_count}"
+            )
+        if summary.get("warnings") != warning_count:
+            logger.warning(
+                f"Summary warnings mismatch: got {summary.get('warnings')}, "
+                f"counted {warning_count}"
+            )
+
+    def _convert_semantic_findings_to_feedback(
+        self,
+        report: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Convert semantic QA findings to feedback format.
+
+        Args:
+            report: Semantic QA report
+
+        Returns:
+            List of feedback issues compatible with remediation
+        """
+        feedback_issues = []
+
+        for finding in report.get("findings", []):
+            feedback_issues.append({
+                "type": "semantic_qa",
+                "check_id": finding.get("code"),
+                "severity": finding.get("severity"),
+                "message": finding.get("message"),
+                "constraint_id": finding.get("constraint_id"),
+                "evidence_pointers": finding.get("evidence_pointers", []),
+                "remediation": finding.get("suggested_fix"),
+            })
+
+        return feedback_issues
 
     async def _run_llm_qa(
         self,

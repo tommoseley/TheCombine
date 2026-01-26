@@ -366,17 +366,6 @@ class TestFalsePositiveRegression:
         errors = [v for v in result.violations if v.check_id == "QA-PGC-002"]
         assert len(errors) == 0, f"False positive QA-PGC-002: {errors}"
 
-    def test_common_words_filtered_from_topics(self, validator):
-        """Common words should not be extracted as topic words."""
-        # Verify internal method filters stopwords
-        topics = validator._extract_topic_words(
-            "Should the app work without internet connectivity?"
-        )
-
-        # These common words should NOT be in topics
-        filtered_words = {"should", "the", "app", "work", "without"}
-        for word in filtered_words:
-            assert word not in topics, f"'{word}' should be filtered as stopword"
-
-        # "internet" and "connectivity" should be extracted (meaningful topics)
-        assert "internet" in topics or "connectivity" in topics
+    # test_common_words_filtered_from_topics removed - _extract_topic_words
+    # was part of QA-PGC-002 implementation, now handled by Layer 2 semantic QA
+    # See WS-SEMANTIC-QA-001

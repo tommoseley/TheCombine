@@ -211,6 +211,131 @@ If you cannot comply, output a valid JSON object explaining the failure under `f
 
 ---
 
+## Required Output Schema (EXACT STRUCTURE)
+
+Your output MUST match this exact structure:
+
+```json
+{
+  "schema_version": "qa_semantic_compliance_output.v1",
+  "correlation_id": "<use the correlation_id provided in input>",
+  "gate": "pass" | "fail",
+  "summary": {
+    "errors": <integer - count of error findings>,
+    "warnings": <integer - count of warning findings>,
+    "infos": <integer - count of info findings>,
+    "expected_constraints": <integer - count of bound constraints provided>,
+    "evaluated_constraints": <integer - count with status != not_evaluated>,
+    "blocked_reasons": ["<reason 1>", "<reason 2>"] | []
+  },
+  "coverage": {
+    "expected_count": <integer - same as summary.expected_constraints>,
+    "evaluated_count": <integer - same as summary.evaluated_constraints>,
+    "items": [
+      {
+        "constraint_id": "<exact ID from bound constraints>",
+        "status": "satisfied" | "missing" | "contradicted" | "reopened" | "not_evaluated",
+        "evidence_pointers": ["$.path.to.evidence"],
+        "notes": "<optional explanation>"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "error" | "warning" | "info",
+      "code": "BOUND_CONTRADICTION" | "BOUND_REOPENED" | "BOUND_MISSING_EXPLICIT" | "PROMOTION_RULE_VIOLATION" | "INVENTED_CONSTRAINT" | "TRACEABILITY_GAP" | "OTHER",
+      "constraint_id": "<exact ID from bound constraints>",
+      "message": "<concise actionable message>",
+      "evidence_pointers": ["$.path.to.evidence"],
+      "suggested_fix": "<optional remediation hint>"
+    }
+  ]
+}
+```
+
+### Example: All Constraints Satisfied (gate = pass)
+
+```json
+{
+  "schema_version": "qa_semantic_compliance_output.v1",
+  "correlation_id": "exec-12345",
+  "gate": "pass",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0,
+    "expected_constraints": 2,
+    "evaluated_constraints": 2,
+    "blocked_reasons": []
+  },
+  "coverage": {
+    "expected_count": 2,
+    "evaluated_count": 2,
+    "items": [
+      {
+        "constraint_id": "PLATFORM_TARGET",
+        "status": "satisfied",
+        "evidence_pointers": ["$.known_constraints[0].constraint"]
+      },
+      {
+        "constraint_id": "OFFLINE_MODE",
+        "status": "satisfied",
+        "evidence_pointers": ["$.known_constraints[1].constraint"]
+      }
+    ]
+  },
+  "findings": []
+}
+```
+
+### Example: Constraint Contradicted (gate = fail)
+
+```json
+{
+  "schema_version": "qa_semantic_compliance_output.v1",
+  "correlation_id": "exec-67890",
+  "gate": "fail",
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0,
+    "expected_constraints": 2,
+    "evaluated_constraints": 2,
+    "blocked_reasons": ["PLATFORM_TARGET constraint contradicted"]
+  },
+  "coverage": {
+    "expected_count": 2,
+    "evaluated_count": 2,
+    "items": [
+      {
+        "constraint_id": "PLATFORM_TARGET",
+        "status": "contradicted",
+        "evidence_pointers": ["$.summary"]
+      },
+      {
+        "constraint_id": "OFFLINE_MODE",
+        "status": "satisfied",
+        "evidence_pointers": ["$.known_constraints[0].constraint"]
+      }
+    ]
+  },
+  "findings": [
+    {
+      "severity": "error",
+      "code": "BOUND_CONTRADICTION",
+      "constraint_id": "PLATFORM_TARGET",
+      "message": "Document states mobile but user selected web browser",
+      "evidence_pointers": ["$.summary"],
+      "suggested_fix": "Change platform references to web browser"
+    }
+  ]
+}
+```
+
+CRITICAL: schema_version, correlation_id, gate, summary, coverage, and findings are ALL required at the TOP LEVEL. Do not nest schema_version inside meta.
+
+---
+
 ## Mental Model
 
 You are not grading quality.
