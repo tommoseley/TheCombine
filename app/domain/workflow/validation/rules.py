@@ -229,6 +229,10 @@ def check_promotion_validity(
 
         if best_should_match >= 0.5 and matched_should_source:
             # Promotion from should/could to constraint
+            source_priority = matched_should_source['priority'].upper()
+            match_pct = round(best_should_match * 100)
+            confidence = "HIGH" if match_pct >= 80 else "MEDIUM" if match_pct >= 60 else "LOW"
+
             issues.append(ValidationIssue(
                 severity="warning",
                 check_type="promotion",
@@ -240,10 +244,35 @@ def check_promotion_validity(
                     "matched_source": matched_should_source["source"],
                     "source_priority": matched_should_source["priority"],
                     "match_ratio": round(best_should_match, 2),
+                    # Rule identification
+                    "rule_id": "QA-PGC-PROMOTION-002",
+                    "rule_name": "Should/Could Answer Promotion",
+                    # Source traceability
+                    "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
+                    "actual_source": f"PGC {matched_should_source['priority']}-priority answer ({match_pct}% match)",
+                    # Decision support
+                    "confidence": confidence,
+                    "confidence_rationale": f"{match_pct}% keyword overlap with {source_priority} answer",
+                    # Normalized promotion path
+                    "promotion_path": f"PGC_{source_priority} -> PINNED",
+                    "promotion_legitimacy": "UNAUTHORIZED",
+                    # Promotion impact
+                    "blocks_stabilization": False,
+                    "requires_user_confirmation": True,
+                    # Governance
+                    "governance_ref": "ADR-042 S3.2",
+                    "governance_title": "Constraint Promotion Rules",
+                    # Rationale and guidance
+                    "severity_rationale": f"Non-binding {source_priority}-answer promoted without must-priority justification",
+                    "override_guidance": f"If intentional: change PGC question priority to 'must', or add explicit intake constraint",
                 },
             ))
         elif best_valid_match < 0.5:
             # No traceable source
+            best_match = max(best_valid_match, best_should_match)
+            match_pct = round(best_match * 100)
+            confidence = "HIGH" if match_pct < 20 else "MEDIUM" if match_pct < 40 else "LOW"
+
             issues.append(ValidationIssue(
                 severity="warning",
                 check_type="promotion",
@@ -252,7 +281,28 @@ def check_promotion_validity(
                 message="Constraint has no traceable source in intake or must-priority answers",
                 evidence={
                     "constraint": constraint_text,
-                    "best_match_ratio": round(max(best_valid_match, best_should_match), 2),
+                    "best_match_ratio": round(best_match, 2),
+                    # Rule identification
+                    "rule_id": "QA-PGC-PROMOTION-001",
+                    "rule_name": "Untraceable Constraint",
+                    # Source traceability
+                    "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
+                    "actual_source": f"Inferred from document text (best match: {match_pct}%)",
+                    # Decision support
+                    "confidence": confidence,
+                    "confidence_rationale": f"No input source matched above 50% threshold (best: {match_pct}%)",
+                    # Normalized promotion path
+                    "promotion_path": "INFERRED -> PINNED",
+                    "promotion_legitimacy": "UNAUTHORIZED",
+                    # Promotion impact
+                    "blocks_stabilization": False,
+                    "requires_user_confirmation": True,
+                    # Governance
+                    "governance_ref": "ADR-042 S3.1",
+                    "governance_title": "Constraint Binding Requirements",
+                    # Rationale and guidance
+                    "severity_rationale": "Constraint may be correct but lacks binding justification from governed input",
+                    "override_guidance": f"If intentional: add explicit PGC must-priority question or concierge hard constraint for '{constraint_id}'",
                 },
             ))
 

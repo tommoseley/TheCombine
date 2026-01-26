@@ -825,6 +825,23 @@ async def execution_qa_coverage(
             status_code=404,
         )
 
+    # Extract bound constraints from context_state for display
+    context_state = execution.context_state or {}
+    pgc_invariants = context_state.get("pgc_invariants", [])
+
+    # Build lookup map: constraint_id -> constraint details
+    constraint_lookup = {}
+    for inv in pgc_invariants:
+        cid = inv.get("id")
+        if cid:
+            constraint_lookup[cid] = {
+                "id": cid,
+                "question": inv.get("text", ""),  # Question text
+                "answer": inv.get("user_answer_label") or str(inv.get("user_answer", "")),
+                "source": inv.get("binding_source", ""),
+                "priority": inv.get("priority", ""),
+            }
+
     # Extract QA node executions from execution_log
     execution_log = execution.execution_log or []
     qa_nodes = []
@@ -854,6 +871,7 @@ async def execution_qa_coverage(
                     "missing": 0,
                     "contradicted": 0,
                 },
+                "constraint_lookup": constraint_lookup,
             },
         )
 
@@ -950,6 +968,7 @@ async def execution_qa_coverage(
             "document_type": execution.document_type,
             "qa_nodes": processed_qa_nodes,
             "summary": summary,
+            "constraint_lookup": constraint_lookup,
         },
     )
 
