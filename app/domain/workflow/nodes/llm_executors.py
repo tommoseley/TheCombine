@@ -133,6 +133,7 @@ class LoggingLLMService:
         task_ref = kwargs.pop("task_ref", "unknown")
         node_id = kwargs.pop("node_id", None)
         workflow_execution_id = kwargs.pop("workflow_execution_id", None)
+        prompt_sources = kwargs.pop("prompt_sources", None)  # ADR-041 source files
 
         # Extract LLM parameters
         model = kwargs.pop("model", self._default_model)
@@ -190,6 +191,14 @@ class LoggingLLMService:
             if run_id and self._logger:
                 try:
                     await self._logger.add_output(run_id, "response", response.content)
+                    run_metadata = {
+                        "latency_ms": response.latency_ms,
+                        "cached": response.cached,
+                        "stop_reason": response.stop_reason,
+                        "node_id": node_id,
+                    }
+                    if prompt_sources:
+                        run_metadata["prompt_sources"] = prompt_sources
                     await self._logger.complete_run(
                         run_id=run_id,
                         status="SUCCESS",
@@ -198,12 +207,7 @@ class LoggingLLMService:
                             "output_tokens": response.output_tokens,
                             "total_tokens": response.total_tokens,
                         },
-                        metadata={
-                            "latency_ms": response.latency_ms,
-                            "cached": response.cached,
-                            "stop_reason": response.stop_reason,
-                            "node_id": node_id,
-                        },
+                        metadata=run_metadata,
                     )
                 except Exception as e:
                     logger.warning(f"Failed to complete LLM logging: {e}")

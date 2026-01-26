@@ -79,11 +79,12 @@ class TaskNodeExecutor(NodeExecutor):
         try:
             # Check if node has includes (ADR-041 template assembly)
             includes = node_config.get("includes")
+            prompt_sources = None  # Track source files for debugging
             if includes:
                 # Use PromptAssemblyService for template assembly
                 from app.domain.services.prompt_assembly_service import PromptAssemblyService
                 from uuid import uuid4
-                
+
                 assembly_service = PromptAssemblyService()
                 assembled = assembly_service.assemble(
                     task_ref=task_ref,
@@ -91,6 +92,7 @@ class TaskNodeExecutor(NodeExecutor):
                     correlation_id=str(uuid4()),
                 )
                 task_prompt = assembled.content
+                prompt_sources = assembled.includes_resolved  # Capture source files
                 logger.info(f"Task node {node_id} assembled prompt via ADR-041 ({len(task_prompt)} chars)")
             else:
                 # Legacy: load task prompt directly
@@ -119,6 +121,7 @@ class TaskNodeExecutor(NodeExecutor):
                 artifact_type=context.document_type,
                 node_id=node_id,
                 project_id=context.project_id,
+                prompt_sources=prompt_sources,
             )
 
             # Parse and store produced document

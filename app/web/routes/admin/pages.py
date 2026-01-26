@@ -845,10 +845,12 @@ async def execution_transcript(
             duration = (run.ended_at - run.started_at).total_seconds()
             duration_str = f"{duration:.1f}s"
 
-        # Extract node_id from metadata if available
+        # Extract node_id and prompt_sources from metadata if available
         node_id = None
+        prompt_sources = None
         if run.run_metadata and isinstance(run.run_metadata, dict):
             node_id = run.run_metadata.get("node_id")
+            prompt_sources = run.run_metadata.get("prompt_sources")
 
         entry = {
             "run_number": i,
@@ -856,6 +858,7 @@ async def execution_transcript(
             "role": run.role,
             "task_ref": run.prompt_id,
             "node_id": node_id,
+            "prompt_sources": prompt_sources,
             "model": run.model_name,
             "status": run.status,
             "started_at": run.started_at.astimezone(DISPLAY_TZ).strftime("%H:%M:%S") if run.started_at else None,
