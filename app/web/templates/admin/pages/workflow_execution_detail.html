@@ -5,9 +5,14 @@
 {% block page_title %}Workflow Execution Details{% endblock %}
 
 {% block header_actions %}
-<a href="/admin/executions" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-    <i data-lucide="arrow-left" class="w-4 h-4 inline mr-1"></i>Back to Executions
-</a>
+<div class="flex gap-2">
+    <a href="/admin/executions/{{ execution_id }}/transcript" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <i data-lucide="file-text" class="w-4 h-4 inline mr-1"></i>View Transcript
+    </a>
+    <a href="/admin/executions" class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <i data-lucide="arrow-left" class="w-4 h-4 inline mr-1"></i>Back to Executions
+    </a>
+</div>
 {% endblock %}
 
 {% block content %}

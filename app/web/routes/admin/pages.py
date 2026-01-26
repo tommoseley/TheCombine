@@ -775,7 +775,7 @@ async def submit_clarification_ui(
 ):
     """Submit clarification answers."""
     from app.api.v1.services.execution_service import ExecutionNotFoundError, InvalidExecutionStateError
-    
+
     # Parse form data to extract answers
     form_data = await request.form()
     answers = {}
@@ -783,7 +783,7 @@ async def submit_clarification_ui(
         if key.startswith("answers[") and key.endswith("]"):
             answer_key = key[8:-1]  # Extract key from answers[key]
             answers[answer_key] = value
-    
+
     try:
         await execution_service.submit_clarification(
             execution_id=execution_id,
@@ -791,5 +791,101 @@ async def submit_clarification_ui(
         )
     except (ExecutionNotFoundError, InvalidExecutionStateError):
         pass
-    
+
     return RedirectResponse(url=f"/admin/executions/{execution_id}", status_code=303)
+
+
+@router.get("/executions/{execution_id}/transcript", response_class=HTMLResponse)
+async def execution_transcript(
+    request: Request,
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Render LLM conversation transcript for debugging and prompt tuning.
+
+    Shows the complete LLM-to-Combine conversation log as simple text.
+    """
+    # Get all LLM runs for this workflow execution
+    result = await db.execute(
+        select(LLMRun)
+        .where(LLMRun.workflow_execution_id == execution_id)
+        .order_by(LLMRun.started_at)
+    )
+    runs = list(result.scalars().all())
+
+    if not runs:
+        return templates.TemplateResponse(
+            request,
+            "pages/error.html",
+            {
+                "active_page": "executions",
+                "error_code": 404,
+                "error_message": f"No LLM runs found for execution '{execution_id}'",
+            },
+            status_code=404,
+        )
+
+    # Get project name from first run
+    first_run = runs[0]
+    project_name = await _get_project_name(db, first_run.project_id) if first_run.project_id else None
+
+    # Build transcript entries
+    transcript_entries = []
+    total_tokens = 0
+    total_cost = 0.0
+
+    for i, run in enumerate(runs, 1):
+        # Get inputs and outputs
+        inputs = await _get_llm_run_inputs(db, run.id)
+        outputs = await _get_llm_run_outputs(db, run.id)
+
+        # Calculate duration
+        duration_str = None
+        if run.started_at and run.ended_at:
+            duration = (run.ended_at - run.started_at).total_seconds()
+            duration_str = f"{duration:.1f}s"
+
+        # Extract node_id from metadata if available
+        node_id = None
+        if run.run_metadata and isinstance(run.run_metadata, dict):
+            node_id = run.run_metadata.get("node_id")
+
+        entry = {
+            "run_number": i,
+            "run_id": str(run.id)[:8],
+            "role": run.role,
+            "task_ref": run.prompt_id,
+            "node_id": node_id,
+            "model": run.model_name,
+            "status": run.status,
+            "started_at": run.started_at.astimezone(DISPLAY_TZ).strftime("%H:%M:%S") if run.started_at else None,
+            "duration": duration_str,
+            "tokens": run.total_tokens,
+            "cost": float(run.cost_usd) if run.cost_usd else None,
+            "inputs": inputs,
+            "outputs": outputs,
+        }
+        transcript_entries.append(entry)
+
+        if run.total_tokens:
+            total_tokens += run.total_tokens
+        if run.cost_usd:
+            total_cost += float(run.cost_usd)
+
+    return templates.TemplateResponse(
+        request,
+        "pages/execution_transcript.html",
+        {
+            "active_page": "executions",
+            "execution_id": execution_id,
+            "project_name": project_name,
+            "project_id": str(first_run.project_id) if first_run.project_id else None,
+            "document_type": first_run.artifact_type,
+            "transcript": transcript_entries,
+            "total_runs": len(runs),
+            "total_tokens": total_tokens,
+            "total_cost": total_cost,
+            "started_at": runs[0].started_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if runs[0].started_at else None,
+            "ended_at": runs[-1].ended_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if runs[-1].ended_at else None,
+        },
+    )
