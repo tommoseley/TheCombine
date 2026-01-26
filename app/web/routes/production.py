@@ -28,6 +28,11 @@ router = APIRouter(prefix="/production", tags=["production"])
 templates = Jinja2Templates(directory="app/web/templates")
 
 
+def _is_htmx_request(request: Request) -> bool:
+    """Check if this is an HTMX request."""
+    return request.headers.get("HX-Request") == "true"
+
+
 @router.get("", response_class=HTMLResponse)
 async def production_line(
     request: Request,
@@ -68,17 +73,20 @@ async def production_line(
                 # Convert to dict for template
                 interrupt = pending_interrupts[0].to_dict()
 
-    return templates.TemplateResponse(
-        "production/line.html",
-        {
-            "request": request,
-            "project": project,
-            "tracks": tracks,
-            "line_state": line_state,
-            "summary": summary,
-            "interrupt": interrupt,
-        },
-    )
+    context = {
+        "request": request,
+        "project": project,
+        "tracks": tracks,
+        "line_state": line_state,
+        "summary": summary,
+        "interrupt": interrupt,
+    }
+
+    # Return partial for HTMX requests, full page for direct navigation
+    if _is_htmx_request(request):
+        return templates.TemplateResponse("production/_line_content.html", context)
+    else:
+        return templates.TemplateResponse("production/line.html", context)
 
 
 @router.post("/start", response_class=HTMLResponse)
@@ -98,7 +106,7 @@ async def start_production(
     if document_type:
         # Start single document - redirect to build page
         return RedirectResponse(
-            url=f"/projects/{project_id}/workflows/{document_type}/build",
+            url=f"/projects/{project_id}/documents/{document_type}/build",
             status_code=303,
         )
     else:
@@ -125,7 +133,7 @@ async def start_production(
             for track in tracks:
                 if track["state"] == ProductionState.QUEUED.value:
                     return RedirectResponse(
-                        url=f"/projects/{project_id}/workflows/{track['document_type']}/build",
+                        url=f"/projects/{project_id}/documents/{track['document_type']}/build",
                         status_code=303,
                     )
 

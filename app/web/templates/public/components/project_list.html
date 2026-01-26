@@ -80,6 +80,17 @@
         <!-- Accordion Content: Document List -->
         <div class="accordion-content">
             <div class="ml-5 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
+                <!-- Production Line Link -->
+                <a
+                    href="/production?project_id={{ project.id }}"
+                    hx-get="/production?project_id={{ project.id }}"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                    class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px]">
+                    <i data-lucide="factory" class="doc-icon w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0"></i>
+                    <span class="text-sm font-medium text-violet-600 dark:text-violet-400">Production Line</span>
+                </a>
+
                 {% if project.documents %}
                     {% for doc in project.documents %}
                     <a 

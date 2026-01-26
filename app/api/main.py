@@ -84,24 +84,58 @@ logger.info(f"Logging to file: {LOG_FILE}")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown."""
+    import signal
+
     # Startup
     logger.info("Starting The Combine API")
     set_startup_time(datetime.utcnow())
-    
+
     try:
         await init_database()
         logger.info("Database initialized")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         raise
-    
+
+    # Set up signal handler to close SSE connections before uvicorn waits
+    original_sigint = signal.getsignal(signal.SIGINT)
+    original_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def handle_shutdown_signal(signum, frame):
+        logger.info("Received shutdown signal, closing SSE connections...")
+        try:
+            from app.api.v1.routers.production import get_shutdown_event
+            get_shutdown_event().set()
+        except Exception as e:
+            logger.warning(f"Error signaling SSE shutdown: {e}")
+        # Call the original handler (uvicorn's)
+        if signum == signal.SIGINT and callable(original_sigint):
+            original_sigint(signum, frame)
+        elif signum == signal.SIGTERM and callable(original_sigterm):
+            original_sigterm(signum, frame)
+
+    # Register signal handlers (only on main thread)
+    try:
+        signal.signal(signal.SIGINT, handle_shutdown_signal)
+        signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    except ValueError:
+        # Can't set signal handlers from non-main thread
+        pass
+
     logger.info("The Combine API started successfully")
     logger.info(f"API Documentation: http://{settings.API_HOST}:{settings.API_PORT}/docs")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down The Combine API...")
+
+    # Close SSE connections gracefully (backup, in case signal didn't fire)
+    try:
+        from app.api.v1.routers.production import shutdown_sse_connections
+        await shutdown_sse_connections()
+    except Exception as e:
+        logger.warning(f"Error shutting down SSE connections: {e}")
 
 # Create FastAPI app
 app = FastAPI(

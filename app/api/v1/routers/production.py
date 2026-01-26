@@ -43,6 +43,32 @@ router = APIRouter(prefix="/production", tags=["production"])
 # Key: project_id, Value: list of connected client queues
 _event_subscribers: dict[str, list[asyncio.Queue]] = {}
 
+# Shutdown flag for graceful SSE termination
+_shutdown_event: asyncio.Event | None = None
+
+
+def get_shutdown_event() -> asyncio.Event:
+    """Get or create the shutdown event."""
+    global _shutdown_event
+    if _shutdown_event is None:
+        _shutdown_event = asyncio.Event()
+    return _shutdown_event
+
+
+async def shutdown_sse_connections() -> None:
+    """Signal all SSE connections to close gracefully.
+
+    Called during application shutdown.
+    """
+    get_shutdown_event().set()
+
+    # Give connections a moment to notice the shutdown
+    await asyncio.sleep(0.1)
+
+    # Clear all subscribers
+    _event_subscribers.clear()
+    logger.info("SSE connections shutdown complete")
+
 
 async def _subscribe_to_project(project_id: str) -> asyncio.Queue:
     """Subscribe to production events for a project."""
@@ -95,6 +121,7 @@ async def _event_generator(
     Yields events as they occur, with periodic keepalives.
     """
     queue = await _subscribe_to_project(project_id)
+    shutdown_event = get_shutdown_event()
 
     try:
         # Send initial connection event
@@ -106,24 +133,34 @@ async def _event_generator(
             }),
         }
 
+        keepalive_counter = 0
         while True:
+            # Check if server is shutting down
+            if shutdown_event.is_set():
+                logger.debug(f"SSE shutdown signal received for project {project_id}")
+                break
+
             # Check if client disconnected
             if await request.is_disconnected():
                 break
 
             try:
-                # Wait for event with timeout for keepalive
-                event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                # Wait for event with short timeout to check shutdown frequently
+                event = await asyncio.wait_for(queue.get(), timeout=1.0)
                 yield {
                     "event": event["event"],
                     "data": json.dumps(event["data"]),
                 }
+                keepalive_counter = 0
             except asyncio.TimeoutError:
-                # Send keepalive
-                yield {
-                    "event": "keepalive",
-                    "data": json.dumps({"timestamp": datetime.utcnow().isoformat()}),
-                }
+                keepalive_counter += 1
+                # Send keepalive every 30 seconds
+                if keepalive_counter >= 30:
+                    yield {
+                        "event": "keepalive",
+                        "data": json.dumps({"timestamp": datetime.utcnow().isoformat()}),
+                    }
+                    keepalive_counter = 0
 
     finally:
         await _unsubscribe_from_project(project_id, queue)

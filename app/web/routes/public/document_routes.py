@@ -535,7 +535,12 @@ async def build_document(
     
     # Create new task
     task_id = uuid4()
-    correlation_id = getattr(request.state, "correlation_id", None) or uuid4()
+    # Middleware stores correlation_id as string; ensure we have a UUID for downstream use
+    raw_correlation_id = getattr(request.state, "correlation_id", None)
+    if raw_correlation_id:
+        correlation_id = UUID(raw_correlation_id) if isinstance(raw_correlation_id, str) else raw_correlation_id
+    else:
+        correlation_id = uuid4()
     
     task_info = TaskInfo(
         task_id=task_id,

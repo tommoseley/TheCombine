@@ -4,7 +4,9 @@ Provides production status calculation for the Production Line UI.
 Used by both the API and web routes.
 """
 
+import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
@@ -20,12 +22,70 @@ logger = logging.getLogger(__name__)
 
 
 def get_document_type_dependencies() -> List[Dict[str, Any]]:
-    """Get document type dependencies from the plan registry.
+    """Get document type dependencies for the production line.
+
+    Reads from the master workflow definition (software_product_development.v1.json)
+    to get all document types and their dependencies in the correct order.
 
     Returns list of dicts with:
     - id: document type identifier
+    - name: human-readable name
     - requires: list of required document type IDs
+    - scope: document scope (project, epic, story)
     """
+    # Try to load from master workflow definition first
+    master_workflow_path = Path("seed/workflows/software_product_development.v1.json")
+    if master_workflow_path.exists():
+        try:
+            with open(master_workflow_path) as f:
+                master = json.load(f)
+
+            doc_types_def = master.get("document_types", {})
+            steps = master.get("steps", [])
+
+            # Build document types in step order (respecting dependencies)
+            document_types = []
+            seen = set()
+
+            def extract_from_steps(step_list: List[Dict], parent_docs: List[str] = None):
+                """Recursively extract document types from steps."""
+                if parent_docs is None:
+                    parent_docs = []
+
+                for step in step_list:
+                    # Handle nested steps (iterate_over)
+                    if "steps" in step:
+                        # Get inputs from this level
+                        inputs = [inp.get("doc_type") for inp in step.get("inputs", []) if inp.get("doc_type")]
+                        extract_from_steps(step["steps"], parent_docs + inputs)
+                        continue
+
+                    produces = step.get("produces")
+                    if produces and produces not in seen:
+                        seen.add(produces)
+                        doc_def = doc_types_def.get(produces, {})
+
+                        # Build requires list from step inputs
+                        requires = []
+                        for inp in step.get("inputs", []):
+                            doc_type = inp.get("doc_type")
+                            if doc_type:
+                                requires.append(doc_type)
+
+                        document_types.append({
+                            "id": produces,
+                            "name": doc_def.get("name", produces),
+                            "requires": requires,
+                            "scope": doc_def.get("scope", "project"),
+                        })
+
+            extract_from_steps(steps)
+            return document_types
+
+        except Exception as e:
+            logger.warning(f"Failed to load master workflow: {e}, falling back to plan registry")
+
+    # Fallback to DIW plan registry
     registry = get_plan_registry()
     plans = registry.list_plans()
 
@@ -34,11 +94,12 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
         if plan.document_type:
             document_types.append({
                 "id": plan.document_type,
+                "name": plan.name,
                 "requires": plan.requires_inputs or [],
+                "scope": "project",
             })
 
     # Sort by dependency depth (documents with fewer deps first)
-    # This ensures proper traversal order in the UI
     def dep_count(dt: Dict[str, Any]) -> int:
         return len(dt["requires"])
 
@@ -101,15 +162,22 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     tracks = []
     stabilized_types = set()
 
-    # Get document types from plan registry
+    # Get document types from master workflow definition
     document_types = get_document_type_dependencies()
 
     for doc_type in document_types:
         type_id = doc_type["id"]
         requires = doc_type["requires"]
+        scope = doc_type.get("scope", "project")
+
+        # For now, only show project-scoped documents in the production line
+        # Epic and story documents require entity context
+        if scope != "project":
+            continue
 
         track = {
             "document_type": type_id,
+            "document_name": doc_type.get("name", type_id),
             "state": ProductionState.QUEUED.value,
             "stations": [],
             "elapsed_ms": None,
@@ -135,13 +203,12 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         # Check if actively running
         if type_id in active_executions:
             ex = active_executions[type_id]
-            state = ex.state or {}
+            current_node = ex.current_node_id or ""
 
             # Map execution state to production state
             if ex.status == "paused":
                 track["state"] = ProductionState.AWAITING_OPERATOR.value
             elif ex.status in ["running", "in_progress"]:
-                current_node = state.get("current_node_id", "")
                 if "qa" in current_node.lower():
                     track["state"] = ProductionState.AUDITING.value
                 elif "remediat" in current_node.lower():
@@ -151,10 +218,10 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 else:
                     track["state"] = ProductionState.ASSEMBLING.value
 
-            # Build station sequence from node_history
-            node_history = state.get("node_history", [])
+            # Build station sequence from execution_log
+            execution_log = ex.execution_log or []
             stations = []
-            for node_exec in node_history[-6:]:  # Last 6 nodes
+            for node_exec in execution_log[-6:]:  # Last 6 nodes
                 node_id = node_exec.get("node_id", "")
                 outcome = node_exec.get("outcome", "")
 
@@ -170,7 +237,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                     station["state"] = "complete"
                 elif outcome == "failed":
                     station["state"] = "failed"
-                elif node_id == state.get("current_node_id"):
+                elif node_id == current_node:
                     station["state"] = "active"
 
                 stations.append(station)

@@ -242,9 +242,8 @@ async def run_workflow_build(
             )
             
             # Start workflow execution
-            document_id = f"{doc_type_id}-{correlation_id.hex[:12]}"
             state = await executor.start_execution(
-                document_id=document_id,
+                project_id=str(project_id),
                 document_type=doc_type_id,
                 initial_context=initial_context,
             )
