@@ -30,182 +30,16 @@ from app.web.routes.shared import templates
 from app.domain.workflow.plan_executor import PlanExecutor
 from app.domain.workflow.pg_state_persistence import PgStatePersistence
 from app.api.models.project import Project
-from app.api.models.document import Document
-from sqlalchemy import select, func
-import json
-import re
 from app.domain.workflow.plan_registry import get_plan_registry
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
 from app.domain.workflow.interpretation import calculate_confidence, get_missing_fields
 from app.domain.workflow.nodes.mock_executors import create_mock_executors
+from app.api.services.project_creation_service import (
+    create_project_from_intake,
+    extract_intake_document_from_state,
+)
 
 logger = logging.getLogger(__name__)
-
-
-# =============================================================================
-# Project Creation Helpers
-# =============================================================================
-
-def _generate_project_id_prefix(project_name: str) -> str:
-    """Generate 2-5 letter prefix from project name.
-    
-    Examples:
-        "Legacy Inventory Replacement" -> "LIR"
-        "Mobile App" -> "MA"
-        "Customer Portal Redesign" -> "CPR"
-    """
-    # Extract words, take first letter of each
-    words = re.findall(r'[A-Za-z]+', project_name)
-    if not words:
-        return "PRJ"
-    
-    # Take initials, max 5
-    initials = ''.join(w[0].upper() for w in words[:5])
-    
-    # Ensure at least 2 characters
-    if len(initials) < 2:
-        initials = (initials + "X" * 2)[:2]
-    
-    return initials[:5]
-
-
-async def _generate_unique_project_id(db: AsyncSession, project_name: str) -> str:
-    """Generate unique project_id in format LIR-001.
-    
-    Finds the next available sequence number for the prefix.
-    """
-    prefix = _generate_project_id_prefix(project_name)
-    
-    # Find existing projects with this prefix
-    pattern = f"{prefix}-%"
-    result = await db.execute(
-        select(Project.project_id)
-        .where(Project.project_id.like(pattern))
-        .order_by(Project.project_id.desc())
-    )
-    existing = result.scalars().all()
-    
-    if not existing:
-        return f"{prefix}-001"
-    
-    # Extract highest number
-    max_num = 0
-    for pid in existing:
-        try:
-            num = int(pid.split('-')[1])
-            max_num = max(max_num, num)
-        except (IndexError, ValueError):
-            continue
-    
-    return f"{prefix}-{max_num + 1:03d}"
-
-
-async def _create_project_from_intake(
-    db: AsyncSession,
-    state,
-    user_id: Optional[str] = None,
-) -> Optional[Project]:
-    """Create Project from completed intake workflow.
-    
-    Extracts project_name from the generated intake document in context_state.
-    Returns None if creation fails or data is missing.
-    """
-    # Get the intake document from context_state
-    context_state = state.context_state or {}
-    
-    # Debug: log what keys are in context_state
-    logger.info(f"Context state keys: {list(context_state.keys())}")
-    
-    # Try multiple possible keys
-    intake_doc = (
-        context_state.get("document_concierge_intake_document") or
-        context_state.get("last_produced_document") or
-        context_state.get("concierge_intake_document")
-    )
-    
-    if not intake_doc:
-        # Try to find in node history metadata
-        for execution in reversed(state.node_history):
-            if execution.node_id == "generation":
-                response = execution.metadata.get("response")
-                if response:
-                    try:
-                        intake_doc = json.loads(response) if isinstance(response, str) else response
-                        logger.info(f"Found intake doc in node history: {list(intake_doc.keys()) if isinstance(intake_doc, dict) else type(intake_doc)}")
-                        break
-                    except json.JSONDecodeError:
-                        continue
-    
-    if not intake_doc:
-        logger.warning("No intake document found in workflow state")
-        logger.warning(f"Full context_state: {context_state}")
-        return None
-    
-    # Extract project name
-    project_name = intake_doc.get("project_name")
-    if not project_name:
-        # Fallback to summary description
-        summary = intake_doc.get("summary", {})
-        project_name = summary.get("description", "New Project")[:100]
-    
-    # Generate unique project_id with hyphen format (e.g., LIR-001)
-    project_id = await _generate_unique_project_id(db, project_name)
-    
-    # Parse user_id to UUID if provided (may already be UUID from asyncpg)
-    if user_id is None:
-        owner_uuid = None
-    elif isinstance(user_id, uuid_module.UUID):
-        owner_uuid = user_id
-    elif hasattr(user_id, 'hex'):
-        # asyncpg UUID - convert via hex
-        owner_uuid = uuid_module.UUID(user_id.hex)
-    else:
-        owner_uuid = uuid_module.UUID(str(user_id))
-    
-    # Create project using ORM
-    project = Project(
-        project_id=project_id,
-        name=project_name,
-        description=intake_doc.get("summary", {}).get("description"),
-        status="active",
-        icon="folder",
-        owner_id=owner_uuid,
-        organization_id=owner_uuid,
-        created_by=str(user_id) if user_id else None,
-        meta={
-            "intake_document": intake_doc,
-            "workflow_execution_id": state.execution_id,
-        }
-    )
-    
-    db.add(project)
-    await db.flush()  # Get the project.id before creating document
-    
-    # Create concierge_intake document linked to project (WS-INTAKE-SEP-002)
-    # IP-INTAKE-SEPARATION-001: Intake creates concierge_intake, not project_discovery
-    summary_obj = intake_doc.get("summary", {})
-    doc_summary = summary_obj.get("description", "")[:500] if isinstance(summary_obj, dict) else str(summary_obj)[:500]
-    
-    intake_document = Document(
-        space_type="project",
-        space_id=project.id,
-        doc_type_id="concierge_intake",
-        title=f"Concierge Intake: {project_name}",
-        summary=doc_summary,
-        content=intake_doc,
-        status="active",
-        lifecycle_state="complete",
-        version=1,
-        is_latest=True,
-    )
-    
-    db.add(intake_document)
-    await db.commit()
-    await db.refresh(project)
-    
-    logger.info(f"Created project {project_id}: {project_name}")
-    logger.info(f"Created concierge_intake document for project {project.id}")
-    return project
 
 router = APIRouter(tags=["intake-workflow-ui"])
 
@@ -879,18 +713,27 @@ async def _build_completion_context(
     user_id: Optional[str] = None,
 ) -> dict:
     """Build context for completion state.
-    
-    If gate_outcome is 'qualified', creates a Project record.
+
+    If gate_outcome is 'qualified', creates a Project record via service.
     """
     project = None
     project_url = None
-    
+
     # Create project if qualified
     if state.gate_outcome == "qualified":
         try:
-            project = await _create_project_from_intake(db, state, user_id)
-            if project:
-                project_url = f"/projects/{project.project_id}"
+            intake_doc = extract_intake_document_from_state(state)
+            if intake_doc:
+                project = await create_project_from_intake(
+                    db=db,
+                    intake_document=intake_doc,
+                    execution_id=state.execution_id,
+                    user_id=str(user_id) if user_id else None,
+                )
+                if project:
+                    project_url = f"/projects/{project.project_id}"
+            else:
+                logger.warning("No intake document found in workflow state for project creation")
         except Exception as e:
             logger.exception(f"Failed to create project: {e}")
     

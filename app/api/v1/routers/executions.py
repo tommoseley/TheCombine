@@ -1,10 +1,14 @@
 ﻿"""Execution management endpoints."""
 
 from functools import lru_cache
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.services.qa_coverage_service import get_qa_coverage
+from app.api.services.transcript_service import get_execution_transcript
 from app.api.v1.dependencies import (
     get_workflow_registry,
     get_persistence,
@@ -27,6 +31,7 @@ from app.api.v1.services.execution_service import (
     ExecutionNotFoundError,
     InvalidExecutionStateError,
 )
+from app.core.database import get_db
 from app.domain.workflow import (
     WorkflowRegistry,
     WorkflowNotFoundError,
@@ -384,5 +389,210 @@ async def resume_execution(
                 "message": str(e),
             },
         )
-    
+
     return _state_to_response(execution_id, state)
+
+
+# =============================================================================
+# QA Coverage API
+# =============================================================================
+
+class ConstraintInfo(BaseModel):
+    """Constraint information for coverage display."""
+    id: str
+    question: str
+    answer: str
+    source: str
+    priority: str
+
+
+class QANodeSummary(BaseModel):
+    """Summary of a QA node execution."""
+    node_id: Optional[str]
+    outcome: Optional[str]
+    timestamp: Optional[str]
+    qa_passed: bool
+    validation_source: Optional[str]
+    semantic_report: Optional[Dict[str, Any]]
+    report_summary: Optional[Dict[str, Any]]
+    coverage_items: List[Dict[str, Any]]
+    findings: List[Dict[str, Any]]
+    drift_errors: List[Any]
+    drift_warnings: List[Any]
+    code_validation_warnings: List[Any]
+    code_validation_errors: List[Any]
+
+
+class QACoverageSummary(BaseModel):
+    """Summary statistics for QA coverage."""
+    total_checks: int
+    passed: int
+    failed: int
+    total_errors: int
+    total_warnings: int
+    total_constraints: int
+    satisfied: int
+    missing: int
+    contradicted: int
+    reopened: int
+    not_evaluated: int
+
+
+class QACoverageResponse(BaseModel):
+    """Response model for QA coverage."""
+    execution_id: str
+    workflow_id: Optional[str]
+    document_type: Optional[str]
+    constraint_lookup: Dict[str, ConstraintInfo]
+    qa_nodes: List[QANodeSummary]
+    summary: QACoverageSummary
+
+
+@router.get(
+    "/executions/{execution_id}/qa-coverage",
+    response_model=QACoverageResponse,
+    summary="Get QA coverage",
+    description="Get QA coverage data for a workflow execution.",
+    responses={
+        404: {"model": ErrorResponse, "description": "Execution not found"},
+    },
+)
+async def get_execution_qa_coverage(
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> QACoverageResponse:
+    """Get QA coverage for an execution."""
+    data = await get_qa_coverage(db=db, execution_id=execution_id)
+
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "EXECUTION_NOT_FOUND",
+                "message": f"Execution '{execution_id}' not found",
+            },
+        )
+
+    return QACoverageResponse(
+        execution_id=data["execution_id"],
+        workflow_id=data["workflow_id"],
+        document_type=data["document_type"],
+        constraint_lookup={
+            k: ConstraintInfo(**v) for k, v in data["constraint_lookup"].items()
+        },
+        qa_nodes=[QANodeSummary(**node) for node in data["qa_nodes"]],
+        summary=QACoverageSummary(**data["summary"]),
+    )
+
+
+# =============================================================================
+# Transcript API
+# =============================================================================
+
+class TranscriptInputOutput(BaseModel):
+    """Input or output content for a transcript entry."""
+    kind: Optional[str]
+    content: Optional[str]
+    size: int
+    redacted: Optional[bool] = None
+    parse_status: Optional[str] = None
+    validation_status: Optional[str] = None
+
+
+class TranscriptEntry(BaseModel):
+    """Single entry in the transcript."""
+    run_number: int
+    run_id: str
+    run_id_short: str
+    role: Optional[str]
+    task_ref: Optional[str]
+    node_id: Optional[str]
+    prompt_sources: Optional[Dict[str, Any]]
+    model: Optional[str]
+    status: Optional[str]
+    started_at_time: Optional[str]
+    started_at_iso: Optional[str]
+    duration: Optional[str]
+    duration_seconds: Optional[float]
+    tokens: Optional[int]
+    cost: Optional[float]
+    inputs: List[TranscriptInputOutput]
+    outputs: List[TranscriptInputOutput]
+
+
+class TranscriptResponse(BaseModel):
+    """Response model for execution transcript."""
+    execution_id: str
+    project_id: Optional[str]
+    project_name: Optional[str]
+    document_type: Optional[str]
+    transcript: List[TranscriptEntry]
+    total_runs: int
+    total_tokens: int
+    total_cost: float
+    started_at_formatted: Optional[str]
+    started_at_iso: Optional[str]
+    ended_at_formatted: Optional[str]
+    ended_at_iso: Optional[str]
+
+
+@router.get(
+    "/executions/{execution_id}/transcript",
+    response_model=TranscriptResponse,
+    summary="Get execution transcript",
+    description="Get LLM conversation transcript for a workflow execution.",
+    responses={
+        404: {"model": ErrorResponse, "description": "No LLM runs found for execution"},
+    },
+)
+async def get_transcript(
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> TranscriptResponse:
+    """Get transcript for an execution."""
+    data = await get_execution_transcript(db=db, execution_id=execution_id)
+
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "EXECUTION_NOT_FOUND",
+                "message": f"No LLM runs found for execution '{execution_id}'",
+            },
+        )
+
+    return TranscriptResponse(
+        execution_id=data["execution_id"],
+        project_id=data["project_id"],
+        project_name=data["project_name"],
+        document_type=data["document_type"],
+        transcript=[
+            TranscriptEntry(
+                run_number=e["run_number"],
+                run_id=e["run_id"],
+                run_id_short=e["run_id_short"],
+                role=e["role"],
+                task_ref=e["task_ref"],
+                node_id=e["node_id"],
+                prompt_sources=e["prompt_sources"],
+                model=e["model"],
+                status=e["status"],
+                started_at_time=e["started_at_time"],
+                started_at_iso=e["started_at_iso"],
+                duration=e["duration"],
+                duration_seconds=e["duration_seconds"],
+                tokens=e["tokens"],
+                cost=e["cost"],
+                inputs=[TranscriptInputOutput(**inp) for inp in e["inputs"]],
+                outputs=[TranscriptInputOutput(**out) for out in e["outputs"]],
+            )
+            for e in data["transcript"]
+        ],
+        total_runs=data["total_runs"],
+        total_tokens=data["total_tokens"],
+        total_cost=data["total_cost"],
+        started_at_formatted=data["started_at_formatted"],
+        started_at_iso=data["started_at_iso"],
+        ended_at_formatted=data["ended_at_formatted"],
+        ended_at_iso=data["ended_at_iso"],
+    )

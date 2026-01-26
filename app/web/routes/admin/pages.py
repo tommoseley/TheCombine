@@ -11,6 +11,9 @@ from sqlalchemy import select, desc, text
 from app.core.database import get_db
 from app.domain.models.llm_logging import LLMRun, LLMRunInputRef, LLMRunOutputRef, LLMRunError, LLMContent
 from app.api.models.project import Project
+from app.api.services.dashboard_service import get_dashboard_summary
+from app.api.services.qa_coverage_service import get_qa_coverage
+from app.api.services.transcript_service import get_execution_transcript
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Form
@@ -63,88 +66,27 @@ async def dashboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Render the dashboard page with unified workflow and document build activity."""
-    # Get workflows for shortcuts
-    workflow_ids = registry.list_ids()
-    workflows = []
-    for wf_id in workflow_ids:
-        wf = registry.get(wf_id)
-        workflows.append({
-            "workflow_id": wf.workflow_id,
-            "name": wf.name,
-            "step_count": len(wf.nodes),
-        })
-    
-    executions = []
-    
-    # Get workflow executions
-    all_workflow_executions = await execution_service.list_executions()
-    for e in all_workflow_executions:
-        executions.append({
-            "execution_id": e.execution_id,
-            "workflow_id": e.workflow_id,
-            "project_id": e.project_id,
-            "status": e.status.value if hasattr(e.status, 'value') else str(e.status),
-            "started_at": e.started_at,
-            "source": "workflow",
-            "source_label": "Workflow",
-        })
-    
-    # Get document builds
-    query = select(LLMRun).where(LLMRun.artifact_type.isnot(None)).order_by(desc(LLMRun.started_at)).limit(20)
-    result = await db.execute(query)
-    llm_runs = result.scalars().all()
-    
-    for run in llm_runs:
-        executions.append({
-            "execution_id": str(run.id),
-            "workflow_id": run.artifact_type,
-            "project_id": str(run.project_id) if run.project_id else "-",
-            "status": run.status.lower(),
-            "started_at": run.started_at,
-            "source": "document",
-            "source_label": "Document Build",
-        })
-    
-    # Sort by started_at descending and take top 10
-    executions.sort(key=_sort_key_datetime, reverse=True)
-    executions = executions[:10]
-    
-    # Format dates for display (convert UTC to local timezone)
-    for e in executions:
-        if e["started_at"]:
-            dt = e["started_at"]
-            # Ensure timezone aware, then convert to display timezone
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            local_dt = dt.astimezone(DISPLAY_TZ)
-            e["started_at"] = local_dt.strftime("%Y-%m-%d %H:%M")
-    
-    # Calculate stats
-    running = sum(1 for e in all_workflow_executions if e.status == WorkflowStatus.RUNNING)
-    waiting = sum(1 for e in all_workflow_executions if e.status in (
-        WorkflowStatus.WAITING_ACCEPTANCE,
-        WorkflowStatus.WAITING_CLARIFICATION,
-    ))
-    local_today = datetime.now(DISPLAY_TZ).date()
-    doc_builds_today = len([r for r in llm_runs if r.started_at and r.started_at.astimezone(DISPLAY_TZ).date() == local_today])
-    
-    stats = {
-        "total_workflows": len(workflows),
-        "running_executions": running,
-        "waiting_action": waiting,
-        "doc_builds_today": doc_builds_today,
-    }
-    
+    # Use the dashboard service for data
+    data = await get_dashboard_summary(
+        db=db,
+        registry=registry,
+        execution_service=execution_service,
+        limit=10,
+    )
+
+    # Map started_at_formatted to started_at for template compatibility
+    for e in data["executions"]:
+        e["started_at"] = e.get("started_at_formatted")
+
     return templates.TemplateResponse(
         request,
         "pages/dashboard.html",
         {
             "active_page": "dashboard",
-            "workflows": workflows,
-            "executions": executions,
-            "stats": stats,
-            "today": datetime.now(DISPLAY_TZ).strftime("%Y-%m-%d"),
-            
+            "workflows": data["workflows"],
+            "executions": data["executions"],
+            "stats": data["stats"],
+            "today": data["today"],
         },
     )
 
@@ -805,15 +747,10 @@ async def execution_qa_coverage(
 
     Shows per-constraint status, findings, and coverage summary.
     """
-    from app.api.models.workflow_execution import WorkflowExecution
+    # Use the QA coverage service
+    data = await get_qa_coverage(db=db, execution_id=execution_id)
 
-    # Get workflow execution
-    result = await db.execute(
-        select(WorkflowExecution).where(WorkflowExecution.execution_id == execution_id)
-    )
-    execution = result.scalar_one_or_none()
-
-    if not execution:
+    if not data:
         return templates.TemplateResponse(
             request,
             "pages/error.html",
@@ -825,150 +762,17 @@ async def execution_qa_coverage(
             status_code=404,
         )
 
-    # Extract bound constraints from context_state for display
-    context_state = execution.context_state or {}
-    pgc_invariants = context_state.get("pgc_invariants", [])
-
-    # Build lookup map: constraint_id -> constraint details
-    constraint_lookup = {}
-    for inv in pgc_invariants:
-        cid = inv.get("id")
-        if cid:
-            constraint_lookup[cid] = {
-                "id": cid,
-                "question": inv.get("text", ""),  # Question text
-                "answer": inv.get("user_answer_label") or str(inv.get("user_answer", "")),
-                "source": inv.get("binding_source", ""),
-                "priority": inv.get("priority", ""),
-            }
-
-    # Extract QA node executions from execution_log
-    execution_log = execution.execution_log or []
-    qa_nodes = []
-
-    for node_exec in execution_log:
-        node_id = node_exec.get("node_id", "")
-        # QA nodes typically have "qa" in their ID
-        if "qa" in node_id.lower():
-            qa_nodes.append(node_exec)
-
-    if not qa_nodes:
-        return templates.TemplateResponse(
-            request,
-            "pages/qa_coverage.html",
-            {
-                "active_page": "executions",
-                "execution_id": execution_id,
-                "workflow_id": execution.workflow_id,
-                "document_type": execution.document_type,
-                "qa_nodes": [],
-                "summary": {
-                    "total_checks": 0,
-                    "passed": 0,
-                    "failed": 0,
-                    "total_constraints": 0,
-                    "satisfied": 0,
-                    "missing": 0,
-                    "contradicted": 0,
-                },
-                "constraint_lookup": constraint_lookup,
-            },
-        )
-
-    # Process each QA node execution
-    processed_qa_nodes = []
-    summary = {
-        "total_checks": 0,
-        "passed": 0,
-        "failed": 0,
-        "total_errors": 0,
-        "total_warnings": 0,
-        "total_constraints": 0,
-        "satisfied": 0,
-        "missing": 0,
-        "contradicted": 0,
-        "reopened": 0,
-        "not_evaluated": 0,
-    }
-
-    for qa_node in qa_nodes:
-        node_id = qa_node.get("node_id")
-        outcome = qa_node.get("outcome")
-        timestamp = qa_node.get("timestamp")
-        metadata = qa_node.get("metadata", {})
-
-        summary["total_checks"] += 1
-        if outcome == "success":
-            summary["passed"] += 1
-        else:
-            summary["failed"] += 1
-
-        # Extract semantic QA report if present
-        semantic_report = metadata.get("semantic_qa_report")
-        coverage_items = []
-        findings = []
-        report_summary = None
-
-        if semantic_report:
-            report_summary = semantic_report.get("summary", {})
-            summary["total_errors"] += report_summary.get("errors", 0)
-            summary["total_warnings"] += report_summary.get("warnings", 0)
-
-            coverage = semantic_report.get("coverage", {})
-            coverage_items = coverage.get("items", [])
-
-            # Count per-constraint statuses
-            for item in coverage_items:
-                status = item.get("status", "not_evaluated")
-                summary["total_constraints"] += 1
-                if status == "satisfied":
-                    summary["satisfied"] += 1
-                elif status == "missing":
-                    summary["missing"] += 1
-                elif status == "contradicted":
-                    summary["contradicted"] += 1
-                elif status == "reopened":
-                    summary["reopened"] += 1
-                else:
-                    summary["not_evaluated"] += 1
-
-            findings = semantic_report.get("findings", [])
-
-        # Extract Layer 1 drift issues
-        drift_errors = metadata.get("drift_errors", [])
-        drift_warnings = metadata.get("drift_warnings", [])
-
-        # Extract code validation issues
-        code_validation_warnings = metadata.get("code_validation_warnings", [])
-        code_validation_errors = metadata.get("validation_errors", [])
-
-        processed_qa_nodes.append({
-            "node_id": node_id,
-            "outcome": outcome,
-            "timestamp": timestamp,
-            "qa_passed": metadata.get("qa_passed", outcome == "success"),
-            "validation_source": metadata.get("validation_source"),
-            "semantic_report": semantic_report,
-            "report_summary": report_summary,
-            "coverage_items": coverage_items,
-            "findings": findings,
-            "drift_errors": drift_errors,
-            "drift_warnings": drift_warnings,
-            "code_validation_warnings": code_validation_warnings,
-            "code_validation_errors": code_validation_errors,
-        })
-
     return templates.TemplateResponse(
         request,
         "pages/qa_coverage.html",
         {
             "active_page": "executions",
-            "execution_id": execution_id,
-            "workflow_id": execution.workflow_id,
-            "document_type": execution.document_type,
-            "qa_nodes": processed_qa_nodes,
-            "summary": summary,
-            "constraint_lookup": constraint_lookup,
+            "execution_id": data["execution_id"],
+            "workflow_id": data["workflow_id"],
+            "document_type": data["document_type"],
+            "qa_nodes": data["qa_nodes"],
+            "summary": data["summary"],
+            "constraint_lookup": data["constraint_lookup"],
         },
     )
 
@@ -983,15 +787,10 @@ async def execution_transcript(
 
     Shows the complete LLM-to-Combine conversation log as simple text.
     """
-    # Get all LLM runs for this workflow execution
-    result = await db.execute(
-        select(LLMRun)
-        .where(LLMRun.workflow_execution_id == execution_id)
-        .order_by(LLMRun.started_at)
-    )
-    runs = list(result.scalars().all())
+    # Use the transcript service
+    data = await get_execution_transcript(db=db, execution_id=execution_id)
 
-    if not runs:
+    if not data:
         return templates.TemplateResponse(
             request,
             "pages/error.html",
@@ -1003,70 +802,40 @@ async def execution_transcript(
             status_code=404,
         )
 
-    # Get project name from first run
-    first_run = runs[0]
-    project_name = await _get_project_name(db, first_run.project_id) if first_run.project_id else None
-
-    # Build transcript entries
+    # Map service data to template format (template expects some different field names)
     transcript_entries = []
-    total_tokens = 0
-    total_cost = 0.0
-
-    for i, run in enumerate(runs, 1):
-        # Get inputs and outputs
-        inputs = await _get_llm_run_inputs(db, run.id)
-        outputs = await _get_llm_run_outputs(db, run.id)
-
-        # Calculate duration
-        duration_str = None
-        if run.started_at and run.ended_at:
-            duration = (run.ended_at - run.started_at).total_seconds()
-            duration_str = f"{duration:.1f}s"
-
-        # Extract node_id and prompt_sources from metadata if available
-        node_id = None
-        prompt_sources = None
-        if run.run_metadata and isinstance(run.run_metadata, dict):
-            node_id = run.run_metadata.get("node_id")
-            prompt_sources = run.run_metadata.get("prompt_sources")
-
-        entry = {
-            "run_number": i,
-            "run_id": str(run.id)[:8],
-            "role": run.role,
-            "task_ref": run.prompt_id,
-            "node_id": node_id,
-            "prompt_sources": prompt_sources,
-            "model": run.model_name,
-            "status": run.status,
-            "started_at": run.started_at.astimezone(DISPLAY_TZ).strftime("%H:%M:%S") if run.started_at else None,
-            "duration": duration_str,
-            "tokens": run.total_tokens,
-            "cost": float(run.cost_usd) if run.cost_usd else None,
-            "inputs": inputs,
-            "outputs": outputs,
-        }
-        transcript_entries.append(entry)
-
-        if run.total_tokens:
-            total_tokens += run.total_tokens
-        if run.cost_usd:
-            total_cost += float(run.cost_usd)
+    for entry in data["transcript"]:
+        transcript_entries.append({
+            "run_number": entry["run_number"],
+            "run_id": entry["run_id_short"],
+            "role": entry["role"],
+            "task_ref": entry["task_ref"],
+            "node_id": entry["node_id"],
+            "prompt_sources": entry["prompt_sources"],
+            "model": entry["model"],
+            "status": entry["status"],
+            "started_at": entry["started_at_time"],
+            "duration": entry["duration"],
+            "tokens": entry["tokens"],
+            "cost": entry["cost"],
+            "inputs": entry["inputs"],
+            "outputs": entry["outputs"],
+        })
 
     return templates.TemplateResponse(
         request,
         "pages/execution_transcript.html",
         {
             "active_page": "executions",
-            "execution_id": execution_id,
-            "project_name": project_name,
-            "project_id": str(first_run.project_id) if first_run.project_id else None,
-            "document_type": first_run.artifact_type,
+            "execution_id": data["execution_id"],
+            "project_name": data["project_name"],
+            "project_id": data["project_id"],
+            "document_type": data["document_type"],
             "transcript": transcript_entries,
-            "total_runs": len(runs),
-            "total_tokens": total_tokens,
-            "total_cost": total_cost,
-            "started_at": runs[0].started_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if runs[0].started_at else None,
-            "ended_at": runs[-1].ended_at.astimezone(DISPLAY_TZ).strftime("%Y-%m-%d %H:%M:%S") if runs[-1].ended_at else None,
+            "total_runs": data["total_runs"],
+            "total_tokens": data["total_tokens"],
+            "total_cost": data["total_cost"],
+            "started_at": data["started_at_formatted"],
+            "ended_at": data["ended_at_formatted"],
         },
     )

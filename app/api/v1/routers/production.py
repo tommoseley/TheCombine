@@ -25,6 +25,7 @@ from sse_starlette.sse import EventSourceResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.api.services.production_service import get_production_status
 from app.domain.workflow.production_state import (
     ProductionState,
     Station,
@@ -166,23 +167,8 @@ async def production_status(
     Returns:
         Current state of all document tracks in the project.
     """
-    # TODO: Implement actual status aggregation from workflow_executions
-    # For now, return a placeholder structure
-
-    return JSONResponse({
-        "project_id": project_id,
-        "line_state": "idle",
-        "tracks": [],
-        "interrupts": [],
-        "summary": {
-            "total": 0,
-            "stabilized": 0,
-            "active": 0,
-            "blocked": 0,
-            "queued": 0,
-            "awaiting_operator": 0,
-        },
-    })
+    status = await get_production_status(db, project_id)
+    return JSONResponse(status)
 
 
 @router.post("/start")

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Production Line - The Combine{% endblock %}
+
+{% block page_title %}Production Line{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-3">
+    {% if project %}
+    <span class="text-sm text-gray-500 dark:text-gray-400">{{ project.name }}</span>
+    {% endif %}
+    <button id="run-full-line"
+            class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 text-white rounded-md transition-colors flex items-center gap-2"
+            {% if not project %}disabled{% endif %}
+            hx-post="/production/start?project_id={{ project.id if project else '' }}"
+            hx-target="#line-status">
+        <i data-lucide="play" class="w-4 h-4"></i>
+        Run Full Line
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Line Status Banner -->
+    <div id="line-status" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full {% if line_state == 'active' %}bg-amber-500 animate-pulse{% elif line_state == 'idle' %}bg-gray-400{% else %}bg-green-500{% endif %}"></div>
+                <span class="text-lg font-semibold">
+                    Production Line:
+                    <span class="{% if line_state == 'active' %}text-amber-600 dark:text-amber-400{% elif line_state == 'idle' %}text-gray-500{% else %}text-green-600 dark:text-green-400{% endif %}">
+                        {{ line_state|title }}
+                    </span>
+                </span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-500 dark:text-gray-400">
+                    {{ summary.stabilized }}/{{ summary.total }} Stabilized
+                </span>
+                {% if summary.active > 0 %}
+                <span class="text-amber-600 dark:text-amber-400">
+                    {{ summary.active }} Active
+                </span>
+                {% endif %}
+                {% if summary.awaiting_operator > 0 %}
+                <span class="text-red-600 dark:text-red-400 font-medium">
+                    {{ summary.awaiting_operator }} Awaiting Operator
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Operator Interrupt (if any) -->
+    {% if interrupt %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5"></i>
+            <div class="flex-1">
+                <h3 class="font-semibold text-red-800 dark:text-red-200">
+                    Line Stopped: {{ interrupt.document_type }} awaiting operator
+                </h3>
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1">
+                    The system needs your input to continue production.
+                </p>
+                <div class="mt-3">
+                    <a href="{{ interrupt.resolve_url }}"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors">
+                        <i data-lucide="message-square" class="w-4 h-4"></i>
+                        Answer Questions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Production Tracks -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold">Document Tracks</h2>
+        </div>
+
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for track in tracks %}
+            <div class="p-4 {% if track.state == 'active' %}bg-amber-50/50 dark:bg-amber-900/10{% endif %}">
+                <!-- Track Header -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <!-- State indicator -->
+                        {% if track.state == 'stabilized' %}
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        {% elif track.state == 'active' or track.state == 'assembling' or track.state == 'auditing' or track.state == 'binding' %}
+                        <div class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></div>
+                        {% elif track.state == 'remediating' %}
+                        <div class="w-3 h-3 rounded-full bg-orange-500 animate-pulse"></div>
+                        {% elif track.state == 'awaiting_operator' %}
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        {% elif track.state == 'halted' %}
+                        <div class="w-3 h-3 rounded-full bg-red-600"></div>
+                        {% elif track.state == 'blocked' %}
+                        <div class="w-3 h-3 rounded-full bg-gray-400"></div>
+                        {% else %}
+                        <div class="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+                        {% endif %}
+
+                        <span class="font-mono text-sm font-medium">{{ track.document_type }}</span>
+
+                        <!-- State badge -->
+                        <span class="px-2 py-0.5 text-xs rounded-full font-medium
+                            {% if track.state == 'stabilized' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                            {% elif track.state in ['assembling', 'auditing', 'binding'] %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400
+                            {% elif track.state == 'remediating' %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400
+                            {% elif track.state == 'awaiting_operator' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                            {% elif track.state == 'halted' %}bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-300
+                            {% elif track.state == 'blocked' %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                            {{ track.state|replace('_', ' ')|title }}
+                        </span>
+
+                        {% if track.elapsed_ms %}
+                        <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            [{{ (track.elapsed_ms / 1000)|round(1) }}s]
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        {% if track.state == 'queued' %}
+                        <button class="px-3 py-1.5 text-xs font-medium bg-accent hover:bg-accent/90 text-white rounded transition-colors"
+                                hx-post="/production/start?project_id={{ project.id }}&document_type={{ track.document_type }}"
+                                hx-target="#line-status">
+                            Start Production
+                        </button>
+                        {% elif track.state == 'stabilized' %}
+                        <a href="/view/{{ track.document_type }}?project_id={{ project.id }}"
+                           class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            View Document
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Station Sequence (for active tracks) -->
+                {% if track.stations and track.state not in ['queued', 'blocked', 'stabilized'] %}
+                <div class="mt-3 ml-6 flex items-center gap-1 text-xs font-mono">
+                    {% for station in track.stations %}
+                    <div class="flex items-center">
+                        <!-- Station node -->
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px]
+                            {% if station.state == 'complete' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+                            {% elif station.state == 'active' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 ring-2 ring-amber-400
+                            {% elif station.state == 'failed' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+                            {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-500{% endif %}">
+                            {% if station.state == 'complete' %}&#10003;{% elif station.state == 'failed' %}&#10007;{% else %}{{ station.station[:1]|upper }}{% endif %}
+                        </div>
+                        <!-- Connector line -->
+                        {% if not loop.last %}
+                        <div class="w-4 h-0.5
+                            {% if station.state == 'complete' %}bg-green-300 dark:bg-green-700
+                            {% else %}bg-gray-200 dark:bg-gray-600{% endif %}"></div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <!-- Station labels -->
+                    <span class="ml-2 text-gray-500 dark:text-gray-400">
+                        {% for station in track.stations %}
+                        {% if station.state == 'active' %}@ {{ station.station }}{% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+                {% endif %}
+
+                <!-- Blocked reason -->
+                {% if track.state == 'blocked' and track.blocked_by %}
+                <p class="mt-2 ml-6 text-xs text-gray-500 dark:text-gray-400">
+                    Awaiting: {{ track.blocked_by|join(', ') }}
+                </p>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+                <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                <p>No document tracks found</p>
+                <p class="text-sm mt-1">Select a project to view its production line</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- SSE Connection for real-time updates -->
+{% if project %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const projectId = '{{ project.id }}';
+    const evtSource = new EventSource(`/api/v1/production/events?project_id=${projectId}`);
+
+    evtSource.addEventListener('station_transition', function(e) {
+        const data = JSON.parse(e.data);
+        console.log('Station transition:', data);
+        // Reload the page for now - will implement partial updates later
+        htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
+    });
+
+    evtSource.addEventListener('line_stopped', function(e) {
+        const data = JSON.parse(e.data);
+        console.log('Line stopped:', data);
+        htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
+    });
+
+    evtSource.addEventListener('production_complete', function(e) {
+        const data = JSON.parse(e.data);
+        console.log('Production complete:', data);
+        htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
+    });
+
+    evtSource.addEventListener('keepalive', function(e) {
+        // Heartbeat - connection is alive
+    });
+
+    evtSource.onerror = function(e) {
+        console.error('SSE connection error:', e);
+        // Reconnect after 5 seconds
+        setTimeout(() => {
+            window.location.reload();
+        }, 5000);
+    };
+});
+</script>
+{% endif %}
+{% endblock %}

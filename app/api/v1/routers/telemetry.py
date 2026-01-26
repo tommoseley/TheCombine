@@ -7,7 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.services.cost_service import get_cost_dashboard_data
+from app.core.database import get_db
 from app.llm import (
     TelemetryService,
     InMemoryTelemetryStore,
@@ -241,4 +244,70 @@ async def get_workflow_stats(
         total_cost_usd=0.0,
         avg_cost_usd=0.0,
         avg_duration_ms=0.0,
+    )
+
+
+# =============================================================================
+# Cost Dashboard API
+# =============================================================================
+
+class DailyCostData(BaseModel):
+    """Daily cost breakdown."""
+    date: str
+    date_short: str
+    cost: float
+    tokens: int
+    calls: int
+    errors: int
+    workflow_cost: float
+    document_cost: float
+
+
+class CostDashboardSummary(BaseModel):
+    """Summary statistics for cost dashboard."""
+    total_cost: float
+    total_tokens: int
+    total_calls: int
+    total_errors: int
+    avg_cost_per_day: float
+    avg_cost_per_call: float
+    success_rate: float
+
+
+class CostDashboardResponse(BaseModel):
+    """Response model for cost dashboard."""
+    period_days: int
+    source_filter: Optional[str]
+    daily_data: List[DailyCostData]
+    summary: CostDashboardSummary
+
+
+@router.get(
+    "/costs",
+    response_model=CostDashboardResponse,
+    summary="Get cost dashboard data",
+    description="Get combined cost data from workflow telemetry and document builds.",
+)
+async def get_cost_dashboard(
+    days: int = Query(default=7, ge=1, le=90, description="Number of days to include"),
+    source: Optional[str] = Query(
+        default=None,
+        description="Filter by source: 'workflows' or 'documents'",
+    ),
+    db: AsyncSession = Depends(get_db),
+    service: TelemetryService = Depends(get_telemetry_service),
+) -> CostDashboardResponse:
+    """Get cost dashboard data combining workflow and document costs."""
+    data = await get_cost_dashboard_data(
+        db=db,
+        telemetry_service=service,
+        days=days,
+        source=source,
+    )
+
+    return CostDashboardResponse(
+        period_days=data["period_days"],
+        source_filter=data["source_filter"],
+        daily_data=[DailyCostData(**d) for d in data["daily_data"]],
+        summary=CostDashboardSummary(**data["summary"]),
     )
