@@ -382,15 +382,15 @@ class TestBuildSemanticQAContext:
         # Mock the policy prompt file
         policy_path = tmp_path / "seed" / "prompts" / "tasks"
         policy_path.mkdir(parents=True)
-        (policy_path / "qa_semantic_compliance_v1.0.txt").write_text("# Test Policy")
+        (policy_path / "qa_semantic_compliance_v1.1.txt").write_text("# Test Policy")
 
         # Monkeypatch Path to use our temp path
         import app.domain.workflow.nodes.qa as qa_module
         original_path = qa_module.Path
 
         def mock_path_init(*args, **kwargs):
-            if args and "qa_semantic_compliance_v1.0.txt" in str(args[0]):
-                return policy_path / "qa_semantic_compliance_v1.0.txt"
+            if args and "qa_semantic_compliance_v1.1.txt" in str(args[0]):
+                return policy_path / "qa_semantic_compliance_v1.1.txt"
             return original_path(*args, **kwargs)
 
         # Build context

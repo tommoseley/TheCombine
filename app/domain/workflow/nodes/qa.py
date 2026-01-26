@@ -500,7 +500,7 @@ class QANodeExecutor(NodeExecutor):
                 messages=[{"role": "user", "content": message_content}],
                 workflow_execution_id=execution_id,
                 role="Semantic Compliance Auditor",
-                task_ref="qa_semantic_compliance_v1.0",
+                task_ref="qa_semantic_compliance_v1.1",
                 artifact_type=context.document_type,
                 node_id=node_id,
                 project_id=context.project_id,
@@ -567,7 +567,7 @@ class QANodeExecutor(NodeExecutor):
             Formatted message content for LLM
         """
         # Load policy prompt
-        policy_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "prompts" / "tasks" / "qa_semantic_compliance_v1.0.txt"
+        policy_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "prompts" / "tasks" / "qa_semantic_compliance_v1.1.txt"
         try:
             policy_prompt = policy_path.read_text()
         except FileNotFoundError:
