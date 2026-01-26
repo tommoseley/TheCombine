@@ -27,6 +27,9 @@ class WorkflowExecution(Base):
     document_id = Column(String(255), nullable=True)
     document_type = Column(String(100), nullable=True)
     workflow_id = Column(String(100), nullable=True)
+
+    # Project reference (for interrupt querying and production line status)
+    project_id = Column(UUID(as_uuid=True), ForeignKey('projects.id', ondelete='CASCADE'), nullable=True)
     
     # User reference
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='SET NULL'), nullable=True)
@@ -62,6 +65,7 @@ class WorkflowExecution(Base):
             "document_id": self.document_id,
             "document_type": self.document_type,
             "workflow_id": self.workflow_id,
+            "project_id": str(self.project_id) if self.project_id else None,
             "user_id": str(self.user_id) if self.user_id else None,
             "current_node_id": self.current_node_id,
             "status": self.status,

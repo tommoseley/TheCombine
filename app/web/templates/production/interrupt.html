@@ -1,0 +1,296 @@
+<!-- Interrupt Modal Component (ADR-043 Phase 7)
+     Inline modal for resolving operator interrupts without page navigation.
+
+     Expected context:
+     - interrupt: OperatorInterrupt object with id, interrupt_type, payload, document_type
+     - project: Project object with id
+-->
+
+{% macro render_interrupt_modal(interrupt, project) %}
+<div id="interrupt-modal-overlay"
+     class="fixed inset-0 bg-black/50 z-40 flex items-center justify-center"
+     onclick="if(event.target === this) closeInterruptModal()">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
+                <h2 class="text-lg font-semibold">
+                    {% if interrupt.interrupt_type == 'clarification' %}
+                    Clarification Required
+                    {% elif interrupt.interrupt_type == 'audit_review' %}
+                    Audit Review Required
+                    {% elif interrupt.interrupt_type == 'escalation' %}
+                    Escalation Required
+                    {% else %}
+                    Operator Input Required
+                    {% endif %}
+                </h2>
+            </div>
+            <button onclick="closeInterruptModal()"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="px-6 py-4 overflow-y-auto flex-1">
+            <!-- Document context -->
+            <div class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                Document: <span class="font-mono">{{ interrupt.document_type }}</span>
+            </div>
+
+            <!-- Prompt text if available -->
+            {% if interrupt.payload.prompt %}
+            <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p class="text-gray-700 dark:text-gray-300">{{ interrupt.payload.prompt }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Clarification Questions (PGC) -->
+            {% if interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions %}
+            <form id="interrupt-form" onsubmit="submitInterruptResolution(event, '{{ interrupt.id }}')">
+                <div class="space-y-4">
+                    {% for question in interrupt.payload.data.questions %}
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <label class="block mb-2">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {{ question.question_text or question.text or question }}
+                            </span>
+                            {% if question.binding == 'must_answer' %}
+                            <span class="text-red-500">*</span>
+                            {% endif %}
+                        </label>
+
+                        {% if question.options and question.options|length > 0 %}
+                        <!-- Multiple choice -->
+                        <select name="answer_{{ question.question_id or loop.index0 }}"
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                                {% if question.binding == 'must_answer' %}required{% endif %}>
+                            <option value="">Select an option...</option>
+                            {% for option in question.options %}
+                            <option value="{{ option }}">{{ option }}</option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <!-- Free text -->
+                        <textarea name="answer_{{ question.question_id or loop.index0 }}"
+                                  rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                                  placeholder="Enter your answer..."
+                                  {% if question.binding == 'must_answer' %}required{% endif %}></textarea>
+                        {% endif %}
+
+                        {% if question.intent %}
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            {{ question.intent }}
+                        </p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </form>
+            {% endif %}
+
+            <!-- Choice buttons (for gates) -->
+            {% if interrupt.payload.choices %}
+            <div class="space-y-2">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Select an option:
+                </p>
+                {% for choice in interrupt.payload.choices %}
+                <button onclick="submitChoice('{{ interrupt.id }}', '{{ choice }}')"
+                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {{ choice }}
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Escalation options -->
+            {% if interrupt.interrupt_type == 'escalation' and interrupt.payload.escalation_options %}
+            <div class="space-y-2">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Production has halted. Select an action:
+                </p>
+                {% for option in interrupt.payload.escalation_options %}
+                <button onclick="submitEscalation('{{ interrupt.id }}', '{{ option }}')"
+                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    {% if option == 'abandon' %}
+                    <i data-lucide="x-circle" class="w-4 h-4 inline mr-2 text-red-500"></i>
+                    Abandon Production
+                    {% elif option == 'retry' %}
+                    <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2 text-amber-500"></i>
+                    Retry (Reset Counter)
+                    {% else %}
+                    {{ option }}
+                    {% endif %}
+                </button>
+                {% endfor %}
+
+                <!-- Acknowledge & Continue (ADR-043 Phase 8) -->
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <p class="text-sm text-amber-600 dark:text-amber-400 mb-3">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
+                        Or acknowledge and continue without fixing the underlying issue:
+                    </p>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Notes (required for compliance)
+                        </label>
+                        <textarea id="escalation-notes" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                                  placeholder="Explain why you are escalating without resolution..."
+                                  required></textarea>
+                    </div>
+                    <button onclick="acknowledgeAndContinue('{{ interrupt.id }}')"
+                            class="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md transition-colors">
+                        <i data-lucide="alert-circle" class="w-4 h-4 inline mr-2"></i>
+                        Acknowledge & Continue
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Audit review (QA failure) -->
+            {% if interrupt.interrupt_type == 'audit_review' %}
+            <div class="space-y-4">
+                <p class="text-sm text-gray-700 dark:text-gray-300">
+                    The quality audit has identified issues. Review and decide how to proceed.
+                </p>
+                <div class="flex gap-3">
+                    <button onclick="submitAuditDecision('{{ interrupt.id }}', 'approve')"
+                            class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                        <i data-lucide="check" class="w-4 h-4 inline mr-2"></i>
+                        Approve Anyway
+                    </button>
+                    <button onclick="submitAuditDecision('{{ interrupt.id }}', 'reject')"
+                            class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                        <i data-lucide="x" class="w-4 h-4 inline mr-2"></i>
+                        Reject & Retry
+                    </button>
+                </div>
+                <div class="mt-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Notes (optional)
+                    </label>
+                    <textarea id="audit-notes" rows="2"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                              placeholder="Add notes about your decision..."></textarea>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeInterruptModal()"
+                    class="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                Cancel
+            </button>
+            {% if interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions %}
+            <button type="submit" form="interrupt-form"
+                    class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 text-white rounded-md transition-colors">
+                Submit Answers
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function closeInterruptModal() {
+    const modal = document.getElementById('interrupt-modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function submitInterruptResolution(event, interruptId) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+
+    // Build answers object from form data
+    const answers = {};
+    for (const [key, value] of formData.entries()) {
+        if (key.startsWith('answer_')) {
+            const questionId = key.replace('answer_', '');
+            answers[questionId] = value;
+        }
+    }
+
+    await resolveInterrupt(interruptId, { answers });
+}
+
+async function submitChoice(interruptId, choice) {
+    await resolveInterrupt(interruptId, { decision: choice });
+}
+
+async function submitEscalation(interruptId, option) {
+    await resolveInterrupt(interruptId, { escalation_option: option });
+}
+
+async function submitAuditDecision(interruptId, decision) {
+    const notes = document.getElementById('audit-notes')?.value || '';
+    await resolveInterrupt(interruptId, { decision, notes });
+}
+
+async function acknowledgeAndContinue(interruptId) {
+    const notes = document.getElementById('escalation-notes')?.value;
+    if (!notes || notes.trim() === '') {
+        alert('Please provide notes explaining the escalation decision.');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/v1/interrupts/${interruptId}/escalate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                acknowledged_by: 'operator',  // TODO: Get actual user ID from session
+                notes: notes,
+            }),
+        });
+
+        if (response.ok) {
+            closeInterruptModal();
+            // Refresh the page to show updated state
+            htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
+        } else {
+            const error = await response.json();
+            alert('Failed to escalate: ' + (error.detail || error.message || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error('Error escalating interrupt:', err);
+        alert('Failed to escalate. Please try again.');
+    }
+}
+
+async function resolveInterrupt(interruptId, resolution) {
+    try {
+        const response = await fetch(`/api/v1/interrupts/${interruptId}/resolve`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(resolution),
+        });
+
+        if (response.ok) {
+            closeInterruptModal();
+            // Refresh the page to show updated state
+            htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
+        } else {
+            const error = await response.json();
+            alert('Failed to resolve interrupt: ' + (error.detail || error.message || 'Unknown error'));
+        }
+    } catch (err) {
+        console.error('Error resolving interrupt:', err);
+        alert('Failed to resolve interrupt. Please try again.');
+    }
+}
+</script>
+{% endmacro %}

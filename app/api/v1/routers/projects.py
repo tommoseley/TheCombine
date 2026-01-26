@@ -25,6 +25,7 @@ from app.api.services.project_creation_service import (
     create_project_from_intake as create_project_from_intake_service,
 )
 from app.core.database import get_db
+from app.domain.workflow.interrupt_registry import InterruptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -317,3 +318,23 @@ async def get_project_tree(
         documents=documents,
         intake_content=intake_content,
     )
+
+
+@router.get("/{project_id}/interrupts")
+async def get_project_interrupts(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    """Get pending operator interrupts for a project.
+
+    Returns list of interrupts requiring operator action:
+    - Clarification requests (PGC nodes)
+    - Audit reviews (QA failures)
+    - Constraint conflicts
+    - Escalations (circuit breaker)
+
+    Used by Production Line UI to show pending actions.
+    """
+    registry = InterruptRegistry(db)
+    interrupts = await registry.get_pending(project_id)
+    return [i.to_dict() for i in interrupts]

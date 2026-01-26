@@ -31,7 +31,9 @@ class PgStatePersistence:
         """Save workflow state to database via ORM."""
         # Lazy import to avoid circular dependency
         from app.api.models.workflow_execution import WorkflowExecution
-        
+        from app.api.models.project import Project
+        from uuid import UUID as UUIDType
+
         # Serialize execution log
         execution_log = [
             {
@@ -43,12 +45,26 @@ class PgStatePersistence:
             for ne in state.node_history
         ]
 
+        # Resolve project_id to UUID (for interrupt querying)
+        project_uuid = None
+        if state.project_id:
+            try:
+                project_uuid = UUIDType(state.project_id)
+            except (ValueError, TypeError):
+                # project_id is not a UUID, look up the project
+                proj_result = await self._db.execute(
+                    select(Project).where(Project.project_id == state.project_id)
+                )
+                project = proj_result.scalar_one_or_none()
+                if project:
+                    project_uuid = project.id
+
         # Check if exists
         result = await self._db.execute(
             select(WorkflowExecution).where(WorkflowExecution.execution_id == state.execution_id)
         )
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             # Update existing record
             existing.current_node_id = state.current_node_id
@@ -64,21 +80,24 @@ class PgStatePersistence:
             existing.pending_user_input_schema_ref = state.pending_user_input_schema_ref
             existing.thread_id = state.thread_id
             existing.context_state = state.context_state
+            # Update project_id if not set
+            if not existing.project_id and project_uuid:
+                existing.project_id = project_uuid
         else:
             # Create new record
-            from uuid import UUID as UUIDType
             user_uuid = None
             if state.user_id:
                 try:
                     user_uuid = UUIDType(state.user_id) if isinstance(state.user_id, str) else state.user_id
                 except (ValueError, TypeError):
                     user_uuid = None
-            
+
             execution = WorkflowExecution(
                 execution_id=state.execution_id,
                 document_id=state.project_id,
                 document_type=state.document_type,
                 workflow_id=state.workflow_id,
+                project_id=project_uuid,  # ADR-043: Set project_id for interrupt querying
                 user_id=user_uuid,
                 current_node_id=state.current_node_id,
                 execution_log=execution_log,
@@ -95,7 +114,7 @@ class PgStatePersistence:
                 context_state=state.context_state,
             )
             self._db.add(execution)
-        
+
         await self._db.commit()
 
     async def load(self, execution_id: str) -> Optional[DocumentWorkflowState]:

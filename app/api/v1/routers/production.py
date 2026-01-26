@@ -185,22 +185,98 @@ async def start_production(
     Returns:
         Production run identifier and initial status.
     """
-    # TODO: Implement project orchestrator integration
-    # For now, return a placeholder
+    from app.domain.workflow.project_orchestrator import ProjectOrchestrator
+    from app.domain.workflow.plan_executor import PlanExecutor
+    from app.domain.workflow.pg_state_persistence import PgStatePersistence
+    from app.domain.workflow.plan_registry import get_plan_registry
+    from app.domain.workflow.nodes.llm_executors import create_llm_executors
 
     if document_type:
+        # Single document production
         logger.info(f"Starting production for {document_type} in project {project_id}")
-        return JSONResponse({
-            "status": "started",
-            "project_id": project_id,
-            "document_type": document_type,
-            "message": f"Production started for {document_type}",
-        })
+
+        try:
+            # Create executor
+            executors = await create_llm_executors(db)
+            executor = PlanExecutor(
+                persistence=PgStatePersistence(db),
+                plan_registry=get_plan_registry(),
+                executors=executors,
+                db_session=db,
+            )
+
+            # Start execution
+            state = await executor.start_execution(
+                project_id=project_id,
+                document_type=document_type,
+                initial_context={},
+            )
+
+            # Emit event for UI
+            await publish_event(
+                project_id,
+                "track_started",
+                {
+                    "document_type": document_type,
+                    "execution_id": state.execution_id,
+                },
+            )
+
+            return JSONResponse({
+                "status": "started",
+                "project_id": project_id,
+                "document_type": document_type,
+                "execution_id": state.execution_id,
+                "message": f"Production started for {document_type}",
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to start production for {document_type}: {e}")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "error",
+                    "project_id": project_id,
+                    "document_type": document_type,
+                    "message": str(e),
+                },
+            )
+
     else:
+        # Full line production using orchestrator
         logger.info(f"Starting full line production for project {project_id}")
-        return JSONResponse({
-            "status": "started",
-            "project_id": project_id,
-            "mode": "full_line",
-            "message": "Full line production started",
-        })
+
+        try:
+            orchestrator = ProjectOrchestrator(db)
+            state = await orchestrator.run_full_line(project_id)
+
+            # Build track summary
+            tracks_summary = [
+                {
+                    "document_type": dt,
+                    "state": track.state.value,
+                    "execution_id": track.execution_id,
+                }
+                for dt, track in state.tracks.items()
+            ]
+
+            return JSONResponse({
+                "status": state.status.value,
+                "orchestration_id": state.orchestration_id,
+                "project_id": project_id,
+                "mode": "full_line",
+                "tracks": tracks_summary,
+                "message": f"Full line production {state.status.value}",
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to start full line production: {e}")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "error",
+                    "project_id": project_id,
+                    "mode": "full_line",
+                    "message": str(e),
+                },
+            )

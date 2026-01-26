@@ -14,19 +14,37 @@ from app.api.models.document import Document
 from app.api.models.project import Project
 from app.api.models.workflow_execution import WorkflowExecution
 from app.domain.workflow.production_state import ProductionState
+from app.domain.workflow.plan_registry import get_plan_registry
 
 logger = logging.getLogger(__name__)
 
 
-# Document type configuration (dependencies)
-# TODO: Load from document_types config
-DOCUMENT_TYPES = [
-    {"id": "concierge_intake", "requires": []},
-    {"id": "project_discovery", "requires": ["concierge_intake"]},
-    {"id": "epic_backlog", "requires": ["project_discovery"]},
-    {"id": "technical_architecture", "requires": ["project_discovery"]},
-    {"id": "story_backlog", "requires": ["epic_backlog", "technical_architecture"]},
-]
+def get_document_type_dependencies() -> List[Dict[str, Any]]:
+    """Get document type dependencies from the plan registry.
+
+    Returns list of dicts with:
+    - id: document type identifier
+    - requires: list of required document type IDs
+    """
+    registry = get_plan_registry()
+    plans = registry.list_plans()
+
+    document_types = []
+    for plan in plans:
+        if plan.document_type:
+            document_types.append({
+                "id": plan.document_type,
+                "requires": plan.requires_inputs or [],
+            })
+
+    # Sort by dependency depth (documents with fewer deps first)
+    # This ensures proper traversal order in the UI
+    def dep_count(dt: Dict[str, Any]) -> int:
+        return len(dt["requires"])
+
+    document_types.sort(key=dep_count)
+
+    return document_types
 
 
 async def get_project(db: AsyncSession, project_id: str) -> Optional[Project]:
@@ -83,7 +101,10 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     tracks = []
     stabilized_types = set()
 
-    for doc_type in DOCUMENT_TYPES:
+    # Get document types from plan registry
+    document_types = get_document_type_dependencies()
+
+    for doc_type in document_types:
         type_id = doc_type["id"]
         requires = doc_type["requires"]
 

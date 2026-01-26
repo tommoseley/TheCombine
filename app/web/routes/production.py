@@ -19,6 +19,7 @@ from app.api.services.production_service import (
     get_production_status,
 )
 from app.domain.workflow.production_state import ProductionState
+from app.domain.workflow.interrupt_registry import InterruptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +61,12 @@ async def production_line(
             line_state = status["line_state"]
             summary = status["summary"]
 
-            # Get first interrupt if any
-            interrupts = status.get("interrupts", [])
-            if interrupts:
-                interrupt = interrupts[0]
+            # Get full interrupt details from registry (includes payload)
+            registry = InterruptRegistry(db)
+            pending_interrupts = await registry.get_pending(project_id)
+            if pending_interrupts:
+                # Convert to dict for template
+                interrupt = pending_interrupts[0].to_dict()
 
     return templates.TemplateResponse(
         "production/line.html",
@@ -87,27 +90,47 @@ async def start_production(
 ):
     """Start production for a project.
 
-    Redirects to the workflow build page to initiate production.
+    If document_type is specified, redirects to that document's build page.
+    Otherwise, uses ProjectOrchestrator to run the full line.
     """
+    from app.domain.workflow.project_orchestrator import ProjectOrchestrator
+
     if document_type:
-        # Start single document
+        # Start single document - redirect to build page
         return RedirectResponse(
             url=f"/projects/{project_id}/workflows/{document_type}/build",
             status_code=303,
         )
     else:
-        # Run full line - for now redirect to first non-stabilized document
-        # TODO: Implement project orchestrator
-        tracks = await get_production_tracks(db, project_id)
-        for track in tracks:
-            if track["state"] == ProductionState.QUEUED.value:
-                return RedirectResponse(
-                    url=f"/projects/{project_id}/workflows/{track['document_type']}/build",
-                    status_code=303,
-                )
+        # Run full line using ProjectOrchestrator
+        try:
+            orchestrator = ProjectOrchestrator(db)
+            state = await orchestrator.run_full_line(project_id)
 
-        # All done, just redirect back
-        return RedirectResponse(
-            url=f"/production?project_id={project_id}",
-            status_code=303,
-        )
+            logger.info(
+                f"Full line production started for {project_id}: "
+                f"status={state.status.value}, tracks={len(state.tracks)}"
+            )
+
+            # Redirect back to production page to see progress
+            return RedirectResponse(
+                url=f"/production?project_id={project_id}",
+                status_code=303,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to start full line production: {e}")
+            # Fall back to redirecting to first queued document
+            tracks = await get_production_tracks(db, project_id)
+            for track in tracks:
+                if track["state"] == ProductionState.QUEUED.value:
+                    return RedirectResponse(
+                        url=f"/projects/{project_id}/workflows/{track['document_type']}/build",
+                        status_code=303,
+                    )
+
+            # All done or error, redirect back
+            return RedirectResponse(
+                url=f"/production?project_id={project_id}",
+                status_code=303,
+            )
