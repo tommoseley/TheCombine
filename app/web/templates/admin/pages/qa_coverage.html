@@ -243,24 +243,56 @@
                         <div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                             <div class="flex items-start gap-2">
                                 <span class="px-2 py-0.5 text-xs rounded bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200">ERROR</span>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">[{{ issue.check_type }}]</span>
+                                <span class="text-xs font-mono text-gray-500 dark:text-gray-400">[{{ issue.check_type }}]</span>
+                                {% if issue.field_id %}
+                                <span class="text-xs font-mono text-purple-600 dark:text-purple-400">{{ issue.field_id }}</span>
+                                {% endif %}
                                 {% if issue.section %}
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ issue.section }}</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">in {{ issue.section }}</span>
                                 {% endif %}
                             </div>
                             <p class="mt-1 text-sm">{{ issue.message }}</p>
+                            {% if issue.evidence %}
+                            <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">
+                                {% if issue.evidence.constraint_value %}
+                                <div><span class="text-gray-500">Value:</span> {{ issue.evidence.constraint_value }}</div>
+                                {% endif %}
+                                {% if issue.evidence.original_source %}
+                                <div><span class="text-gray-500">Source:</span> {{ issue.evidence.original_source }}</div>
+                                {% endif %}
+                                {% if issue.evidence.expected_sources %}
+                                <div><span class="text-gray-500">Expected:</span> {{ issue.evidence.expected_sources|join(', ') }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                         {% for issue in qa.code_validation_warnings %}
                         <div class="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
                             <div class="flex items-start gap-2">
                                 <span class="px-2 py-0.5 text-xs rounded bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200">WARNING</span>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">[{{ issue.check_type }}]</span>
+                                <span class="text-xs font-mono text-gray-500 dark:text-gray-400">[{{ issue.check_type }}]</span>
+                                {% if issue.field_id %}
+                                <span class="text-xs font-mono text-purple-600 dark:text-purple-400">{{ issue.field_id }}</span>
+                                {% endif %}
                                 {% if issue.section %}
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ issue.section }}</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">in {{ issue.section }}</span>
                                 {% endif %}
                             </div>
                             <p class="mt-1 text-sm">{{ issue.message }}</p>
+                            {% if issue.evidence %}
+                            <div class="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">
+                                {% if issue.evidence.constraint_value %}
+                                <div><span class="text-gray-500">Value:</span> {{ issue.evidence.constraint_value }}</div>
+                                {% endif %}
+                                {% if issue.evidence.original_source %}
+                                <div><span class="text-gray-500">Source:</span> {{ issue.evidence.original_source }}</div>
+                                {% endif %}
+                                {% if issue.evidence.expected_sources %}
+                                <div><span class="text-gray-500">Expected:</span> {{ issue.evidence.expected_sources|join(', ') }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
