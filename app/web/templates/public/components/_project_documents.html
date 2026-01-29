@@ -1,0 +1,51 @@
+﻿<!-- _project_documents.html - Lazy loaded document list for a project -->
+<!-- Production Line Link -->
+<a
+    href="/production?project_id={{ project_id }}" hx-boost="false"
+    class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px]">
+    <i data-lucide="factory" class="doc-icon w-5 h-5 text-violet-600 dark:text-violet-400 flex-shrink-0"></i>
+    <span class="text-sm font-medium text-violet-600 dark:text-violet-400">Production Line</span>
+</a>
+
+{% if documents %}
+    {% for doc in documents %}
+    <a 
+        href="/projects/{{ project_id }}/documents/{{ doc.doc_type_id }}"
+        hx-get="/projects/{{ project_id }}/documents/{{ doc.doc_type_id }}"
+        hx-target="#main-content"
+        hx-push-url="true"
+        class="doc-link flex items-center gap-3 px-2 py-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors border-l-2 border-transparent -ml-[2px] {% if doc.readiness == 'blocked' %}opacity-50{% endif %}">
+        
+        <!-- Document Type Icon -->
+        <i data-lucide="{{ doc.icon | default('file-text') }}" class="doc-icon w-5 h-5 
+            {% if doc.readiness == 'ready' %}text-emerald-600 dark:text-emerald-400
+            {% elif doc.readiness == 'stale' %}text-amber-600 dark:text-amber-400
+            {% elif doc.readiness == 'blocked' %}text-gray-400 dark:text-gray-500
+            {% else %}text-violet-600 dark:text-violet-400{% endif %} flex-shrink-0"></i>
+        
+        <!-- Document Name -->
+        <span class="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{{ doc.title }}</span>
+        
+        <!-- Status Indicator -->
+        {% if doc.readiness == 'ready' %}
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0"></i>
+        {% elif doc.readiness == 'stale' %}
+            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0"></i>
+        {% elif doc.readiness == 'blocked' %}
+            <i data-lucide="circle-slash" class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0"></i>
+        {% else %}
+            <i data-lucide="circle-plus" class="w-4 h-4 text-violet-600 dark:text-violet-400 flex-shrink-0"></i>
+        {% endif %}
+    </a>
+    {% endfor %}
+{% else %}
+    <div class="px-2 py-3 text-sm text-gray-400 dark:text-gray-500 italic">
+        No documents yet
+    </div>
+{% endif %}
+
+<script>
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+</script>

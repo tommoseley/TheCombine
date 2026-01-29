@@ -1,0 +1,151 @@
+<!-- Production Line - Non-React Version (HTMX compatible) -->
+<div class="p-6 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Production Line</h1>
+            {% if project %}
+            <span class="text-sm text-gray-500">{{ project.name }}</span>
+            {% endif %}
+        </div>
+        {% if project %}
+        <button 
+            hx-post="/production/start?project_id={{ project.id }}"
+            hx-swap="none"
+            class="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-md transition-colors flex items-center gap-2"
+        >
+            <span>&#9654;</span>
+            Run Full Line
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Status Bar -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-4 h-4 rounded-full {% if line_state == 'active' %}bg-amber-500 animate-pulse{% elif summary.stabilized == summary.total and summary.total > 0 %}bg-green-500{% else %}bg-gray-400{% endif %}"></div>
+                <span class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Production Line: 
+                    <span class="ml-2 {% if line_state == 'active' %}text-amber-600{% else %}text-gray-500{% endif %}">
+                        {% if line_state == 'active' %}Active{% elif summary.stabilized == summary.total and summary.total > 0 %}Complete{% else %}Idle{% endif %}
+                    </span>
+                </span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-500 dark:text-gray-400">
+                    {{ summary.stabilized|default(0) }}/{{ summary.total|default(0) }} Stabilized
+                </span>
+                {% if summary.active and summary.active > 0 %}
+                <span class="text-amber-600">{{ summary.active }} Active</span>
+                {% endif %}
+                {% if summary.awaiting_operator and summary.awaiting_operator > 0 %}
+                <span class="text-red-600 font-medium">{{ summary.awaiting_operator }} Awaiting</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Interrupt Banner -->
+    {% if interrupt %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+            <span class="text-red-600 dark:text-red-400 text-xl mt-0.5">&#9888;</span>
+            <div class="flex-1">
+                <h3 class="font-semibold text-red-800 dark:text-red-200">
+                    Line Stopped: {{ interrupt.document_type }} awaiting operator
+                </h3>
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1">
+                    {% if interrupt.interrupt_type == 'clarification' %}
+                    The system needs clarification to continue production.
+                    {% elif interrupt.interrupt_type == 'escalation' %}
+                    Production has halted and requires your decision.
+                    {% else %}
+                    The system needs your input to continue production.
+                    {% endif %}
+                </p>
+                <a 
+                    href="/projects/{{ project.id }}/workflows/{{ interrupt.execution_id }}/status"
+                    class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                    &#128172; Answer Questions
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Document Tracks -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Document Tracks</h2>
+        </div>
+        
+        {% if tracks %}
+        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for track in tracks %}
+            <div class="p-4 {% if track.state in ['active', 'assembling', 'auditing', 'binding', 'remediating'] %}bg-amber-50/50 dark:bg-amber-900/10{% endif %}">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <!-- State dot -->
+                        <div class="w-3 h-3 rounded-full 
+                            {% if track.state == 'stabilized' %}bg-green-500
+                            {% elif track.state in ['active', 'assembling', 'auditing', 'binding'] %}bg-amber-500 animate-pulse
+                            {% elif track.state == 'remediating' %}bg-orange-500 animate-pulse
+                            {% elif track.state == 'awaiting_operator' %}bg-red-500
+                            {% elif track.state == 'halted' %}bg-red-600
+                            {% elif track.state == 'blocked' %}bg-gray-400
+                            {% else %}bg-gray-300{% endif %}">
+                        </div>
+                        
+                        <span class="font-medium text-gray-900 dark:text-white">{{ track.document_name or track.document_type }}</span>
+                        <span class="text-xs text-gray-400 font-mono">({{ track.document_type }})</span>
+                        
+                        <!-- State badge -->
+                        <span class="px-2 py-0.5 text-xs font-medium rounded-full
+                            {% if track.state == 'stabilized' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                            {% elif track.state in ['active', 'assembling', 'auditing', 'binding'] %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400
+                            {% elif track.state == 'remediating' %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400
+                            {% elif track.state == 'awaiting_operator' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                            {% elif track.state == 'halted' %}bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-300
+                            {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+                            {{ track.state|replace('_', ' ')|title }}
+                        </span>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        {% if track.state == 'queued' %}
+                        <a 
+                            href="/projects/{{ project.id }}/documents/{{ track.document_type }}/build"
+                            class="px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded transition-colors"
+                        >
+                            Start Production
+                        </a>
+                        {% elif track.state == 'stabilized' %}
+                        <a 
+                            href="/projects/{{ project.id }}/documents/{{ track.document_type }}"
+                            class="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
+                        >
+                            View Document
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if track.state == 'blocked' and track.blocked_by %}
+                <p class="mt-2 ml-6 text-xs text-gray-500 dark:text-gray-400">
+                    Awaiting: {{ track.blocked_by|join(', ') }}
+                </p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+            <div class="text-4xl mb-3 opacity-50">&#128229;</div>
+            <p>No document tracks found</p>
+            <p class="text-sm mt-1">Select a project to view its production line</p>
+        </div>
+        {% endif %}
+    </div>
+</div>

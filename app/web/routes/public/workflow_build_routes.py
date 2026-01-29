@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["workflow-build"])
 
+
+def _is_htmx_request(request: Request) -> bool:
+    """Check if this is an HTMX request."""
+    return request.headers.get("HX-Request") == "true"
+
 # Document types that use workflow builds (have PGC)
 WORKFLOW_BUILD_TYPES = {"project_discovery"}
 
@@ -170,8 +175,13 @@ def _render_workflow_state(
     project: dict,
     doc_type_id: str,
 ) -> HTMLResponse:
-    """Render appropriate partial based on workflow state."""
+    """Render appropriate partial based on workflow state.
+    
+    For HTMX requests, returns just the partial.
+    For direct navigation, returns full page with layout.
+    """
     config = DOC_TYPE_CONFIG.get(doc_type_id, {"name": doc_type_id, "icon": "file-text"})
+    is_htmx = _is_htmx_request(request)
 
     context = {
         "request": request,
@@ -181,24 +191,21 @@ def _render_workflow_state(
         "doc_type_id": doc_type_id,
         "doc_type_name": config["name"],
         "doc_type_icon": config["icon"],
+        "is_htmx": is_htmx,
     }
 
     logger.info(f"Rendering workflow state: status={state.status}, pending_input={state.pending_user_input}, has_payload={state.pending_user_input_payload is not None}")
 
     if state.status == DocumentWorkflowStatus.COMPLETED:
         context["workflow_state"] = "complete"
-        return templates.TemplateResponse(
-            "public/pages/partials/_workflow_build_container.html",
-            context,
-        )
+        template = "public/pages/partials/_workflow_build_container.html" if is_htmx else "public/pages/workflow_build_page.html"
+        return templates.TemplateResponse(template, context)
 
     if state.status == DocumentWorkflowStatus.FAILED:
         context["workflow_state"] = "failed"
         context["error_message"] = state.terminal_outcome or "Unknown error"
-        return templates.TemplateResponse(
-            "public/pages/partials/_workflow_build_container.html",
-            context,
-        )
+        template = "public/pages/partials/_workflow_build_container.html" if is_htmx else "public/pages/workflow_build_page.html"
+        return templates.TemplateResponse(template, context)
 
     # Check PAUSED status explicitly
     if state.status == DocumentWorkflowStatus.PAUSED:
@@ -208,28 +215,22 @@ def _render_workflow_state(
                 context["workflow_state"] = "paused_pgc"
                 context["questions"] = questions
                 context["pending_user_input_payload"] = state.pending_user_input_payload
-                return templates.TemplateResponse(
-                    "public/pages/partials/_workflow_build_container.html",
-                    context,
-                )
+                template = "public/pages/partials/_workflow_build_container.html" if is_htmx else "public/pages/workflow_build_page.html"
+                return templates.TemplateResponse(template, context)
         
         # Paused but no payload/questions - stale execution, need to regenerate
         logger.warning(f"Execution {state.execution_id} is paused but has no questions payload - stale state")
         context["workflow_state"] = "failed"
         context["error_message"] = "Previous workflow session expired. Please try again."
-        return templates.TemplateResponse(
-            "public/pages/partials/_workflow_build_container.html",
-            context,
-        )
+        template = "public/pages/partials/_workflow_build_container.html" if is_htmx else "public/pages/workflow_build_page.html"
+        return templates.TemplateResponse(template, context)
 
     # Running state (PENDING or RUNNING)
     context["workflow_state"] = "running"
     context["progress"] = _estimate_progress(state)
     context["status_message"] = _get_status_message(state)
-    return templates.TemplateResponse(
-        "public/pages/partials/_workflow_build_container.html",
-        context,
-    )
+    template = "public/pages/partials/_workflow_build_container.html" if is_htmx else "public/pages/workflow_build_page.html"
+    return templates.TemplateResponse(template, context)
 
 
 @router.post("/projects/{project_id}/workflows/{doc_type_id}/start", response_class=HTMLResponse)

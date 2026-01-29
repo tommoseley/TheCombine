@@ -174,7 +174,7 @@ async def get_project_tree(
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get project tree with documents via ORM."""
+    """Get project tree - projects only, documents loaded lazily on expand."""
     user_uuid = _get_user_uuid(current_user)
     
     query = (
@@ -191,39 +191,75 @@ async def get_project_tree(
     projects = []
     
     for row in rows:
-        project_uuid = row.id
         is_archived = row.archived_at is not None
         
-        document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
-        
-        status_summary = {"ready": 0, "stale": 0, "blocked": 0, "waiting": 0, "needs_acceptance": 0}
-        
-        documents = []
-        for doc in document_statuses:
-            if hasattr(doc, 'readiness'):
-                documents.append({
-                    "doc_type_id": doc.doc_type_id,
-                    "title": doc.title,
-                    "icon": doc.icon,
-                    "readiness": doc.readiness,
-                    "acceptance_state": getattr(doc, 'acceptance_state', None),
-                    "subtitle": getattr(doc, 'subtitle', None)
-                })
-            else:
-                documents.append(doc)
-        
+        # Don't load document statuses here - loaded lazily when accordion expands
         projects.append({
-            "id": str(project_uuid),
+            "id": str(row.id),
             "name": row.name,
             "project_id": row.project_id,
             "icon": row.icon or "folder",
-            "documents": documents,
-            "status_summary": status_summary,
+            "documents": None,  # Lazy loaded
+            "status_summary": None,  # Lazy loaded
             "is_archived": is_archived
         })
     
     return templates.TemplateResponse(request, "public/components/project_list.html", {
         "projects": projects
+    })
+
+
+@router.get("/{project_id}/documents-status", response_class=HTMLResponse)
+async def get_project_documents_status(
+    request: Request,
+    project_id: str,
+    current_user: User = Depends(require_auth),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get document status for a single project - called when accordion expands."""
+    from uuid import UUID
+    
+    try:
+        project_uuid = UUID(project_id)
+    except ValueError:
+        result = await db.execute(select(Project).where(Project.project_id == project_id))
+        project = result.scalar_one_or_none()
+        if not project:
+            return HTMLResponse("<div>Project not found</div>", status_code=404)
+        project_uuid = project.id
+    
+    document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
+    
+    documents = []
+    status_summary = {"ready": 0, "stale": 0, "blocked": 0, "waiting": 0, "needs_acceptance": 0}
+    
+    for doc in document_statuses:
+        if hasattr(doc, 'readiness'):
+            readiness = doc.readiness
+            if readiness == 'ready':
+                status_summary['ready'] += 1
+            elif readiness == 'stale':
+                status_summary['stale'] += 1
+            elif readiness == 'blocked':
+                status_summary['blocked'] += 1
+            elif readiness == 'waiting':
+                status_summary['waiting'] += 1
+            
+            documents.append({
+                "doc_type_id": doc.doc_type_id,
+                "title": doc.title,
+                "icon": doc.icon,
+                "readiness": readiness,
+                "acceptance_state": getattr(doc, 'acceptance_state', None),
+                "subtitle": getattr(doc, 'subtitle', None)
+            })
+        else:
+            documents.append(doc)
+    
+    return templates.TemplateResponse(request, "public/components/_project_documents.html", {
+        "project_id": project_id,
+        "documents": documents,
+        "status_summary": status_summary
     })
 
 @router.post("/create", response_class=HTMLResponse)

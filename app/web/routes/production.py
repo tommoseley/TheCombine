@@ -1,7 +1,7 @@
 """Production Line web routes (ADR-043).
 
-Serves the Production Line UI - the primary operator surface for
-watching document manufacturing in real-time.
+Serves the Production Line UI - uses React + SSE for real-time updates.
+This is a full-page route (not HTMX partial) to support React rendering.
 """
 
 import logging
@@ -28,11 +28,6 @@ router = APIRouter(prefix="/production", tags=["production"])
 templates = Jinja2Templates(directory="app/web/templates")
 
 
-def _is_htmx_request(request: Request) -> bool:
-    """Check if this is an HTMX request."""
-    return request.headers.get("HX-Request") == "true"
-
-
 @router.get("", response_class=HTMLResponse)
 async def production_line(
     request: Request,
@@ -41,7 +36,7 @@ async def production_line(
 ):
     """Render the Production Line page.
 
-    This is the primary operator surface per ADR-043.
+    Always returns full page (extends base.html) for React/SSE support.
     """
     project = None
     tracks = []
@@ -57,7 +52,6 @@ async def production_line(
     }
 
     if project_id:
-        # Use the production service to get status
         status = await get_production_status(db, project_id)
 
         if status.get("project_name"):
@@ -66,11 +60,9 @@ async def production_line(
             line_state = status["line_state"]
             summary = status["summary"]
 
-            # Get full interrupt details from registry (includes payload)
             registry = InterruptRegistry(db)
             pending_interrupts = await registry.get_pending(project_id)
             if pending_interrupts:
-                # Convert to dict for template
                 interrupt = pending_interrupts[0].to_dict()
 
     context = {
@@ -82,11 +74,7 @@ async def production_line(
         "interrupt": interrupt,
     }
 
-    # Return partial for HTMX requests, full page for direct navigation
-    if _is_htmx_request(request):
-        return templates.TemplateResponse("production/_line_content.html", context)
-    else:
-        return templates.TemplateResponse("production/line.html", context)
+    return templates.TemplateResponse("production/line_react.html", context)
 
 
 @router.post("/start", response_class=HTMLResponse)
@@ -96,21 +84,15 @@ async def start_production(
     document_type: Optional[str] = Query(None, description="Specific document type"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Start production for a project.
-
-    If document_type is specified, redirects to that document's build page.
-    Otherwise, uses ProjectOrchestrator to run the full line.
-    """
+    """Start production for a project."""
     from app.domain.workflow.project_orchestrator import ProjectOrchestrator
 
     if document_type:
-        # Start single document - redirect to build page
         return RedirectResponse(
             url=f"/projects/{project_id}/documents/{document_type}/build",
             status_code=303,
         )
     else:
-        # Run full line using ProjectOrchestrator
         try:
             orchestrator = ProjectOrchestrator(db)
             state = await orchestrator.run_full_line(project_id)
@@ -120,7 +102,6 @@ async def start_production(
                 f"status={state.status.value}, tracks={len(state.tracks)}"
             )
 
-            # Redirect back to production page to see progress
             return RedirectResponse(
                 url=f"/production?project_id={project_id}",
                 status_code=303,
@@ -128,7 +109,6 @@ async def start_production(
 
         except Exception as e:
             logger.error(f"Failed to start full line production: {e}")
-            # Fall back to redirecting to first queued document
             tracks = await get_production_tracks(db, project_id)
             for track in tracks:
                 if track["state"] == ProductionState.QUEUED.value:
@@ -137,7 +117,6 @@ async def start_production(
                         status_code=303,
                     )
 
-            # All done or error, redirect back
             return RedirectResponse(
                 url=f"/production?project_id={project_id}",
                 status_code=303,

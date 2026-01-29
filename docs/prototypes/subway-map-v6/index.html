@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Line - Subway Map v6 (Modular)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/reactflow@11.11.4/dist/umd/index.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <link href="https://unpkg.com/reactflow@11.11.4/dist/style.css" rel="stylesheet" />
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+        .react-flow__attribution { display: none !important; }
+        .react-flow__handle { opacity: 0 !important; width: 1px !important; height: 1px !important; background: transparent; border: none; min-width: 0; min-height: 0}
+        .react-flow__node { cursor: pointer !important; }
+        .react-flow__node.selected { outline: none !important; box-shadow: none !important; }
+        .react-flow__edge.animated path { stroke-dasharray: 5; animation: edgeFlow 0.5s linear infinite; }
+        .react-flow__handle-top { top: 0px !important; }
+        .react-flow__handle-bottom { bottom: 0px !important; }
+        @keyframes edgeFlow { to { stroke-dashoffset: -10; } }
+        .node-active { animation: activeGlow 2s ease-in-out infinite; }
+        @keyframes activeGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); } 50% { box-shadow: 0 0 20px 8px rgba(99, 102, 241, 0.35); } }
+        .station-active { animation: stationPulse 1.5s ease-in-out infinite; }
+        @keyframes stationPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); } 50% { box-shadow: 0 0 8px 4px rgba(99, 102, 241, 0.5); } }
+        .amber-pulse { animation: amberBlink 1.5s ease-in-out infinite; }
+        @keyframes amberBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .tray-slide { animation: slideRight 0.2s ease-out; }
+        @keyframes slideRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="root" style="width: 100vw; height: 100vh;"></div>
+    <script type="text/babel">        const { useState, useCallback, useMemo, useEffect } = React;
+        const { ReactFlow, ReactFlowProvider, useNodesState, useEdgesState, Handle, Position, Panel } = window.ReactFlow;
+
+        // ============================================================
+        // MODULE: data/constants.js
+        // ============================================================
+        const COLORS = {
+            stabilized: { bg: '#10b981', border: '#059669', text: '#34d399', edge: '#10b981' },
+            active: { bg: '#6366f1', border: '#4f46e5', text: '#818cf8', edge: '#6366f1' },
+            queued: { bg: '#475569', border: '#334155', text: '#94a3b8', edge: '#334155' }
+        };
+        const getColors = (state) => COLORS[state] || COLORS.queued;
+        const GRID = { EPICS_PER_ROW: 3, EPIC_WIDTH: 220, EPIC_HEIGHT: 70, EPIC_GAP_X: 50, EPIC_GAP_Y: 100, EPIC_OFFSET_X: 80, EPIC_OFFSET_Y: 80 };
+        const TRAY = { GAP: 8, WIDTH: 280 };
+        const STATION_IDS = ['pgc', 'asm', 'draft', 'qa', 'done'];
+
+        // ============================================================
+        // MODULE: data/factories.js
+        // ============================================================
+        const createDocument = (id, name, desc, state = 'queued', intent = 'mandatory', options = {}) => ({
+            id, name, desc, state, intent, level: 1, ...options
+        });
+        
+        const createStations = (activeStation = null) => STATION_IDS.map(id => ({
+            id,
+            label: id.toUpperCase(),
+            state: activeStation === id ? 'active' : STATION_IDS.indexOf(id) < STATION_IDS.indexOf(activeStation) ? 'complete' : 'pending',
+            needs_input: activeStation === id && id === 'pgc'
+        }));
+        
+        const createQuestions = (questions) => questions.map((q, i) => ({
+            id: `q${i + 1}`, text: q.text || q, required: q.required !== false
+        }));
+        
+        const createEpic = (id, name, state = 'queued', intent = 'mandatory', featureNames = []) => ({
+            id, name, state, intent, level: 2,
+            features: featureNames.map((fname, i) => ({ id: `${id}-f${i + 1}`, name: fname, state: 'queued' }))
+        });
+
+        // ============================================================
+        // MODULE: data/projectData.js
+        // ============================================================
+        const initialData = [
+            createDocument('concierge', 'Concierge Intake', 'Initial project intake', 'stabilized'),
+            createDocument('discovery', 'Project Discovery', 'Deep dive into scope', 'stabilized'),
+            createDocument('architecture', 'Technical Architecture', 'System design decisions', 'active', 'mandatory', {
+                stations: createStations('pgc'),
+                questions: createQuestions(['What is the primary deployment target?', 'Are there any existing systems to integrate with?', { text: 'Preferred cloud provider?', required: false }])
+            }),
+            {
+                ...createDocument('backlog', 'Epic Backlog', 'High-level feature breakdown', 'queued'),
+                children: [
+                    createEpic('epic1', 'User Auth', 'stabilized', 'mandatory', ['Login Flow', 'OAuth Integration', '2FA Setup', 'Password Reset', 'Session Mgmt', 'Remember Me', 'Account Lockout', 'Audit Log']),
+                    createEpic('epic2', 'Math Engine', 'active', 'mandatory', ['Basic Ops', 'Expression Parser', 'Variables', 'Functions', 'Units', 'Matrix Ops', 'Statistics']),
+                    createEpic('epic3', 'Dashboard', 'queued', 'mandatory', ['Metrics Cards', 'Charts', 'Realtime Updates', 'Widgets', 'PDF Export', 'Reports', 'Alerts', 'Sharing', 'Mobile View']),
+                    createEpic('epic4', 'API Gateway', 'queued', 'mandatory', ['Rate Limiting', 'Validation', 'Caching', 'Versioning', 'Docs Gen', 'Webhooks', 'GraphQL', 'Health Check', 'Circuit Breaker', 'Tracing']),
+                    createEpic('epic5', 'Data Pipeline', 'queued', 'mandatory', ['ETL Jobs', 'Validation', 'Schema Registry', 'Batch Processing', 'Stream Processing', 'Dead Letter Queue', 'Lineage', 'Quality Checks']),
+                    createEpic('epic6', 'Notifications', 'queued', 'mandatory', ['Email', 'Push', 'SMS', 'In-App', 'Preferences', 'Tracking', 'Templates', 'Scheduling', 'A/B Testing', 'Analytics', 'Unsubscribe']),
+                    createEpic('epic7', 'Search', 'queued', 'optional', ['Full-text', 'Faceted', 'Autocomplete', 'Analytics', 'Synonyms', 'Relevance Tuning', 'Saved Searches']),
+                    createEpic('epic8', 'File Mgmt', 'queued', 'mandatory', ['Upload', 'Image Processing', 'Video Transcoding', 'CDN', 'Antivirus', 'Quotas', 'Folders', 'Sharing', 'Versioning', 'Thumbnails', 'Bulk Ops', 'Trash']),
+                    createEpic('epic9', 'Billing', 'queued', 'mandatory', ['Stripe Integration', 'Invoicing', 'Subscriptions', 'Usage Metering', 'Tax Calc', 'Payment History', 'Refunds', 'Dunning', 'Revenue Reports']),
+                    createEpic('epic10', 'Admin Panel', 'queued', 'optional', ['User Management', 'Role Management', 'Audit Logs', 'System Config', 'Feature Flags', 'Data Import', 'Bulk Actions', 'Activity Logs']),
+                    createEpic('epic11', 'i18n', 'queued', 'optional', ['Translation Mgmt', 'RTL Support', 'Date Formats', 'Currency', 'Language Switch', 'Pluralization', 'String Extraction']),
+                    createEpic('epic12', 'Analytics', 'queued', 'mandatory', ['Event Tracking', 'User Segments', 'Funnels', 'Cohorts', 'Custom Dimensions', 'Data Export', 'Goals', 'Attribution', 'Realtime', 'Anomaly Detection']),
+                    createEpic('epic13', 'Integrations', 'queued', 'optional', ['Salesforce', 'Slack', 'Jira', 'Zapier', 'OAuth Apps', 'Webhooks', 'Field Mapping', 'Sync Engine', 'Error Handling'])
+                ]
+            }
+        ];
+        // ============================================================
+        // MODULE: utils/layout.js
+        // ============================================================
+        const getLayoutedElements = (nodes, edges) => {
+            const g = new dagre.graphlib.Graph();
+            g.setGraph({ rankdir: 'TB', align: 'UL', nodesep: 20, ranksep: 70, marginx: 100, marginy: 30, ranker: 'longest-path' });
+            g.setDefaultEdgeLabel(() => ({}));
+            nodes.forEach((n) => g.setNode(n.id, { width: n.data.width ?? 280, height: n.data.height ?? 90 }));
+            edges.forEach((e) => g.setEdge(e.source, e.target));
+            dagre.layout(g);
+            return {
+                nodes: nodes.map((n) => {
+                    const pos = g.node(n.id);
+                    return { ...n, targetPosition: Position.Top, sourcePosition: Position.Bottom,
+                        position: { x: pos.x - (n.data.width ?? 280) / 2, y: pos.y - (n.data.height ?? 90) / 2 }
+                    };
+                }),
+                edges
+            };
+        };
+
+        const buildGraph = (data, expandedId, callbacks) => {
+            let nodes = [], edges = [], prevId = null, epicBacklogId = null, epicChildren = [];
+            data.forEach((item, idx) => {
+                if ((item.level || 1) !== 1) return;
+                const width = 280;
+                let height = 95;
+                if (item.state === 'active' && item.stations) height += 35;
+                const isExpanded = expandedId === item.id;
+                nodes.push({ id: item.id, type: 'documentNode', data: { ...item, width, height, isExpanded, ...callbacks },
+                    draggable: false, connectable: false, position: { x: 0, y: 0 }, zIndex: isExpanded ? 1000 : 0 });
+                if (prevId) {
+                    const prevState = data[idx-1]?.state;
+                    edges.push({ id: 'e-'+prevId+'-'+item.id, source: prevId, target: item.id, type: 'smoothstep',
+                        animated: prevState === 'active', style: { stroke: getColors(prevState).edge, strokeWidth: 3 } });
+                }
+                if (item.children?.length > 0) { epicBacklogId = item.id; epicChildren = item.children; }
+                prevId = item.id;
+            });
+            return { nodes, edges, epicBacklogId, epicChildren };
+        };
+
+        const addEpicsToLayout = (layoutResult, epicBacklogId, epicChildren, expandedId, callbacks) => {
+            const { nodes, edges } = layoutResult;
+            if (!epicBacklogId || !epicChildren.length) return { nodes, edges };
+            
+            const backlogNode = nodes.find(n => n.id === epicBacklogId);
+            if (!backlogNode) return { nodes, edges };
+            
+            const backlogX = backlogNode.position.x;
+            const backlogY = backlogNode.position.y + (backlogNode.data.height || 95);
+            const backlogState = backlogNode.data.state;
+            const edgeColor = getColors(backlogState).edge;
+            const isAnimated = backlogState === 'active';
+            
+            const ROW_HEIGHT = GRID.EPIC_HEIGHT + GRID.EPIC_GAP_Y;
+            const numRows = Math.ceil(epicChildren.length / GRID.EPICS_PER_ROW);
+            
+            // Spine X position (15% from left of backlog node, matching handle position)
+            const SPINE_X = backlogX + 280 * 0.15;
+            const JUNCTION_OFFSET_Y = 50;  // How far below row top the junction sits
+            
+            // Group epics by row
+            const epicsByRow = {};
+            epicChildren.forEach((epic, idx) => {
+                const row = Math.floor(idx / GRID.EPICS_PER_ROW);
+                if (!epicsByRow[row]) epicsByRow[row] = [];
+                epicsByRow[row].push({ epic, idx });
+            });
+            
+            // Create junction waypoints and edges for each row
+            for (let row = 0; row < numRows; row++) {
+                const rowEpics = epicsByRow[row] || [];
+                if (rowEpics.length === 0) continue;
+                
+                const rowY = backlogY + GRID.EPIC_OFFSET_Y + row * ROW_HEIGHT;
+                const junctionId = `junction-row-${row}`;
+                
+                // Add invisible junction waypoint
+                nodes.push({
+                    id: junctionId,
+                    type: 'waypoint',
+                    position: { x: SPINE_X, y: rowY - JUNCTION_OFFSET_Y },
+                    draggable: false,
+                    connectable: false,
+                    selectable: false
+                });
+                
+                // Edge from backlog (row 0) or previous junction to this junction
+                // Use 'straight' type for vertical spine to eliminate gaps
+                if (row === 0) {
+                    edges.push({
+                        id: `e-spine-drop-${row}`,
+                        source: epicBacklogId,
+                        target: junctionId,
+                        type: 'straight',
+                        animated: isAnimated,
+                        style: { stroke: edgeColor, strokeWidth: 2 }
+                    });
+                } else {
+                    edges.push({
+                        id: `e-spine-${row-1}-to-${row}`,
+                        source: `junction-row-${row-1}`,
+                        target: junctionId,
+                        type: 'straight',
+                        animated: isAnimated,
+                        style: { stroke: edgeColor, strokeWidth: 2 }
+                    });
+                }
+                
+                // Add epic nodes and edges from junction to each epic in this row
+                rowEpics.forEach(({ epic, idx }) => {
+                    const col = idx % GRID.EPICS_PER_ROW;
+                    const x = backlogX + GRID.EPIC_OFFSET_X + col * (GRID.EPIC_WIDTH + GRID.EPIC_GAP_X);
+                    const y = rowY;
+                    const isExpanded = expandedId === epic.id;
+                    
+                    nodes.push({
+                        id: epic.id,
+                        type: 'documentNode',
+                        data: { ...epic, width: GRID.EPIC_WIDTH, height: GRID.EPIC_HEIGHT, isExpanded, ...callbacks },
+                        draggable: false,
+                        connectable: false,
+                        position: { x, y },
+                        targetPosition: Position.Top,
+                        sourcePosition: Position.Bottom,
+                        zIndex: isExpanded ? 1000 : 0
+                    });
+                    
+                    // Edge from junction to epic (the manifold branch)
+                    edges.push({
+                        id: `e-branch-${epic.id}`,
+                        source: junctionId,
+                        target: epic.id,
+                        type: 'smoothstep',
+                        pathOptions: { borderRadius: 20 },
+                        animated: isAnimated,
+                        style: { stroke: edgeColor, strokeWidth: 2 }
+                    });
+                });
+            }
+            
+            return { nodes, edges };
+        };
+        // ============================================================
+        // MODULE: components/nodes/StationDots.jsx
+        // ============================================================
+        function StationDots({ stations }) {
+            if (!stations?.length) return null;
+            return (
+                <div className="flex items-center gap-0.5 mt-2">
+                    {stations.map((s, i) => {
+                        const dotColor = s.state === 'complete' ? 'bg-emerald-500' : s.state === 'active' ? 'bg-indigo-500' : 'bg-slate-600';
+                        const lineColor = s.state === 'complete' ? 'bg-emerald-500' : 'bg-slate-600';
+                        return (
+                            <React.Fragment key={s.id}>
+                                {i > 0 && <div className={'w-4 h-0.5 ' + lineColor} />}
+                                <div className="flex flex-col items-center">
+                                    <div className={'w-3 h-3 rounded-full ' + dotColor + (s.state === 'active' ? ' station-active' : '')} />
+                                    <span className={'text-[7px] mt-0.5 ' + (s.state === 'active' ? 'text-indigo-400 font-medium' : 'text-slate-500')}>{s.label}</span>
+                                </div>
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // ============================================================
+        // MODULE: components/sidecars/QuestionTray.jsx
+        // ============================================================
+        function QuestionTray({ questions, nodeWidth, onSubmit, onClose }) {
+            const [answers, setAnswers] = useState({});
+            const allAnswered = questions.filter(q => q.required).every(q => answers[q.id]);
+            return (
+                <div className="absolute top-0 bg-slate-900 border border-amber-500/50 rounded-lg shadow-2xl tray-slide"
+                    style={{ left: nodeWidth + TRAY.GAP, width: TRAY.WIDTH, boxShadow: '0 0 30px rgba(0,0,0,0.5)', zIndex: 1000 }}>
+                    <div className="absolute top-1/2 -translate-y-1/2 border-t-2 border-dashed border-amber-500/60" style={{ right: '100%', width: TRAY.GAP }} />
+                    <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-500" style={{ right: '100%', marginRight: -4 }} />
+                    <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-2 flex justify-between items-center">
+                        <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wide">Operator Input Required</span>
+                        <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-sm leading-none">&times;</button>
+                    </div>
+                    <div className="p-3 space-y-3 max-h-64 overflow-y-auto">
+                        {questions.map(q => (
+                            <div key={q.id}>
+                                <label className="block text-[10px] text-slate-400 mb-1">{q.text} {q.required && <span className="text-amber-500">*</span>}</label>
+                                <input type="text" className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:border-amber-500 focus:outline-none"
+                                    value={answers[q.id] || ''} onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))} />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="p-3 border-t border-slate-800">
+                        <button className={'w-full py-2 rounded text-xs font-medium transition-colors ' + (allAnswered ? 'bg-amber-500 text-slate-900 hover:bg-amber-400' : 'bg-slate-700 text-slate-500 cursor-not-allowed')}
+                            disabled={!allAnswered} onClick={() => onSubmit(answers)}>Submit & Continue</button>
+                    </div>
+                </div>
+            );
+        }
+
+        // ============================================================
+        // MODULE: components/sidecars/FeatureGrid.jsx
+        // ============================================================
+        function FeatureGrid({ features, epicName, nodeWidth, onClose }) {
+            const useVertical = features.length > 6;
+            const gridWidth = useVertical ? 240 : 320;
+            return (
+                <div className="absolute top-0 bg-slate-900 border border-indigo-500/50 rounded-lg shadow-2xl tray-slide"
+                    style={{ left: nodeWidth + TRAY.GAP, width: gridWidth, boxShadow: '0 0 30px rgba(0,0,0,0.5)', zIndex: 1000 }}>
+                    <div className="absolute top-1/2 -translate-y-1/2 border-t-2 border-dashed border-indigo-500/60" style={{ right: '100%', width: TRAY.GAP }} />
+                    <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-500" style={{ right: '100%', marginRight: -4 }} />
+                    <div className="bg-indigo-500/10 border-b border-indigo-500/30 px-3 py-2 flex justify-between items-center">
+                        <span className="text-[9px] font-semibold text-indigo-400 uppercase tracking-wide">Features - {epicName}</span>
+                        <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-sm leading-none">&times;</button>
+                    </div>
+                    <div className={'p-3 max-h-64 overflow-y-auto ' + (useVertical ? '' : 'grid grid-cols-2 gap-2')}>
+                        {features.map(f => {
+                            const stateColor = f.state === 'complete' ? 'bg-emerald-500' : f.state === 'active' ? 'bg-indigo-500' : 'bg-slate-600';
+                            return (
+                                <div key={f.id} className={'flex items-center gap-2 p-1.5 rounded hover:bg-slate-800/50 cursor-pointer ' + (useVertical ? 'mb-1' : '')}>
+                                    <div className={'w-2 h-2 rounded-full flex-shrink-0 ' + stateColor} />
+                                    <span className="text-[10px] text-slate-300 truncate">{f.name}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="px-3 py-2 border-t border-slate-800 text-[9px] text-slate-500">{features.length} features</div>
+                </div>
+            );
+        }
+        // ============================================================
+        // MODULE: components/nodes/DocumentNode.jsx
+        // ============================================================
+        function DocumentNode({ data }) {
+            const level = data.level || 1, isL1 = level === 1, colors = getColors(data.state);
+            const isExpanded = data.isExpanded, expandType = data.expandType;
+            const hasQuestions = data.questions?.length > 0, hasFeatures = data.features?.length > 0;
+            const needsInput = data.stations?.some(s => s.needs_input), showStations = data.state === 'active' && data.stations;
+            const stateClass = data.state === 'active' ? 'node-active' : '';
+            const borderColor = data.state === 'active' ? 'border-indigo-500' : data.state === 'stabilized' ? 'border-emerald-500/50' : 'border-slate-700';
+            const headerBg = isL1 ? 'bg-emerald-500/10' : 'bg-indigo-500/10';
+            const headerBorder = isL1 ? 'border-emerald-500/30' : 'border-indigo-500/30';
+            const headerText = isL1 ? 'text-emerald-400' : 'text-indigo-400';
+            const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
+            
+            return (
+                <div className="relative">
+                    <Handle type="target" position={Position.Top} className="!opacity-0" style={{left: '15%'}} />
+                    <div className={`bg-slate-900 rounded-lg border ${borderColor} ${stateClass} overflow-hidden`} style={{ width: data.width, minHeight: data.height }}>
+                        <div className={`${headerBg} border-b ${headerBorder} px-3 py-1.5 flex items-center justify-between`}>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-[8px] font-bold ${headerText} uppercase tracking-wider`}>{levelLabel}</span>
+                                <span className="text-[10px] text-slate-300 font-medium">{data.name}</span>
+                            </div>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded ${data.intent === 'mandatory' ? 'bg-slate-700 text-slate-400' : 'bg-slate-800 text-slate-500'}`}>{data.intent?.toUpperCase()}</span>
+                        </div>
+                        <div className="p-3">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-full flex-shrink-0" style={{ width: isL1 ? 24 : 18, height: isL1 ? 24 : 18, backgroundColor: colors.bg }} />
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.text }}>{data.state}</span>
+                                    {isL1 && data.desc && <p className="text-[9px] text-slate-500 mt-0.5 truncate">{data.desc}</p>}
+                                </div>
+                            </div>
+                            {showStations && <StationDots stations={data.stations} />}
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {isL1 && data.state === 'stabilized' && (
+                                    <button className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-[9px] hover:bg-emerald-500/30 transition-colors">View Document</button>
+                                )}
+                                {needsInput && hasQuestions && !isExpanded && (
+                                    <button className="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-[9px] hover:bg-amber-500/30 transition-colors amber-pulse"
+                                            onClick={(e) => { e.stopPropagation(); data.onExpand?.(data.id, 'questions'); }}>Answer Questions</button>
+                                )}
+                                {!isL1 && hasFeatures && (
+                                    isExpanded && expandType === 'features' ? (
+                                        <span className="text-[9px] text-indigo-400">{data.features.length} features expanded</span>
+                                    ) : (
+                                        <button className="px-2 py-1 bg-slate-800 text-slate-400 rounded text-[9px] hover:bg-slate-700 transition-colors flex items-center gap-1"
+                                                onClick={(e) => { e.stopPropagation(); data.onExpand?.(data.id, 'features'); }}>
+                                            <span className="text-indigo-400">{data.features.length}</span><span>features</span><span className="text-indigo-400">&#9654;</span>
+                                        </button>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    {isExpanded && expandType === 'questions' && hasQuestions && (
+                        <QuestionTray questions={data.questions} nodeWidth={data.width} onSubmit={(answers) => data.onSubmitQuestions?.(data.id, answers)} onClose={() => data.onCollapse?.()} />
+                    )}
+                    {isExpanded && expandType === 'features' && hasFeatures && (
+                        <FeatureGrid features={data.features} epicName={data.name} nodeWidth={data.width} onClose={() => data.onCollapse?.()} />
+                    )}
+                    <Handle type="source" position={Position.Bottom} className="!opacity-0" style={{left: '15%'}} />
+                </div>
+            );
+        }
+
+        // ============================================================
+        // MODULE: components/nodes/WaypointNode.jsx
+        // Invisible junction node for manifold routing
+        // ============================================================
+        function WaypointNode() {
+            return (
+                <div style={{ width: 1, height: 1, background: 'transparent' }}>
+                    <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+                    <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+                </div>
+            );
+        }
+
+        const nodeTypes = { documentNode: DocumentNode, waypoint: WaypointNode };
+        // ============================================================
+        // MODULE: App.jsx - Main Component
+        // ============================================================
+        function SubwayMap() {
+            const [data, setData] = useState(initialData);
+            const [expandedId, setExpandedId] = useState(null);
+            const [expandType, setExpandType] = useState(null);
+
+            const callbacks = useMemo(() => ({
+                onExpand: (id, type) => { setExpandedId(id); setExpandType(type); },
+                onCollapse: () => { setExpandedId(null); setExpandType(null); },
+                onSubmitQuestions: (id, answers) => {
+                    console.log('Submitted:', id, answers);
+                    setExpandedId(null); setExpandType(null);
+                    setData(prev => {
+                        const update = (items) => items.map(item => {
+                            if (item.id === id && item.stations) {
+                                return { ...item, stations: item.stations.map(s => 
+                                    s.id === 'pgc' ? { ...s, state: 'complete', needs_input: false } :
+                                    s.id === 'asm' ? { ...s, state: 'active' } : s
+                                )};
+                            }
+                            if (item.children) return { ...item, children: update(item.children) };
+                            return item;
+                        });
+                        return update(prev);
+                    });
+                }
+            }), []);
+
+            const { layoutNodes, layoutEdges } = useMemo(() => {
+                const callbacksWithType = { ...callbacks, expandType };
+                const { nodes, edges, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
+                const dagreResult = getLayoutedElements(nodes, edges);
+                const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
+                const nodesWithType = allNodes.map(n => ({ ...n, data: { ...n.data, expandType: n.id === expandedId ? expandType : null } }));
+                return { layoutNodes: nodesWithType, layoutEdges: allEdges };
+            }, [data, expandedId, expandType, callbacks]);
+
+            const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+            const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
+
+            useEffect(() => {
+                const callbacksWithType = { ...callbacks, expandType };
+                const { nodes: n, edges: e, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
+                const dagreResult = getLayoutedElements(n, e);
+                const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
+                const nodesWithType = allNodes.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
+                setNodes(nodesWithType);
+                setEdges(allEdges);
+            }, [data, expandedId, expandType, callbacks, setNodes, setEdges]);
+
+            const onNodeClick = useCallback((_, node) => {
+                if (expandedId) return;
+                const states = ['queued', 'active', 'stabilized'];
+                setData(prev => {
+                    const update = (items) => items.map(item => {
+                        if (item.id === node.id) {
+                            const next = states[(states.indexOf(item.state) + 1) % states.length];
+                            const newStations = item.stations?.map(s => 
+                                next === 'stabilized' ? { ...s, state: 'complete', needs_input: false } :
+                                next === 'active' ? (s.id === 'pgc' ? { ...s, state: 'active', needs_input: !!item.questions?.length } : { ...s, state: 'pending' }) :
+                                { ...s, state: 'pending', needs_input: false }
+                            );
+                            return { ...item, state: next, stations: newStations };
+                        }
+                        if (item.children) return { ...item, children: update(item.children) };
+                        return item;
+                    });
+                    return update(prev);
+                });
+            }, [expandedId]);
+
+            return (
+                <div className="w-full h-full">
+                    <ReactFlow
+                        nodes={nodes} edges={edges}
+                        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+                        onNodeClick={onNodeClick}
+                        nodeTypes={nodeTypes}
+                        nodesDraggable={false} nodesConnectable={false} edgesUpdatable={false} edgesFocusable={false} elementsSelectable={false}
+                        fitView fitViewOptions={{ padding: 0.2 }}
+                        minZoom={0.3} maxZoom={1.5}
+                        style={{ background: '#0f172a' }}
+                        proOptions={{ hideAttribution: true }}
+                        defaultEdgeOptions={{ type: 'smoothstep' }}
+                    >
+                        <Panel position="top-left">
+                            <div className="bg-slate-900/90 backdrop-blur rounded-lg px-4 py-3 border border-slate-800">
+                                <h1 className="text-lg font-bold text-slate-100">Production Line</h1>
+                                <p className="text-slate-500 text-xs">Modular v6 | Smoothstep routing</p>
+                            </div>
+                        </Panel>
+                        <Panel position="bottom-left">
+                            <div className="flex gap-4 text-[10px] bg-slate-900/90 backdrop-blur px-4 py-2.5 rounded-lg border border-slate-700/50">
+                                <span className="text-slate-500 font-medium">STATE:</span>
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span className="text-slate-400">Stabilized</span></div>
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-indigo-500" /><span className="text-slate-400">Active</span></div>
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-slate-600" /><span className="text-slate-400">Queued</span></div>
+                            </div>
+                        </Panel>
+                        <Panel position="bottom-right">
+                            <div className="text-[10px] text-slate-600 bg-slate-900/50 px-2 py-1 rounded">Scroll to zoom | Drag to pan</div>
+                        </Panel>
+                    </ReactFlow>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <ReactFlowProvider><SubwayMap /></ReactFlowProvider>
+        );
+    </script>
+</body>
+</html>

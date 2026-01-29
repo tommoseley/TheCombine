@@ -1,201 +1,149 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-01-26
-**Updated By:** Claude (WS-ADR-043-001 Bug Fixes)
+**Last Updated:** 2026-01-29
+**Updated By:** Claude (Subway Map v6 - Modular with Manifold Routing)
 
 ## Current Focus
 
-WS-ADR-043-001 Production Line implementation. Phases 1-8 backend complete. Phase 7 UI has bug fixes in progress.
+Subway Map visualization prototype (v6) complete with modular architecture and industrial manifold routing. Ready for backend integration.
 
-**Handoff Notes for Claude.ai UX Work:**
-- Production Line route: `GET /production?project_id={uuid}`
-- Template: `app/web/templates/production/line.html` (extends base, includes `_line_content.html`)
-- Partial: `app/web/templates/production/_line_content.html` (returned for HTMX requests)
-- Route: `app/web/routes/production.py`
-- API: `app/api/v1/routers/production.py` (SSE events)
-- Service: `app/api/services/production_service.py` (track building)
+## IMPORTANT: Vision Documents
 
-The UI currently shows all project-scoped documents from the master workflow:
-- Project Discovery
-- Epic Backlog
-- Project Technical Architecture
+**READ THESE FIRST:**
 
-Bug fixes made this session - restart server to test.
+1. docs/THE_COMBINE_VISION.md - Product vision, why we exist, the endgame
+2. docs/PRODUCTION_LINE_VISION.md - Subway Map UI specification
 
----
+The Production Line UI is the flagship feature - a Subway Map topology showing:
+- Dependency tracks with document flow
+- Join gates where multiple dependencies converge
+- Station stops (PGC, ASM, QA, REM, DONE) per document
+- Real-time animation as documents progress
+- Generate All lights up the entire tree as the factory runs
 
-## WS-ADR-043-001 - IN PROGRESS (2026-01-26)
+## Subway Map Prototype Status
 
-### Phase Status
+**Location:** docs/prototypes/subway-map-v6/index.html
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 1: Terminology | Complete | Production vocabulary (assemble, stabilized, halted, etc.) |
-| Phase 2: State Model | Complete | ProductionState enum in `production_state.py` |
-| Phase 3: SSE Infrastructure | Complete | `/production/events` endpoint |
-| Phase 4: Project Orchestrator | Complete | `run_full_line()` traverses dependency graph |
-| Phase 5: Interrupt Registry | Complete | Register, resolve, get_pending |
-| Phase 6: Production API | Complete | Status, start, track endpoints |
-| Phase 7: UI | In Progress | Bug fixes for rendering |
-| Phase 8: Escalation | Complete | Acknowledge & Continue flow |
+**Architecture Decisions:**
+- Modular code organization with MODULE comment sections
+- Factory functions for consistent node creation
+- Dagre handles L1 (spine) ONLY - vertical layout
+- L2 epics manually positioned in grid (3 per row) below Epic Backlog
+- Waypoint junction nodes for T-junction manifold routing
+- Straight edges for vertical spine, smoothstep for horizontal branches
+- L3+ content (features, stories) uses Side-Car pattern
 
-### Bug Fixes This Session (2026-01-26)
-
-1. **correlation_id.hex AttributeError** - Middleware stores as string, converted to UUID
-2. **start_execution() parameter** - Changed `document_id` to `project_id`
-3. **WorkflowExecution.state** - Model has `current_node_id` and `execution_log`, not `state`
-4. **Document types** - Now reads from master workflow to show all project-scoped documents
-
-### Key Files
-
-**Backend:**
-- `app/domain/workflow/production_state.py` - State enum, station enum
-- `app/domain/workflow/project_orchestrator.py` - Full line orchestration
-- `app/domain/workflow/interrupt_registry.py` - Interrupt tracking
-- `app/api/services/production_service.py` - Track building from workflow
-- `app/api/v1/routers/production.py` - SSE events, status endpoints
-- `app/api/v1/routers/interrupts.py` - Interrupt resolution, escalation
-
-**Frontend:**
-- `app/web/routes/production.py` - Web routes
-- `app/web/templates/production/line.html` - Full page
-- `app/web/templates/production/_line_content.html` - HTMX partial
-- `app/web/templates/production/interrupt.html` - Interrupt modal macro
-
-**Config:**
-- `seed/workflows/software_product_development.v1.json` - Master workflow (document types, dependencies)
-- `seed/workflows/project_discovery.v1.json` - DIW plan for project_discovery
-- `seed/workflows/concierge_intake.v1.json` - DIW plan for concierge_intake
-
----
-
-## WS-ADR-042-001 - COMPLETE (2026-01-24)
-
-### What Was Built
-
-Constraint binding system (ADR-042) with drift enforcement:
-- PGC questions/answers merged into `pgc_clarifications` with binding status
-- Drift validation checks (QA-PGC-001 through QA-PGC-004)
-- Bound constraints rendered in LLM context
-- pgc_invariants promoted to document structure
-
-### Key Files
-- `app/domain/workflow/clarification_merger.py`
-- `app/domain/workflow/validation/constraint_drift_validator.py`
-- `seed/prompts/tasks/Project Discovery v1.4.txt`
-- `seed/workflows/project_discovery.v1.json` (v1.8.0)
-
----
-
-## WS-PGC-VALIDATION-001 - COMPLETE (2026-01-24)
-
-### What Was Built
-
-Code-based promotion validation + PGC answer persistence:
-- Deterministic validation before LLM QA (promotion, contradiction, policy, grounding)
-- `pgc_answers` table with full provenance
-- API endpoint for retrieving PGC answers
-
-### Key Files
-- `app/domain/workflow/validation/` (validation rules)
-- `app/api/models/pgc_answer.py`
-- `app/domain/repositories/pgc_answer_repository.py`
-
----
-
-## API Contract (Production Line)
-
-### Production Line Status
+**Code Organization (MODULE sections in index.html):**
 ```
-GET /production?project_id={uuid}
+Line  38: data/constants.js      - COLORS, GRID, TRAY configs
+Line  51: data/factories.js      - createDocument, createEpic, createStations, createQuestions
+Line  74: data/projectData.js    - initialData with 13 epics
+Line 103: utils/layout.js        - Dagre + grid layout + manifold routing
+Line 165: components/nodes/StationDots.jsx
+Line 189: components/sidecars/QuestionTray.jsx
+Line 221: components/sidecars/FeatureGrid.jsx
+Line 251: components/nodes/DocumentNode.jsx
+Line 399: components/nodes/WaypointNode.jsx
+Line 413: App.jsx                - Main component
 ```
 
-### SSE Events
-```
-GET /api/v1/production/events?project_id={uuid}
-
-Events:
-- connected
-- station_transition
-- line_stopped
-- production_complete
-- interrupt_resolved
-- track_started
-- track_stabilized
-- document_escalated
-- keepalive
+**Grid Configuration:**
+```javascript
+GRID = {
+    EPICS_PER_ROW: 3,
+    EPIC_WIDTH: 220,
+    EPIC_HEIGHT: 70,
+    EPIC_GAP_X: 50,
+    EPIC_GAP_Y: 100,
+    EPIC_OFFSET_X: 80,
+    EPIC_OFFSET_Y: 80
+}
 ```
 
-### Start Production
-```
-POST /api/v1/production/start?project_id={uuid}           # Full line
-POST /api/v1/production/start?project_id={uuid}&document_type={type}  # Single doc
-```
+**Manifold Routing:**
+- WaypointNode: Invisible 1x1px junction for routing
+- One junction per row at SPINE_X position
+- Vertical spine: straight edges (eliminates gaps)
+- Horizontal branches: smoothstep with borderRadius: 20
 
-### Interrupts
-```
-GET /api/v1/projects/{id}/interrupts
-POST /api/v1/interrupts/{id}/resolve
-POST /api/v1/interrupts/{id}/escalate
-```
+**What's Implemented:**
+- Vertical L1 spine with TB Dagre layout
+- L2 epics in 3-column grid with row wrapping
+- Industrial manifold routing (T-junctions via waypoint nodes)
+- Questions side-car (amber) for operator input
+- Features side-car (indigo) for L3 content
+- Node headers ("DOCUMENT", "EPIC") with color-coded borders
+- Collapse/expand with feature count badge
+- Factory functions for clean data creation
+- 13 epics, 115 features in test data
 
----
+**What's NOT Implemented (Next Session):**
+- SSE wiring to backend ProductionService
+- Real data integration (currently mock data)
+- "Generate All" button functionality
+- Animation cascade/stagger timing
+- Feature click -> drill into stories
+
+## Key Files
+
+**Prototype:**
+- docs/prototypes/subway-map-v6/index.html (current)
+- docs/prototypes/subway-map-v6/data/*.js (reference modules)
+- docs/prototypes/subway-map-v6/components/**/*.jsx (reference components)
+- docs/prototypes/subway-map-v6/utils/layout.js (reference)
+
+**Production Line Backend:**
+- Route: app/web/routes/production.py
+- Template: app/web/templates/production/line_react.html
+- Service: app/api/services/production_service.py
+- SSE Events: app/api/v1/routers/production.py
+
+**Vision Docs:**
+- docs/THE_COMBINE_VISION.md
+- docs/PRODUCTION_LINE_VISION.md
 
 ## Technical Debt
 
-### Production Service Reads Raw JSON
-**Issue:** `get_document_type_dependencies()` parses `software_product_development.v1.json` directly.
-**Risk:** If master workflow schema changes, parsing breaks silently.
-**Preferred:** Load via plan registry or dedicated model.
+### Sidebar Loads All Document Status
+Issue: Every sidebar refresh queries document status for ALL projects.
+Preferred: Lazy load only when project accordion expands.
 
-### Old Prompt Cleanup (2026-01-24)
-**Issue:** Old prompt versions still exist after migration.
-**Preferred:** Move to `recycle/` after verification.
+### Prototype -> Production Migration
+The v6 prototype needs to be migrated into line_react.html with:
+- Real data from ProductionService instead of mock initialData
+- SSE connection for state updates
+- Proper React build (currently using Babel standalone)
 
-### QA-PGC-002 Stopwords Approach (2026-01-24)
-**Issue:** Manually-maintained stopwords list for false positive prevention.
-**Preferred:** Semantic similarity or focus on answer values.
+## Work Statement Status
 
-### Circular Import in llm_execution_logger.py (2026-01-25)
-**Issue:** Import chain through `app.core/__init__.py`.
-**Workaround:** Lazy import of `calculate_cost`.
+WS-ADR-043-001 Production Line - Phase 7 UI in progress
+- Basic React component with SSE: DONE
+- Track display with descriptions: DONE
+- Subway Map visualization prototype: DONE (v6 with manifold routing)
+- Backend integration: TODO
+- Station animation: TODO
+- Generate All flow: TODO
 
----
+## Handoff Notes for Next Session
 
-## Immediate Next Steps
-
-### 1. Complete Production Line UI Testing
-- Verify all bug fixes work end-to-end
-- Test: Start Production single document
-- Test: Run Full Line
-- Test: Interrupt resolution
-- Test: Escalation flow
-
-### 2. UX Polish (Claude.ai)
-- Review visual design of Production Line
-- Verify track expansion behavior
-- Test interrupt modal rendering
-- Mobile/responsive considerations (desktop-first but check breakpoints)
-
-### 3. Admin Integration
-- Link Production Line from project dashboard
-- Consider adding to main navigation
-
----
-
-## Workflow Versions
-
-| Workflow | Version | Notes |
-|----------|---------|-------|
-| project_discovery.v1.json | v1.8.0 | Constraint binding, drift enforcement |
-| concierge_intake.v1.json | v1.3.0 | Single-pass intake gate |
-| software_product_development.v1.json | wfrev_2026_01_02_a | Master workflow definition |
-
----
-
-## Environment
-
-- Local dev: WSL Ubuntu, Python 3.10, FastAPI
-- Database: PostgreSQL
-- LLM: Anthropic Claude API
-- Workflow: ADR-039 Document Interaction Workflows
+1. **Start by opening** docs/prototypes/subway-map-v6/index.html in browser to see current state
+2. **Key prototype features to understand:**
+   - L1 spine is vertical via Dagre
+   - L2 epics are in 3-column grid (manually positioned, not Dagre)
+   - Waypoint junctions create clean T-junction routing
+   - Click any node to cycle state (queued -> active -> stabilized)
+   - Click "X features" button on epics to open Features side-car
+   - Click "Answer Questions" on active nodes with input required
+3. **Factory functions simplify data creation:**
+   - createDocument(id, name, desc, state, intent, options)
+   - createEpic(id, name, state, intent, featureNames)
+   - createStations(activeStation)
+   - createQuestions(questions)
+4. **Next steps:**
+   - Wire SSE to get real document states from backend
+   - Replace mock `initialData` with data from ProductionService
+   - Test with actual project data
+5. **Grid can be configured:**
+   - Change EPICS_PER_ROW for different column counts
+   - Adjust GRID constants for spacing

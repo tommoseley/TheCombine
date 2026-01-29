@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.document import Document
+from app.api.models.document_type import DocumentType
 from app.api.models.project import Project
 from app.api.models.workflow_execution import WorkflowExecution
 from app.domain.workflow.production_state import ProductionState
@@ -162,8 +163,38 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     tracks = []
     stabilized_types = set()
 
+    # Add concierge_intake as the first track (it's the input source, not produced by workflow)
+    concierge_track = {
+        "document_type": "concierge_intake",
+        "document_name": "Concierge Intake",
+        "state": ProductionState.QUEUED.value,
+        "stations": [],
+        "elapsed_ms": None,
+        "blocked_by": [],
+    }
+    if "concierge_intake" in documents:
+        doc = documents["concierge_intake"]
+        if doc.status in ["stabilized", "complete", "success", "active"]:
+            concierge_track["state"] = ProductionState.STABILIZED.value
+            stabilized_types.add("concierge_intake")
+    tracks.append(concierge_track)
+
     # Get document types from master workflow definition
     document_types = get_document_type_dependencies()
+
+    # Fetch document type descriptions from database
+    doc_type_ids = [dt["id"] for dt in document_types] + ["concierge_intake"]
+    result = await db.execute(
+        select(DocumentType).where(DocumentType.doc_type_id.in_(doc_type_ids))
+    )
+    doc_type_descriptions = {
+        dt.doc_type_id: dt.description 
+        for dt in result.scalars().all()
+    }
+
+    # Update concierge_intake track with description
+    if tracks and tracks[0]["document_type"] == "concierge_intake":
+        tracks[0]["description"] = doc_type_descriptions.get("concierge_intake", "")
 
     for doc_type in document_types:
         type_id = doc_type["id"]
@@ -178,6 +209,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         track = {
             "document_type": type_id,
             "document_name": doc_type.get("name", type_id),
+            "description": doc_type_descriptions.get(type_id, ""),
             "state": ProductionState.QUEUED.value,
             "stations": [],
             "elapsed_ms": None,

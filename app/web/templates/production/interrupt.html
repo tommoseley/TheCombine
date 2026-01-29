@@ -1,8 +1,9 @@
 <!-- Interrupt Modal Component (ADR-043 Phase 7)
      Inline modal for resolving operator interrupts without page navigation.
+     Uses _pgc_questions.html for the actual question form.
 
      Expected context:
-     - interrupt: OperatorInterrupt object with id, interrupt_type, payload, document_type
+     - interrupt: OperatorInterrupt dict with id, interrupt_type, payload, document_type, execution_id, project_id
      - project: Project object with id
 -->
 
@@ -15,7 +16,7 @@
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></div>
-                <h2 class="text-lg font-semibold">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {% if interrupt.interrupt_type == 'clarification' %}
                     Clarification Required
                     {% elif interrupt.interrupt_type == 'audit_review' %}
@@ -40,56 +41,21 @@
                 Document: <span class="font-mono">{{ interrupt.document_type }}</span>
             </div>
 
-            <!-- Prompt text if available -->
-            {% if interrupt.payload.prompt %}
+            <!-- Clarification Questions - use existing _pgc_questions.html -->
+            {% if interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions %}
+                {% set execution_id = interrupt.execution_id %}
+                {% set project_id = interrupt.project_id %}
+                {% set questions = interrupt.payload.data.questions %}
+                {% set doc_type_name = interrupt.document_type %}
+                <div id="workflow-container">
+                    {% include "public/pages/partials/_pgc_questions.html" %}
+                </div>
+
+            <!-- Prompt text for other types -->
+            {% elif interrupt.payload.prompt %}
             <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <p class="text-gray-700 dark:text-gray-300">{{ interrupt.payload.prompt }}</p>
             </div>
-            {% endif %}
-
-            <!-- Clarification Questions (PGC) -->
-            {% if interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions %}
-            <form id="interrupt-form" onsubmit="submitInterruptResolution(event, '{{ interrupt.id }}')">
-                <div class="space-y-4">
-                    {% for question in interrupt.payload.data.questions %}
-                    <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <label class="block mb-2">
-                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ question.question_text or question.text or question }}
-                            </span>
-                            {% if question.binding == 'must_answer' %}
-                            <span class="text-red-500">*</span>
-                            {% endif %}
-                        </label>
-
-                        {% if question.options and question.options|length > 0 %}
-                        <!-- Multiple choice -->
-                        <select name="answer_{{ question.question_id or loop.index0 }}"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                                {% if question.binding == 'must_answer' %}required{% endif %}>
-                            <option value="">Select an option...</option>
-                            {% for option in question.options %}
-                            <option value="{{ option }}">{{ option }}</option>
-                            {% endfor %}
-                        </select>
-                        {% else %}
-                        <!-- Free text -->
-                        <textarea name="answer_{{ question.question_id or loop.index0 }}"
-                                  rows="3"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
-                                  placeholder="Enter your answer..."
-                                  {% if question.binding == 'must_answer' %}required{% endif %}></textarea>
-                        {% endif %}
-
-                        {% if question.intent %}
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            {{ question.intent }}
-                        </p>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </form>
             {% endif %}
 
             <!-- Choice buttons (for gates) -->
@@ -100,7 +66,7 @@
                 </p>
                 {% for choice in interrupt.payload.choices %}
                 <button onclick="submitChoice('{{ interrupt.id }}', '{{ choice }}')"
-                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100">
                     {{ choice }}
                 </button>
                 {% endfor %}
@@ -115,7 +81,7 @@
                 </p>
                 {% for option in interrupt.payload.escalation_options %}
                 <button onclick="submitEscalation('{{ interrupt.id }}', '{{ option }}')"
-                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        class="w-full px-4 py-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100">
                     {% if option == 'abandon' %}
                     <i data-lucide="x-circle" class="w-4 h-4 inline mr-2 text-red-500"></i>
                     Abandon Production
@@ -139,7 +105,7 @@
                             Notes (required for compliance)
                         </label>
                         <textarea id="escalation-notes" rows="2"
-                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                                   placeholder="Explain why you are escalating without resolution..."
                                   required></textarea>
                     </div>
@@ -175,26 +141,22 @@
                         Notes (optional)
                     </label>
                     <textarea id="audit-notes" rows="2"
-                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700"
+                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                               placeholder="Add notes about your decision..."></textarea>
                 </div>
             </div>
             {% endif %}
         </div>
 
-        <!-- Modal Footer -->
+        <!-- Modal Footer (only for non-PGC, since PGC has its own submit) -->
+        {% if not (interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions) %}
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button onclick="closeInterruptModal()"
-                    class="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    class="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300">
                 Cancel
             </button>
-            {% if interrupt.interrupt_type == 'clarification' and interrupt.payload.data and interrupt.payload.data.questions %}
-            <button type="submit" form="interrupt-form"
-                    class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 text-white rounded-md transition-colors">
-                Submit Answers
-            </button>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 </div>
 
@@ -204,23 +166,6 @@ function closeInterruptModal() {
     if (modal) {
         modal.remove();
     }
-}
-
-async function submitInterruptResolution(event, interruptId) {
-    event.preventDefault();
-    const form = event.target;
-    const formData = new FormData(form);
-
-    // Build answers object from form data
-    const answers = {};
-    for (const [key, value] of formData.entries()) {
-        if (key.startsWith('answer_')) {
-            const questionId = key.replace('answer_', '');
-            answers[questionId] = value;
-        }
-    }
-
-    await resolveInterrupt(interruptId, { answers });
 }
 
 async function submitChoice(interruptId, choice) {
@@ -246,18 +191,12 @@ async function acknowledgeAndContinue(interruptId) {
     try {
         const response = await fetch(`/api/v1/interrupts/${interruptId}/escalate`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                acknowledged_by: 'operator',  // TODO: Get actual user ID from session
-                notes: notes,
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acknowledged_by: 'operator', notes: notes }),
         });
 
         if (response.ok) {
             closeInterruptModal();
-            // Refresh the page to show updated state
             htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
         } else {
             const error = await response.json();
@@ -273,15 +212,12 @@ async function resolveInterrupt(interruptId, resolution) {
     try {
         const response = await fetch(`/api/v1/interrupts/${interruptId}/resolve`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(resolution),
         });
 
         if (response.ok) {
             closeInterruptModal();
-            // Refresh the page to show updated state
             htmx.ajax('GET', window.location.href, {target: 'body', swap: 'outerHTML'});
         } else {
             const error = await response.json();
@@ -292,5 +228,7 @@ async function resolveInterrupt(interruptId, resolution) {
         alert('Failed to resolve interrupt. Please try again.');
     }
 }
+
+if (typeof lucide !== 'undefined') lucide.createIcons();
 </script>
 {% endmacro %}

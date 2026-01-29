@@ -107,9 +107,8 @@ function toggleProjectAccordion(button, projectId) {
     const content = accordion.querySelector('.accordion-content');
     const header = accordion.querySelector('.project-header');
     const chevron = button.querySelector('.accordion-chevron');
+    const docsContainer = content.querySelector('.docs-container');
     const isOpening = !content.classList.contains('open');
-    
-    // Projects can stay expanded independently (no auto-collapse)
     
     // Toggle this one
     content.classList.toggle('open');
@@ -117,6 +116,15 @@ function toggleProjectAccordion(button, projectId) {
     
     if (content.classList.contains('open')) {
         chevron.setAttribute('data-lucide', 'chevron-down');
+        
+        // Lazy load documents if not already loaded
+        if (docsContainer && !docsContainer.dataset.loaded) {
+            docsContainer.dataset.loaded = 'true';
+            htmx.ajax('GET', '/projects/' + projectId + '/documents-status', {
+                target: docsContainer,
+                swap: 'innerHTML'
+            });
+        }
     } else {
         chevron.setAttribute('data-lucide', 'chevron-right');
     }
