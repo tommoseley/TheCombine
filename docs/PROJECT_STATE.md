@@ -1,153 +1,132 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-01-29
-**Updated By:** Claude (Subway Map v6 - CSS Themes + Document Viewer)
+**Last Updated:** 2026-01-31
+**Updated By:** Claude (React SPA Branding)
 
 ## Current Focus
 
-Subway Map v6 prototype complete with CSS-based theming, skeuomorphic document viewer, and smooth zoom animations. Ready for backend integration and project tree simplification.
+**COMPLETE:** React SPA with Concierge Intake, Project Management, and Branding
 
-## IMPORTANT: Vision Documents
+The React SPA now has full project lifecycle management and branding:
+- Concierge intake sidecar with SSE-based generation progress
+- Project rename (inline edit in Project Info block)
+- Project archive/unarchive (toggle button)
+- Project delete (requires archive first)
+- Archive filter toggle in project list sidebar
+- App logos in favicon, sidebar header, and loading screens
 
-**READ THESE FIRST:**
+### Recent Commits
+- `80880cd` - feat(spa): Add app logos to favicon, sidebar, and loading screens
+- `7ac0635` - feat(spa): React SPA with concierge intake and project management
 
-1. docs/THE_COMBINE_VISION.md - Product vision, why we exist, the endgame
-2. docs/PRODUCTION_LINE_VISION.md - Subway Map UI specification
+---
 
-The Production Line UI is the flagship feature - a Subway Map topology showing:
-- Dependency tracks with document flow
-- Join gates where multiple dependencies converge
-- Station stops (PGC, ASM, QA, REM, DONE) per document
-- Real-time animation as documents progress
-- Generate All lights up the entire tree as the factory runs
+## React SPA Status
 
-## Subway Map Prototype Status
+**Location:** `spa/` directory
 
-**Location:** docs/prototypes/subway-map-v6/index.html
+### Features Complete
+- ProjectTree sidebar with project selection highlighting
+- Floor component with Production Line status and Project Info block
+- Theme switching (Industrial, Light, Blueprint)
+- Concierge intake sidecar with chat interface
+- SSE-based generation progress (replaced polling)
+- Project management: rename, archive/unarchive, delete
+- Archive filter in sidebar (default off)
+- Delete requires archive first (enforced in UI)
+- Selected project scrolls into view after operations
 
-### Theme System (CSS Variables)
+### API Endpoints Added
+- `PATCH /api/v1/projects/{id}` - Update project name/description
+- `POST /api/v1/projects/{id}/archive` - Archive project
+- `POST /api/v1/projects/{id}/unarchive` - Restore archived project
+- `DELETE /api/v1/projects/{id}` - Soft delete (requires archive first)
+- `POST /api/v1/intake/start` - Start intake workflow
+- `GET /api/v1/intake/{id}` - Get intake state
+- `POST /api/v1/intake/{id}/message` - Submit user message
+- `PATCH /api/v1/intake/{id}/field/{key}` - Update interpretation field
+- `POST /api/v1/intake/{id}/initialize` - Lock and start generation
+- `GET /api/v1/intake/{id}/events` - SSE for generation progress
 
-Three themes implemented via CSS classes:
-- **Industrial** (default): Deep navy #0b1120, amber active states, factory floor aesthetic
-- **Light**: Clean white/gray for bright environments
-- **Blueprint**: Technical drawing blue, paper-white sidecars
+---
 
-Theme variables control all colors:
-```css
---bg-canvas, --bg-node, --bg-panel, --bg-sidecar
---text-primary, --text-muted, --text-sidecar
---state-stabilized-bg/text/edge
---state-active-bg/text/edge  
---state-queued-bg/text/edge
---action-success, --action-warning
-```
-
-Edge colors are in JS (EDGE_COLORS object) since edges are programmatic.
-
-### Document Viewer (Skeuomorphic Paper Design)
-
-When user clicks "View Document" on stabilized nodes:
-- 520px wide paper document slides in
-- Pure white background with Georgia serif fonts
-- Serial number (REF: CI-2026-001)
-- Section headings in small caps
-- Signature line with cursive font
-- "View Full Document" button at footer
-- Camera zooms smoothly to focus on node+sidecar
-
-### Sidecar Components
-
-| Sidecar | Trigger | Color | Purpose |
-|---------|---------|-------|---------|
-| DocumentViewer | "View Document" | Emerald | Paper document preview |
-| QuestionTray | "Answer Questions" | Amber | Operator input form |
-| FeatureGrid | "X features" | Indigo | L3 feature list |
-
-All sidecars:
-- Top-aligned horizontal bridges
-- Zoom-to-focus animation (single smooth movement)
-- Theme-aware colors via --bg-sidecar, --text-sidecar
-
-### Architecture Decisions
-
-- CSS variables for theming (no prop drilling)
-- Modular code with MODULE comment sections
-- Factory functions for consistent node creation
-- Dagre handles L1 (spine) ONLY - vertical layout
-- L2 epics manually positioned in grid (3 per row)
-- Waypoint junction nodes for T-junction manifold routing
-- useReactFlow for programmatic camera control
-
-### Code Organization (929 lines)
+## Architecture
 
 ```
-CSS Themes:        Lines 15-175
-Constants/Data:    Lines 226-265  
-Layout Utils:      Lines 267-410
-QuestionTray:      Lines 481-520
-FeatureGrid:       Lines 523-560
-DocumentViewer:    Lines 548-645
-DocumentNode:      Lines 648-750
-WaypointNode:      Lines 752-760
-SubwayMap (App):   Lines 765-920
+FastAPI Backend
+├── /api/v1/projects/*   → REST: list, create, get, update, archive, delete
+├── /api/v1/intake/*     → REST + SSE: concierge intake workflow
+├── /api/v1/production/* → REST + SSE: production line status
+├── /admin/*             → Jinja2 templates (unchanged)
+└── /*                   → Serve React SPA static files
+
+React SPA (Vite)
+├── src/
+│   ├── components/
+│   │   ├── App.jsx              # Main app with state management
+│   │   ├── ProjectTree.jsx      # Sidebar with archive filter
+│   │   ├── Floor.jsx            # Production line + project info
+│   │   ├── ConciergeIntakeSidecar.jsx
+│   │   ├── DocumentNode.jsx
+│   │   ├── FullDocumentViewer.jsx
+│   │   └── concierge/           # Intake sub-components
+│   ├── hooks/
+│   │   ├── useProjects.js       # With includeArchived option
+│   │   ├── useConciergeIntake.js
+│   │   ├── useProductionStatus.js
+│   │   └── useTheme.js
+│   ├── api/
+│   │   └── client.js            # All API methods + SSE factories
+│   └── styles/
+│       └── themes.css
+└── dist/                        # Production build
 ```
 
-### What's Implemented
+---
 
-- 3 color themes (Industrial, Light, Blueprint)
-- Skeuomorphic document viewer with paper styling
-- Zoom-to-focus for all sidecars
-- Top-aligned horizontal bridges
-- Vertical L1 spine with TB Dagre layout
-- L2 epics in 3-column grid with row wrapping
-- Industrial manifold routing (T-junctions)
-- Questions side-car for operator input
-- Features side-car for L3 content
-- Intent badges only show "OPTIONAL" (mandatory is default)
-- Factory functions for clean data creation
-- 13 epics, 115 features in test data
+## Key Technical Decisions
 
-## Next Steps (Immediate)
+1. **SSE over Polling** - User preference, cleaner real-time updates
+2. **Archive before Delete** - Project governance requirement
+3. **Sorted Project Selection** - After archive/delete, select next project in visual order
+4. **Scroll to Selected** - Using scrollIntoView with smooth behavior
 
-1. **Simplify Project Tree**: Remove document list from sidebar - just navigate to floor
-2. **Wire Floor to Backend**: Connect SSE to ProductionService for real data
-3. **Replace Mock Data**: Use actual project/document data
+---
 
-## Key Files
+## What Jinja2 Templates Become Obsolete
 
-**Prototype:**
-- docs/prototypes/subway-map-v6/index.html (929 lines, 55KB)
+These are replaced by React SPA:
+- app/web/templates/home.html
+- app/web/templates/partials/sidebar.html
+- app/web/templates/partials/project_tree.html
+- app/web/templates/production/line_react.html
+- app/web/templates/production/floor.html
 
-**Production Line Backend:**
-- Route: app/web/routes/production.py
-- Template: app/web/templates/production/line_react.html
-- Service: app/api/services/production_service.py
-- SSE Events: app/api/v1/routers/production.py
+These stay (admin):
+- app/web/templates/admin/*
+- app/web/templates/auth/* (if any)
 
-**Vision Docs:**
-- docs/THE_COMBINE_VISION.md
-- docs/PRODUCTION_LINE_VISION.md
+---
 
-## Technical Debt
+## Quick Commands
 
-### Sidebar Loads All Document Status
-Issue: Every sidebar refresh queries document status for ALL projects.
-Preferred: Lazy load only when project accordion expands.
+```bash
+# Run backend
+cd ~/dev/TheCombine && PYTHONPATH=. python3 ops/scripts/run.py
 
-### Prototype -> Production Migration
-The v6 prototype needs to be migrated into line_react.html with:
-- Real data from ProductionService instead of mock initialData
-- SSE connection for state updates
-- Proper React build (currently using Babel standalone)
+# Run SPA dev server
+cd spa && npm run dev
 
-## Handoff Notes for Next Session
+# Build SPA for production
+cd spa && npm run build
+```
 
-1. **Open** docs/prototypes/subway-map-v6/index.html to see current state
-2. **Theme toggle**: Click button in top-left panel to cycle themes
-3. **Click states**: Click any node to cycle queued -> active -> stabilized
-4. **Sidecars**: 
-   - "View Document" on green nodes opens paper document
-   - "Answer Questions" on active nodes with input
-   - "X features" on epics opens feature list
-5. **All sidecars zoom to focus** with smooth camera animation
-6. **Next priority**: Simplify project tree, wire to backend
+---
+
+## Handoff Notes
+
+The SPA is feature-complete for basic project management. Next steps could include:
+- Production line orchestration integration
+- Document viewing and editing
+- More robust error handling
+- Authentication integration
