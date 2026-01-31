@@ -123,7 +123,11 @@ export default function App() {
             <div className={`flex h-screen items-center justify-center theme-${theme}`}
                  style={{ background: 'var(--bg-canvas)' }}>
                 <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-t-emerald-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <img
+                        src="/logo-light.png"
+                        alt="The Combine"
+                        className="h-16 mx-auto mb-4 animate-pulse"
+                    />
                     <p style={{ color: 'var(--text-muted)' }}>Loading projects...</p>
                 </div>
             </div>
