@@ -1,0 +1,206 @@
+/* ============================================================
+   THEME: Light
+   ============================================================ */
+.theme-light {
+    --bg-canvas: #f8fafc;
+    --bg-node: #ffffff;
+    --bg-panel: rgba(255, 255, 255, 0.95);
+    --bg-button: #f1f5f9;
+    --bg-input: #f8fafc;
+    --bg-sidecar: #ffffff;
+    --text-sidecar: #1e293b;
+    --text-sidecar-muted: #64748b;
+    --action-success: #059669;
+    --action-warning: #d97706;
+
+    --border-node: #e2e8f0;
+    --border-panel: #e2e8f0;
+    --border-input: #cbd5e1;
+
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+
+    --header-bg-doc: rgba(16, 185, 129, 0.08);
+    --header-bg-epic: rgba(99, 102, 241, 0.08);
+    --header-border-doc: rgba(16, 185, 129, 0.25);
+    --header-border-epic: rgba(99, 102, 241, 0.25);
+    --header-text-doc: #059669;
+    --header-text-epic: #4f46e5;
+
+    --state-stabilized-bg: #10b981;
+    --state-stabilized-text: #059669;
+    --state-stabilized-edge: #10b981;
+    --state-active-bg: #6366f1;
+    --state-active-text: #4f46e5;
+    --state-active-edge: #6366f1;
+    --state-queued-bg: #94a3b8;
+    --state-queued-text: #64748b;
+    --state-queued-edge: #cbd5e1;
+
+    --glow-active: 0 4px 12px -2px rgba(99, 102, 241, 0.25);
+    --glow-station: 0 0 6px 3px rgba(99, 102, 241, 0.3);
+}
+
+/* ============================================================
+   THEME: Industrial (default - dark factory floor aesthetic)
+   ============================================================ */
+.theme-industrial {
+    --bg-canvas: #0b1120;
+    --bg-node: #1e293b;
+    --bg-panel: rgba(11, 17, 32, 0.95);
+    --bg-button: #334155;
+    --bg-input: #1e293b;
+    --bg-sidecar: #1e293b;
+    --text-sidecar: #f8fafc;
+    --text-sidecar-muted: #cbd5e1;
+    --action-success: #6ee7b7;
+    --action-warning: #fcd34d;
+
+    --border-node: #475569;
+    --border-panel: #334155;
+    --border-input: #475569;
+
+    --text-primary: #f8fafc;
+    --text-muted: #cbd5e1;
+    --text-dim: #94a3b8;
+
+    --header-bg-doc: rgba(16, 185, 129, 0.15);
+    --header-bg-epic: rgba(245, 158, 11, 0.15);
+    --header-border-doc: rgba(16, 185, 129, 0.4);
+    --header-border-epic: rgba(245, 158, 11, 0.4);
+    --header-text-doc: #34d399;
+    --header-text-epic: #fbbf24;
+
+    --state-stabilized-bg: #10b981;
+    --state-stabilized-text: #6ee7b7;
+    --state-stabilized-edge: #10b981;
+    --state-active-bg: #f59e0b;
+    --state-active-text: #fcd34d;
+    --state-active-edge: #f59e0b;
+    --state-queued-bg: #475569;
+    --state-queued-text: #94a3b8;
+    --state-queued-edge: #334155;
+
+    --glow-active: 0 0 20px 8px rgba(245, 158, 11, 0.4);
+    --glow-station: 0 0 10px 5px rgba(245, 158, 11, 0.5);
+}
+
+/* ============================================================
+   THEME: Blueprint (architectural/technical drawing)
+   ============================================================ */
+.theme-blueprint {
+    --bg-canvas: #1e3a5f;
+    --bg-node: #234b73;
+    --bg-panel: rgba(30, 58, 95, 0.95);
+    --bg-button: #2d5a87;
+    --bg-input: #1e3a5f;
+    --bg-sidecar: #e8f4fc;
+    --text-sidecar: #1e3a5f;
+    --text-sidecar-muted: #3d6a8f;
+    --action-success: #059669;
+    --action-warning: #d97706;
+
+    --border-node: #4a90c2;
+    --border-panel: #3d7ab3;
+    --border-input: #4a90c2;
+
+    --text-primary: #e8f4fc;
+    --text-muted: #a8d4f0;
+    --text-dim: #7cb8e0;
+
+    --header-bg-doc: rgba(255, 255, 255, 0.1);
+    --header-bg-epic: rgba(255, 255, 255, 0.1);
+    --header-border-doc: rgba(255, 255, 255, 0.3);
+    --header-border-epic: rgba(255, 255, 255, 0.3);
+    --header-text-doc: #ffffff;
+    --header-text-epic: #ffffff;
+
+    --state-stabilized-bg: #ffffff;
+    --state-stabilized-text: #ffffff;
+    --state-stabilized-edge: #ffffff;
+    --state-active-bg: #fbbf24;
+    --state-active-text: #fcd34d;
+    --state-active-edge: #fbbf24;
+    --state-queued-bg: #c8e4f4;
+    --state-queued-text: #e8f4fc;
+    --state-queued-edge: #d4e8f8;
+
+    --glow-active: 0 0 15px 5px rgba(251, 191, 36, 0.4);
+    --glow-station: 0 0 8px 4px rgba(251, 191, 36, 0.5);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* React Flow overrides */
+.react-flow__attribution { display: none !important; }
+.react-flow__handle { opacity: 0 !important; width: 1px !important; height: 1px !important; background: transparent !important; border: none !important; min-width: 0; min-height: 0; }
+.react-flow__handle-top { top: 0px !important; }
+.react-flow__handle-bottom { bottom: 0px !important; }
+.react-flow__node { cursor: pointer !important; }
+.react-flow__node.selected { outline: none !important; box-shadow: none !important; }
+.react-flow__edge.animated path { stroke-dasharray: 5; animation: edgeFlow 0.5s linear infinite; }
+.react-flow__edge-path { stroke-linecap: round; }
+
+/* Animations */
+@keyframes edgeFlow { to { stroke-dashoffset: -10; } }
+
+.node-active { animation: activeGlow 2s ease-in-out infinite; }
+@keyframes activeGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    50% { box-shadow: var(--glow-active); }
+}
+
+.station-active { animation: stationPulse 1.5s ease-in-out infinite; }
+@keyframes stationPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
+    50% { box-shadow: var(--glow-station); }
+}
+
+.amber-pulse { animation: amberBlink 1.5s ease-in-out infinite; }
+@keyframes amberBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+.tray-slide { animation: slideRight 0.2s ease-out; }
+@keyframes slideRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+/* Component base styles using CSS variables */
+.subway-node {
+    background: var(--bg-node);
+    border-color: var(--border-node);
+    color: var(--text-primary);
+}
+.subway-node-header-doc {
+    background: var(--header-bg-doc);
+    border-color: var(--header-border-doc);
+}
+.subway-node-header-epic {
+    background: var(--header-bg-epic);
+    border-color: var(--header-border-epic);
+}
+.subway-panel {
+    background: var(--bg-panel);
+    border-color: var(--border-panel);
+}
+.subway-button {
+    background: var(--bg-button);
+    color: var(--text-muted);
+}
+.subway-button:hover {
+    opacity: 0.8;
+}
+.subway-input {
+    background: var(--bg-input);
+    border-color: var(--border-input);
+    color: var(--text-primary);
+}
+.subway-input:focus {
+    border-color: #f59e0b;
+    outline: none;
+}

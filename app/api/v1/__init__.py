@@ -12,6 +12,7 @@ from app.api.v1.routers.production import router as production_router
 from app.api.v1.routers.projects import router as projects_router
 from app.api.v1.routers.dashboard import router as dashboard_router
 from app.api.v1.routers.interrupts import router as interrupts_router
+from app.api.v1.routers.intake import router as intake_router
 
 
 # Create main v1 router
@@ -26,6 +27,7 @@ api_router.include_router(production_router)
 api_router.include_router(projects_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(interrupts_router)
+api_router.include_router(intake_router)
 
 
 __all__ = ["api_router"]
