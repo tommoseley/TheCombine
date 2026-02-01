@@ -14,6 +14,14 @@ class ApiError extends Error {
     }
 }
 
+/**
+ * Get CSRF token from cookies
+ */
+function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|;\s*)csrf=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function request(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
     const config = {
@@ -21,6 +29,7 @@ async function request(endpoint, options = {}) {
             'Content-Type': 'application/json',
             ...options.headers,
         },
+        credentials: 'same-origin', // Include cookies
         ...options,
     };
 
@@ -43,7 +52,42 @@ async function request(endpoint, options = {}) {
     return response.json();
 }
 
+/**
+ * Request with CSRF token (for POST/DELETE that need it)
+ */
+async function requestWithCsrf(endpoint, options = {}) {
+    const csrfToken = getCsrfToken();
+    return request(endpoint, {
+        ...options,
+        headers: {
+            ...options.headers,
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+    });
+}
+
 export const api = {
+    // Authentication
+    // Note: /me is at /api/me (not /api/v1/me)
+    getMe: () => fetch('/api/me', { credentials: 'same-origin' })
+        .then(res => {
+            if (res.status === 401) return null;
+            if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+            return res.json();
+        })
+        .catch(err => {
+            console.error('Auth check failed:', err);
+            return null;
+        }),
+
+    logout: () => fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'X-CSRF-Token': getCsrfToken() || '',
+        },
+    }),
+
     // Projects
     getProjects: (params = {}) => {
         const query = new URLSearchParams();
@@ -180,4 +224,11 @@ export function createExecutionSSE(executionId) {
     return new EventSource(url);
 }
 
-export { ApiError };
+/**
+ * Get login URL for OAuth provider
+ */
+export function getLoginUrl(provider) {
+    return `/auth/login/${provider}`;
+}
+
+export { ApiError, getCsrfToken };

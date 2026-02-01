@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/spa/',  // Assets served at /spa/assets when running via FastAPI
+  base: '/',  // SPA served at root
   server: {
     port: 3000,
     proxy: {

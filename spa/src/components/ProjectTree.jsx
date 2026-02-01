@@ -104,26 +104,6 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
                 transition: isDragging ? 'none' : 'width 0.2s ease'
             }}
         >
-            {/* Logo */}
-            <div
-                className="p-4 border-b flex items-center justify-center"
-                style={{ borderColor: 'var(--border-panel)' }}
-            >
-                {!collapsed ? (
-                    <img
-                        src="/logo-light.png"
-                        alt="The Combine"
-                        className="h-10 object-contain"
-                    />
-                ) : (
-                    <img
-                        src="/logo-256.png"
-                        alt="The Combine"
-                        className="w-8 h-8 object-contain"
-                    />
-                )}
-            </div>
-
             {/* Header */}
             <div
                 className="p-3 border-b flex items-center justify-between"

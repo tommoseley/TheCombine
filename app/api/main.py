@@ -151,6 +151,16 @@ app = FastAPI(
 app.mount("/web", StaticFiles(directory="app/web"), name="web")
 app.mount("/static", StaticFiles(directory="app/web/static/admin"), name="static")
 
+# Mount SPA static assets (Vite build output)
+# Only mount if the spa/dist directory exists (after npm run build)
+import pathlib
+SPA_DIST_PATH = pathlib.Path("spa/dist")
+SPA_ENABLED = SPA_DIST_PATH.exists()
+if SPA_ENABLED:
+    # Mount SPA assets at /assets (JS, CSS bundles)
+    app.mount("/assets", StaticFiles(directory="spa/dist/assets"), name="spa-assets")
+    logger.info("SPA assets mounted at /assets")
+
 # ============================================================================
 @app.get("/test-session")
 async def test_session(request: Request):
@@ -248,6 +258,33 @@ app.include_router(pages_router)  # /workflows, /executions UI pages
 app.include_router(partials_router)  # HTMX partials
 app.include_router(composer_router)  # ADR-034: Composer preview endpoints
 app.include_router(production_router)  # ADR-043: Production Line UI
+
+
+# ============================================================================
+# SPA ROUTES - Serve React SPA at root
+# ============================================================================
+
+if SPA_ENABLED:
+    @app.get("/logo-256.png")
+    @app.get("/logo-light.png")
+    @app.get("/logo-dark.png")
+    @app.get("/logo-blueprint.png")
+    async def serve_spa_logos(request: Request):
+        """Serve SPA logo files."""
+        # Extract filename from path
+        filename = request.url.path.lstrip("/")
+        logo_path = SPA_DIST_PATH / filename
+        if logo_path.exists():
+            return FileResponse(logo_path)
+        return FileResponse(SPA_DIST_PATH / "logo-256.png")
+
+    @app.get("/favicon.ico")
+    async def serve_favicon():
+        """Serve favicon."""
+        return FileResponse(SPA_DIST_PATH / "logo-256.png", media_type="image/png")
+
+# Note: The home route at "/" is defined in home_routes.py and will be updated
+# to serve the SPA index.html instead of the Jinja template.
 
 
 # ============================================================================
