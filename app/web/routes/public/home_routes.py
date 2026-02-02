@@ -23,16 +23,17 @@ async def home(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Home page - serves SPA for authenticated users, Jinja template for guests.
+    Home page - serves SPA for all users.
+    The SPA handles its own auth state (Lobby vs Production).
     """
+    # Always serve SPA if available
+    if SPA_INDEX.exists():
+        return FileResponse(SPA_INDEX, media_type="text/html")
+
+    # Fallback to Jinja template only if SPA not built
     user_info = await get_optional_user(request, db)
     user = user_info[0] if user_info else None
 
-    # Authenticated users get the SPA
-    if user and SPA_INDEX.exists():
-        return FileResponse(SPA_INDEX, media_type="text/html")
-
-    # Guests get the original home page
     return templates.TemplateResponse(request, "public/pages/home.html", {
         "user": user,
     })
