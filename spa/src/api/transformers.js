@@ -10,17 +10,31 @@ import { STATION_IDS } from '../utils/constants';
 
 /**
  * Map API production state to SPA state
+ *
+ * New production states (ADR-043):
+ * - produced: Final, certified artifact
+ * - in_production: Actively moving through the line
+ * - ready_for_production: All requirements met, can start
+ * - requirements_not_met: Blocked by missing inputs
+ * - awaiting_operator: Line stopped, operator input required
+ * - halted: Explicit stop (error, policy, operator)
  */
 const STATE_MAP = {
-    'queued': 'queued',
-    'blocked': 'queued',  // Show blocked as queued visually
-    'assembling': 'active',
-    'binding': 'active',
-    'auditing': 'active',
-    'remediating': 'active',
-    'awaiting_operator': 'active',
-    'stabilized': 'stabilized',
-    'halted': 'queued',
+    // New production states (pass through)
+    'produced': 'produced',
+    'in_production': 'in_production',
+    'ready_for_production': 'ready_for_production',
+    'requirements_not_met': 'requirements_not_met',
+    'awaiting_operator': 'awaiting_operator',
+    'halted': 'halted',
+    // Legacy states (backward compatibility)
+    'queued': 'ready_for_production',
+    'blocked': 'requirements_not_met',
+    'assembling': 'in_production',
+    'binding': 'in_production',
+    'auditing': 'in_production',
+    'remediating': 'in_production',
+    'stabilized': 'produced',
 };
 
 /**
@@ -67,27 +81,37 @@ export function transformProjectsList(apiResponse) {
 export function transformProductionStatus(apiStatus, interrupts = []) {
     const documents = [];
 
-    // Group tracks: first-level docs go in main array, epics go as children of backlog
+    // Group tracks by scope: project-level docs go in main array, others are potential children
     const projectDocs = [];
-    const epicDocs = [];
+    const childDocsByType = {}; // Map of doc_type -> array of docs
 
     for (const track of apiStatus.tracks) {
         const doc = transformTrack(track, interrupts);
+        const scope = track.scope || 'project';
 
-        // Check if this is an epic (scope would come from API)
-        if (track.scope === 'epic') {
-            epicDocs.push(doc);
+        if (scope === 'project') {
+            projectDocs.push({
+                ...doc,
+                // Preserve parent-child metadata from API
+                mayOwn: track.may_own || [],
+                childDocType: track.child_doc_type,
+            });
         } else {
-            projectDocs.push(doc);
+            // Group child docs by their type for later attachment
+            const docType = track.document_type;
+            if (!childDocsByType[docType]) {
+                childDocsByType[docType] = [];
+            }
+            childDocsByType[docType].push(doc);
         }
     }
 
-    // Build the document tree
+    // Build the document tree using may_own metadata from API
     for (const doc of projectDocs) {
-        // If this is the epic backlog, attach epics as children
-        if (doc.id === 'epic_backlog' && epicDocs.length > 0) {
-            doc.children = epicDocs.map(epic => ({
-                ...epic,
+        // If this document can own children, attach them
+        if (doc.childDocType && childDocsByType[doc.childDocType]) {
+            doc.children = childDocsByType[doc.childDocType].map(child => ({
+                ...child,
                 level: 2,
             }));
         }
@@ -101,16 +125,16 @@ export function transformProductionStatus(apiStatus, interrupts = []) {
  * Transform a single track to document format
  */
 function transformTrack(track, interrupts = []) {
-    const state = STATE_MAP[track.state] || 'queued';
+    const state = STATE_MAP[track.state] || 'ready_for_production';
     const needsInput = track.state === 'awaiting_operator';
 
     // Find matching interrupt for this track
     const interrupt = interrupts.find(i => i.document_type === track.document_type);
 
-    // Build stations array
+    // Build stations array (only for in_production or awaiting_operator)
     let stations = null;
-    if (state === 'active' || needsInput) {
-        stations = buildStations(track.stations, track.state);
+    if (state === 'in_production' || needsInput) {
+        stations = buildStations(track.stations, track.state, track.station);
     }
 
     // Build questions from interrupt if awaiting operator
@@ -140,13 +164,13 @@ function transformTrack(track, interrupts = []) {
 /**
  * Build stations array for active documents
  */
-function buildStations(apiStations, trackState) {
+function buildStations(apiStations, trackState, currentStation) {
     if (!apiStations || apiStations.length === 0) {
-        // Generate default stations based on current state
-        const activeStation = trackState === 'awaiting_operator' ? 'pgc' :
-                              trackState === 'assembling' ? 'asm' :
-                              trackState === 'binding' ? 'pgc' :
-                              trackState === 'auditing' ? 'aud' : null;
+        // Generate default stations based on current state/station
+        // Use the station field from the API if available
+        const activeStation = currentStation ||
+                              (trackState === 'awaiting_operator' ? 'pgc' :
+                               trackState === 'in_production' ? 'asm' : null);
 
         return STATION_IDS.map(id => ({
             id,

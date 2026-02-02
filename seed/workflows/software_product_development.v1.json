@@ -1,15 +1,15 @@
 {
   "schema_version": "workflow.v1",
   "workflow_id": "software_product_development",
-  "revision": "wfrev_2026_01_02_a",
-  "effective_date": "2026-01-02",
+  "revision": "wfrev_2026_02_02_a",
+  "effective_date": "2026-02-02",
   "name": "Software Product Development",
   "description": "End-to-end workflow for software product creation from discovery through implementation",
 
   "scopes": {
     "project": { "parent": null },
     "epic": { "parent": "project" },
-    "story": { "parent": "epic" }
+    "feature": { "parent": "epic" }
   },
 
   "document_types": {
@@ -19,53 +19,56 @@
       "may_own": [],
       "acceptance_required": false
     },
-    "epic_backlog": {
-      "name": "Epic Backlog",
+    "implementation_plan_primary": {
+      "name": "Implementation Plan (Primary)",
       "scope": "project",
-      "may_own": ["epic"],
-      "collection_field": "epics",
-      "acceptance_required": true,
-      "accepted_by": ["pm"]
+      "may_own": [],
+      "acceptance_required": false,
+      "description": "Preliminary plan with epic candidates that inform architecture"
     },
-    "project_architecture": {
-      "name": "Project Technical Architecture",
+    "technical_architecture": {
+      "name": "Technical Architecture",
       "scope": "project",
       "may_own": [],
       "acceptance_required": true,
       "accepted_by": ["architect"]
     },
-    "epic_architecture": {
-      "name": "Epic Technical Architecture",
-      "scope": "epic",
-      "may_own": [],
-      "acceptance_required": false
-    },
-    "story_backlog": {
-      "name": "Story Backlog",
-      "scope": "epic",
-      "may_own": ["story"],
-      "collection_field": "stories",
+    "implementation_plan": {
+      "name": "Implementation Plan",
+      "scope": "project",
+      "may_own": ["epic"],
+      "collection_field": "epics",
       "acceptance_required": true,
-      "accepted_by": ["pm", "ba"]
+      "accepted_by": ["pm"],
+      "description": "Final plan that creates committed Epic documents"
     },
-    "story_implementation": {
-      "name": "Story Implementation",
-      "scope": "story",
+    "epic": {
+      "name": "Epic",
+      "scope": "project",
+      "may_own": ["feature"],
+      "acceptance_required": false,
+      "description": "Unit of planning with lifecycle gates"
+    },
+    "feature": {
+      "name": "Feature",
+      "scope": "epic",
       "may_own": [],
-      "acceptance_required": false
+      "acceptance_required": true,
+      "accepted_by": ["pm", "ba"],
+      "description": "Unit of production intent with nested stories"
     }
   },
 
   "entity_types": {
     "epic": {
       "name": "Epic",
-      "parent_doc_type": "epic_backlog",
+      "parent_doc_type": "implementation_plan",
       "creates_scope": "epic"
     },
-    "story": {
-      "name": "Story",
-      "parent_doc_type": "story_backlog",
-      "creates_scope": "story"
+    "feature": {
+      "name": "Feature",
+      "parent_doc_type": "epic",
+      "creates_scope": "feature"
     }
   },
 
@@ -79,78 +82,56 @@
       "inputs": []
     },
     {
-      "step_id": "epic_backlog",
+      "step_id": "primary_plan",
       "role": "Project Manager 1.0",
-      "task_prompt": "Epic Backlog v1.0",
-      "produces": "epic_backlog",
+      "task_prompt": "Implementation Plan Primary v1.0",
+      "produces": "implementation_plan_primary",
       "scope": "project",
       "inputs": [
         { "doc_type": "project_discovery", "scope": "project" }
       ]
     },
     {
-      "step_id": "project_architecture",
+      "step_id": "technical_architecture",
       "role": "Technical Architect 1.0",
       "task_prompt": "Technical Architecture v1.0",
-      "produces": "project_architecture",
+      "produces": "technical_architecture",
       "scope": "project",
       "inputs": [
         { "doc_type": "project_discovery", "scope": "project" },
-        { "doc_type": "epic_backlog", "scope": "project" }
+        { "doc_type": "implementation_plan_primary", "scope": "project" }
+      ]
+    },
+    {
+      "step_id": "implementation_plan",
+      "role": "Project Manager 1.0",
+      "task_prompt": "Implementation Plan v1.0",
+      "produces": "implementation_plan",
+      "scope": "project",
+      "creates_entities": "epic",
+      "inputs": [
+        { "doc_type": "implementation_plan_primary", "scope": "project" },
+        { "doc_type": "technical_architecture", "scope": "project" }
       ]
     },
     {
       "step_id": "per_epic",
       "iterate_over": {
-        "doc_type": "epic_backlog",
+        "doc_type": "implementation_plan",
         "collection_field": "epics",
         "entity_type": "epic"
       },
       "scope": "epic",
       "steps": [
         {
-          "step_id": "epic_architecture",
-          "role": "Technical Architect 1.0",
-          "task_prompt": "Epic Architecture v1.0",
-          "produces": "epic_architecture",
-          "scope": "epic",
-          "inputs": [
-            { "doc_type": "project_architecture", "scope": "project" },
-            { "entity_type": "epic", "scope": "epic", "context": true }
-          ]
-        },
-        {
-          "step_id": "story_backlog",
+          "step_id": "feature_decomposition",
           "role": "Business Analyst 1.0",
-          "task_prompt": "Story Backlog v1.0",
-          "produces": "story_backlog",
+          "task_prompt": "Feature Decomposition v1.0",
+          "produces": "feature",
           "scope": "epic",
           "inputs": [
             { "entity_type": "epic", "scope": "epic", "context": true },
-            { "doc_type": "epic_architecture", "scope": "epic", "context": true },
-            { "doc_type": "project_architecture", "scope": "project", "required": false }
-          ]
-        },
-        {
-          "step_id": "per_story",
-          "iterate_over": {
-            "doc_type": "story_backlog",
-            "collection_field": "stories",
-            "entity_type": "story"
-          },
-          "scope": "story",
-          "steps": [
-            {
-              "step_id": "implementation",
-              "role": "Developer 1.0",
-              "task_prompt": "Story Implementation v1.0",
-              "produces": "story_implementation",
-              "scope": "story",
-              "inputs": [
-                { "entity_type": "story", "scope": "story", "context": true },
-                { "doc_type": "epic_architecture", "scope": "epic" }
-              ]
-            }
+            { "doc_type": "technical_architecture", "scope": "project" }
           ]
         }
       ]

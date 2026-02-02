@@ -24,6 +24,10 @@ from app.domain.handlers.project_discovery_handler import ProjectDiscoveryHandle
 from app.domain.handlers.architecture_spec_handler import ArchitectureSpecHandler
 from app.domain.handlers.story_backlog_handler import StoryBacklogHandler
 from app.domain.handlers.epic_backlog_handler import EpicBacklogHandler
+from app.domain.handlers.implementation_plan_primary_handler import ImplementationPlanPrimaryHandler
+from app.domain.handlers.implementation_plan_handler import ImplementationPlanHandler
+from app.domain.handlers.epic_handler import EpicHandler
+from app.domain.handlers.feature_handler import FeatureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,11 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     "project_discovery": ProjectDiscoveryHandler(),
     "technical_architecture": ArchitectureSpecHandler(),
     "story_backlog": StoryBacklogHandler(),
+    "implementation_plan_primary": ImplementationPlanPrimaryHandler(),
+    "implementation_plan": ImplementationPlanHandler(),
+    "epic": EpicHandler(),
+    "feature": FeatureHandler(),
+    # Backward compatibility alias for existing documents
     "epic_backlog": EpicBacklogHandler(),
 }
 

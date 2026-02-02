@@ -291,13 +291,63 @@ class DocumentBuilder:
             logger.warning(f"LLM logging failed at complete: {e}")
     
     async def _persist_document(self, ctx: BuildContext, result: Dict[str, Any], input_tokens: int, output_tokens: int, run_id: Optional[UUID], created_by: Optional[str]):
-        return await self.document_service.create_document(
+        parent_doc = await self.document_service.create_document(
             space_type=ctx.space_type, space_id=ctx.space_id, doc_type_id=ctx.doc_type_id,
             title=result["title"], content=result["data"], created_by=created_by,
             created_by_type="builder",
             builder_metadata={"prompt_id": ctx.prompt_id, "model": ctx.model, "input_tokens": input_tokens, "output_tokens": output_tokens, "llm_run_id": str(run_id) if run_id else None},
             derived_from=ctx.input_ids,
         )
+
+        # Create child documents if the handler defines them
+        await self._create_child_documents(ctx, result, parent_doc.id, created_by)
+
+        return parent_doc
+
+    async def _create_child_documents(
+        self,
+        ctx: BuildContext,
+        result: Dict[str, Any],
+        parent_id: UUID,
+        created_by: Optional[str]
+    ) -> List[UUID]:
+        """
+        Create child documents extracted by the handler.
+
+        For example, implementation_plan creates Epic documents.
+
+        Returns list of created child document IDs.
+        """
+        child_specs = ctx.handler.get_child_documents(result["data"], result["title"])
+
+        if not child_specs:
+            return []
+
+        created_ids = []
+        for spec in child_specs:
+            try:
+                child_doc = await self.document_service.create_document(
+                    space_type=ctx.space_type,
+                    space_id=ctx.space_id,
+                    doc_type_id=spec["doc_type_id"],
+                    title=spec["title"],
+                    content=spec["content"],
+                    created_by=created_by,
+                    created_by_type="builder",
+                    builder_metadata={
+                        "extracted_from": ctx.doc_type_id,
+                        "parent_document_id": str(parent_id),
+                        "identifier": spec.get("identifier"),
+                    },
+                    derived_from=[parent_id],
+                )
+                created_ids.append(child_doc.id)
+                logger.info(f"Created child document: {child_doc.id} ({spec['doc_type_id']})")
+            except Exception as e:
+                logger.error(f"Failed to create child document {spec.get('identifier')}: {e}")
+                # Continue with other children, don't fail the whole operation
+
+        return created_ids
 
     # =========================================================================
     # PUBLIC API - Sync Build

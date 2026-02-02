@@ -731,32 +731,32 @@ EPIC_DETAIL_VIEW_DOCDEF = {
 
 
 # =============================================================================
-# ADR-034-EPIC-BACKLOG: Epic Backlog View DocDef
+# ADR-034: Implementation Plan (Primary) View DocDef
 # =============================================================================
 
-EPIC_BACKLOG_VIEW_DOCDEF = {
-    "document_def_id": "docdef:EpicBacklogView:1.0.0",
-    "document_schema_id": None,  # Projection over epic backlog data
+IMPLEMENTATION_PLAN_PRIMARY_VIEW_DOCDEF = {
+    "document_def_id": "docdef:ImplementationPlanPrimaryView:1.0.0",
+    "document_schema_id": None,  # Projection over implementation plan data
     "prompt_header": {
-        "role": "You are producing an Epic Backlog overview.",
+        "role": "You are producing a preliminary Implementation Plan.",
         "constraints": [
-            "Show project context and epic set summary first.",
-            "Each epic renders as a summary card.",
-            "Include risks overview and architecture recommendations.",
+            "Show project context and plan summary first.",
+            "Epic candidates are informational - they inform architecture.",
+            "Include recommendations for technical architecture.",
         ]
     },
     "sections": [
-        # Epic Set Summary - Overall Intent & MVP Definition
+        # Plan Summary - Overall Intent & MVP Definition
         {
-            "section_id": "epic_set_summary",
-            "title": "Epic Set Summary",
+            "section_id": "plan_summary",
+            "title": "Plan Summary",
             "order": 10,
             "component_id": "component:SummaryBlockV1:1.0.0",
             "shape": "single",
             "source_pointer": "/epic_set_summary",
             "viewer_tab": "overview",
         },
-        # Key Constraints
+        # Key Constraints - top 5 in sidecar
         {
             "section_id": "key_constraints",
             "title": "Key Constraints",
@@ -765,6 +765,7 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
             "shape": "container",
             "source_pointer": "/epic_set_summary/key_constraints",
             "viewer_tab": "overview",
+            "sidecar_max_items": 5,
         },
         # Out of Scope
         {
@@ -776,30 +777,24 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
             "source_pointer": "/epic_set_summary/out_of_scope",
             "viewer_tab": "overview",
         },
-        # Epic Cards
+        # Epic Candidate Cards - informational, no detail view
         {
-            "section_id": "epic_summaries",
-            "title": "Epics",
+            "section_id": "epic_candidates",
+            "title": "Epic Candidates",
             "order": 40,
             "component_id": "component:EpicSummaryBlockV1:1.0.0",
             "shape": "container",
-            "repeat_over": "/epics",
+            "repeat_over": "/epic_candidates",
             "source_pointer": "/",
-            "exclude_fields": ["risks", "open_questions", "requirements", "acceptance_criteria", "notes_for_architecture", "related_discovery_items"],
+            "exclude_fields": ["risks", "open_questions", "requirements", "acceptance_criteria", "related_discovery_items"],
             "context": {
-                "epic_id": "/epic_id",
-                "epic_title": "/title"
-            },
-            "derived_fields": [
-                {"field": "risk_level", "function": "risk_level", "source": "/risks"},
-            ],
-            "detail_ref_template": {
-                "document_type": "EpicDetailView",
-                "params": {"epic_id": "/epic_id"}
+                "candidate_id": "/candidate_id",
+                "candidate_name": "/name"
             },
             "viewer_tab": "details",
+            # Note: No detail_ref_template - candidates are informational only
         },
-        # Risks Overview
+        # Risks Overview - full view only
         {
             "section_id": "risks_overview",
             "title": "Risks Overview",
@@ -807,9 +802,9 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
             "component_id": "component:RisksBlockV1:1.0.0",
             "shape": "container",
             "source_pointer": "/risks_overview",
-            "viewer_tab": "overview",
+            "viewer_tab": "details",
         },
-        # Recommendations for Architecture
+        # Recommendations for Architecture - full view only
         {
             "section_id": "architecture_recommendations",
             "title": "Recommendations for Architecture",
@@ -817,11 +812,14 @@ EPIC_BACKLOG_VIEW_DOCDEF = {
             "component_id": "component:StringListBlockV1:1.0.0",
             "shape": "container",
             "source_pointer": "/recommendations_for_architecture",
-            "viewer_tab": "overview",
+            "viewer_tab": "details",
         },
     ],
     "status": "accepted"
 }
+
+# Backward compatibility alias
+EPIC_BACKLOG_VIEW_DOCDEF = IMPLEMENTATION_PLAN_PRIMARY_VIEW_DOCDEF
 
 
 # =============================================================================
@@ -1634,7 +1632,8 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     PROJECT_DISCOVERY_DOCDEF,
     EPIC_SUMMARY_VIEW_DOCDEF,
     EPIC_DETAIL_VIEW_DOCDEF,
-    EPIC_BACKLOG_VIEW_DOCDEF,
+    IMPLEMENTATION_PLAN_PRIMARY_VIEW_DOCDEF,
+    EPIC_BACKLOG_VIEW_DOCDEF,  # Backward compatibility alias
     EPIC_ARCHITECTURE_VIEW_DOCDEF,
     ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,
     STORY_DETAIL_VIEW_DOCDEF,

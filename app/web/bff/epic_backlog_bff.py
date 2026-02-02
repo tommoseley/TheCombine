@@ -45,7 +45,7 @@ async def get_epic_backlog_vm(
     # Transitional import per WS-001
     from app.web.routes.public.document_routes import _get_document_by_type
     
-    doc = await _get_document_by_type(db, project_id, "epic_backlog")
+    doc = await _get_document_by_type(db, project_id, "implementation_plan_primary")
     
     if not doc:
         return EpicBacklogVM(
@@ -57,7 +57,8 @@ async def get_epic_backlog_vm(
         )
     
     content = doc.content or {}
-    epics_raw = content.get("epics", [])
+    # Support both new (epic_candidates) and legacy (epics) field names
+    epics_raw = content.get("epic_candidates") or content.get("epics", [])
     
     # Classify and map epics
     mvp_cards: List[EpicCardVM] = []

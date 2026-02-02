@@ -26,6 +26,32 @@ logger = logging.getLogger(__name__)
 
 INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     # -------------------------------------------------------------------------
+    # INTAKE DOCUMENTS
+    # -------------------------------------------------------------------------
+    {
+        "doc_type_id": "concierge_intake",
+        "name": "Concierge Intake",
+        "view_docdef": "ConciergeIntakeView",
+        "description": (
+            "Structured intake document produced by the Concierge workflow. "
+            "Contains synthesized intent, constraints, and gate outcomes."
+        ),
+        "category": "intake",
+        "icon": "message-circle",
+        "builder_role": "concierge",
+        "builder_task": "intake",
+        "handler_id": "concierge_intake",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "project",
+        "display_order": 5,
+        "schema_definition": {
+            "$ref": "schema:ConciergeIntakeDocumentV1"
+        },
+        "schema_version": "1.0",
+    },
+    # -------------------------------------------------------------------------
     # ARCHITECTURE DOCUMENTS
     # -------------------------------------------------------------------------
     {
@@ -63,24 +89,24 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "schema_version": "1.0",
     },
     {
-        "doc_type_id": "architecture_spec",
-        "name": "Architecture Specification",
-        "view_docdef": "ArchitecturalSummaryView",
+        "doc_type_id": "technical_architecture",
+        "name": "Technical Architecture",
+        "view_docdef": "TechnicalArchitectureView",
         "description": (
-            "Comprehensive architecture specification including components, "
+            "Comprehensive technical architecture including components, "
             "interfaces, data models, workflows, and quality attributes. "
-            "Built after discovery, informs development."
+            "Built after primary implementation plan, informs final planning."
         ),
         "category": "architecture",
         "icon": "landmark",
         "builder_role": "architect",
-        "builder_task": "final",
-        "handler_id": "architecture_spec",
-        "required_inputs": ["project_discovery"],  # Depends on discovery
+        "builder_task": "technical_architecture",
+        "handler_id": "technical_architecture",
+        "required_inputs": ["project_discovery", "implementation_plan_primary"],
         "optional_inputs": [],
         "gating_rules": {},
-        "scope": "project",  # Can also be 'epic' for epic-level architecture
-        "display_order": 20,
+        "scope": "project",
+        "display_order": 30,  # After implementation_plan_primary (25)
         "schema_definition": {
             "type": "object",
             "required": ["architecture_summary", "components"],
@@ -120,55 +146,225 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     # PLANNING DOCUMENTS
     # -------------------------------------------------------------------------
     {
-        "doc_type_id": "epic_backlog",
-        "name": "Epic Set",
-        "view_docdef": "EpicBacklogView",
+        "doc_type_id": "implementation_plan_primary",
+        "name": "Implementation Plan (Primary)",
+        "view_docdef": "ImplementationPlanPrimaryView",
         "description": (
-            "Set of epics decomposed from project discovery. "
-            "Defines the major work streams for the project."
+            "Preliminary implementation plan produced before technical architecture. "
+            "Contains epic candidates that inform architectural decisions. "
+            "Epic candidates are not yet commitments - they become Epics after "
+            "architecture review in the full Implementation Plan."
         ),
         "category": "planning",
-        "icon": "layers",
+        "icon": "map",
         "builder_role": "pm",
-        "builder_task": "epic_generation",
-        "handler_id": "epic_backlog",
-        "required_inputs": ["project_discovery"],  # Needs discovery first
-        "optional_inputs": ["architecture_spec"],  # Better with arch spec
+        "builder_task": "preliminary_planning",
+        "handler_id": "implementation_plan_primary",
+        "required_inputs": ["project_discovery"],
+        "optional_inputs": [],  # Comes before architecture
         "gating_rules": {},
         "scope": "project",
-        "display_order": 30,
+        "display_order": 25,  # Before architecture_spec (20 -> 25 -> 30)
         "schema_definition": {
             "type": "object",
-            "required": ["epics"],
+            "required": ["epic_candidates"],
             "properties": {
+                "epic_set_summary": {
+                    "type": "object",
+                    "properties": {
+                        "overall_intent": {"type": "string"},
+                        "mvp_definition": {"type": "string"},
+                        "key_constraints": {"type": "array", "items": {"type": "string"}},
+                        "out_of_scope": {"type": "array", "items": {"type": "string"}},
+                    }
+                },
+                "epic_candidates": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["name", "intent"],
+                        "properties": {
+                            "candidate_id": {"type": "string"},
+                            "name": {"type": "string"},
+                            "intent": {"type": "string"},
+                            "in_scope": {"type": "array", "items": {"type": "string"}},
+                            "out_of_scope": {"type": "array", "items": {"type": "string"}},
+                            "mvp_phase": {"type": "string"},
+                            "open_questions": {"type": "array"},
+                            "notes_for_architecture": {"type": "array", "items": {"type": "string"}},
+                        }
+                    }
+                },
+                "risks_overview": {"type": "array"},
+                "recommendations_for_architecture": {"type": "array", "items": {"type": "string"}},
+            }
+        },
+        "schema_version": "1.0",
+    },
+    {
+        "doc_type_id": "implementation_plan",
+        "name": "Implementation Plan",
+        "view_docdef": "ImplementationPlanView",
+        "description": (
+            "Final implementation plan produced after technical architecture review. "
+            "Defines committed Epics with sequencing, dependencies, and design requirements. "
+            "Creating this document spawns individual Epic documents."
+        ),
+        "category": "planning",
+        "icon": "git-branch",
+        "builder_role": "pm",
+        "builder_task": "implementation_planning",
+        "handler_id": "implementation_plan",
+        "required_inputs": ["implementation_plan_primary", "technical_architecture"],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "project",
+        "display_order": 35,
+        "creates_children": ["epic"],  # This plan creates Epic documents
+        "schema_definition": {
+            "type": "object",
+            "required": ["plan_summary", "epics"],
+            "properties": {
+                "plan_summary": {
+                    "type": "object",
+                    "properties": {
+                        "overall_intent": {"type": "string"},
+                        "mvp_definition": {"type": "string"},
+                        "key_constraints": {"type": "array", "items": {"type": "string"}},
+                        "sequencing_rationale": {"type": "string"},
+                    }
+                },
                 "epics": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["title", "objectives"],
+                        "required": ["epic_id", "name", "intent"],
                         "properties": {
                             "epic_id": {"type": "string"},
-                            "title": {"type": "string"},
-                            "description": {"type": "string"},
-                            "objectives": {"type": "array", "items": {"type": "string"}},
-                            "acceptance_criteria": {"type": "array"},
+                            "name": {"type": "string"},
+                            "intent": {"type": "string"},
+                            "sequence": {"type": "integer"},
+                            "mvp_phase": {"type": "string", "enum": ["mvp", "later"]},
+                            "design_required": {"type": "string", "enum": ["not_needed", "recommended", "required"]},
+                            "in_scope": {"type": "array", "items": {"type": "string"}},
+                            "out_of_scope": {"type": "array", "items": {"type": "string"}},
                             "dependencies": {"type": "array"},
+                            "risks": {"type": "array"},
+                            "open_questions": {"type": "array"},
+                            "architecture_notes": {"type": "array", "items": {"type": "string"}},
                         }
                     }
                 },
-                "rationale": {"type": "string"},
-                "sequencing_notes": {"type": "string"},
+                "cross_cutting_concerns": {"type": "array", "items": {"type": "string"}},
+                "risk_summary": {"type": "array"},
+            }
+        },
+        "schema_version": "1.0",
+    },
+    # -------------------------------------------------------------------------
+    # EPIC & FEATURE DOCUMENTS (SDLC Workflow)
+    # -------------------------------------------------------------------------
+    {
+        "doc_type_id": "epic",
+        "name": "Epic",
+        "view_docdef": "EpicView",
+        "description": (
+            "Unit of planning and commitment. Has lifecycle gates (draft, ready, "
+            "in_progress, blocked, complete). May require design phase. "
+            "Parent container for Features."
+        ),
+        "category": "planning",
+        "icon": "package",
+        "builder_role": None,  # Created by implementation_plan, not LLM-generated
+        "builder_task": None,
+        "handler_id": "epic",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {
+            "lifecycle_states": ["draft", "ready", "in_progress", "blocked", "complete"],
+            "design_status": ["not_needed", "recommended", "required", "complete"],
+        },
+        "scope": "project",
+        "parent_doc_type": "implementation_plan",  # Created by implementation_plan
+        "display_order": 36,
+        "creates_children": ["feature"],
+        "schema_definition": {
+            "type": "object",
+            "required": ["epic_id", "name", "intent"],
+            "properties": {
+                "epic_id": {"type": "string"},
+                "name": {"type": "string"},
+                "intent": {"type": "string"},
+                "lifecycle_state": {"type": "string", "enum": ["draft", "ready", "in_progress", "blocked", "complete"]},
+                "design_status": {"type": "string", "enum": ["not_needed", "recommended", "required", "complete"]},
+                "sequence": {"type": "integer"},
+                "mvp_phase": {"type": "string", "enum": ["mvp", "later"]},
+                "in_scope": {"type": "array", "items": {"type": "string"}},
+                "out_of_scope": {"type": "array", "items": {"type": "string"}},
+                "dependencies": {"type": "array"},
+                "risks": {"type": "array"},
+                "open_questions": {"type": "array"},
+                "architecture_notes": {"type": "array", "items": {"type": "string"}},
+                "features": {"type": "array"},  # Nested feature summaries
+            }
+        },
+        "schema_version": "1.0",
+    },
+    {
+        "doc_type_id": "feature",
+        "name": "Feature",
+        "view_docdef": "FeatureView",
+        "description": (
+            "Unit of production intent. Defines what will be produced. "
+            "Handoff point between planning and execution. "
+            "Contains nested Stories."
+        ),
+        "category": "planning",
+        "icon": "puzzle",
+        "builder_role": "ba",
+        "builder_task": "feature_decomposition",
+        "handler_id": "feature",
+        "required_inputs": [],
+        "optional_inputs": ["technical_architecture"],
+        "gating_rules": {},
+        "scope": "epic",
+        "parent_doc_type": "epic",
+        "display_order": 37,
+        "schema_definition": {
+            "type": "object",
+            "required": ["feature_id", "name", "description"],
+            "properties": {
+                "feature_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+                "stories": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["story_id", "title"],
+                        "properties": {
+                            "story_id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "description": {"type": "string"},
+                            "acceptance_criteria": {"type": "array"},
+                            "story_points": {"type": "integer"},
+                            "priority": {"type": "string"},
+                        }
+                    }
+                },
+                "technical_notes": {"type": "array", "items": {"type": "string"}},
             }
         },
         "schema_version": "1.0",
     },
     {
         "doc_type_id": "story_backlog",
-        "name": "Story Backlog",
+        "name": "Story Backlog (Legacy)",
         "view_docdef": "StoryBacklogView",
         "description": (
-            "User stories decomposed from an epic. "
-            "Detailed, implementable units of work."
+            "Legacy: User stories decomposed from an epic. "
+            "Being replaced by Feature documents with nested stories."
         ),
         "category": "planning",
         "icon": "list-checks",
@@ -176,7 +372,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "builder_task": "story_decomposition",
         "handler_id": "story_backlog",
         "required_inputs": [],  # Required at epic scope, so epic must exist
-        "optional_inputs": ["architecture_spec"],
+        "optional_inputs": ["technical_architecture"],
         "gating_rules": {},
         "scope": "epic",  # One per epic
         "display_order": 40,

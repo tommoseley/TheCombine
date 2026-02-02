@@ -402,5 +402,35 @@ class BaseDocumentHandler(ABC):
             return ""
         return html.escape(str(text))
 
+    # =========================================================================
+    # CHILD DOCUMENTS - Extract child documents to create alongside parent
+    # =========================================================================
+
+    def get_child_documents(
+        self,
+        data: Dict[str, Any],
+        parent_title: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract child documents to create when this document is created.
+
+        Default implementation returns empty list (no children).
+
+        Override to extract child documents from parent content.
+        For example, ImplementationPlanHandler extracts Epic documents.
+
+        Args:
+            data: Parent document content
+            parent_title: Title of the parent document
+
+        Returns:
+            List of dicts with:
+            - doc_type_id: Child document type
+            - title: Child document title
+            - content: Child document content
+            - identifier: Optional unique identifier (e.g., epic_id)
+        """
+        return []
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(doc_type_id='{self.doc_type_id}')>"

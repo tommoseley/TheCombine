@@ -16,7 +16,7 @@ from app.api.models.document import Document
 from app.api.models.document_type import DocumentType
 from app.api.models.project import Project
 from app.api.models.workflow_execution import WorkflowExecution
-from app.domain.workflow.production_state import ProductionState
+from app.domain.workflow.production_state import ProductionState, Station
 from app.domain.workflow.plan_registry import get_plan_registry
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,9 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
     - id: document type identifier
     - name: human-readable name
     - requires: list of required document type IDs
-    - scope: document scope (project, epic, story)
+    - scope: document scope (project, epic, feature)
+    - may_own: list of entity types this document can own (for parent-child relationships)
+    - collection_field: field name containing child entities (if may_own is set)
     """
     # Try to load from master workflow definition first
     master_workflow_path = Path("seed/workflows/software_product_development.v1.json")
@@ -42,6 +44,7 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
                 master = json.load(f)
 
             doc_types_def = master.get("document_types", {})
+            entity_types_def = master.get("entity_types", {})
             steps = master.get("steps", [])
 
             # Build document types in step order (respecting dependencies)
@@ -73,11 +76,27 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
                             if doc_type:
                                 requires.append(doc_type)
 
+                        # Get parent-child relationship info
+                        may_own = doc_def.get("may_own", [])
+                        collection_field = doc_def.get("collection_field")
+
+                        # Determine child_doc_type from entity_types
+                        child_doc_type = None
+                        if may_own:
+                            for entity_type in may_own:
+                                entity_def = entity_types_def.get(entity_type, {})
+                                # The child documents have the entity type as their doc_type_id
+                                child_doc_type = entity_type
+                                break
+
                         document_types.append({
                             "id": produces,
                             "name": doc_def.get("name", produces),
                             "requires": requires,
                             "scope": doc_def.get("scope", "project"),
+                            "may_own": may_own,
+                            "collection_field": collection_field,
+                            "child_doc_type": child_doc_type,
                         })
 
             extract_from_steps(steps)
@@ -167,15 +186,16 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     concierge_track = {
         "document_type": "concierge_intake",
         "document_name": "Concierge Intake",
-        "state": ProductionState.QUEUED.value,
+        "state": ProductionState.READY_FOR_PRODUCTION.value,
         "stations": [],
         "elapsed_ms": None,
         "blocked_by": [],
     }
     if "concierge_intake" in documents:
         doc = documents["concierge_intake"]
-        if doc.status in ["stabilized", "complete", "success", "active"]:
-            concierge_track["state"] = ProductionState.STABILIZED.value
+        # Document exists - consider it produced unless explicitly incomplete
+        if doc.status not in ["failed", "error", "cancelled"]:
+            concierge_track["state"] = ProductionState.PRODUCED.value
             stabilized_types.add("concierge_intake")
     tracks.append(concierge_track)
 
@@ -210,26 +230,33 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             "document_type": type_id,
             "document_name": doc_type.get("name", type_id),
             "description": doc_type_descriptions.get(type_id, ""),
-            "state": ProductionState.QUEUED.value,
+            "scope": scope,
+            "state": ProductionState.READY_FOR_PRODUCTION.value,
+            "station": None,
             "stations": [],
             "elapsed_ms": None,
             "blocked_by": [],
+            # Parent-child relationship info from workflow definition
+            "may_own": doc_type.get("may_own", []),
+            "child_doc_type": doc_type.get("child_doc_type"),
+            "collection_field": doc_type.get("collection_field"),
         }
 
-        # Check if stabilized (document exists)
+        # Check if produced (document exists and not failed/cancelled)
         if type_id in documents:
             doc = documents[type_id]
-            if doc.status in ["stabilized", "complete", "success", "active"]:
-                track["state"] = ProductionState.STABILIZED.value
+            # Document exists - consider it produced unless explicitly failed
+            if doc.status not in ["failed", "error", "cancelled"]:
+                track["state"] = ProductionState.PRODUCED.value
                 stabilized_types.add(type_id)
             else:
-                track["state"] = ProductionState.QUEUED.value
+                track["state"] = ProductionState.READY_FOR_PRODUCTION.value
 
         # Check if blocked by dependencies
         elif requires:
             missing = [r for r in requires if r not in stabilized_types]
             if missing:
-                track["state"] = ProductionState.BLOCKED.value
+                track["state"] = ProductionState.REQUIREMENTS_NOT_MET.value
                 track["blocked_by"] = missing
 
         # Check if actively running
@@ -237,18 +264,20 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             ex = active_executions[type_id]
             current_node = ex.current_node_id or ""
 
-            # Map execution state to production state
+            # Map execution state to production state + station
             if ex.status == "paused":
                 track["state"] = ProductionState.AWAITING_OPERATOR.value
             elif ex.status in ["running", "in_progress"]:
+                track["state"] = ProductionState.IN_PRODUCTION.value
+                # Determine current station from node type
                 if "qa" in current_node.lower():
-                    track["state"] = ProductionState.AUDITING.value
+                    track["station"] = Station.QA.value
                 elif "remediat" in current_node.lower():
-                    track["state"] = ProductionState.REMEDIATING.value
+                    track["station"] = Station.REM.value
                 elif "pgc" in current_node.lower():
-                    track["state"] = ProductionState.BINDING.value
+                    track["station"] = Station.PGC.value
                 else:
-                    track["state"] = ProductionState.ASSEMBLING.value
+                    track["station"] = Station.ASM.value
 
             # Build station sequence from execution_log
             execution_log = ex.execution_log or []
@@ -300,10 +329,10 @@ async def get_production_status(
             "interrupts": [],
             "summary": {
                 "total": 0,
-                "stabilized": 0,
-                "active": 0,
-                "blocked": 0,
-                "queued": 0,
+                "produced": 0,
+                "in_production": 0,
+                "requirements_not_met": 0,
+                "ready_for_production": 0,
                 "awaiting_operator": 0,
             },
         }
@@ -313,37 +342,32 @@ async def get_production_status(
     # Calculate summary
     summary = {
         "total": len(tracks),
-        "stabilized": 0,
-        "active": 0,
-        "blocked": 0,
-        "queued": 0,
+        "produced": 0,
+        "in_production": 0,
+        "requirements_not_met": 0,
+        "ready_for_production": 0,
         "awaiting_operator": 0,
     }
 
     for track in tracks:
         state = track["state"]
-        if state == ProductionState.STABILIZED.value:
-            summary["stabilized"] += 1
-        elif state in [
-            ProductionState.ASSEMBLING.value,
-            ProductionState.AUDITING.value,
-            ProductionState.BINDING.value,
-            ProductionState.REMEDIATING.value,
-        ]:
-            summary["active"] += 1
-        elif state == ProductionState.BLOCKED.value:
-            summary["blocked"] += 1
-        elif state == ProductionState.QUEUED.value:
-            summary["queued"] += 1
+        if state == ProductionState.PRODUCED.value:
+            summary["produced"] += 1
+        elif state == ProductionState.IN_PRODUCTION.value:
+            summary["in_production"] += 1
+        elif state == ProductionState.REQUIREMENTS_NOT_MET.value:
+            summary["requirements_not_met"] += 1
+        elif state == ProductionState.READY_FOR_PRODUCTION.value:
+            summary["ready_for_production"] += 1
         elif state == ProductionState.AWAITING_OPERATOR.value:
             summary["awaiting_operator"] += 1
 
     # Determine line state
-    if summary["active"] > 0:
+    if summary["in_production"] > 0:
         line_state = "active"
     elif summary["awaiting_operator"] > 0:
         line_state = "stopped"
-    elif summary["stabilized"] == summary["total"]:
+    elif summary["produced"] == summary["total"]:
         line_state = "complete"
     else:
         line_state = "idle"
