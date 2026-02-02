@@ -4,19 +4,68 @@ import { ReactFlowProvider } from 'reactflow';
 import ProjectTree from './components/ProjectTree';
 import Floor from './components/Floor';
 import ConciergeIntakeSidecar from './components/ConciergeIntakeSidecar';
+import UserSidecar from './components/UserSidecar';
+import Lobby from './components/Lobby';
+import LearnPage from './components/LearnPage';
 import { useProjects, useTheme, useAuth, AuthProvider } from './hooks';
 import { api } from './api/client';
+
+/**
+ * User button - Opens the user sidecar
+ * Simple, invisible when not interacted with
+ */
+function UserButton({ user, onClick }) {
+    return (
+        <div
+            className="p-3 border-t"
+            style={{ borderColor: 'var(--border-panel)' }}
+        >
+            <button
+                onClick={onClick}
+                className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/10 transition-colors"
+                style={{ color: 'var(--text-primary)' }}
+            >
+                {user?.avatar_url ? (
+                    <img
+                        src={user.avatar_url}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full"
+                    />
+                ) : (
+                    <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--bg-canvas)' }}
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                    </div>
+                )}
+                <div className="flex-1 text-left overflow-hidden">
+                    <div className="text-sm font-medium truncate">
+                        {user?.name || 'User'}
+                    </div>
+                    <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                        {user?.email || ''}
+                    </div>
+                </div>
+            </button>
+        </div>
+    );
+}
 
 /**
  * Main app content (shown when authenticated)
  */
 function AppContent() {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const [showArchived, setShowArchived] = useState(false);
     const { projects, loading, error, refresh: refreshProjects } = useProjects({ includeArchived: showArchived });
     const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [autoExpandNode, setAutoExpandNode] = useState(null);
     const [showIntakeSidecar, setShowIntakeSidecar] = useState(false);
+    const [showUserSidecar, setShowUserSidecar] = useState(false);
     const { theme, setTheme } = useTheme();
 
     // Select first project when loaded
@@ -187,55 +236,15 @@ function AppContent() {
 
             {/* Main content area */}
             <div className="flex flex-1 overflow-hidden">
-                {/* Left sidebar with projects and user */}
-                <div className="flex flex-col" style={{ background: 'var(--bg-panel)' }}>
-                    <ProjectTree
-                        projects={projects}
-                        selectedId={activeProjectId}
-                        onSelectProject={handleSelectProject}
-                        onNewProject={handleNewProject}
-                        showArchived={showArchived}
-                        onToggleShowArchived={() => setShowArchived(prev => !prev)}
-                    />
-                    {/* User section at bottom left */}
-                    <div
-                        className="p-3 border-t flex items-center gap-3"
-                        style={{ borderColor: 'var(--border-panel)' }}
-                    >
-                        <button
-                            onClick={logout}
-                            className="flex items-center gap-3 flex-1 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                            style={{ color: 'var(--text-primary)' }}
-                            title="Sign out"
-                        >
-                            {user?.avatar_url ? (
-                                <img
-                                    src={user.avatar_url}
-                                    alt={user.name}
-                                    className="w-8 h-8 rounded-full"
-                                />
-                            ) : (
-                                <div
-                                    className="w-8 h-8 rounded-full flex items-center justify-center"
-                                    style={{ background: 'var(--bg-canvas)' }}
-                                >
-                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                        <circle cx="12" cy="7" r="4" />
-                                    </svg>
-                                </div>
-                            )}
-                            <div className="flex-1 text-left overflow-hidden">
-                                <div className="text-sm font-medium truncate">
-                                    {user?.name || 'User'}
-                                </div>
-                                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
-                                    {user?.email || ''}
-                                </div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
+                <ProjectTree
+                    projects={projects}
+                    selectedId={activeProjectId}
+                    onSelectProject={handleSelectProject}
+                    onNewProject={handleNewProject}
+                    showArchived={showArchived}
+                    onToggleShowArchived={() => setShowArchived(prev => !prev)}
+                    userSection={<UserButton user={user} onClick={() => setShowUserSidecar(true)} />}
+                />
                 <div className="flex-1">
                     {activeProjectId ? (
                         <ReactFlowProvider key={activeProjectId}>
@@ -272,137 +281,32 @@ function AppContent() {
                         onComplete={handleIntakeComplete}
                     />
                 )}
+
+                {/* User Sidecar */}
+                {showUserSidecar && (
+                    <UserSidecar
+                        onClose={() => setShowUserSidecar(false)}
+                    />
+                )}
             </div>
         </div>
     );
 }
 
 /**
- * Lobby - Entry Terminal
- *
- * The lobby is outside the factory. Nothing is moving. Nothing is being built.
- * It exists only to explain the nature of the system and to control entry.
- * Crossing the login boundary is crossing into production.
- */
-function Lobby() {
-    const { login } = useAuth();
-
-    return (
-        <div
-            className="min-h-screen flex flex-col"
-            style={{ background: '#0f172a' }}
-        >
-            {/* Main content */}
-            <main className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center max-w-lg">
-                    {/* Identity: Logo */}
-                    <div className="mb-12">
-                        <img
-                            src="/logo-dark.png"
-                            alt="The Combine"
-                            className="h-32 mx-auto"
-                        />
-                    </div>
-
-                    {/* Identity: Wordmark */}
-                    <h1
-                        className="text-4xl font-bold tracking-[0.3em] mb-3"
-                        style={{
-                            color: '#f8fafc',
-                            fontFamily: 'system-ui, -apple-system, sans-serif',
-                        }}
-                    >
-                        THE COMBINE
-                    </h1>
-                    <p
-                        className="text-sm tracking-[0.2em] uppercase mb-16"
-                        style={{ color: '#64748b' }}
-                    >
-                        Industrial AI for Knowledge Work
-                    </p>
-
-                    {/* Access Control: SSO Entry */}
-                    <div
-                        className="p-8 rounded-lg mx-auto max-w-sm"
-                        style={{
-                            background: '#1e293b',
-                            border: '1px solid #334155',
-                        }}
-                    >
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => login('google')}
-                                className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded font-medium"
-                                style={{
-                                    background: '#0f172a',
-                                    border: '1px solid #334155',
-                                    color: '#e2e8f0',
-                                }}
-                            >
-                                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                                </svg>
-                                Sign in with Google
-                            </button>
-
-                            <button
-                                onClick={() => login('microsoft')}
-                                className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded font-medium"
-                                style={{
-                                    background: '#0f172a',
-                                    border: '1px solid #334155',
-                                    color: '#e2e8f0',
-                                }}
-                            >
-                                <svg className="w-5 h-5" viewBox="0 0 23 23">
-                                    <path fill="#f35325" d="M1 1h10v10H1z" />
-                                    <path fill="#81bc06" d="M12 1h10v10H12z" />
-                                    <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                                    <path fill="#ffba08" d="M12 12h10v10H12z" />
-                                </svg>
-                                Sign in with Microsoft
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            {/* Footer: Legal links only */}
-            <footer className="p-6 flex items-center justify-center gap-6">
-                <a
-                    href="/terms"
-                    className="text-xs"
-                    style={{ color: '#475569' }}
-                >
-                    Terms
-                </a>
-                <a
-                    href="/privacy"
-                    className="text-xs"
-                    style={{ color: '#475569' }}
-                >
-                    Privacy
-                </a>
-                <span
-                    className="text-xs"
-                    style={{ color: '#334155' }}
-                >
-                    &copy; 2026 The Combine
-                </span>
-            </footer>
-        </div>
-    );
-}
-
-/**
- * App wrapper that handles auth state
+ * App wrapper that handles auth state and routing
  */
 function AppWithAuth() {
     const { isAuthenticated, loading } = useAuth();
     const { theme } = useTheme();
+    const [path, setPath] = useState(window.location.pathname);
+
+    // Listen for navigation changes
+    useEffect(() => {
+        const handlePopState = () => setPath(window.location.pathname);
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     // Show loading while checking auth
     if (loading) {
@@ -421,8 +325,11 @@ function AppWithAuth() {
         );
     }
 
-    // Show Lobby if not authenticated
+    // Unauthenticated routes (Lobby pages)
     if (!isAuthenticated) {
+        if (path === '/learn') {
+            return <LearnPage />;
+        }
         return <Lobby />;
     }
 

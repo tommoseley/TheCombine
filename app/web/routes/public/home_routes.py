@@ -37,3 +37,17 @@ async def home(
     return templates.TemplateResponse(request, "public/pages/home.html", {
         "user": user,
     })
+
+
+@router.get("/learn", response_class=HTMLResponse)
+async def learn():
+    """
+    Learn More page - serves SPA which handles client-side routing.
+    This is a Lobby page (unauthenticated).
+    """
+    if SPA_INDEX.exists():
+        return FileResponse(SPA_INDEX, media_type="text/html")
+
+    # If SPA not built, redirect to home
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
