@@ -50,7 +50,7 @@ export default function StringListBlock({ block }) {
                         {style === 'check' && (
                             <span style={{ color: '#10b981' }}>&#10003;</span>
                         )}
-                        {typeof item === 'string' ? item : JSON.stringify(item)}
+                        {typeof item === 'string' ? item : (item?.value || item?.text || item?.question || item?.description || JSON.stringify(item))}
                     </li>
                 ))}
             </ul>

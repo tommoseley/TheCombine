@@ -14,6 +14,9 @@ import EpicSummaryBlock from './EpicSummaryBlock';
 import StorySummaryBlock from './StorySummaryBlock';
 import GenericBlock from './GenericBlock';
 
+// Discovery blocks
+import UnknownsBlock from './UnknownsBlock';
+
 // Intake compound blocks
 import IntakeSummaryBlock from './IntakeSummaryBlock';
 import IntakeProjectTypeBlock from './IntakeProjectTypeBlock';
@@ -44,6 +47,9 @@ const BLOCK_REGISTRY = {
     'schema:StorySummaryBlockV1': StorySummaryBlock,
     'schema:EpicStoriesCardBlockV1': EpicSummaryBlock, // Similar treatment
     'schema:StoriesBlockV1': StringListBlock, // List of stories
+
+    // Discovery blocks
+    'schema:UnknownsBlockV1': UnknownsBlock,
 
     // Intake compound blocks
     'schema:IntakeSummaryBlockV1': IntakeSummaryBlock,
@@ -79,6 +85,7 @@ export {
     EpicSummaryBlock,
     StorySummaryBlock,
     GenericBlock,
+    UnknownsBlock,
     IntakeSummaryBlock,
     IntakeProjectTypeBlock,
     IntakeConstraintsBlock,

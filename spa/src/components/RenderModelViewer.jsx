@@ -13,6 +13,7 @@ import { renderBlock } from './blocks';
 export default function RenderModelViewer({
     renderModel,
     variant = 'full',  // 'full', 'compact', 'sidecar'
+    hideHeader = false,  // Skip rendering the title/subtitle header
     onSectionClick,
     className = '',
 }) {
@@ -55,11 +56,25 @@ export default function RenderModelViewer({
     };
 
     const isCompact = variant === 'compact' || variant === 'sidecar';
+    const isSidecar = variant === 'sidecar';
+
+    // Filter sections based on viewer_tab for sidecar mode
+    // Sidecar shows "overview" sections only; full view shows all
+    const filteredSections = isSidecar
+        ? sections.filter(s => s.viewer_tab === 'overview' || !s.viewer_tab)
+        : sections;
+
+    // Strip document type prefix from title (e.g., "Project Discovery: X" -> "X")
+    const displayTitle = (() => {
+        if (!title) return 'Document';
+        const colonIndex = title.indexOf(': ');
+        return colonIndex > -1 ? title.slice(colonIndex + 2) : title;
+    })();
 
     return (
         <div className={className}>
             {/* Header */}
-            {variant === 'full' && (
+            {variant === 'full' && !hideHeader && (
                 <div style={{ marginBottom: 24 }}>
                     <h1
                         style={{
@@ -69,7 +84,7 @@ export default function RenderModelViewer({
                             color: '#111827',
                         }}
                     >
-                        {title}
+                        {displayTitle}
                     </h1>
                     {subtitle && (
                         <p
@@ -87,7 +102,7 @@ export default function RenderModelViewer({
 
             {/* Sections */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: isCompact ? 12 : 20 }}>
-                {sections.map((section) => (
+                {filteredSections.map((section) => (
                     <RenderSection
                         key={section.section_id}
                         section={section}
@@ -100,7 +115,7 @@ export default function RenderModelViewer({
             </div>
 
             {/* Empty state */}
-            {sections.length === 0 && (
+            {filteredSections.length === 0 && (
                 <div
                     style={{
                         padding: 32,
@@ -121,10 +136,17 @@ export default function RenderModelViewer({
  * Individual section renderer
  */
 function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
-    const { section_id, title, description, blocks = [] } = section;
+    const { section_id, title, description, blocks = [], sidecar_max_items } = section;
     const isCompact = variant === 'compact' || variant === 'sidecar';
+    const isSidecar = variant === 'sidecar';
 
     if (blocks.length === 0) return null;
+
+    // Apply sidecar_max_items limit when in sidecar mode
+    const displayBlocks = (isSidecar && sidecar_max_items && blocks.length > sidecar_max_items)
+        ? blocks.slice(0, sidecar_max_items)
+        : blocks;
+    const hasMore = isSidecar && sidecar_max_items && blocks.length > sidecar_max_items;
 
     return (
         <div
@@ -161,6 +183,11 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                         }}
                     >
                         {title}
+                        {hasMore && (
+                            <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>
+                                (showing {sidecar_max_items} of {blocks.length})
+                            </span>
+                        )}
                     </h3>
                     {description && !isCompact && (
                         <p
@@ -194,7 +221,22 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
             {/* Section content */}
             {isExpanded && (
                 <div style={{ padding: isCompact ? 12 : 18 }}>
-                    {blocks.map((block, index) => renderBlock(block, index))}
+                    {displayBlocks.map((block, index) => renderBlock(block, index))}
+                    {hasMore && (
+                        <div
+                            style={{
+                                marginTop: 8,
+                                padding: '8px 12px',
+                                background: '#f3f4f6',
+                                borderRadius: 4,
+                                fontSize: 12,
+                                color: '#6b7280',
+                                textAlign: 'center',
+                            }}
+                        >
+                            +{blocks.length - sidecar_max_items} more in full view
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -268,10 +310,17 @@ export function RenderModelSidecar({
 
     const serial = `${projectCode || 'DOC'} - ${documentName || 'Document'}`;
 
+    // Stop drag events from propagating to the floor canvas
+    const stopPropagation = (e) => {
+        e.stopPropagation();
+    };
+
     return (
         <div
             className="absolute top-0 tray-slide"
             style={{ left: nodeWidth + 30, width, zIndex: 1000, transition: 'width 0.2s ease' }}
+            onMouseDown={stopPropagation}
+            onPointerDown={stopPropagation}
         >
             {/* Horizontal bridge */}
             <div
@@ -324,7 +373,13 @@ export function RenderModelSidecar({
                                     margin: 0,
                                 }}
                             >
-                                {renderModel?.title?.toUpperCase() || 'DOCUMENT'}
+                                {(() => {
+                                    // Strip document type prefix (e.g., "Project Discovery: " -> just the rest)
+                                    const title = renderModel?.title || 'DOCUMENT';
+                                    const colonIndex = title.indexOf(': ');
+                                    const displayTitle = colonIndex > -1 ? title.slice(colonIndex + 2) : title;
+                                    return displayTitle.toUpperCase();
+                                })()}
                             </h1>
                             <div
                                 style={{

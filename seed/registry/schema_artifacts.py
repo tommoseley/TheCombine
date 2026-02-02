@@ -583,6 +583,42 @@ STRING_LIST_BLOCK_V1_SCHEMA = {
 }
 
 
+UNKNOWNS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:UnknownsBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Unknowns Block",
+    "type": "object",
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["question"],
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The unknown question or gap"
+                    },
+                    "why_it_matters": {
+                        "type": "string",
+                        "description": "Why this unknown is important"
+                    },
+                    "impact_if_unresolved": {
+                        "type": "string",
+                        "description": "Impact if this unknown is not resolved"
+                    }
+                },
+                "additionalProperties": False
+            },
+            "description": "List of unknown items"
+        }
+    },
+    "additionalProperties": False,
+    "description": "Container block for rendering unknowns with question, why_it_matters, and impact_if_unresolved."
+}
+
+
 SUMMARY_BLOCK_V1_SCHEMA = {
     "$id": "schema:SummaryBlockV1",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -975,6 +1011,124 @@ DATA_MODEL_BLOCK_V1_SCHEMA = {
 # ADR-025/ADR-039: Concierge Intake Document Schema
 # =============================================================================
 
+# =============================================================================
+# ADR-039: Concierge Intake View Block Schemas (Compound)
+# =============================================================================
+
+INTAKE_SUMMARY_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IntakeSummaryBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Intake Summary Block",
+    "description": "Compound block for intake project summary with description and user statement.",
+    "type": "object",
+    "properties": {
+        "description": {
+            "type": "string",
+            "description": "Synthesized project description"
+        },
+        "user_statement": {
+            "type": "string",
+            "description": "Original user statement or conversation summary"
+        }
+    },
+    "additionalProperties": False
+}
+
+INTAKE_OUTCOME_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IntakeOutcomeBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Intake Outcome Block",
+    "description": "Compound block for intake gate outcome with status, rationale, and next action.",
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["qualified", "not_ready", "out_of_scope", "redirect"],
+            "description": "Gate outcome status"
+        },
+        "rationale": {
+            "type": "string",
+            "description": "Explanation for the outcome"
+        },
+        "next_action": {
+            "type": "string",
+            "description": "Recommended next action if qualified"
+        }
+    },
+    "additionalProperties": False
+}
+
+INTAKE_CONSTRAINTS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IntakeConstraintsBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Intake Constraints Block",
+    "description": "Compound block for explicit and inferred constraints.",
+    "type": "object",
+    "properties": {
+        "explicit": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Explicitly stated constraints"
+        },
+        "inferred": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Inferred constraints"
+        }
+    },
+    "additionalProperties": False
+}
+
+INTAKE_OPEN_GAPS_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IntakeOpenGapsBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Intake Open Gaps Block",
+    "description": "Compound block for open questions, missing context, and assumptions.",
+    "type": "object",
+    "properties": {
+        "questions": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Open questions requiring answers"
+        },
+        "missing_context": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Missing context or information"
+        },
+        "assumptions_made": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Assumptions made during intake"
+        }
+    },
+    "additionalProperties": False
+}
+
+INTAKE_PROJECT_TYPE_BLOCK_V1_SCHEMA = {
+    "$id": "schema:IntakeProjectTypeBlockV1",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Intake Project Type Block",
+    "description": "Compound block for project type with category, confidence, and rationale.",
+    "type": "object",
+    "properties": {
+        "category": {
+            "type": "string",
+            "description": "Project type category"
+        },
+        "confidence": {
+            "type": "string",
+            "description": "Confidence level in the categorization"
+        },
+        "rationale": {
+            "type": "string",
+            "description": "Explanation for the categorization"
+        }
+    },
+    "additionalProperties": False
+}
+
+
 CONCIERGE_INTAKE_DOCUMENT_V1_SCHEMA = {
     "$id": "schema:ConciergeIntakeDocumentV1",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1316,6 +1470,17 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
         },
     },
     {
+        "schema_id": "UnknownsBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": UNKNOWNS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
         "schema_id": "SummaryBlockV1",
         "version": "1.0",
         "kind": "type",
@@ -1491,6 +1656,62 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_json": CONCIERGE_INTAKE_DOCUMENT_V1_SCHEMA,
         "governance_refs": {
             "adrs": ["ADR-025", "ADR-039"],
+            "policies": []
+        },
+    },
+    # ADR-039: Concierge Intake View Compound Blocks
+    {
+        "schema_id": "IntakeSummaryBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTAKE_SUMMARY_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-039"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IntakeOutcomeBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTAKE_OUTCOME_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-039"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IntakeConstraintsBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTAKE_CONSTRAINTS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-039"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IntakeOpenGapsBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTAKE_OPEN_GAPS_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-039"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "IntakeProjectTypeBlockV1",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": INTAKE_PROJECT_TYPE_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-039"],
             "policies": []
         },
     },

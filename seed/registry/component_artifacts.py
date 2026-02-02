@@ -246,6 +246,24 @@ STRING_LIST_BLOCK_V1_COMPONENT = {
 }
 
 
+UNKNOWNS_BLOCK_V1_COMPONENT = {
+    "component_id": "component:UnknownsBlockV1:1.0.0",
+    "schema_id": "schema:UnknownsBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only container for unknowns display.",
+            "Each item should have question, why_it_matters, and impact_if_unresolved."
+        ]
+    },
+    "view_bindings": {
+        "web": {
+            "fragment_id": "fragment:UnknownsBlockV1:web:1.0.0"
+        }
+    },
+    "status": "accepted"
+}
+
+
 SUMMARY_BLOCK_V1_COMPONENT = {
     "component_id": "component:SummaryBlockV1:1.0.0",
     "schema_id": "schema:SummaryBlockV1",
@@ -447,7 +465,7 @@ PROJECT_DISCOVERY_DOCDEF = {
         ]
     },
     "sections": [
-        # Summary (single block)
+        # Summary (single block) - SIDECAR: 2-3 lines
         {
             "section_id": "summary",
             "title": "Preliminary Summary",
@@ -455,8 +473,20 @@ PROJECT_DISCOVERY_DOCDEF = {
             "component_id": "component:SummaryBlockV1:1.0.0",
             "shape": "single",
             "source_pointer": "/preliminary_summary",
+            "viewer_tab": "overview",
         },
-        # Constraints (string list container)
+        # Unknowns - SIDECAR: expandable, primary
+        {
+            "section_id": "unknowns",
+            "title": "Unknowns",
+            "order": 15,
+            "component_id": "component:UnknownsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/unknowns",
+            "context": {"title": "Unknowns"},
+            "viewer_tab": "overview",
+        },
+        # Constraints (string list container) - SIDECAR: binding list
         {
             "section_id": "constraints",
             "title": "Known Constraints",
@@ -465,28 +495,32 @@ PROJECT_DISCOVERY_DOCDEF = {
             "shape": "container",
             "source_pointer": "/known_constraints",
             "context": {"title": "Known Constraints"},
+            "viewer_tab": "overview",
         },
-        # Assumptions (string list container)
+        # Assumptions (string list container) - SIDECAR: if any (unvalidated)
         {
             "section_id": "assumptions",
-            "title": "Assumptions",
+            "title": "Assumptions (Unvalidated)",
             "order": 30,
             "component_id": "component:StringListBlockV1:1.0.0",
             "shape": "container",
             "source_pointer": "/assumptions",
-            "context": {"title": "Assumptions"},
+            "context": {"title": "Assumptions (Unvalidated)"},
+            "viewer_tab": "overview",
         },
-        # Risks (typed container)
+        # Risks (typed container) - SIDECAR: Top 3 only
         {
             "section_id": "risks",
-            "title": "Identified Risks",
+            "title": "Top Risks",
             "order": 40,
             "component_id": "component:RisksBlockV1:1.0.0",
             "shape": "container",
             "source_pointer": "/identified_risks",
-            "context": {"title": "Identified Risks"},
+            "context": {"title": "Top Risks"},
+            "viewer_tab": "overview",
+            "sidecar_max_items": 3,
         },
-        # Guardrails (string list container)
+        # Guardrails (string list container) - FULL VIEW ONLY
         {
             "section_id": "guardrails",
             "title": "MVP Guardrails",
@@ -495,8 +529,9 @@ PROJECT_DISCOVERY_DOCDEF = {
             "shape": "container",
             "source_pointer": "/mvp_guardrails",
             "context": {"title": "MVP Guardrails", "style": "check"},
+            "viewer_tab": "details",
         },
-        # Recommendations (string list container)
+        # Recommendations (string list container) - FULL VIEW ONLY
         {
             "section_id": "recommendations",
             "title": "Recommendations for PM",
@@ -505,6 +540,7 @@ PROJECT_DISCOVERY_DOCDEF = {
             "shape": "container",
             "source_pointer": "/recommendations_for_pm",
             "context": {"title": "Recommendations for PM"},
+            "viewer_tab": "details",
         },
     ],
     "status": "accepted"
@@ -1410,11 +1446,163 @@ STORY_BACKLOG_VIEW_DOCDEF = {
     "status": "accepted"
 }
 
+
+# =============================================================================
+# ADR-039: Concierge Intake Compound Components
+# =============================================================================
+
+INTAKE_SUMMARY_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IntakeSummaryBlockV1:1.0.0",
+    "schema_id": "schema:IntakeSummaryBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only block for project summary display.",
+            "Contains description and user statement."
+        ]
+    },
+    "view_bindings": {
+        "web": {"fragment_id": "fragment:IntakeSummaryBlockV1:web:1.0.0"}
+    },
+    "status": "accepted"
+}
+
+INTAKE_OUTCOME_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IntakeOutcomeBlockV1:1.0.0",
+    "schema_id": "schema:IntakeOutcomeBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only block for intake outcome display.",
+            "Contains status badge, rationale, and next action."
+        ]
+    },
+    "view_bindings": {
+        "web": {"fragment_id": "fragment:IntakeOutcomeBlockV1:web:1.0.0"}
+    },
+    "status": "accepted"
+}
+
+INTAKE_CONSTRAINTS_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IntakeConstraintsBlockV1:1.0.0",
+    "schema_id": "schema:IntakeConstraintsBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only block for constraints display.",
+            "Shows explicit constraints followed by inferred constraints."
+        ]
+    },
+    "view_bindings": {
+        "web": {"fragment_id": "fragment:IntakeConstraintsBlockV1:web:1.0.0"}
+    },
+    "status": "accepted"
+}
+
+INTAKE_OPEN_GAPS_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IntakeOpenGapsBlockV1:1.0.0",
+    "schema_id": "schema:IntakeOpenGapsBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only block for open gaps display.",
+            "Shows questions, missing context, and assumptions."
+        ]
+    },
+    "view_bindings": {
+        "web": {"fragment_id": "fragment:IntakeOpenGapsBlockV1:web:1.0.0"}
+    },
+    "status": "accepted"
+}
+
+INTAKE_PROJECT_TYPE_BLOCK_V1_COMPONENT = {
+    "component_id": "component:IntakeProjectTypeBlockV1:1.0.0",
+    "schema_id": "schema:IntakeProjectTypeBlockV1",
+    "generation_guidance": {
+        "bullets": [
+            "Render-only block for project type display.",
+            "Shows category badge with confidence and rationale."
+        ]
+    },
+    "view_bindings": {
+        "web": {"fragment_id": "fragment:IntakeProjectTypeBlockV1:web:1.0.0"}
+    },
+    "status": "accepted"
+}
+
+
+# =============================================================================
+# ADR-039: Concierge Intake View DocDef
+# =============================================================================
+
+CONCIERGE_INTAKE_VIEW_DOCDEF = {
+    "document_def_id": "docdef:ConciergeIntakeView:1.0.0",
+    "document_schema_id": None,  # Links to ConciergeIntakeDocumentV1 schema
+    "prompt_header": {
+        "role": "You are producing a Concierge Intake document view.",
+        "constraints": [
+            "Display captured intent and conversation summary prominently.",
+            "Show constraints and known unknowns as lists.",
+            "Show gate outcome with routing rationale.",
+        ]
+    },
+    "sections": [
+        # Project Summary (description + user statement)
+        {
+            "section_id": "project_summary",
+            "title": "Project Summary",
+            "order": 10,
+            "component_id": "component:IntakeSummaryBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/summary",
+            "viewer_tab": "overview",
+        },
+        # Project Type (category + confidence + rationale)
+        {
+            "section_id": "project_type",
+            "title": "Project Type",
+            "order": 20,
+            "component_id": "component:IntakeProjectTypeBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/project_type",
+            "viewer_tab": "overview",
+        },
+        # Constraints (explicit + inferred)
+        {
+            "section_id": "constraints",
+            "title": "Constraints",
+            "order": 30,
+            "component_id": "component:IntakeConstraintsBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/constraints",
+            "viewer_tab": "details",
+        },
+        # Open Gaps (questions + missing context + assumptions)
+        {
+            "section_id": "open_gaps",
+            "title": "Open Gaps",
+            "order": 40,
+            "component_id": "component:IntakeOpenGapsBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/open_gaps",
+            "viewer_tab": "details",
+        },
+        # Intake Outcome (status + rationale + next action)
+        {
+            "section_id": "intake_outcome",
+            "title": "Intake Outcome",
+            "order": 50,
+            "component_id": "component:IntakeOutcomeBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/outcome",
+            "viewer_tab": "overview",
+        },
+    ],
+    "status": "accepted"
+}
+
 INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     OPEN_QUESTION_V1_COMPONENT,
     OPEN_QUESTIONS_BLOCK_V1_COMPONENT,
     STORY_V1_COMPONENT,
     STRING_LIST_BLOCK_V1_COMPONENT,
+    UNKNOWNS_BLOCK_V1_COMPONENT,
     SUMMARY_BLOCK_V1_COMPONENT,
     RISKS_BLOCK_V1_COMPONENT,
     PARAGRAPH_BLOCK_V1_COMPONENT,
@@ -1429,6 +1617,12 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     WORKFLOW_BLOCK_V1_COMPONENT,
     DATA_MODEL_BLOCK_V1_COMPONENT,
     EPIC_STORIES_CARD_BLOCK_V1_COMPONENT,
+    # ADR-039: Concierge Intake compound components
+    INTAKE_SUMMARY_BLOCK_V1_COMPONENT,
+    INTAKE_OUTCOME_BLOCK_V1_COMPONENT,
+    INTAKE_CONSTRAINTS_BLOCK_V1_COMPONENT,
+    INTAKE_OPEN_GAPS_BLOCK_V1_COMPONENT,
+    INTAKE_PROJECT_TYPE_BLOCK_V1_COMPONENT,
 ]
 
 INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
@@ -1446,6 +1640,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     STORY_DETAIL_VIEW_DOCDEF,
     STORY_SUMMARY_VIEW_DOCDEF,
     STORY_BACKLOG_VIEW_DOCDEF,
+    CONCIERGE_INTAKE_VIEW_DOCDEF,
 ]
 
 

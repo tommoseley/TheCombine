@@ -203,27 +203,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     }, [data, expandedId, expandType, callbacks, setNodes, setEdges, theme, onZoomToNode, projectId, projectCode]);
 
     const onNodeClick = useCallback((_, node) => {
-        if (expandedId) return;
-        // Clicking a node could start production for that document type
-        // For now, just cycle state for demo purposes
-        const states = ['queued', 'active', 'stabilized'];
-        setData(prev => {
-            const update = (items) => items.map(item => {
-                if (item.id === node.id) {
-                    const next = states[(states.indexOf(item.state) + 1) % states.length];
-                    const newStations = item.stations?.map(s =>
-                        next === 'stabilized' ? { ...s, state: 'complete', needs_input: false } :
-                            next === 'active' ? (s.id === 'pgc' ? { ...s, state: 'active', needs_input: !!item.questions?.length } : { ...s, state: 'pending' }) :
-                                { ...s, state: 'pending', needs_input: false }
-                    );
-                    return { ...item, state: next, stations: newStations };
-                }
-                if (item.children) return { ...item, children: update(item.children) };
-                return item;
-            });
-            return update(prev);
-        });
-    }, [expandedId]);
+        // Node clicks are handled by buttons within the node (View Document, Answer Questions, etc.)
+        // No default click behavior on the node itself
+    }, []);
 
     if (loading && data.length === 0) {
         return (
@@ -405,8 +387,10 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 <MiniMap
                     position="top-right"
                     nodeColor={(node) => {
-                        if (node.data?.state === 'stabilized') return '#10b981';
-                        if (node.data?.state === 'active') return '#f59e0b';
+                        const state = node.data?.state;
+                        if (['produced', 'stabilized', 'ready'].includes(state)) return '#10b981';
+                        if (['in_production', 'active'].includes(state)) return '#f59e0b';
+                        if (['requirements_not_met', 'blocked'].includes(state)) return '#ef4444';
                         return '#475569';
                     }}
                     maskColor="rgba(11, 17, 32, 0.85)"
@@ -421,9 +405,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 <Panel position="bottom-left">
                     <div className="subway-panel flex gap-4 text-[10px] backdrop-blur px-4 py-2.5 rounded-lg border">
                         <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Stabilized</span></div>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-active-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Active</span></div>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-queued-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Queued</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Produced</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-active-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>In Production</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-queued-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Ready</span></div>
                     </div>
                 </Panel>
                 <Panel position="bottom-right">
@@ -435,6 +419,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             {fullViewerDocId && (
                 <FullDocumentViewer
                     projectId={projectId}
+                    projectCode={projectCode}
                     docTypeId={fullViewerDocId}
                     onClose={() => setFullViewerDocId(null)}
                 />

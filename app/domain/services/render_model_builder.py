@@ -181,7 +181,7 @@ class RenderBlock:
 class RenderSection:
     """
     A section containing blocks in a RenderModel.
-    
+
     Per DOCUMENT_VIEWER_CONTRACT v1.0:
     - section_id: stable identifier
     - title: display title (from docdef, not data)
@@ -189,6 +189,7 @@ class RenderSection:
     - description: optional description
     - blocks: list of RenderBlock
     - viewer_tab: tab grouping ("overview", "details", or "both")
+    - sidecar_max_items: optional limit for sidecar view
     """
     section_id: str
     title: str
@@ -196,7 +197,8 @@ class RenderSection:
     blocks: List[RenderBlock] = field(default_factory=list)
     description: Optional[str] = None
     viewer_tab: str = "details"  # Default per WS-DOCUMENT-VIEWER-TABS
-    
+    sidecar_max_items: Optional[int] = None  # Max items to show in sidecar view
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {
@@ -208,6 +210,8 @@ class RenderSection:
         }
         if self.description:
             result["description"] = self.description
+        if self.sidecar_max_items is not None:
+            result["sidecar_max_items"] = self.sidecar_max_items
         return result
 
 
@@ -371,6 +375,7 @@ class RenderModelBuilder:
                 description=section_config.get("description"),
                 blocks=section_blocks,
                 viewer_tab=section_config.get("viewer_tab", "details"),
+                sidecar_max_items=section_config.get("sidecar_max_items"),
             )
             render_sections.append(render_section)
         
