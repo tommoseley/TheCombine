@@ -7,6 +7,7 @@ from app.api.v1.routers import (
     executions_router,
     websocket_router,
     document_workflows_router,
+    admin_workbench_router,
 )
 from app.api.v1.routers.production import router as production_router
 from app.api.v1.routers.projects import router as projects_router
@@ -28,6 +29,7 @@ api_router.include_router(projects_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(interrupts_router)
 api_router.include_router(intake_router)
+api_router.include_router(admin_workbench_router)  # ADR-044: Admin Workbench
 
 
 __all__ = ["api_router"]
