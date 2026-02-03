@@ -27,13 +27,20 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 class ReadinessStatus:
-    """Readiness status values - document buildability/usability."""
-    READY = "ready"       # Exists, valid, safe to use
-    STALE = "stale"       # Exists, but upstream inputs changed
-    BLOCKED = "blocked"   # Cannot be built (missing requirements)
-    WAITING = "waiting"   # Buildable but not yet built
-    
-    ALL = [READY, STALE, BLOCKED, WAITING]
+    """Readiness status values - production state (operator-facing).
+
+    These are production-oriented terms that match the floor metaphor:
+    - Produced: Final, certified artifact
+    - Ready for Production: All requirements met, can start
+    - Requirements Not Met: Blocked by missing inputs
+    - In Production: Actively being built (transient, not stored)
+    """
+    PRODUCED = "produced"  # Final, certified artifact (was: ready)
+    READY_FOR_PRODUCTION = "ready_for_production"  # Can start (was: waiting)
+    REQUIREMENTS_NOT_MET = "requirements_not_met"  # Blocked (was: blocked)
+    STALE = "stale"  # Exists but inputs changed - review recommended
+
+    ALL = [PRODUCED, READY_FOR_PRODUCTION, REQUIREMENTS_NOT_MET, STALE]
 
 
 class AcceptanceState:
@@ -236,7 +243,7 @@ class DocumentStatusService:
         )
         
         # Derive action enablement
-        can_build = readiness in (ReadinessStatus.WAITING, ReadinessStatus.STALE)
+        can_build = readiness in (ReadinessStatus.READY_FOR_PRODUCTION, ReadinessStatus.STALE)
         can_rebuild = readiness == ReadinessStatus.STALE
         can_accept = acceptance_state == AcceptanceState.NEEDS_ACCEPTANCE
         can_reject = acceptance_state in (AcceptanceState.NEEDS_ACCEPTANCE, AcceptanceState.ACCEPTED)
@@ -288,18 +295,18 @@ class DocumentStatusService:
         logger.info(f"[STATUS] {doc_type.doc_type_id}: required={required_inputs}, existing={existing_type_ids}, missing={missing}")
         
         if missing:
-            return ReadinessStatus.BLOCKED, missing
+            return ReadinessStatus.REQUIREMENTS_NOT_MET, missing
         
         # Document doesn't exist yet BUT could be built (prerequisites met)
         if document is None:
-            return ReadinessStatus.WAITING, []
+            return ReadinessStatus.READY_FOR_PRODUCTION, []
         
         # Document exists but is stale
         if document.is_stale:
             return ReadinessStatus.STALE, []
         
         # Document exists and is current
-        return ReadinessStatus.READY, []
+        return ReadinessStatus.PRODUCED, []
     
     def _derive_acceptance_state(
         self,
@@ -348,7 +355,7 @@ class DocumentStatusService:
         - What role needs to act
         """
         # Blocked - show what's missing
-        if readiness == ReadinessStatus.BLOCKED and missing_inputs:
+        if readiness == ReadinessStatus.REQUIREMENTS_NOT_MET and missing_inputs:
             return f"Missing: {', '.join(missing_inputs)}"
         
         # Stale + Accepted - warn about review needed (ADR-007 UI Rule)
@@ -365,7 +372,7 @@ class DocumentStatusService:
             return "Changes requested"
         
         # Waiting + acceptance required - hint about future acceptance
-        if readiness == ReadinessStatus.WAITING and doc_type.acceptance_required:
+        if readiness == ReadinessStatus.READY_FOR_PRODUCTION and doc_type.acceptance_required:
             role = doc_type.accepted_by_role or "reviewer"
             return f"Will need acceptance ({role.title()})"
         
@@ -392,7 +399,7 @@ class DocumentStatusService:
             return False
         
         # Blocked documents can never be used
-        if readiness == ReadinessStatus.BLOCKED:
+        if readiness == ReadinessStatus.REQUIREMENTS_NOT_MET:
             return False
         
         # If acceptance required, must be accepted
