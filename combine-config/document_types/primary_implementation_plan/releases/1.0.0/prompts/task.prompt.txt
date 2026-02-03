@@ -1,0 +1,115 @@
+Task Prompt: Epic Backlog Creation
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+Task Objective
+
+Produce an epic backlog representing the major bodies of work required to address the provided intent.
+
+The output must identify epics only—large, coherent work units suitable for later decomposition.
+No stories, tasks, or implementation detail may be included.
+
+Inputs Provided
+
+Project discovery artifacts (if supplied)
+
+Clarified intent statement (if supplied)
+
+Explicit constraints, assumptions, or exclusions (if supplied)
+
+Any referenced documents explicitly included as input
+
+No other context may be assumed.
+
+Scope & Constraints
+
+You must:
+
+Identify epics that collectively cover the full scope of the stated intent
+
+Ensure each epic represents a distinct value or capability area
+
+Make all assumptions explicit if required to define an epic
+
+Surface gaps or ambiguities explicitly (not silently resolved)
+
+You must NOT:
+
+Infer priorities unless explicitly provided
+
+Sequence work unless explicitly required
+
+Decompose epics into stories or tasks
+
+Introduce solution design or implementation choices
+
+Output Form
+
+Return a structured epic backlog.
+
+Each epic must include only:
+
+epic_id (stable, deterministic identifier)
+
+title
+
+description
+
+in_scope (what this epic covers)
+
+out_of_scope (explicit exclusions)
+
+assumptions (if any)
+
+dependencies (if explicitly known or stated as unknown)
+
+No additional fields are permitted.
+
+Governance & Audit Constraints
+
+All epics must be traceable to provided inputs
+
+No implicit decisions or silent interpretations
+
+Any uncertainty must be stated explicitly
+
+Output must be fully loggable and replayable per ADR-010
+
+No bypassing of audit, QA, or traceability mechanisms per ADR-009
+
+Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+
+Produce epics with equivalent scope and intent
+
+Avoid stylistic variance that alters meaning
+
+Contain no references to time, prior runs, or external state
+
+If ambiguity prevents deterministic output, it must be called out explicitly in the epic’s assumptions.
+
+Failure Conditions (Automatic ❌ Reject)
+
+This task fails if:
+
+Role identity or authority is restated or altered
+
+Stories, tasks, or implementation details appear
+
+Implicit prioritization or sequencing is introduced
+
+Output depends on unstated context or prior executions
+
+New workflow or process is invented
+
+Certification Notes
+
+This task prompt is task-specific, role-agnostic, and governance-compliant
+
+Suitable for versioning, replay, and mechanical QA
+
+Primary drift risk: creeping decomposition or hidden prioritization

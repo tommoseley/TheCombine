@@ -1,0 +1,47 @@
+# Document Type Package Manifest
+# Schema: ../../../schemas/registry/package.schema.json
+
+doc_type_id: primary_implementation_plan
+display_name: Implementation Plan (Primary)
+version: 1.0.0
+
+description: >
+  Preliminary implementation plan produced before technical architecture.
+  Contains epic candidates that inform architectural decisions.
+  Epic candidates are not yet commitments - they become Epics after
+  architecture review in the full Implementation Plan.
+
+# Classification (per ADR-044)
+authority_level: prescriptive
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+
+# Dependencies
+required_inputs:
+  - project_discovery
+optional_inputs: []
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+
+# Packaged artifacts (relative paths)
+artifacts:
+  task_prompt: prompts/task.prompt.txt
+  # qa_prompt: prompts/qa.prompt.txt  # TODO: create
+  pgc_context: prompts/pgc_context.prompt.txt
+  schema: schemas/output.schema.json
+  # full_docdef: docdefs/full.docdef.json  # TODO: create
+  # sidecar_docdef: docdefs/sidecar.docdef.json  # TODO: create
+
+# Test artifacts
+tests:
+  fixtures: []
+  golden_traces: []
+
+# UI configuration
+ui:
+  icon: map
+  category: planning
+  display_order: 25
