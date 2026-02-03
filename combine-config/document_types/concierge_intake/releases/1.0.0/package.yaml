@@ -30,6 +30,7 @@ template_ref: null
 artifacts:
   task_prompt: "prompts/task.prompt.txt"
   qa_prompt: null
+  reflection_prompt: "prompts/reflection.prompt.txt"
   pgc_context: null
   questions_prompt: null
   schema: "schemas/output.schema.json"

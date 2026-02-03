@@ -51,3 +51,17 @@ async def learn():
     # If SPA not built, redirect to home
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/")
+
+
+@router.get("/admin/workbench", response_class=HTMLResponse)
+async def admin_workbench():
+    """
+    Admin Workbench - serves SPA which handles client-side routing.
+    Auth check is done by SPA (redirects to Lobby if not authenticated).
+    """
+    if SPA_INDEX.exists():
+        return FileResponse(SPA_INDEX, media_type="text/html")
+
+    # If SPA not built, redirect to home
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")

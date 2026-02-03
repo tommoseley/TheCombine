@@ -47,6 +47,7 @@ class PackageArtifacts:
     """Paths to packaged artifacts within a release directory."""
     task_prompt: Optional[str] = None
     qa_prompt: Optional[str] = None
+    reflection_prompt: Optional[str] = None  # Used by Concierge instead of QA
     pgc_context: Optional[str] = None
     questions_prompt: Optional[str] = None
     schema: Optional[str] = None
@@ -127,6 +128,7 @@ class DocumentTypePackage:
     # Loaded content cache
     _task_prompt_content: Optional[str] = field(default=None, repr=False)
     _qa_prompt_content: Optional[str] = field(default=None, repr=False)
+    _reflection_prompt_content: Optional[str] = field(default=None, repr=False)
     _pgc_context_content: Optional[str] = field(default=None, repr=False)
     _questions_prompt_content: Optional[str] = field(default=None, repr=False)
     _schema_content: Optional[Dict[str, Any]] = field(default=None, repr=False)
@@ -144,6 +146,7 @@ class DocumentTypePackage:
         artifacts = PackageArtifacts(
             task_prompt=artifacts_data.get("task_prompt"),
             qa_prompt=artifacts_data.get("qa_prompt"),
+            reflection_prompt=artifacts_data.get("reflection_prompt"),
             pgc_context=artifacts_data.get("pgc_context"),
             questions_prompt=artifacts_data.get("questions_prompt"),
             schema=artifacts_data.get("schema"),
@@ -225,6 +228,20 @@ class DocumentTypePackage:
         if path.exists():
             self._qa_prompt_content = path.read_text(encoding="utf-8")
             return self._qa_prompt_content
+        return None
+
+    def get_reflection_prompt(self) -> Optional[str]:
+        """Load and return the reflection prompt content (used by Concierge)."""
+        if self._reflection_prompt_content is not None:
+            return self._reflection_prompt_content
+
+        if not self.artifacts.reflection_prompt or not self._release_path:
+            return None
+
+        path = self._release_path / self.artifacts.reflection_prompt
+        if path.exists():
+            self._reflection_prompt_content = path.read_text(encoding="utf-8")
+            return self._reflection_prompt_content
         return None
 
     def get_pgc_context(self) -> Optional[str]:

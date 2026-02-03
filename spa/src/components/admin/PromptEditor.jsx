@@ -38,12 +38,33 @@ export default function PromptEditor({
         },
     });
 
-    // Available prompt kinds for a document type
-    const promptKinds = [
+    // All possible prompt kinds
+    const allPromptKinds = [
         { id: 'task_prompt', label: 'Task Prompt' },
         { id: 'qa_prompt', label: 'QA Prompt' },
+        { id: 'reflection_prompt', label: 'Reflection' },
         { id: 'pgc_context', label: 'PGC Context' },
     ];
+
+    // Filter to only show prompt kinds that exist for this document type
+    // The docType.artifacts object maps artifact kinds to their status/path
+    const promptKinds = useMemo(() => {
+        if (!docType?.artifacts) {
+            // If no artifacts info, show all (will show error when loading)
+            return allPromptKinds;
+        }
+        return allPromptKinds.filter(kind => {
+            // Show tab if artifact exists (has a non-null value)
+            return docType.artifacts[kind.id] != null;
+        });
+    }, [docType?.artifacts]);
+
+    // Reset to first available kind if current selection is not available
+    React.useEffect(() => {
+        if (promptKinds.length > 0 && !promptKinds.find(k => k.id === selectedKind)) {
+            setSelectedKind(promptKinds[0].id);
+        }
+    }, [promptKinds, selectedKind]);
 
     if (!docType) {
         return (

@@ -235,6 +235,7 @@ class WorkspaceService:
             kind_to_file = {
                 "task_prompt": "prompts/task.prompt.txt",
                 "qa_prompt": "prompts/qa.prompt.txt",
+                "reflection_prompt": "prompts/reflection.prompt.txt",
                 "pgc_context": "prompts/pgc_context.prompt.txt",
                 "questions_prompt": "prompts/questions.prompt.txt",
                 "schema": "schemas/output.schema.json",
@@ -277,6 +278,13 @@ class WorkspaceService:
         )
         if match:
             return f"doctype:{match.group(1)}:{match.group(2)}:qa_prompt"
+
+        match = re.match(
+            r"document_types/([^/]+)/releases/([^/]+)/prompts/reflection\.prompt\.txt$",
+            file_path
+        )
+        if match:
+            return f"doctype:{match.group(1)}:{match.group(2)}:reflection_prompt"
 
         match = re.match(
             r"document_types/([^/]+)/releases/([^/]+)/prompts/pgc_context\.prompt\.txt$",

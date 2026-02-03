@@ -129,6 +129,7 @@ class AdminWorkbenchService:
             "artifacts": {
                 "task_prompt": package.artifacts.task_prompt,
                 "qa_prompt": package.artifacts.qa_prompt,
+                "reflection_prompt": package.artifacts.reflection_prompt,
                 "pgc_context": package.artifacts.pgc_context,
                 "schema": package.artifacts.schema,
             },
