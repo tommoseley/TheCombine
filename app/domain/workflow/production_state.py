@@ -3,14 +3,18 @@
 This module defines the canonical vocabulary for document production.
 All UI, logs, and APIs MUST use these terms exclusively.
 
-Prohibited terms (conversational language):
-- generate, generation -> use assemble, assembly
-- retry, retry_count -> use remediation, remediation_count
-- failed, failure -> use audit_rejected, halted
-- success -> use stabilized
-- pending -> use queued, blocked
-- paused -> use awaiting_operator
-- error -> use halted
+Production States (operator-facing):
+- Produced: Final, certified artifact
+- In Production: Actively moving through the line
+- Ready for Production: All requirements met, can start immediately
+- Requirements Not Met: Blocked by missing inputs
+- Halted: Explicit stop (error, policy, operator intervention)
+
+Stations (within In Production):
+- PGC: Pre-Gen Check (binding constraints)
+- ASM: Assembly (LLM constructing artifact)
+- QA: Audit (validation)
+- REM: Remediation (self-correction)
 """
 
 from enum import Enum
@@ -20,30 +24,25 @@ class ProductionState(str, Enum):
     """Document production states.
 
     State transitions:
-        Queued -> Binding -> Assembling -> Auditing -> Stabilized
-                                              |
-                                        Remediating <-+ (loop max 2)
-                                              |
-                                           Halted -> Escalated
+        Requirements Not Met -> Ready for Production
+        Ready for Production -> In Production
+        In Production -> Produced
+                      -> Halted (if error/policy/operator)
     """
 
     # Pre-production
-    QUEUED = "queued"  # Waiting to enter the line
-    BLOCKED = "blocked"  # Upstream dependency incomplete
+    READY_FOR_PRODUCTION = "ready_for_production"  # All requirements met, can start
+    REQUIREMENTS_NOT_MET = "requirements_not_met"  # Blocked by missing inputs
 
-    # Active production
-    BINDING = "binding"  # Loading context, constraints, dependencies
-    ASSEMBLING = "assembling"  # LLM constructing the artifact
-    AUDITING = "auditing"  # QA validation against bound constraints
-    REMEDIATING = "remediating"  # Self-correction cycle in progress
+    # Active production (internally at various stations)
+    IN_PRODUCTION = "in_production"  # Actively moving through the line
 
     # Operator required
     AWAITING_OPERATOR = "awaiting_operator"  # Line stopped; operator input required
 
     # Terminal states
-    STABILIZED = "stabilized"  # Artifact passed audit, production complete
-    HALTED = "halted"  # Circuit breaker tripped; requires review
-    ESCALATED = "escalated"  # Operator reviewed halt, accepted without resolution
+    PRODUCED = "produced"  # Artifact passed audit, production complete
+    HALTED = "halted"  # Explicit stop: error, policy, or operator intervention
 
 
 class Station(str, Enum):
@@ -51,12 +50,15 @@ class Station(str, Enum):
 
     Each station represents a discrete step in document production.
     Used for branch map visualization and telemetry.
+
+    When a document is "In Production", it's at one of these stations.
     """
 
-    BIND = "bind"  # Loading constraints from intake, PGC, upstream docs
-    ASM = "asm"  # LLM assembling the artifact
-    AUD = "aud"  # Semantic and structural audit
-    REM = "rem"  # Remediation cycle (self-correction)
+    PGC = "pgc"  # Pre-Gen Check: binding constraints from intake, upstream docs
+    ASM = "asm"  # Assembly: LLM constructing the artifact
+    QA = "qa"  # Audit: semantic and structural validation
+    REM = "rem"  # Remediation: self-correction cycle
+    DONE = "done"  # Finalization: production complete
 
 
 class InterruptType(str, Enum):
@@ -71,14 +73,24 @@ class InterruptType(str, Enum):
 # Used during migration and for backward compatibility
 LEGACY_TO_PRODUCTION_STATE = {
     # Old outcome values -> new states
-    "pending": ProductionState.QUEUED,
+    "pending": ProductionState.READY_FOR_PRODUCTION,
+    "queued": ProductionState.READY_FOR_PRODUCTION,
+    "blocked": ProductionState.REQUIREMENTS_NOT_MET,
+    "binding": ProductionState.IN_PRODUCTION,
+    "assembling": ProductionState.IN_PRODUCTION,
+    "auditing": ProductionState.IN_PRODUCTION,
+    "remediating": ProductionState.IN_PRODUCTION,
     "paused": ProductionState.AWAITING_OPERATOR,
     "needs_user_input": ProductionState.AWAITING_OPERATOR,
-    "success": ProductionState.STABILIZED,
-    "complete": ProductionState.STABILIZED,
+    "awaiting_operator": ProductionState.AWAITING_OPERATOR,
+    "success": ProductionState.PRODUCED,
+    "complete": ProductionState.PRODUCED,
+    "stabilized": ProductionState.PRODUCED,
+    "ready": ProductionState.PRODUCED,
     "failed": ProductionState.HALTED,
     "error": ProductionState.HALTED,
-    "blocked": ProductionState.BLOCKED,
+    "halted": ProductionState.HALTED,
+    "escalated": ProductionState.HALTED,
 }
 
 
@@ -86,7 +98,7 @@ def map_node_outcome_to_state(
     node_type: str,
     outcome: str,
     is_terminal: bool = False,
-) -> ProductionState:
+) -> tuple[ProductionState, Station]:
     """Map workflow node outcomes to production states.
 
     Args:
@@ -95,31 +107,43 @@ def map_node_outcome_to_state(
         is_terminal: Whether this is the final node in the workflow
 
     Returns:
-        Appropriate ProductionState
+        Tuple of (ProductionState, Station)
     """
-    # Node-specific mappings take precedence
+    # Determine station from node type
+    if node_type == "pgc":
+        station = Station.PGC
+    elif node_type == "task":
+        station = Station.ASM
+    elif node_type == "qa":
+        station = Station.QA
+    else:
+        station = Station.PGC  # Default
+
+    # Determine state from outcome
     if node_type == "pgc":
         if outcome == "needs_user_input":
-            return ProductionState.AWAITING_OPERATOR
+            return ProductionState.AWAITING_OPERATOR, station
         elif outcome == "success":
-            return ProductionState.BINDING  # Constraints bound, ready for assembly
+            return ProductionState.IN_PRODUCTION, Station.ASM
 
     elif node_type == "task":
         if outcome == "success":
-            return ProductionState.AUDITING if not is_terminal else ProductionState.STABILIZED
+            if is_terminal:
+                return ProductionState.PRODUCED, Station.DONE
+            return ProductionState.IN_PRODUCTION, Station.QA
 
     elif node_type == "qa":
         if outcome == "success":
-            return ProductionState.STABILIZED if is_terminal else ProductionState.AUDITING
+            return ProductionState.PRODUCED, Station.DONE
         elif outcome == "failed":
-            return ProductionState.REMEDIATING
+            return ProductionState.IN_PRODUCTION, Station.REM
 
-    # Legacy mappings for unknown node types or generic outcomes
+    # Legacy mappings for unknown outcomes
     if outcome in LEGACY_TO_PRODUCTION_STATE:
-        return LEGACY_TO_PRODUCTION_STATE[outcome]
+        return LEGACY_TO_PRODUCTION_STATE[outcome], station
 
     # Default fallback
-    return ProductionState.QUEUED
+    return ProductionState.READY_FOR_PRODUCTION, station
 
 
 def map_station_from_node(node_type: str, node_id: str) -> Station:
@@ -133,36 +157,33 @@ def map_station_from_node(node_type: str, node_id: str) -> Station:
         Appropriate Station
     """
     if node_type == "pgc":
-        return Station.BIND
+        return Station.PGC
     elif node_type == "task":
         if "remediat" in node_id.lower():
             return Station.REM
         return Station.ASM
     elif node_type == "qa":
-        return Station.AUD
+        return Station.QA
     else:
-        return Station.BIND  # Default for unknown
+        return Station.PGC  # Default for unknown
 
 
 # User-facing phrasing for each state
 STATE_DISPLAY_TEXT = {
-    ProductionState.QUEUED: "Queued",
-    ProductionState.BLOCKED: "Blocked",
-    ProductionState.BINDING: "Binding...",
-    ProductionState.ASSEMBLING: "Assembling...",
-    ProductionState.AUDITING: "Auditing...",
-    ProductionState.REMEDIATING: "Remediating",
-    ProductionState.AWAITING_OPERATOR: "Awaiting operator",
-    ProductionState.STABILIZED: "Stabilized",
+    ProductionState.READY_FOR_PRODUCTION: "Ready for Production",
+    ProductionState.REQUIREMENTS_NOT_MET: "Requirements Not Met",
+    ProductionState.IN_PRODUCTION: "In Production",
+    ProductionState.AWAITING_OPERATOR: "Awaiting Operator",
+    ProductionState.PRODUCED: "Produced",
     ProductionState.HALTED: "Halted",
-    ProductionState.ESCALATED: "Escalated",
 }
 
 
-# User-facing phrasing for stations
+# User-facing phrasing for stations (shown as "In Production at {station}")
 STATION_DISPLAY_TEXT = {
-    Station.BIND: "Binding",
-    Station.ASM: "Assembling",
-    Station.AUD: "Auditing",
-    Station.REM: "Remediating",
+    Station.PGC: "Pre-Gen Check",
+    Station.ASM: "Assembly",
+    Station.QA: "Audit",
+    Station.REM: "Remediation",
+    Station.DONE: "Complete",
 }
