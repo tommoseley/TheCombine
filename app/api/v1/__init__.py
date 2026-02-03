@@ -9,6 +9,7 @@ from app.api.v1.routers import (
     document_workflows_router,
     admin_workbench_router,
     admin_git_router,
+    admin_validation_router,
 )
 from app.api.v1.routers.production import router as production_router
 from app.api.v1.routers.projects import router as projects_router
@@ -32,6 +33,7 @@ api_router.include_router(interrupts_router)
 api_router.include_router(intake_router)
 api_router.include_router(admin_workbench_router)  # ADR-044: Admin Workbench
 api_router.include_router(admin_git_router)  # ADR-044 Addendum A: Git UX
+api_router.include_router(admin_validation_router)  # ADR-044 WS-044-08: Governance Guardrails
 
 
 __all__ = ["api_router"]

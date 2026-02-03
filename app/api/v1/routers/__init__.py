@@ -10,6 +10,7 @@ from app.api.v1.routers.document_workflows import router as document_workflows_r
 from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.admin_workbench import router as admin_workbench_router
 from app.api.v1.routers.admin_git import router as admin_git_router
+from app.api.v1.routers.admin_validation import router as admin_validation_router
 
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "interrupts_router",
     "admin_workbench_router",
     "admin_git_router",
+    "admin_validation_router",
 ]
