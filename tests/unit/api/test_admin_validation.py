@@ -46,16 +46,19 @@ class TestValidationRules:
 
         assert "rules" in data
         assert "principle" in data
+        assert "tiers" in data
         assert isinstance(data["rules"], list)
 
         # Should have rules
         assert len(data["rules"]) > 0
 
-        # Each rule should have required fields
+        # Each rule should have required fields including tier
         for rule in data["rules"]:
             assert "rule_id" in rule
             assert "severity" in rule
             assert "description" in rule
+            assert "tier" in rule
+            assert rule["tier"] in ("commit", "activation")
 
         # Verify key rules are present
         rule_ids = [r["rule_id"] for r in data["rules"]]
@@ -63,6 +66,30 @@ class TestValidationRules:
         assert "EXTRACTED_DOC_FORBIDDEN" in rule_ids
         assert "PGC_REQUIRED" in rule_ids
         assert "REQUIRED_INPUT_NOT_ACTIVE" in rule_ids
+
+    def test_rules_tier_classification(self, client):
+        """Should classify rules into commit and activation tiers."""
+        response = client.get("/api/v1/admin/validation/rules")
+        data = response.json()
+
+        # Verify tier definitions
+        assert "commit" in data["tiers"]
+        assert "activation" in data["tiers"]
+
+        # Commit-time rules (repository integrity)
+        commit_rules = [r for r in data["rules"] if r["tier"] == "commit"]
+        commit_rule_ids = [r["rule_id"] for r in commit_rules]
+        assert "MANIFEST_MISSING" in commit_rule_ids
+        assert "ARTIFACT_FILE_MISSING" in commit_rule_ids
+        assert "ROLE_NOT_FOUND" in commit_rule_ids
+
+        # Activation-time rules (runtime safety)
+        activation_rules = [r for r in data["rules"] if r["tier"] == "activation"]
+        activation_rule_ids = [r["rule_id"] for r in activation_rules]
+        assert "EXTRACTED_DOC_FORBIDDEN" in activation_rule_ids
+        assert "PGC_REQUIRED" in activation_rule_ids
+        assert "REQUIRED_INPUT_NOT_ACTIVE" in activation_rule_ids
+        assert "BREAKING_SCHEMA_CHANGE" in activation_rule_ids
 
 
 class TestValidationReport:

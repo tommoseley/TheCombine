@@ -212,85 +212,121 @@ async def list_rules() -> Dict[str, Any]:
     """
     List all governance rules.
 
-    These rules are BLOCKED (not warned) per ADR-044.
+    Rules are organized into two tiers:
+    - Tier 1 (commit): Protect repository integrity - fail fast before Git history
+    - Tier 2 (activation): Protect runtime safety - evaluated when staging/activating
+
+    All rules are BLOCKED (not warned) per ADR-044.
     """
     return {
+        "tiers": {
+            "commit": {
+                "description": "Commit-time blockers - protect repository integrity",
+                "evaluated_at": "Before changes enter Git history",
+            },
+            "activation": {
+                "description": "Activation-time blockers - protect runtime safety",
+                "evaluated_at": "When staging or activating a release",
+            },
+        },
         "rules": [
+            # Tier 1: Commit-time blockers (repository integrity)
             {
                 "rule_id": "MANIFEST_MISSING",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Package must have a package.yaml manifest",
             },
             {
                 "rule_id": "MANIFEST_INVALID_YAML",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Package manifest must be valid YAML",
             },
             {
                 "rule_id": "REQUIRED_FIELD_MISSING",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Required fields must be present in manifest",
             },
             {
-                "rule_id": "EXTRACTED_DOC_FORBIDDEN",
-                "severity": "error",
-                "description": "Extracted documents cannot be registered as document types",
-            },
-            {
-                "rule_id": "PGC_REQUIRED",
-                "severity": "error",
-                "description": "Descriptive/Prescriptive documents require PGC context",
-            },
-            {
-                "rule_id": "PGC_FILE_MISSING",
-                "severity": "error",
-                "description": "Referenced PGC context file must exist",
-            },
-            {
                 "rule_id": "ARTIFACT_FILE_MISSING",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Referenced artifact files must exist",
             },
             {
                 "rule_id": "INVALID_ROLE_REF",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Role reference must follow format prompt:role:<id>:<version>",
             },
             {
                 "rule_id": "ROLE_NOT_FOUND",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Referenced role must exist at specified version",
             },
             {
                 "rule_id": "INVALID_TEMPLATE_REF",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Template reference must follow format prompt:template:<id>:<version>",
             },
             {
                 "rule_id": "TEMPLATE_NOT_FOUND",
+                "tier": "commit",
                 "severity": "error",
                 "description": "Referenced template must exist at specified version",
             },
+            # Tier 2: Activation-time blockers (runtime safety)
+            {
+                "rule_id": "EXTRACTED_DOC_FORBIDDEN",
+                "tier": "activation",
+                "severity": "error",
+                "description": "Extracted documents cannot be registered as document types",
+            },
+            {
+                "rule_id": "PGC_REQUIRED",
+                "tier": "activation",
+                "severity": "error",
+                "description": "Descriptive/Prescriptive documents require PGC context",
+            },
+            {
+                "rule_id": "PGC_FILE_MISSING",
+                "tier": "activation",
+                "severity": "error",
+                "description": "Referenced PGC context file must exist",
+            },
             {
                 "rule_id": "PACKAGE_NOT_FOUND",
+                "tier": "activation",
                 "severity": "error",
                 "description": "Package must exist for activation",
             },
             {
                 "rule_id": "VERSION_NOT_FOUND",
+                "tier": "activation",
                 "severity": "error",
                 "description": "Specified version must exist",
             },
             {
                 "rule_id": "REQUIRED_INPUT_NOT_ACTIVE",
+                "tier": "activation",
                 "severity": "error",
                 "description": "All required inputs must have active releases before activation",
             },
             {
                 "rule_id": "BREAKING_SCHEMA_CHANGE",
+                "tier": "activation",
                 "severity": "error",
                 "description": "Breaking schema changes require major version bump",
             },
         ],
-        "principle": "Violations are BLOCKED, not warned. No configuration enters the system without passing validation.",
+        "principle": "All violations are BLOCKED, not warned. No configuration enters the system without passing validation.",
+        "deferred": [
+            "UNREFERENCED_ARTIFACT - Artifact exists but not referenced (future warning)",
+            "Golden trace regression enforcement",
+            "Prompt semantic QA beyond structural validation",
+        ],
     }
