@@ -1,0 +1,53 @@
+# Concierge Intake Package
+# Version 1.0.0 - Initial release
+
+doc_type_id: concierge_intake
+display_name: "Concierge Intake"
+version: "1.0.0"
+description: >
+  Structured intake document produced by the Concierge workflow.
+  Contains synthesized intent, constraints, and gate outcomes from
+  the intake conversation. First document in the pipeline.
+
+# Classification
+authority_level: descriptive  # Descriptive - captures what user wants
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+
+# Dependencies
+required_inputs: []  # No dependencies - this is the entry point
+optional_inputs: []
+creates_children: []
+parent_doc_type: null
+
+# Shared artifact references
+# Note: Concierge uses workflow-specific prompting, not standard document_generator
+role_prompt_ref: null
+template_ref: null
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: false
+  accepted_by: []
+
+# UI configuration
+ui:
+  icon: message-circle
+  category: intake
+  display_order: 5
