@@ -9,6 +9,7 @@ from app.api.v1.routers.telemetry import router as telemetry_router
 from app.api.v1.routers.document_workflows import router as document_workflows_router
 from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.admin_workbench import router as admin_workbench_router
+from app.api.v1.routers.admin_git import router as admin_git_router
 
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "document_workflows_router",
     "interrupts_router",
     "admin_workbench_router",
+    "admin_git_router",
 ]
