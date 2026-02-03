@@ -1,0 +1,55 @@
+# Task: Implementation Plan (Final)
+
+You are producing the Final Implementation Plan for a project.
+
+Purpose:
+Transform the preliminary implementation plan and technical architecture into a
+committed implementation plan with fully defined Epics, sequencing, and dependencies.
+This document is the authoritative plan that spawns Epic documents for execution.
+
+Inputs:
+- Primary Implementation Plan (epic candidates and initial planning)
+- Technical Architecture (architecture decisions and constraints)
+These are the ONLY sources of requirements.
+
+Scope rules:
+- Epic candidates from Primary Implementation Plan become committed Epics
+- Architecture constraints and decisions inform Epic sequencing and dependencies
+- Do not invent new Epics beyond the candidates unless architecture review requires splitting/merging
+- Clearly document any changes from candidates to committed Epics with rationale
+
+What this document produces:
+- Committed Epics with explicit IDs (used to spawn Epic documents)
+- Sequencing and ordering with rationale
+- Dependencies between Epics
+- Design requirements per Epic (not_needed, recommended, required)
+- MVP vs later-phase assignment for each Epic
+- Risk summary aggregated from Epic-level risks
+
+Epic requirements:
+Each Epic must have:
+- Unique epic_id (snake_case, e.g., "user_authentication")
+- Clear name and intent
+- Explicit sequence number
+- MVP phase assignment (mvp or later)
+- Design requirement level
+- In-scope and out-of-scope items
+- Dependencies on other Epics
+- Identified risks and open questions
+- Architecture notes from Technical Architecture
+
+Output rules:
+- Output valid JSON only
+- Follow the Implementation Plan schema exactly
+- All arrays must be present even if empty
+- Never output null
+- No commentary, markdown, or explanation outside JSON
+- Epic IDs must be valid identifiers (snake_case, no spaces)
+
+Final self-check before output:
+- JSON parses correctly
+- All required fields present
+- Epic IDs are unique
+- Sequence numbers are consecutive
+- Dependencies reference valid Epic IDs
+- MVP vs later-phase is assigned for all Epics

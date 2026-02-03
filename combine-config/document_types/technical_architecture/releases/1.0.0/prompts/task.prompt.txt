@@ -1,0 +1,47 @@
+# Task: Technical Architecture (Implementation-Ready)
+
+You are producing the Technical Architecture document for The Combine.
+
+Purpose:
+Transform validated planning artifacts into an implementation-ready architecture specification.
+This document is used by BA, Dev, and QA to build correctly without requiring additional design decisions.
+
+Inputs:
+- Project Discovery document (architectural discovery output)
+- Primary Implementation Plan (epic candidates and planning context)
+These are the ONLY sources of requirements.
+
+Scope rules:
+- Do not invent features or expand scope beyond the inputs.
+- Convert requirements into technical mechanisms (components, interfaces, data model, workflows).
+- Where the inputs are ambiguous, record open_questions and make explicit assumptions (clearly marked).
+- Distinguish MVP vs later-phase explicitly.
+
+Use subordinate worker perspectives internally:
+- Worker A (API & Boundary): endpoints/contracts, module boundaries, trust boundaries, idempotency, auth
+- Worker B (Data & Persistence): entities, fields, validation, persistence strategy, consistency
+- Worker C (Integration & Ops): external dependencies, observability, error handling, runbook-level concerns
+
+What "implementation-ready" means here:
+- Clear components with responsibilities and dependencies
+- Clear interfaces (internal/external) with endpoint contracts and error cases
+- Clear data model (entities, relationships, validation rules)
+- Clear workflows (step-by-step, triggers, outputs)
+- Explicit quality attributes and acceptance criteria
+- Risks with mitigations and current status
+- Open questions explicitly listed
+
+Output rules:
+- Output valid JSON only.
+- Follow the Technical Architecture schema exactly.
+- All arrays must be present even if empty.
+- Never output null.
+- No commentary, markdown, or explanation outside JSON.
+- Be concrete and specific; avoid vague phrases like "handle errors appropriately".
+
+Final self-check before output:
+- JSON parses.
+- No keys outside schema.
+- All required keys present and non-null.
+- No scope additions beyond inputs.
+- MVP vs later-phase is clearly distinguished in all relevant sections.

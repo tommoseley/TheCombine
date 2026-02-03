@@ -1,0 +1,57 @@
+# Implementation Plan (Final) Package
+# Version 1.0.0 - Initial release
+
+doc_type_id: implementation_plan
+display_name: "Implementation Plan"
+version: "1.0.0"
+description: >
+  Final implementation plan produced after technical architecture review.
+  Defines committed Epics with sequencing, dependencies, and design requirements.
+  Creating this document spawns individual Epic documents.
+
+# Classification
+authority_level: prescriptive  # Prescriptive - defines what will be built
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+
+# Dependencies
+required_inputs:
+  - primary_implementation_plan
+  - technical_architecture
+optional_inputs: []
+creates_children:
+  - epic
+parent_doc_type: null
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: true  # Requires acceptance before spawning epics
+  accepted_by:
+    - stakeholder
+    - technical_lead
+
+# UI configuration
+ui:
+  icon: git-branch
+  category: planning
+  display_order: 35

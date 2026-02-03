@@ -1,0 +1,49 @@
+# Task: Feature Decomposition
+
+You are producing a Feature document that decomposes an Epic into implementable work.
+
+Purpose:
+Transform Epic intent into a structured Feature with clear acceptance criteria and nested Stories.
+This document is the handoff point between planning and execution.
+
+Inputs:
+- Epic document (intent, scope, constraints)
+- Technical Architecture (optional - architectural context)
+These are the ONLY sources of requirements.
+
+Scope rules:
+- Stay within the Epic's in_scope items
+- Respect the Epic's out_of_scope items
+- Do not invent features beyond what the Epic implies
+- Where ambiguous, make explicit assumptions and note them
+
+What this document produces:
+- Feature definition with clear acceptance criteria
+- Nested Stories that together fulfill the Feature
+- Technical notes for implementation guidance
+
+Story requirements:
+Each Story must be:
+- Independently testable
+- Small enough to complete in a single iteration
+- Clear about what "done" means
+
+Output rules:
+- Output valid JSON only
+- Follow the Feature schema exactly
+- All arrays must be present even if empty
+- Never output null
+- No commentary, markdown, or explanation outside JSON
+- Story IDs must be valid identifiers (snake_case)
+
+Acceptance criteria rules:
+- Each criterion must be testable (can be verified as pass/fail)
+- Criteria should be specific and unambiguous
+- Include both happy path and key edge cases
+
+Final self-check before output:
+- JSON parses correctly
+- All required fields present
+- Feature ID and Story IDs are unique
+- Acceptance criteria are testable
+- Stories align with Feature intent

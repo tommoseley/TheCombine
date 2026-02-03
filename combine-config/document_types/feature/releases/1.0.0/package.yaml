@@ -1,0 +1,53 @@
+# Feature Package
+# Version 1.0.0 - Initial release
+
+doc_type_id: feature
+display_name: "Feature"
+version: "1.0.0"
+description: >
+  Unit of production intent. Defines what will be produced.
+  Handoff point between planning and execution.
+  Contains nested Stories.
+
+# Classification
+authority_level: elaborative   # Elaborative - expands on Epic intent
+creation_mode: llm_generated
+production_mode: generate
+scope: epic                    # Scoped to Epic
+
+# Dependencies
+required_inputs: []            # Requires Epic context (implicit via scope)
+optional_inputs:
+  - technical_architecture
+creates_children: []
+parent_doc_type: epic
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:business_analyst:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: false
+  accepted_by: []
+
+# UI configuration
+ui:
+  icon: puzzle
+  category: planning
+  display_order: 37

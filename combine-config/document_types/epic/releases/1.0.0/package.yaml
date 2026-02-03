@@ -1,0 +1,62 @@
+# Epic Package
+# Version 1.0.0 - Initial release
+
+doc_type_id: epic
+display_name: "Epic"
+version: "1.0.0"
+description: >
+  Unit of planning and commitment. Has lifecycle gates (draft, ready,
+  in_progress, blocked, complete). May require design phase.
+  Parent container for Features.
+
+# Classification
+authority_level: constructive  # Constructive - created by system from parent
+creation_mode: constructed     # Constructed from implementation_plan, not LLM-generated
+production_mode: construct     # System instantiates from parent
+scope: project
+
+# Dependencies
+required_inputs: []  # Created by implementation_plan handler
+optional_inputs: []
+creates_children:
+  - feature
+parent_doc_type: implementation_plan
+
+# Shared artifact references (none - constructed document)
+role_prompt_ref: null
+template_ref: null
+
+# Packaged artifacts
+artifacts:
+  task_prompt: null  # No task prompt - constructed
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules - Epic has lifecycle gates
+gating_rules:
+  lifecycle_states:
+    - draft
+    - ready
+    - in_progress
+    - blocked
+    - complete
+  design_status:
+    - not_needed
+    - recommended
+    - required
+    - complete
+  acceptance_required: false
+  accepted_by: []
+
+# UI configuration
+ui:
+  icon: package
+  category: planning
+  display_order: 36

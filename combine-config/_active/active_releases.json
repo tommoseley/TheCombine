@@ -3,11 +3,16 @@
   "_comment": "Active release pointers. Change this file to activate/rollback releases.",
   "document_types": {
     "project_discovery": "1.4.0",
-    "primary_implementation_plan": "1.0.0"
+    "primary_implementation_plan": "1.0.0",
+    "technical_architecture": "1.0.0",
+    "implementation_plan": "1.0.0",
+    "epic": "1.0.0",
+    "feature": "1.0.0"
   },
   "roles": {
     "technical_architect": "1.0.0",
-    "project_manager": "1.0.0"
+    "project_manager": "1.0.0",
+    "business_analyst": "1.0.0"
   },
   "templates": {
     "document_generator": "1.0.0"

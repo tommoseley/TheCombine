@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Implementation Plan",
+  "description": "Final implementation plan with committed Epics",
+  "required": ["plan_summary", "epics"],
+  "properties": {
+    "plan_summary": {
+      "type": "object",
+      "description": "High-level plan overview",
+      "properties": {
+        "overall_intent": {
+          "type": "string",
+          "description": "What this plan aims to achieve"
+        },
+        "mvp_definition": {
+          "type": "string",
+          "description": "What constitutes MVP"
+        },
+        "key_constraints": {
+          "type": "array",
+          "description": "Key constraints shaping the plan",
+          "items": {"type": "string"}
+        },
+        "sequencing_rationale": {
+          "type": "string",
+          "description": "Why Epics are ordered this way"
+        }
+      }
+    },
+    "epics": {
+      "type": "array",
+      "description": "Committed Epics for implementation",
+      "items": {
+        "type": "object",
+        "required": ["epic_id", "name", "intent", "sequence", "mvp_phase"],
+        "properties": {
+          "epic_id": {
+            "type": "string",
+            "description": "Unique identifier (snake_case)",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable Epic name"
+          },
+          "intent": {
+            "type": "string",
+            "description": "What this Epic accomplishes"
+          },
+          "sequence": {
+            "type": "integer",
+            "description": "Execution order (1-based)",
+            "minimum": 1
+          },
+          "mvp_phase": {
+            "type": "string",
+            "description": "MVP or later phase",
+            "enum": ["mvp", "later"]
+          },
+          "design_required": {
+            "type": "string",
+            "description": "Design phase requirement level",
+            "enum": ["not_needed", "recommended", "required"]
+          },
+          "in_scope": {
+            "type": "array",
+            "description": "What is explicitly in scope",
+            "items": {"type": "string"}
+          },
+          "out_of_scope": {
+            "type": "array",
+            "description": "What is explicitly excluded",
+            "items": {"type": "string"}
+          },
+          "dependencies": {
+            "type": "array",
+            "description": "Epic IDs this depends on",
+            "items": {
+              "type": "object",
+              "properties": {
+                "epic_id": {"type": "string"},
+                "dependency_type": {
+                  "type": "string",
+                  "enum": ["must_complete_first", "can_start_after", "soft"]
+                },
+                "notes": {"type": "string"}
+              }
+            }
+          },
+          "risks": {
+            "type": "array",
+            "description": "Epic-specific risks",
+            "items": {
+              "type": "object",
+              "properties": {
+                "risk": {"type": "string"},
+                "impact": {
+                  "type": "string",
+                  "enum": ["low", "medium", "high"]
+                },
+                "mitigation": {"type": "string"}
+              }
+            }
+          },
+          "open_questions": {
+            "type": "array",
+            "description": "Unresolved questions",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": {"type": "string"},
+                "blocking": {"type": "boolean"},
+                "default_assumption": {"type": "string"}
+              }
+            }
+          },
+          "architecture_notes": {
+            "type": "array",
+            "description": "Notes from Technical Architecture",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "cross_cutting_concerns": {
+      "type": "array",
+      "description": "Concerns spanning multiple Epics",
+      "items": {"type": "string"}
+    },
+    "risk_summary": {
+      "type": "array",
+      "description": "Aggregated risk summary",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk": {"type": "string"},
+          "affected_epics": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "overall_impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "mitigation_strategy": {"type": "string"}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Epic",
+  "description": "Unit of planning and commitment with lifecycle gates",
+  "required": ["epic_id", "name", "intent"],
+  "properties": {
+    "epic_id": {
+      "type": "string",
+      "description": "Unique identifier (snake_case)",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable Epic name"
+    },
+    "intent": {
+      "type": "string",
+      "description": "What this Epic accomplishes"
+    },
+    "lifecycle_state": {
+      "type": "string",
+      "description": "Current lifecycle state",
+      "enum": ["draft", "ready", "in_progress", "blocked", "complete"],
+      "default": "draft"
+    },
+    "design_status": {
+      "type": "string",
+      "description": "Design phase status",
+      "enum": ["not_needed", "recommended", "required", "complete"],
+      "default": "not_needed"
+    },
+    "sequence": {
+      "type": "integer",
+      "description": "Execution order from implementation plan",
+      "minimum": 1
+    },
+    "mvp_phase": {
+      "type": "string",
+      "description": "MVP or later phase",
+      "enum": ["mvp", "later"]
+    },
+    "in_scope": {
+      "type": "array",
+      "description": "What is explicitly in scope",
+      "items": {"type": "string"}
+    },
+    "out_of_scope": {
+      "type": "array",
+      "description": "What is explicitly excluded",
+      "items": {"type": "string"}
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Dependencies on other Epics",
+      "items": {
+        "type": "object",
+        "properties": {
+          "epic_id": {"type": "string"},
+          "dependency_type": {
+            "type": "string",
+            "enum": ["must_complete_first", "can_start_after", "soft"]
+          },
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "Epic-specific risks",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk": {"type": "string"},
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "mitigation": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["identified", "mitigated", "accepted"]
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Unresolved questions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string"},
+          "blocking": {"type": "boolean"},
+          "resolution": {"type": "string"}
+        }
+      }
+    },
+    "architecture_notes": {
+      "type": "array",
+      "description": "Notes from Technical Architecture",
+      "items": {"type": "string"}
+    },
+    "features": {
+      "type": "array",
+      "description": "Nested feature summaries (populated after feature decomposition)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "feature_id": {"type": "string"},
+          "name": {"type": "string"},
+          "status": {"type": "string"}
+        }
+      }
+    }
+  }
+}
