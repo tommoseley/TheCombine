@@ -572,6 +572,7 @@ class GitService:
         version: str,
         user_name: str,
         user_email: Optional[str] = None,
+        commit_message: Optional[str] = None,
     ) -> GitCommit:
         """
         Update the active release for a document type.
@@ -581,6 +582,7 @@ class GitService:
             version: Version to activate
             user_name: User who initiated the change
             user_email: Optional user email
+            commit_message: Optional custom commit message (for rollbacks)
 
         Returns:
             Commit for the active release change
@@ -611,9 +613,13 @@ class GitService:
         # Stage and commit (path is relative to combine-config)
         self.stage_files(["_active/active_releases.json"])
 
-        message = f"release({doc_type_id}): Activate version {version}"
-        if old_version:
-            message += f" (was {old_version})"
+        # Use custom message or generate default
+        if commit_message:
+            message = commit_message
+        else:
+            message = f"release({doc_type_id}): Activate version {version}"
+            if old_version:
+                message += f" (was {old_version})"
 
         return self.commit(message, user_name, user_email)
 

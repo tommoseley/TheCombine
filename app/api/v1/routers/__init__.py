@@ -11,6 +11,7 @@ from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.admin_workbench import router as admin_workbench_router
 from app.api.v1.routers.admin_git import router as admin_git_router
 from app.api.v1.routers.admin_validation import router as admin_validation_router
+from app.api.v1.routers.admin_releases import router as admin_releases_router
 
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "admin_workbench_router",
     "admin_git_router",
     "admin_validation_router",
+    "admin_releases_router",
 ]
