@@ -115,7 +115,7 @@ class TestReadinessDerivation:
             existing_type_ids=existing_type_ids,
         )
         
-        assert readiness == ReadinessStatus.READY
+        assert readiness == ReadinessStatus.PRODUCED
         assert missing == []
 
     def test_stale_when_document_marked_stale(
@@ -146,7 +146,7 @@ class TestReadinessDerivation:
             existing_type_ids=existing_type_ids,
         )
         
-        assert readiness == ReadinessStatus.WAITING
+        assert readiness == ReadinessStatus.READY_FOR_PRODUCTION
         assert missing == []
 
     def test_waiting_when_no_deps_required(
@@ -159,7 +159,7 @@ class TestReadinessDerivation:
             existing_type_ids=set(),
         )
         
-        assert readiness == ReadinessStatus.WAITING
+        assert readiness == ReadinessStatus.READY_FOR_PRODUCTION
         assert missing == []
 
     def test_blocked_when_missing_single_dependency(
@@ -174,7 +174,7 @@ class TestReadinessDerivation:
             existing_type_ids=existing_type_ids,
         )
         
-        assert readiness == ReadinessStatus.BLOCKED
+        assert readiness == ReadinessStatus.REQUIREMENTS_NOT_MET
         assert missing == ["project_discovery"]
 
     def test_blocked_when_missing_multiple_dependencies(
@@ -189,7 +189,7 @@ class TestReadinessDerivation:
             existing_type_ids=existing_type_ids,
         )
         
-        assert readiness == ReadinessStatus.BLOCKED
+        assert readiness == ReadinessStatus.REQUIREMENTS_NOT_MET
         assert set(missing) == {"architecture_spec", "epic_set"}
 
     def test_blocked_takes_precedence_over_stale(
@@ -207,7 +207,7 @@ class TestReadinessDerivation:
             existing_type_ids=existing_type_ids,
         )
         
-        assert readiness == ReadinessStatus.BLOCKED
+        assert readiness == ReadinessStatus.REQUIREMENTS_NOT_MET
         assert missing == ["project_discovery"]
 
 
@@ -325,7 +325,7 @@ class TestSubtitleDerivation:
         subtitle = status_service._derive_subtitle(
             doc_type=mock_doc_type_blocked,
             document=None,
-            readiness=ReadinessStatus.BLOCKED,
+            readiness=ReadinessStatus.REQUIREMENTS_NOT_MET,
             acceptance_state=None,
             missing_inputs=["architecture_spec", "epic_set"],
         )
@@ -355,7 +355,7 @@ class TestSubtitleDerivation:
         subtitle = status_service._derive_subtitle(
             doc_type=mock_doc_type_with_acceptance,
             document=MagicMock(),
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=AcceptanceState.NEEDS_ACCEPTANCE,
             missing_inputs=[],
         )
@@ -370,7 +370,7 @@ class TestSubtitleDerivation:
         subtitle = status_service._derive_subtitle(
             doc_type=mock_doc_type_with_acceptance,
             document=MagicMock(),
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=AcceptanceState.REJECTED,
             missing_inputs=[],
         )
@@ -384,7 +384,7 @@ class TestSubtitleDerivation:
         subtitle = status_service._derive_subtitle(
             doc_type=mock_doc_type_with_acceptance,
             document=None,
-            readiness=ReadinessStatus.WAITING,
+            readiness=ReadinessStatus.READY_FOR_PRODUCTION,
             acceptance_state=None,  # None because doc doesn't exist
             missing_inputs=[],
         )
@@ -398,7 +398,7 @@ class TestSubtitleDerivation:
         subtitle = status_service._derive_subtitle(
             doc_type=mock_doc_type_no_acceptance,
             document=MagicMock(),
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=None,
             missing_inputs=[],
         )
@@ -420,7 +420,7 @@ class TestCanUseAsInput:
         can_use = status_service._derive_can_use_as_input(
             doc_type=mock_doc_type_no_acceptance,
             document=None,
-            readiness=ReadinessStatus.WAITING,
+            readiness=ReadinessStatus.READY_FOR_PRODUCTION,
             acceptance_state=None,
         )
         
@@ -435,7 +435,7 @@ class TestCanUseAsInput:
         can_use = status_service._derive_can_use_as_input(
             doc_type=mock_doc_type_with_acceptance,
             document=document,
-            readiness=ReadinessStatus.BLOCKED,
+            readiness=ReadinessStatus.REQUIREMENTS_NOT_MET,
             acceptance_state=AcceptanceState.NEEDS_ACCEPTANCE,
         )
         
@@ -450,7 +450,7 @@ class TestCanUseAsInput:
         can_use = status_service._derive_can_use_as_input(
             doc_type=mock_doc_type_no_acceptance,
             document=document,
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=None,
         )
         
@@ -465,7 +465,7 @@ class TestCanUseAsInput:
         can_use = status_service._derive_can_use_as_input(
             doc_type=mock_doc_type_with_acceptance,
             document=document,
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=AcceptanceState.NEEDS_ACCEPTANCE,
         )
         
@@ -483,7 +483,7 @@ class TestCanUseAsInput:
         can_use = status_service._derive_can_use_as_input(
             doc_type=mock_doc_type_with_acceptance,
             document=document,
-            readiness=ReadinessStatus.READY,
+            readiness=ReadinessStatus.PRODUCED,
             acceptance_state=AcceptanceState.ACCEPTED,
         )
         
@@ -622,7 +622,7 @@ class TestStatusCombinationMatrix:
             existing_type_ids={"project_discovery"},
         )
         
-        assert status.readiness == ReadinessStatus.READY
+        assert status.readiness == ReadinessStatus.PRODUCED
         assert status.acceptance_state is None
         assert status.subtitle is None
         assert status.can_use_as_input is True
@@ -641,7 +641,7 @@ class TestStatusCombinationMatrix:
             existing_type_ids={"project_discovery", "architecture_spec"},
         )
         
-        assert status.readiness == ReadinessStatus.READY
+        assert status.readiness == ReadinessStatus.PRODUCED
         assert status.acceptance_state == AcceptanceState.ACCEPTED
         assert status.can_use_as_input is True
 
@@ -686,7 +686,7 @@ class TestStatusCombinationMatrix:
             existing_type_ids=set(),  # Missing project_discovery
         )
         
-        assert status.readiness == ReadinessStatus.BLOCKED
+        assert status.readiness == ReadinessStatus.REQUIREMENTS_NOT_MET
         assert status.acceptance_state is None  # Can't accept non-existent doc
         assert "Missing:" in status.subtitle
         assert status.can_build is False
@@ -700,7 +700,7 @@ class TestStatusCombinationMatrix:
             existing_type_ids=set(),
         )
         
-        assert status.readiness == ReadinessStatus.WAITING
+        assert status.readiness == ReadinessStatus.READY_FOR_PRODUCTION
         assert status.acceptance_state is None
         assert status.can_build is True
 
@@ -714,7 +714,7 @@ class TestStatusCombinationMatrix:
             existing_type_ids={"project_discovery"},  # Deps met
         )
         
-        assert status.readiness == ReadinessStatus.WAITING
+        assert status.readiness == ReadinessStatus.READY_FOR_PRODUCTION
         assert status.acceptance_state is None  # Can't accept what doesn't exist
         assert "will need acceptance" in status.subtitle.lower()
         assert status.can_build is True
@@ -775,12 +775,12 @@ class TestServiceIntegration:
         
         # First doc type - exists, ready
         assert statuses[0].doc_type_id == "project_discovery"
-        assert statuses[0].readiness == ReadinessStatus.READY
+        assert statuses[0].readiness == ReadinessStatus.PRODUCED
         assert statuses[0].can_use_as_input is True
         
         # Second doc type - doesn't exist, waiting (deps met)
         assert statuses[1].doc_type_id == "architecture_spec"
-        assert statuses[1].readiness == ReadinessStatus.WAITING
+        assert statuses[1].readiness == ReadinessStatus.READY_FOR_PRODUCTION
         assert statuses[1].can_build is True
 
     @pytest.mark.asyncio
@@ -858,7 +858,7 @@ class TestDocumentStatusDataclass:
         assert result["doc_type_id"] == "project_discovery"
         assert result["title"] == "Product Discovery"
         assert result["icon"] == "search"
-        assert result["readiness"] == "ready"
+        assert result["readiness"] == "produced"
         assert result["acceptance_state"] is None
         assert result["can_build"] is False
         assert result["can_use_as_input"] is True
@@ -890,7 +890,7 @@ class TestEdgeCases:
             existing_type_ids=set(),
         )
         
-        assert status.readiness == ReadinessStatus.WAITING
+        assert status.readiness == ReadinessStatus.READY_FOR_PRODUCTION
 
     def test_none_display_order(self, status_service):
         """Document type with None display_order defaults to 0."""

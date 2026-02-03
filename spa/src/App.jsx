@@ -7,6 +7,7 @@ import ConciergeIntakeSidecar from './components/ConciergeIntakeSidecar';
 import UserSidecar from './components/UserSidecar';
 import Lobby from './components/Lobby';
 import LearnPage from './components/LearnPage';
+import AdminWorkbench from './components/admin/AdminWorkbench';
 import { useProjects, useTheme, useAuth, AuthProvider } from './hooks';
 import { api } from './api/client';
 
@@ -331,6 +332,11 @@ function AppWithAuth() {
             return <LearnPage />;
         }
         return <Lobby />;
+    }
+
+    // Authenticated routes
+    if (path === '/admin/workbench') {
+        return <AdminWorkbench />;
     }
 
     // Show main app if authenticated

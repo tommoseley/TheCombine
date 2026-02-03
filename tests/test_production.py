@@ -5,7 +5,7 @@ import os
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
 
-from app.config import Settings, load_settings_from_env, clear_settings_cache
+from app.settings import Settings, load_settings_from_env, clear_settings_cache
 from app.health import HealthChecker, HealthStatus, ComponentHealth
 
 

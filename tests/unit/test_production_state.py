@@ -19,16 +19,12 @@ class TestProductionState:
     def test_all_states_defined(self):
         """All canonical states from ADR-043 are present."""
         expected = {
-            "queued",
-            "blocked",
-            "binding",
-            "assembling",
-            "auditing",
-            "remediating",
+            "ready_for_production",
+            "requirements_not_met",
+            "in_production",
             "awaiting_operator",
-            "stabilized",
+            "produced",
             "halted",
-            "escalated",
         }
         actual = {s.value for s in ProductionState}
         assert actual == expected
@@ -52,7 +48,7 @@ class TestStation:
 
     def test_all_stations_defined(self):
         """All canonical stations from ADR-043 are present."""
-        expected = {"bind", "asm", "aud", "rem"}
+        expected = {"pgc", "asm", "qa", "rem", "done"}
         actual = {s.value for s in Station}
         assert actual == expected
 
@@ -77,68 +73,82 @@ class TestInterruptType:
 
 
 class TestMapNodeOutcomeToState:
-    """Tests for legacy outcome to state mapping."""
+    """Tests for outcome to state mapping.
+
+    Note: map_node_outcome_to_state returns tuple (ProductionState, Station).
+    """
 
     def test_pgc_needs_input_maps_to_awaiting_operator(self):
         """PGC needing input = awaiting operator."""
-        result = map_node_outcome_to_state("pgc", "needs_user_input")
-        assert result == ProductionState.AWAITING_OPERATOR
+        state, station = map_node_outcome_to_state("pgc", "needs_user_input")
+        assert state == ProductionState.AWAITING_OPERATOR
+        assert station == Station.PGC
 
-    def test_task_success_maps_to_auditing(self):
-        """Task success = ready for audit."""
-        result = map_node_outcome_to_state("task", "success", is_terminal=False)
-        assert result == ProductionState.AUDITING
+    def test_pgc_success_maps_to_in_production_asm(self):
+        """PGC success = in production at assembly."""
+        state, station = map_node_outcome_to_state("pgc", "success")
+        assert state == ProductionState.IN_PRODUCTION
+        assert station == Station.ASM
 
-    def test_task_success_terminal_maps_to_stabilized(self):
-        """Task success at terminal = stabilized."""
-        result = map_node_outcome_to_state("task", "success", is_terminal=True)
-        assert result == ProductionState.STABILIZED
+    def test_task_success_maps_to_in_production_qa(self):
+        """Task success = in production at QA."""
+        state, station = map_node_outcome_to_state("task", "success", is_terminal=False)
+        assert state == ProductionState.IN_PRODUCTION
+        assert station == Station.QA
 
-    def test_qa_failed_maps_to_remediating(self):
-        """QA failure = remediating."""
-        result = map_node_outcome_to_state("qa", "failed")
-        assert result == ProductionState.REMEDIATING
+    def test_task_success_terminal_maps_to_produced(self):
+        """Task success at terminal = produced."""
+        state, station = map_node_outcome_to_state("task", "success", is_terminal=True)
+        assert state == ProductionState.PRODUCED
+        assert station == Station.DONE
 
-    def test_qa_success_terminal_maps_to_stabilized(self):
-        """QA success at terminal = stabilized."""
-        result = map_node_outcome_to_state("qa", "success", is_terminal=True)
-        assert result == ProductionState.STABILIZED
+    def test_qa_failed_maps_to_in_production_rem(self):
+        """QA failure = in production at remediation."""
+        state, station = map_node_outcome_to_state("qa", "failed")
+        assert state == ProductionState.IN_PRODUCTION
+        assert station == Station.REM
 
-    def test_legacy_pending_maps_to_queued(self):
-        """Legacy 'pending' = queued."""
-        result = map_node_outcome_to_state("unknown", "pending")
-        assert result == ProductionState.QUEUED
+    def test_qa_success_maps_to_produced(self):
+        """QA success = produced."""
+        state, station = map_node_outcome_to_state("qa", "success")
+        assert state == ProductionState.PRODUCED
+        assert station == Station.DONE
+
+    def test_legacy_pending_maps_to_ready_for_production(self):
+        """Legacy 'pending' = ready for production."""
+        state, station = map_node_outcome_to_state("unknown", "pending")
+        assert state == ProductionState.READY_FOR_PRODUCTION
 
     def test_legacy_paused_maps_to_awaiting_operator(self):
         """Legacy 'paused' = awaiting operator."""
-        result = map_node_outcome_to_state("unknown", "paused")
-        assert result == ProductionState.AWAITING_OPERATOR
+        state, station = map_node_outcome_to_state("unknown", "paused")
+        assert state == ProductionState.AWAITING_OPERATOR
 
     def test_legacy_failed_maps_to_halted(self):
         """Legacy 'failed' = halted."""
-        result = map_node_outcome_to_state("unknown", "failed")
-        assert result == ProductionState.HALTED
+        state, station = map_node_outcome_to_state("unknown", "failed")
+        assert state == ProductionState.HALTED
 
 
 class TestMapStationFromNode:
     """Tests for node to station mapping."""
 
-    def test_pgc_maps_to_bind(self):
-        """PGC node = bind station."""
+    def test_pgc_maps_to_pgc(self):
+        """PGC node = PGC station."""
         result = map_station_from_node("pgc", "pgc")
-        assert result == Station.BIND
+        assert result == Station.PGC
 
     def test_task_maps_to_asm(self):
-        """Task node = asm station."""
+        """Task node = ASM station."""
         result = map_station_from_node("task", "generation")
         assert result == Station.ASM
 
     def test_remediation_task_maps_to_rem(self):
-        """Remediation task = rem station."""
+        """Remediation task = REM station."""
         result = map_station_from_node("task", "remediation")
         assert result == Station.REM
 
-    def test_qa_maps_to_aud(self):
-        """QA node = aud station."""
+    def test_qa_maps_to_qa(self):
+        """QA node = QA station."""
         result = map_station_from_node("qa", "qa")
-        assert result == Station.AUD
+        assert result == Station.QA

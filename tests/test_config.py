@@ -4,7 +4,7 @@ import pytest
 import os
 from unittest.mock import patch
 
-from app.config import (
+from app.settings import (
     Settings,
     load_settings_from_env,
     get_settings,

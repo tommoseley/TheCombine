@@ -180,7 +180,7 @@ class TestProjectCreationBehavior:
     
     def test_generate_project_id_prefix(self):
         """Verify project_id prefix is generated correctly from name."""
-        from app.web.routes.public.intake_workflow_routes import _generate_project_id_prefix
+        from app.api.services.project_creation_service import _generate_project_id_prefix
         
         # Test prefix generation
         assert _generate_project_id_prefix("Legacy Inventory Replacement") == "LIR"
@@ -190,9 +190,9 @@ class TestProjectCreationBehavior:
         assert _generate_project_id_prefix("Single") == "SX"  # Single word pads to 2 chars
     
     @pytest.mark.asyncio
-    async def test_generate_unique_project_id_first(self):
+    async def testgenerate_unique_project_id_first(self):
         """Verify first project gets -001 suffix."""
-        from app.web.routes.public.intake_workflow_routes import _generate_unique_project_id
+        from app.api.services.project_creation_service import generate_unique_project_id
         
         db = AsyncMock(spec=AsyncSession)
         mock_result = MagicMock()
@@ -201,13 +201,13 @@ class TestProjectCreationBehavior:
         mock_result.scalars.return_value = mock_scalars
         db.execute.return_value = mock_result
         
-        project_id = await _generate_unique_project_id(db, "Test Project")
+        project_id = await generate_unique_project_id(db, "Test Project")
         assert project_id == "TP-001"
     
     @pytest.mark.asyncio
-    async def test_generate_unique_project_id_increments(self):
+    async def testgenerate_unique_project_id_increments(self):
         """Verify project_id sequence increments correctly."""
-        from app.web.routes.public.intake_workflow_routes import _generate_unique_project_id
+        from app.api.services.project_creation_service import generate_unique_project_id
         
         db = AsyncMock(spec=AsyncSession)
         
@@ -218,62 +218,59 @@ class TestProjectCreationBehavior:
         mock_result.scalars.return_value = mock_scalars
         db.execute.return_value = mock_result
         
-        project_id = await _generate_unique_project_id(db, "Test Project")
+        project_id = await generate_unique_project_id(db, "Test Project")
         assert project_id == "TP-003"  # Next in sequence
     
     @pytest.mark.asyncio
     async def test_create_project_from_intake_sets_ownership(self):
-        """Verify _create_project_from_intake sets owner_id via ORM."""
-        from app.web.routes.public.intake_workflow_routes import _create_project_from_intake
+        """Verify create_project_from_intake sets owner_id via ORM."""
+        from app.api.services.project_creation_service import create_project_from_intake
         from app.api.models.project import Project
-        
+
         # Arrange
         db = AsyncMock(spec=AsyncSession)
         user_id = str(uuid4())
         user_uuid = UUID(user_id)
-        
-        # Mock workflow state with intake document
-        mock_state = MagicMock()
-        mock_state.execution_id = "exec-123"
-        mock_state.context_state = {
-            "document_concierge_intake_document": {
-                "project_name": "Test Project",
-                "summary": {"description": "A test project"}
-            }
+
+        # Intake document (new API)
+        intake_document = {
+            "project_name": "Test Project",
+            "summary": {"description": "A test project"}
         }
-        
+        execution_id = "exec-123"
+
         # Mock the unique ID generation query (uses scalars().all())
         mock_id_result = MagicMock()
         mock_scalars = MagicMock()
         mock_scalars.all.return_value = []  # No existing projects with prefix
         mock_id_result.scalars.return_value = mock_scalars
         db.execute.return_value = mock_id_result
-        
+
         # Capture all objects passed to db.add()
         added_objects = []
         def capture_add(obj):
             added_objects.append(obj)
         db.add.side_effect = capture_add
-        
+
         # Mock refresh to update project_id
         async def mock_refresh(obj):
             obj.project_id = "TP-001"
         db.refresh = mock_refresh
-        
+
         # Act
-        result = await _create_project_from_intake(db, mock_state, user_id)
-        
+        result = await create_project_from_intake(db, intake_document, execution_id, user_id)
+
         # Assert
         assert result is not None
         assert result.project_id == "TP-001"
-        
+
         # Verify db.add was called with Project and Document
         assert db.add.call_count == 2  # Project + Document
         assert len(added_objects) == 2
         # First object should be Project
         added_project = added_objects[0]
         assert isinstance(added_project, Project)
-        
+
         # Verify ownership fields are set correctly
         assert added_project.owner_id == user_uuid, "owner_id must be set to user UUID"
         assert added_project.organization_id == user_uuid, "organization_id must be set to user UUID"
