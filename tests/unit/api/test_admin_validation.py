@@ -72,9 +72,11 @@ class TestValidationRules:
         response = client.get("/api/v1/admin/validation/rules")
         data = response.json()
 
-        # Verify tier definitions
+        # Verify tier definitions with order
         assert "commit" in data["tiers"]
         assert "activation" in data["tiers"]
+        assert "order" in data["tiers"]["commit"]
+        assert "order" in data["tiers"]["activation"]
 
         # Commit-time rules (repository integrity)
         commit_rules = [r for r in data["rules"] if r["tier"] == "commit"]
@@ -82,14 +84,35 @@ class TestValidationRules:
         assert "MANIFEST_MISSING" in commit_rule_ids
         assert "ARTIFACT_FILE_MISSING" in commit_rule_ids
         assert "ROLE_NOT_FOUND" in commit_rule_ids
+        # PGC rules are Tier 1 (manifest-decidable)
+        assert "PGC_REQUIRED" in commit_rule_ids
+        assert "PGC_FILE_MISSING" in commit_rule_ids
 
         # Activation-time rules (runtime safety)
         activation_rules = [r for r in data["rules"] if r["tier"] == "activation"]
         activation_rule_ids = [r["rule_id"] for r in activation_rules]
         assert "EXTRACTED_DOC_FORBIDDEN" in activation_rule_ids
-        assert "PGC_REQUIRED" in activation_rule_ids
         assert "REQUIRED_INPUT_NOT_ACTIVE" in activation_rule_ids
         assert "BREAKING_SCHEMA_CHANGE" in activation_rule_ids
+
+    def test_rules_applies_to_field(self, client):
+        """Should have applies_to field for UX filtering."""
+        response = client.get("/api/v1/admin/validation/rules")
+        data = response.json()
+
+        # Each rule should have applies_to
+        for rule in data["rules"]:
+            assert "applies_to" in rule
+            assert isinstance(rule["applies_to"], list)
+            assert len(rule["applies_to"]) > 0
+
+        # Verify specific applies_to values
+        rules_by_id = {r["rule_id"]: r for r in data["rules"]}
+        assert "package" in rules_by_id["MANIFEST_MISSING"]["applies_to"]
+        assert "role_ref" in rules_by_id["ROLE_NOT_FOUND"]["applies_to"]
+        assert "template_ref" in rules_by_id["TEMPLATE_NOT_FOUND"]["applies_to"]
+        assert "activation" in rules_by_id["REQUIRED_INPUT_NOT_ACTIVE"]["applies_to"]
+        assert "schema_change" in rules_by_id["BREAKING_SCHEMA_CHANGE"]["applies_to"]
 
 
 class TestValidationReport:
