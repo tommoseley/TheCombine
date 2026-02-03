@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/active_releases.schema.json",
+  "title": "Active Releases Pointer",
+  "description": "Schema for _active/active_releases.json",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "_comment": {
+      "type": "string",
+      "description": "Human-readable comment"
+    },
+    "document_types": {
+      "type": "object",
+      "description": "Active versions for each document type",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+        "description": "Semantic version of active release"
+      }
+    },
+    "roles": {
+      "type": "object",
+      "description": "Active versions for shared role prompts",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      }
+    },
+    "templates": {
+      "type": "object",
+      "description": "Active versions for shared templates",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      }
+    },
+    "workflows": {
+      "type": "object",
+      "description": "Active versions for workflow definitions",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      }
+    }
+  },
+  "required": ["document_types"],
+  "additionalProperties": false
+}

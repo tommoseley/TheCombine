@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/package.schema.json",
+  "title": "Document Type Package Manifest",
+  "description": "Schema for package.yaml manifest files in Document Type Packages",
+  "type": "object",
+  "required": [
+    "doc_type_id",
+    "display_name",
+    "version",
+    "authority_level",
+    "creation_mode",
+    "scope"
+  ],
+  "properties": {
+    "doc_type_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique identifier for the document type (snake_case)"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name for display"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
+      "description": "Semantic version (e.g., 1.4.0, 2.0.0-alpha.1)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of what this document type is for"
+    },
+    "authority_level": {
+      "type": "string",
+      "enum": ["descriptive", "prescriptive", "constructive", "elaborative"],
+      "description": "Document authority level per ADR-044"
+    },
+    "creation_mode": {
+      "type": "string",
+      "enum": ["llm_generated", "constructed", "extracted"],
+      "description": "How the document is created"
+    },
+    "production_mode": {
+      "type": "string",
+      "enum": ["generate", "authorize", "construct"],
+      "description": "Production semantics for workflow steps"
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["project", "epic", "feature"],
+      "description": "Document scope level"
+    },
+    "required_inputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Document types that must exist before this one can be built"
+    },
+    "optional_inputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Document types that may optionally inform this one"
+    },
+    "creates_children": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Document types created as children when this document is created"
+    },
+    "parent_doc_type": {
+      "type": "string",
+      "description": "For constructed docs, the parent document type that creates this one"
+    },
+    "role_prompt_ref": {
+      "type": "string",
+      "pattern": "^prompt:role:[a-z_]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Reference to shared role prompt"
+    },
+    "template_ref": {
+      "type": "string",
+      "pattern": "^prompt:template:[a-z_]+:[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Reference to shared assembly template"
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Paths to packaged artifacts (relative to release directory)",
+      "properties": {
+        "task_prompt": { "type": "string" },
+        "qa_prompt": { "type": "string" },
+        "pgc_context": { "type": "string" },
+        "questions_prompt": { "type": "string" },
+        "schema": { "type": "string" },
+        "full_docdef": { "type": "string" },
+        "sidecar_docdef": { "type": "string" },
+        "gating_rules": { "type": "string" },
+        "workflow_fragment": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "tests": {
+      "type": "object",
+      "description": "Paths to test artifacts",
+      "properties": {
+        "fixtures": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "golden_traces": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "gating_rules": {
+      "type": "object",
+      "description": "Lifecycle and gating configuration",
+      "properties": {
+        "lifecycle_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "design_status": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "acceptance_required": { "type": "boolean" },
+        "accepted_by": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ui": {
+      "type": "object",
+      "description": "UI display configuration",
+      "properties": {
+        "icon": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": ["intake", "architecture", "planning", "implementation"]
+        },
+        "display_order": { "type": "integer" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "creation_mode": { "const": "llm_generated" }
+        }
+      },
+      "then": {
+        "required": ["role_prompt_ref", "production_mode"],
+        "properties": {
+          "artifacts": {
+            "required": ["task_prompt", "schema"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "creation_mode": { "const": "constructed" }
+        }
+      },
+      "then": {
+        "required": ["parent_doc_type"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authority_level": { "enum": ["descriptive", "prescriptive"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "artifacts": {
+            "required": ["pgc_context"]
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

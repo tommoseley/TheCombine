@@ -1,0 +1,47 @@
+# Document Type Package Manifest
+# Schema: ../../../schemas/registry/package.schema.json
+
+doc_type_id: project_discovery
+display_name: Project Discovery
+version: 1.4.0
+
+description: >
+  Early architectural discovery performed before PM decomposition.
+  Surfaces critical questions, identifies constraints and risks,
+  proposes candidate directions, and establishes guardrails.
+
+# Classification (per ADR-044)
+authority_level: descriptive
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+
+# Dependencies
+required_inputs: []  # First document in workflow - no dependencies
+optional_inputs: []
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:technical_architect:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+
+# Packaged artifacts (relative paths)
+artifacts:
+  task_prompt: prompts/task.prompt.txt
+  qa_prompt: prompts/qa.prompt.txt
+  pgc_context: prompts/pgc_context.prompt.txt
+  # questions_prompt: prompts/questions.prompt.txt  # TODO: migrate if exists
+  schema: schemas/output.schema.json
+  # full_docdef: docdefs/full.docdef.json  # TODO: create
+  # sidecar_docdef: docdefs/sidecar.docdef.json  # TODO: create
+  # gating_rules: rules/gating.rules.json  # Not applicable for descriptive docs
+
+# Test artifacts
+tests:
+  fixtures: []
+  golden_traces: []
+
+# UI configuration
+ui:
+  icon: search
+  category: architecture
+  display_order: 10

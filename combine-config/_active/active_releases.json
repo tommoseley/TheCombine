@@ -1,0 +1,14 @@
+{
+  "$schema": "../schemas/registry/active_releases.schema.json",
+  "_comment": "Active release pointers. Change this file to activate/rollback releases.",
+  "document_types": {
+    "project_discovery": "1.4.0"
+  },
+  "roles": {
+    "technical_architect": "1.0.0"
+  },
+  "templates": {
+    "document_generator": "1.0.0"
+  },
+  "workflows": {}
+}
