@@ -56,7 +56,7 @@ function CollapsibleGroup({ title, defaultOpen = true, children }) {
                         display: 'inline-block',
                     }}
                 >
-                    ▾
+                    &#9662;
                 </span>
             </button>
             {open && children}
@@ -65,9 +65,9 @@ function CollapsibleGroup({ title, defaultOpen = true, children }) {
 }
 
 /**
- * Collapsible sub-section within a group.
+ * Collapsible sub-section within a group. Supports optional colored dot indicator.
  */
-function SubSection({ title, action, defaultOpen = true, children }) {
+function SubSection({ title, action, defaultOpen = true, dotColor, children }) {
     const [open, setOpen] = usePersistedOpen(`sub:${title}`, defaultOpen);
 
     return (
@@ -99,11 +99,13 @@ function SubSection({ title, action, defaultOpen = true, children }) {
                             fontSize: 9,
                         }}
                     >
-                        ▾
+                        &#9662;
                     </span>
+                    {dotColor && (
+                        <span style={{ color: dotColor, fontSize: 8 }}>&#9679;</span>
+                    )}
                     <span
-                        className="font-medium"
-                        style={{ color: 'var(--text-muted)', fontSize: 11 }}
+                        style={{ color: 'var(--text-muted)', fontSize: 10, fontWeight: 500 }}
                     >
                         {title}
                     </span>
@@ -116,9 +118,9 @@ function SubSection({ title, action, defaultOpen = true, children }) {
 }
 
 /**
- * Reusable item button for the left rail.
+ * Reusable item button for the left rail. Supports optional right-aligned badge.
  */
-function ItemButton({ selected, onClick, label, sublabel }) {
+function ItemButton({ selected, onClick, label, sublabel, badge }) {
     return (
         <button
             onClick={onClick}
@@ -131,13 +133,81 @@ function ItemButton({ selected, onClick, label, sublabel }) {
                     : '2px solid transparent',
             }}
         >
-            <div className="font-medium truncate">{label}</div>
+            <div className="flex items-center justify-between">
+                <div className="font-medium truncate">{label}</div>
+                {badge && (
+                    <span
+                        style={{
+                            fontSize: 9,
+                            fontFamily: 'monospace',
+                            color: 'var(--text-muted)',
+                            flexShrink: 0,
+                            marginLeft: 8,
+                        }}
+                    >
+                        {badge}
+                    </span>
+                )}
+            </div>
             {sublabel && (
                 <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                     {sublabel}
                 </div>
             )}
         </button>
+    );
+}
+
+/**
+ * Collapsible Building Blocks item with colored dot and count badge.
+ * Header shows dot, label, and count. Expands to show child items.
+ */
+function BuildingBlockItem({ label, count, dotColor, active, defaultOpen = false, children }) {
+    const [open, setOpen] = usePersistedOpen(`bb:${label}`, defaultOpen);
+
+    return (
+        <div>
+            <button
+                onClick={() => setOpen(!open)}
+                className="w-full px-4 py-2 flex items-center justify-between text-sm hover:opacity-80 transition-opacity"
+                style={{
+                    background: active ? 'var(--bg-selected)' : 'transparent',
+                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    borderLeft: active
+                        ? '2px solid var(--action-primary)'
+                        : '2px solid transparent',
+                    cursor: 'pointer',
+                }}
+            >
+                <span className="flex items-center gap-2">
+                    <span style={{ color: dotColor, fontSize: 10 }}>&#9679;</span>
+                    <span className="font-medium">{label}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                    <span
+                        style={{
+                            fontSize: 9,
+                            fontFamily: 'monospace',
+                            color: 'var(--text-muted)',
+                        }}
+                    >
+                        {count}
+                    </span>
+                    <span
+                        style={{
+                            color: 'var(--text-muted)',
+                            transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+                            transition: 'transform 150ms ease',
+                            display: 'inline-block',
+                            fontSize: 9,
+                        }}
+                    >
+                        &#9662;
+                    </span>
+                </span>
+            </button>
+            {open && children}
+        </div>
     );
 }
 
@@ -163,21 +233,20 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
 }
 
 /**
- * Left sidebar for the Admin Workbench, organized by abstraction level per ADR-045.
+ * Left sidebar for the Admin Workbench, organized by composition hierarchy per ADR-045.
  *
  * Structure:
  *   Production Workflows
- *     > Reference Workflows (curated POWs, pow_class=reference)
- *     > Template Workflows (derived POWs, pow_class=template)
- *     > Instance Workflows (runtime POWs, pow_class=instance, hidden when empty)
- *     > Document Workflows (DCWs - graph-based document production)
+ *     > Project Orchestration (POWs) - flat list with pow_class badge
+ *     > Document Creation (DCWs) - flat alphabetical list with version badge
  *   Building Blocks
- *     > Roles
- *     > Interactions (derived from document types)
- *     > Schemas (derived from document types)
- *     > Templates
+ *     > Roles (count badge)
+ *     > Interactions (count badge)
+ *     > Schemas (count badge)
+ *     > Templates (count badge)
  *   Governance
  *     > Active Releases
+ *     > Git Status
  */
 export default function DocTypeBrowser({
     documentTypes = [],
@@ -200,6 +269,7 @@ export default function DocTypeBrowser({
     onCreateWorkflow,
     onSelectTask,
     onSelectSchema,
+    workspaceState = null,
 }) {
     // Create workflow state: null | 'choose' | 'from_reference' | 'blank'
     const [createMode, setCreateMode] = useState(null);
@@ -207,24 +277,27 @@ export default function DocTypeBrowser({
     const [newWorkflowId, setNewWorkflowId] = useState('');
     const [creating, setCreating] = useState(false);
 
+    // Sort doc types alphabetically for DCW section
+    const sortedDocTypes = [...documentTypes].sort((a, b) =>
+        (a.display_name || '').localeCompare(b.display_name || '')
+    );
 
-    // Group doc types by category for Document Workflows section
-    const grouped = documentTypes.reduce((acc, dt) => {
-        const category = dt.category || 'other';
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(dt);
-        return acc;
-    }, {});
+    // Reference workflows needed for create-from-reference flow
+    const referenceWorkflows = workflows.filter(wf => (wf.pow_class || 'reference') === 'reference');
 
-    const categoryOrder = ['intake', 'architecture', 'planning', 'other'];
-    const sortedCategories = Object.keys(grouped).sort((a, b) => {
-        const aIdx = categoryOrder.indexOf(a);
-        const bIdx = categoryOrder.indexOf(b);
-        if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
-        if (aIdx === -1) return 1;
-        if (bIdx === -1) return -1;
-        return aIdx - bIdx;
-    });
+    // POW class badge abbreviation
+    const powClassBadge = (wf) => {
+        const cls = wf.pow_class || 'reference';
+        return cls === 'reference' ? 'ref' : cls === 'template' ? 'tpl' : 'inst';
+    };
+
+    // Count active releases for governance section
+    const activeReleaseCount = documentTypes.filter(dt => dt.active_version).length
+        + workflows.filter(wf => wf.active_version).length;
+
+    // Dirty file info for governance section
+    const dirtyCount = workspaceState?.modified_artifacts?.length ?? 0;
+    const isDirty = workspaceState?.is_dirty ?? false;
 
     const resetCreateForm = () => {
         setCreateMode(null);
@@ -254,38 +327,6 @@ export default function DocTypeBrowser({
         }
     };
 
-    // Derive tasks and schemas from document types for Building Blocks
-    const tasks = documentTypes.map(dt => ({
-        doc_type_id: dt.doc_type_id,
-        display_name: dt.display_name,
-        active_version: dt.active_version,
-    }));
-
-    const schemas = documentTypes.map(dt => ({
-        doc_type_id: dt.doc_type_id,
-        display_name: dt.display_name,
-        active_version: dt.active_version,
-    }));
-
-    // Group workflows by pow_class
-    const referenceWorkflows = workflows.filter(wf => (wf.pow_class || 'reference') === 'reference');
-    const templateWorkflows = workflows.filter(wf => wf.pow_class === 'template');
-    const instanceWorkflows = workflows.filter(wf => wf.pow_class === 'instance');
-
-    // Count active releases for governance section
-    const activeReleaseCount = documentTypes.filter(dt => dt.active_version).length
-        + workflows.filter(wf => wf.active_version).length;
-
-    /** Format sublabel for a workflow item based on its pow_class */
-    const workflowSublabel = (wf) => {
-        const version = `v${wf.active_version}`;
-        const steps = wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : '';
-        if (wf.pow_class === 'template' && wf.derived_from_label) {
-            return `${version}${steps} \u00b7 from ${wf.derived_from_label}`;
-        }
-        return `${version}${steps}`;
-    };
-
     return (
         <div
             className="w-60 flex flex-col border-r h-full"
@@ -299,31 +340,10 @@ export default function DocTypeBrowser({
                     PRODUCTION WORKFLOWS
                     ============================================================ */}
                 <CollapsibleGroup title="Production Workflows" defaultOpen={true}>
-                    {/* --- Reference Workflows --- */}
-                    <SubSection title="Reference Workflows">
-                        <SectionState
-                            loading={workflowsLoading}
-                            empty={!workflowsLoading && referenceWorkflows.length === 0}
-                            emptyMessage="No reference workflows"
-                        />
-                        {!workflowsLoading && referenceWorkflows.length > 0 && (
-                            <div className="py-1">
-                                {referenceWorkflows.map(wf => (
-                                    <ItemButton
-                                        key={wf.workflow_id}
-                                        selected={selectedWorkflow?.workflow_id === wf.workflow_id}
-                                        onClick={() => onSelectWorkflow?.(wf)}
-                                        label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                        sublabel={workflowSublabel(wf)}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </SubSection>
-
-                    {/* --- Template Workflows --- */}
+                    {/* --- Project Orchestration (POWs) --- */}
                     <SubSection
-                        title="Template Workflows"
+                        title="Project Orchestration (POWs)"
+                        dotColor="var(--dot-green)"
                         action={
                             onCreateWorkflow && (
                                 <button
@@ -336,7 +356,7 @@ export default function DocTypeBrowser({
                                         cursor: 'pointer',
                                         fontWeight: 600,
                                     }}
-                                    title="Create new template workflow"
+                                    title="Create new workflow"
                                 >
                                     + New
                                 </button>
@@ -506,70 +526,44 @@ export default function DocTypeBrowser({
 
                         <SectionState
                             loading={workflowsLoading}
-                            empty={!workflowsLoading && templateWorkflows.length === 0}
-                            emptyMessage="No template workflows"
+                            empty={!workflowsLoading && workflows.length === 0}
+                            emptyMessage="No workflows"
                         />
-                        {!workflowsLoading && templateWorkflows.length > 0 && (
+                        {!workflowsLoading && workflows.length > 0 && (
                             <div className="py-1">
-                                {templateWorkflows.map(wf => (
+                                {workflows.map(wf => (
                                     <ItemButton
                                         key={wf.workflow_id}
                                         selected={selectedWorkflow?.workflow_id === wf.workflow_id}
                                         onClick={() => onSelectWorkflow?.(wf)}
                                         label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                        sublabel={workflowSublabel(wf)}
+                                        sublabel={`v${wf.active_version}`}
+                                        badge={powClassBadge(wf)}
                                     />
                                 ))}
                             </div>
                         )}
                     </SubSection>
 
-                    {/* --- Instance Workflows (only shown when non-empty) --- */}
-                    {instanceWorkflows.length > 0 && (
-                        <SubSection title="Instance Workflows">
-                            <div className="py-1">
-                                {instanceWorkflows.map(wf => (
-                                    <ItemButton
-                                        key={wf.workflow_id}
-                                        selected={selectedWorkflow?.workflow_id === wf.workflow_id}
-                                        onClick={() => onSelectWorkflow?.(wf)}
-                                        label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                        sublabel={workflowSublabel(wf)}
-                                    />
-                                ))}
-                            </div>
-                        </SubSection>
-                    )}
-
-                    {/* --- Document Workflows (DCWs) --- */}
-                    <SubSection title="Document Workflows">
+                    {/* --- Document Creation (DCWs) --- */}
+                    <SubSection title="Document Creation (DCWs)" dotColor="var(--dot-blue)">
                         <SectionState
                             loading={loading}
                             empty={!loading && documentTypes.length === 0}
                             emptyMessage="No document workflows"
                         />
-                        {!loading && documentTypes.length > 0 && (
-                            <>
-                                {sortedCategories.map(category => (
-                                    <div key={category} className="py-1">
-                                        <div
-                                            className="px-4 py-1 text-xs font-medium uppercase tracking-wider"
-                                            style={{ color: 'var(--text-muted)' }}
-                                        >
-                                            {category}
-                                        </div>
-                                        {grouped[category].map(dt => (
-                                            <ItemButton
-                                                key={dt.doc_type_id}
-                                                selected={docTypeSource === 'docworkflow' && selectedDocType?.doc_type_id === dt.doc_type_id}
-                                                onClick={() => onSelectDocType?.(dt)}
-                                                label={dt.display_name}
-                                                sublabel={`v${dt.active_version}${dt.authority_level ? ` \u00b7 ${dt.authority_level}` : ''}`}
-                                            />
-                                        ))}
-                                    </div>
+                        {!loading && sortedDocTypes.length > 0 && (
+                            <div className="py-1">
+                                {sortedDocTypes.map(dt => (
+                                    <ItemButton
+                                        key={dt.doc_type_id}
+                                        selected={docTypeSource === 'docworkflow' && selectedDocType?.doc_type_id === dt.doc_type_id}
+                                        onClick={() => onSelectDocType?.(dt)}
+                                        label={dt.display_name}
+                                        badge={`v${dt.active_version}`}
+                                    />
                                 ))}
-                            </>
+                            </div>
                         )}
                     </SubSection>
                 </CollapsibleGroup>
@@ -578,8 +572,12 @@ export default function DocTypeBrowser({
                     BUILDING BLOCKS
                     ============================================================ */}
                 <CollapsibleGroup title="Building Blocks" defaultOpen={true}>
-                    {/* --- Roles --- */}
-                    <SubSection title="Roles">
+                    <BuildingBlockItem
+                        label="Roles"
+                        count={roles.length}
+                        dotColor="var(--dot-purple)"
+                        active={!!selectedRole}
+                    >
                         <SectionState
                             loading={rolesLoading}
                             empty={!rolesLoading && roles.length === 0}
@@ -598,54 +596,63 @@ export default function DocTypeBrowser({
                                 ))}
                             </div>
                         )}
-                    </SubSection>
-
-                    {/* --- Interactions (derived from document types) --- */}
-                    <SubSection title="Interactions">
+                    </BuildingBlockItem>
+                    <BuildingBlockItem
+                        label="Interactions"
+                        count={documentTypes.length}
+                        dotColor="var(--action-primary)"
+                        active={docTypeSource === 'task'}
+                    >
                         <SectionState
                             loading={loading}
-                            empty={!loading && tasks.length === 0}
+                            empty={!loading && documentTypes.length === 0}
                             emptyMessage="No interactions"
                         />
-                        {!loading && tasks.length > 0 && (
+                        {!loading && documentTypes.length > 0 && (
                             <div className="py-1">
-                                {tasks.map(task => (
+                                {documentTypes.map(dt => (
                                     <ItemButton
-                                        key={`task-${task.doc_type_id}`}
-                                        selected={docTypeSource === 'task' && selectedDocType?.doc_type_id === task.doc_type_id}
-                                        onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: task.doc_type_id, display_name: task.display_name, active_version: task.active_version })}
-                                        label={task.display_name}
-                                        sublabel={`from ${task.doc_type_id}`}
+                                        key={`task-${dt.doc_type_id}`}
+                                        selected={docTypeSource === 'task' && selectedDocType?.doc_type_id === dt.doc_type_id}
+                                        onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: dt.doc_type_id, display_name: dt.display_name, active_version: dt.active_version })}
+                                        label={dt.display_name}
+                                        sublabel={`from ${dt.doc_type_id}`}
                                     />
                                 ))}
                             </div>
                         )}
-                    </SubSection>
-
-                    {/* --- Schemas (derived from document types, read-only for MVP) --- */}
-                    <SubSection title="Schemas">
+                    </BuildingBlockItem>
+                    <BuildingBlockItem
+                        label="Schemas"
+                        count={documentTypes.length}
+                        dotColor="var(--dot-blue)"
+                        active={docTypeSource === 'schema'}
+                    >
                         <SectionState
                             loading={loading}
-                            empty={!loading && schemas.length === 0}
+                            empty={!loading && documentTypes.length === 0}
                             emptyMessage="No schemas"
                         />
-                        {!loading && schemas.length > 0 && (
+                        {!loading && documentTypes.length > 0 && (
                             <div className="py-1">
-                                {schemas.map(schema => (
+                                {documentTypes.map(dt => (
                                     <ItemButton
-                                        key={`schema-${schema.doc_type_id}`}
-                                        selected={docTypeSource === 'schema' && selectedDocType?.doc_type_id === schema.doc_type_id}
-                                        onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: schema.doc_type_id, display_name: schema.display_name, active_version: schema.active_version })}
-                                        label={schema.display_name}
-                                        sublabel={`from ${schema.doc_type_id}`}
+                                        key={`schema-${dt.doc_type_id}`}
+                                        selected={docTypeSource === 'schema' && selectedDocType?.doc_type_id === dt.doc_type_id}
+                                        onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: dt.doc_type_id, display_name: dt.display_name, active_version: dt.active_version })}
+                                        label={dt.display_name}
+                                        sublabel={`from ${dt.doc_type_id}`}
                                     />
                                 ))}
                             </div>
                         )}
-                    </SubSection>
-
-                    {/* --- Templates --- */}
-                    <SubSection title="Templates">
+                    </BuildingBlockItem>
+                    <BuildingBlockItem
+                        label="Templates"
+                        count={templates.length}
+                        dotColor="var(--dot-green)"
+                        active={!!selectedTemplate}
+                    >
                         <SectionState
                             loading={templatesLoading}
                             empty={!templatesLoading && templates.length === 0}
@@ -664,7 +671,7 @@ export default function DocTypeBrowser({
                                 ))}
                             </div>
                         )}
-                    </SubSection>
+                    </BuildingBlockItem>
                 </CollapsibleGroup>
 
                 {/* ============================================================
@@ -679,6 +686,24 @@ export default function DocTypeBrowser({
                             </div>
                         </div>
                     </div>
+                    {workspaceState && (
+                        <div className="px-4 py-2 flex items-center justify-between">
+                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                Git Status
+                            </span>
+                            {isDirty && (
+                                <span
+                                    style={{
+                                        fontSize: 9,
+                                        fontFamily: 'monospace',
+                                        color: 'var(--action-primary)',
+                                    }}
+                                >
+                                    {dirtyCount} dirty
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </CollapsibleGroup>
             </div>
         </div>

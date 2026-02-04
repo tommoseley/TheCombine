@@ -3,12 +3,39 @@ import PromptTab from './PromptTab';
 import ResolvedPreview from './ResolvedPreview';
 import PackageEditor from './PackageEditor';
 import WorkflowEditorContent from './workflow/WorkflowEditorContent';
+import TabDropdown from './TabDropdown';
 import { usePromptEditor } from '../../hooks/usePromptEditor';
 import { adminApi } from '../../api/adminClient';
 
 /**
+ * Static tab button for the grouped tab bar (Package, Workflow, Schema).
+ */
+function StaticTab({ label, isSelected, onClick }) {
+    return (
+        <button
+            onClick={onClick}
+            className="px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+                color: isSelected
+                    ? 'var(--text-primary)'
+                    : 'var(--text-muted)',
+                background: isSelected
+                    ? 'var(--bg-selected, rgba(255,255,255,0.1))'
+                    : 'transparent',
+                borderBottom: isSelected
+                    ? '2px solid var(--action-primary)'
+                    : '2px solid transparent',
+                marginBottom: '-1px',
+            }}
+        >
+            {label}
+        </button>
+    );
+}
+
+/**
  * Center panel - tabbed editor for document type prompts.
- * Shows tabs for Role (view-only), Task, QA/Reflection, PGC artifacts.
+ * Shows grouped tabs: Package, Workflow, Generation, QA, PGC, Schema.
  */
 export default function PromptEditor({
     workspaceId,
@@ -17,6 +44,7 @@ export default function PromptEditor({
     roles = [],
     onArtifactSave,
     initialTab = null,
+    docTypeSource = null,
 }) {
     // Which artifact type tab is selected
     const [selectedKind, setSelectedKind] = useState(initialTab || 'task_prompt');
@@ -299,6 +327,10 @@ export default function PromptEditor({
         );
     }
 
+    // When opened from Building Blocks (task or schema), show focused view without tab bar
+    const isFocusedView = docTypeSource === 'task' || docTypeSource === 'schema';
+    const focusedLabel = docTypeSource === 'task' ? 'Interaction' : docTypeSource === 'schema' ? 'Schema' : null;
+
     return (
         <div className="flex-1 flex flex-col h-full" style={{ background: 'var(--bg-canvas)' }}>
             {/* Header with doc type info */}
@@ -318,57 +350,116 @@ export default function PromptEditor({
                             className="text-xs mt-0.5"
                             style={{ color: 'var(--text-muted)' }}
                         >
-                            v{docType.version || docType.active_version}
-                            {docType.authority_level && ` · ${docType.authority_level}`}
+                            {isFocusedView
+                                ? focusedLabel
+                                : <>v{docType.version || docType.active_version}{docType.authority_level && ` · ${docType.authority_level}`}</>
+                            }
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Artifact kind tabs */}
-            <div
+            {/* Artifact kind tabs - grouped by Interaction Pass (hidden in focused view) */}
+            {!isFocusedView && <div
                 className="flex border-b"
                 style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel)' }}
             >
-                {promptKinds.map((kind) => {
-                    const isSelected = selectedKind === kind.id;
-                    return (
-                        <button
-                            key={kind.id}
-                            onClick={() => {
-                                setSelectedKind(kind.id);
-                                setViewMode('source');
-                            }}
-                            className="px-4 py-2 text-sm font-medium transition-colors"
-                            style={{
-                                color: isSelected
-                                    ? 'var(--text-primary)'
-                                    : 'var(--text-muted)',
-                                background: isSelected
-                                    ? 'var(--bg-selected, rgba(255,255,255,0.1))'
-                                    : 'transparent',
-                                borderBottom: isSelected
-                                    ? '2px solid var(--action-primary)'
-                                    : '2px solid transparent',
-                                marginBottom: '-1px', // Overlap border
-                            }}
-                        >
-                            {kind.label}
-                            {kind.viewOnly && (
-                                <span
-                                    className="ml-1 text-xs font-normal"
-                                    style={{ color: 'var(--text-muted)' }}
-                                >
-                                    (view)
-                                </span>
-                            )}
-                        </button>
-                    );
-                })}
-            </div>
+                {/* Package - static tab */}
+                {promptKinds.find(k => k.id === 'package') && (
+                    <StaticTab
+                        label="Package"
+                        isSelected={selectedKind === 'package'}
+                        onClick={() => { setSelectedKind('package'); setViewMode('source'); }}
+                    />
+                )}
 
-            {/* View mode tabs (Source / Resolved) - only for prompt tabs with content */}
-            {showViewModeToggle && (
+                {/* Workflow - static tab */}
+                {promptKinds.find(k => k.id === 'workflow') && (
+                    <StaticTab
+                        label="Workflow"
+                        isSelected={selectedKind === 'workflow'}
+                        onClick={() => { setSelectedKind('workflow'); setViewMode('source'); }}
+                    />
+                )}
+
+                {/* Generation - dropdown */}
+                {(() => {
+                    const genIds = ['role_prompt', 'task_prompt', 'template'];
+                    const genItems = promptKinds
+                        .filter(k => genIds.includes(k.id))
+                        .map(k => ({
+                            id: k.id,
+                            label: k.id === 'role_prompt' ? 'Role' : k.id === 'task_prompt' ? 'Task' : 'Template',
+                            viewOnly: k.viewOnly,
+                        }));
+                    if (genItems.length === 0) return null;
+                    return (
+                        <TabDropdown
+                            label="Generation"
+                            items={genItems}
+                            selectedId={genIds.includes(selectedKind) ? selectedKind : null}
+                            onSelect={(id) => { setSelectedKind(id); setViewMode('source'); }}
+                            isGroupActive={genIds.includes(selectedKind)}
+                        />
+                    );
+                })()}
+
+                {/* QA - dropdown */}
+                {(() => {
+                    const qaIds = ['qa_prompt', 'qa_template'];
+                    const qaItems = promptKinds
+                        .filter(k => qaIds.includes(k.id))
+                        .map(k => ({
+                            id: k.id,
+                            label: k.id === 'qa_prompt' ? 'Prompt' : 'Template',
+                            viewOnly: k.viewOnly,
+                        }));
+                    if (qaItems.length === 0) return null;
+                    return (
+                        <TabDropdown
+                            label="QA"
+                            items={qaItems}
+                            selectedId={qaIds.includes(selectedKind) ? selectedKind : null}
+                            onSelect={(id) => { setSelectedKind(id); setViewMode('source'); }}
+                            isGroupActive={qaIds.includes(selectedKind)}
+                        />
+                    );
+                })()}
+
+                {/* PGC - dropdown */}
+                {(() => {
+                    const pgcIds = ['pgc_context', 'pgc_template'];
+                    const pgcItems = promptKinds
+                        .filter(k => pgcIds.includes(k.id))
+                        .map(k => ({
+                            id: k.id,
+                            label: k.id === 'pgc_context' ? 'Context' : 'Template',
+                            viewOnly: k.viewOnly,
+                        }));
+                    if (pgcItems.length === 0) return null;
+                    return (
+                        <TabDropdown
+                            label="PGC"
+                            items={pgcItems}
+                            selectedId={pgcIds.includes(selectedKind) ? selectedKind : null}
+                            onSelect={(id) => { setSelectedKind(id); setViewMode('source'); }}
+                            isGroupActive={pgcIds.includes(selectedKind)}
+                        />
+                    );
+                })()}
+
+                {/* Schema - static tab */}
+                {promptKinds.find(k => k.id === 'schema') && (
+                    <StaticTab
+                        label="Schema"
+                        isSelected={selectedKind === 'schema'}
+                        onClick={() => { setSelectedKind('schema'); setViewMode('source'); }}
+                    />
+                )}
+            </div>}
+
+            {/* View mode tabs (Source / Resolved) - only for prompt tabs with content, hidden in focused view */}
+            {!isFocusedView && showViewModeToggle && (
                 <div
                     className="flex items-center justify-between px-3 py-2 border-b"
                     style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel-alt, var(--bg-panel))' }}

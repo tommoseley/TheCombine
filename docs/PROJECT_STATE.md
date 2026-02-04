@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-04
-**Updated By:** Claude (WS-ADR-046-001 complete, sidebar UX improvements)
+**Updated By:** Claude (WS-ADR-044-001 executed: Admin Workbench UX redesign)
 
 ## Current Focus
 
@@ -15,6 +15,10 @@ All work statements delivered:
 
 All work statements delivered:
 - **WS-ADR-046-001** (Complete): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend (ProjectWorkflow component), project lifecycle integration
+
+**IN PROGRESS:** ADR-044 -- Admin Workbench
+
+- **WS-ADR-044-001** (Executed, pending verification): Left rail and tab bar UX redesign
 
 ---
 
@@ -35,17 +39,19 @@ All work statements delivered:
 - **Git status panel**: Dirty indicator, commit dialog, discard, diff view
 - **Preview engine**: Resolved prompt preview with provenance
 - **Tier 1 validation**: Package validation, graph workflow validation (PlanValidator), step workflow JSON validation
-- **Left rail organized by abstraction level** (ADR-045): Production Workflows (POWs + DCWs), Building Blocks (Roles, Interactions, Schemas, Templates), Governance (Active Releases)
+- **Left rail redesigned** (WS-ADR-044-001): Flat POW list with `pow_class` badges, flat alphabetical DCW list with version badges, collapsible Building Blocks with colored dots and count badges, Git Status in Governance
 - **Sidebar header hierarchy**: Distinct background colors and typography for group vs sub-section headers; collapsed/expanded state persisted to localStorage
-- **Interactions as Building Blocks**: Derived from document types, navigate to PromptEditor Task tab; selection decoupled from Document Workflows
-- **Schemas as Building Blocks**: Derived from document types, navigate to PromptEditor Schema tab; selection decoupled from Document Workflows
+- **Grouped tab bar** (WS-ADR-044-001): Tabs grouped by Interaction Pass -- Package, Workflow, Generation (dropdown), QA (dropdown), PGC (dropdown), Schema; TabDropdown component with click-outside-to-close
+- **Focused Building Block view**: Interactions/Schemas opened from Building Blocks show just the artifact content without tab bar; DCWs show full grouped tab bar
+- **Interactions as Building Blocks**: Derived from document types, navigate to focused task prompt view; selection decoupled from Document Workflows
+- **Schemas as Building Blocks**: Derived from document types, navigate to focused schema view; selection decoupled from Document Workflows
 - **Standalone schema extraction**: 7 schemas extracted to `combine-config/schemas/` with `schema_ref` in package.yaml
 - **Dual-read schema resolution**: Backend resolves standalone schemas first, falls back to packaged
 - **Schema API endpoints**: `/admin/workbench/schemas` list and `/admin/workbench/schemas/{id}` detail
 - **POW classification** (WS-ADR-045-002): `pow_class` (reference/template/instance), `derived_from` lineage, `tags` on workflow definitions
-- **Left rail grouped by POW class**: Reference Workflows, Template Workflows, Instance Workflows (hidden when empty)
 - **Create-from-reference UX**: Primary creation path forks a reference POW as a template with lineage; blank creation secondary
 - **Editor metadata**: Classification badge in header, editable tags, derived_from navigation link, source version display
+- **Dot color CSS variables**: `--dot-green`, `--dot-blue`, `--dot-purple` defined per theme (Light, Industrial, Blueprint)
 
 ---
 
@@ -64,6 +70,7 @@ All work statements delivered:
 | WS-044-09 | Git Repository Layout | Complete |
 | WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
 | WS-044-11 | Golden Trace Runner | Deferred |
+| WS-ADR-044-001 | Left Rail and Tab Bar UX Redesign | Executed (pending verification) |
 
 ## WS-045 Status (ADR-045 execution_state: complete)
 
@@ -132,8 +139,9 @@ React SPA (Vite)
 |   +-- components/
 |   |   +-- admin/
 |   |   |   +-- AdminWorkbench.jsx       # Three-panel layout
-|   |   |   +-- DocTypeBrowser.jsx       # Sidebar (ADR-045 abstraction-level groups)
-|   |   |   +-- PromptEditor.jsx         # Tab-based editor (incl. Workflow tab)
+|   |   |   +-- DocTypeBrowser.jsx       # Sidebar (composition hierarchy)
+|   |   |   +-- PromptEditor.jsx         # Grouped tab bar editor
+|   |   |   +-- TabDropdown.jsx          # Dropdown tab component (new)
 |   |   |   +-- RoleEditor.jsx
 |   |   |   +-- TemplateEditor.jsx
 |   |   |   +-- PackageEditor.jsx
@@ -189,6 +197,7 @@ combine-config/
 8. **Schema dual-read** -- Standalone schemas checked first, packaged schemas as fallback (transition support)
 9. **POW classification (ADR-045/WS-002)** -- `pow_class` (reference/template/instance), `derived_from` lineage, `tags`; left rail groups by class; create-from-reference as primary path
 10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time; append-only audit trail
+11. **Grouped tab bar (WS-ADR-044-001)** -- Tabs grouped by Interaction Pass (Generation, QA, PGC) with dropdown menus; focused view for Building Block artifacts
 
 ---
 
@@ -211,6 +220,7 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
+- Visual verification of WS-ADR-044-001 against approved wireframe (`docs/prototypes/workbench-wireframe.html`)
 - Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started
@@ -220,3 +230,6 @@ cd spa && npm run dev
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
 - Uncommitted schema changes in `combine-config/document_types/` (primary_implementation_plan, technical_architecture) -- review and commit or discard
+
+### Known Risk
+- `reflection_prompt` artifact type exists in `allPromptKinds` but is not mapped to any tab dropdown group; verify no current document types use it

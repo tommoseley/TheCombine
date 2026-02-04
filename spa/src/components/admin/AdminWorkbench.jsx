@@ -341,6 +341,7 @@ export default function AdminWorkbench() {
                 onCreateWorkflow={handleCreateWorkflow}
                 onSelectTask={handleSelectTask}
                 onSelectSchema={handleSelectSchema}
+                workspaceState={workspaceState}
             />
 
             {/* Center panel - Editor (Prompt, Role, Template, or Workflow) */}
@@ -372,6 +373,7 @@ export default function AdminWorkbench() {
                     roles={roles}
                     onArtifactSave={handleArtifactSave}
                     initialTab={initialTab}
+                    docTypeSource={docTypeSource}
                 />
             )}
 

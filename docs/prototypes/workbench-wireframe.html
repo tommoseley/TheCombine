@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Workbench - Wireframe Proposal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg-deep: #0a0e17;
+    --bg-panel: #111827;
+    --bg-surface: #1a2236;
+    --bg-hover: #1e293b;
+    --bg-active: rgba(245, 158, 11, 0.12);
+    --border: #1e293b;
+    --border-light: #2a3548;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-dim: #475569;
+    --accent: #f59e0b;
+    --accent-dim: rgba(245, 158, 11, 0.3);
+    --green: #10b981;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --purple: #8b5cf6;
+    --wire-blue: #2563eb;
+    --wire-dim: rgba(37, 99, 235, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ================================================================
+     LAYOUT
+     ================================================================ */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .header {
+    height: 48px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-logo {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 14px;
+    color: var(--bg-deep);
+  }
+
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--text-primary);
+  }
+
+  .header-badge {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ================================================================
+     LEFT RAIL - THE KEY CHANGE
+     ================================================================ */
+  .left-rail {
+    width: 260px;
+    min-width: 260px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .rail-group {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rail-group:last-child {
+    border-bottom: none;
+  }
+
+  .rail-group-header {
+    padding: 12px 14px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .rail-group-header:hover {
+    color: var(--text-secondary);
+  }
+
+  .rail-group-header .chevron {
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+
+  .rail-section-header {
+    padding: 6px 14px 4px 22px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rail-section-header .dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+
+  .rail-item {
+    padding: 8px 14px 8px 30px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.1s;
+    border-left: 2px solid transparent;
+  }
+
+  .rail-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .rail-item.active {
+    background: var(--bg-active);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+
+  .rail-item .item-badge {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .rail-item.active .item-badge {
+    color: var(--accent-dim);
+  }
+
+  .rail-item .item-icon {
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  /* ================================================================
+     EDITOR PANEL
+     ================================================================ */
+  .editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-deep);
+  }
+
+  .editor-header {
+    padding: 16px 24px 0;
+    background: var(--bg-deep);
+  }
+
+  .editor-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .editor-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .editor-type-badge {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+
+  .badge-dcw {
+    color: var(--blue);
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+
+  .badge-pow {
+    color: var(--green);
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+
+  .editor-subtitle {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  /* ================================================================
+     TAB BAR - GROUPED, NOT FLAT
+     ================================================================ */
+  .tab-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    background: var(--bg-deep);
+    flex-shrink: 0;
+  }
+
+  .tab-group {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .tab-group + .tab-group {
+    margin-left: 2px;
+  }
+
+  /* Visual separator between tab groups */
+  .tab-group + .tab-group::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: var(--border-light);
+  }
+
+  .tab {
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.1s;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .tab:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-group-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 4px 8px 0;
+    display: flex;
+    align-items: flex-start;
+    pointer-events: none;
+    align-self: center;
+  }
+
+  .tab.has-dropdown {
+    position: relative;
+    user-select: none;
+  }
+
+  .dropdown-chevron {
+    font-size: 9px;
+    margin-left: 2px;
+    opacity: 0.6;
+  }
+
+  .tab-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 140px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 4px 0;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    margin-top: 1px;
+  }
+
+  .tab-dropdown.open {
+    display: block;
+  }
+
+  .tab-dropdown-item {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .tab-dropdown-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .tab-dropdown-item.active {
+    color: var(--accent);
+  }
+
+  /* ================================================================
+     EDITOR BODY - CONTENT AREA
+     ================================================================ */
+  .editor-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* Source / Resolved toggle */
+  .view-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .view-toggle-btn {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-muted);
+    transition: all 0.1s;
+  }
+
+  .view-toggle-btn.active {
+    background: var(--accent);
+    color: var(--bg-deep);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .file-path {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    float: right;
+    margin-top: -30px;
+  }
+
+  /* Content placeholder blocks */
+  .content-block {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+
+  .content-block .heading {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .content-block .dim {
+    color: var(--text-dim);
+  }
+
+  /* ================================================================
+     ANNOTATIONS / WIREFRAME NOTES
+     ================================================================ */
+  .annotation {
+    position: relative;
+    margin: 8px 0;
+  }
+
+  .note {
+    background: var(--wire-dim);
+    border: 1px dashed var(--wire-blue);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--wire-blue);
+    line-height: 1.5;
+    margin: 8px 0;
+  }
+
+  .note strong {
+    font-weight: 600;
+  }
+
+  .note-inline {
+    display: inline-block;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--wire-blue);
+    background: var(--wire-dim);
+    padding: 1px 6px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  /* ================================================================
+     COMPARISON PANELS
+     ================================================================ */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding: 24px;
+    height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+
+  .comparison-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comparison-panel-header {
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .comparison-panel-header .tag {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  .tag-before {
+    color: var(--red);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .tag-after {
+    color: var(--green);
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+
+  .comparison-panel-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* View switcher at top */
+  .view-switcher {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    gap: 4px;
+  }
+
+  .view-switcher button {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid var(--border-light);
+    background: var(--bg-panel);
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+
+  .view-switcher button:hover {
+    color: var(--text-primary);
+    border-color: var(--text-dim);
+  }
+
+  .view-switcher button.active {
+    background: var(--accent);
+    color: var(--bg-deep);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Hide/show views */
+  .view { display: none; }
+  .view.active { display: flex; }
+  .view-comparison.active { display: grid; }
+</style>
+</head>
+<body>
+
+<div class="view-switcher">
+  <button class="active" onclick="switchView('proposed')">Proposed Layout</button>
+  <button onclick="switchView('comparison')">Before / After</button>
+  <button onclick="switchView('pow-editor')">POW Editor View</button>
+</div>
+
+<!-- ================================================================
+     VIEW 1: PROPOSED LAYOUT (DCW selected)
+     ================================================================ -->
+<div id="view-proposed" class="view active">
+  <div class="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="header-logo">C</div>
+        <span class="header-title">THE COMBINE</span>
+        <span class="header-badge">ADMIN WORKBENCH</span>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- LEFT RAIL -->
+      <div class="left-rail">
+
+        <!-- PRODUCTION WORKFLOWS -->
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Production Workflows
+            <span class="chevron">&#9662;</span>
+          </div>
+
+          <div class="rail-section-header">
+            <span class="dot" style="background: var(--green)"></span>
+            Project Orchestration (POWs)
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9654;</span>
+            Software Product Dev
+            <span class="item-badge">ref</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9654;</span>
+            Technical Spike
+            <span class="item-badge">ref</span>
+          </div>
+
+          <div class="rail-section-header" style="margin-top: 4px">
+            <span class="dot" style="background: var(--blue)"></span>
+            Document Creation (DCWs)
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Concierge Intake
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Epic
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Feature
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Implementation Plan
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Impl. Plan (Primary)
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item active">
+            <span class="item-icon">&#9632;</span>
+            Project Discovery
+            <span class="item-badge">v1.4.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Technical Architecture
+            <span class="item-badge">v1.0.0</span>
+          </div>
+        </div>
+
+        <!-- BUILDING BLOCKS -->
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Building Blocks
+            <span class="chevron">&#9662;</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--purple)">&#9679;</span>
+            Roles
+            <span class="item-badge">3</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--accent)">&#9679;</span>
+            Interactions
+            <span class="item-badge">7</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--blue)">&#9679;</span>
+            Schemas
+            <span class="item-badge">7</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--green)">&#9679;</span>
+            Templates
+            <span class="item-badge">4</span>
+          </div>
+        </div>
+
+        <!-- GOVERNANCE -->
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Governance
+            <span class="chevron">&#9662;</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9670;</span>
+            Active Releases
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9670;</span>
+            Git Status
+            <span class="item-badge" style="color: var(--accent)">2 dirty</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- EDITOR PANEL -->
+      <div class="editor">
+        <div class="editor-header">
+          <div class="editor-title-row">
+            <span class="editor-title">Project Discovery</span>
+            <span class="editor-type-badge badge-dcw">DCW</span>
+            <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">v1.4.0 &middot; descriptive</span>
+          </div>
+          <div class="editor-subtitle">combine-config/document_types/project_discovery/releases/1.4.0/</div>
+        </div>
+
+        <!-- TAB BAR - FLAT WITH DROPDOWNS -->
+        <div class="tab-bar">
+          <div class="tab-group">
+            <div class="tab active">Package</div>
+            <div class="tab">Workflow</div>
+            <div class="tab has-dropdown" onclick="toggleDropdown(this)">Generation <span class="dropdown-chevron">&#9662;</span>
+              <div class="tab-dropdown">
+                <div class="tab-dropdown-item">Role</div>
+                <div class="tab-dropdown-item">Task</div>
+                <div class="tab-dropdown-item">Template</div>
+              </div>
+            </div>
+            <div class="tab has-dropdown" onclick="toggleDropdown(this)">QA <span class="dropdown-chevron">&#9662;</span>
+              <div class="tab-dropdown">
+                <div class="tab-dropdown-item">Prompt</div>
+                <div class="tab-dropdown-item">Template</div>
+              </div>
+            </div>
+            <div class="tab has-dropdown" onclick="toggleDropdown(this)">PGC <span class="dropdown-chevron">&#9662;</span>
+              <div class="tab-dropdown">
+                <div class="tab-dropdown-item">Context</div>
+                <div class="tab-dropdown-item">Template</div>
+              </div>
+            </div>
+            <div class="tab">Schema</div>
+          </div>
+        </div>
+
+        <!-- EDITOR BODY -->
+        <div class="editor-body">
+          <div class="note" style="margin-bottom: 20px">
+            <strong>Wireframe note:</strong> 6 top-level tabs instead of 10 flat.
+            Generation, QA, and PGC have dropdowns that reveal their sub-tabs (Role/Task/Template, Prompt/Template, Context/Template).
+            Teaches the ontology on demand without front-loading complexity.
+          </div>
+
+          <div class="view-toggle">
+            <div class="view-toggle-btn active">Source</div>
+            <div class="view-toggle-btn">Resolved</div>
+          </div>
+
+          <div class="content-block">
+            <div class="heading">package.yaml</div>
+            <br>
+            <span class="dim"># Package manifest for project_discovery DCW</span><br>
+            name: project_discovery<br>
+            version: 1.4.0<br>
+            classification: descriptive<br>
+            <br>
+            role_prompt: ba_prompt<br>
+            task_prompt: prompts/task.prompt.txt<br>
+            qa_prompt: prompts/qa.prompt.txt<br>
+            schema_ref: project_discovery/1.4.0<br>
+            <br>
+            <span class="dim"># ... rest of package definition</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     VIEW 2: BEFORE / AFTER COMPARISON
+     ================================================================ -->
+<div id="view-comparison" class="view-comparison comparison">
+
+  <!-- BEFORE -->
+  <div class="comparison-panel">
+    <div class="comparison-panel-header">
+      Left Rail
+      <span class="tag tag-before">CURRENT</span>
+    </div>
+    <div class="comparison-panel-body">
+      <div style="padding: 16px;">
+        <div class="note" style="margin-bottom: 12px;">
+          <strong>Problems identified:</strong><br>
+          &bull; "OTHER" is a catch-all with no meaning<br>
+          &bull; Same items appear in 2+ places<br>
+          &bull; Sidebar doesn't teach the ontology<br>
+          &bull; Interactions/Schemas duplicate DCW entries
+        </div>
+
+        <div style="padding: 8px 0;">
+          <!-- Simulated current rail -->
+          <div style="font-size: 10px; font-weight: 600; color: var(--accent); letter-spacing: 0.1em; padding: 8px 12px;">PRODUCTION WORKFLOWS</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Reference Workflows</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 20px; background: var(--bg-hover);">Software Product Development</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Template Workflows &nbsp; <span style="color: var(--accent); font-size: 10px;">+ New</span></div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Document Workflows</div>
+
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 12px 12px 4px;">OTHER <span class="note-inline">&#9888; junk drawer</span></div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Concierge Intake</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Epic</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Feature</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Implementation Plan</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Implementation Plan (Primary)</div>
+          <div style="font-size: 12px; color: var(--accent); padding: 5px 20px; background: var(--bg-active); border-left: 2px solid var(--accent);">Project Discovery</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 20px;">Technical Architecture</div>
+
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 12px 12px 4px;">BUILDING BLOCKS</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Roles</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Interactions <span class="note-inline">duplicates DCWs</span></div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Concierge Intake</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Epic</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Feature</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Implementation Plan</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Impl. Plan (Primary)</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Project Discovery</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">Technical Architecture</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Schemas <span class="note-inline">duplicates again</span></div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 5px 28px;">... same 7 items ...</div>
+          <div style="font-size: 11px; color: var(--text-dim); padding: 4px 20px;">&#8227; Templates</div>
+
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 12px 12px 4px;">GOVERNANCE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AFTER -->
+  <div class="comparison-panel">
+    <div class="comparison-panel-header">
+      Left Rail
+      <span class="tag tag-after">PROPOSED</span>
+    </div>
+    <div class="comparison-panel-body">
+      <div style="padding: 16px;">
+        <div class="note" style="margin-bottom: 12px;">
+          <strong>Changes:</strong><br>
+          &bull; "OTHER" eliminated -- DCWs are first-class<br>
+          &bull; No duplication -- one place for each item<br>
+          &bull; POWs and DCWs are peers under Production Workflows<br>
+          &bull; Building Blocks = shared reusable pieces only<br>
+          &bull; Interactions list stays but no longer duplicates DCW entries<br>
+          &bull; Schemas list stays but no longer duplicates DCW entries
+        </div>
+
+        <div style="padding: 8px 0;">
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 8px 12px;">PRODUCTION WORKFLOWS</div>
+
+          <div style="font-size: 10px; color: var(--text-dim); padding: 4px 20px; display: flex; align-items: center; gap: 5px;">
+            <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--green);"></span>
+            Project Orchestration (POWs)
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; justify-content: space-between;">
+            <span>Software Product Dev</span>
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">ref</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; justify-content: space-between;">
+            <span>Technical Spike</span>
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">ref</span>
+          </div>
+
+          <div style="font-size: 10px; color: var(--text-dim); padding: 8px 20px 4px; display: flex; align-items: center; gap: 5px;">
+            <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--blue);"></span>
+            Document Creation (DCWs)
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Concierge Intake</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Epic</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Feature</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Implementation Plan</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Impl. Plan (Primary)</div>
+          <div style="font-size: 12px; color: var(--accent); padding: 6px 30px; background: var(--bg-active); border-left: 2px solid var(--accent);">Project Discovery</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Technical Architecture</div>
+
+          <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
+
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 8px 12px;">BUILDING BLOCKS</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--purple);">&#9679;</span> Roles
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-left: auto;">3</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #f59e0b;">&#9679;</span> Interactions
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-left: auto;">7</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--blue);">&#9679;</span> Schemas
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-left: auto;">7</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--green);">&#9679;</span> Templates
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-left: auto;">4</span>
+          </div>
+
+          <div style="height: 1px; background: var(--border); margin: 8px 0;"></div>
+
+          <div style="font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.1em; padding: 8px 12px;">GOVERNANCE</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px;">Active Releases</div>
+          <div style="font-size: 12px; color: var(--text-secondary); padding: 6px 30px; display: flex; justify-content: space-between;">
+            Git Status
+            <span style="font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--accent);">2 dirty</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     VIEW 3: POW EDITOR (different editor shape for POW vs DCW)
+     ================================================================ -->
+<div id="view-pow-editor" class="view">
+  <div class="app">
+    <div class="header">
+      <div class="header-left">
+        <div class="header-logo">C</div>
+        <span class="header-title">THE COMBINE</span>
+        <span class="header-badge">ADMIN WORKBENCH</span>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- LEFT RAIL (same structure, different selection) -->
+      <div class="left-rail">
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Production Workflows
+            <span class="chevron">&#9662;</span>
+          </div>
+          <div class="rail-section-header">
+            <span class="dot" style="background: var(--green)"></span>
+            Project Orchestration (POWs)
+          </div>
+          <div class="rail-item active">
+            <span class="item-icon">&#9654;</span>
+            Software Product Dev
+            <span class="item-badge">ref</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9654;</span>
+            Technical Spike
+            <span class="item-badge">ref</span>
+          </div>
+
+          <div class="rail-section-header" style="margin-top: 4px">
+            <span class="dot" style="background: var(--blue)"></span>
+            Document Creation (DCWs)
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Concierge Intake
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Epic
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Feature
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Implementation Plan
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Impl. Plan (Primary)
+            <span class="item-badge">v1.0.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Project Discovery
+            <span class="item-badge">v1.4.0</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9632;</span>
+            Technical Architecture
+            <span class="item-badge">v1.0.0</span>
+          </div>
+        </div>
+
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Building Blocks
+            <span class="chevron">&#9662;</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--purple)">&#9679;</span>
+            Roles
+            <span class="item-badge">3</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--accent)">&#9679;</span>
+            Interactions
+            <span class="item-badge">7</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--blue)">&#9679;</span>
+            Schemas
+            <span class="item-badge">7</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon" style="color: var(--green)">&#9679;</span>
+            Templates
+            <span class="item-badge">4</span>
+          </div>
+        </div>
+
+        <div class="rail-group">
+          <div class="rail-group-header">
+            Governance
+            <span class="chevron">&#9662;</span>
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9670;</span>
+            Active Releases
+          </div>
+          <div class="rail-item">
+            <span class="item-icon">&#9670;</span>
+            Git Status
+            <span class="item-badge" style="color: var(--accent)">2 dirty</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- POW EDITOR - DIFFERENT SHAPE THAN DCW -->
+      <div class="editor">
+        <div class="editor-header">
+          <div class="editor-title-row">
+            <span class="editor-title">Software Product Development</span>
+            <span class="editor-type-badge badge-pow">POW</span>
+            <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">v1.0.0 &middot; reference &middot; 5 steps</span>
+          </div>
+          <div class="editor-subtitle">combine-config/workflows/software_product_development/</div>
+        </div>
+
+        <!-- POW has fewer tabs - it's about step sequencing, not prompt editing -->
+        <div class="tab-bar">
+          <div class="tab-group">
+            <div class="tab active">Steps</div>
+            <div class="tab">Definition</div>
+            <div class="tab">Metadata</div>
+          </div>
+        </div>
+
+        <div class="editor-body">
+          <div class="note" style="margin-bottom: 20px">
+            <strong>Wireframe note:</strong> POW editor has a completely different tab shape than DCW editor.
+            POWs are about sequencing DCW invocations — the editor focuses on steps, ordering,
+            and which DCW each step produces. No prompt tabs here (those belong on DCWs).
+          </div>
+
+          <!-- Step cards -->
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: var(--bg-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">1</div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Project Discovery</div>
+                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">produces: project_discovery &middot; descriptive</div>
+              </div>
+              <div style="font-size: 11px; color: var(--blue); cursor: pointer;">Open DCW &#8599;</div>
+              <div style="color: var(--text-dim); cursor: grab; font-size: 16px;">&#8942;</div>
+            </div>
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--text-dim); color: var(--bg-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">2</div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Epic</div>
+                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">produces: epic &middot; constructive</div>
+              </div>
+              <div style="font-size: 11px; color: var(--blue); cursor: pointer;">Open DCW &#8599;</div>
+              <div style="color: var(--text-dim); cursor: grab; font-size: 16px;">&#8942;</div>
+            </div>
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--text-dim); color: var(--bg-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">3</div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Feature</div>
+                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">produces: feature &middot; elaborative</div>
+              </div>
+              <div style="font-size: 11px; color: var(--blue); cursor: pointer;">Open DCW &#8599;</div>
+              <div style="color: var(--text-dim); cursor: grab; font-size: 16px;">&#8942;</div>
+            </div>
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--text-dim); color: var(--bg-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">4</div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Technical Architecture</div>
+                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">produces: technical_architecture &middot; prescriptive</div>
+              </div>
+              <div style="font-size: 11px; color: var(--blue); cursor: pointer;">Open DCW &#8599;</div>
+              <div style="color: var(--text-dim); cursor: grab; font-size: 16px;">&#8942;</div>
+            </div>
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--text-dim); color: var(--bg-deep); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0;">5</div>
+              <div style="flex: 1;">
+                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px;">Implementation Plan (Primary)</div>
+                <div style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim);">produces: primary_implementation_plan &middot; prescriptive</div>
+              </div>
+              <div style="font-size: 11px; color: var(--blue); cursor: pointer;">Open DCW &#8599;</div>
+              <div style="color: var(--text-dim); cursor: grab; font-size: 16px;">&#8942;</div>
+            </div>
+
+          </div>
+
+          <div style="margin-top: 16px;">
+            <button style="background: transparent; border: 1px dashed var(--border-light); color: var(--text-muted); padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; font-family: inherit; font-size: 13px;">
+              + Add Step
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchView(view) {
+  // Deactivate all
+  document.querySelectorAll('.view, .view-comparison').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.view-switcher button').forEach(el => el.classList.remove('active'));
+
+  // Activate target
+  document.getElementById('view-' + view).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function toggleDropdown(tab) {
+  const dropdown = tab.querySelector('.tab-dropdown');
+  const wasOpen = dropdown.classList.contains('open');
+
+  // Close all dropdowns first
+  document.querySelectorAll('.tab-dropdown').forEach(d => d.classList.remove('open'));
+
+  if (!wasOpen) {
+    dropdown.classList.add('open');
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.has-dropdown')) {
+    document.querySelectorAll('.tab-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+</script>
+</body>
+</html>
