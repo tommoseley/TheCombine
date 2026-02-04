@@ -1,6 +1,6 @@
 # Work Statement Inventory
 
-_Last updated: 2026-01-22_
+_Last updated: 2026-02-04_
 
 This document provides a complete inventory of Work Statements for The Combine.
 
@@ -88,6 +88,32 @@ This document provides a complete inventory of Work Statements for The Combine.
 - Work Statements are append-only; superseded ones remain for history
 - Group related Work Statements by feature area
 - Include completion date when marking Complete
+
+---
+
+## Admin Workbench (ADR-044)
+
+| WS | Title | Status | Date | Notes |
+|----|-------|--------|------|-------|
+| WS-044-01 | Core Architecture | **Complete** | - | Workspace lifecycle, Git-branch isolation |
+| WS-044-02 | Package Model | **Complete** | - | DocumentTypePackage, package.yaml |
+| WS-044-03 | Prompt & Schema Editors | **Complete** | - | Tab-based editor, source/resolved views |
+| WS-044-04 | DocDef & Sidecar Editor | Draft | - | Not started |
+| WS-044-05 | Workflow & Production Mode Config | Draft | - | Partial |
+| WS-044-06 | Preview & Dry-Run Engine | **Complete** | - | Resolved prompt preview with provenance |
+| WS-044-07 | Release & Rollback Management | **Complete** | - | Active releases config |
+| WS-044-08 | Governance Guardrails | **Complete** | - | Validation, Git status |
+| WS-044-09 | Git Repository Layout | **Complete** | - | combine-config/ structure |
+| WS-044-10 | Migration (seed/ -> combine-config/) | In Progress | - | Phases 1-3 complete |
+| WS-044-11 | Golden Trace Runner | Draft | - | Deferred |
+
+---
+
+## System Ontology (ADR-045)
+
+| WS | Title | Status | Date | Notes |
+|----|-------|--------|------|-------|
+| WS-ADR-045-001 | Admin Workbench Left Rail Restructure and Schema Extraction | **Complete** | 2026-02-04 | 4 phases: left rail, tasks, schema extraction, docs |
 
 ---
 

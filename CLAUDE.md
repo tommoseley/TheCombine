@@ -313,6 +313,24 @@ This rule is **non-negotiable** and applies to all runtime defects, including:
 | ADR-009 |  Complete | Project Audit - all state changes explicit and traceable |
 | ADR-010 |  Complete | LLM Execution Logging - inputs, outputs, replay capability |
 | ADR-011 |  In Progress | Project/Epic organization (draft exists) |
+| ADR-045 |  Accepted | System Ontology - Primitives (Prompt Fragment, Schema), Composites (Role, Task, DCW, POW), Configuration Taxonomy |
+
+### ADR-045 Taxonomy Reference
+
+**Primitives** (authorable and governable in isolation):
+- **Prompt Fragment**: Shapes behavior (role prompts, task prompts, QA prompts, PGC context)
+- **Schema**: Defines acceptability (JSON Schema for output validation)
+
+**Ontological term** (vocabulary, not configuration):
+- **Interaction Pass**: Names what a DCW node is -- the binding of prompt fragments + schema at execution time
+
+**Composites** (assemble primitives for a purpose):
+- **Role**: Identity + constraints (assembles prompt fragments)
+- **Task**: Work unit within a DCW node (prompt fragment + schema reference)
+- **DCW** (Document Creation Workflow): Graph of nodes producing one stabilized document
+- **POW** (Project Orchestration Workflow): Sequence of steps, each invoking a DCW
+
+**Core principle**: Prompt Fragments shape behavior; Schemas define acceptability; Interaction Passes bind and execute both.
 
 ADR documents live in `docs/adr/` and Project Knowledge. Each has implementation reports.
 

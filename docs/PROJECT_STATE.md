@@ -1,9 +1,17 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-04
-**Updated By:** Claude (System Ontology and Workbench Planning)
+**Updated By:** Claude (WS-ADR-045-001 Execution)
 
 ## Current Focus
+
+**COMPLETE:** WS-ADR-045-001 -- Admin Workbench Left Rail Restructure and Schema Extraction
+
+All 4 phases implemented:
+1. Left rail restructured into Production Workflows > Building Blocks > Governance
+2. Tasks surfaced as Building Blocks with direct navigation to PromptEditor Task tab
+3. Schemas extracted to standalone `combine-config/schemas/` with dual-read resolution
+4. CLAUDE.md updated with ADR-045 taxonomy reference, WS-INVENTORY.md updated
 
 **ACCEPTED:** ADR-045 -- System Ontology: Primitives, Composites, and Configuration Taxonomy
 
@@ -11,22 +19,6 @@ Formalized the system's artifact classification:
 - **Primitives:** Prompt Fragment (shapes behavior), Schema (defines acceptability)
 - **Ontological term:** Interaction Pass (binds fragments + schema at execution time; vocabulary, not configuration)
 - **Composites:** Role, Task, DCW (Document Creation/Production Workflow), POW (Project Orchestration Workflow)
-
-**DRAFTED:** WS-ADR-045-001 -- Admin Workbench Left Rail Restructure and Schema Extraction
-
-4-phase implementation plan:
-1. Left rail restructure (Production Workflows > Building Blocks > Governance)
-2. Tasks as Building Blocks
-3. Schema extraction to standalone `combine-config/schemas/`
-4. CLAUDE.md and documentation updates
-
-### Recent Commits
-All prior uncommitted work has been committed and pushed to `workbench/ws-d1de5d9924b1`:
-- `9ec8196` feat(api): Admin workbench workflow editing, orchestration CRUD, and auth improvements
-- `b6f9457` feat(config): Add orchestration workflows, prompt templates, and package updates
-- `076190d` feat(spa): Admin workbench editors, workflow UI, and component updates
-- `0b3783d` build(spa): Update SPA build artifacts
-- `955e7c2` docs: Add session logs, update project state, and branding instructions
 
 ---
 
@@ -47,18 +39,12 @@ All prior uncommitted work has been committed and pushed to `workbench/ws-d1de5d
 - **Git status panel**: Dirty indicator, commit dialog, discard, diff view
 - **Preview engine**: Resolved prompt preview with provenance
 - **Tier 1 validation**: Package validation, graph workflow validation (PlanValidator), step workflow JSON validation
-
-### Next: Left Rail Restructure (WS-ADR-045-001)
-Current left rail mixes primitives and composites. ADR-045 mandates reorganization:
-```
-Production Workflows
-  > Project Workflows (POWs)
-  > Document Workflows (DCWs)
-Building Blocks
-  > Roles / Tasks / Schemas / Templates
-Governance
-  > Active Releases / Git Status
-```
+- **Left rail organized by abstraction level** (ADR-045): Production Workflows (POWs + DCWs), Building Blocks (Roles, Tasks, Schemas, Templates), Governance (Active Releases)
+- **Tasks as Building Blocks**: Derived from document types, navigate to PromptEditor Task tab
+- **Schemas as Building Blocks**: Derived from document types, navigate to PromptEditor Schema tab
+- **Standalone schema extraction**: 7 schemas extracted to `combine-config/schemas/` with `schema_ref` in package.yaml
+- **Dual-read schema resolution**: Backend resolves standalone schemas first, falls back to packaged
+- **Schema API endpoints**: `/admin/workbench/schemas` list and `/admin/workbench/schemas/{id}` detail
 
 ---
 
@@ -77,6 +63,12 @@ Governance
 | WS-044-09 | Git Repository Layout | Complete |
 | WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
 | WS-044-11 | Golden Trace Runner | Deferred |
+
+## WS-045 Status
+
+| WS | Title | Status |
+|---|---|---|
+| WS-ADR-045-001 | Left Rail Restructure and Schema Extraction | Complete |
 
 ---
 
@@ -119,7 +111,7 @@ FastAPI Backend
 +-- /api/v1/projects/*   -> REST: list, create, get, update, archive, delete
 +-- /api/v1/intake/*     -> REST + SSE: concierge intake workflow
 +-- /api/v1/production/* -> REST + SSE: production line status
-+-- /api/v1/admin/workbench/*    -> Read-only config browsing
++-- /api/v1/admin/workbench/*    -> Read-only config browsing (incl. /schemas)
 +-- /api/v1/admin/workspaces/*   -> Workspace-scoped editing + commit
 +-- /assets/*            -> SPA static assets (JS, CSS)
 +-- /admin/*             -> Jinja2 templates (legacy)
@@ -130,7 +122,7 @@ React SPA (Vite)
 |   +-- components/
 |   |   +-- admin/
 |   |   |   +-- AdminWorkbench.jsx       # Three-panel layout
-|   |   |   +-- DocTypeBrowser.jsx       # Sidebar (to be restructured per ADR-045)
+|   |   |   +-- DocTypeBrowser.jsx       # Sidebar (ADR-045 abstraction-level groups)
 |   |   |   +-- PromptEditor.jsx         # Tab-based editor (incl. Workflow tab)
 |   |   |   +-- RoleEditor.jsx
 |   |   |   +-- TemplateEditor.jsx
@@ -161,6 +153,15 @@ React SPA (Vite)
 |   +-- utils/
 |       +-- workflowTransform.js
 +-- dist/
+
+combine-config/
++-- _active/active_releases.json   # Includes schemas section
++-- document_types/                 # DCW packages with schema_ref
++-- schemas/                        # Standalone schemas (ADR-045)
+|   +-- {schema_id}/releases/{ver}/schema.json
++-- prompts/roles/                  # Shared role prompts
++-- prompts/templates/              # Shared templates
++-- workflows/                      # Workflow definitions
 ```
 
 ---
@@ -174,6 +175,7 @@ React SPA (Vite)
 5. **@dnd-kit for drag-to-reorder** -- Modern React DnD, supports nested sortable contexts
 6. **Workspace-scoped CRUD** -- Workflow create/delete goes through workspace service for Git-branch isolation
 7. **System Ontology (ADR-045)** -- Prompt Fragments shape behavior; Schemas define acceptability; Interaction Passes bind and execute both
+8. **Schema dual-read** -- Standalone schemas checked first, packaged schemas as fallback (transition support)
 
 ---
 
@@ -196,7 +198,6 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- Accept and execute WS-ADR-045-001 (left rail restructure, tasks as building blocks, schema extraction)
 - Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started
@@ -205,4 +206,3 @@ cd spa && npm run dev
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Commit ADR-045 and WS-ADR-045-001 to Git
