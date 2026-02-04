@@ -135,6 +135,14 @@ export default function AdminWorkbench() {
         setSelectedTemplate(null);
     }, []);
 
+    // Handle navigation to a workflow by ID (e.g., from derived_from link)
+    const handleNavigateToWorkflow = useCallback((workflowId) => {
+        const wf = workflows.find(w => w.workflow_id === workflowId);
+        if (wf) {
+            handleSelectWorkflow(wf);
+        }
+    }, [workflows, handleSelectWorkflow]);
+
     // Handle artifact save (refresh workspace state)
     const handleArtifactSave = useCallback((artifactId, result) => {
         // Refresh state to update dirty status and validation
@@ -351,6 +359,7 @@ export default function AdminWorkbench() {
                     workflow={selectedWorkflow}
                     onArtifactSave={handleArtifactSave}
                     onDelete={handleDeleteWorkflow}
+                    onNavigateToWorkflow={handleNavigateToWorkflow}
                 />
             ) : (
                 <PromptEditor

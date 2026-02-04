@@ -140,7 +140,9 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
  *
  * Structure:
  *   Production Workflows
- *     > Project Workflows (POWs - step-based orchestration)
+ *     > Reference Workflows (curated POWs, pow_class=reference)
+ *     > Template Workflows (derived POWs, pow_class=template)
+ *     > Instance Workflows (runtime POWs, pow_class=instance, hidden when empty)
  *     > Document Workflows (DCWs - graph-based document production)
  *   Building Blocks
  *     > Roles
@@ -171,7 +173,9 @@ export default function DocTypeBrowser({
     onSelectTask,
     onSelectSchema,
 }) {
-    const [showNewWorkflowForm, setShowNewWorkflowForm] = useState(false);
+    // Create workflow state: null | 'choose' | 'from_reference' | 'blank'
+    const [createMode, setCreateMode] = useState(null);
+    const [selectedReference, setSelectedReference] = useState(null);
     const [newWorkflowId, setNewWorkflowId] = useState('');
     const [creating, setCreating] = useState(false);
 
@@ -193,14 +197,27 @@ export default function DocTypeBrowser({
         return aIdx - bIdx;
     });
 
+    const resetCreateForm = () => {
+        setCreateMode(null);
+        setSelectedReference(null);
+        setNewWorkflowId('');
+    };
+
     const handleCreateWorkflow = async () => {
         const id = newWorkflowId.trim().toLowerCase().replace(/\s+/g, '_');
         if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) return;
         setCreating(true);
         try {
-            await onCreateWorkflow?.({ workflow_id: id });
-            setNewWorkflowId('');
-            setShowNewWorkflowForm(false);
+            const data = { workflow_id: id, pow_class: 'template' };
+            if (selectedReference) {
+                data.derived_from = {
+                    workflow_id: selectedReference.workflow_id,
+                    version: selectedReference.active_version,
+                };
+                data.source_version = selectedReference.active_version;
+            }
+            await onCreateWorkflow?.(data);
+            resetCreateForm();
         } catch {
             // Error handled by parent
         } finally {
@@ -221,9 +238,24 @@ export default function DocTypeBrowser({
         active_version: dt.active_version,
     }));
 
+    // Group workflows by pow_class
+    const referenceWorkflows = workflows.filter(wf => (wf.pow_class || 'reference') === 'reference');
+    const templateWorkflows = workflows.filter(wf => wf.pow_class === 'template');
+    const instanceWorkflows = workflows.filter(wf => wf.pow_class === 'instance');
+
     // Count active releases for governance section
     const activeReleaseCount = documentTypes.filter(dt => dt.active_version).length
         + workflows.filter(wf => wf.active_version).length;
+
+    /** Format sublabel for a workflow item based on its pow_class */
+    const workflowSublabel = (wf) => {
+        const version = `v${wf.active_version}`;
+        const steps = wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : '';
+        if (wf.pow_class === 'template' && wf.derived_from_label) {
+            return `${version}${steps} \u00b7 from ${wf.derived_from_label}`;
+        }
+        return `${version}${steps}`;
+    };
 
     return (
         <div
@@ -238,13 +270,35 @@ export default function DocTypeBrowser({
                     PRODUCTION WORKFLOWS
                     ============================================================ */}
                 <CollapsibleGroup title="Production Workflows" defaultOpen={true}>
-                    {/* --- Project Workflows (POWs) --- */}
+                    {/* --- Reference Workflows --- */}
+                    <SubSection title="Reference Workflows">
+                        <SectionState
+                            loading={workflowsLoading}
+                            empty={!workflowsLoading && referenceWorkflows.length === 0}
+                            emptyMessage="No reference workflows"
+                        />
+                        {!workflowsLoading && referenceWorkflows.length > 0 && (
+                            <div className="py-1">
+                                {referenceWorkflows.map(wf => (
+                                    <ItemButton
+                                        key={wf.workflow_id}
+                                        selected={selectedWorkflow?.workflow_id === wf.workflow_id}
+                                        onClick={() => onSelectWorkflow?.(wf)}
+                                        label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={workflowSublabel(wf)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
+
+                    {/* --- Template Workflows --- */}
                     <SubSection
-                        title="Project Workflows"
+                        title="Template Workflows"
                         action={
                             onCreateWorkflow && (
                                 <button
-                                    onClick={() => setShowNewWorkflowForm(!showNewWorkflowForm)}
+                                    onClick={() => setCreateMode(createMode ? null : 'choose')}
                                     className="text-xs hover:opacity-80"
                                     style={{
                                         color: 'var(--action-primary)',
@@ -253,29 +307,130 @@ export default function DocTypeBrowser({
                                         cursor: 'pointer',
                                         fontWeight: 600,
                                     }}
-                                    title="Create new workflow"
+                                    title="Create new template workflow"
                                 >
                                     + New
                                 </button>
                             )
                         }
                     >
-                        {/* New Workflow Form */}
-                        {showNewWorkflowForm && (
+                        {/* Create Workflow: Step 1 - Choose mode */}
+                        {createMode === 'choose' && (
                             <div
                                 className="px-4 py-2"
                                 style={{ background: 'var(--bg-canvas)' }}
                             >
+                                <button
+                                    onClick={() => setCreateMode('from_reference')}
+                                    className="w-full text-left text-xs px-2 py-1.5 rounded mb-1 hover:opacity-80"
+                                    style={{
+                                        background: 'var(--action-primary)',
+                                        color: '#000',
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                    disabled={referenceWorkflows.length === 0}
+                                >
+                                    From Reference{referenceWorkflows.length === 0 ? ' (none available)' : ''}
+                                </button>
+                                <button
+                                    onClick={() => setCreateMode('blank')}
+                                    className="w-full text-left text-xs px-2 py-1.5 rounded hover:opacity-80"
+                                    style={{
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: '1px solid var(--border-panel)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Blank Workflow
+                                </button>
+                                <button
+                                    onClick={resetCreateForm}
+                                    className="w-full text-center text-xs px-2 py-1 mt-1 hover:opacity-80"
+                                    style={{
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Create Workflow: Step 2a - Pick reference to fork */}
+                        {createMode === 'from_reference' && !selectedReference && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <div
+                                    className="text-xs font-semibold mb-1"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
+                                    Select reference to fork:
+                                </div>
+                                {referenceWorkflows.map(wf => (
+                                    <button
+                                        key={wf.workflow_id}
+                                        onClick={() => setSelectedReference(wf)}
+                                        className="w-full text-left text-xs px-2 py-1.5 rounded mb-0.5 hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-secondary)',
+                                            border: '1px solid var(--border-panel)',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        <div className="font-medium">
+                                            {wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        </div>
+                                        <div style={{ color: 'var(--text-muted)' }}>v{wf.active_version}</div>
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => setCreateMode('choose')}
+                                    className="w-full text-center text-xs px-2 py-1 mt-1 hover:opacity-80"
+                                    style={{
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Back
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Create Workflow: Step 2b/3 - Enter workflow ID (from_reference with selection, or blank) */}
+                        {(createMode === 'blank' || (createMode === 'from_reference' && selectedReference)) && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                {selectedReference && (
+                                    <div
+                                        className="text-xs mb-1.5 px-2 py-1 rounded"
+                                        style={{
+                                            background: 'var(--bg-panel)',
+                                            border: '1px solid var(--border-panel)',
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    >
+                                        Forking: {selectedReference.name || selectedReference.workflow_id} v{selectedReference.active_version}
+                                    </div>
+                                )}
                                 <input
                                     type="text"
                                     value={newWorkflowId}
                                     onChange={e => setNewWorkflowId(e.target.value)}
                                     onKeyDown={e => {
                                         if (e.key === 'Enter') handleCreateWorkflow();
-                                        if (e.key === 'Escape') {
-                                            setShowNewWorkflowForm(false);
-                                            setNewWorkflowId('');
-                                        }
+                                        if (e.key === 'Escape') resetCreateForm();
                                     }}
                                     placeholder="workflow_id (snake_case)"
                                     autoFocus
@@ -305,10 +460,7 @@ export default function DocTypeBrowser({
                                         {creating ? 'Creating...' : 'Create'}
                                     </button>
                                     <button
-                                        onClick={() => {
-                                            setShowNewWorkflowForm(false);
-                                            setNewWorkflowId('');
-                                        }}
+                                        onClick={resetCreateForm}
                                         className="text-xs px-2 py-1 rounded hover:opacity-80"
                                         style={{
                                             background: 'transparent',
@@ -325,23 +477,40 @@ export default function DocTypeBrowser({
 
                         <SectionState
                             loading={workflowsLoading}
-                            empty={!workflowsLoading && workflows.length === 0}
-                            emptyMessage="No project workflows"
+                            empty={!workflowsLoading && templateWorkflows.length === 0}
+                            emptyMessage="No template workflows"
                         />
-                        {!workflowsLoading && workflows.length > 0 && (
+                        {!workflowsLoading && templateWorkflows.length > 0 && (
                             <div className="py-1">
-                                {workflows.map(wf => (
+                                {templateWorkflows.map(wf => (
                                     <ItemButton
                                         key={wf.workflow_id}
                                         selected={selectedWorkflow?.workflow_id === wf.workflow_id}
                                         onClick={() => onSelectWorkflow?.(wf)}
-                                        label={wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                        sublabel={`v${wf.active_version}${wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : ''}`}
+                                        label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={workflowSublabel(wf)}
                                     />
                                 ))}
                             </div>
                         )}
                     </SubSection>
+
+                    {/* --- Instance Workflows (only shown when non-empty) --- */}
+                    {instanceWorkflows.length > 0 && (
+                        <SubSection title="Instance Workflows">
+                            <div className="py-1">
+                                {instanceWorkflows.map(wf => (
+                                    <ItemButton
+                                        key={wf.workflow_id}
+                                        selected={selectedWorkflow?.workflow_id === wf.workflow_id}
+                                        onClick={() => onSelectWorkflow?.(wf)}
+                                        label={wf.name || wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={workflowSublabel(wf)}
+                                    />
+                                ))}
+                            </div>
+                        </SubSection>
+                    )}
 
                     {/* --- Document Workflows (DCWs) --- */}
                     <SubSection title="Document Workflows">

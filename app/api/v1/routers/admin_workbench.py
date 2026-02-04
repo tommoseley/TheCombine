@@ -152,6 +152,11 @@ class OrchestrationWorkflowSummary(BaseModel):
     description: Optional[str] = None
     step_count: int = 0
     schema_version: str = "workflow.v1"
+    pow_class: str = "reference"
+    derived_from: Optional[Dict[str, str]] = None
+    derived_from_label: Optional[str] = None
+    source_version: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
     error: Optional[str] = None
 
 

@@ -1001,6 +1001,10 @@ class WorkspaceService:
         workflow_id: str,
         name: Optional[str] = None,
         version: str = "1.0.0",
+        pow_class: str = "template",
+        derived_from: Optional[Dict[str, str]] = None,
+        source_version: Optional[str] = None,
+        tags: Optional[List[str]] = None,
     ) -> str:
         """
         Create a new orchestration workflow definition.
@@ -1013,6 +1017,10 @@ class WorkspaceService:
             workflow_id: Workflow ID (snake_case)
             name: Display name (auto-generated from workflow_id if None)
             version: Initial version
+            pow_class: Classification (reference, template, instance)
+            derived_from: Source workflow reference {workflow_id, version}
+            source_version: Version of source at fork time
+            tags: Free-form classification tags
 
         Returns:
             Artifact ID for the new workflow
@@ -1047,12 +1055,16 @@ class WorkspaceService:
         release_dir.mkdir(parents=True, exist_ok=True)
 
         skeleton = {
-            "schema_version": "workflow.v1",
+            "schema_version": "workflow.v2",
             "workflow_id": workflow_id,
             "revision": f"wfrev_{date.today().isoformat().replace('-', '_')}_a",
             "effective_date": date.today().isoformat(),
             "name": name,
             "description": "",
+            "pow_class": pow_class,
+            "derived_from": derived_from,
+            "source_version": source_version,
+            "tags": tags or [],
             "scopes": {
                 "project": {"parent": None}
             },

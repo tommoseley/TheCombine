@@ -115,6 +115,10 @@ class CreateOrchestrationWorkflowRequest(BaseModel):
     workflow_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
     name: Optional[str] = Field(None, max_length=200)
     version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+    pow_class: str = Field("template", pattern=r'^(reference|template|instance)$')
+    derived_from: Optional[Dict[str, str]] = None
+    source_version: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
 
 
 class CreateOrchestrationWorkflowResponse(BaseModel):
@@ -623,6 +627,10 @@ async def create_orchestration_workflow(
             workflow_id=body.workflow_id,
             name=body.name,
             version=body.version,
+            pow_class=body.pow_class,
+            derived_from=body.derived_from,
+            source_version=body.source_version,
+            tags=body.tags,
         )
     except WorkspaceNotFoundError as e:
         raise HTTPException(

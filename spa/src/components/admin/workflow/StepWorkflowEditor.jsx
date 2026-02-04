@@ -68,7 +68,7 @@ const DEFAULT_ITERATION_STEP = {
  * JSON tab: raw editable textarea.
  * Metadata tab: read-only governance fields.
  */
-export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSave, onDelete }) {
+export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSave, onDelete, onNavigateToWorkflow }) {
     const [activeTab, setActiveTab] = useState('steps');
     const [jsonText, setJsonText] = useState('');
     const [jsonError, setJsonError] = useState(null);
@@ -174,8 +174,27 @@ export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSa
             >
                 <div className="flex items-center justify-between">
                     <div>
-                        <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            {workflowJson?.name || workflow.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                                {workflowJson?.name || workflow.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                            </span>
+                            {(workflowJson?.pow_class || workflow.pow_class) && (
+                                <span
+                                    className="text-xs px-1.5 py-0.5 rounded font-semibold uppercase"
+                                    style={{
+                                        fontSize: 9,
+                                        letterSpacing: '0.05em',
+                                        background: (workflowJson?.pow_class || workflow.pow_class) === 'reference'
+                                            ? 'var(--action-primary)'
+                                            : 'var(--bg-selected, #334155)',
+                                        color: (workflowJson?.pow_class || workflow.pow_class) === 'reference'
+                                            ? '#000'
+                                            : 'var(--text-primary)',
+                                    }}
+                                >
+                                    {workflowJson?.pow_class || workflow.pow_class}
+                                </span>
+                            )}
                         </div>
                         <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             v{workflow.active_version}
@@ -309,7 +328,11 @@ export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSa
                     {activeTab === 'metadata' && (
                         <div className="h-full overflow-y-auto p-4">
                             {workflowJson ? (
-                                <StepMetadataView workflow={workflowJson} />
+                                <StepMetadataView
+                                    workflow={workflowJson}
+                                    onUpdateWorkflow={updateWorkflow}
+                                    onNavigateToWorkflow={onNavigateToWorkflow}
+                                />
                             ) : (
                                 <div style={{ color: 'var(--text-muted)' }}>No workflow loaded</div>
                             )}
@@ -869,7 +892,9 @@ function NestedSortableStepCard({ step, index, onChange, onDelete }) {
 // Metadata View (unchanged)
 // =============================================================================
 
-function StepMetadataView({ workflow }) {
+function StepMetadataView({ workflow, onUpdateWorkflow, onNavigateToWorkflow }) {
+    const [newTag, setNewTag] = useState('');
+
     const metaFieldStyle = {
         fontSize: 12,
         color: 'var(--text-primary)',
@@ -904,10 +929,170 @@ function StepMetadataView({ workflow }) {
     const docTypes = workflow.document_types || {};
     const docTypeEntries = Object.entries(docTypes);
 
+    const powClass = workflow.pow_class || 'reference';
+    const derivedFrom = workflow.derived_from;
+    const sourceVersion = workflow.source_version;
+    const tags = workflow.tags || [];
+
+    const handleAddTag = () => {
+        const tag = newTag.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!tag || tags.includes(tag)) return;
+        onUpdateWorkflow?.({ ...workflow, tags: [...tags, tag] });
+        setNewTag('');
+    };
+
+    const handleRemoveTag = (tagToRemove) => {
+        onUpdateWorkflow?.({ ...workflow, tags: tags.filter(t => t !== tagToRemove) });
+    };
+
+    const handleNavigateToDerived = () => {
+        if (derivedFrom?.workflow_id && onNavigateToWorkflow) {
+            onNavigateToWorkflow(derivedFrom.workflow_id);
+        }
+    };
+
     return (
         <div className="space-y-4 max-w-lg">
+            {/* Classification */}
             <h3
                 className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+            >
+                Classification
+            </h3>
+
+            <div>
+                <label style={metaLabelStyle}>POW Class</label>
+                <div className="flex items-center gap-2">
+                    <span
+                        className="text-xs px-2 py-1 rounded font-semibold uppercase"
+                        style={{
+                            fontSize: 10,
+                            letterSpacing: '0.05em',
+                            background: powClass === 'reference'
+                                ? 'var(--action-primary)'
+                                : 'var(--bg-selected, #334155)',
+                            color: powClass === 'reference' ? '#000' : 'var(--text-primary)',
+                        }}
+                    >
+                        {powClass}
+                    </span>
+                </div>
+            </div>
+
+            {derivedFrom && (
+                <div>
+                    <label style={metaLabelStyle}>Derived From</label>
+                    <div style={metaFieldStyle}>
+                        {onNavigateToWorkflow ? (
+                            <button
+                                onClick={handleNavigateToDerived}
+                                className="hover:opacity-80"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    padding: 0,
+                                    cursor: 'pointer',
+                                    color: 'var(--action-primary)',
+                                    textDecoration: 'underline',
+                                    fontSize: 12,
+                                }}
+                            >
+                                {derivedFrom.workflow_id} v{derivedFrom.version}
+                            </button>
+                        ) : (
+                            <span>{derivedFrom.workflow_id} v{derivedFrom.version}</span>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {sourceVersion && (
+                <div>
+                    <label style={metaLabelStyle}>Source Version</label>
+                    <div style={metaFieldStyle}>{sourceVersion}</div>
+                </div>
+            )}
+
+            <div>
+                <label style={metaLabelStyle}>Tags</label>
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                    {tags.length === 0 && (
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>No tags</span>
+                    )}
+                    {tags.map(tag => (
+                        <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
+                            style={{
+                                background: 'var(--bg-selected, #334155)',
+                                color: 'var(--text-primary)',
+                                fontSize: 11,
+                            }}
+                        >
+                            {tag}
+                            {onUpdateWorkflow && (
+                                <button
+                                    onClick={() => handleRemoveTag(tag)}
+                                    className="hover:opacity-80"
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        padding: 0,
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        fontSize: 11,
+                                        lineHeight: 1,
+                                    }}
+                                    title={`Remove tag "${tag}"`}
+                                >
+                                    x
+                                </button>
+                            )}
+                        </span>
+                    ))}
+                </div>
+                {onUpdateWorkflow && (
+                    <div className="flex gap-1">
+                        <input
+                            type="text"
+                            value={newTag}
+                            onChange={e => setNewTag(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); }
+                            }}
+                            placeholder="Add tag..."
+                            className="text-xs px-2 py-1 rounded"
+                            style={{
+                                background: 'var(--bg-input, var(--bg-canvas))',
+                                border: '1px solid var(--border-panel)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                flex: 1,
+                            }}
+                        />
+                        <button
+                            onClick={handleAddTag}
+                            disabled={!newTag.trim()}
+                            className="text-xs px-2 py-1 rounded hover:opacity-80"
+                            style={{
+                                background: 'var(--action-primary)',
+                                color: '#000',
+                                fontWeight: 600,
+                                border: 'none',
+                                cursor: !newTag.trim() ? 'default' : 'pointer',
+                                opacity: !newTag.trim() ? 0.5 : 1,
+                            }}
+                        >
+                            Add
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Core Metadata */}
+            <h3
+                className="text-xs font-semibold uppercase tracking-wide pt-2"
                 style={{ color: 'var(--text-muted)' }}
             >
                 Workflow Metadata

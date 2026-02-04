@@ -599,6 +599,12 @@ class AdminWorkbenchService:
                 if "nodes" in raw and "edges" in raw:
                     continue
 
+                # Derive derived_from display string
+                derived_from = raw.get("derived_from")
+                derived_from_label = None
+                if derived_from and isinstance(derived_from, dict):
+                    derived_from_label = f"{derived_from.get('workflow_id', '')} v{derived_from.get('version', '')}"
+
                 summaries.append({
                     "workflow_id": workflow_id,
                     "name": raw.get("name", workflow_id.replace("_", " ").title()),
@@ -606,6 +612,11 @@ class AdminWorkbenchService:
                     "description": raw.get("description"),
                     "step_count": len(raw.get("steps", [])),
                     "schema_version": raw.get("schema_version", "workflow.v1"),
+                    "pow_class": raw.get("pow_class", "reference"),
+                    "derived_from": derived_from,
+                    "derived_from_label": derived_from_label,
+                    "source_version": raw.get("source_version"),
+                    "tags": raw.get("tags", []),
                 })
             except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
                 logger.warning(f"Could not load orchestration workflow {workflow_id}: {e}")
@@ -616,6 +627,11 @@ class AdminWorkbenchService:
                     "description": None,
                     "step_count": 0,
                     "schema_version": "workflow.v1",
+                    "pow_class": "reference",
+                    "derived_from": None,
+                    "derived_from_label": None,
+                    "source_version": None,
+                    "tags": [],
                     "error": str(e),
                 })
 

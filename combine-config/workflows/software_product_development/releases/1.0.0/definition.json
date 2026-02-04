@@ -1,10 +1,14 @@
 {
-  "schema_version": "workflow.v1",
+  "schema_version": "workflow.v2",
   "workflow_id": "software_product_development",
-  "revision": "wfrev_2026_02_02_a",
-  "effective_date": "2026-02-02",
+  "revision": "wfrev_2026_02_04_a",
+  "effective_date": "2026-02-04",
   "name": "Software Product Development",
   "description": "End-to-end workflow for software product creation from discovery through implementation",
+  "pow_class": "reference",
+  "derived_from": null,
+  "source_version": null,
+  "tags": ["software_delivery"],
 
   "scopes": {
     "project": { "parent": null },
