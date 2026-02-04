@@ -41,6 +41,9 @@
     --state-queued-text: #64748b;
     --state-queued-edge: #cbd5e1;
 
+    --bg-group-header: #e2e8f0;
+    --bg-subsection-header: #f1f5f9;
+
     --glow-active: 0 4px 12px -2px rgba(99, 102, 241, 0.25);
     --glow-station: 0 0 6px 3px rgba(99, 102, 241, 0.3);
 }
@@ -88,6 +91,9 @@
     --state-queued-text: #94a3b8;
     --state-queued-edge: #334155;
 
+    --bg-group-header: #1e293b;
+    --bg-subsection-header: #253347;
+
     --glow-active: 0 0 20px 8px rgba(245, 158, 11, 0.4);
     --glow-station: 0 0 10px 5px rgba(245, 158, 11, 0.5);
 }
@@ -134,6 +140,9 @@
     --state-queued-bg: #c8e4f4;
     --state-queued-text: #e8f4fc;
     --state-queued-edge: #d4e8f8;
+
+    --bg-group-header: #2d5a87;
+    --bg-subsection-header: #275075;
 
     --glow-active: 0 0 15px 5px rgba(251, 191, 36, 0.4);
     --glow-station: 0 0 8px 4px rgba(251, 191, 36, 0.5);

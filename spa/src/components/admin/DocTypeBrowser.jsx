@@ -1,10 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+
+const STORAGE_KEY = 'doctype-browser-collapsed';
+
+function usePersistedOpen(key, defaultOpen) {
+    const [open, setOpenRaw] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            return key in stored ? stored[key] : defaultOpen;
+        } catch {
+            return defaultOpen;
+        }
+    });
+    const setOpen = useCallback((next) => {
+        const val = typeof next === 'function' ? next(open) : next;
+        setOpenRaw(val);
+        try {
+            const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            stored[key] = val;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        } catch { /* ignore */ }
+    }, [key, open]);
+    return [open, setOpen];
+}
 
 /**
  * Collapsible group section for the left rail.
  */
 function CollapsibleGroup({ title, defaultOpen = true, children }) {
-    const [open, setOpen] = useState(defaultOpen);
+    const [open, setOpen] = usePersistedOpen(`group:${title}`, defaultOpen);
 
     return (
         <div>
@@ -12,15 +35,15 @@ function CollapsibleGroup({ title, defaultOpen = true, children }) {
                 onClick={() => setOpen(!open)}
                 className="w-full px-4 py-2.5 flex items-center justify-between text-left"
                 style={{
-                    background: 'var(--bg-panel)',
+                    background: 'var(--bg-group-header)',
                     border: 'none',
                     borderBottom: '1px solid var(--border-panel)',
                     cursor: 'pointer',
                 }}
             >
                 <span
-                    className="text-xs font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--text-muted)' }}
+                    className="font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-primary)', fontSize: 11 }}
                 >
                     {title}
                 </span>
@@ -45,13 +68,17 @@ function CollapsibleGroup({ title, defaultOpen = true, children }) {
  * Collapsible sub-section within a group.
  */
 function SubSection({ title, action, defaultOpen = true, children }) {
-    const [open, setOpen] = useState(defaultOpen);
+    const [open, setOpen] = usePersistedOpen(`sub:${title}`, defaultOpen);
 
     return (
         <div>
             <div
                 className="px-4 py-1.5 flex items-center justify-between"
-                style={{ borderBottom: '1px solid var(--border-panel)' }}
+                style={{
+                    background: 'var(--bg-subsection-header)',
+                    borderBottom: '1px solid var(--border-panel)',
+                    paddingLeft: '1.25rem',
+                }}
             >
                 <button
                     onClick={() => setOpen(!open)}
@@ -64,19 +91,19 @@ function SubSection({ title, action, defaultOpen = true, children }) {
                     }}
                 >
                     <span
-                        className="text-xs"
                         style={{
                             color: 'var(--text-muted)',
                             transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
                             transition: 'transform 150ms ease',
                             display: 'inline-block',
+                            fontSize: 9,
                         }}
                     >
                         ▾
                     </span>
                     <span
-                        className="text-xs font-semibold uppercase tracking-wide"
-                        style={{ color: 'var(--text-muted)' }}
+                        className="font-medium"
+                        style={{ color: 'var(--text-muted)', fontSize: 11 }}
                     >
                         {title}
                     </span>
@@ -146,7 +173,7 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
  *     > Document Workflows (DCWs - graph-based document production)
  *   Building Blocks
  *     > Roles
- *     > Tasks (derived from document types)
+ *     > Interactions (derived from document types)
  *     > Schemas (derived from document types)
  *     > Templates
  *   Governance
@@ -571,12 +598,12 @@ export default function DocTypeBrowser({
                         )}
                     </SubSection>
 
-                    {/* --- Tasks (derived from document types) --- */}
-                    <SubSection title="Tasks">
+                    {/* --- Interactions (derived from document types) --- */}
+                    <SubSection title="Interactions">
                         <SectionState
                             loading={loading}
                             empty={!loading && tasks.length === 0}
-                            emptyMessage="No tasks"
+                            emptyMessage="No interactions"
                         />
                         {!loading && tasks.length > 0 && (
                             <div className="py-1">
