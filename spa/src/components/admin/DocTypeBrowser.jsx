@@ -42,21 +42,48 @@ function CollapsibleGroup({ title, defaultOpen = true, children }) {
 }
 
 /**
- * Sub-section header within a collapsible group.
+ * Collapsible sub-section within a group.
  */
-function SubSectionHeader({ title, action }) {
+function SubSection({ title, action, defaultOpen = true, children }) {
+    const [open, setOpen] = useState(defaultOpen);
+
     return (
-        <div
-            className="px-4 py-1.5 flex items-center justify-between"
-            style={{ borderBottom: '1px solid var(--border-panel)' }}
-        >
-            <span
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)' }}
+        <div>
+            <div
+                className="px-4 py-1.5 flex items-center justify-between"
+                style={{ borderBottom: '1px solid var(--border-panel)' }}
             >
-                {title}
-            </span>
-            {action}
+                <button
+                    onClick={() => setOpen(!open)}
+                    className="flex items-center gap-1.5"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                    }}
+                >
+                    <span
+                        className="text-xs"
+                        style={{
+                            color: 'var(--text-muted)',
+                            transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+                            transition: 'transform 150ms ease',
+                            display: 'inline-block',
+                        }}
+                    >
+                        ▾
+                    </span>
+                    <span
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: 'var(--text-muted)' }}
+                    >
+                        {title}
+                    </span>
+                </button>
+                {action}
+            </div>
+            {open && children}
         </div>
     );
 }
@@ -212,7 +239,7 @@ export default function DocTypeBrowser({
                     ============================================================ */}
                 <CollapsibleGroup title="Production Workflows" defaultOpen={true}>
                     {/* --- Project Workflows (POWs) --- */}
-                    <SubSectionHeader
+                    <SubSection
                         title="Project Workflows"
                         action={
                             onCreateWorkflow && (
@@ -232,121 +259,121 @@ export default function DocTypeBrowser({
                                 </button>
                             )
                         }
-                    />
-
-                    {/* New Workflow Form */}
-                    {showNewWorkflowForm && (
-                        <div
-                            className="px-4 py-2"
-                            style={{ background: 'var(--bg-canvas)' }}
-                        >
-                            <input
-                                type="text"
-                                value={newWorkflowId}
-                                onChange={e => setNewWorkflowId(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') handleCreateWorkflow();
-                                    if (e.key === 'Escape') {
-                                        setShowNewWorkflowForm(false);
-                                        setNewWorkflowId('');
-                                    }
-                                }}
-                                placeholder="workflow_id (snake_case)"
-                                autoFocus
-                                disabled={creating}
-                                className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
-                                style={{
-                                    background: 'var(--bg-input, var(--bg-panel))',
-                                    border: '1px solid var(--border-panel)',
-                                    color: 'var(--text-primary)',
-                                    outline: 'none',
-                                }}
-                            />
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={handleCreateWorkflow}
-                                    disabled={creating || !newWorkflowId.trim()}
-                                    className="text-xs px-2 py-1 rounded hover:opacity-80"
+                    >
+                        {/* New Workflow Form */}
+                        {showNewWorkflowForm && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <input
+                                    type="text"
+                                    value={newWorkflowId}
+                                    onChange={e => setNewWorkflowId(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleCreateWorkflow();
+                                        if (e.key === 'Escape') {
+                                            setShowNewWorkflowForm(false);
+                                            setNewWorkflowId('');
+                                        }
+                                    }}
+                                    placeholder="workflow_id (snake_case)"
+                                    autoFocus
+                                    disabled={creating}
+                                    className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
                                     style={{
-                                        background: 'var(--action-primary)',
-                                        color: '#000',
-                                        fontWeight: 600,
-                                        border: 'none',
-                                        cursor: creating ? 'wait' : 'pointer',
-                                        opacity: (!newWorkflowId.trim() || creating) ? 0.5 : 1,
+                                        background: 'var(--bg-input, var(--bg-panel))',
+                                        border: '1px solid var(--border-panel)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
                                     }}
-                                >
-                                    {creating ? 'Creating...' : 'Create'}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowNewWorkflowForm(false);
-                                        setNewWorkflowId('');
-                                    }}
-                                    className="text-xs px-2 py-1 rounded hover:opacity-80"
-                                    style={{
-                                        background: 'transparent',
-                                        color: 'var(--text-muted)',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <SectionState
-                        loading={workflowsLoading}
-                        empty={!workflowsLoading && workflows.length === 0}
-                        emptyMessage="No project workflows"
-                    />
-                    {!workflowsLoading && workflows.length > 0 && (
-                        <div className="py-1">
-                            {workflows.map(wf => (
-                                <ItemButton
-                                    key={wf.workflow_id}
-                                    selected={selectedWorkflow?.workflow_id === wf.workflow_id}
-                                    onClick={() => onSelectWorkflow?.(wf)}
-                                    label={wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                    sublabel={`v${wf.active_version}${wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : ''}`}
                                 />
-                            ))}
-                        </div>
-                    )}
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={handleCreateWorkflow}
+                                        disabled={creating || !newWorkflowId.trim()}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: creating ? 'wait' : 'pointer',
+                                            opacity: (!newWorkflowId.trim() || creating) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {creating ? 'Creating...' : 'Create'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowNewWorkflowForm(false);
+                                            setNewWorkflowId('');
+                                        }}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <SectionState
+                            loading={workflowsLoading}
+                            empty={!workflowsLoading && workflows.length === 0}
+                            emptyMessage="No project workflows"
+                        />
+                        {!workflowsLoading && workflows.length > 0 && (
+                            <div className="py-1">
+                                {workflows.map(wf => (
+                                    <ItemButton
+                                        key={wf.workflow_id}
+                                        selected={selectedWorkflow?.workflow_id === wf.workflow_id}
+                                        onClick={() => onSelectWorkflow?.(wf)}
+                                        label={wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={`v${wf.active_version}${wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : ''}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
 
                     {/* --- Document Workflows (DCWs) --- */}
-                    <SubSectionHeader title="Document Workflows" />
-
-                    <SectionState
-                        loading={loading}
-                        empty={!loading && documentTypes.length === 0}
-                        emptyMessage="No document workflows"
-                    />
-                    {!loading && documentTypes.length > 0 && (
-                        <>
-                            {sortedCategories.map(category => (
-                                <div key={category} className="py-1">
-                                    <div
-                                        className="px-4 py-1 text-xs font-medium uppercase tracking-wider"
-                                        style={{ color: 'var(--text-muted)' }}
-                                    >
-                                        {category}
+                    <SubSection title="Document Workflows">
+                        <SectionState
+                            loading={loading}
+                            empty={!loading && documentTypes.length === 0}
+                            emptyMessage="No document workflows"
+                        />
+                        {!loading && documentTypes.length > 0 && (
+                            <>
+                                {sortedCategories.map(category => (
+                                    <div key={category} className="py-1">
+                                        <div
+                                            className="px-4 py-1 text-xs font-medium uppercase tracking-wider"
+                                            style={{ color: 'var(--text-muted)' }}
+                                        >
+                                            {category}
+                                        </div>
+                                        {grouped[category].map(dt => (
+                                            <ItemButton
+                                                key={dt.doc_type_id}
+                                                selected={selectedDocType?.doc_type_id === dt.doc_type_id}
+                                                onClick={() => onSelectDocType?.(dt)}
+                                                label={dt.display_name}
+                                                sublabel={`v${dt.active_version}${dt.authority_level ? ` \u00b7 ${dt.authority_level}` : ''}`}
+                                            />
+                                        ))}
                                     </div>
-                                    {grouped[category].map(dt => (
-                                        <ItemButton
-                                            key={dt.doc_type_id}
-                                            selected={selectedDocType?.doc_type_id === dt.doc_type_id}
-                                            onClick={() => onSelectDocType?.(dt)}
-                                            label={dt.display_name}
-                                            sublabel={`v${dt.active_version}${dt.authority_level ? ` \u00b7 ${dt.authority_level}` : ''}`}
-                                        />
-                                    ))}
-                                </div>
-                            ))}
-                        </>
-                    )}
+                                ))}
+                            </>
+                        )}
+                    </SubSection>
                 </CollapsibleGroup>
 
                 {/* ============================================================
@@ -354,88 +381,92 @@ export default function DocTypeBrowser({
                     ============================================================ */}
                 <CollapsibleGroup title="Building Blocks" defaultOpen={true}>
                     {/* --- Roles --- */}
-                    <SubSectionHeader title="Roles" />
-                    <SectionState
-                        loading={rolesLoading}
-                        empty={!rolesLoading && roles.length === 0}
-                        emptyMessage="No roles"
-                    />
-                    {!rolesLoading && roles.length > 0 && (
-                        <div className="py-1">
-                            {roles.map(role => (
-                                <ItemButton
-                                    key={role.role_id}
-                                    selected={selectedRole?.role_id === role.role_id}
-                                    onClick={() => onSelectRole?.(role)}
-                                    label={role.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                    sublabel={`v${role.active_version}`}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    <SubSection title="Roles">
+                        <SectionState
+                            loading={rolesLoading}
+                            empty={!rolesLoading && roles.length === 0}
+                            emptyMessage="No roles"
+                        />
+                        {!rolesLoading && roles.length > 0 && (
+                            <div className="py-1">
+                                {roles.map(role => (
+                                    <ItemButton
+                                        key={role.role_id}
+                                        selected={selectedRole?.role_id === role.role_id}
+                                        onClick={() => onSelectRole?.(role)}
+                                        label={role.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={`v${role.active_version}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
 
                     {/* --- Tasks (derived from document types) --- */}
-                    <SubSectionHeader title="Tasks" />
-                    <SectionState
-                        loading={loading}
-                        empty={!loading && tasks.length === 0}
-                        emptyMessage="No tasks"
-                    />
-                    {!loading && tasks.length > 0 && (
-                        <div className="py-1">
-                            {tasks.map(task => (
-                                <ItemButton
-                                    key={`task-${task.doc_type_id}`}
-                                    selected={selectedDocType?.doc_type_id === task.doc_type_id}
-                                    onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: task.doc_type_id, display_name: task.display_name, active_version: task.active_version })}
-                                    label={task.display_name}
-                                    sublabel={`from ${task.doc_type_id}`}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    <SubSection title="Tasks">
+                        <SectionState
+                            loading={loading}
+                            empty={!loading && tasks.length === 0}
+                            emptyMessage="No tasks"
+                        />
+                        {!loading && tasks.length > 0 && (
+                            <div className="py-1">
+                                {tasks.map(task => (
+                                    <ItemButton
+                                        key={`task-${task.doc_type_id}`}
+                                        selected={selectedDocType?.doc_type_id === task.doc_type_id}
+                                        onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: task.doc_type_id, display_name: task.display_name, active_version: task.active_version })}
+                                        label={task.display_name}
+                                        sublabel={`from ${task.doc_type_id}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
 
                     {/* --- Schemas (derived from document types, read-only for MVP) --- */}
-                    <SubSectionHeader title="Schemas" />
-                    <SectionState
-                        loading={loading}
-                        empty={!loading && schemas.length === 0}
-                        emptyMessage="No schemas"
-                    />
-                    {!loading && schemas.length > 0 && (
-                        <div className="py-1">
-                            {schemas.map(schema => (
-                                <ItemButton
-                                    key={`schema-${schema.doc_type_id}`}
-                                    selected={selectedDocType?.doc_type_id === schema.doc_type_id}
-                                    onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: schema.doc_type_id, display_name: schema.display_name, active_version: schema.active_version })}
-                                    label={schema.display_name}
-                                    sublabel={`from ${schema.doc_type_id}`}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    <SubSection title="Schemas">
+                        <SectionState
+                            loading={loading}
+                            empty={!loading && schemas.length === 0}
+                            emptyMessage="No schemas"
+                        />
+                        {!loading && schemas.length > 0 && (
+                            <div className="py-1">
+                                {schemas.map(schema => (
+                                    <ItemButton
+                                        key={`schema-${schema.doc_type_id}`}
+                                        selected={selectedDocType?.doc_type_id === schema.doc_type_id}
+                                        onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: schema.doc_type_id, display_name: schema.display_name, active_version: schema.active_version })}
+                                        label={schema.display_name}
+                                        sublabel={`from ${schema.doc_type_id}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
 
                     {/* --- Templates --- */}
-                    <SubSectionHeader title="Templates" />
-                    <SectionState
-                        loading={templatesLoading}
-                        empty={!templatesLoading && templates.length === 0}
-                        emptyMessage="No templates"
-                    />
-                    {!templatesLoading && templates.length > 0 && (
-                        <div className="py-1">
-                            {templates.map(template => (
-                                <ItemButton
-                                    key={template.template_id}
-                                    selected={selectedTemplate?.template_id === template.template_id}
-                                    onClick={() => onSelectTemplate?.(template)}
-                                    label={template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                    sublabel={`v${template.active_version}`}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    <SubSection title="Templates">
+                        <SectionState
+                            loading={templatesLoading}
+                            empty={!templatesLoading && templates.length === 0}
+                            emptyMessage="No templates"
+                        />
+                        {!templatesLoading && templates.length > 0 && (
+                            <div className="py-1">
+                                {templates.map(template => (
+                                    <ItemButton
+                                        key={template.template_id}
+                                        selected={selectedTemplate?.template_id === template.template_id}
+                                        onClick={() => onSelectTemplate?.(template)}
+                                        label={template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        sublabel={`v${template.active_version}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </SubSection>
                 </CollapsibleGroup>
 
                 {/* ============================================================
