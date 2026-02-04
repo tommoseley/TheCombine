@@ -1,0 +1,225 @@
+{
+  "$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
+  "workflow_id": "project_discovery",
+  "version": "1.8.0",
+  "name": "PM Discovery Document Workflow",
+  "description": "Generates Project Discovery document from Concierge Intake. Includes pre-generation clarification (PGC) step to surface unknowns before document generation.",
+  "scope_type": "document",
+  "document_type": "project_discovery",
+  "thread_ownership": {
+    "owns_thread": false,
+    "thread_purpose": null
+  },
+  "entry_node_ids": [
+    "pgc"
+  ],
+  "nodes": [
+    {
+      "node_id": "pgc",
+      "type": "pgc",
+      "description": "Pre-generation clarification questions for Project Discovery",
+      "task_ref": "tasks/Clarification Questions Generator v1.1",
+      "includes": {
+        "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
+        "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json"
+      },
+      "_position": {
+        "x": -229.07922210849537,
+        "y": 41.045240532241564
+      }
+    },
+    {
+      "node_id": "generation",
+      "type": "task",
+      "description": "Generate Project Discovery document from Concierge Intake",
+      "task_ref": "templates/Document Generator v1.0",
+      "includes": {
+        "ROLE_PROMPT": "seed/prompts/roles/Technical Architect 1.0.txt",
+        "TASK_PROMPT": "seed/prompts/tasks/Project Discovery v1.4.txt",
+        "OUTPUT_SCHEMA": "seed/schemas/project_discovery.v1.json"
+      },
+      "produces": "project_discovery",
+      "_position": {
+        "x": -222.80777891504604,
+        "y": 235.22620266120782
+      }
+    },
+    {
+      "node_id": "qa",
+      "type": "qa",
+      "description": "Structural and semantic QA on generated Project Discovery document",
+      "task_ref": "tasks/Project Discovery QA v1.1",
+      "requires_qa": true,
+      "qa_mode": "semantic",
+      "_position": {
+        "x": 274.2120777891504,
+        "y": 67.75394063459572
+      }
+    },
+    {
+      "node_id": "remediation",
+      "type": "task",
+      "description": "Rework Project Discovery based on QA feedback",
+      "task_ref": "templates/Document Generator v1.0",
+      "includes": {
+        "ROLE_PROMPT": "seed/prompts/roles/Technical Architect 1.0.txt",
+        "TASK_PROMPT": "seed/prompts/tasks/Project Discovery v1.4.txt",
+        "OUTPUT_SCHEMA": "seed/schemas/project_discovery.v1.json"
+      },
+      "produces": "project_discovery",
+      "_position": {
+        "x": 708.3780821917808,
+        "y": 302.2410958904111
+      }
+    },
+    {
+      "node_id": "end_complete",
+      "type": "end",
+      "description": "Project Discovery document ready",
+      "terminal_outcome": "stabilized",
+      "gate_outcome": "complete",
+      "_position": {
+        "x": -163.82190378710334,
+        "y": 796.0528147389969
+      }
+    },
+    {
+      "node_id": "end_failed",
+      "type": "end",
+      "description": "Generation failed - circuit breaker or error",
+      "terminal_outcome": "blocked",
+      "gate_outcome": "failed",
+      "_position": {
+        "x": 190,
+        "y": 800
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "pgc_to_generation",
+      "from_node_id": "pgc",
+      "to_node_id": "generation",
+      "outcome": "success",
+      "label": "Clarification complete, proceed to generation",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "pgc_needs_answers",
+      "from_node_id": "pgc",
+      "to_node_id": null,
+      "outcome": "needs_user_input",
+      "label": "User must answer clarification questions",
+      "kind": "auto",
+      "non_advancing": true
+    },
+    {
+      "edge_id": "generation_to_qa",
+      "from_node_id": "generation",
+      "to_node_id": "qa",
+      "outcome": "success",
+      "label": "Document generated, run QA",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_failed",
+      "outcome": "failed",
+      "label": "Document generation failed",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "qa_pass",
+      "from_node_id": "qa",
+      "to_node_id": "end_complete",
+      "outcome": "success",
+      "label": "QA passed - document complete",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "qa_fail_remediate",
+      "from_node_id": "qa",
+      "to_node_id": "remediation",
+      "outcome": "failed",
+      "label": "QA failed, remediate",
+      "kind": "auto",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "qa_fail_circuit_breaker",
+      "from_node_id": "qa",
+      "to_node_id": "end_failed",
+      "outcome": "failed",
+      "label": "QA failed, circuit breaker",
+      "kind": "auto",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "remediation_to_qa",
+      "from_node_id": "remediation",
+      "to_node_id": "qa",
+      "outcome": "success",
+      "label": "Remediation complete, re-run QA",
+      "kind": "auto"
+    },
+    {
+      "edge_id": "remediation_failed",
+      "from_node_id": "remediation",
+      "to_node_id": "end_failed",
+      "outcome": "failed",
+      "label": "Remediation failed",
+      "kind": "auto"
+    }
+  ],
+  "governance": {
+    "adr_references": [
+      "ADR-012",
+      "ADR-025",
+      "ADR-039",
+      "ADR-041",
+      "ADR-042"
+    ],
+    "design_principles": [
+      "Auto-complete on QA pass",
+      "Uses concierge_intake as upstream input",
+      "PM role analyzes intake to produce discovery artifacts",
+      "PGC uses template includes per ADR-041"
+    ],
+    "circuit_breaker": {
+      "max_retries": 2,
+      "applies_to": [
+        "qa",
+        "remediation"
+      ],
+      "on_trip": "end_failed with internal error flag"
+    }
+  },
+  "metadata": {
+    "created_date": "2026-01-21",
+    "updated_date": "2026-01-24",
+    "work_statement": "WS-ADR-042-001",
+    "changelog": [
+      "v1.0: Initial PM Discovery workflow",
+      "v1.1: Added PGC node with ADR-041 template includes",
+      "v1.2: All task_refs use explicit paths (tasks/, templates/); generation/remediation use Document Generator template",
+      "v1.7: Code-based promotion validation integrated (WS-PGC-VALIDATION-001)",
+      "v1.8: Constraint binding and drift enforcement per ADR-042 (WS-ADR-042-001)"
+    ]
+  },
+  "requires_inputs": [
+    "concierge_intake"
+  ]
+}

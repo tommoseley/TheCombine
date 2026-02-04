@@ -18,7 +18,13 @@
     "developer": "1.0.0"
   },
   "templates": {
-    "document_generator": "1.0.0"
+    "document_generator": "1.0.0",
+    "qa_evaluator": "1.0.0",
+    "pgc_clarifier": "1.0.0"
   },
-  "workflows": {}
+  "workflows": {
+    "concierge_intake": "1.3.0",
+    "project_discovery": "1.8.0",
+    "software_product_development": "1.0.0"
+  }
 }

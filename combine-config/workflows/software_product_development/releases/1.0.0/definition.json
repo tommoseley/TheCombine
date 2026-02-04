@@ -1,0 +1,140 @@
+{
+  "schema_version": "workflow.v1",
+  "workflow_id": "software_product_development",
+  "revision": "wfrev_2026_02_02_a",
+  "effective_date": "2026-02-02",
+  "name": "Software Product Development",
+  "description": "End-to-end workflow for software product creation from discovery through implementation",
+
+  "scopes": {
+    "project": { "parent": null },
+    "epic": { "parent": "project" },
+    "feature": { "parent": "epic" }
+  },
+
+  "document_types": {
+    "project_discovery": {
+      "name": "Project Discovery",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": false
+    },
+    "implementation_plan_primary": {
+      "name": "Implementation Plan (Primary)",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": false,
+      "description": "Preliminary plan with epic candidates that inform architecture"
+    },
+    "technical_architecture": {
+      "name": "Technical Architecture",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": true,
+      "accepted_by": ["architect"]
+    },
+    "implementation_plan": {
+      "name": "Implementation Plan",
+      "scope": "project",
+      "may_own": ["epic"],
+      "collection_field": "epics",
+      "acceptance_required": true,
+      "accepted_by": ["pm"],
+      "description": "Final plan that creates committed Epic documents"
+    },
+    "epic": {
+      "name": "Epic",
+      "scope": "project",
+      "may_own": ["feature"],
+      "acceptance_required": false,
+      "description": "Unit of planning with lifecycle gates"
+    },
+    "feature": {
+      "name": "Feature",
+      "scope": "epic",
+      "may_own": [],
+      "acceptance_required": true,
+      "accepted_by": ["pm", "ba"],
+      "description": "Unit of production intent with nested stories"
+    }
+  },
+
+  "entity_types": {
+    "epic": {
+      "name": "Epic",
+      "parent_doc_type": "implementation_plan",
+      "creates_scope": "epic"
+    },
+    "feature": {
+      "name": "Feature",
+      "parent_doc_type": "epic",
+      "creates_scope": "feature"
+    }
+  },
+
+  "steps": [
+    {
+      "step_id": "discovery",
+      "role": "Technical Architect 1.0",
+      "task_prompt": "Project Discovery v1.0",
+      "produces": "project_discovery",
+      "scope": "project",
+      "inputs": []
+    },
+    {
+      "step_id": "primary_plan",
+      "role": "Project Manager 1.0",
+      "task_prompt": "Implementation Plan Primary v1.0",
+      "produces": "implementation_plan_primary",
+      "scope": "project",
+      "inputs": [
+        { "doc_type": "project_discovery", "scope": "project" }
+      ]
+    },
+    {
+      "step_id": "technical_architecture",
+      "role": "Technical Architect 1.0",
+      "task_prompt": "Technical Architecture v1.0",
+      "produces": "technical_architecture",
+      "scope": "project",
+      "inputs": [
+        { "doc_type": "project_discovery", "scope": "project" },
+        { "doc_type": "implementation_plan_primary", "scope": "project" }
+      ]
+    },
+    {
+      "step_id": "implementation_plan",
+      "role": "Project Manager 1.0",
+      "task_prompt": "Implementation Plan v1.0",
+      "produces": "implementation_plan",
+      "scope": "project",
+      "creates_entities": "epic",
+      "inputs": [
+        { "doc_type": "implementation_plan_primary", "scope": "project" },
+        { "doc_type": "technical_architecture", "scope": "project" }
+      ]
+    },
+    {
+      "step_id": "per_epic",
+      "iterate_over": {
+        "doc_type": "implementation_plan",
+        "collection_field": "epics",
+        "entity_type": "epic"
+      },
+      "scope": "epic",
+      "steps": [
+        {
+          "step_id": "feature_decomposition",
+          "role": "Business Analyst 1.0",
+          "task_prompt": "Feature Decomposition v1.0",
+          "produces": "feature",
+          "scope": "epic",
+          "inputs": [
+            { "entity_type": "epic", "scope": "epic", "context": true },
+            { "doc_type": "technical_architecture", "scope": "project" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -25,6 +25,8 @@ optional_inputs: []
 # Shared artifact references
 role_prompt_ref: "prompt:role:project_manager:1.0.0"
 template_ref: "prompt:template:document_generator:1.0.0"
+qa_template_ref: "prompt:template:qa_evaluator:1.0.0"
+pgc_template_ref: "prompt:template:pgc_clarifier:1.0.0"
 
 # Packaged artifacts (relative paths)
 artifacts:

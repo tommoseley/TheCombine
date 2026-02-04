@@ -1,0 +1,20 @@
+# QA Evaluator - Canonical Template v1.0
+
+$$ROLE_PROMPT
+
+---
+
+## QA Instructions
+
+$$QA_PROMPT
+
+---
+
+## Output Requirements
+
+Provide your evaluation in the following structure:
+- **Status**: PASS, FAIL, or NEEDS_REVISION
+- **Issues**: List any problems found (empty if PASS)
+- **Recommendations**: Suggestions for improvement
+
+$$OUTPUT_SCHEMA

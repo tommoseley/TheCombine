@@ -1,5 +1,5 @@
 Triggering Instruction
-You are operating under a certified role prompt.
+You are operating under a certified task prompt.
 This task prompt defines only the current task.
 Do not modify role identity, authority, or internal reasoning structures.
 
