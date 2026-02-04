@@ -63,6 +63,7 @@ class DocumentTypeDetail(BaseModel):
     template_ref: Optional[str] = None
     qa_template_ref: Optional[str] = None
     pgc_template_ref: Optional[str] = None
+    schema_ref: Optional[str] = None
     workflow_ref: Optional[str] = None
     requires_pgc: bool
     is_llm_generated: bool
@@ -160,11 +161,33 @@ class OrchestrationWorkflowListResponse(BaseModel):
     total: int
 
 
+class SchemaSummary(BaseModel):
+    """Summary of a standalone schema for list responses."""
+    schema_id: str
+    active_version: Optional[str] = None
+    title: Optional[str] = None
+    error: Optional[str] = None
+
+
+class SchemaListResponse(BaseModel):
+    """Response for list schemas endpoint."""
+    schemas: List[SchemaSummary]
+    total: int
+
+
+class StandaloneSchemaDetail(BaseModel):
+    """Full standalone schema details."""
+    schema_id: str
+    version: str
+    content: Dict[str, Any]
+
+
 class ActiveReleasesResponse(BaseModel):
     """Response for active releases endpoint."""
     document_types: Dict[str, str]
     roles: Dict[str, str]
     templates: Dict[str, str]
+    schemas: Dict[str, str] = Field(default_factory=dict)
     workflows: Dict[str, str]
 
 
@@ -496,6 +519,57 @@ async def get_template(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error_code": "TEMPLATE_NOT_FOUND", "message": str(e)},
+        )
+    except VersionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "VERSION_NOT_FOUND", "message": str(e)},
+        )
+
+
+# ===========================================================================
+# Schema Endpoints
+# ===========================================================================
+
+@router.get(
+    "/schemas",
+    response_model=SchemaListResponse,
+    summary="List standalone schemas",
+    description="List all available standalone schemas.",
+)
+async def list_schemas(
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> SchemaListResponse:
+    """List all standalone schemas."""
+    summaries = service.list_schemas()
+    return SchemaListResponse(
+        schemas=[SchemaSummary(**s) for s in summaries],
+        total=len(summaries),
+    )
+
+
+@router.get(
+    "/schemas/{schema_id}",
+    response_model=StandaloneSchemaDetail,
+    summary="Get standalone schema",
+    description="Get a standalone schema's content.",
+    responses={
+        404: {"description": "Schema not found"},
+    },
+)
+async def get_standalone_schema(
+    schema_id: str,
+    version: Optional[str] = Query(None, description="Specific version (default: active)"),
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> StandaloneSchemaDetail:
+    """Get standalone schema details."""
+    try:
+        details = service.get_standalone_schema(schema_id, version)
+        return StandaloneSchemaDetail(**details)
+    except PackageNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "SCHEMA_NOT_FOUND", "message": str(e)},
         )
     except VersionNotFoundError as e:
         raise HTTPException(

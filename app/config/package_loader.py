@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from app.config.package_model import (
     DocumentTypePackage,
     RolePrompt,
+    StandaloneSchema,
     Template,
     ActiveReleases,
 )
@@ -68,12 +69,14 @@ class PackageLoader:
         self._document_types_path = self.config_path / "document_types"
         self._roles_path = self.config_path / "prompts" / "roles"
         self._templates_path = self.config_path / "prompts" / "templates"
+        self._schemas_path = self.config_path / "schemas"
 
         # Caches
         self._active_releases: Optional[ActiveReleases] = None
         self._package_cache: Dict[str, DocumentTypePackage] = {}
         self._role_cache: Dict[str, RolePrompt] = {}
         self._template_cache: Dict[str, Template] = {}
+        self._schema_cache: Dict[str, StandaloneSchema] = {}
 
     def get_active_releases(self) -> ActiveReleases:
         """Load and return the active releases configuration."""
@@ -93,6 +96,7 @@ class PackageLoader:
         self._package_cache.clear()
         self._role_cache.clear()
         self._template_cache.clear()
+        self._schema_cache.clear()
         logger.info("Package loader cache invalidated")
 
     # =========================================================================
@@ -293,6 +297,66 @@ class PackageLoader:
         ]
 
     # =========================================================================
+    # Standalone Schemas
+    # =========================================================================
+
+    def get_schema(
+        self,
+        schema_id: str,
+        version: Optional[str] = None,
+    ) -> StandaloneSchema:
+        """
+        Load a standalone schema.
+
+        Args:
+            schema_id: Schema identifier (e.g., "project_discovery")
+            version: Specific version to load. If None, uses active release.
+
+        Returns:
+            Loaded StandaloneSchema
+
+        Raises:
+            PackageNotFoundError: Schema not found
+            VersionNotFoundError: Requested version not found
+        """
+        # Determine version
+        if version is None:
+            active = self.get_active_releases()
+            version = active.get_schema_version(schema_id)
+            if version is None:
+                raise PackageNotFoundError(
+                    f"No active release for schema: {schema_id}"
+                )
+
+        # Check cache
+        cache_key = f"{schema_id}:{version}"
+        if cache_key in self._schema_cache:
+            return self._schema_cache[cache_key]
+
+        # Load schema
+        schema_path = self._schemas_path / schema_id / "releases" / version
+        if not schema_path.exists():
+            raise VersionNotFoundError(
+                f"Version {version} not found for schema: {schema_id}"
+            )
+
+        schema = StandaloneSchema.from_path(schema_path, schema_id, version)
+        self._schema_cache[cache_key] = schema
+
+        logger.debug(f"Loaded standalone schema: {schema_id} v{version}")
+        return schema
+
+    def list_schemas(self) -> List[str]:
+        """List all available standalone schema IDs."""
+        if not self._schemas_path.exists():
+            return []
+
+        return [
+            d.name for d in self._schemas_path.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ]
+
+    # =========================================================================
     # Convenience Methods
     # =========================================================================
 
@@ -322,6 +386,40 @@ class PackageLoader:
         version = parts[3]
 
         return self.get_role(role_id, version)
+
+    def resolve_schema_for_package(
+        self,
+        package: DocumentTypePackage,
+    ) -> Optional[Dict]:
+        """
+        Resolve and load the schema for a package.
+
+        Dual-read: checks standalone schema (via schema_ref) first,
+        falls back to packaged schema.
+
+        Args:
+            package: The document type package
+
+        Returns:
+            Schema dict or None if no schema available
+        """
+        # Try standalone schema first (via schema_ref)
+        if package.schema_ref:
+            parts = package.schema_ref.split(":")
+            if len(parts) == 3 and parts[0] == "schema":
+                schema_id = parts[1]
+                version = parts[2]
+                try:
+                    standalone = self.get_schema(schema_id, version)
+                    return standalone.content
+                except (PackageNotFoundError, VersionNotFoundError) as e:
+                    logger.debug(
+                        f"Standalone schema not found for {package.schema_ref}, "
+                        f"falling back to packaged: {e}"
+                    )
+
+        # Fall back to packaged schema
+        return package.get_schema()
 
     def resolve_template_for_package(
         self,
@@ -403,7 +501,7 @@ class PackageLoader:
         role = self.resolve_role_for_package(package)
         template = self.resolve_template_for_package(package)
         task_prompt = package.get_task_prompt()
-        schema = package.get_schema()
+        schema = self.resolve_schema_for_package(package)
 
         if not all([role, template, task_prompt]):
             logger.warning(
@@ -448,7 +546,7 @@ class PackageLoader:
 
         # Get QA schema if available
         import json
-        schema = package.get_schema()
+        schema = self.resolve_schema_for_package(package)
         schema_str = json.dumps(schema, indent=2) if schema else ""
 
         # Try to use QA template if specified
@@ -499,7 +597,7 @@ class PackageLoader:
 
         # Get PGC schema if available (clarification questions schema)
         import json
-        schema = package.get_schema()
+        schema = self.resolve_schema_for_package(package)
         schema_str = json.dumps(schema, indent=2) if schema else ""
 
         # Try to use PGC template if specified

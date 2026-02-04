@@ -111,6 +111,7 @@ class DocumentTypePackage:
     template_ref: Optional[str] = None
     qa_template_ref: Optional[str] = None
     pgc_template_ref: Optional[str] = None
+    schema_ref: Optional[str] = None
 
     # Packaged artifacts
     artifacts: PackageArtifacts = field(default_factory=PackageArtifacts)
@@ -199,6 +200,7 @@ class DocumentTypePackage:
             template_ref=data.get("template_ref"),
             qa_template_ref=data.get("qa_template_ref"),
             pgc_template_ref=data.get("pgc_template_ref"),
+            schema_ref=data.get("schema_ref"),
             artifacts=artifacts,
             tests=tests,
             gating_rules=gating_rules,
@@ -332,11 +334,34 @@ class Template:
 
 
 @dataclass
+class StandaloneSchema:
+    """A standalone schema loaded from combine-config/schemas/."""
+    schema_id: str
+    version: str
+    content: Dict[str, Any] = field(default_factory=dict)
+    _release_path: Optional[Path] = field(default=None, repr=False)
+
+    @classmethod
+    def from_path(cls, release_path: Path, schema_id: str, version: str) -> "StandaloneSchema":
+        """Load a schema from a release directory."""
+        schema_path = release_path / "schema.json"
+        with open(schema_path, "r", encoding="utf-8") as f:
+            content = json.load(f)
+        return cls(
+            schema_id=schema_id,
+            version=version,
+            content=content,
+            _release_path=release_path,
+        )
+
+
+@dataclass
 class ActiveReleases:
     """Active release pointers loaded from _active/active_releases.json."""
     document_types: Dict[str, str] = field(default_factory=dict)
     roles: Dict[str, str] = field(default_factory=dict)
     templates: Dict[str, str] = field(default_factory=dict)
+    schemas: Dict[str, str] = field(default_factory=dict)
     workflows: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
@@ -349,6 +374,7 @@ class ActiveReleases:
             document_types=data.get("document_types", {}),
             roles=data.get("roles", {}),
             templates=data.get("templates", {}),
+            schemas=data.get("schemas", {}),
             workflows=data.get("workflows", {}),
         )
 
@@ -363,3 +389,7 @@ class ActiveReleases:
     def get_template_version(self, template_id: str) -> Optional[str]:
         """Get the active version for a template."""
         return self.templates.get(template_id)
+
+    def get_schema_version(self, schema_id: str) -> Optional[str]:
+        """Get the active version for a standalone schema."""
+        return self.schemas.get(schema_id)

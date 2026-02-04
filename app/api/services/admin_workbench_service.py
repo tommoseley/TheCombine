@@ -181,6 +181,7 @@ class AdminWorkbenchService:
             "template_ref": package.template_ref,
             "qa_template_ref": package.qa_template_ref,
             "pgc_template_ref": package.pgc_template_ref,
+            "schema_ref": package.schema_ref,
             "requires_pgc": package.requires_pgc(),
             "is_llm_generated": package.is_llm_generated(),
             "artifacts": {
@@ -236,6 +237,8 @@ class AdminWorkbenchService:
         """
         Get the output schema for a document type.
 
+        Uses dual-read: standalone schema first, packaged fallback.
+
         Args:
             doc_type_id: Document type identifier
             version: Specific version or None for active version
@@ -244,7 +247,7 @@ class AdminWorkbenchService:
             Schema dict or None
         """
         package = self._loader.get_document_type(doc_type_id, version)
-        return package.get_schema()
+        return self._loader.resolve_schema_for_package(package)
 
     def get_pgc_context(
         self,
@@ -391,6 +394,69 @@ class AdminWorkbenchService:
         }
 
     # =========================================================================
+    # Standalone Schemas
+    # =========================================================================
+
+    def list_schemas(self) -> List[Dict[str, Any]]:
+        """
+        List all available standalone schemas.
+
+        Returns:
+            List of schema summaries
+        """
+        schema_ids = self._loader.list_schemas()
+        active = self._loader.get_active_releases()
+
+        summaries = []
+        for schema_id in sorted(schema_ids):
+            active_version = active.get_schema_version(schema_id)
+
+            try:
+                schema = self._loader.get_schema(schema_id)
+                summaries.append({
+                    "schema_id": schema_id,
+                    "active_version": active_version,
+                    "title": schema.content.get("title", schema_id),
+                })
+            except PackageLoaderError as e:
+                logger.warning(f"Could not load schema {schema_id}: {e}")
+                summaries.append({
+                    "schema_id": schema_id,
+                    "active_version": active_version,
+                    "title": schema_id,
+                    "error": str(e),
+                })
+
+        return summaries
+
+    def get_standalone_schema(
+        self,
+        schema_id: str,
+        version: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get a standalone schema's content.
+
+        Args:
+            schema_id: Schema identifier
+            version: Specific version or None for active version
+
+        Returns:
+            Schema details including content
+
+        Raises:
+            PackageNotFoundError: Schema not found
+            VersionNotFoundError: Requested version not found
+        """
+        schema = self._loader.get_schema(schema_id, version)
+
+        return {
+            "schema_id": schema.schema_id,
+            "version": schema.version,
+            "content": schema.content,
+        }
+
+    # =========================================================================
     # Active Releases
     # =========================================================================
 
@@ -407,6 +473,7 @@ class AdminWorkbenchService:
             "document_types": active.document_types,
             "roles": active.roles,
             "templates": active.templates,
+            "schemas": active.schemas,
             "workflows": active.workflows,
         }
 
