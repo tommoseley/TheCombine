@@ -16,9 +16,16 @@ export default function PromptEditor({
     loading: detailsLoading = false,
     roles = [],
     onArtifactSave,
+    initialTab = null,
 }) {
     // Which artifact type tab is selected
-    const [selectedKind, setSelectedKind] = useState('task_prompt');
+    const [selectedKind, setSelectedKind] = useState(initialTab || 'task_prompt');
+    // When initialTab prop changes, switch to that tab
+    useEffect(() => {
+        if (initialTab) {
+            setSelectedKind(initialTab);
+        }
+    }, [initialTab]);
     // View mode: 'source' (editable) or 'resolved' (read-only)
     const [viewMode, setViewMode] = useState('source');
     // Role prompt content (loaded separately for view-only display)

@@ -32,6 +32,7 @@ export default function AdminWorkbench() {
     const [selectedRole, setSelectedRole] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+    const [initialTab, setInitialTab] = useState(null);
 
     // Workspace lifecycle
     const {
@@ -74,12 +75,13 @@ export default function AdminWorkbench() {
     } = useAdminWorkflows();
 
     // Handle doc type selection - fetch full details
-    const handleSelectDocType = useCallback(async (docType) => {
+    const handleSelectDocType = useCallback(async (docType, tab = null) => {
         setSelectedDocType(docType);
         setSelectedRole(null);
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
         setSelectedDocTypeDetails(null);
+        setInitialTab(tab);
 
         if (!docType) return;
 
@@ -95,6 +97,16 @@ export default function AdminWorkbench() {
             setDetailsLoading(false);
         }
     }, []);
+
+    // Handle task selection - navigate to doc type's Task tab
+    const handleSelectTask = useCallback((docType) => {
+        handleSelectDocType(docType, 'task_prompt');
+    }, [handleSelectDocType]);
+
+    // Handle schema selection - navigate to doc type's Schema tab
+    const handleSelectSchema = useCallback((docType) => {
+        handleSelectDocType(docType, 'schema');
+    }, [handleSelectDocType]);
 
     // Handle role selection
     const handleSelectRole = useCallback((role) => {
@@ -316,6 +328,8 @@ export default function AdminWorkbench() {
                 onSelectTemplate={handleSelectTemplate}
                 onSelectWorkflow={handleSelectWorkflow}
                 onCreateWorkflow={handleCreateWorkflow}
+                onSelectTask={handleSelectTask}
+                onSelectSchema={handleSelectSchema}
             />
 
             {/* Center panel - Editor (Prompt, Role, Template, or Workflow) */}
@@ -345,6 +359,7 @@ export default function AdminWorkbench() {
                     loading={detailsLoading}
                     roles={roles}
                     onArtifactSave={handleArtifactSave}
+                    initialTab={initialTab}
                 />
             )}
 

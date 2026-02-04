@@ -1,7 +1,127 @@
 import React, { useState } from 'react';
 
 /**
- * Left sidebar for browsing and selecting document types, roles, templates, and workflows.
+ * Collapsible group section for the left rail.
+ */
+function CollapsibleGroup({ title, defaultOpen = true, children }) {
+    const [open, setOpen] = useState(defaultOpen);
+
+    return (
+        <div>
+            <button
+                onClick={() => setOpen(!open)}
+                className="w-full px-4 py-2.5 flex items-center justify-between text-left"
+                style={{
+                    background: 'var(--bg-panel)',
+                    border: 'none',
+                    borderBottom: '1px solid var(--border-panel)',
+                    cursor: 'pointer',
+                }}
+            >
+                <span
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-muted)' }}
+                >
+                    {title}
+                </span>
+                <span
+                    className="text-xs"
+                    style={{
+                        color: 'var(--text-muted)',
+                        transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        transition: 'transform 150ms ease',
+                        display: 'inline-block',
+                    }}
+                >
+                    ▾
+                </span>
+            </button>
+            {open && children}
+        </div>
+    );
+}
+
+/**
+ * Sub-section header within a collapsible group.
+ */
+function SubSectionHeader({ title, action }) {
+    return (
+        <div
+            className="px-4 py-1.5 flex items-center justify-between"
+            style={{ borderBottom: '1px solid var(--border-panel)' }}
+        >
+            <span
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+            >
+                {title}
+            </span>
+            {action}
+        </div>
+    );
+}
+
+/**
+ * Reusable item button for the left rail.
+ */
+function ItemButton({ selected, onClick, label, sublabel }) {
+    return (
+        <button
+            onClick={onClick}
+            className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
+            style={{
+                background: selected ? 'var(--bg-selected)' : 'transparent',
+                color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                borderLeft: selected
+                    ? '2px solid var(--action-primary)'
+                    : '2px solid transparent',
+            }}
+        >
+            <div className="font-medium truncate">{label}</div>
+            {sublabel && (
+                <div className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
+                    {sublabel}
+                </div>
+            )}
+        </button>
+    );
+}
+
+/**
+ * Loading / empty state for a section.
+ */
+function SectionState({ loading, empty, emptyMessage = 'None found' }) {
+    if (loading) {
+        return (
+            <div className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Loading...
+            </div>
+        );
+    }
+    if (empty) {
+        return (
+            <div className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+                {emptyMessage}
+            </div>
+        );
+    }
+    return null;
+}
+
+/**
+ * Left sidebar for the Admin Workbench, organized by abstraction level per ADR-045.
+ *
+ * Structure:
+ *   Production Workflows
+ *     > Project Workflows (POWs - step-based orchestration)
+ *     > Document Workflows (DCWs - graph-based document production)
+ *   Building Blocks
+ *     > Roles
+ *     > Tasks (derived from document types)
+ *     > Schemas (derived from document types)
+ *     > Templates
+ *   Governance
+ *     > Active Releases
  */
 export default function DocTypeBrowser({
     documentTypes = [],
@@ -21,12 +141,14 @@ export default function DocTypeBrowser({
     onSelectTemplate,
     onSelectWorkflow,
     onCreateWorkflow,
+    onSelectTask,
+    onSelectSchema,
 }) {
     const [showNewWorkflowForm, setShowNewWorkflowForm] = useState(false);
     const [newWorkflowId, setNewWorkflowId] = useState('');
     const [creating, setCreating] = useState(false);
 
-    // Group doc types by category
+    // Group doc types by category for Document Workflows section
     const grouped = documentTypes.reduce((acc, dt) => {
         const category = dt.category || 'other';
         if (!acc[category]) acc[category] = [];
@@ -59,6 +181,23 @@ export default function DocTypeBrowser({
         }
     };
 
+    // Derive tasks and schemas from document types for Building Blocks
+    const tasks = documentTypes.map(dt => ({
+        doc_type_id: dt.doc_type_id,
+        display_name: dt.display_name,
+        active_version: dt.active_version,
+    }));
+
+    const schemas = documentTypes.map(dt => ({
+        doc_type_id: dt.doc_type_id,
+        display_name: dt.display_name,
+        active_version: dt.active_version,
+    }));
+
+    // Count active releases for governance section
+    const activeReleaseCount = documentTypes.filter(dt => dt.active_version).length
+        + workflows.filter(wf => wf.active_version).length;
+
     return (
         <div
             className="w-60 flex flex-col border-r h-full"
@@ -67,327 +206,251 @@ export default function DocTypeBrowser({
                 background: 'var(--bg-panel)',
             }}
         >
-            {/* Document Types Section */}
-            <div
-                className="px-4 py-3 border-b"
-                style={{ borderColor: 'var(--border-panel)' }}
-            >
-                <h2
-                    className="text-sm font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)' }}
-                >
-                    Document Types
-                </h2>
-            </div>
-
-            {/* Document Types List */}
             <div className="flex-1 overflow-y-auto">
-                {loading ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        Loading...
-                    </div>
-                ) : documentTypes.length === 0 ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No document types found
-                    </div>
-                ) : (
-                    sortedCategories.map(category => (
-                        <div key={category} className="py-2">
-                            <div
-                                className="px-4 py-1 text-xs font-medium uppercase tracking-wider"
-                                style={{ color: 'var(--text-muted)' }}
-                            >
-                                {category}
-                            </div>
-                            {grouped[category].map(dt => (
+                {/* ============================================================
+                    PRODUCTION WORKFLOWS
+                    ============================================================ */}
+                <CollapsibleGroup title="Production Workflows" defaultOpen={true}>
+                    {/* --- Project Workflows (POWs) --- */}
+                    <SubSectionHeader
+                        title="Project Workflows"
+                        action={
+                            onCreateWorkflow && (
                                 <button
-                                    key={dt.doc_type_id}
-                                    onClick={() => {
-                                        onSelectDocType?.(dt);
-                                    }}
-                                    className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
+                                    onClick={() => setShowNewWorkflowForm(!showNewWorkflowForm)}
+                                    className="text-xs hover:opacity-80"
                                     style={{
-                                        background: selectedDocType?.doc_type_id === dt.doc_type_id
-                                            ? 'var(--bg-selected)'
-                                            : 'transparent',
-                                        color: selectedDocType?.doc_type_id === dt.doc_type_id
-                                            ? 'var(--text-primary)'
-                                            : 'var(--text-secondary)',
-                                        borderLeft: selectedDocType?.doc_type_id === dt.doc_type_id
-                                            ? '2px solid var(--action-primary)'
-                                            : '2px solid transparent',
+                                        color: 'var(--action-primary)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                    title="Create new workflow"
+                                >
+                                    + New
+                                </button>
+                            )
+                        }
+                    />
+
+                    {/* New Workflow Form */}
+                    {showNewWorkflowForm && (
+                        <div
+                            className="px-4 py-2"
+                            style={{ background: 'var(--bg-canvas)' }}
+                        >
+                            <input
+                                type="text"
+                                value={newWorkflowId}
+                                onChange={e => setNewWorkflowId(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') handleCreateWorkflow();
+                                    if (e.key === 'Escape') {
+                                        setShowNewWorkflowForm(false);
+                                        setNewWorkflowId('');
+                                    }
+                                }}
+                                placeholder="workflow_id (snake_case)"
+                                autoFocus
+                                disabled={creating}
+                                className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
+                                style={{
+                                    background: 'var(--bg-input, var(--bg-panel))',
+                                    border: '1px solid var(--border-panel)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                }}
+                            />
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={handleCreateWorkflow}
+                                    disabled={creating || !newWorkflowId.trim()}
+                                    className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                    style={{
+                                        background: 'var(--action-primary)',
+                                        color: '#000',
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        cursor: creating ? 'wait' : 'pointer',
+                                        opacity: (!newWorkflowId.trim() || creating) ? 0.5 : 1,
                                     }}
                                 >
-                                    <div className="font-medium truncate">{dt.display_name}</div>
-                                    <div
-                                        className="text-xs truncate"
-                                        style={{ color: 'var(--text-muted)' }}
-                                    >
-                                        v{dt.active_version}
-                                        {dt.authority_level && ` \u00b7 ${dt.authority_level}`}
-                                    </div>
+                                    {creating ? 'Creating...' : 'Create'}
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        setShowNewWorkflowForm(false);
+                                        setNewWorkflowId('');
+                                    }}
+                                    className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                    style={{
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <SectionState
+                        loading={workflowsLoading}
+                        empty={!workflowsLoading && workflows.length === 0}
+                        emptyMessage="No project workflows"
+                    />
+                    {!workflowsLoading && workflows.length > 0 && (
+                        <div className="py-1">
+                            {workflows.map(wf => (
+                                <ItemButton
+                                    key={wf.workflow_id}
+                                    selected={selectedWorkflow?.workflow_id === wf.workflow_id}
+                                    onClick={() => onSelectWorkflow?.(wf)}
+                                    label={wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                    sublabel={`v${wf.active_version}${wf.step_count != null ? ` \u00b7 ${wf.step_count} steps` : ''}`}
+                                />
                             ))}
                         </div>
-                    ))
-                )}
-            </div>
+                    )}
 
-            {/* Roles Section */}
-            <div
-                className="px-4 py-3 border-t border-b"
-                style={{ borderColor: 'var(--border-panel)' }}
-            >
-                <h2
-                    className="text-sm font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)' }}
-                >
-                    Roles
-                </h2>
-            </div>
+                    {/* --- Document Workflows (DCWs) --- */}
+                    <SubSectionHeader title="Document Workflows" />
 
-            {/* Roles List */}
-            <div className="overflow-y-auto" style={{ maxHeight: '150px' }}>
-                {rolesLoading ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        Loading...
-                    </div>
-                ) : roles.length === 0 ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No roles found
-                    </div>
-                ) : (
-                    <div className="py-2">
-                        {roles.map(role => (
-                            <button
-                                key={role.role_id}
-                                onClick={() => {
-                                    onSelectRole?.(role);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
-                                style={{
-                                    background: selectedRole?.role_id === role.role_id
-                                        ? 'var(--bg-selected)'
-                                        : 'transparent',
-                                    color: selectedRole?.role_id === role.role_id
-                                        ? 'var(--text-primary)'
-                                        : 'var(--text-secondary)',
-                                    borderLeft: selectedRole?.role_id === role.role_id
-                                        ? '2px solid var(--action-primary)'
-                                        : '2px solid transparent',
-                                }}
-                            >
-                                <div className="font-medium truncate">
-                                    {role.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                </div>
-                                <div
-                                    className="text-xs truncate"
-                                    style={{ color: 'var(--text-muted)' }}
-                                >
-                                    v{role.active_version}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Templates Section */}
-            <div
-                className="px-4 py-3 border-t border-b"
-                style={{ borderColor: 'var(--border-panel)' }}
-            >
-                <h2
-                    className="text-sm font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)' }}
-                >
-                    Templates
-                </h2>
-            </div>
-
-            {/* Templates List */}
-            <div className="overflow-y-auto" style={{ maxHeight: '150px' }}>
-                {templatesLoading ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        Loading...
-                    </div>
-                ) : templates.length === 0 ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No templates found
-                    </div>
-                ) : (
-                    <div className="py-2">
-                        {templates.map(template => (
-                            <button
-                                key={template.template_id}
-                                onClick={() => {
-                                    onSelectTemplate?.(template);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
-                                style={{
-                                    background: selectedTemplate?.template_id === template.template_id
-                                        ? 'var(--bg-selected)'
-                                        : 'transparent',
-                                    color: selectedTemplate?.template_id === template.template_id
-                                        ? 'var(--text-primary)'
-                                        : 'var(--text-secondary)',
-                                    borderLeft: selectedTemplate?.template_id === template.template_id
-                                        ? '2px solid var(--action-primary)'
-                                        : '2px solid transparent',
-                                }}
-                            >
-                                <div className="font-medium truncate">
-                                    {template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                </div>
-                                <div
-                                    className="text-xs truncate"
-                                    style={{ color: 'var(--text-muted)' }}
-                                >
-                                    v{template.active_version}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Workflows Section */}
-            <div
-                className="px-4 py-3 border-t border-b flex items-center justify-between"
-                style={{ borderColor: 'var(--border-panel)' }}
-            >
-                <h2
-                    className="text-sm font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)' }}
-                >
-                    Workflows
-                </h2>
-                {onCreateWorkflow && (
-                    <button
-                        onClick={() => setShowNewWorkflowForm(!showNewWorkflowForm)}
-                        className="text-xs hover:opacity-80"
-                        style={{
-                            color: 'var(--action-primary)',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                        }}
-                        title="Create new workflow"
-                    >
-                        + New
-                    </button>
-                )}
-            </div>
-
-            {/* New Workflow Form */}
-            {showNewWorkflowForm && (
-                <div
-                    className="px-4 py-2 border-b"
-                    style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-canvas)' }}
-                >
-                    <input
-                        type="text"
-                        value={newWorkflowId}
-                        onChange={e => setNewWorkflowId(e.target.value)}
-                        onKeyDown={e => {
-                            if (e.key === 'Enter') handleCreateWorkflow();
-                            if (e.key === 'Escape') {
-                                setShowNewWorkflowForm(false);
-                                setNewWorkflowId('');
-                            }
-                        }}
-                        placeholder="workflow_id (snake_case)"
-                        autoFocus
-                        disabled={creating}
-                        className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
-                        style={{
-                            background: 'var(--bg-input, var(--bg-panel))',
-                            border: '1px solid var(--border-panel)',
-                            color: 'var(--text-primary)',
-                            outline: 'none',
-                        }}
+                    <SectionState
+                        loading={loading}
+                        empty={!loading && documentTypes.length === 0}
+                        emptyMessage="No document workflows"
                     />
-                    <div className="flex gap-1">
-                        <button
-                            onClick={handleCreateWorkflow}
-                            disabled={creating || !newWorkflowId.trim()}
-                            className="text-xs px-2 py-1 rounded hover:opacity-80"
-                            style={{
-                                background: 'var(--action-primary)',
-                                color: '#000',
-                                fontWeight: 600,
-                                border: 'none',
-                                cursor: creating ? 'wait' : 'pointer',
-                                opacity: (!newWorkflowId.trim() || creating) ? 0.5 : 1,
-                            }}
-                        >
-                            {creating ? 'Creating...' : 'Create'}
-                        </button>
-                        <button
-                            onClick={() => {
-                                setShowNewWorkflowForm(false);
-                                setNewWorkflowId('');
-                            }}
-                            className="text-xs px-2 py-1 rounded hover:opacity-80"
-                            style={{
-                                background: 'transparent',
-                                color: 'var(--text-muted)',
-                                border: 'none',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            )}
+                    {!loading && documentTypes.length > 0 && (
+                        <>
+                            {sortedCategories.map(category => (
+                                <div key={category} className="py-1">
+                                    <div
+                                        className="px-4 py-1 text-xs font-medium uppercase tracking-wider"
+                                        style={{ color: 'var(--text-muted)' }}
+                                    >
+                                        {category}
+                                    </div>
+                                    {grouped[category].map(dt => (
+                                        <ItemButton
+                                            key={dt.doc_type_id}
+                                            selected={selectedDocType?.doc_type_id === dt.doc_type_id}
+                                            onClick={() => onSelectDocType?.(dt)}
+                                            label={dt.display_name}
+                                            sublabel={`v${dt.active_version}${dt.authority_level ? ` \u00b7 ${dt.authority_level}` : ''}`}
+                                        />
+                                    ))}
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </CollapsibleGroup>
 
-            {/* Workflows List */}
-            <div className="overflow-y-auto" style={{ maxHeight: '150px' }}>
-                {workflowsLoading ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        Loading...
+                {/* ============================================================
+                    BUILDING BLOCKS
+                    ============================================================ */}
+                <CollapsibleGroup title="Building Blocks" defaultOpen={true}>
+                    {/* --- Roles --- */}
+                    <SubSectionHeader title="Roles" />
+                    <SectionState
+                        loading={rolesLoading}
+                        empty={!rolesLoading && roles.length === 0}
+                        emptyMessage="No roles"
+                    />
+                    {!rolesLoading && roles.length > 0 && (
+                        <div className="py-1">
+                            {roles.map(role => (
+                                <ItemButton
+                                    key={role.role_id}
+                                    selected={selectedRole?.role_id === role.role_id}
+                                    onClick={() => onSelectRole?.(role)}
+                                    label={role.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                    sublabel={`v${role.active_version}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* --- Tasks (derived from document types) --- */}
+                    <SubSectionHeader title="Tasks" />
+                    <SectionState
+                        loading={loading}
+                        empty={!loading && tasks.length === 0}
+                        emptyMessage="No tasks"
+                    />
+                    {!loading && tasks.length > 0 && (
+                        <div className="py-1">
+                            {tasks.map(task => (
+                                <ItemButton
+                                    key={`task-${task.doc_type_id}`}
+                                    selected={selectedDocType?.doc_type_id === task.doc_type_id}
+                                    onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: task.doc_type_id, display_name: task.display_name, active_version: task.active_version })}
+                                    label={task.display_name}
+                                    sublabel={`from ${task.doc_type_id}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* --- Schemas (derived from document types, read-only for MVP) --- */}
+                    <SubSectionHeader title="Schemas" />
+                    <SectionState
+                        loading={loading}
+                        empty={!loading && schemas.length === 0}
+                        emptyMessage="No schemas"
+                    />
+                    {!loading && schemas.length > 0 && (
+                        <div className="py-1">
+                            {schemas.map(schema => (
+                                <ItemButton
+                                    key={`schema-${schema.doc_type_id}`}
+                                    selected={selectedDocType?.doc_type_id === schema.doc_type_id}
+                                    onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: schema.doc_type_id, display_name: schema.display_name, active_version: schema.active_version })}
+                                    label={schema.display_name}
+                                    sublabel={`from ${schema.doc_type_id}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* --- Templates --- */}
+                    <SubSectionHeader title="Templates" />
+                    <SectionState
+                        loading={templatesLoading}
+                        empty={!templatesLoading && templates.length === 0}
+                        emptyMessage="No templates"
+                    />
+                    {!templatesLoading && templates.length > 0 && (
+                        <div className="py-1">
+                            {templates.map(template => (
+                                <ItemButton
+                                    key={template.template_id}
+                                    selected={selectedTemplate?.template_id === template.template_id}
+                                    onClick={() => onSelectTemplate?.(template)}
+                                    label={template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                    sublabel={`v${template.active_version}`}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </CollapsibleGroup>
+
+                {/* ============================================================
+                    GOVERNANCE
+                    ============================================================ */}
+                <CollapsibleGroup title="Governance" defaultOpen={false}>
+                    <div className="px-4 py-3">
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            <div className="font-semibold uppercase tracking-wide mb-1">Active Releases</div>
+                            <div>
+                                {activeReleaseCount} active {activeReleaseCount === 1 ? 'release' : 'releases'}
+                            </div>
+                        </div>
                     </div>
-                ) : workflows.length === 0 ? (
-                    <div className="p-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No workflows found
-                    </div>
-                ) : (
-                    <div className="py-2">
-                        {workflows.map(wf => (
-                            <button
-                                key={wf.workflow_id}
-                                onClick={() => {
-                                    onSelectWorkflow?.(wf);
-                                }}
-                                className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
-                                style={{
-                                    background: selectedWorkflow?.workflow_id === wf.workflow_id
-                                        ? 'var(--bg-selected)'
-                                        : 'transparent',
-                                    color: selectedWorkflow?.workflow_id === wf.workflow_id
-                                        ? 'var(--text-primary)'
-                                        : 'var(--text-secondary)',
-                                    borderLeft: selectedWorkflow?.workflow_id === wf.workflow_id
-                                        ? '2px solid var(--action-primary)'
-                                        : '2px solid transparent',
-                                }}
-                            >
-                                <div className="font-medium truncate">
-                                    {wf.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                </div>
-                                <div
-                                    className="text-xs truncate"
-                                    style={{ color: 'var(--text-muted)' }}
-                                >
-                                    v{wf.active_version}
-                                    {wf.step_count != null && ` \u00b7 ${wf.step_count} steps`}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                </CollapsibleGroup>
             </div>
         </div>
     );
