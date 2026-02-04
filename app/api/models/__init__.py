@@ -17,6 +17,8 @@ from app.api.models.document_definition import DocumentDefinition
 from app.api.models.llm_thread import LLMThreadModel, LLMWorkItemModel, LLMLedgerEntryModel
 # WS-PGC-VALIDATION-001: PGC Answer Persistence
 from app.api.models.pgc_answer import PGCAnswer
+# ADR-046: POW Instance Storage
+from app.api.models.workflow_instance import WorkflowInstance, WorkflowInstanceHistory
 
 __all__ = [
     'Project',
@@ -38,4 +40,7 @@ __all__ = [
     'LLMLedgerEntryModel',
     # WS-PGC-VALIDATION-001: PGC Answer Persistence
     'PGCAnswer',
+    # ADR-046: POW Instance Storage
+    'WorkflowInstance',
+    'WorkflowInstanceHistory',
 ]

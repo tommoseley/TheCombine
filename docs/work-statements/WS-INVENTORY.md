@@ -124,7 +124,7 @@ This document provides a complete inventory of Work Statements for The Combine.
 
 | WS | ADR | Title | Status | Date | Notes |
 |----|-----|-------|--------|------|-------|
-| WS-ADR-046-001 | ADR-046 | POW Instance Storage and Runtime Binding | **Draft** | 2026-02-04 | 6 phases: DB migration, domain model, service layer, API, frontend, project lifecycle |
+| WS-ADR-046-001 | ADR-046 | POW Instance Storage and Runtime Binding | **Accepted** | 2026-02-04 | 6 phases: DB migration, domain model, service layer, API, frontend, project lifecycle |
 
 ---
 
