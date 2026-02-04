@@ -1,24 +1,21 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-04
-**Updated By:** Claude (WS-ADR-045-001 Execution)
+**Updated By:** Claude (ADR-045 finalization, ADR-046 acceptance)
 
 ## Current Focus
 
-**COMPLETE:** WS-ADR-045-001 -- Admin Workbench Left Rail Restructure and Schema Extraction
+**COMPLETE:** ADR-045 -- System Ontology (execution_state: complete)
 
-All 4 phases implemented:
-1. Left rail restructured into Production Workflows > Building Blocks > Governance
-2. Tasks surfaced as Building Blocks with direct navigation to PromptEditor Task tab
-3. Schemas extracted to standalone `combine-config/schemas/` with dual-read resolution
-4. CLAUDE.md updated with ADR-045 taxonomy reference, WS-INVENTORY.md updated
+All work statements delivered:
+- **WS-ADR-045-001** (Complete): Left rail restructure, tasks as building blocks, schema extraction, docs
+- **WS-ADR-045-002** (Complete): POW classification (`pow_class`, `derived_from`, `source_version`, `tags`), left rail grouping by class, create-from-reference UX, editor metadata
 
-**ACCEPTED:** ADR-045 -- System Ontology: Primitives, Composites, and Configuration Taxonomy
+**ACCEPTED:** ADR-046 -- POW Instance Storage and Runtime Binding
 
-Formalized the system's artifact classification:
-- **Primitives:** Prompt Fragment (shapes behavior), Schema (defines acceptability)
-- **Ontological term:** Interaction Pass (binds fragments + schema at execution time; vocabulary, not configuration)
-- **Composites:** Role, Task, DCW (Document Creation/Production Workflow), POW (Project Orchestration Workflow)
+Draft work statement prepared:
+- **WS-ADR-046-001** (Draft): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend, project lifecycle integration
+- Scope: database-backed storage for project-scoped POW instances, drift computation, audit trail
 
 ---
 
@@ -45,6 +42,10 @@ Formalized the system's artifact classification:
 - **Standalone schema extraction**: 7 schemas extracted to `combine-config/schemas/` with `schema_ref` in package.yaml
 - **Dual-read schema resolution**: Backend resolves standalone schemas first, falls back to packaged
 - **Schema API endpoints**: `/admin/workbench/schemas` list and `/admin/workbench/schemas/{id}` detail
+- **POW classification** (WS-ADR-045-002): `pow_class` (reference/template/instance), `derived_from` lineage, `tags` on workflow definitions
+- **Left rail grouped by POW class**: Reference Workflows, Template Workflows, Instance Workflows (hidden when empty)
+- **Create-from-reference UX**: Primary creation path forks a reference POW as a template with lineage; blank creation secondary
+- **Editor metadata**: Classification badge in header, editable tags, derived_from navigation link, source version display
 
 ---
 
@@ -64,11 +65,18 @@ Formalized the system's artifact classification:
 | WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
 | WS-044-11 | Golden Trace Runner | Deferred |
 
-## WS-045 Status
+## WS-045 Status (ADR-045 execution_state: complete)
 
 | WS | Title | Status |
 |---|---|---|
 | WS-ADR-045-001 | Left Rail Restructure and Schema Extraction | Complete |
+| WS-ADR-045-002 | POW Classification, Lineage, Left Rail Grouping | Complete |
+
+## WS-046 Status
+
+| WS | Title | Status |
+|---|---|---|
+| WS-ADR-046-001 | POW Instance Storage and Runtime Binding | Draft |
 
 ---
 
@@ -170,12 +178,14 @@ combine-config/
 
 1. **SPA at Root** -- SPA served for all users, handles its own auth state
 2. **Lobby Boundary** -- No production UI components shared with lobby
-3. **Document Production vs Orchestration Workflows** -- Graph-based (ADR-039) for per-document production, step-based (workflow.v1) for cross-document orchestration
+3. **Document Production vs Orchestration Workflows** -- Graph-based (ADR-039) for per-document production, step-based (workflow.v2) for cross-document orchestration
 4. **Orchestration steps are declarative** -- Steps declare what document to produce, not how (role/task belong on production workflow)
 5. **@dnd-kit for drag-to-reorder** -- Modern React DnD, supports nested sortable contexts
 6. **Workspace-scoped CRUD** -- Workflow create/delete goes through workspace service for Git-branch isolation
 7. **System Ontology (ADR-045)** -- Prompt Fragments shape behavior; Schemas define acceptability; Interaction Passes bind and execute both
 8. **Schema dual-read** -- Standalone schemas checked first, packaged schemas as fallback (transition support)
+9. **POW classification (ADR-045/WS-002)** -- `pow_class` (reference/template/instance), `derived_from` lineage, `tags`; left rail groups by class; create-from-reference as primary path
+10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time
 
 ---
 
@@ -198,6 +208,7 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
+- **WS-ADR-046-001** (Draft): POW Instance Storage -- accept and execute (6 phases)
 - Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started

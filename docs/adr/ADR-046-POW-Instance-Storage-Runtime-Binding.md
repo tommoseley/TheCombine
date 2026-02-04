@@ -1,6 +1,6 @@
 # ADR-046: POW Instance Storage and Runtime Binding
 
-**Status:** Draft
+**Status:** Accepted
 **Created:** 2026-02-04
 **Supersedes:** None
 **Related:** ADR-045 (System Ontology), ADR-044 (Admin Workbench), ADR-027 (Workflow Definition)

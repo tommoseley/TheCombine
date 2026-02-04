@@ -111,9 +111,20 @@ This document provides a complete inventory of Work Statements for The Combine.
 
 ## System Ontology (ADR-045)
 
-| WS | Title | Status | Date | Notes |
-|----|-------|--------|------|-------|
-| WS-ADR-045-001 | Admin Workbench Left Rail Restructure and Schema Extraction | **Complete** | 2026-02-04 | 4 phases: left rail, tasks, schema extraction, docs |
+| WS | ADR | Title | Status | Date | Notes |
+|----|-----|-------|--------|------|-------|
+| WS-ADR-045-001 | ADR-045 | Admin Workbench Left Rail Restructure and Schema Extraction | **Complete** | 2026-02-04 | 4 phases: left rail, tasks, schema extraction, docs |
+| WS-ADR-045-002 | ADR-045 | POW Classification, Lineage, and Left Rail Grouping | **Complete** | 2026-02-04 | 4 phases: schema extension, left rail grouping, create UX, editor metadata |
+
+**ADR-045 execution_state: complete** -- All acceptance criteria satisfied.
+
+---
+
+## POW Instance Storage (ADR-046)
+
+| WS | ADR | Title | Status | Date | Notes |
+|----|-----|-------|--------|------|-------|
+| WS-ADR-046-001 | ADR-046 | POW Instance Storage and Runtime Binding | **Draft** | 2026-02-04 | 6 phases: DB migration, domain model, service layer, API, frontend, project lifecycle |
 
 ---
 
