@@ -198,6 +198,31 @@ export const api = {
 
     initializeIntake: (executionId) =>
         request(`/intake/${executionId}/initialize`, { method: 'POST' }),
+
+    // Workflow Instances (ADR-046)
+    getWorkflowInstance: (projectId) =>
+        request(`/projects/${projectId}/workflow`),
+
+    createWorkflowInstance: (projectId, workflowId, version) =>
+        request(`/projects/${projectId}/workflow`, {
+            method: 'POST',
+            body: JSON.stringify({ workflow_id: workflowId, version }),
+        }),
+
+    updateWorkflowInstance: (projectId, effectiveWorkflow) =>
+        request(`/projects/${projectId}/workflow`, {
+            method: 'PUT',
+            body: JSON.stringify({ effective_workflow: effectiveWorkflow }),
+        }),
+
+    getWorkflowDrift: (projectId) =>
+        request(`/projects/${projectId}/workflow/drift`),
+
+    getWorkflowHistory: (projectId, limit = 50, offset = 0) =>
+        request(`/projects/${projectId}/workflow/history?limit=${limit}&offset=${offset}`),
+
+    completeWorkflowInstance: (projectId) =>
+        request(`/projects/${projectId}/workflow/complete`, { method: 'POST' }),
 };
 
 /**

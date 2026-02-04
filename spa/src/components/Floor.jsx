@@ -11,6 +11,7 @@ import 'reactflow/dist/style.css';
 import DocumentNode from './DocumentNode';
 import WaypointNode from './WaypointNode';
 import FullDocumentViewer from './FullDocumentViewer';
+import ProjectWorkflow from './ProjectWorkflow';
 import { buildGraph, getLayoutedElements, addEpicsToLayout } from '../utils/layout';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -37,6 +38,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     const [editName, setEditName] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [showWorkflow, setShowWorkflow] = useState(false);
     const reactFlowInstance = useReactFlow();
 
     // Update data when productionData changes
@@ -381,6 +383,30 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Workflow Instance (ADR-046) */}
+                        <div className="subway-panel backdrop-blur rounded-lg border overflow-hidden">
+                            <button
+                                onClick={() => setShowWorkflow(!showWorkflow)}
+                                className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold hover:opacity-80"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <span>Workflow</span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
+                                    {showWorkflow ? '\u25B2' : '\u25BC'}
+                                </span>
+                            </button>
+                            {showWorkflow && (
+                                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                                    <ProjectWorkflow projectId={projectId} />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </Panel>
