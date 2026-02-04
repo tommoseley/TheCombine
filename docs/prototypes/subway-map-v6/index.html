@@ -223,7 +223,7 @@
 <body class="min-h-screen">
     <div id="root" style="width: 100vw; height: 100vh;"></div>
     <script type="text/babel">        const { useState, useCallback, useMemo, useEffect } = React;
-        const { ReactFlow, ReactFlowProvider, useNodesState, useEdgesState, useReactFlow, Handle, Position, Panel } = window.ReactFlow;
+        const { ReactFlow, ReactFlowProvider, useNodesState, useEdgesState, useReactFlow, Handle, Position, Panel, MiniMap } = window.ReactFlow;
 
         // ============================================================
         // MODULE: data/constants.js
@@ -277,7 +277,8 @@
         // ============================================================
         // MODULE: data/projectData.js
         // ============================================================
-        const initialData = [
+        // Mock project for "The Combine" (existing, in-progress)
+        const combineProjectData = [
             createDocument('concierge', 'Concierge Intake', 'Initial project intake', 'stabilized'),
             createDocument('discovery', 'Project Discovery', 'Deep dive into scope', 'stabilized'),
             createDocument('architecture', 'Technical Architecture', 'System design decisions', 'active', 'mandatory', {
@@ -303,6 +304,61 @@
                 ]
             }
         ];
+        
+        // Mock project list
+        const PROJECTS = {
+            'combine': {
+                id: 'combine',
+                name: 'The Combine',
+                description: 'Industrial AI for knowledge work',
+                status: 'active',
+                data: combineProjectData
+            },
+            'website': {
+                id: 'website',
+                name: 'Marketing Website',
+                description: 'Company website redesign',
+                status: 'complete',
+                data: [
+                    createDocument('concierge', 'Concierge Intake', 'Initial requirements', 'stabilized'),
+                    createDocument('discovery', 'Project Discovery', 'Scope definition', 'stabilized'),
+                    createDocument('architecture', 'Technical Architecture', 'Tech stack decisions', 'stabilized'),
+                ]
+            },
+            'mobile': {
+                id: 'mobile',
+                name: 'Mobile App',
+                description: 'iOS and Android companion app',
+                status: 'queued',
+                data: [
+                    createDocument('concierge', 'Concierge Intake', 'Initial requirements', 'queued'),
+                ]
+            }
+        };
+        
+        // Create a new project with Concierge ready for input
+        const createNewProject = (name) => {
+            const id = 'project-' + Date.now();
+            return {
+                id,
+                name: name || 'New Project',
+                description: 'Untitled project',
+                status: 'active',
+                data: [
+                    createDocument('concierge', 'Concierge Intake', 'Tell us about your project', 'active', 'mandatory', {
+                        stations: createStations('pgc'),
+                        questions: createQuestions([
+                            'What is the primary goal of this project?',
+                            'Who are the main stakeholders?',
+                            'What is your target timeline?',
+                            { text: 'Any budget constraints?', required: false },
+                            { text: 'Existing systems to integrate with?', required: false }
+                        ])
+                    })
+                ]
+            };
+        };
+        
         // ============================================================
         // MODULE: utils/layout.js
         // ============================================================
@@ -765,24 +821,134 @@
         }
 
         const nodeTypes = { documentNode: DocumentNode, waypoint: WaypointNode };
+        
         // ============================================================
-        // MODULE: App.jsx - Main Component
+        // MODULE: components/ProjectTree.jsx
+        // Left sidebar with project list
         // ============================================================
-        function SubwayMap() {
-            const [data, setData] = useState(initialData);
+        function ProjectTree({ projects, selectedId, onSelectProject, onNewProject }) {
+            const [newProjectName, setNewProjectName] = useState('');
+            const [showNameInput, setShowNameInput] = useState(false);
+            
+            const handleNewProject = () => {
+                if (showNameInput && newProjectName.trim()) {
+                    onNewProject(newProjectName.trim());
+                    setNewProjectName('');
+                    setShowNameInput(false);
+                } else {
+                    setShowNameInput(true);
+                }
+            };
+            
+            const statusColors = {
+                active: '#f59e0b',
+                complete: '#10b981',
+                queued: '#64748b'
+            };
+            
+            return (
+                <div className="h-full flex flex-col" style={{ width: 260, background: 'var(--bg-panel)', borderRight: '1px solid var(--border-panel)' }}>
+                    <div className="p-4 border-b" style={{ borderColor: 'var(--border-panel)' }}>
+                        <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Projects</h2>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-2">
+                        {Object.values(projects).map(project => (
+                            <div 
+                                key={project.id}
+                                onClick={() => onSelectProject(project.id)}
+                                className="p-3 rounded-lg mb-2 cursor-pointer transition-all"
+                                style={{ 
+                                    background: selectedId === project.id ? 'var(--bg-button)' : 'transparent',
+                                    border: selectedId === project.id ? '1px solid var(--border-node)' : '1px solid transparent'
+                                }}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <div 
+                                        className="w-2 h-2 rounded-full" 
+                                        style={{ background: statusColors[project.status] || statusColors.queued }}
+                                    />
+                                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{project.name}</span>
+                                </div>
+                                <p className="text-xs mt-1 ml-4" style={{ color: 'var(--text-muted)' }}>{project.description}</p>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="p-3 border-t" style={{ borderColor: 'var(--border-panel)' }}>
+                        {showNameInput ? (
+                            <div className="space-y-2">
+                                <input
+                                    type="text"
+                                    placeholder="Project name..."
+                                    value={newProjectName}
+                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleNewProject()}
+                                    autoFocus
+                                    className="w-full px-3 py-2 rounded text-sm"
+                                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border-input)', color: 'var(--text-primary)' }}
+                                />
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={handleNewProject}
+                                        className="flex-1 py-2 rounded text-sm font-medium"
+                                        style={{ background: '#10b981', color: 'white' }}
+                                    >Create</button>
+                                    <button 
+                                        onClick={() => { setShowNameInput(false); setNewProjectName(''); }}
+                                        className="px-3 py-2 rounded text-sm"
+                                        style={{ background: 'var(--bg-button)', color: 'var(--text-muted)' }}
+                                    >Cancel</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={handleNewProject}
+                                className="w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                                style={{ background: '#10b981', color: 'white' }}
+                            >
+                                <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
+                                <span>New Project</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+        
+        // ============================================================
+        // MODULE: components/Floor.jsx - Production Floor (was SubwayMap)
+        // ============================================================
+        function Floor({ projectData, autoExpandNodeId, theme, onThemeChange }) {
+            const [data, setData] = useState(projectData);
             const [expandedId, setExpandedId] = useState(null);
             const [expandType, setExpandType] = useState(null);
-            const [theme, setTheme] = useState('industrial');
             const THEMES = ['industrial', 'light', 'blueprint'];
             const THEME_LABELS = { industrial: 'Industrial', light: 'Light', blueprint: 'Blueprint' };
             const reactFlowInstance = useReactFlow();
             
+            // Auto-expand only when explicitly requested (new project)
+            useEffect(() => {
+                if (autoExpandNodeId) {
+                    // Small delay to let React Flow initialize
+                    setTimeout(() => {
+                        setExpandedId(autoExpandNodeId);
+                        setExpandType('questions');
+                    }, 300);
+                }
+            }, [autoExpandNodeId]);
+            
+            // Update data when projectData changes
+            useEffect(() => {
+                setData(projectData);
+                setExpandedId(null);
+                setExpandType(null);
+            }, [projectData]);
+            
             const cycleTheme = useCallback(() => {
-                setTheme(t => {
-                    const idx = THEMES.indexOf(t);
-                    return THEMES[(idx + 1) % THEMES.length];
-                });
-            }, []);
+                const idx = THEMES.indexOf(theme);
+                onThemeChange(THEMES[(idx + 1) % THEMES.length]);
+            }, [theme, onThemeChange]);
             
             const onZoomToNode = useCallback((nodeId) => {
                 // Focus camera on node + sidecar with single smooth movement
@@ -867,10 +1033,8 @@
                 });
             }, [expandedId]);
 
-            const themeClass = `theme-${theme}`;
-            
             return (
-                <div className={`w-full h-full ${themeClass}`}>
+                <div className="w-full h-full">
                     <ReactFlow
                         nodes={nodes} edges={edges}
                         onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
@@ -899,6 +1063,22 @@
                                 </div>
                             </div>
                         </Panel>
+                        <MiniMap 
+                            position="top-right"
+                            nodeColor={(node) => {
+                                if (node.data?.state === 'stabilized') return '#10b981';
+                                if (node.data?.state === 'active') return '#f59e0b';
+                                return '#475569';
+                            }}
+                            maskColor="rgba(11, 17, 32, 0.85)"
+                            style={{ 
+                                background: 'var(--bg-panel)', 
+                                border: '1px solid var(--border-panel)',
+                                borderRadius: 8
+                            }}
+                            pannable
+                            zoomable
+                        />
                         <Panel position="bottom-left">
                             <div className="subway-panel flex gap-4 text-[10px] backdrop-blur px-4 py-2.5 rounded-lg border">
                                 <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
@@ -915,9 +1095,53 @@
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(
-            <ReactFlowProvider><SubwayMap /></ReactFlowProvider>
-        );
+        // ============================================================
+        // MODULE: App.jsx - Main Application Wrapper
+        // ============================================================
+        function App() {
+            const [projects, setProjects] = useState(PROJECTS);
+            const [selectedProjectId, setSelectedProjectId] = useState('combine');
+            const [autoExpandNode, setAutoExpandNode] = useState(null);
+            const [theme, setTheme] = useState('industrial');
+            
+            const handleSelectProject = (projectId) => {
+                setSelectedProjectId(projectId);
+                setAutoExpandNode(null);
+            };
+            
+            const handleNewProject = (name) => {
+                const newProject = createNewProject(name);
+                setProjects(prev => ({ ...prev, [newProject.id]: newProject }));
+                setSelectedProjectId(newProject.id);
+                // Auto-expand the concierge node for the new project
+                setAutoExpandNode('concierge');
+            };
+            
+            const selectedProject = projects[selectedProjectId];
+            
+            return (
+                <div className={`flex h-screen theme-${theme}`}>
+                    <ProjectTree 
+                        projects={projects}
+                        selectedId={selectedProjectId}
+                        onSelectProject={handleSelectProject}
+                        onNewProject={handleNewProject}
+                    />
+                    <div className="flex-1">
+                        <ReactFlowProvider key={selectedProjectId}>
+                            <Floor 
+                                projectData={selectedProject?.data || []} 
+                                autoExpandNodeId={autoExpandNode}
+                                theme={theme}
+                                onThemeChange={setTheme}
+                            />
+                        </ReactFlowProvider>
+                    </div>
+                </div>
+            );
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>

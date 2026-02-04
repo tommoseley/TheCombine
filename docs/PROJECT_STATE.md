@@ -1,40 +1,41 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-01
-**Updated By:** Claude (Lobby & Authentication)
+**Last Updated:** 2026-02-04
+**Updated By:** Claude (Admin Workbench Workflow Editing)
 
 ## Current Focus
 
-**COMPLETE:** React SPA Lobby and Authentication Integration
+**IN PROGRESS:** Admin Workbench — Workflow Editing Restructure
 
-The React SPA now has full authentication integration:
-- Lobby component for unauthenticated users (strict boundary enforcement)
-- OAuth SSO with Google and Microsoft
-- User management in bottom-left sidebar
-- SPA served at root URL for all users
+Separated two distinct workflow types in the Admin Workbench:
+- **Document Production Workflows** (graph-based, ADR-039) now appear as a "Workflow" tab on their document type in PromptEditor
+- **Project Orchestration Workflows** (step-based, workflow.v1) have a dedicated StepWorkflowEditor with interactive editing, drag-to-reorder, and workflow CRUD
 
-### Recent Commits
-- `314599c` - feat(spa): Lobby - strict boundary enforcement
-- `d1fbe31` - feat(spa): Factory Gates authentication and user management
-- `80880cd` - feat(spa): Add app logos to favicon, sidebar, and loading screens
+Key architectural insight: orchestration steps declare WHAT document to produce (e.g., `project_discovery`), not HOW. Role and task prompt bindings belong on the document production workflow's task node.
+
+### Uncommitted Changes
+All work is uncommitted. Large changeset spanning backend and frontend — should commit soon.
 
 ---
 
-## Lobby Specification
+## Admin Workbench Status
 
-The lobby is outside the factory. Nothing is moving. Nothing is being built.
-It exists only to explain the nature of the system and to control entry.
-Crossing the login boundary is crossing into production.
+**Location:** `/admin/workbench` (SPA route)
 
-### Requirements Implemented
-| Requirement | Description |
-|-------------|-------------|
-| LOBBY-01 | Identity only: "THE COMBINE" + tagline |
-| LOBBY-02 | SSO entry points only (Google, Microsoft) |
-| LOBBY-03 | Zero production terminology or UI components |
-| LOBBY-UX-01 | Minimal interaction (SSO + legal links) |
-| LOBBY-UX-02 | No animations, no status indicators |
-| LOBBY-UX-03 | Enterprise access terminal tone |
+### Features Complete
+- **Workspace lifecycle**: Git-branch isolation, create/close/TTL
+- **Document type editing**: Package, Role, Task, QA, PGC, Schema tabs with source/resolved views
+- **Role editing**: Standalone role prompt editor
+- **Template editing**: Standalone template editor
+- **Workflow tab on document types**: React Flow canvas for document production workflows (concierge_intake, project_discovery)
+- **Orchestration workflow editor**: Interactive step editing with drag-to-reorder (@dnd-kit), add/delete steps, JSON tab, metadata view
+- **Workflow CRUD**: Create new orchestration workflows from sidebar, delete from editor header
+- **Git status panel**: Dirty indicator, commit dialog, discard, diff view
+- **Preview engine**: Resolved prompt preview with provenance
+- **Tier 1 validation**: Package validation, graph workflow validation (PlanValidator), step workflow JSON validation
+
+### In Progress
+- Produces field should be a dropdown of available document production workflows
 
 ---
 
@@ -53,6 +54,7 @@ Crossing the login boundary is crossing into production.
 - Concierge intake sidecar with chat interface
 - SSE-based generation progress
 - Project management: rename, archive/unarchive, delete
+- **Admin Workbench**: Full prompt/workflow editing environment
 
 ### Authentication Flow
 1. User visits `/` → SPA loads
@@ -76,39 +78,57 @@ FastAPI Backend
 ├── /api/v1/projects/*   → REST: list, create, get, update, archive, delete
 ├── /api/v1/intake/*     → REST + SSE: concierge intake workflow
 ├── /api/v1/production/* → REST + SSE: production line status
+├── /api/v1/admin/workbench/*    → Read-only config browsing
+├── /api/v1/admin/workspaces/*   → Workspace-scoped editing + commit
 ├── /assets/*            → SPA static assets (JS, CSS)
-├── /logo-*.png          → Logo assets
-└── /admin/*             → Jinja2 templates (unchanged)
+└── /admin/*             → Jinja2 templates (legacy)
 
 React SPA (Vite)
 ├── src/
-│   ├── App.jsx                    # Lobby vs Production routing
+│   ├── App.jsx
 │   ├── components/
-│   │   ├── ProjectTree.jsx        # Sidebar with archive filter
-│   │   ├── Floor.jsx              # Production line + project info
-│   │   ├── ConciergeIntakeSidecar.jsx
-│   │   └── concierge/             # Intake sub-components
+│   │   ├── admin/
+│   │   │   ├── AdminWorkbench.jsx       # Three-panel layout
+│   │   │   ├── DocTypeBrowser.jsx       # Sidebar with doc types, roles, templates, workflows
+│   │   │   ├── PromptEditor.jsx         # Tab-based editor (incl. Workflow tab)
+│   │   │   ├── RoleEditor.jsx
+│   │   │   ├── TemplateEditor.jsx
+│   │   │   ├── GitStatusPanel.jsx
+│   │   │   └── workflow/
+│   │   │       ├── StepWorkflowEditor.jsx    # Orchestration workflow editor
+│   │   │       ├── WorkflowEditorContent.jsx # Reusable React Flow canvas
+│   │   │       ├── WorkflowEditor.jsx        # Thin wrapper (standalone)
+│   │   │       ├── WorkflowCanvas.jsx
+│   │   │       ├── WorkflowNode.jsx
+│   │   │       ├── NodePropertiesPanel.jsx
+│   │   │       └── EdgePropertiesPanel.jsx
+│   │   ├── ProjectTree.jsx
+│   │   ├── Floor.jsx
+│   │   └── ConciergeIntakeSidecar.jsx
 │   ├── hooks/
-│   │   ├── useAuth.jsx            # Auth context and state
-│   │   ├── useProjects.js         # With includeArchived option
-│   │   ├── useConciergeIntake.js
-│   │   └── useTheme.js
+│   │   ├── useAuth.jsx
+│   │   ├── useWorkspace.js
+│   │   ├── useWorkflowEditor.js
+│   │   ├── useAdminWorkflows.js         # Fetches orchestration workflows
+│   │   └── ...
 │   ├── api/
-│   │   └── client.js              # All API methods + CSRF handling
-│   └── styles/
-│       └── themes.css
-└── dist/                          # Production build
+│   │   ├── client.js
+│   │   └── adminClient.js
+│   └── utils/
+│       └── workflowTransform.js         # React Flow ↔ workflow JSON
+└── dist/
 ```
 
 ---
 
 ## Key Technical Decisions
 
-1. **SPA at Root** - SPA served for all users, handles its own auth state
-2. **Lobby Boundary** - No production UI components shared with lobby
-3. **SSE over Polling** - User preference, cleaner real-time updates
-4. **Archive before Delete** - Project governance requirement
-5. **User Bottom-Left** - Standard AI application pattern
+1. **SPA at Root** — SPA served for all users, handles its own auth state
+2. **Lobby Boundary** — No production UI components shared with lobby
+3. **Document Production vs Orchestration Workflows** — Graph-based (ADR-039) for per-document production, step-based (workflow.v1) for cross-document orchestration
+4. **Orchestration steps are declarative** — Steps declare what document to produce, not how (role/task belong on production workflow)
+5. **@dnd-kit for drag-to-reorder** — Modern React DnD, supports nested sortable contexts
+6. **Workspace-scoped CRUD** — Workflow create/delete goes through workspace service for Git-branch isolation
 
 ---
 
@@ -130,14 +150,11 @@ cd spa && npm run dev
 
 ## Handoff Notes
 
-The SPA is feature-complete for authentication and basic project management:
-- Lobby enforces strict boundary (no production leakage)
-- OAuth SSO working with Google and Microsoft
-- User management accessible from bottom-left
-- Production environment loads after successful auth
-
 ### Next Work
-Continue to solidify the user experience.
+- Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
+- Clean up existing software_product_development definition.json to remove role/task_prompt from steps
+- Consider updating workflow.v1 schema to reflect orchestration-only concerns
+- Commit the large uncommitted changeset
 
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
