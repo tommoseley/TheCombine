@@ -37,6 +37,7 @@ from app.domain.services.render_model_builder import (
     RenderModelBuilder,
     DocDefNotFoundError,
 )
+from app.api.models.workflow_instance import WorkflowInstance
 from app.api.services.admin_workbench_service import get_admin_workbench_service
 from app.api.services.workflow_instance_service import WorkflowInstanceService, DriftSummary
 
@@ -61,6 +62,8 @@ class ProjectFromIntakeRequest(BaseModel):
     execution_id: str = Field(..., description="Workflow execution ID")
     intake_document: Dict[str, Any] = Field(..., description="Intake document content")
     user_id: Optional[str] = Field(None, description="Owner user ID")
+    workflow_id: Optional[str] = Field(None, description="Source POW to assign (optional)")
+    workflow_version: Optional[str] = Field(None, description="Source POW version (required if workflow_id set)")
 
 
 class ProjectUpdateRequest(BaseModel):
@@ -97,6 +100,8 @@ class ProjectTreeResponse(BaseModel):
     project: ProjectResponse
     documents: List[Dict[str, Any]]
     intake_content: Optional[Dict[str, Any]] = None
+    has_workflow: bool = False
+    workflow_status: Optional[str] = None
 
 
 # -- Workflow Instance models (ADR-046) --
@@ -287,7 +292,8 @@ async def create_project_from_intake(
     """Create a project from completed intake workflow.
 
     Extracts project_name from the intake document and creates both
-    the Project and the concierge_intake Document.
+    the Project and the concierge_intake Document. Optionally assigns
+    a workflow instance if workflow_id is provided.
     """
     project = await create_project_from_intake_service(
         db=db,
@@ -295,6 +301,24 @@ async def create_project_from_intake(
         execution_id=request.execution_id,
         user_id=str(current_user.user_id),
     )
+
+    # Optionally assign a workflow instance (ADR-046 Phase 6)
+    if request.workflow_id and request.workflow_version:
+        try:
+            service = _get_workflow_instance_service()
+            await service.create_instance(
+                db=db,
+                project_id=project.id,
+                workflow_id=request.workflow_id,
+                version=request.workflow_version,
+                changed_by=current_user.email,
+            )
+            logger.info(
+                f"Assigned workflow {request.workflow_id} v{request.workflow_version} "
+                f"to project {project.project_id}"
+            )
+        except ValueError as e:
+            logger.warning(f"Could not assign workflow to new project: {e}")
 
     return _project_to_response(project)
 
@@ -575,10 +599,22 @@ async def get_project_tree(
         if discovery_doc and discovery_doc.content:
             intake_content = discovery_doc.content
 
+    # Check workflow instance assignment (ADR-046 Phase 6)
+    wf_result = await db.execute(
+        select(WorkflowInstance.status).where(
+            WorkflowInstance.project_id == project.id,
+        )
+    )
+    wf_row = wf_result.one_or_none()
+    has_workflow = wf_row is not None
+    workflow_status = wf_row[0] if wf_row else None
+
     return ProjectTreeResponse(
         project=_project_to_response(project),
         documents=documents,
         intake_content=intake_content,
+        has_workflow=has_workflow,
+        workflow_status=workflow_status,
     )
 
 
