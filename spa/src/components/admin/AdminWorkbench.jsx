@@ -33,6 +33,7 @@ export default function AdminWorkbench() {
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedWorkflow, setSelectedWorkflow] = useState(null);
     const [initialTab, setInitialTab] = useState(null);
+    const [docTypeSource, setDocTypeSource] = useState(null); // 'docworkflow' | 'task' | 'schema'
 
     // Workspace lifecycle
     const {
@@ -75,13 +76,14 @@ export default function AdminWorkbench() {
     } = useAdminWorkflows();
 
     // Handle doc type selection - fetch full details
-    const handleSelectDocType = useCallback(async (docType, tab = null) => {
+    const handleSelectDocType = useCallback(async (docType, tab = null, source = 'docworkflow') => {
         setSelectedDocType(docType);
         setSelectedRole(null);
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
         setSelectedDocTypeDetails(null);
         setInitialTab(tab);
+        setDocTypeSource(source);
 
         if (!docType) return;
 
@@ -98,14 +100,14 @@ export default function AdminWorkbench() {
         }
     }, []);
 
-    // Handle task selection - navigate to doc type's Task tab
+    // Handle task/interaction selection - loads PromptEditor on task_prompt tab
     const handleSelectTask = useCallback((docType) => {
-        handleSelectDocType(docType, 'task_prompt');
+        handleSelectDocType(docType, 'task_prompt', 'task');
     }, [handleSelectDocType]);
 
-    // Handle schema selection - navigate to doc type's Schema tab
+    // Handle schema selection - loads PromptEditor on schema tab
     const handleSelectSchema = useCallback((docType) => {
-        handleSelectDocType(docType, 'schema');
+        handleSelectDocType(docType, 'schema', 'schema');
     }, [handleSelectDocType]);
 
     // Handle role selection
@@ -328,6 +330,7 @@ export default function AdminWorkbench() {
                 templatesLoading={templatesLoading}
                 workflowsLoading={workflowsLoading}
                 selectedDocType={selectedDocType}
+                docTypeSource={docTypeSource}
                 selectedRole={selectedRole}
                 selectedTemplate={selectedTemplate}
                 selectedWorkflow={selectedWorkflow}

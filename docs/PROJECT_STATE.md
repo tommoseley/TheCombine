@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-04
-**Updated By:** Claude (ADR-045 finalization, ADR-046 acceptance)
+**Updated By:** Claude (WS-ADR-046-001 complete, sidebar UX improvements)
 
 ## Current Focus
 
@@ -11,11 +11,10 @@ All work statements delivered:
 - **WS-ADR-045-001** (Complete): Left rail restructure, tasks as building blocks, schema extraction, docs
 - **WS-ADR-045-002** (Complete): POW classification (`pow_class`, `derived_from`, `source_version`, `tags`), left rail grouping by class, create-from-reference UX, editor metadata
 
-**ACCEPTED:** ADR-046 -- POW Instance Storage and Runtime Binding
+**COMPLETE:** ADR-046 -- POW Instance Storage and Runtime Binding (execution_state: complete)
 
-Draft work statement prepared:
-- **WS-ADR-046-001** (Draft): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend, project lifecycle integration
-- Scope: database-backed storage for project-scoped POW instances, drift computation, audit trail
+All work statements delivered:
+- **WS-ADR-046-001** (Complete): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend (ProjectWorkflow component), project lifecycle integration
 
 ---
 
@@ -36,9 +35,10 @@ Draft work statement prepared:
 - **Git status panel**: Dirty indicator, commit dialog, discard, diff view
 - **Preview engine**: Resolved prompt preview with provenance
 - **Tier 1 validation**: Package validation, graph workflow validation (PlanValidator), step workflow JSON validation
-- **Left rail organized by abstraction level** (ADR-045): Production Workflows (POWs + DCWs), Building Blocks (Roles, Tasks, Schemas, Templates), Governance (Active Releases)
-- **Tasks as Building Blocks**: Derived from document types, navigate to PromptEditor Task tab
-- **Schemas as Building Blocks**: Derived from document types, navigate to PromptEditor Schema tab
+- **Left rail organized by abstraction level** (ADR-045): Production Workflows (POWs + DCWs), Building Blocks (Roles, Interactions, Schemas, Templates), Governance (Active Releases)
+- **Sidebar header hierarchy**: Distinct background colors and typography for group vs sub-section headers; collapsed/expanded state persisted to localStorage
+- **Interactions as Building Blocks**: Derived from document types, navigate to PromptEditor Task tab; selection decoupled from Document Workflows
+- **Schemas as Building Blocks**: Derived from document types, navigate to PromptEditor Schema tab; selection decoupled from Document Workflows
 - **Standalone schema extraction**: 7 schemas extracted to `combine-config/schemas/` with `schema_ref` in package.yaml
 - **Dual-read schema resolution**: Backend resolves standalone schemas first, falls back to packaged
 - **Schema API endpoints**: `/admin/workbench/schemas` list and `/admin/workbench/schemas/{id}` detail
@@ -72,11 +72,11 @@ Draft work statement prepared:
 | WS-ADR-045-001 | Left Rail Restructure and Schema Extraction | Complete |
 | WS-ADR-045-002 | POW Classification, Lineage, Left Rail Grouping | Complete |
 
-## WS-046 Status
+## WS-046 Status (ADR-046 execution_state: complete)
 
 | WS | Title | Status |
 |---|---|---|
-| WS-ADR-046-001 | POW Instance Storage and Runtime Binding | Draft |
+| WS-ADR-046-001 | POW Instance Storage and Runtime Binding | Complete |
 
 ---
 
@@ -91,6 +91,7 @@ Draft work statement prepared:
 - **User Management**: Bottom-left sidebar with avatar, name, email
 - ProjectTree sidebar with project selection highlighting
 - Floor component with Production Line status and Project Info block
+- **ProjectWorkflow panel**: Assign workflow to project, instance viewer with steps and drift indicator
 - Theme switching (Industrial, Light, Blueprint)
 - Concierge intake sidecar with chat interface
 - SSE-based generation progress
@@ -117,6 +118,7 @@ FastAPI Backend
 +-- /auth/callback/*     -> OAuth callback
 +-- /auth/logout         -> Session termination
 +-- /api/v1/projects/*   -> REST: list, create, get, update, archive, delete
++-- /api/v1/projects/{id}/workflow  -> REST: workflow instance CRUD, drift, history
 +-- /api/v1/intake/*     -> REST + SSE: concierge intake workflow
 +-- /api/v1/production/* -> REST + SSE: production line status
 +-- /api/v1/admin/workbench/*    -> Read-only config browsing (incl. /schemas)
@@ -147,6 +149,7 @@ React SPA (Vite)
 |   |   |       +-- EdgePropertiesPanel.jsx
 |   |   +-- ProjectTree.jsx
 |   |   +-- Floor.jsx
+|   |   +-- ProjectWorkflow.jsx          # Workflow instance viewer (ADR-046)
 |   |   +-- ConciergeIntakeSidecar.jsx
 |   +-- hooks/
 |   |   +-- useAuth.jsx
@@ -185,7 +188,7 @@ combine-config/
 7. **System Ontology (ADR-045)** -- Prompt Fragments shape behavior; Schemas define acceptability; Interaction Passes bind and execute both
 8. **Schema dual-read** -- Standalone schemas checked first, packaged schemas as fallback (transition support)
 9. **POW classification (ADR-045/WS-002)** -- `pow_class` (reference/template/instance), `derived_from` lineage, `tags`; left rail groups by class; create-from-reference as primary path
-10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time
+10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time; append-only audit trail
 
 ---
 
@@ -208,7 +211,6 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **WS-ADR-046-001** (Draft): POW Instance Storage -- accept and execute (6 phases)
 - Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started
@@ -217,3 +219,4 @@ cd spa && npm run dev
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
+- Uncommitted schema changes in `combine-config/document_types/` (primary_implementation_plan, technical_architecture) -- review and commit or discard

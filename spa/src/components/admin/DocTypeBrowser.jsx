@@ -189,6 +189,7 @@ export default function DocTypeBrowser({
     templatesLoading = false,
     workflowsLoading = false,
     selectedDocType = null,
+    docTypeSource = null,
     selectedRole = null,
     selectedTemplate = null,
     selectedWorkflow = null,
@@ -205,6 +206,7 @@ export default function DocTypeBrowser({
     const [selectedReference, setSelectedReference] = useState(null);
     const [newWorkflowId, setNewWorkflowId] = useState('');
     const [creating, setCreating] = useState(false);
+
 
     // Group doc types by category for Document Workflows section
     const grouped = documentTypes.reduce((acc, dt) => {
@@ -559,7 +561,7 @@ export default function DocTypeBrowser({
                                         {grouped[category].map(dt => (
                                             <ItemButton
                                                 key={dt.doc_type_id}
-                                                selected={selectedDocType?.doc_type_id === dt.doc_type_id}
+                                                selected={docTypeSource === 'docworkflow' && selectedDocType?.doc_type_id === dt.doc_type_id}
                                                 onClick={() => onSelectDocType?.(dt)}
                                                 label={dt.display_name}
                                                 sublabel={`v${dt.active_version}${dt.authority_level ? ` \u00b7 ${dt.authority_level}` : ''}`}
@@ -610,7 +612,7 @@ export default function DocTypeBrowser({
                                 {tasks.map(task => (
                                     <ItemButton
                                         key={`task-${task.doc_type_id}`}
-                                        selected={selectedDocType?.doc_type_id === task.doc_type_id}
+                                        selected={docTypeSource === 'task' && selectedDocType?.doc_type_id === task.doc_type_id}
                                         onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: task.doc_type_id, display_name: task.display_name, active_version: task.active_version })}
                                         label={task.display_name}
                                         sublabel={`from ${task.doc_type_id}`}
@@ -632,7 +634,7 @@ export default function DocTypeBrowser({
                                 {schemas.map(schema => (
                                     <ItemButton
                                         key={`schema-${schema.doc_type_id}`}
-                                        selected={selectedDocType?.doc_type_id === schema.doc_type_id}
+                                        selected={docTypeSource === 'schema' && selectedDocType?.doc_type_id === schema.doc_type_id}
                                         onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: schema.doc_type_id, display_name: schema.display_name, active_version: schema.active_version })}
                                         label={schema.display_name}
                                         sublabel={`from ${schema.doc_type_id}`}
