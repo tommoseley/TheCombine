@@ -14,7 +14,7 @@ import { useAuth } from '../hooks';
  * - No production actions (Generate, Run, Approve) - those belong to the line
  */
 export default function UserSidecar({ onClose }) {
-    const { user, logout } = useAuth();
+    const { user, logout, isAdmin } = useAuth();
     const [expandedSection, setExpandedSection] = useState(null);
     const [linkedAccounts, setLinkedAccounts] = useState([]);
     const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -394,6 +394,52 @@ export default function UserSidecar({ onClose }) {
 
                 {/* Sections */}
                 <div className="flex-1 overflow-y-auto">
+                    {/* Admin links (only for admins) */}
+                    {isAdmin && (
+                        <div style={{ borderBottom: '1px solid var(--border-panel)' }}>
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <span
+                                    className="text-[10px] uppercase tracking-wide font-medium"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
+                                    Administration
+                                </span>
+                            </div>
+                            <a
+                                href="/admin"
+                                className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+                                style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
+                            >
+                                <span style={{ color: 'var(--amber-400, #fbbf24)' }}>
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                                    </svg>
+                                </span>
+                                <span className="text-sm">Admin Panel</span>
+                            </a>
+                            <a
+                                href="/admin/workbench"
+                                className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/5"
+                                style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
+                            >
+                                <span style={{ color: 'var(--purple-400, #a78bfa)' }}>
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <line x1="16" y1="13" x2="8" y2="13" />
+                                        <line x1="16" y1="17" x2="8" y2="17" />
+                                        <line x1="10" y1="9" x2="8" y2="9" />
+                                    </svg>
+                                </span>
+                                <span className="text-sm">Prompt Workbench</span>
+                            </a>
+                        </div>
+                    )}
+
                     {sections.map((section) => (
                         <div
                             key={section.id}

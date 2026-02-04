@@ -4,6 +4,25 @@ import QuestionTray from './QuestionTray';
 import FeatureGrid from './FeatureGrid';
 import DocumentViewer from './DocumentViewer';
 
+/**
+ * Production state display names (operator-facing)
+ */
+const STATE_DISPLAY = {
+    produced: 'Produced',
+    in_production: 'In Production',
+    ready_for_production: 'Ready',
+    requirements_not_met: 'Requirements Not Met',
+    awaiting_operator: 'Awaiting Operator',
+    halted: 'Halted',
+    // Legacy mappings
+    stabilized: 'Produced',
+    active: 'In Production',
+    queued: 'Ready',
+    blocked: 'Requirements Not Met',
+    ready: 'Produced',
+    waiting: 'Ready',
+};
+
 export default function DocumentNode({ data }) {
     const level = data.level || 1;
     const isL1 = level === 1;
@@ -12,29 +31,43 @@ export default function DocumentNode({ data }) {
     const hasQuestions = data.questions?.length > 0;
     const hasFeatures = data.features?.length > 0;
     const needsInput = data.stations?.some(s => s.needs_input);
-    const showStations = data.state === 'active' && data.stations;
-    const stateClass = data.state === 'active' ? 'node-active' : '';
+
+    // Normalize state for display (handle legacy values)
+    const rawState = data.state || 'ready_for_production';
+    const isProduced = ['produced', 'stabilized', 'ready'].includes(rawState);
+    const isInProduction = ['in_production', 'active'].includes(rawState);
+    const isRequirementsNotMet = ['requirements_not_met', 'blocked'].includes(rawState);
+
+    const showStations = isInProduction && data.stations;
+    const stateClass = isInProduction ? 'node-active' : '';
     const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';
 
-    // State colors
-    const stateBg = data.state === 'stabilized'
-        ? 'var(--state-stabilized-bg)'
-        : data.state === 'active'
-            ? 'var(--state-active-bg)'
-            : 'var(--state-queued-bg)';
+    // State colors - using semantic CSS variables
+    const stateBg = isProduced
+        ? 'var(--state-produced-bg, var(--state-stabilized-bg))'
+        : isInProduction
+            ? 'var(--state-in-production-bg, var(--state-active-bg))'
+            : isRequirementsNotMet
+                ? 'var(--state-requirements-not-met-bg, var(--state-blocked-bg, var(--state-queued-bg)))'
+                : 'var(--state-ready-bg, var(--state-queued-bg))';
 
-    const stateText = data.state === 'stabilized'
-        ? 'var(--state-stabilized-text)'
-        : data.state === 'active'
-            ? 'var(--state-active-text)'
-            : 'var(--state-queued-text)';
+    const stateText = isProduced
+        ? 'var(--state-produced-text, var(--state-stabilized-text))'
+        : isInProduction
+            ? 'var(--state-in-production-text, var(--state-active-text))'
+            : isRequirementsNotMet
+                ? 'var(--state-requirements-not-met-text, var(--state-blocked-text, var(--state-queued-text)))'
+                : 'var(--state-ready-text, var(--state-queued-text))';
 
-    const borderColor = data.state === 'active'
-        ? 'var(--state-active-bg)'
-        : data.state === 'stabilized'
-            ? 'var(--state-stabilized-bg)'
+    const borderColor = isInProduction
+        ? 'var(--state-in-production-bg, var(--state-active-bg))'
+        : isProduced
+            ? 'var(--state-produced-bg, var(--state-stabilized-bg))'
             : 'var(--border-node)';
+
+    // Display name for state
+    const displayState = STATE_DISPLAY[rawState] || rawState;
 
     return (
         <div className="relative">
@@ -88,7 +121,7 @@ export default function DocumentNode({ data }) {
                                 className="text-[10px] font-semibold uppercase tracking-wide"
                                 style={{ color: stateText }}
                             >
-                                {data.state}
+                                {displayState}
                             </span>
                             {isL1 && data.desc && (
                                 <p
@@ -105,7 +138,7 @@ export default function DocumentNode({ data }) {
 
                     {/* Action buttons */}
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                        {isL1 && data.state === 'stabilized' && (
+                        {isL1 && isProduced && (
                             <button
                                 className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] hover:bg-emerald-500/30 transition-colors"
                                 style={{ color: 'var(--action-success)' }}
@@ -175,7 +208,7 @@ export default function DocumentNode({ data }) {
                 />
             )}
 
-            {isExpanded && expandType === 'document' && isL1 && data.state === 'stabilized' && (
+            {isExpanded && expandType === 'document' && isL1 && isProduced && (
                 <DocumentViewer
                     document={data}
                     projectId={data.projectId}

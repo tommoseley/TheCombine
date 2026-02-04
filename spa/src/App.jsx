@@ -336,7 +336,11 @@ function AppWithAuth() {
 
     // Authenticated routes
     if (path === '/admin/workbench') {
-        return <AdminWorkbench />;
+        return (
+            <div className={`h-screen theme-${theme}`}>
+                <AdminWorkbench />
+            </div>
+        );
     }
 
     // Show main app if authenticated

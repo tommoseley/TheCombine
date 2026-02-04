@@ -3,15 +3,22 @@ import { useAuth } from '../../hooks';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useWorkspaceState } from '../../hooks/useWorkspaceState';
 import { useAdminDocumentTypes } from '../../hooks/useAdminDocumentTypes';
+import { useAdminRoles } from '../../hooks/useAdminRoles';
+import { useAdminTemplates } from '../../hooks/useAdminTemplates';
+import { useAdminWorkflows } from '../../hooks/useAdminWorkflows';
+import { adminApi } from '../../api/adminClient';
 import DocTypeBrowser from './DocTypeBrowser';
 import PromptEditor from './PromptEditor';
+import RoleEditor from './RoleEditor';
+import TemplateEditor from './TemplateEditor';
+import StepWorkflowEditor from './workflow/StepWorkflowEditor';
 import GitStatusPanel from './GitStatusPanel';
 
 /**
  * Admin Workbench - main layout for document type prompt editing.
  *
  * Three-panel layout:
- * - Left (240px): Document type browser
+ * - Left (240px): Document type and role browser
  * - Center (flex-1): Prompt editor with tabs
  * - Right (320px): Git status and commit actions
  *
@@ -20,6 +27,11 @@ import GitStatusPanel from './GitStatusPanel';
 export default function AdminWorkbench() {
     const { isAdmin, loading: authLoading } = useAuth();
     const [selectedDocType, setSelectedDocType] = useState(null);
+    const [selectedDocTypeDetails, setSelectedDocTypeDetails] = useState(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+    const [selectedRole, setSelectedRole] = useState(null);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [selectedWorkflow, setSelectedWorkflow] = useState(null);
 
     // Workspace lifecycle
     const {
@@ -42,6 +54,75 @@ export default function AdminWorkbench() {
         loading: docTypesLoading,
     } = useAdminDocumentTypes();
 
+    // Roles list
+    const {
+        roles,
+        loading: rolesLoading,
+    } = useAdminRoles();
+
+    // Templates list
+    const {
+        templates,
+        loading: templatesLoading,
+    } = useAdminTemplates();
+
+    // Workflows list
+    const {
+        workflows,
+        loading: workflowsLoading,
+        refresh: refreshWorkflows,
+    } = useAdminWorkflows();
+
+    // Handle doc type selection - fetch full details
+    const handleSelectDocType = useCallback(async (docType) => {
+        setSelectedDocType(docType);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
+        setSelectedDocTypeDetails(null);
+
+        if (!docType) return;
+
+        setDetailsLoading(true);
+        try {
+            const details = await adminApi.getDocumentType(docType.doc_type_id);
+            setSelectedDocTypeDetails(details);
+        } catch (err) {
+            console.error('Failed to load doc type details:', err);
+            // Still show the doc type but with limited info
+            setSelectedDocTypeDetails(docType);
+        } finally {
+            setDetailsLoading(false);
+        }
+    }, []);
+
+    // Handle role selection
+    const handleSelectRole = useCallback((role) => {
+        setSelectedRole(role);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
+    }, []);
+
+    // Handle template selection
+    const handleSelectTemplate = useCallback((template) => {
+        setSelectedTemplate(template);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedWorkflow(null);
+    }, []);
+
+    // Handle workflow selection
+    const handleSelectWorkflow = useCallback((workflow) => {
+        setSelectedWorkflow(workflow);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+    }, []);
+
     // Handle artifact save (refresh workspace state)
     const handleArtifactSave = useCallback((artifactId, result) => {
         // Refresh state to update dirty status and validation
@@ -58,13 +139,58 @@ export default function AdminWorkbench() {
     const handleDiscard = useCallback(() => {
         // Clear selection and refresh
         setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
     }, []);
+
+    // Handle create workflow
+    const handleCreateWorkflow = useCallback(async (data) => {
+        if (!workspaceId) return;
+        try {
+            const result = await adminApi.createOrchestrationWorkflow(workspaceId, data);
+            await refreshWorkflows();
+            refreshState();
+            // Auto-select the new workflow
+            setSelectedWorkflow({
+                workflow_id: result.workflow_id,
+                active_version: result.version,
+                name: data.name || result.workflow_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            });
+            setSelectedDocType(null);
+            setSelectedDocTypeDetails(null);
+            setSelectedRole(null);
+            setSelectedTemplate(null);
+        } catch (err) {
+            console.error('Failed to create workflow:', err);
+            alert(`Failed to create workflow: ${err.message}`);
+        }
+    }, [workspaceId, refreshWorkflows, refreshState]);
+
+    // Handle delete workflow
+    const handleDeleteWorkflow = useCallback(async (workflowId) => {
+        if (!workspaceId) return;
+        try {
+            await adminApi.deleteOrchestrationWorkflow(workspaceId, workflowId);
+            await refreshWorkflows();
+            refreshState();
+            setSelectedWorkflow(null);
+        } catch (err) {
+            console.error('Failed to delete workflow:', err);
+            alert(`Failed to delete workflow: ${err.message}`);
+        }
+    }, [workspaceId, refreshWorkflows, refreshState]);
 
     // Handle workspace close
     const handleClose = useCallback(() => {
         // Reinitialize (will create new workspace)
         reinitialize();
         setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
     }, [reinitialize]);
 
     // Auth check
@@ -160,25 +286,67 @@ export default function AdminWorkbench() {
         );
     }
 
+    // Determine which editor to show
+    const showRoleEditor = selectedRole && !selectedDocType && !selectedTemplate && !selectedWorkflow;
+    const showTemplateEditor = selectedTemplate && !selectedDocType && !selectedRole && !selectedWorkflow;
+    const showWorkflowEditor = selectedWorkflow && !selectedDocType && !selectedRole && !selectedTemplate;
+    const showPromptEditor = !showRoleEditor && !showTemplateEditor && !showWorkflowEditor;
+
     return (
         <div
             className="flex h-screen overflow-hidden"
             style={{ background: 'var(--bg-canvas)' }}
         >
-            {/* Left panel - Document Type Browser */}
+            {/* Left panel - Document Type, Role & Template Browser */}
             <DocTypeBrowser
                 documentTypes={documentTypes}
+                roles={roles}
+                templates={templates}
+                workflows={workflows}
                 loading={docTypesLoading}
+                rolesLoading={rolesLoading}
+                templatesLoading={templatesLoading}
+                workflowsLoading={workflowsLoading}
                 selectedDocType={selectedDocType}
-                onSelect={setSelectedDocType}
+                selectedRole={selectedRole}
+                selectedTemplate={selectedTemplate}
+                selectedWorkflow={selectedWorkflow}
+                onSelectDocType={handleSelectDocType}
+                onSelectRole={handleSelectRole}
+                onSelectTemplate={handleSelectTemplate}
+                onSelectWorkflow={handleSelectWorkflow}
+                onCreateWorkflow={handleCreateWorkflow}
             />
 
-            {/* Center panel - Prompt Editor */}
-            <PromptEditor
-                workspaceId={workspaceId}
-                docType={selectedDocType}
-                onArtifactSave={handleArtifactSave}
-            />
+            {/* Center panel - Editor (Prompt, Role, Template, or Workflow) */}
+            {showRoleEditor ? (
+                <RoleEditor
+                    workspaceId={workspaceId}
+                    role={selectedRole}
+                    onArtifactSave={handleArtifactSave}
+                />
+            ) : showTemplateEditor ? (
+                <TemplateEditor
+                    workspaceId={workspaceId}
+                    template={selectedTemplate}
+                    onArtifactSave={handleArtifactSave}
+                />
+            ) : showWorkflowEditor ? (
+                <StepWorkflowEditor
+                    workspaceId={workspaceId}
+                    workflow={selectedWorkflow}
+                    onArtifactSave={handleArtifactSave}
+                    onDelete={handleDeleteWorkflow}
+                />
+            ) : (
+                <PromptEditor
+                    workspaceId={workspaceId}
+                    docType={selectedDocTypeDetails}
+                    loading={detailsLoading}
+                    roles={roles}
+                    onArtifactSave={handleArtifactSave}
+                />
+            )}
 
             {/* Right panel - Git Status */}
             <GitStatusPanel

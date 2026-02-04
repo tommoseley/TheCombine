@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
 /**
  * Editable textarea for a single prompt artifact.
@@ -13,7 +13,20 @@ export default function PromptTab({
     error = null,
     readOnly = false,
     placeholder = 'Enter prompt content...',
+    isJson = false,
 }) {
+    // Format JSON content
+    const handleFormatJson = useCallback(() => {
+        if (!content || !isJson) return;
+        try {
+            const parsed = JSON.parse(content);
+            const formatted = JSON.stringify(parsed, null, 2);
+            onChange?.(formatted);
+        } catch (e) {
+            // Invalid JSON - don't format
+            console.warn('Invalid JSON, cannot format:', e.message);
+        }
+    }, [content, isJson, onChange]);
     return (
         <div className="flex flex-col h-full">
             {/* Status bar */}
@@ -38,6 +51,18 @@ export default function PromptTab({
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    {isJson && !readOnly && (
+                        <button
+                            onClick={handleFormatJson}
+                            className="px-2 py-0.5 rounded text-xs hover:opacity-80"
+                            style={{
+                                background: 'var(--bg-button)',
+                                color: 'var(--text-muted)',
+                            }}
+                        >
+                            Format JSON
+                        </button>
+                    )}
                     {loading && (
                         <span style={{ color: 'var(--text-muted)' }}>Loading...</span>
                     )}

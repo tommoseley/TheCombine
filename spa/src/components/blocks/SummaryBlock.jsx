@@ -1,16 +1,25 @@
 /**
  * Summary block renderer
  * Displays structured summary with multiple sections
+ * Handles various summary formats (Project Discovery, Epic Backlog, etc.)
  */
 export default function SummaryBlock({ block }) {
     const { data } = block;
-    const { problem_understanding, architectural_intent, scope_pressure_points } = data;
 
-    const sections = [
-        { title: 'Problem Understanding', content: problem_understanding },
-        { title: 'Architectural Intent', content: architectural_intent },
-        { title: 'Scope Pressure Points', content: scope_pressure_points },
-    ].filter(s => s.content);
+    // Map of field names to display titles
+    const fieldTitles = {
+        problem_understanding: 'Problem Understanding',
+        architectural_intent: 'Architectural Intent',
+        scope_pressure_points: 'Scope Pressure Points',
+        proposed_system_shape: 'Proposed System Shape',
+        overall_intent: 'Overall Intent',
+        mvp_definition: 'MVP Definition',
+    };
+
+    // Build sections from any string fields that have known titles
+    const sections = Object.entries(fieldTitles)
+        .filter(([field]) => data[field] && typeof data[field] === 'string')
+        .map(([field, title]) => ({ title, content: data[field] }));
 
     if (sections.length === 0) return null;
 

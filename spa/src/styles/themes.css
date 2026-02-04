@@ -8,6 +8,8 @@
     --bg-button: #f1f5f9;
     --bg-input: #f8fafc;
     --bg-sidecar: #ffffff;
+    --bg-selected: #e2e8f0;
+    --action-primary: #3b82f6;
     --text-sidecar: #1e293b;
     --text-sidecar-muted: #64748b;
     --action-success: #059669;
@@ -18,6 +20,7 @@
     --border-input: #cbd5e1;
 
     --text-primary: #1e293b;
+    --text-secondary: #475569;
     --text-muted: #64748b;
     --text-dim: #94a3b8;
 
@@ -52,6 +55,8 @@
     --bg-button: #334155;
     --bg-input: #1e293b;
     --bg-sidecar: #1e293b;
+    --bg-selected: #334155;
+    --action-primary: #f59e0b;
     --text-sidecar: #f8fafc;
     --text-sidecar-muted: #cbd5e1;
     --action-success: #6ee7b7;
@@ -62,6 +67,7 @@
     --border-input: #475569;
 
     --text-primary: #f8fafc;
+    --text-secondary: #e2e8f0;
     --text-muted: #cbd5e1;
     --text-dim: #94a3b8;
 
@@ -96,6 +102,8 @@
     --bg-button: #2d5a87;
     --bg-input: #1e3a5f;
     --bg-sidecar: #e8f4fc;
+    --bg-selected: #2d5a87;
+    --action-primary: #fbbf24;
     --text-sidecar: #1e3a5f;
     --text-sidecar-muted: #3d6a8f;
     --action-success: #059669;
@@ -106,6 +114,7 @@
     --border-input: #4a90c2;
 
     --text-primary: #e8f4fc;
+    --text-secondary: #c8e4f0;
     --text-muted: #a8d4f0;
     --text-dim: #7cb8e0;
 

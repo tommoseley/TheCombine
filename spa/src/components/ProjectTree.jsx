@@ -28,7 +28,7 @@ function formatDate(isoString) {
     }
 }
 
-export default function ProjectTree({ projects, selectedId, onSelectProject, onNewProject, showArchived, onToggleShowArchived }) {
+export default function ProjectTree({ projects, selectedId, onSelectProject, onNewProject, showArchived, onToggleShowArchived, userSection }) {
     const [collapsed, setCollapsed] = useState(false);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isDragging, setIsDragging] = useState(false);
@@ -286,6 +286,9 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
                     </button>
                 </div>
             )}
+
+            {/* User section (passed from parent) */}
+            {userSection}
 
             {/* Drag handle */}
             {!collapsed && (

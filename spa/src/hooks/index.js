@@ -9,4 +9,5 @@ export { useAuth, AuthProvider } from './useAuth.jsx';
 export { useWorkspace } from './useWorkspace';
 export { useWorkspaceState } from './useWorkspaceState';
 export { useAdminDocumentTypes } from './useAdminDocumentTypes';
+export { useAdminRoles } from './useAdminRoles';
 export { usePromptEditor } from './usePromptEditor';

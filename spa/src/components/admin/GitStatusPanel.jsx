@@ -4,6 +4,29 @@ import CommitDialog from './CommitDialog';
 import { adminApi } from '../../api/adminClient';
 
 /**
+ * Parse artifact ID into display components.
+ * Format: {scope}:{name}:{version}:{kind}
+ */
+function parseArtifactId(artifactId) {
+    const parts = artifactId.split(':');
+    if (parts.length !== 4) return { display: artifactId };
+
+    const [scope, name, version, kind] = parts;
+    const displayName = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const kindLabel = kind.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    return {
+        scope,
+        name,
+        displayName,
+        kind,
+        kindLabel,
+        version,
+        display: `${displayName} - ${kindLabel}`,
+    };
+}
+
+/**
  * Right panel - workspace git state, validation results, and commit actions.
  */
 export default function GitStatusPanel({
@@ -177,16 +200,26 @@ export default function GitStatusPanel({
                                     Changed ({modifiedArtifacts.length})
                                 </div>
                                 <div className="space-y-1">
-                                    {modifiedArtifacts.map((artifact) => (
-                                        <div
-                                            key={artifact}
-                                            className="text-xs font-mono truncate"
-                                            style={{ color: 'var(--text-secondary)' }}
-                                            title={artifact}
-                                        >
-                                            {artifact.split(':').slice(-1)[0]}
-                                        </div>
-                                    ))}
+                                    {modifiedArtifacts.map((artifact) => {
+                                        const parsed = parseArtifactId(artifact);
+                                        return (
+                                            <div
+                                                key={artifact}
+                                                className="text-xs truncate"
+                                                style={{ color: 'var(--text-secondary)' }}
+                                                title={artifact}
+                                            >
+                                                <span style={{ color: 'var(--text-primary)' }}>
+                                                    {parsed.displayName || artifact}
+                                                </span>
+                                                {parsed.kindLabel && (
+                                                    <span style={{ color: 'var(--text-muted)' }}>
+                                                        {' '}- {parsed.kindLabel}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -285,12 +318,15 @@ export default function GitStatusPanel({
             {/* Commit Dialog */}
             {showCommitDialog && (
                 <CommitDialog
+                    workspaceId={workspaceId}
                     onCommit={handleCommit}
                     onCancel={() => {
                         setShowCommitDialog(false);
                         setCommitError(null);
                     }}
                     loading={committing}
+                    modifiedArtifacts={modifiedArtifacts}
+                    modifiedFiles={state?.modified_files ?? []}
                 />
             )}
 

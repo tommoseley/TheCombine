@@ -135,6 +135,17 @@ export const adminApi = {
     getPreview: (workspaceId, artifactId, mode = 'execution') =>
         request(`/workspaces/${workspaceId}/preview/${artifactId}?mode=${mode}`),
 
+    /**
+     * Get diff for workspace changes
+     * @param {string} workspaceId
+     * @param {string} artifactId - Optional specific artifact
+     * @returns {Promise<Object>} Diff with old/new content
+     */
+    getDiff: (workspaceId, artifactId = null) => {
+        const qs = artifactId ? `?artifact_id=${encodeURIComponent(artifactId)}` : '';
+        return request(`/workspaces/${workspaceId}/diff${qs}`);
+    },
+
     // =========================================================================
     // Commit Operations
     // =========================================================================
@@ -194,6 +205,12 @@ export const adminApi = {
     getRoles: () => request('/workbench/roles'),
 
     /**
+     * List all templates
+     * @returns {Promise<Object>} Templates list
+     */
+    getTemplates: () => request('/workbench/templates'),
+
+    /**
      * Get role details
      * @param {string} roleId
      * @param {string} version
@@ -203,6 +220,66 @@ export const adminApi = {
         const qs = version ? `?version=${version}` : '';
         return request(`/workbench/roles/${roleId}${qs}`);
     },
+
+    /**
+     * Get template details
+     * @param {string} templateId
+     * @param {string} version
+     * @returns {Promise<Object>} Template details with content
+     */
+    getTemplate: (templateId, version = null) => {
+        const qs = version ? `?version=${version}` : '';
+        return request(`/workbench/templates/${templateId}${qs}`);
+    },
+
+    /**
+     * List all workflow plans (graph-based, document production)
+     * @returns {Promise<Object>} Workflow plans list
+     */
+    getWorkflows: () => request('/workbench/workflows'),
+
+    /**
+     * List orchestration workflows (step-based, project orchestration)
+     * @returns {Promise<Object>} Orchestration workflow list
+     */
+    getOrchestrationWorkflows: () => request('/workbench/orchestration-workflows'),
+
+    /**
+     * Get workflow plan details
+     * @param {string} workflowId
+     * @param {string} version - Optional specific version
+     * @returns {Promise<Object>} Workflow plan with full definition
+     */
+    getWorkflow: (workflowId, version = null) => {
+        const qs = version ? `?version=${version}` : '';
+        return request(`/workbench/workflows/${workflowId}${qs}`);
+    },
+
+    // =========================================================================
+    // Orchestration Workflow Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a new orchestration workflow
+     * @param {string} workspaceId
+     * @param {Object} data - { workflow_id, name?, version? }
+     * @returns {Promise<Object>} Created workflow info
+     */
+    createOrchestrationWorkflow: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/orchestration-workflows`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    /**
+     * Delete an orchestration workflow
+     * @param {string} workspaceId
+     * @param {string} workflowId
+     */
+    deleteOrchestrationWorkflow: (workspaceId, workflowId) =>
+        request(`/workspaces/${workspaceId}/orchestration-workflows/${workflowId}`, {
+            method: 'DELETE',
+        }),
 
     /**
      * Get active releases

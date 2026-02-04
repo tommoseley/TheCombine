@@ -4,7 +4,8 @@
  */
 export default function EpicSummaryBlock({ block }) {
     const { data } = block;
-    const { epic_id, title, name, intent, phase, risk_level, stories, detail_ref } = data;
+    const { epic_id, title, name, intent, phase, mvp_phase, risk_level, stories, detail_ref } = data;
+    const displayPhase = phase || mvp_phase;
 
     const displayTitle = title || name;
     const riskColors = {
@@ -16,9 +17,10 @@ export default function EpicSummaryBlock({ block }) {
 
     const phaseColors = {
         mvp: { bg: '#dbeafe', text: '#1e40af' },
+        'later-phase': { bg: '#e5e7eb', text: '#374151' },
         later: { bg: '#e5e7eb', text: '#374151' },
     };
-    const phaseColor = phaseColors[phase] || phaseColors.mvp;
+    const phaseColor = phaseColors[displayPhase] || phaseColors.mvp;
 
     return (
         <div
@@ -85,7 +87,7 @@ export default function EpicSummaryBlock({ block }) {
 
                 {/* Badges */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                    {phase && (
+                    {displayPhase && (
                         <span
                             style={{
                                 fontSize: 10,
@@ -97,7 +99,7 @@ export default function EpicSummaryBlock({ block }) {
                                 fontWeight: 500,
                             }}
                         >
-                            {phase}
+                            {displayPhase === 'later-phase' ? 'LATER' : displayPhase}
                         </span>
                     )}
                     {risk_level && (
