@@ -27,6 +27,7 @@ parent_doc_type: null
 # Shared artifact references
 role_prompt_ref: "prompt:role:project_manager:1.0.0"
 template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:implementation_plan:1.0.0"
 
 # Packaged artifacts
 artifacts:

@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Technical Architecture",
+  "description": "Implementation-ready technical architecture specification",
+  "required": ["architecture_summary", "components"],
+  "properties": {
+    "architecture_summary": {
+      "type": "object",
+      "description": "High-level architecture overview",
+      "required": ["title", "style", "key_decisions"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Architecture title"
+        },
+        "style": {
+          "type": "string",
+          "description": "Architectural style (e.g., layered, microservices, event-driven)"
+        },
+        "key_decisions": {
+          "type": "array",
+          "description": "Key architectural decisions made",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "description": "System components with responsibilities",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "purpose"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Component name"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Component responsibility"
+          },
+          "technology": {
+            "type": "string",
+            "description": "Technology stack for this component"
+          },
+          "interfaces": {
+            "type": "array",
+            "description": "Interfaces this component exposes",
+            "items": {"type": "string"}
+          },
+          "dependencies": {
+            "type": "array",
+            "description": "Other components this depends on",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "data_models": {
+      "type": "array",
+      "description": "Data entities and their relationships",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity_name": {"type": "string"},
+          "description": {"type": "string"},
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {"type": "string"},
+                "type": {"type": "string"},
+                "required": {"type": "boolean"},
+                "description": {"type": "string"}
+              }
+            }
+          },
+          "relationships": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "api_interfaces": {
+      "type": "array",
+      "description": "External and internal API interfaces",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "type": {
+            "type": "string",
+            "enum": ["REST", "GraphQL", "gRPC", "WebSocket", "internal"]
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": {"type": "string"},
+                "path": {"type": "string"},
+                "description": {"type": "string"},
+                "request_body": {"type": "object"},
+                "response": {"type": "object"},
+                "error_cases": {
+                  "type": "array",
+                  "items": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "quality_attributes": {
+      "type": "object",
+      "description": "Non-functional requirements and quality attributes",
+      "properties": {
+        "performance": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "security": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "scalability": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "maintainability": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "observability": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "description": "Key system workflows",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "trigger": {"type": "string"},
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "step": {"type": "integer"},
+                "action": {"type": "string"},
+                "component": {"type": "string"},
+                "output": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "description": "Identified architectural risks",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk": {"type": "string"},
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "mitigation": {"type": "string"},
+          "status": {
+            "type": "string",
+            "enum": ["identified", "mitigated", "accepted", "resolved"]
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "description": "Questions requiring clarification",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string"},
+          "impact": {"type": "string"},
+          "default_assumption": {"type": "string"}
+        }
+      }
+    },
+    "mvp_scope": {
+      "type": "object",
+      "description": "MVP vs later phase delineation",
+      "properties": {
+        "included": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "deferred": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}

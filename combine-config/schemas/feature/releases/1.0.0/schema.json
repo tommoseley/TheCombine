@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Feature",
+  "description": "Unit of production intent with nested Stories",
+  "required": ["feature_id", "name", "description", "acceptance_criteria", "stories"],
+  "properties": {
+    "feature_id": {
+      "type": "string",
+      "description": "Unique identifier (snake_case)",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable Feature name"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this Feature accomplishes"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "description": "Testable criteria for Feature completion",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "stories": {
+      "type": "array",
+      "description": "Nested Stories that implement this Feature",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["story_id", "title", "description", "acceptance_criteria"],
+        "properties": {
+          "story_id": {
+            "type": "string",
+            "description": "Unique Story identifier (snake_case)",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "title": {
+            "type": "string",
+            "description": "Story title"
+          },
+          "description": {
+            "type": "string",
+            "description": "What this Story accomplishes"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "description": "Testable criteria for Story completion",
+            "items": {"type": "string"}
+          },
+          "story_points": {
+            "type": "integer",
+            "description": "Relative effort estimate",
+            "minimum": 1,
+            "maximum": 13
+          },
+          "priority": {
+            "type": "string",
+            "description": "Story priority",
+            "enum": ["must_have", "should_have", "could_have", "wont_have"]
+          },
+          "technical_notes": {
+            "type": "array",
+            "description": "Implementation guidance",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    },
+    "technical_notes": {
+      "type": "array",
+      "description": "Feature-level implementation guidance",
+      "items": {"type": "string"}
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "Explicit assumptions made",
+      "items": {
+        "type": "object",
+        "properties": {
+          "assumption": {"type": "string"},
+          "rationale": {"type": "string"}
+        }
+      }
+    }
+  }
+}

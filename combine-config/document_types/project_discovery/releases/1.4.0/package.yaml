@@ -25,6 +25,7 @@ role_prompt_ref: "prompt:role:technical_architect:1.0.0"
 template_ref: "prompt:template:document_generator:1.0.0"
 qa_template_ref: "prompt:template:qa_evaluator:1.0.0"
 pgc_template_ref: "prompt:template:pgc_clarifier:1.0.0"
+schema_ref: "schema:project_discovery:1.4.0"
 
 # Packaged artifacts (relative paths)
 artifacts:

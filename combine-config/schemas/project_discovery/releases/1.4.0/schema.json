@@ -1,0 +1,319 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "schema://project_discovery/1.0",
+  "title": "Project Discovery",
+  "description": "Canonical Project Discovery artifact. Focuses on unknowns, assumptions, risks, constraints, early decision points, and stakeholder-directed questions. Strict: no additional properties at any level.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "project_name", "unknowns", "preliminary_summary"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "artifact_id", "created_at", "source"],
+      "properties": {
+        "schema_version": { "type": "string", "const": "1.0" },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier for this discovery artifact (system-assigned or governance-assigned)."
+        },
+        "correlation_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Correlation identifier that links this artifact to the workflow run that produced it."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 timestamp of artifact creation."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["human", "combine_generated", "mixed"],
+          "description": "Provenance of the artifact content."
+        },
+        "workflow_ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional reference to the workflow plan/version that governed generation."
+        }
+      }
+    },
+
+    "project_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name of the project."
+    },
+
+    "unknowns": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Known unknowns that must be resolved to proceed confidently.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "why_it_matters", "impact_if_unresolved"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^UNK-\\d{1,4}$",
+            "description": "Stable identifier for this unknown (e.g., UNK-1)."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 5,
+            "description": "The unknown stated as a question."
+          },
+          "why_it_matters": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Why this question matters to discovery outcomes."
+          },
+          "impact_if_unresolved": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Consequence if this remains unresolved during discovery."
+          }
+        }
+      },
+      "uniqueItems": false
+    },
+
+    "assumptions": {
+      "type": "array",
+      "description": "Assumptions currently being treated as true. These should be validated or explicitly accepted.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "assumption", "confidence"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ASM-\\d{1,4}$",
+            "description": "Stable identifier for this assumption (e.g., ASM-1)."
+          },
+          "assumption": {
+            "type": "string",
+            "minLength": 3,
+            "description": "The assumption statement."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Current confidence level in this assumption."
+          },
+          "validation_approach": {
+            "type": "string",
+            "description": "Optional: how this assumption will be validated (tests, interviews, spike, data review, etc.)."
+          }
+        }
+      }
+    },
+
+    "mvp_guardrails": {
+      "type": "array",
+      "description": "Non-negotiable boundaries for what MVP must or must not do (scope and risk controls).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "guardrail"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^GRD-\\d{1,4}$",
+            "description": "Stable identifier for this guardrail (e.g., GRD-1)."
+          },
+          "guardrail": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Guardrail statement."
+          }
+        }
+      }
+    },
+
+    "risks": {
+      "type": "array",
+      "description": "Risks discovered early that may affect planning or feasibility.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "likelihood", "impact", "description", "impact_on_planning"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RSK-\\d{1,4}$",
+            "description": "Stable identifier for this risk (e.g., RSK-1)."
+          },
+          "likelihood": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Likelihood of the risk materializing."
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Impact severity if the risk materializes."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Risk description."
+          },
+          "impact_on_planning": {
+            "type": "string",
+            "minLength": 5,
+            "description": "How this risk affects schedule, scope, architecture, compliance, staffing, or delivery plan."
+          },
+          "mitigation_direction": {
+            "type": "string",
+            "description": "Optional: early mitigation direction (not a committed plan)."
+          }
+        }
+      }
+    },
+
+    "known_constraints": {
+      "type": "array",
+      "description": "Known constraints that limit solution space (time, platform, regulatory, staffing, integration, etc.).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "constraint"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^CNS-\\d{1,4}$",
+            "description": "Stable identifier for this constraint (e.g., CNS-1)."
+          },
+          "constraint": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Constraint statement."
+          },
+          "constraint_type": {
+            "type": "string",
+            "enum": ["time", "budget", "technical", "regulatory", "resource", "security", "vendor", "data", "other"],
+            "description": "Optional classification for the constraint."
+          }
+        }
+      }
+    },
+
+    "preliminary_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["problem_understanding", "architectural_intent", "proposed_system_shape"],
+      "description": "Early synthesis of what is understood so far. This is not a final architecture decision.",
+      "properties": {
+        "problem_understanding": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Narrative of the problem as currently understood."
+        },
+        "architectural_intent": {
+          "type": "string",
+          "minLength": 5,
+          "description": "Intent-level architectural posture (e.g., event-driven integration, modular monolith, serverless-first)."
+        },
+        "proposed_system_shape": {
+          "type": "string",
+          "minLength": 10,
+          "description": "High-level system shape hypothesis (major components, boundaries, key flows)."
+        }
+      }
+    },
+
+    "early_decision_points": {
+      "type": "array",
+      "description": "Decisions that must be made early because they constrain discovery, implementation paths, or governance commitments.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "decision_area", "why_early", "options"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EDP-\\d{1,4}$",
+            "description": "Stable identifier for this decision point (e.g., EDP-1)."
+          },
+          "decision_area": {
+            "type": "string",
+            "minLength": 3,
+            "description": "What area the decision is about (e.g., auth, hosting model, data residency, integration approach)."
+          },
+          "why_early": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Why this decision must be made early."
+          },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Available options under consideration."
+          },
+          "recommendation_direction": {
+            "type": "string",
+            "description": "Optional: early directional recommendation (not final)."
+          }
+        }
+      }
+    },
+
+    "stakeholder_questions": {
+      "type": "array",
+      "description": "Questions that must be answered by specific stakeholder roles to proceed, optionally marked blocking.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "blocking", "question", "directed_to"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^STQ-\\d{1,4}$",
+            "description": "Stable identifier for this stakeholder question (e.g., STQ-1)."
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "If true, discovery cannot be locked without resolving this."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 5,
+            "description": "The question to be answered."
+          },
+          "directed_to": {
+            "type": "string",
+            "enum": ["product_owner", "tech_lead", "security", "operations", "legal", "compliance", "other"],
+            "description": "Stakeholder role this question is directed to."
+          }
+        }
+      }
+    },
+
+    "recommendations_for_pm": {
+      "type": "array",
+      "description": "Actionable recommendations for the PM to run discovery effectively (stakeholder outreach, sequencing, artifacts to collect).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "recommendation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^RPM-\\d{1,4}$",
+            "description": "Stable identifier for this recommendation (e.g., RPM-1)."
+          },
+          "recommendation": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Recommendation statement."
+          }
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ parent_doc_type: null
 # Note: Concierge uses workflow-specific prompting, not standard document_generator
 role_prompt_ref: null
 template_ref: null
+schema_ref: "schema:concierge_intake:1.0.0"
 
 # Packaged artifacts
 artifacts:

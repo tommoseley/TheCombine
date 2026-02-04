@@ -25,6 +25,7 @@ parent_doc_type: epic
 # Shared artifact references
 role_prompt_ref: "prompt:role:business_analyst:1.0.0"
 template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:feature:1.0.0"
 
 # Packaged artifacts
 artifacts:
