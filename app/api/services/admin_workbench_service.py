@@ -5,6 +5,7 @@ Per ADR-044, this service provides read access to Document Type Packages
 and shared artifacts from combine-config/.
 """
 
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -43,6 +44,60 @@ class AdminWorkbenchService:
             loader: Optional PackageLoader instance. Uses singleton if not provided.
         """
         self._loader = loader or get_package_loader()
+        self._workflow_doc_type_map: Optional[Dict[str, str]] = None
+
+    # =========================================================================
+    # Internal: Workflow-to-DocType mapping
+    # =========================================================================
+
+    def _build_workflow_doc_type_map(self) -> Dict[str, str]:
+        """
+        Build a mapping from document_type -> workflow artifact ID.
+
+        Scans graph-based workflow definitions and reads their document_type field.
+        Cached after first call; invalidated with cache.
+        """
+        if self._workflow_doc_type_map is not None:
+            return self._workflow_doc_type_map
+
+        mapping: Dict[str, str] = {}
+        active = self._loader.get_active_releases()
+        config_path = self._loader.config_path
+        workflows_dir = config_path / "workflows"
+
+        if not workflows_dir.exists():
+            self._workflow_doc_type_map = mapping
+            return mapping
+
+        for workflow_id, version in active.workflows.items():
+            definition_path = (
+                workflows_dir / workflow_id / "releases" / version / "definition.json"
+            )
+            try:
+                with open(definition_path, "r", encoding="utf-8-sig") as f:
+                    raw = json.load(f)
+
+                # Only graph-based workflows have document_type
+                if "nodes" in raw and "edges" in raw:
+                    doc_type = raw.get("document_type")
+                    if doc_type:
+                        mapping[doc_type] = f"workflow:{workflow_id}:{version}:definition"
+            except (json.JSONDecodeError, FileNotFoundError, OSError):
+                continue
+
+        self._workflow_doc_type_map = mapping
+        return mapping
+
+    def _find_workflow_for_doc_type(self, doc_type_id: str) -> Optional[str]:
+        """
+        Find the workflow artifact ID for a document type.
+
+        Returns:
+            Artifact ID string (e.g., "workflow:concierge_intake:1.3.0:definition")
+            or None if no workflow is associated.
+        """
+        mapping = self._build_workflow_doc_type_map()
+        return mapping.get(doc_type_id)
 
     # =========================================================================
     # Document Types
@@ -124,6 +179,8 @@ class AdminWorkbenchService:
             "parent_doc_type": package.parent_doc_type,
             "role_prompt_ref": package.role_prompt_ref,
             "template_ref": package.template_ref,
+            "qa_template_ref": package.qa_template_ref,
+            "pgc_template_ref": package.pgc_template_ref,
             "requires_pgc": package.requires_pgc(),
             "is_llm_generated": package.is_llm_generated(),
             "artifacts": {
@@ -138,6 +195,7 @@ class AdminWorkbenchService:
                 "category": package.ui.category,
                 "display_order": package.ui.display_order,
             },
+            "workflow_ref": self._find_workflow_for_doc_type(package.doc_type_id),
         }
 
     def get_document_type_versions(self, doc_type_id: str) -> List[str]:
@@ -353,6 +411,198 @@ class AdminWorkbenchService:
         }
 
     # =========================================================================
+    # Workflows
+    # =========================================================================
+
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """
+        List all available workflow plans (ADR-039 graph-based format).
+
+        Scans combine-config/workflows/ for directories with release versions.
+
+        Returns:
+            List of workflow summaries
+        """
+        import json
+
+        active = self._loader.get_active_releases()
+        config_path = self._loader.config_path
+        workflows_dir = config_path / "workflows"
+
+        if not workflows_dir.exists():
+            return []
+
+        summaries = []
+        for workflow_dir in sorted(workflows_dir.iterdir()):
+            if not workflow_dir.is_dir() or workflow_dir.name.startswith("_"):
+                continue
+
+            workflow_id = workflow_dir.name
+            active_version = active.workflows.get(workflow_id)
+
+            if not active_version:
+                # Try to find any version
+                releases_dir = workflow_dir / "releases"
+                if releases_dir.exists():
+                    versions = sorted([d.name for d in releases_dir.iterdir() if d.is_dir()])
+                    if versions:
+                        active_version = versions[-1]
+
+            if not active_version:
+                continue
+
+            definition_path = (
+                workflow_dir / "releases" / active_version / "definition.json"
+            )
+
+            try:
+                with open(definition_path, "r", encoding="utf-8-sig") as f:
+                    raw = json.load(f)
+
+                # Only include graph-based workflows (ADR-039 format)
+                if "nodes" not in raw or "edges" not in raw:
+                    continue
+
+                summaries.append({
+                    "workflow_id": workflow_id,
+                    "name": raw.get("name", workflow_id),
+                    "active_version": active_version,
+                    "description": raw.get("description"),
+                    "node_count": len(raw.get("nodes", [])),
+                    "edge_count": len(raw.get("edges", [])),
+                })
+            except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
+                logger.warning(f"Could not load workflow {workflow_id}: {e}")
+                summaries.append({
+                    "workflow_id": workflow_id,
+                    "name": workflow_id,
+                    "active_version": active_version,
+                    "description": None,
+                    "node_count": 0,
+                    "edge_count": 0,
+                    "error": str(e),
+                })
+
+        return summaries
+
+    def list_orchestration_workflows(self) -> List[Dict[str, Any]]:
+        """
+        List project orchestration workflows (step-based format).
+
+        These are workflow.v1 format files with steps/scopes/document_types,
+        NOT ADR-039 graph-based plans.
+
+        Returns:
+            List of orchestration workflow summaries
+        """
+        active = self._loader.get_active_releases()
+        config_path = self._loader.config_path
+        workflows_dir = config_path / "workflows"
+
+        if not workflows_dir.exists():
+            return []
+
+        summaries = []
+        for workflow_dir in sorted(workflows_dir.iterdir()):
+            if not workflow_dir.is_dir() or workflow_dir.name.startswith("_"):
+                continue
+
+            workflow_id = workflow_dir.name
+            active_version = active.workflows.get(workflow_id)
+
+            if not active_version:
+                releases_dir = workflow_dir / "releases"
+                if releases_dir.exists():
+                    versions = sorted([d.name for d in releases_dir.iterdir() if d.is_dir()])
+                    if versions:
+                        active_version = versions[-1]
+
+            if not active_version:
+                continue
+
+            definition_path = (
+                workflow_dir / "releases" / active_version / "definition.json"
+            )
+
+            try:
+                with open(definition_path, "r", encoding="utf-8-sig") as f:
+                    raw = json.load(f)
+
+                # Only include step-based workflows (NOT graph-based)
+                if "nodes" in raw and "edges" in raw:
+                    continue
+
+                summaries.append({
+                    "workflow_id": workflow_id,
+                    "name": raw.get("name", workflow_id.replace("_", " ").title()),
+                    "active_version": active_version,
+                    "description": raw.get("description"),
+                    "step_count": len(raw.get("steps", [])),
+                    "schema_version": raw.get("schema_version", "workflow.v1"),
+                })
+            except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
+                logger.warning(f"Could not load orchestration workflow {workflow_id}: {e}")
+                summaries.append({
+                    "workflow_id": workflow_id,
+                    "name": workflow_id.replace("_", " ").title(),
+                    "active_version": active_version,
+                    "description": None,
+                    "step_count": 0,
+                    "schema_version": "workflow.v1",
+                    "error": str(e),
+                })
+
+        return summaries
+
+    def get_workflow(
+        self,
+        workflow_id: str,
+        version: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get full workflow definition JSON.
+
+        Args:
+            workflow_id: Workflow identifier
+            version: Specific version or None for active version
+
+        Returns:
+            Full workflow definition dict
+
+        Raises:
+            PackageNotFoundError: Workflow not found
+        """
+        import json
+
+        if version is None:
+            active = self._loader.get_active_releases()
+            version = active.workflows.get(workflow_id)
+            if not version:
+                raise PackageNotFoundError(
+                    f"No active version for workflow: {workflow_id}"
+                )
+
+        config_path = self._loader.config_path
+        definition_path = (
+            config_path / "workflows" / workflow_id /
+            "releases" / version / "definition.json"
+        )
+
+        if not definition_path.exists():
+            raise PackageNotFoundError(
+                f"Workflow definition not found: {workflow_id} v{version}"
+            )
+
+        with open(definition_path, "r", encoding="utf-8-sig") as f:
+            raw = json.load(f)
+
+        return {
+            "workflow_id": workflow_id,
+            "version": version,
+            "definition": raw,
+        }
+
+    # =========================================================================
     # Prompt Assembly
     # =========================================================================
 
@@ -383,6 +633,7 @@ class AdminWorkbenchService:
     def invalidate_cache(self) -> None:
         """Invalidate the package loader cache."""
         self._loader.invalidate_cache()
+        self._workflow_doc_type_map = None
 
 
 # Module-level singleton

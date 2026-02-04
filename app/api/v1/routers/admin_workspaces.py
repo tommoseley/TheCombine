@@ -110,6 +110,38 @@ class CommitResponse(BaseModel):
     message: str
 
 
+class CreateOrchestrationWorkflowRequest(BaseModel):
+    """Request to create an orchestration workflow."""
+    workflow_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    name: Optional[str] = Field(None, max_length=200)
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+
+
+class CreateOrchestrationWorkflowResponse(BaseModel):
+    """Response for orchestration workflow creation."""
+    workflow_id: str
+    version: str
+    artifact_id: str
+
+
+class ArtifactDiffModel(BaseModel):
+    """Diff for a single artifact."""
+    artifact_id: str
+    file_path: str
+    status: str  # M=modified, A=added, D=deleted
+    old_content: Optional[str] = None
+    new_content: Optional[str] = None
+    diff_content: str
+    additions: int = 0
+    deletions: int = 0
+
+
+class DiffResponse(BaseModel):
+    """Response for diff endpoint."""
+    diffs: List[ArtifactDiffModel]
+    total: int
+
+
 # ===========================================================================
 # Helper: Get User from Request
 # ===========================================================================
@@ -379,6 +411,58 @@ async def write_artifact(
 
 
 @router.get(
+    "/{workspace_id}/diff",
+    response_model=DiffResponse,
+    summary="Get workspace diff",
+    description="Get diff for all changes in the workspace.",
+    responses={
+        404: {"description": "Workspace not found"},
+    },
+)
+async def get_diff(
+    workspace_id: str,
+    artifact_id: Optional[str] = Query(None, description="Specific artifact ID"),
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> DiffResponse:
+    """Get diff for workspace changes."""
+    try:
+        diffs = service.get_diff(workspace_id, artifact_id)
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactIdError, ArtifactError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "ARTIFACT_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return DiffResponse(
+        diffs=[
+            ArtifactDiffModel(
+                artifact_id=d.artifact_id,
+                file_path=d.file_path,
+                status=d.status,
+                old_content=d.old_content,
+                new_content=d.new_content,
+                diff_content=d.diff_content,
+                additions=d.additions,
+                deletions=d.deletions,
+            )
+            for d in diffs
+        ],
+        total=len(diffs),
+    )
+
+
+@router.get(
     "/{workspace_id}/preview/{artifact_id:path}",
     response_model=PreviewResponse,
     summary="Get artifact preview",
@@ -507,6 +591,105 @@ async def discard_changes(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error_code": "DISCARD_FAILED",
+                "message": str(e),
+            },
+        )
+
+
+# ===========================================================================
+# Orchestration Workflow Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/orchestration-workflows",
+    response_model=CreateOrchestrationWorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create orchestration workflow",
+    description="Create a new step-based orchestration workflow definition.",
+    responses={
+        404: {"description": "Workspace not found"},
+        400: {"description": "Invalid workflow ID or workflow already exists"},
+    },
+)
+async def create_orchestration_workflow(
+    workspace_id: str,
+    body: CreateOrchestrationWorkflowRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateOrchestrationWorkflowResponse:
+    """Create a new orchestration workflow."""
+    try:
+        artifact_id = service.create_orchestration_workflow(
+            workspace_id=workspace_id,
+            workflow_id=body.workflow_id,
+            name=body.name,
+            version=body.version,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "WORKFLOW_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateOrchestrationWorkflowResponse(
+        workflow_id=body.workflow_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
+
+
+@router.delete(
+    "/{workspace_id}/orchestration-workflows/{workflow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete orchestration workflow",
+    description="Delete a step-based orchestration workflow definition.",
+    responses={
+        404: {"description": "Workspace or workflow not found"},
+        400: {"description": "Cannot delete graph-based workflow"},
+    },
+)
+async def delete_orchestration_workflow(
+    workspace_id: str,
+    workflow_id: str,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> None:
+    """Delete an orchestration workflow."""
+    try:
+        service.delete_orchestration_workflow(
+            workspace_id=workspace_id,
+            workflow_id=workflow_id,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except ArtifactNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKFLOW_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except ArtifactError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "WORKFLOW_ERROR",
                 "message": str(e),
             },
         )

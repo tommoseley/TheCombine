@@ -3,13 +3,241 @@
 {% block title %}Production Line{% if project %} - {{ project.name }}{% endif %} - The Combine{% endblock %}
 
 {% block content %}
-<!-- React via CDN - must be in content block since base.html has no head block -->
+<!-- React + React Flow via CDN -->
 <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/reactflow@11.11.4/dist/umd/index.js"></script>
+<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+<link href="https://unpkg.com/reactflow@11.11.4/dist/style.css" rel="stylesheet" />
 
-<div id="production-line-root">
-    <div class="p-6 text-gray-500">Loading Production Line...</div>
+<style>
+/* ============================================================
+   THEME: Light
+   ============================================================ */
+.theme-light {
+    --bg-canvas: #f8fafc;
+    --bg-node: #ffffff;
+    --bg-panel: rgba(255, 255, 255, 0.95);
+    --bg-button: #f1f5f9;
+    --bg-input: #f8fafc;
+    --bg-sidecar: #ffffff;
+    --text-sidecar: #1e293b;
+    --text-sidecar-muted: #64748b;
+    --action-success: #059669;
+    --action-warning: #d97706;
+
+    --border-node: #e2e8f0;
+    --border-panel: #e2e8f0;
+    --border-input: #cbd5e1;
+
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+
+    --header-bg-doc: rgba(16, 185, 129, 0.08);
+    --header-bg-epic: rgba(99, 102, 241, 0.08);
+    --header-border-doc: rgba(16, 185, 129, 0.25);
+    --header-border-epic: rgba(99, 102, 241, 0.25);
+    --header-text-doc: #059669;
+    --header-text-epic: #4f46e5;
+
+    --state-stabilized-bg: #10b981;
+    --state-stabilized-text: #059669;
+    --state-stabilized-edge: #10b981;
+    --state-active-bg: #6366f1;
+    --state-active-text: #4f46e5;
+    --state-active-edge: #6366f1;
+    --state-queued-bg: #94a3b8;
+    --state-queued-text: #64748b;
+    --state-queued-edge: #cbd5e1;
+    --state-blocked-bg: #ef4444;
+    --state-blocked-text: #dc2626;
+    --state-awaiting-bg: #f59e0b;
+    --state-awaiting-text: #d97706;
+
+    --glow-active: 0 4px 12px -2px rgba(99, 102, 241, 0.25);
+    --glow-station: 0 0 6px 3px rgba(99, 102, 241, 0.3);
+}
+
+/* ============================================================
+   THEME: Industrial (default - dark factory floor aesthetic)
+   ============================================================ */
+.theme-industrial {
+    --bg-canvas: #0b1120;
+    --bg-node: #1e293b;
+    --bg-panel: rgba(11, 17, 32, 0.95);
+    --bg-button: #334155;
+    --bg-input: #1e293b;
+    --bg-sidecar: #1e293b;
+    --text-sidecar: #f8fafc;
+    --text-sidecar-muted: #cbd5e1;
+    --action-success: #6ee7b7;
+    --action-warning: #fcd34d;
+
+    --border-node: #475569;
+    --border-panel: #334155;
+    --border-input: #475569;
+
+    --text-primary: #f8fafc;
+    --text-muted: #cbd5e1;
+    --text-dim: #94a3b8;
+
+    --header-bg-doc: rgba(16, 185, 129, 0.15);
+    --header-bg-epic: rgba(245, 158, 11, 0.15);
+    --header-border-doc: rgba(16, 185, 129, 0.4);
+    --header-border-epic: rgba(245, 158, 11, 0.4);
+    --header-text-doc: #34d399;
+    --header-text-epic: #fbbf24;
+
+    --state-stabilized-bg: #10b981;
+    --state-stabilized-text: #6ee7b7;
+    --state-stabilized-edge: #10b981;
+    --state-active-bg: #f59e0b;
+    --state-active-text: #fcd34d;
+    --state-active-edge: #f59e0b;
+    --state-queued-bg: #475569;
+    --state-queued-text: #94a3b8;
+    --state-queued-edge: #334155;
+    --state-blocked-bg: #ef4444;
+    --state-blocked-text: #fca5a5;
+    --state-awaiting-bg: #f59e0b;
+    --state-awaiting-text: #fcd34d;
+
+    --glow-active: 0 0 20px 8px rgba(245, 158, 11, 0.4);
+    --glow-station: 0 0 10px 5px rgba(245, 158, 11, 0.5);
+}
+
+/* ============================================================
+   THEME: Blueprint (architectural/technical drawing)
+   ============================================================ */
+.theme-blueprint {
+    --bg-canvas: #1e3a5f;
+    --bg-node: #234b73;
+    --bg-panel: rgba(30, 58, 95, 0.95);
+    --bg-button: #2d5a87;
+    --bg-input: #1e3a5f;
+    --bg-sidecar: #e8f4fc;
+    --text-sidecar: #1e3a5f;
+    --text-sidecar-muted: #3d6a8f;
+    --action-success: #059669;
+    --action-warning: #d97706;
+
+    --border-node: #4a90c2;
+    --border-panel: #3d7ab3;
+    --border-input: #4a90c2;
+
+    --text-primary: #e8f4fc;
+    --text-muted: #a8d4f0;
+    --text-dim: #7cb8e0;
+
+    --header-bg-doc: rgba(255, 255, 255, 0.1);
+    --header-bg-epic: rgba(255, 255, 255, 0.1);
+    --header-border-doc: rgba(255, 255, 255, 0.3);
+    --header-border-epic: rgba(255, 255, 255, 0.3);
+    --header-text-doc: #ffffff;
+    --header-text-epic: #ffffff;
+
+    --state-stabilized-bg: #ffffff;
+    --state-stabilized-text: #ffffff;
+    --state-stabilized-edge: #ffffff;
+    --state-active-bg: #fbbf24;
+    --state-active-text: #fcd34d;
+    --state-active-edge: #fbbf24;
+    --state-queued-bg: #c8e4f4;
+    --state-queued-text: #e8f4fc;
+    --state-queued-edge: #d4e8f8;
+    --state-blocked-bg: #ef4444;
+    --state-blocked-text: #fca5a5;
+    --state-awaiting-bg: #fbbf24;
+    --state-awaiting-text: #fcd34d;
+
+    --glow-active: 0 0 15px 5px rgba(251, 191, 36, 0.4);
+    --glow-station: 0 0 8px 4px rgba(251, 191, 36, 0.5);
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+#production-line-root {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, sans-serif;
+    width: 100%;
+    height: calc(100vh - 64px); /* Account for header */
+}
+
+/* React Flow overrides */
+.react-flow__attribution { display: none !important; }
+.react-flow__handle { opacity: 0 !important; width: 1px !important; height: 1px !important; background: transparent !important; border: none !important; min-width: 0; min-height: 0; }
+.react-flow__handle-top { top: 0px !important; }
+.react-flow__handle-bottom { bottom: 0px !important; }
+.react-flow__node { cursor: pointer !important; }
+.react-flow__node.selected { outline: none !important; box-shadow: none !important; }
+.react-flow__edge.animated path { stroke-dasharray: 5; animation: edgeFlow 0.5s linear infinite; }
+.react-flow__edge-path { stroke-linecap: round; }
+
+/* Animations */
+@keyframes edgeFlow { to { stroke-dashoffset: -10; } }
+
+.node-active { animation: activeGlow 2s ease-in-out infinite; }
+@keyframes activeGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    50% { box-shadow: var(--glow-active); }
+}
+
+.station-active { animation: stationPulse 1.5s ease-in-out infinite; }
+@keyframes stationPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.3); }
+    50% { box-shadow: var(--glow-station); }
+}
+
+.amber-pulse { animation: amberBlink 1.5s ease-in-out infinite; }
+@keyframes amberBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+.tray-slide { animation: slideRight 0.2s ease-out; }
+@keyframes slideRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+/* Component base styles using CSS variables */
+.subway-node {
+    background: var(--bg-node);
+    border-color: var(--border-node);
+    color: var(--text-primary);
+}
+.subway-node-header-doc {
+    background: var(--header-bg-doc);
+    border-color: var(--header-border-doc);
+}
+.subway-node-header-epic {
+    background: var(--header-bg-epic);
+    border-color: var(--header-border-epic);
+}
+.subway-panel {
+    background: var(--bg-panel);
+    border-color: var(--border-panel);
+}
+.subway-button {
+    background: var(--bg-button);
+    color: var(--text-muted);
+}
+.subway-button:hover {
+    opacity: 0.8;
+}
+.subway-input {
+    background: var(--bg-input);
+    border-color: var(--border-input);
+    color: var(--text-primary);
+}
+.subway-input:focus {
+    border-color: #f59e0b;
+    outline: none;
+}
+</style>
+
+<div id="production-line-root" class="theme-industrial">
+    <div class="flex items-center justify-center h-full">
+        <div class="animate-pulse text-gray-400">Loading Production Line...</div>
+    </div>
 </div>
 
 <script>
@@ -25,102 +253,205 @@
 </script>
 
 <script type="text/babel">
-console.log('Babel script starting...');
-const { useState, useEffect, useCallback, useRef } = React;
+{% raw %}
+const { useState, useCallback, useMemo, useEffect } = React;
+const { ReactFlow, ReactFlowProvider, useNodesState, useEdgesState, useReactFlow, Handle, Position, Panel } = window.ReactFlow;
 
-const STATE_COLORS = {
-    stabilized: { bg: 'bg-green-500', light: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
-    active: { bg: 'bg-amber-500 animate-pulse', light: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-    assembling: { bg: 'bg-amber-500 animate-pulse', light: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-    auditing: { bg: 'bg-amber-500 animate-pulse', light: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-    binding: { bg: 'bg-amber-500 animate-pulse', light: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
-    remediating: { bg: 'bg-orange-500 animate-pulse', light: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
-    awaiting_operator: { bg: 'bg-red-500', light: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
-    halted: { bg: 'bg-red-600', light: 'bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-300' },
-    blocked: { bg: 'bg-gray-400', light: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
-    queued: { bg: 'bg-gray-300', light: 'bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+// ============================================================
+// MODULE: Constants
+// ============================================================
+const EDGE_COLORS = {
+    light: { stabilized: '#10b981', active: '#6366f1', queued: '#cbd5e1', blocked: '#ef4444', awaiting_operator: '#f59e0b' },
+    industrial: { stabilized: '#10b981', active: '#f59e0b', queued: '#334155', blocked: '#ef4444', awaiting_operator: '#f59e0b' },
+    blueprint: { stabilized: '#ffffff', active: '#fbbf24', queued: '#d4e8f8', blocked: '#ef4444', awaiting_operator: '#fbbf24' }
+};
+const getEdgeColor = (state, theme) => EDGE_COLORS[theme]?.[state] || EDGE_COLORS.industrial.queued;
+const TRAY = { GAP: 8, WIDTH: 280 };
+const STATION_IDS = ['pgc', 'asm', 'draft', 'qa', 'done'];
+
+// ============================================================
+// MODULE: Transform backend tracks to graph nodes
+// ============================================================
+function transformTracksToData(tracks) {
+    if (!tracks?.length) return [];
+
+    return tracks.map((track, idx) => {
+        // Normalize state (backend uses various active states)
+        let state = track.state;
+        if (['assembling', 'auditing', 'binding', 'remediating'].includes(state)) {
+            state = 'active';
+        }
+
+        // Build stations from execution state
+        let stations = null;
+        if (track.stations?.length > 0) {
+            stations = track.stations;
+        } else if (state === 'active') {
+            // Generate default stations for active tracks
+            stations = STATION_IDS.map(id => ({
+                id,
+                label: id.toUpperCase(),
+                state: 'pending',
+                needs_input: false
+            }));
+            // Mark first station as active
+            if (stations.length > 0) {
+                stations[0].state = 'active';
+            }
+        }
+
+        return {
+            id: track.document_type,
+            name: track.document_name || track.document_type,
+            desc: track.description || '',
+            state: state,
+            intent: 'mandatory',
+            level: 1,
+            stations: stations,
+            blocked_by: track.blocked_by || [],
+            questions: state === 'awaiting_operator' ? [{ id: 'q1', text: 'Operator input required', required: true }] : []
+        };
+    });
+}
+
+// ============================================================
+// MODULE: Layout utilities (Dagre)
+// ============================================================
+const getLayoutedElements = (nodes, edges) => {
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'TB', align: 'UL', nodesep: 20, ranksep: 50, marginx: 100, marginy: 30, ranker: 'longest-path' });
+    g.setDefaultEdgeLabel(() => ({}));
+    nodes.forEach((n) => g.setNode(n.id, { width: n.data.width ?? 280, height: n.data.height ?? 90 }));
+    edges.forEach((e) => g.setEdge(e.source, e.target));
+    dagre.layout(g);
+    return {
+        nodes: nodes.map((n) => {
+            const pos = g.node(n.id);
+            return { ...n, targetPosition: Position.Top, sourcePosition: Position.Bottom,
+                position: { x: pos.x - (n.data.width ?? 280) / 2, y: pos.y - (n.data.height ?? 90) / 2 }
+            };
+        }),
+        edges
+    };
 };
 
-function StateDot({ state }) {
-    const colors = STATE_COLORS[state] || STATE_COLORS.queued;
-    return <div className={`w-3 h-3 rounded-full ${colors.bg}`} />;
-}
+const buildGraph = (data, expandedId, callbacks) => {
+    let nodes = [], edges = [], prevId = null;
+    const theme = callbacks.theme || 'industrial';
 
-function StateBadge({ state }) {
-    const colors = STATE_COLORS[state] || STATE_COLORS.queued;
-    const label = (state || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    return <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${colors.light}`}>{label}</span>;
-}
+    data.forEach((item, idx) => {
+        const width = 320;
+        let height = 95;
+        if (['active', 'assembling', 'auditing', 'binding', 'remediating'].includes(item.state) && item.stations) {
+            height += 35;
+        }
+        if (item.state === 'blocked' && item.blocked_by?.length > 0) {
+            height += 20;
+        }
+        const isExpanded = expandedId === item.id;
 
-function Track({ track, projectId }) {
-    const isActive = ['active', 'assembling', 'auditing', 'binding', 'remediating'].includes(track.state);
+        nodes.push({
+            id: item.id,
+            type: 'documentNode',
+            data: { ...item, width, height, isExpanded, projectId: callbacks.projectId, ...callbacks },
+            draggable: false,
+            connectable: false,
+            position: { x: 0, y: 0 },
+            zIndex: isExpanded ? 1000 : 0
+        });
+
+        if (prevId) {
+            const prevState = data[idx-1]?.state;
+            edges.push({
+                id: 'e-' + prevId + '-' + item.id,
+                source: prevId,
+                target: item.id,
+                type: 'smoothstep',
+                animated: ['active', 'assembling', 'auditing', 'binding', 'remediating'].includes(prevState),
+                style: { stroke: getEdgeColor(prevState, theme), strokeWidth: 3 }
+            });
+        }
+        prevId = item.id;
+    });
+
+    return { nodes, edges };
+};
+
+// ============================================================
+// MODULE: StationDots component
+// ============================================================
+function StationDots({ stations }) {
+    if (!stations?.length) return null;
     return (
-        <div className={`p-4 ${isActive ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}`}>
-            <div className="flex gap-4">
-                <div className="flex-shrink-0 pt-1">
-                    <StateDot state={track.state} />
-                </div>
-                <div className="flex-1 min-w-0 mr-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-gray-900 dark:text-white">{track.document_name || track.document_type}</span>
-                        <span className="text-xs text-gray-400 font-mono">({track.document_type})</span>
-                        <StateBadge state={track.state} />
-                    </div>
-                    {track.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{track.description}</p>
-                    )}
-                </div>
-                <div className="flex-shrink-0 flex items-start gap-2">
-                    {track.state === 'queued' && (
-                        <button 
-                            onClick={async () => {
-                                try {
-                                    const res = await fetch(`/projects/${projectId}/documents/${track.document_type}/build`, { method: 'POST' });
-                                    const data = await res.json();
-                                    console.log('Build started:', data);
-                                    // Refresh status after short delay
-                                    setTimeout(() => window.location.reload(), 500);
-                                } catch (err) {
-                                    console.error('Build failed:', err);
-                                }
-                            }}
-                            className="px-3 py-1.5 text-xs font-medium bg-violet-600 hover:bg-violet-700 text-white rounded">
-                            Start Production
-                        </button>
-                    )}
-                    {track.state === 'stabilized' && (
-                        <a href={`/projects/${projectId}/documents/${track.document_type}`}
-                           className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
-                            View Document
-                        </a>
-                    )}
-                </div>
-            </div>
-            {track.state === 'blocked' && track.blocked_by && (
-                <p className="mt-2 ml-6 text-xs text-gray-500">Awaiting: {track.blocked_by.join(', ')}</p>
-            )}
+        <div className="flex items-center gap-0.5 mt-2">
+            {stations.map((s, i) => {
+                const dotColor = s.state === 'complete' ? 'var(--state-stabilized-bg)' :
+                                s.state === 'active' ? 'var(--state-active-bg)' : 'var(--state-queued-bg)';
+                const lineColor = s.state === 'complete' ? 'var(--state-stabilized-bg)' : 'var(--state-queued-bg)';
+                const labelColor = s.state === 'active' ? 'var(--state-active-text)' : 'var(--text-muted)';
+                return (
+                    <React.Fragment key={s.id || i}>
+                        {i > 0 && <div className="w-4 h-0.5" style={{ background: lineColor }} />}
+                        <div className="flex flex-col items-center">
+                            <div className={'w-3 h-3 rounded-full' + (s.state === 'active' ? ' station-active' : '')} style={{ background: dotColor }} />
+                            <span className="text-[7px] mt-0.5" style={{ color: labelColor, fontWeight: s.state === 'active' ? 500 : 400 }}>{s.label || s.station?.toUpperCase()}</span>
+                        </div>
+                    </React.Fragment>
+                );
+            })}
         </div>
     );
 }
 
-function InterruptBanner({ interrupt, projectId }) {
-    if (!interrupt) return null;
+// ============================================================
+// MODULE: DocumentViewer sidecar (skeuomorphic paper)
+// ============================================================
+function DocumentViewer({ document, nodeWidth, projectId, onClose, onZoomComplete }) {
+    const docWidth = 520;
+
+    useEffect(() => {
+        if (onZoomComplete) {
+            const timer = setTimeout(() => onZoomComplete(), 150);
+            return () => clearTimeout(timer);
+        }
+    }, [onZoomComplete]);
+
     return (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-                <span className="text-red-600 text-xl">&#9888;</span>
-                <div className="flex-1">
-                    <h3 className="font-semibold text-red-800 dark:text-red-200">
-                        Line Stopped: {interrupt.document_type} awaiting operator
-                    </h3>
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                        {interrupt.interrupt_type === 'clarification' 
-                            ? 'The system needs clarification to continue production.'
-                            : 'The system needs your input to continue production.'}
-                    </p>
-                    <a href={`/projects/${projectId}/workflows/${interrupt.execution_id}/status`}
-                       className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md">
-                        &#128172; Answer Questions
+        <div className="absolute top-0 tray-slide" style={{ left: nodeWidth + 30, width: docWidth, zIndex: 1000 }}>
+            <div className="absolute" style={{ top: 40, right: '100%', width: 30, height: 3, background: '#10b981' }} />
+            <div className="absolute rounded-full" style={{ top: 36, right: '100%', marginRight: 26, width: 10, height: 10, background: '#10b981' }} />
+
+            <div style={{ background: '#ffffff', borderRadius: 2, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', minHeight: 400 }}>
+                <div style={{ padding: '24px 32px 16px', borderBottom: '2px solid #10b981', background: 'linear-gradient(to bottom, #ffffff, #fafafa)' }}>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div style={{ fontSize: 10, letterSpacing: '0.15em', color: '#10b981', fontWeight: 600, marginBottom: 4 }}>STABILIZED DOCUMENT</div>
+                            <h1 style={{ fontSize: 20, fontFamily: 'Georgia, serif', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>{document.name?.toUpperCase()}</h1>
+                            <div style={{ fontSize: 11, color: '#666', marginTop: 4, fontFamily: 'monospace' }}>REF: {document.id}</div>
+                        </div>
+                        <button onClick={onClose} style={{ color: '#999', fontSize: 24, lineHeight: 1, padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}>&times;</button>
+                    </div>
+                </div>
+
+                <div style={{ padding: '24px 32px', fontFamily: 'Georgia, serif', fontSize: 13, lineHeight: 1.7, color: '#333' }}>
+                    <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#666', marginBottom: 8, fontFamily: 'system-ui, sans-serif' }}>Description</h3>
+                        <p style={{ margin: 0 }}>{document.desc || 'This document has been stabilized and approved.'}</p>
+                    </div>
+                </div>
+
+                <div style={{ padding: '16px 32px 24px', borderTop: '1px solid #e5e5e5', background: '#fafafa' }}>
+                    <div className="flex justify-between items-end">
+                        <div className="flex items-center gap-2">
+                            <span style={{ fontSize: 10, color: '#10b981', fontWeight: 600 }}>VERIFIED</span>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#10b981', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>&#10003;</div>
+                        </div>
+                    </div>
+                    <a
+                        href={`/projects/${projectId}/documents/${document.id}`}
+                        style={{ marginTop: 16, width: '100%', padding: '10px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
+                        <span>View Full Document</span>
+                        <span style={{ fontSize: 14 }}>&#8599;</span>
                     </a>
                 </div>
             </div>
@@ -128,39 +459,236 @@ function InterruptBanner({ interrupt, projectId }) {
     );
 }
 
-function ProductionLine() {
-    const [state, setState] = useState({
-        ...window.INITIAL_DATA,
-        lineState: window.INITIAL_DATA.lineState || 'idle',
-        tracks: window.INITIAL_DATA.tracks || [],
-        summary: window.INITIAL_DATA.summary || {},
-    });
-
-    // SSE Connection
+// ============================================================
+// MODULE: InterruptTray sidecar (operator input needed)
+// ============================================================
+function InterruptTray({ document, nodeWidth, projectId, interrupt, onClose, onZoomComplete }) {
     useEffect(() => {
-        if (!state.projectId) return;
-        
-        console.log('Connecting to SSE for project:', state.projectId);
-        const es = new EventSource(`/api/v1/production/events?project_id=${state.projectId}`);
-        
+        if (onZoomComplete) {
+            const timer = setTimeout(() => onZoomComplete(), 150);
+            return () => clearTimeout(timer);
+        }
+    }, [onZoomComplete]);
+
+    // Build URL to resolve the interrupt
+    const resolveUrl = interrupt?.resolve_url || `/projects/${projectId}/workflows/${document.id}/build`;
+
+    return (
+        <div className="absolute top-0 border border-amber-500/50 rounded-lg shadow-2xl tray-slide"
+            style={{ left: nodeWidth + TRAY.GAP, width: TRAY.WIDTH, boxShadow: '0 0 30px rgba(0,0,0,0.5)', zIndex: 1000, background: 'var(--bg-sidecar)' }}>
+            {/* Horizontal bridge */}
+            <div className="absolute border-t-2 border-dashed border-amber-500/60" style={{ top: 14, right: '100%', width: TRAY.GAP }} />
+            <div className="absolute w-2 h-2 rounded-full bg-amber-500" style={{ top: 11, right: '100%', marginRight: -4 }} />
+
+            <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-2 flex justify-between items-center">
+                <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide">Line Stopped</span>
+                <button onClick={onClose} style={{ color: 'var(--text-sidecar-muted)' }} className="hover:opacity-70 text-sm leading-none">&times;</button>
+            </div>
+
+            <div className="p-4">
+                <div className="flex items-start gap-3 mb-4">
+                    <span className="text-amber-500 text-xl">&#9888;</span>
+                    <div>
+                        <h3 className="font-semibold text-sm" style={{ color: 'var(--text-sidecar)' }}>Awaiting Operator</h3>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-sidecar-muted)' }}>
+                            {interrupt?.interrupt_type === 'clarification'
+                                ? 'The system needs clarification to continue.'
+                                : 'Your input is required to proceed.'}
+                        </p>
+                    </div>
+                </div>
+
+                <a
+                    href={resolveUrl}
+                    className="w-full py-2.5 rounded text-xs font-medium bg-amber-500 text-slate-900 hover:bg-amber-400 transition-colors flex items-center justify-center gap-2"
+                    style={{ textDecoration: 'none' }}>
+                    <span>&#128172;</span>
+                    <span>Answer Questions</span>
+                </a>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================
+// MODULE: DocumentNode component
+// ============================================================
+function DocumentNode({ data }) {
+    const isExpanded = data.isExpanded;
+    const expandType = data.expandType;
+    const showStations = ['active', 'assembling', 'auditing', 'binding', 'remediating'].includes(data.state) && data.stations;
+    const needsOperator = data.state === 'awaiting_operator';
+    const isBlocked = data.state === 'blocked';
+    const isStabilized = data.state === 'stabilized';
+    const isActive = ['active', 'assembling', 'auditing', 'binding', 'remediating'].includes(data.state);
+
+    const stateClass = isActive ? 'node-active' : '';
+
+    // State colors
+    let stateBg, stateText, borderColor;
+    if (isStabilized) {
+        stateBg = 'var(--state-stabilized-bg)';
+        stateText = 'var(--state-stabilized-text)';
+        borderColor = 'var(--state-stabilized-bg)';
+    } else if (isActive) {
+        stateBg = 'var(--state-active-bg)';
+        stateText = 'var(--state-active-text)';
+        borderColor = 'var(--state-active-bg)';
+    } else if (needsOperator) {
+        stateBg = 'var(--state-awaiting-bg)';
+        stateText = 'var(--state-awaiting-text)';
+        borderColor = 'var(--state-awaiting-bg)';
+    } else if (isBlocked) {
+        stateBg = 'var(--state-blocked-bg)';
+        stateText = 'var(--state-blocked-text)';
+        borderColor = 'var(--state-blocked-bg)';
+    } else {
+        stateBg = 'var(--state-queued-bg)';
+        stateText = 'var(--state-queued-text)';
+        borderColor = 'var(--border-node)';
+    }
+
+    // State label
+    const stateLabel = data.state === 'awaiting_operator' ? 'AWAITING OPERATOR' :
+                       data.state === 'assembling' ? 'ASSEMBLING' :
+                       data.state === 'auditing' ? 'AUDITING' :
+                       data.state === 'binding' ? 'BINDING' :
+                       data.state === 'remediating' ? 'REMEDIATING' :
+                       data.state?.toUpperCase();
+
+    return (
+        <div className="relative">
+            <Handle type="target" position={Position.Top} className="!opacity-0" style={{left: '50%'}} />
+            <div className={`subway-node rounded-lg border ${stateClass} overflow-hidden`}
+                 style={{ width: data.width, minHeight: data.height, borderColor }}>
+                <div className={`subway-node-header-doc border-b px-3 py-1.5 flex items-center justify-between`}>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[8px] font-bold uppercase tracking-wider"
+                              style={{ color: 'var(--header-text-doc)' }}>DOCUMENT</span>
+                        <span className="text-[10px] font-medium" style={{ color: 'var(--text-primary)' }}>{data.name}</span>
+                    </div>
+                </div>
+                <div className="p-3">
+                    <div className="flex items-center gap-2">
+                        <div className={'rounded-full flex-shrink-0' + (needsOperator ? ' amber-pulse' : '')}
+                             style={{ width: 24, height: 24, backgroundColor: stateBg }} />
+                        <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: stateText }}>{stateLabel}</span>
+                            {data.desc && <p className="text-[9px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{data.desc}</p>}
+                        </div>
+                    </div>
+
+                    {showStations && <StationDots stations={data.stations} />}
+
+                    {isBlocked && data.blocked_by?.length > 0 && (
+                        <p className="text-[9px] mt-2" style={{ color: 'var(--state-blocked-text)' }}>
+                            Waiting for: {data.blocked_by.join(', ')}
+                        </p>
+                    )}
+
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {isStabilized && (
+                            <button
+                                className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] hover:bg-emerald-500/30 transition-colors"
+                                style={{ color: 'var(--action-success)' }}
+                                onClick={(e) => { e.stopPropagation(); data.onExpand?.(data.id, 'document'); }}>
+                                View Document
+                            </button>
+                        )}
+                        {needsOperator && !isExpanded && (
+                            <button
+                                className="px-2 py-1 bg-amber-500/20 rounded text-[9px] hover:bg-amber-500/30 transition-colors amber-pulse"
+                                style={{ color: 'var(--action-warning)' }}
+                                onClick={(e) => { e.stopPropagation(); data.onExpand?.(data.id, 'interrupt'); }}>
+                                Answer Questions
+                            </button>
+                        )}
+                        {data.state === 'queued' && !isBlocked && (
+                            <button
+                                className="px-2 py-1 bg-violet-500/20 rounded text-[9px] hover:bg-violet-500/30 transition-colors"
+                                style={{ color: '#a78bfa' }}
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                        await fetch(`/api/v1/production/start?project_id=${data.projectId}&document_type=${data.id}`, { method: 'POST' });
+                                    } catch (err) {
+                                        console.error('Start failed:', err);
+                                    }
+                                }}>
+                                Start Production
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {isExpanded && expandType === 'document' && isStabilized && (
+                <DocumentViewer
+                    document={data}
+                    nodeWidth={data.width}
+                    projectId={data.projectId}
+                    onClose={() => data.onCollapse?.()}
+                    onZoomComplete={() => data.onZoomToNode?.(data.id)}
+                />
+            )}
+            {isExpanded && expandType === 'interrupt' && needsOperator && (
+                <InterruptTray
+                    document={data}
+                    nodeWidth={data.width}
+                    projectId={data.projectId}
+                    interrupt={data.interrupt}
+                    onClose={() => data.onCollapse?.()}
+                    onZoomComplete={() => data.onZoomToNode?.(data.id)}
+                />
+            )}
+
+            <Handle type="source" position={Position.Bottom} className="!opacity-0" style={{left: '50%'}} />
+        </div>
+    );
+}
+
+const nodeTypes = { documentNode: DocumentNode };
+
+// ============================================================
+// MODULE: Main SubwayMap component
+// ============================================================
+function SubwayMap() {
+    const { projectId, projectName, tracks: initialTracks, lineState: initialLineState, summary: initialSummary, interrupt: initialInterrupt } = window.INITIAL_DATA;
+
+    const [data, setData] = useState(() => transformTracksToData(initialTracks));
+    const [lineState, setLineState] = useState(initialLineState || 'idle');
+    const [summary, setSummary] = useState(initialSummary || {});
+    const [interrupt, setInterrupt] = useState(initialInterrupt);
+    const [expandedId, setExpandedId] = useState(null);
+    const [expandType, setExpandType] = useState(null);
+    const [theme, setTheme] = useState('industrial');
+
+    const THEMES = ['industrial', 'light', 'blueprint'];
+    const THEME_LABELS = { industrial: 'Industrial', light: 'Light', blueprint: 'Blueprint' };
+    const reactFlowInstance = useReactFlow();
+
+    // SSE Connection for real-time updates
+    useEffect(() => {
+        if (!projectId) return;
+
+        console.log('Connecting to SSE for project:', projectId);
+        const es = new EventSource(`/api/v1/production/events?project_id=${projectId}`);
+
         es.addEventListener('connected', (e) => console.log('SSE connected:', JSON.parse(e.data)));
-        
+
         const refreshStatus = async () => {
             try {
                 const [statusRes, interruptRes] = await Promise.all([
-                    fetch(`/api/v1/production/status?project_id=${state.projectId}`),
-                    fetch(`/api/v1/projects/${state.projectId}/interrupts`)
+                    fetch(`/api/v1/production/status?project_id=${projectId}`),
+                    fetch(`/api/v1/projects/${projectId}/interrupts`)
                 ]);
                 const statusData = await statusRes.json();
                 const interruptData = await interruptRes.json();
-                
-                setState(prev => ({
-                    ...prev,
-                    tracks: statusData.tracks || [],
-                    lineState: statusData.line_state || 'idle',
-                    summary: statusData.summary || {},
-                    interrupt: interruptData?.length > 0 ? interruptData[0] : null,
-                }));
+
+                setData(transformTracksToData(statusData.tracks || []));
+                setLineState(statusData.line_state || 'idle');
+                setSummary(statusData.summary || {});
+                setInterrupt(interruptData?.length > 0 ? interruptData[0] : null);
             } catch (err) {
                 console.error('Failed to refresh status:', err);
             }
@@ -172,66 +700,155 @@ function ProductionLine() {
                 refreshStatus();
             });
         });
-        
-        es.onerror = (e) => console.error('SSE error:', e);
-        
-        return () => es.close();
-    }, [state.projectId]);
 
-    const isActive = state.lineState === 'active';
-    const summary = state.summary || {};
+        es.onerror = (e) => console.error('SSE error:', e);
+
+        return () => es.close();
+    }, [projectId]);
+
+    const cycleTheme = useCallback(() => {
+        setTheme(t => THEMES[(THEMES.indexOf(t) + 1) % THEMES.length]);
+    }, []);
+
+    const onZoomToNode = useCallback((nodeId) => {
+        const node = reactFlowInstance.getNode(nodeId);
+        if (node) {
+            const zoom = 0.9;
+            const viewportWidth = window.innerWidth;
+            const x = -node.position.x * zoom + viewportWidth / 2 - 400;
+            const y = -node.position.y * zoom + 120;
+            reactFlowInstance.setViewport({ x, y, zoom }, { duration: 800 });
+        }
+    }, [reactFlowInstance]);
+
+    const callbacks = useMemo(() => ({
+        projectId,
+        theme,
+        onExpand: (id, type) => { setExpandedId(id); setExpandType(type); },
+        onCollapse: () => {
+            setExpandedId(null);
+            setExpandType(null);
+            setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 300 }), 50);
+        },
+        onZoomToNode,
+        interrupt
+    }), [projectId, theme, reactFlowInstance, onZoomToNode, interrupt]);
+
+    const { layoutNodes, layoutEdges } = useMemo(() => {
+        const callbacksWithType = { ...callbacks, expandType };
+        const { nodes, edges } = buildGraph(data, expandedId, callbacksWithType);
+        const result = getLayoutedElements(nodes, edges);
+        const nodesWithType = result.nodes.map(n => ({
+            ...n,
+            data: { ...n.data, expandType: n.id === expandedId ? expandType : null }
+        }));
+        return { layoutNodes: nodesWithType, layoutEdges: result.edges };
+    }, [data, expandedId, expandType, callbacks]);
+
+    const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
+
+    useEffect(() => {
+        setNodes(layoutNodes);
+        setEdges(layoutEdges);
+    }, [layoutNodes, layoutEdges, setNodes, setEdges]);
+
+    const isActive = lineState === 'active';
+    const themeClass = `theme-${theme}`;
+
+    // No project selected - show empty state
+    if (!projectId) {
+        return (
+            <div className={`w-full h-full flex items-center justify-center ${themeClass}`} style={{ background: 'var(--bg-canvas)' }}>
+                <div className="text-center">
+                    <div className="text-6xl mb-4 opacity-30">&#128229;</div>
+                    <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>No Project Selected</h2>
+                    <p className="mt-2" style={{ color: 'var(--text-muted)' }}>Select a project from the sidebar to view its production line.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Production Line</h1>
-                {state.projectName && <span className="text-sm text-gray-500">{state.projectName}</span>}
-            </div>
+        <div className={`w-full h-full ${themeClass}`}>
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
+                nodesDraggable={false}
+                nodesConnectable={false}
+                edgesUpdatable={false}
+                edgesFocusable={false}
+                elementsSelectable={false}
+                fitView
+                fitViewOptions={{ padding: 0.3 }}
+                minZoom={0.3}
+                maxZoom={1.5}
+                style={{ background: 'var(--bg-canvas)' }}
+                proOptions={{ hideAttribution: true }}
+                defaultEdgeOptions={{ type: 'smoothstep' }}
+            >
+                <Panel position="top-left">
+                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{projectName || 'Loading...'}</p>
+                            </div>
+                            <button
+                                onClick={cycleTheme}
+                                className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                            >
+                                {THEME_LABELS[theme]}
+                            </button>
+                        </div>
+                    </div>
+                </Panel>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full ${isActive ? 'bg-amber-500 animate-pulse' : summary.stabilized === summary.total && summary.total > 0 ? 'bg-green-500' : 'bg-gray-400'}`} />
-                        <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Status: <span className={isActive ? 'text-amber-600' : 'text-gray-500'}>
-                                {isActive ? 'Active' : summary.stabilized === summary.total && summary.total > 0 ? 'Complete' : 'Idle'}
-                            </span>
-                        </span>
+                <Panel position="top-right">
+                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
+                        <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-amber-500 animate-pulse' : summary.stabilized === summary.total && summary.total > 0 ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                <span style={{ color: 'var(--text-primary)' }}>
+                                    {isActive ? 'Active' : summary.stabilized === summary.total && summary.total > 0 ? 'Complete' : 'Idle'}
+                                </span>
+                            </div>
+                            <span style={{ color: 'var(--text-muted)' }}>{summary.stabilized || 0}/{summary.total || 0} Stabilized</span>
+                            {summary.active > 0 && <span className="text-amber-500">{summary.active} Active</span>}
+                            {summary.awaiting_operator > 0 && <span className="text-red-500 font-medium">{summary.awaiting_operator} Awaiting</span>}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm">
-                        <span className="text-gray-500">{summary.stabilized || 0}/{summary.total || 0} Stabilized</span>
-                        {summary.active > 0 && <span className="text-amber-600">{summary.active} Active</span>}
-                        {summary.awaiting_operator > 0 && <span className="text-red-600 font-medium">{summary.awaiting_operator} Awaiting</span>}
-                    </div>
-                </div>
-            </div>
+                </Panel>
 
-            <InterruptBanner interrupt={state.interrupt} projectId={state.projectId} />
+                <Panel position="bottom-left">
+                    <div className="subway-panel flex gap-4 text-[10px] backdrop-blur px-4 py-2.5 rounded-lg border">
+                        <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Stabilized</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-active-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Active</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-queued-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Queued</span></div>
+                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-blocked-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Blocked</span></div>
+                    </div>
+                </Panel>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Document Tracks</h2>
-                </div>
-                {state.tracks.length > 0 ? (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {state.tracks.map(track => (
-                            <Track key={track.document_type} track={track} projectId={state.projectId} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="p-8 text-center text-gray-500">
-                        <div className="text-4xl mb-3 opacity-50">&#128229;</div>
-                        <p>No document tracks found</p>
-                    </div>
-                )}
-            </div>
+                <Panel position="bottom-right">
+                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Scroll to zoom | Drag to pan</div>
+                </Panel>
+            </ReactFlow>
         </div>
     );
 }
 
-console.log('Rendering ProductionLine component...');
-const root = ReactDOM.createRoot(document.getElementById('production-line-root'));
-root.render(<ProductionLine />);
+// ============================================================
+// MODULE: Render
+// ============================================================
+console.log('Rendering Production Line...');
+ReactDOM.createRoot(document.getElementById('production-line-root')).render(
+    <ReactFlowProvider><SubwayMap /></ReactFlowProvider>
+);
 console.log('Render complete');
+{% endraw %}
 </script>
 {% endblock %}

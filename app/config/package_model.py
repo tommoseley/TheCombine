@@ -109,6 +109,8 @@ class DocumentTypePackage:
     # Shared artifact references
     role_prompt_ref: Optional[str] = None
     template_ref: Optional[str] = None
+    qa_template_ref: Optional[str] = None
+    pgc_template_ref: Optional[str] = None
 
     # Packaged artifacts
     artifacts: PackageArtifacts = field(default_factory=PackageArtifacts)
@@ -195,6 +197,8 @@ class DocumentTypePackage:
             parent_doc_type=data.get("parent_doc_type"),
             role_prompt_ref=data.get("role_prompt_ref"),
             template_ref=data.get("template_ref"),
+            qa_template_ref=data.get("qa_template_ref"),
+            pgc_template_ref=data.get("pgc_template_ref"),
             artifacts=artifacts,
             tests=tests,
             gating_rules=gating_rules,

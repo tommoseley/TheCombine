@@ -61,6 +61,9 @@ class DocumentTypeDetail(BaseModel):
     parent_doc_type: Optional[str] = None
     role_prompt_ref: Optional[str] = None
     template_ref: Optional[str] = None
+    qa_template_ref: Optional[str] = None
+    pgc_template_ref: Optional[str] = None
+    workflow_ref: Optional[str] = None
     requires_pgc: bool
     is_llm_generated: bool
     artifacts: Dict[str, Optional[str]]
@@ -114,6 +117,47 @@ class TemplateDetail(BaseModel):
     template_id: str
     version: str
     content: str
+
+
+class WorkflowPlanSummary(BaseModel):
+    """Summary of a workflow plan for list responses."""
+    workflow_id: str
+    name: str
+    active_version: Optional[str] = None
+    description: Optional[str] = None
+    node_count: int = 0
+    edge_count: int = 0
+    error: Optional[str] = None
+
+
+class WorkflowPlanListResponse(BaseModel):
+    """Response for list workflows endpoint."""
+    workflows: List[WorkflowPlanSummary]
+    total: int
+
+
+class WorkflowPlanDetail(BaseModel):
+    """Full workflow plan details."""
+    workflow_id: str
+    version: str
+    definition: Dict[str, Any]
+
+
+class OrchestrationWorkflowSummary(BaseModel):
+    """Summary of a project orchestration workflow (step-based)."""
+    workflow_id: str
+    name: str
+    active_version: Optional[str] = None
+    description: Optional[str] = None
+    step_count: int = 0
+    schema_version: str = "workflow.v1"
+    error: Optional[str] = None
+
+
+class OrchestrationWorkflowListResponse(BaseModel):
+    """Response for list orchestration workflows endpoint."""
+    workflows: List[OrchestrationWorkflowSummary]
+    total: int
 
 
 class ActiveReleasesResponse(BaseModel):
@@ -458,6 +502,73 @@ async def get_template(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error_code": "VERSION_NOT_FOUND", "message": str(e)},
         )
+
+
+# ===========================================================================
+# Workflow Endpoints
+# ===========================================================================
+
+@router.get(
+    "/workflows",
+    response_model=WorkflowPlanListResponse,
+    summary="List workflow plans",
+    description="List all available workflow plans (ADR-039 graph-based format).",
+)
+async def list_workflows(
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> WorkflowPlanListResponse:
+    """List all workflow plans."""
+    summaries = service.list_workflows()
+    return WorkflowPlanListResponse(
+        workflows=[WorkflowPlanSummary(**s) for s in summaries],
+        total=len(summaries),
+    )
+
+
+@router.get(
+    "/workflows/{workflow_id}",
+    response_model=WorkflowPlanDetail,
+    summary="Get workflow plan",
+    description="Get full details of a workflow plan.",
+    responses={
+        404: {"description": "Workflow not found"},
+    },
+)
+async def get_workflow(
+    workflow_id: str,
+    version: Optional[str] = Query(None, description="Specific version (default: active)"),
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> WorkflowPlanDetail:
+    """Get workflow plan details."""
+    try:
+        details = service.get_workflow(workflow_id, version)
+        return WorkflowPlanDetail(**details)
+    except PackageNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "WORKFLOW_NOT_FOUND", "message": str(e)},
+        )
+
+
+# ===========================================================================
+# Orchestration Workflow Endpoints
+# ===========================================================================
+
+@router.get(
+    "/orchestration-workflows",
+    response_model=OrchestrationWorkflowListResponse,
+    summary="List orchestration workflows",
+    description="List project orchestration workflows (step-based format).",
+)
+async def list_orchestration_workflows(
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> OrchestrationWorkflowListResponse:
+    """List project orchestration workflows."""
+    summaries = service.list_orchestration_workflows()
+    return OrchestrationWorkflowListResponse(
+        workflows=[OrchestrationWorkflowSummary(**s) for s in summaries],
+        total=len(summaries),
+    )
 
 
 # ===========================================================================

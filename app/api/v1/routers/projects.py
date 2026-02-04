@@ -30,6 +30,8 @@ from app.api.services.document_definition_service import DocumentDefinitionServi
 from app.api.services.component_registry_service import ComponentRegistryService
 from app.api.services.schema_registry_service import SchemaRegistryService
 from app.core.database import get_db
+from app.auth.dependencies import require_auth
+from app.auth.models import User
 from app.domain.workflow.interrupt_registry import InterruptRegistry
 from app.domain.services.render_model_builder import (
     RenderModelBuilder,
@@ -122,24 +124,20 @@ def _project_to_response(project: Project) -> ProjectResponse:
 @router.get("", response_model=ProjectListResponse)
 async def list_projects(
     search: Optional[str] = Query(None, description="Search term for name/project_id"),
-    owner_id: Optional[str] = Query(None, description="Filter by owner"),
     include_archived: bool = Query(False, description="Include archived projects"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> ProjectListResponse:
-    """List projects with optional filtering."""
+    """List projects for the current user."""
     query = select(Project).where(Project.deleted_at.is_(None))
+
+    # Filter by current user's projects
+    query = query.where(Project.owner_id == current_user.user_id)
 
     if not include_archived:
         query = query.where(Project.archived_at.is_(None))
-
-    if owner_id:
-        try:
-            owner_uuid = UUID(owner_id)
-            query = query.where(Project.owner_id == owner_uuid)
-        except ValueError:
-            pass
 
     if search:
         search_pattern = f"%{search}%"
@@ -174,29 +172,19 @@ async def list_projects(
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
     request: ProjectCreateRequest,
-    owner_id: Optional[str] = Query(None, description="Owner user ID"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> ProjectResponse:
-    """Create a new project."""
+    """Create a new project for the current user."""
     project_id = await generate_unique_project_id(db, request.name)
-
-    owner_uuid = None
-    if owner_id:
-        try:
-            owner_uuid = UUID(owner_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid owner_id format",
-            )
 
     project = Project(
         project_id=project_id,
         name=request.name.strip(),
         description=request.description.strip() if request.description else None,
         icon=request.icon,
-        owner_id=owner_uuid,
-        organization_id=owner_uuid,
+        owner_id=current_user.user_id,
+        organization_id=current_user.user_id,
     )
 
     db.add(project)
@@ -211,6 +199,7 @@ async def create_project(
 async def create_project_from_intake(
     request: ProjectFromIntakeRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> ProjectResponse:
     """Create a project from completed intake workflow.
 
@@ -221,7 +210,7 @@ async def create_project_from_intake(
         db=db,
         intake_document=request.intake_document,
         execution_id=request.execution_id,
-        user_id=request.user_id,
+        user_id=str(current_user.user_id),
     )
 
     return _project_to_response(project)

@@ -232,7 +232,7 @@ class AuthService:
         # Check if OAuth identity already exists
         existing_user = await self._find_user_by_oauth_identity(provider_id, provider_user_id)
         if existing_user:
-            await self._update_last_login(existing_user)
+            await self._update_user_on_login(existing_user, claims)
             logger.info(f"Existing user {existing_user.user_id} logged in via {provider_id}")
             return (self._orm_to_user(existing_user), False)
         
@@ -272,6 +272,18 @@ class AuthService:
     async def _update_last_login(self, user_orm: UserORM) -> None:
         """Update user's last login timestamp."""
         user_orm.last_login_at = utcnow()
+        await self.db.commit()
+        await self.db.refresh(user_orm)
+
+    async def _update_user_on_login(self, user_orm: UserORM, claims: Dict[str, Any]) -> None:
+        """Update user on login - refresh timestamp and avatar from claims."""
+        user_orm.last_login_at = utcnow()
+        # Refresh avatar from OAuth provider (in case it changed)
+        if claims.get('picture'):
+            user_orm.avatar_url = claims['picture']
+        # Refresh name if not set
+        if not user_orm.name and claims.get('name'):
+            user_orm.name = claims['name']
         await self.db.commit()
         await self.db.refresh(user_orm)
     

@@ -350,6 +350,37 @@ class PackageLoader:
 
         return self.get_template(template_id, version)
 
+    def _resolve_template_ref(
+        self,
+        template_ref: str,
+    ) -> Optional[Template]:
+        """
+        Resolve a template reference string to a Template.
+
+        Args:
+            template_ref: Reference string in format prompt:template:{template_id}:{version}
+
+        Returns:
+            Loaded Template or None if invalid reference
+        """
+        if not template_ref:
+            return None
+
+        # Parse reference: prompt:template:{template_id}:{version}
+        parts = template_ref.split(":")
+        if len(parts) != 4 or parts[0] != "prompt" or parts[1] != "template":
+            logger.warning(f"Invalid template ref: {template_ref}")
+            return None
+
+        template_id = parts[2]
+        version = parts[3]
+
+        try:
+            return self.get_template(template_id, version)
+        except (PackageNotFoundError, VersionNotFoundError) as e:
+            logger.warning(f"Failed to resolve template ref {template_ref}: {e}")
+            return None
+
     def assemble_prompt(
         self,
         package: DocumentTypePackage,
@@ -392,6 +423,142 @@ class PackageLoader:
         assembled = assembled.replace("$$OUTPUT_SCHEMA", schema_str)
 
         return assembled
+
+    def assemble_qa_prompt(
+        self,
+        package: DocumentTypePackage,
+    ) -> Optional[str]:
+        """
+        Assemble a complete QA prompt for a document type.
+
+        Uses qa_template_ref if specified, otherwise falls back to legacy assembly.
+
+        Args:
+            package: The document type package
+
+        Returns:
+            Assembled QA prompt string or None if not available
+        """
+        qa_prompt = package.get_qa_prompt()
+        if not qa_prompt:
+            return None
+
+        # Get the QA role (quality_assurance)
+        qa_role = self.get_role("quality_assurance")
+
+        # Get QA schema if available
+        import json
+        schema = package.get_schema()
+        schema_str = json.dumps(schema, indent=2) if schema else ""
+
+        # Try to use QA template if specified
+        if package.qa_template_ref:
+            template = self._resolve_template_ref(package.qa_template_ref)
+            if template:
+                assembled = template.content
+                assembled = assembled.replace("$$ROLE_PROMPT", qa_role.content if qa_role else "")
+                assembled = assembled.replace("$$QA_PROMPT", qa_prompt)
+                assembled = assembled.replace("$$OUTPUT_SCHEMA", schema_str)
+                return assembled
+
+        # Legacy fallback: manual assembly
+        lines = []
+
+        if qa_role:
+            lines.append("# QA Role")
+            lines.append("")
+            lines.append(qa_role.content)
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
+        lines.append("# QA Prompt")
+        lines.append("")
+        lines.append(qa_prompt)
+
+        return "\n".join(lines)
+
+    def assemble_pgc_prompt(
+        self,
+        package: DocumentTypePackage,
+    ) -> Optional[str]:
+        """
+        Assemble PGC prompt for a document type.
+
+        Uses pgc_template_ref if specified, otherwise falls back to legacy assembly.
+
+        Args:
+            package: The document type package
+
+        Returns:
+            PGC prompt string or None if not available
+        """
+        pgc_context = package.get_pgc_context()
+        if not pgc_context:
+            return None
+
+        # Get PGC schema if available (clarification questions schema)
+        import json
+        schema = package.get_schema()
+        schema_str = json.dumps(schema, indent=2) if schema else ""
+
+        # Try to use PGC template if specified
+        if package.pgc_template_ref:
+            template = self._resolve_template_ref(package.pgc_template_ref)
+            if template:
+                assembled = template.content
+                assembled = assembled.replace("$$PGC_CONTEXT", pgc_context)
+                assembled = assembled.replace("$$OUTPUT_SCHEMA", schema_str)
+                return assembled
+
+        # Legacy fallback: manual assembly
+        lines = [
+            f"# PGC Context for {package.display_name}",
+            f"# Version: {package.version}",
+            "",
+            pgc_context,
+        ]
+
+        return "\n".join(lines)
+
+    def assemble_reflection_prompt(
+        self,
+        package: DocumentTypePackage,
+    ) -> Optional[str]:
+        """
+        Assemble a reflection prompt for a document type.
+
+        Returns the reflection prompt content with header information.
+
+        Args:
+            package: The document type package
+
+        Returns:
+            Reflection prompt string or None if not available
+        """
+        reflection_prompt = package.get_reflection_prompt()
+        if not reflection_prompt:
+            return None
+
+        # Get the QA role (used for reflection as well)
+        qa_role = self.get_role("quality_assurance")
+
+        # Build assembled reflection prompt
+        lines = []
+
+        if qa_role:
+            lines.append("# Reflection Role")
+            lines.append("")
+            lines.append(qa_role.content)
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+
+        lines.append("# Reflection Prompt")
+        lines.append("")
+        lines.append(reflection_prompt)
+
+        return "\n".join(lines)
 
 
 # Module-level singleton

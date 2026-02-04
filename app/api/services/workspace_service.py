@@ -134,6 +134,19 @@ class CommitResult:
 
 
 @dataclass
+class ArtifactDiff:
+    """Diff for a single artifact."""
+    artifact_id: str
+    file_path: str
+    status: str  # M=modified, A=added, D=deleted
+    old_content: Optional[str]
+    new_content: Optional[str]
+    diff_content: str
+    additions: int = 0
+    deletions: int = 0
+
+
+@dataclass
 class WorkspaceMetadata:
     """Internal workspace metadata."""
     workspace_id: str
@@ -204,10 +217,10 @@ class WorkspaceService:
 
         scope, name, version, kind = parts
 
-        if scope not in ("doctype", "role", "template"):
+        if scope not in ("doctype", "role", "template", "workflow"):
             raise ArtifactIdError(
                 f"Invalid scope '{scope}' in artifact ID. "
-                f"Expected: doctype, role, or template"
+                f"Expected: doctype, role, template, or workflow"
             )
 
         return {
@@ -254,6 +267,11 @@ class WorkspaceService:
             if kind != "template":
                 raise ArtifactIdError(f"Unknown artifact kind for template: {kind}")
             return f"prompts/templates/{name}/releases/{version}/template.txt"
+
+        elif scope == "workflow":
+            if kind != "definition":
+                raise ArtifactIdError(f"Unknown artifact kind for workflow: {kind}")
+            return f"workflows/{name}/releases/{version}/definition.json"
 
         raise ArtifactIdError(f"Unknown scope: {scope}")
 
@@ -322,6 +340,14 @@ class WorkspaceService:
         )
         if match:
             return f"template:{match.group(1)}:{match.group(2)}:template"
+
+        # Workflow definitions
+        match = re.match(
+            r"workflows/([^/]+)/releases/([^/]+)/definition\.json$",
+            file_path
+        )
+        if match:
+            return f"workflow:{match.group(1)}:{match.group(2)}:definition"
 
         return None
 
@@ -584,8 +610,71 @@ class WorkspaceService:
                         artifact_id=f"doctype:{doc_type_id}:{version}:manifest",
                     ))
 
-        # If no packages to validate, report clean
-        if not doc_types_to_validate:
+        # Validate workflow artifacts
+        workflows_to_validate = set()
+        for artifact_id in modified_artifacts:
+            try:
+                parsed = self._parse_artifact_id(artifact_id)
+                if parsed["scope"] == "workflow":
+                    workflows_to_validate.add((parsed["name"], parsed["version"]))
+            except ArtifactIdError:
+                continue
+
+        for workflow_id, version in workflows_to_validate:
+            workflow_path = (
+                self._git.config_path /
+                "workflows" /
+                workflow_id /
+                "releases" /
+                version /
+                "definition.json"
+            )
+
+            if workflow_path.exists():
+                import json as _json
+                try:
+                    with open(workflow_path, "r", encoding="utf-8-sig") as f:
+                        raw = _json.load(f)
+
+                    # Only validate graph-based workflows (ADR-039) with PlanValidator.
+                    # Step-based orchestration workflows (workflow.v1) get JSON validity only.
+                    if "nodes" in raw and "edges" in raw:
+                        from app.domain.workflow.plan_validator import PlanValidator
+                        plan_validator = PlanValidator()
+                        result = plan_validator.validate(raw)
+
+                        if not result.valid:
+                            for error in result.errors:
+                                results.append(Tier1Result(
+                                    rule_id=error.code.value if hasattr(error.code, 'value') else str(error.code),
+                                    status="fail",
+                                    message=error.message,
+                                    artifact_id=f"workflow:{workflow_id}:{version}:definition",
+                                ))
+                                all_passed = False
+                        else:
+                            results.append(Tier1Result(
+                                rule_id="WORKFLOW_VALID",
+                                status="pass",
+                                artifact_id=f"workflow:{workflow_id}:{version}:definition",
+                            ))
+                    else:
+                        results.append(Tier1Result(
+                            rule_id="WORKFLOW_JSON_VALID",
+                            status="pass",
+                            artifact_id=f"workflow:{workflow_id}:{version}:definition",
+                        ))
+                except _json.JSONDecodeError as e:
+                    results.append(Tier1Result(
+                        rule_id="INVALID_JSON",
+                        status="fail",
+                        message=f"Invalid JSON: {e}",
+                        artifact_id=f"workflow:{workflow_id}:{version}:definition",
+                    ))
+                    all_passed = False
+
+        # If no packages or workflows to validate, report clean
+        if not doc_types_to_validate and not workflows_to_validate:
             results.append(Tier1Result(
                 rule_id="NO_PACKAGES_MODIFIED",
                 status="pass",
@@ -676,6 +765,69 @@ class WorkspaceService:
         # Run tier1 validation on affected artifacts
         return self._run_tier1_validation([artifact_id])
 
+    def get_diff(
+        self,
+        workspace_id: str,
+        artifact_id: Optional[str] = None,
+    ) -> List[ArtifactDiff]:
+        """
+        Get diff for workspace changes.
+
+        Args:
+            workspace_id: Workspace identifier
+            artifact_id: Specific artifact or None for all changes
+
+        Returns:
+            List of ArtifactDiff objects
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Get file path if artifact_id specified
+        file_path = None
+        if artifact_id:
+            try:
+                file_path = self._artifact_id_to_path(artifact_id)
+            except ArtifactIdError as e:
+                raise ArtifactError(str(e))
+
+        # Get diffs from git
+        git_diffs = self._git.get_diff(file_path)
+
+        # Convert to ArtifactDiff with content
+        result = []
+        for git_diff in git_diffs:
+            # Try to map file path back to artifact ID
+            mapped_artifact_id = self._path_to_artifact_id(git_diff.file_path)
+            if artifact_id and mapped_artifact_id != artifact_id:
+                continue
+
+            # Get old content (from HEAD)
+            old_content = self._git.get_file_content(git_diff.file_path, "HEAD")
+
+            # Get new content (current workspace)
+            new_content = None
+            if git_diff.status != "D":
+                full_path = self._git.config_path / git_diff.file_path
+                if full_path.exists():
+                    new_content = full_path.read_text(encoding="utf-8")
+
+            result.append(ArtifactDiff(
+                artifact_id=mapped_artifact_id or f"file:{git_diff.file_path}",
+                file_path=git_diff.file_path,
+                status=git_diff.status,
+                old_content=old_content,
+                new_content=new_content,
+                diff_content=git_diff.diff_content,
+                additions=git_diff.additions,
+                deletions=git_diff.deletions,
+            ))
+
+        return result
+
     def get_preview(
         self,
         workspace_id: str,
@@ -710,25 +862,49 @@ class WorkspaceService:
 
         doc_type_id = parsed["name"]
         version = parsed["version"]
+        kind = parsed["kind"]
 
         # Invalidate cache to get fresh data
         self._loader.invalidate_cache()
 
-        # Load package and assemble prompt
+        # Load package
         try:
             package = self._loader.get_document_type(doc_type_id, version)
         except PackageNotFoundError as e:
             raise ArtifactError(f"Package not found: {e}")
 
-        resolved_prompt = self._loader.assemble_prompt(package)
-        if not resolved_prompt:
-            raise ArtifactError("Failed to assemble prompt")
+        # Assemble prompt based on artifact kind
+        if kind == "task_prompt":
+            resolved_prompt = self._loader.assemble_prompt(package)
+            prompt_type = "Task"
+        elif kind == "qa_prompt":
+            resolved_prompt = self._loader.assemble_qa_prompt(package)
+            prompt_type = "QA"
+        elif kind == "pgc_context":
+            resolved_prompt = self._loader.assemble_pgc_prompt(package)
+            prompt_type = "PGC Context"
+        elif kind == "reflection_prompt":
+            resolved_prompt = self._loader.assemble_reflection_prompt(package)
+            prompt_type = "Reflection"
+        else:
+            raise ArtifactError(f"Preview not supported for artifact kind: {kind}")
 
-        # Build provenance
-        role_ref = package.role_prompt_ref
+        if not resolved_prompt:
+            raise ArtifactError(f"Failed to assemble {prompt_type} prompt - content not available")
+
+        # Build provenance - use appropriate role based on artifact kind
+        if kind == "task_prompt":
+            role_ref = package.role_prompt_ref
+        elif kind in ("qa_prompt", "reflection_prompt"):
+            # QA and Reflection use the quality_assurance role
+            role_ref = "prompt:role:quality_assurance:1.0.0"
+        else:
+            # PGC context doesn't have a role
+            role_ref = None
+
         provenance = PreviewProvenance(
-            role=role_ref if role_ref else None,
-            schema=f"{doc_type_id}@{version}",
+            role=role_ref,
+            schema=f"{doc_type_id}@{version}" if kind == "task_prompt" else None,
             package=f"{doc_type_id}@{version}",
         )
 
@@ -814,6 +990,170 @@ class WorkspaceService:
             self._git.discard_changes()
         except GitServiceError as e:
             raise WorkspaceError(f"Discard failed: {e}")
+
+    # =========================================================================
+    # Orchestration Workflow Lifecycle
+    # =========================================================================
+
+    def create_orchestration_workflow(
+        self,
+        workspace_id: str,
+        workflow_id: str,
+        name: Optional[str] = None,
+        version: str = "1.0.0",
+    ) -> str:
+        """
+        Create a new orchestration workflow definition.
+
+        Creates the directory structure, skeleton definition.json,
+        and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            workflow_id: Workflow ID (snake_case)
+            name: Display name (auto-generated from workflow_id if None)
+            version: Initial version
+
+        Returns:
+            Artifact ID for the new workflow
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate workflow_id
+        if not re.match(r'^[a-z][a-z0-9_]*$', workflow_id):
+            raise ArtifactError(
+                f"Invalid workflow_id: '{workflow_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Check if workflow already exists
+        workflow_dir = self._git.config_path / "workflows" / workflow_id
+        if workflow_dir.exists():
+            raise ArtifactError(f"Workflow already exists: {workflow_id}")
+
+        # Auto-generate display name
+        if not name:
+            name = workflow_id.replace('_', ' ').title()
+
+        # Create directory structure and definition.json
+        import json as _json
+        from datetime import date
+
+        release_dir = workflow_dir / "releases" / version
+        release_dir.mkdir(parents=True, exist_ok=True)
+
+        skeleton = {
+            "schema_version": "workflow.v1",
+            "workflow_id": workflow_id,
+            "revision": f"wfrev_{date.today().isoformat().replace('-', '_')}_a",
+            "effective_date": date.today().isoformat(),
+            "name": name,
+            "description": "",
+            "scopes": {
+                "project": {"parent": None}
+            },
+            "document_types": {},
+            "entity_types": {},
+            "steps": []
+        }
+
+        definition_path = release_dir / "definition.json"
+        definition_path.write_text(
+            _json.dumps(skeleton, indent=2),
+            encoding="utf-8",
+        )
+
+        # Update active_releases.json
+        self._update_active_releases(workflow_id, version)
+
+        return f"workflow:{workflow_id}:{version}:definition"
+
+    def delete_orchestration_workflow(
+        self,
+        workspace_id: str,
+        workflow_id: str,
+    ) -> None:
+        """
+        Delete an orchestration workflow.
+
+        Removes the workflow directory and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            workflow_id: Workflow ID to delete
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Verify workflow exists
+        workflow_dir = self._git.config_path / "workflows" / workflow_id
+        if not workflow_dir.exists():
+            raise ArtifactNotFoundError(f"Workflow not found: {workflow_id}")
+
+        # Verify it's step-based (not graph-based)
+        import json as _json
+        import shutil
+
+        # Find any definition.json to check format
+        for def_file in workflow_dir.rglob("definition.json"):
+            try:
+                with open(def_file, "r", encoding="utf-8-sig") as f:
+                    raw = _json.load(f)
+                if "nodes" in raw and "edges" in raw:
+                    raise ArtifactError(
+                        f"Cannot delete graph-based workflow '{workflow_id}' "
+                        f"via this endpoint. Use the document type workflow editor."
+                    )
+            except _json.JSONDecodeError:
+                pass
+            break
+
+        # Remove directory tree
+        shutil.rmtree(workflow_dir)
+
+        # Update active_releases.json
+        self._update_active_releases(workflow_id, None)
+
+    def _update_active_releases(
+        self,
+        workflow_id: str,
+        version: Optional[str],
+    ) -> None:
+        """
+        Update active_releases.json for a workflow.
+
+        Args:
+            workflow_id: Workflow ID
+            version: Version to set, or None to remove
+        """
+        import json as _json
+
+        releases_path = self._git.config_path / "_active" / "active_releases.json"
+        if not releases_path.exists():
+            raise ArtifactError("active_releases.json not found")
+
+        with open(releases_path, "r", encoding="utf-8-sig") as f:
+            releases = _json.load(f)
+
+        if "workflows" not in releases:
+            releases["workflows"] = {}
+
+        if version is None:
+            releases["workflows"].pop(workflow_id, None)
+        else:
+            releases["workflows"][workflow_id] = version
+
+        releases_path.write_text(
+            _json.dumps(releases, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     # =========================================================================
     # TTL Cleanup

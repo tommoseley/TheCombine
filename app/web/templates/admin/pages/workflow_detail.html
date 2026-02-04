@@ -22,58 +22,61 @@
         <p class="workflow-description">{{ workflow.description }}</p>
         <div class="info-grid">
             <div class="info-item">
-                <span class="info-label">Revision</span>
-                <span class="info-value">{{ workflow.revision }}</span>
+                <span class="info-label">Version</span>
+                <span class="info-value">{{ workflow.version }}</span>
             </div>
             <div class="info-item">
-                <span class="info-label">Effective Date</span>
-                <span class="info-value">{{ workflow.effective_date }}</span>
+                <span class="info-label">Scope Type</span>
+                <span class="info-value">{{ workflow.scope_type }}</span>
             </div>
             <div class="info-item">
-                <span class="info-label">Steps</span>
-                <span class="info-value">{{ workflow.steps|length }}</span>
+                <span class="info-label">Document Type</span>
+                <span class="info-value">{{ workflow.document_type }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Nodes</span>
+                <span class="info-value">{{ workflow.nodes|length }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Edges</span>
+                <span class="info-value">{{ workflow.edges|length }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Entry Nodes</span>
+                <span class="info-value">{{ workflow.entry_node_ids|join(', ') }}</span>
             </div>
         </div>
     </section>
-    
-    <section class="card workflow-scopes">
-        <h3 class="card-title">Scopes</h3>
-        <div class="scope-list">
-            {% for scope_id, scope in workflow.scopes.items() %}
-            <div class="scope-item">
-                <span class="scope-name">{{ scope_id }}</span>
-                {% if scope.parent %}
-                <span class="scope-parent"> {{ scope.parent }}</span>
-                {% else %}
-                <span class="scope-root">(root)</span>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-    
-    <section class="card workflow-documents">
-        <h3 class="card-title">Document Types</h3>
+
+    <section class="card workflow-nodes">
+        <h3 class="card-title">Nodes</h3>
         <table class="data-table">
             <thead>
                 <tr>
+                    <th>Node ID</th>
                     <th>Type</th>
-                    <th>Name</th>
-                    <th>Scope</th>
-                    <th>Acceptance</th>
+                    <th>Description</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>
-                {% for doc_id, doc in workflow.document_types.items() %}
+                {% for node in workflow.nodes %}
                 <tr>
-                    <td><code>{{ doc_id }}</code></td>
-                    <td>{{ doc.name }}</td>
-                    <td>{{ doc.scope }}</td>
+                    <td><code>{{ node.node_id }}</code></td>
+                    <td><span class="badge">{{ node.type.value }}</span></td>
+                    <td>{{ node.description }}</td>
                     <td>
-                        {% if doc.acceptance_required %}
-                        <span class="badge badge-warning">Required</span>
-                        {% else %}
-                        <span class="badge badge-muted">Auto</span>
+                        {% if node.produces %}
+                        <span class="badge badge-info">produces: {{ node.produces }}</span>
+                        {% endif %}
+                        {% if node.terminal_outcome %}
+                        <span class="badge {% if node.terminal_outcome == 'stabilized' %}badge-success{% else %}badge-warning{% endif %}">{{ node.terminal_outcome }}</span>
+                        {% endif %}
+                        {% if node.requires_qa %}
+                        <span class="badge badge-muted">QA</span>
+                        {% endif %}
+                        {% if node.task_ref %}
+                        <code>{{ node.task_ref }}</code>
                         {% endif %}
                     </td>
                 </tr>
@@ -81,32 +84,37 @@
             </tbody>
         </table>
     </section>
-    
-    <section class="card workflow-steps">
-        <h3 class="card-title">Steps</h3>
-        <div class="steps-list">
-            {% for step in workflow.steps %}
-            <div class="step-item">
-                <div class="step-number">{{ loop.index }}</div>
-                <div class="step-content">
-                    <div class="step-header">
-                        <span class="step-id">{{ step.step_id }}</span>
-                        <span class="step-role badge">{{ step.role }}</span>
-                    </div>
-                    <div class="step-details">
-                        <span class="step-produces">Produces: <code>{{ step.produces }}</code></span>
-                        {% if step.inputs %}
-                        <span class="step-inputs">Inputs: 
-                            {% for input in step.inputs %}
-                            <code>{{ input }}</code>{% if not loop.last %}, {% endif %}
-                            {% endfor %}
-                        </span>
+
+    <section class="card workflow-edges">
+        <h3 class="card-title">Edges</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Edge ID</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Outcome</th>
+                    <th>Kind</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for edge in workflow.edges %}
+                <tr>
+                    <td><code>{{ edge.edge_id }}</code></td>
+                    <td><code>{{ edge.from_node_id }}</code></td>
+                    <td>
+                        {% if edge.to_node_id %}
+                        <code>{{ edge.to_node_id }}</code>
+                        {% else %}
+                        <span class="badge badge-muted">non-advancing</span>
                         {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+                    </td>
+                    <td>{{ edge.outcome }}{% if edge.label %} ({{ edge.label }}){% endif %}</td>
+                    <td><span class="badge">{{ edge.kind.value }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </section>
 </div>
 {% endblock %}

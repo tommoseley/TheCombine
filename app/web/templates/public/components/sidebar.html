@@ -1,7 +1,7 @@
 <div class="flex flex-col h-full">
     <!-- New Project Button -->
     <div class="p-3 border-b border-gray-200 dark:border-gray-700">
-        <a 
+        <a
             href="/projects/new"
             hx-get="/projects/new"
             hx-target="#main-content"
@@ -11,16 +11,21 @@
             <span>New Project</span>
         </a>
     </div>
-    
-    <!-- Project Accordion Tree -->
+
+    <!-- Section Header -->
+    <div class="px-3 pt-4 pb-2">
+        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Production Lines</span>
+    </div>
+
+    <!-- Project List (Launchers) -->
     <div class="flex-1 overflow-y-auto">
-        <div 
+        <div
             id="project-tree-root"
             hx-get="/projects/tree"
             hx-trigger="load, refreshProjectList from:body"
             hx-swap="innerHTML"
             hx-indicator="#tree-loading"
-            class="py-1">
+            class="pb-4">
             <!-- Projects loaded here via HTMX -->
             <div class="flex items-center justify-center py-8">
                 <div id="tree-loading" class="htmx-indicator">
@@ -32,262 +37,55 @@
 </div>
 
 <style>
-/* Accordion animation */
-.accordion-content {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.2s ease-out;
-}
-.accordion-content.open {
-    max-height: 500px;
-}
-
-/* Active project header */
-.project-header.active {
-    background-color: rgb(76 29 149 / 0.2);
-}
-
-/* Active document link - Light mode */
-.doc-link.active {
+/* Active project link */
+.project-link.active {
     background-color: rgb(243 232 255);
-    border-left-color: rgb(124 58 237) !important;
 }
-.doc-link.active span {
-    color: rgb(109 40 217);
-    font-weight: 500;
+.project-link.active span {
+    color: rgb(124 58 237);
 }
-.doc-link.active .doc-icon {
+.project-link.active i {
     color: rgb(124 58 237);
 }
 
-/* Active document link - Dark mode */
-.dark .doc-link.active {
+/* Dark mode active state */
+.dark .project-link.active {
     background-color: rgb(124 58 237 / 0.15);
-    border-left-color: rgb(139 92 246) !important;
 }
-.dark .doc-link.active span {
+.dark .project-link.active span {
     color: rgb(196 181 253);
 }
-.dark .doc-link.active .doc-icon {
+.dark .project-link.active i {
     color: rgb(167 139 250);
 }
 </style>
 
 <script>
-// Accordion toggle - collapse others when opening
-// Note: button is now inside .project-header, not the header itself
-// Save/restore expanded state for tree refreshes
-var savedExpandedProjects = [];
+// Update active state based on URL
+function updateActiveProject() {
+    const currentPath = window.location.pathname + window.location.search;
 
-function saveExpandedState() {
-    savedExpandedProjects = [];
-    document.querySelectorAll('.accordion-content.open').forEach(content => {
-        const accordion = content.closest('.project-accordion');
-        const projectId = accordion?.getAttribute('data-project-id');
-        if (projectId) savedExpandedProjects.push(projectId);
-    });
-}
-
-function restoreExpandedState() {
-    savedExpandedProjects.forEach(projectId => {
-        const accordion = document.querySelector(`.project-accordion[data-project-id="${projectId}"]`);
-        if (accordion) {
-            const content = accordion.querySelector('.accordion-content');
-            const header = accordion.querySelector('.project-header');
-            const chevron = accordion.querySelector('.accordion-chevron');
-            if (content) content.classList.add('open');
-            if (header) header.classList.add('active');
-            if (chevron) chevron.setAttribute('data-lucide', 'chevron-down');
-        }
-    });
-}
-
-function toggleProjectAccordion(button, projectId) {
-    const accordion = button.closest('.project-accordion');
-    const content = accordion.querySelector('.accordion-content');
-    const header = accordion.querySelector('.project-header');
-    const chevron = button.querySelector('.accordion-chevron');
-    const docsContainer = content.querySelector('.docs-container');
-    const isOpening = !content.classList.contains('open');
-    
-    // Toggle this one
-    content.classList.toggle('open');
-    header.classList.toggle('active');
-    
-    if (content.classList.contains('open')) {
-        chevron.setAttribute('data-lucide', 'chevron-down');
-        
-        // Lazy load documents if not already loaded
-        if (docsContainer && !docsContainer.dataset.loaded) {
-            docsContainer.dataset.loaded = 'true';
-            htmx.ajax('GET', '/projects/' + projectId + '/documents-status', {
-                target: docsContainer,
-                swap: 'innerHTML'
-            });
-        }
-    } else {
-        chevron.setAttribute('data-lucide', 'chevron-right');
-    }
-    
-    // Re-render icons
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-}
-
-// Update active states based on current URL
-function updateActiveStates() {
-    const currentPath = window.location.pathname;
-    
     // Remove all active states
-    document.querySelectorAll('.project-header.active').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.doc-link.active').forEach(el => el.classList.remove('active'));
-    // Note: We no longer collapse all accordions or reset chevrons - users can keep multiple projects open
+    document.querySelectorAll('.project-link.active').forEach(el => el.classList.remove('active'));
 
-    
-    // Find matching document link and activate it + its parent project
-    // BUT: Skip archived projects - they stay collapsed
-    document.querySelectorAll('.doc-link').forEach(link => {
+    // Find matching project link
+    document.querySelectorAll('.project-link').forEach(link => {
         const href = link.getAttribute('href');
-        if (href && currentPath.startsWith(href)) {
+        if (href && currentPath.includes(href.split('?')[1])) {
             link.classList.add('active');
-            
-            // Open parent accordion ONLY if it's NOT in the archived section
-            const accordion = link.closest('.project-accordion');
-            if (accordion) {
-                const isArchived = accordion.closest('#archived-projects-list') !== null;
-                
-                if (!isArchived) {
-                    // Only auto-expand active projects
-                    const content = accordion.querySelector('.accordion-content');
-                    const header = accordion.querySelector('.project-header');
-                    const chevron = accordion.querySelector('.accordion-chevron');
-                    
-                    content.classList.add('open');
-                    header.classList.add('active');
-                    chevron.setAttribute('data-lucide', 'chevron-down');
-                }
-            }
         }
     });
-    
-    // Also check project-level links (when viewing project detail page)
-    // BUT: Skip archived projects - they stay collapsed
-    document.querySelectorAll('.project-header').forEach(header => {
-        const projectLink = header.getAttribute('data-project-url');
-        if (projectLink && currentPath === projectLink) {
-            header.classList.add('active');
-            
-            // Only auto-expand if NOT archived
-            const accordion = header.closest('.project-accordion');
-            const isArchived = accordion?.closest('#archived-projects-list') !== null;
-            
-            if (!isArchived && accordion) {
-                const content = accordion.querySelector('.accordion-content');
-                const chevron = accordion.querySelector('.accordion-chevron');
-                
-                content.classList.add('open');
-                chevron.setAttribute('data-lucide', 'chevron-down');
-            }
-        }
-    });
-    
-    // Re-render icons
+
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 }
 
-// Save expanded state before tree refresh
-document.body.addEventListener('htmx:beforeRequest', function(event) {
-    if (event.target.id === 'project-tree-root' || event.detail.target?.id === 'project-tree-root') {
-        saveExpandedState();
-    }
-});
-
-// Run on page load
-document.addEventListener('DOMContentLoaded', updateActiveStates);
-
-// Run after HTMX swaps
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    // Restore expanded state after tree refresh
-    if (event.target.id === 'project-tree-root' || event.detail.target?.id === 'project-tree-root') {
-        restoreExpandedState();
-    }
-    
-    setTimeout(() => {
-        updateActiveStates();
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }, 10);
-});
-
-// Run after URL changes
-window.addEventListener('popstate', updateActiveStates);
-document.body.addEventListener('htmx:pushedIntoHistory', updateActiveStates);
-
-// =========================================================================
-// BUILD STATUS INDICATOR
-// =========================================================================
-
-var BUILD_STORAGE_KEY = 'combine_document_builds';
-
-function updateBuildingIndicators() {
-    const builds = JSON.parse(localStorage.getItem(BUILD_STORAGE_KEY) || '{}');
-    
-    document.querySelectorAll('.doc-link').forEach(link => {
-        const href = link.getAttribute('hx-get') || '';
-        const match = href.match(/\/projects\/([^\/]+)\/documents\/([^\/]+)/);
-        if (!match) return;
-        
-        const projectId = match[1];
-        const docTypeId = match[2];
-        const buildKey = projectId + ':' + docTypeId;
-        
-        const icons = link.querySelectorAll('[data-lucide]');
-        const statusIcon = icons[icons.length - 1];
-        if (!statusIcon) return;
-        
-        if (builds[buildKey]) {
-            // Check if build is stale (> 10 minutes)
-            if (Date.now() - builds[buildKey].startedAt > 10 * 60 * 1000) {
-                delete builds[buildKey];
-                localStorage.setItem(BUILD_STORAGE_KEY, JSON.stringify(builds));
-                return;
-            }
-            
-            statusIcon.setAttribute('data-lucide', 'loader-2');
-            statusIcon.classList.remove('text-emerald-600', 'dark:text-emerald-400', 'text-amber-600', 'dark:text-amber-400', 'text-gray-400', 'dark:text-gray-500', 'text-violet-600', 'dark:text-violet-400');
-            statusIcon.classList.add('text-violet-600', 'dark:text-violet-400', 'animate-spin');
-        } else {
-            statusIcon.classList.remove('animate-spin');
-        }
-    });
-    
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-}
-
-document.addEventListener('DOMContentLoaded', updateBuildingIndicators);
+// Run on page load and navigation
+document.addEventListener('DOMContentLoaded', updateActiveProject);
 document.body.addEventListener('htmx:afterSwap', function() {
-    setTimeout(updateBuildingIndicators, 50);
+    setTimeout(updateActiveProject, 10);
 });
-window.addEventListener('storage', function(e) {
-    if (e.key === BUILD_STORAGE_KEY) updateBuildingIndicators();
-});
-// Note: Removed setInterval polling - storage events and htmx:afterSwap handle updates
+window.addEventListener('popstate', updateActiveProject);
+document.body.addEventListener('htmx:pushedIntoHistory', updateActiveProject);
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
