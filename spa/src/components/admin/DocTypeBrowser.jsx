@@ -105,7 +105,7 @@ function SubSection({ title, action, defaultOpen = true, dotColor, children }) {
                         <span style={{ color: dotColor, fontSize: 8 }}>&#9679;</span>
                     )}
                     <span
-                        style={{ color: 'var(--text-muted)', fontSize: 10, fontWeight: 500 }}
+                        style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, letterSpacing: '0.02em' }}
                     >
                         {title}
                     </span>

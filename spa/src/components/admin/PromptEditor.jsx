@@ -330,6 +330,8 @@ export default function PromptEditor({
     // When opened from Building Blocks (task or schema), show focused view without tab bar
     const isFocusedView = docTypeSource === 'task' || docTypeSource === 'schema';
     const focusedLabel = docTypeSource === 'task' ? 'Interaction' : docTypeSource === 'schema' ? 'Schema' : null;
+    // Building block artifacts (task_prompt, schema) are read-only when accessed from DCW tab bar
+    const isDcwBuildingBlockView = !isFocusedView && (selectedKind === 'task_prompt' || selectedKind === 'schema');
 
     return (
         <div className="flex-1 flex flex-col h-full" style={{ background: 'var(--bg-canvas)' }}>
@@ -358,6 +360,25 @@ export default function PromptEditor({
                     </div>
                 </div>
             </div>
+
+            {/* Single tab header for focused view (Building Blocks access) */}
+            {isFocusedView && (
+                <div
+                    className="flex border-b"
+                    style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel)' }}
+                >
+                    <div
+                        className="px-4 py-2 text-sm"
+                        style={{
+                            color: 'var(--text-primary)',
+                            background: 'var(--bg-canvas)',
+                            borderBottom: '2px solid var(--action-primary)',
+                        }}
+                    >
+                        {docTypeSource === 'task' ? 'Task Prompt' : 'Schema'}
+                    </div>
+                </div>
+            )}
 
             {/* Artifact kind tabs - grouped by Interaction Pass (hidden in focused view) */}
             {!isFocusedView && <div
@@ -459,7 +480,7 @@ export default function PromptEditor({
             </div>}
 
             {/* View mode tabs (Source / Resolved) - only for prompt tabs with content, hidden in focused view */}
-            {!isFocusedView && showViewModeToggle && (
+            {!isFocusedView && showViewModeToggle && !isDcwBuildingBlockView && (
                 <div
                     className="flex items-center justify-between px-3 py-2 border-b"
                     style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel-alt, var(--bg-panel))' }}
@@ -555,6 +576,22 @@ export default function PromptEditor({
                     )}
                 </div>
             )}
+            {/* View-only indicator for building block artifacts accessed from DCW tab bar */}
+            {isDcwBuildingBlockView && (
+                <div
+                    className="flex items-center gap-2 px-3 py-2 border-b"
+                    style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel-alt, var(--bg-panel))' }}
+                >
+                    <span
+                        className="text-xs"
+                        style={{ color: 'var(--text-muted)' }}
+                    >
+                        {selectedKind === 'task_prompt'
+                            ? 'View Only \u2014 Edit from Building Blocks \u2192 Interactions'
+                            : 'View Only \u2014 Edit from Building Blocks \u2192 Schemas'}
+                    </span>
+                </div>
+            )}
 
             {/* File path indicator for Schema tab (no Source/Resolved toggle) */}
             {isSchema && docType?.artifacts?.schema && (
@@ -640,11 +677,12 @@ export default function PromptEditor({
                 ) : viewMode === 'source' || isSchema ? (
                     <PromptTab
                         content={content}
-                        onChange={updateContent}
+                        onChange={isDcwBuildingBlockView ? () => {} : updateContent}
                         loading={loading}
-                        saving={saving}
-                        isDirty={isDirty}
+                        saving={isDcwBuildingBlockView ? false : saving}
+                        isDirty={isDcwBuildingBlockView ? false : isDirty}
                         error={error}
+                        readOnly={isDcwBuildingBlockView}
                         placeholder={`Enter ${promptKinds.find(k => k.id === selectedKind)?.label || 'prompt'} content...`}
                         isJson={isSchema}
                     />
