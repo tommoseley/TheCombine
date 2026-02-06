@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import KindFilter from './KindFilter';
 
 /**
@@ -129,7 +129,7 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
  * - Collapsed by default on page load
  * - Never auto-opens
  * - Only opened intentionally by user
- * - Click item -> opens editor, closes tray
+ * - Click item -> opens editor (tray stays open)
  * - Close button or click-outside -> closes tray
  */
 export default function BuildingBlocksTray({
@@ -154,8 +154,6 @@ export default function BuildingBlocksTray({
     onCreateTemplate,
     onCreateSchema,
 }) {
-    const trayRef = useRef(null);
-
     // Prompt fragment filter state
     const [fragmentKindFilter, setFragmentKindFilter] = useState('all');
 
@@ -178,27 +176,6 @@ export default function BuildingBlocksTray({
         ? promptFragments
         : promptFragments.filter(f => f.kind === fragmentKindFilter);
 
-    // Click-outside handler
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleClickOutside = (e) => {
-            if (trayRef.current && !trayRef.current.contains(e.target)) {
-                onClose?.();
-            }
-        };
-
-        // Small delay to avoid closing immediately on the toggle click
-        const timer = setTimeout(() => {
-            document.addEventListener('mousedown', handleClickOutside);
-        }, 100);
-
-        return () => {
-            clearTimeout(timer);
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isOpen, onClose]);
-
     // Reset forms when tray closes
     useEffect(() => {
         if (!isOpen) {
@@ -211,10 +188,10 @@ export default function BuildingBlocksTray({
         }
     }, [isOpen]);
 
-    const handleSelectAndClose = useCallback((handler, item) => {
+    // Select item without closing tray (user requested behavior)
+    const handleSelect = useCallback((handler, item) => {
         handler?.(item);
-        onClose?.();
-    }, [onClose]);
+    }, []);
 
     const handleCreateFragment = async () => {
         const id = newFragmentId.trim().toLowerCase().replace(/\s+/g, '_');
@@ -224,7 +201,6 @@ export default function BuildingBlocksTray({
             await onCreateFragment?.({ role_id: id, kind: newFragmentKind });
             setCreateFragmentMode(false);
             setNewFragmentId('');
-            onClose?.();
         } catch {
             // Error handled by parent
         } finally {
@@ -240,7 +216,6 @@ export default function BuildingBlocksTray({
             await onCreateTemplate?.({ template_id: id });
             setCreateTemplateMode(false);
             setNewTemplateId('');
-            onClose?.();
         } catch {
             // Error handled by parent
         } finally {
@@ -256,7 +231,6 @@ export default function BuildingBlocksTray({
             await onCreateSchema?.({ schema_id: id });
             setCreateSchemaMode(false);
             setNewSchemaId('');
-            onClose?.();
         } catch {
             // Error handled by parent
         } finally {
@@ -268,19 +242,19 @@ export default function BuildingBlocksTray({
 
     return (
         <>
-            {/* Backdrop overlay */}
+            {/* Backdrop overlay - visual only, close via X button */}
             <div
                 style={{
                     position: 'fixed',
                     inset: 0,
-                    background: 'rgba(0, 0, 0, 0.3)',
+                    background: 'rgba(0, 0, 0, 0.15)',
                     zIndex: 40,
+                    pointerEvents: 'none',
                 }}
             />
 
             {/* Tray panel */}
             <div
-                ref={trayRef}
                 className="fixed right-0 top-0 h-full flex flex-col"
                 style={{
                     width: 320,
@@ -443,7 +417,7 @@ export default function BuildingBlocksTray({
                                 {filteredFragments.map(fragment => (
                                     <TrayItem
                                         key={fragment.fragment_id}
-                                        onClick={() => handleSelectAndClose(onSelectFragment, fragment)}
+                                        onClick={() => handleSelect(onSelectFragment, fragment)}
                                         label={fragment.name || fragment.fragment_id}
                                         sublabel={`${fragment.kind} · v${fragment.version}`}
                                         badge={fragment.kind}
@@ -545,7 +519,7 @@ export default function BuildingBlocksTray({
                                 {templates.map(template => (
                                     <TrayItem
                                         key={template.template_id}
-                                        onClick={() => handleSelectAndClose(onSelectTemplate, template)}
+                                        onClick={() => handleSelect(onSelectTemplate, template)}
                                         label={template.name || template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                         sublabel={`v${template.active_version}`}
                                     />
@@ -647,7 +621,7 @@ export default function BuildingBlocksTray({
                                 {schemas.map(schema => (
                                     <TrayItem
                                         key={`standalone-${schema.schema_id}`}
-                                        onClick={() => handleSelectAndClose(onSelectStandaloneSchema, schema)}
+                                        onClick={() => handleSelect(onSelectStandaloneSchema, schema)}
                                         label={schema.title || schema.schema_id}
                                         sublabel={`v${schema.active_version}`}
                                     />
@@ -661,7 +635,7 @@ export default function BuildingBlocksTray({
                                 {documentTypes.map(dt => (
                                     <TrayItem
                                         key={`schema-${dt.doc_type_id}`}
-                                        onClick={() => handleSelectAndClose(onSelectSchema, {
+                                        onClick={() => handleSelect(onSelectSchema, {
                                             doc_type_id: dt.doc_type_id,
                                             display_name: dt.display_name,
                                             active_version: dt.active_version,
