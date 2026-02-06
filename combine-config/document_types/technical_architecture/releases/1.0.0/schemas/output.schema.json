@@ -3,12 +3,19 @@
   "type": "object",
   "title": "Technical Architecture",
   "description": "Implementation-ready technical architecture specification",
-  "required": ["architecture_summary", "components"],
+  "required": [
+    "architecture_summary",
+    "components"
+  ],
   "properties": {
     "architecture_summary": {
       "type": "object",
       "description": "High-level architecture overview",
-      "required": ["title", "style", "key_decisions"],
+      "required": [
+        "title",
+        "style",
+        "key_decisions"
+      ],
       "properties": {
         "title": {
           "type": "string",
@@ -21,7 +28,9 @@
         "key_decisions": {
           "type": "array",
           "description": "Key architectural decisions made",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -31,7 +40,10 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["name", "purpose"],
+        "required": [
+          "name",
+          "purpose"
+        ],
         "properties": {
           "name": {
             "type": "string",
@@ -48,12 +60,16 @@
           "interfaces": {
             "type": "array",
             "description": "Interfaces this component exposes",
-            "items": {"type": "string"}
+            "items": {
+              "type": "string"
+            }
           },
           "dependencies": {
             "type": "array",
             "description": "Other components this depends on",
-            "items": {"type": "string"}
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -64,23 +80,37 @@
       "items": {
         "type": "object",
         "properties": {
-          "entity_name": {"type": "string"},
-          "description": {"type": "string"},
+          "entity_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
           "fields": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "name": {"type": "string"},
-                "type": {"type": "string"},
-                "required": {"type": "boolean"},
-                "description": {"type": "string"}
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                }
               }
             }
           },
           "relationships": {
             "type": "array",
-            "items": {"type": "string"}
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -91,24 +121,44 @@
       "items": {
         "type": "object",
         "properties": {
-          "name": {"type": "string"},
+          "name": {
+            "type": "string"
+          },
           "type": {
             "type": "string",
-            "enum": ["REST", "GraphQL", "gRPC", "WebSocket", "internal"]
+            "enum": [
+              "REST",
+              "GraphQL",
+              "gRPC",
+              "WebSocket",
+              "internal"
+            ]
           },
           "endpoints": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "method": {"type": "string"},
-                "path": {"type": "string"},
-                "description": {"type": "string"},
-                "request_body": {"type": "object"},
-                "response": {"type": "object"},
+                "method": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "request_body": {
+                  "type": "object"
+                },
+                "response": {
+                  "type": "object"
+                },
                 "error_cases": {
                   "type": "array",
-                  "items": {"type": "string"}
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -122,23 +172,33 @@
       "properties": {
         "performance": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "security": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "scalability": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "maintainability": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "observability": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -148,17 +208,29 @@
       "items": {
         "type": "object",
         "properties": {
-          "name": {"type": "string"},
-          "trigger": {"type": "string"},
+          "name": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
           "steps": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "step": {"type": "integer"},
-                "action": {"type": "string"},
-                "component": {"type": "string"},
-                "output": {"type": "string"}
+                "step": {
+                  "type": "integer"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "component": {
+                  "type": "string"
+                },
+                "output": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -171,15 +243,29 @@
       "items": {
         "type": "object",
         "properties": {
-          "risk": {"type": "string"},
+          "risk": {
+            "type": "string"
+          },
           "impact": {
             "type": "string",
-            "enum": ["low", "medium", "high", "critical"]
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
           },
-          "mitigation": {"type": "string"},
+          "mitigation": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
-            "enum": ["identified", "mitigated", "accepted", "resolved"]
+            "enum": [
+              "identified",
+              "mitigated",
+              "accepted",
+              "resolved"
+            ]
           }
         }
       }
@@ -190,9 +276,15 @@
       "items": {
         "type": "object",
         "properties": {
-          "question": {"type": "string"},
-          "impact": {"type": "string"},
-          "default_assumption": {"type": "string"}
+          "question": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "default_assumption": {
+            "type": "string"
+          }
         }
       }
     },
@@ -202,11 +294,15 @@
       "properties": {
         "included": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
         "deferred": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

@@ -8,14 +8,20 @@
   "pow_class": "reference",
   "derived_from": null,
   "source_version": null,
-  "tags": ["software_delivery"],
-
+  "tags": [
+    "software_delivery"
+  ],
   "scopes": {
-    "project": { "parent": null },
-    "epic": { "parent": "project" },
-    "feature": { "parent": "epic" }
+    "project": {
+      "parent": null
+    },
+    "epic": {
+      "parent": "project"
+    },
+    "feature": {
+      "parent": "epic"
+    }
   },
-
   "document_types": {
     "project_discovery": {
       "name": "Project Discovery",
@@ -35,21 +41,29 @@
       "scope": "project",
       "may_own": [],
       "acceptance_required": true,
-      "accepted_by": ["architect"]
+      "accepted_by": [
+        "architect"
+      ]
     },
     "implementation_plan": {
       "name": "Implementation Plan",
       "scope": "project",
-      "may_own": ["epic"],
+      "may_own": [
+        "epic"
+      ],
       "collection_field": "epics",
       "acceptance_required": true,
-      "accepted_by": ["pm"],
+      "accepted_by": [
+        "pm"
+      ],
       "description": "Final plan that creates committed Epic documents"
     },
     "epic": {
       "name": "Epic",
       "scope": "project",
-      "may_own": ["feature"],
+      "may_own": [
+        "feature"
+      ],
       "acceptance_required": false,
       "description": "Unit of planning with lifecycle gates"
     },
@@ -58,11 +72,13 @@
       "scope": "epic",
       "may_own": [],
       "acceptance_required": true,
-      "accepted_by": ["pm", "ba"],
+      "accepted_by": [
+        "pm",
+        "ba"
+      ],
       "description": "Unit of production intent with nested stories"
     }
   },
-
   "entity_types": {
     "epic": {
       "name": "Epic",
@@ -75,7 +91,6 @@
       "creates_scope": "feature"
     }
   },
-
   "steps": [
     {
       "step_id": "discovery",
@@ -89,10 +104,13 @@
       "step_id": "primary_plan",
       "role": "Project Manager 1.0",
       "task_prompt": "Implementation Plan Primary v1.0",
-      "produces": "implementation_plan_primary",
+      "produces": "primary_implementation_plan",
       "scope": "project",
       "inputs": [
-        { "doc_type": "project_discovery", "scope": "project" }
+        {
+          "doc_type": "project_discovery",
+          "scope": "project"
+        }
       ]
     },
     {
@@ -102,8 +120,14 @@
       "produces": "technical_architecture",
       "scope": "project",
       "inputs": [
-        { "doc_type": "project_discovery", "scope": "project" },
-        { "doc_type": "implementation_plan_primary", "scope": "project" }
+        {
+          "doc_type": "project_discovery",
+          "scope": "project"
+        },
+        {
+          "doc_type": "primary_implementation_plan",
+          "scope": "project"
+        }
       ]
     },
     {
@@ -114,8 +138,14 @@
       "scope": "project",
       "creates_entities": "epic",
       "inputs": [
-        { "doc_type": "implementation_plan_primary", "scope": "project" },
-        { "doc_type": "technical_architecture", "scope": "project" }
+        {
+          "doc_type": "implementation_plan_primary",
+          "scope": "project"
+        },
+        {
+          "doc_type": "technical_architecture",
+          "scope": "project"
+        }
       ]
     },
     {
@@ -134,8 +164,15 @@
           "produces": "feature",
           "scope": "epic",
           "inputs": [
-            { "entity_type": "epic", "scope": "epic", "context": true },
-            { "doc_type": "technical_architecture", "scope": "project" }
+            {
+              "entity_type": "epic",
+              "scope": "epic",
+              "context": true
+            },
+            {
+              "doc_type": "technical_architecture",
+              "scope": "project"
+            }
           ]
         }
       ]

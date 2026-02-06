@@ -1,0 +1,3 @@
+name: Document Generator
+purpose: document
+use_case: General-purpose template for generating documents from role prompts, task prompts, and output schemas. Used for all document creation nodes in DCW workflows.

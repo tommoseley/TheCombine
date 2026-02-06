@@ -1,0 +1,3 @@
+name: QA Evaluator
+purpose: qa
+use_case: Template for quality assurance evaluation of generated documents. Validates documents against structural and semantic criteria defined in the QA prompt.

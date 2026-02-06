@@ -1,11 +1,11 @@
 {
   "$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
-  "workflow_id": "project_discovery",
-  "version": "1.9.0",
-  "name": "PM Discovery Document Workflow",
-  "description": "Generates Project Discovery document from Concierge Intake. Includes pre-generation clarification (PGC) step to surface unknowns before document generation.",
+  "workflow_id": "technical_architecture",
+  "version": "1.0.0",
+  "name": "Technical Architecture Workflow",
+  "description": "Document creation workflow for Technical Architecture",
   "scope_type": "document",
-  "document_type": "project_discovery",
+  "document_type": "technical_architecture",
   "thread_ownership": {
     "owns_thread": false,
     "thread_purpose": null
@@ -17,27 +17,13 @@
     {
       "node_id": "pgc",
       "type": "pgc",
-      "gate_kind": "discovery",
-      "description": "Pre-generation clarification questions for Project Discovery",
-      "produces": "pgc_clarifications.discovery",
-      "internals": {
-        "question_generation": {
-          "template_ref": "prompt:template:pgc_clarifier:1.0.0",
-          "includes": {
-            "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-            "TASK_PROMPT": "prompt:task:project_discovery:1.4.0",
-            "PGC_CONTEXT": "prompt:pgc:project_discovery:1.0.0"
-          },
-          "output_schema_ref": "schema:clarification_questions:1.0.0"
-        },
-        "operator_entry": {
-          "renders": "question_set",
-          "captures": "pgc_answers"
-        },
-        "clarification_merge": {
-          "template_ref": "prompt:template:pgc_clarifier:1.0.0",
-          "output_schema_ref": "schema:pgc_clarifications:1.0.0"
-        }
+      "description": "Pre-generation clarification for Technical Architecture",
+      "task_ref": "prompt:template:pgc_clarifier:1.0.0",
+      "includes": {
+        "PGC_CONTEXT": "seed/prompts/pgc-contexts/technical_architecture.v1.txt",
+        "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
+        "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
+        "TASK_PROMPT": "prompt:task:technical_architecture:1.0.0"
       },
       "_position": {
         "x": 50,
@@ -47,14 +33,14 @@
     {
       "node_id": "generation",
       "type": "task",
-      "description": "Generate Project Discovery document from Concierge Intake",
+      "description": "Generate Technical Architecture document",
       "task_ref": "prompt:template:document_generator:1.0.0",
       "includes": {
         "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-        "TASK_PROMPT": "prompt:task:project_discovery:1.0.0",
-        "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0"
+        "TASK_PROMPT": "prompt:task:technical_architecture:1.0.0",
+        "OUTPUT_SCHEMA": "schema:technical_architecture:1.0.0"
       },
-      "produces": "project_discovery",
+      "produces": "technical_architecture",
       "_position": {
         "x": 50,
         "y": 230
@@ -63,46 +49,46 @@
     {
       "node_id": "qa",
       "type": "qa",
-      "description": "Structural and semantic QA on generated Project Discovery document",
-      "task_ref": "tasks/Project Discovery QA v1.1",
+      "description": "QA evaluation for Technical Architecture",
+      "task_ref": "tasks/Technical Architecture QA v1.0",
       "requires_qa": true,
       "qa_mode": "semantic",
       "_position": {
-        "x": 65.63673877355257,
-        "y": 388.70992546781355
+        "x": -360.2857142857141,
+        "y": 319.5714285714285
       }
     },
     {
       "node_id": "remediation",
       "type": "task",
-      "description": "Rework Project Discovery based on QA feedback",
-      "task_ref": "prompt:template:document_generator:1.0.0",
+      "description": "Rework Technical Architecture based on QA feedback",
+      "task_ref": "templates/Document Generator v1.0",
       "includes": {
-        "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-        "TASK_PROMPT": "prompt:task:project_discovery:1.0.0",
-        "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0"
+        "ROLE_PROMPT": "seed/prompts/roles/Technical Architect 1.0.txt",
+        "TASK_PROMPT": "seed/prompts/tasks/Technical Architecture v1.0.txt",
+        "OUTPUT_SCHEMA": "seed/schemas/technical_architecture.v1.json"
       },
-      "produces": "project_discovery",
+      "produces": "technical_architecture",
       "_position": {
-        "x": 539.3213324479723,
-        "y": 207.2145124111749
+        "x": 466.43428571428615,
+        "y": 523.3142857142857
       }
     },
     {
       "node_id": "end_complete",
       "type": "end",
-      "description": "Project Discovery document ready",
+      "description": "Technical Architecture document ready",
       "terminal_outcome": "stabilized",
       "gate_outcome": "complete",
       "_position": {
-        "x": -163.82190378710334,
-        "y": 796.0528147389969
+        "x": 40,
+        "y": 610
       }
     },
     {
       "node_id": "end_failed",
       "type": "end",
-      "description": "Generation failed - circuit breaker or error",
+      "description": "Generation failed",
       "terminal_outcome": "blocked",
       "gate_outcome": "failed",
       "_position": {
@@ -201,18 +187,10 @@
     }
   ],
   "governance": {
-    "adr_references": [
-      "ADR-012",
-      "ADR-025",
-      "ADR-039",
-      "ADR-041",
-      "ADR-042"
-    ],
+    "adr_references": [],
     "design_principles": [
       "Auto-complete on QA pass",
-      "Uses concierge_intake as upstream input",
-      "PM role analyzes intake to produce discovery artifacts",
-      "PGC uses template includes per ADR-041"
+      "PGC clarification before generation"
     ],
     "circuit_breaker": {
       "max_retries": 2,
@@ -224,19 +202,11 @@
     }
   },
   "metadata": {
-    "created_date": "2026-01-21",
-    "updated_date": "2026-01-24",
-    "work_statement": "WS-ADR-042-001",
+    "created_date": "2026-02-05",
+    "updated_date": "2026-02-05",
     "changelog": [
-      "v1.0: Initial PM Discovery workflow",
-      "v1.1: Added PGC node with ADR-041 template includes",
-      "v1.2: All task_refs use explicit paths (tasks/, templates/); generation/remediation use Document Generator template",
-      "v1.7: Code-based promotion validation integrated (WS-PGC-VALIDATION-001)",
-      "v1.8: Constraint binding and drift enforcement per ADR-042 (WS-ADR-042-001)",
-      "v1.9: PGC node restructured as composite gate with internals (2 LLM passes + operator entry)"
+      "v1.0.0: Initial workflow created"
     ]
   },
-  "requires_inputs": [
-    "concierge_intake"
-  ]
+  "requires_inputs": []
 }

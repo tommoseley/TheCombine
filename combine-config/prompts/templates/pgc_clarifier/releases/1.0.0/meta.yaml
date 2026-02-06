@@ -1,0 +1,3 @@
+name: PGC Clarifier
+purpose: pgc
+use_case: Pre-Generation Clarification template for surfacing questions and unknowns before document generation. Helps identify gaps in information that need to be resolved.

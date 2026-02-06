@@ -1,0 +1,226 @@
+# Clarification Questions Generator â€” Canonical Task Prompt v1.0
+
+## Triggering Instruction
+
+You are operating under a **certified role prompt**.
+
+This task prompt defines **only the current task**.
+You must not modify role identity, authority, or internal reasoning structures.
+
+---
+
+## Task Objective
+
+Produce a **structured set of clarification questions** required **before generating the next governed document**.
+
+These questions exist to surface:
+
+* Unknowns
+* Assumptions
+* Constraints
+* Framing decisions
+
+that **must be resolved or explicitly deferred** to responsibly generate the target document.
+
+You are **not performing discovery**.
+You are determining **what discovery (or the next stage) must clarify first**.
+
+---
+
+## Replaceable Context Block (Authoritative)
+
+Next Document: Project Discovery Document
+
+Purpose of This Document:
+To explore solution space, validate assumptions, identify risks, and define scope and constraints â€” without committing to architecture or implementation.
+
+What This Document Assumes Is Already True:
+
+* The problem statement is correct
+* The project intent is valid
+* The project type (greenfield, enhancement, etc.) is correct
+
+This Clarification Step Exists To Prevent:
+
+* Starting discovery under the wrong framing (e.g., personal vs commercial, internal vs external)
+* Discovering too late that the scope category is incorrect
+* Producing a discovery document that answers the wrong questions
+
+Questions Asked Here Must:
+
+* Affect how discovery is run
+* Change what discovery needs to explore
+* Or determine whether discovery should proceed as planned
+
+---
+
+## Inputs Provided
+
+You are provided with:
+
+* The **locked intake artifact** (problem statement + classification)
+* Any previously generated governed documents
+* Explicit user-provided constraints (if any)
+
+You must not assume:
+
+* Prior conversations
+* Implicit intent beyond what is stated
+* Answers to open questions
+
+---
+
+## Mode
+
+`questions_only`
+
+---
+
+## Required Behavior
+
+You must:
+
+* Produce **only clarification questions**
+* Ensure **every question ends with `?`**
+* Phrase questions:
+  * Neutrally
+  * Precisely
+  * Without implied answers
+* Ask only questions whose answers:
+  * Are required to generate the target document responsibly
+  * Would materially affect the structure or focus of that document
+
+Each question **must include**:
+
+* A stable identifier (`id`)
+* The question text (`text`) ending with `?`
+* Whether it is required to proceed (`required`, `blocking`)
+* Priority level (`priority`: must/should/could)
+* The expected answer type (`answer_type`)
+* A short explanation of why the answer matters (`why_it_matters`)
+
+---
+
+## What You Must NOT Do
+
+You must not:
+
+* Provide answers, recommendations, or interpretations
+* Re-state the problem declaratively
+* Introduce assumptions
+* Ask "why" questions about motivation
+* Ask questions that belong to later stages than the target document
+* Explain *how* the document will be generated
+* Ask questions whose answers would not affect document generation
+
+---
+
+## Prohibited Language (Strict)
+
+No question may include:
+
+* "Given that..."
+* "Why do you want..."
+* "What outcomes are you hoping for..."
+* "Have you considered..."
+* "Wouldn't it be better if..."
+* Statements disguised as questions
+* Multi-sentence questions with declarative clauses
+
+---
+
+## Prohibited Topics (Strict)
+
+You must NOT ask questions about:
+
+* **Authority or approval** - "Do you have sign-off?", "Who approved this?"
+* **Funding or budget** - "What is your budget?", "Is this funded?"
+* **Motive or justification** - "Why do you want this?", "What problem are you trying to solve?" (unless directly required for document correctness)
+* **Stakeholder politics** - "Who needs to be convinced?", "What resistance do you expect?"
+* **Timeline pressure** - "When do you need this?", "What's the deadline?"
+
+These belong to project governance, not technical clarification.
+
+Exception: If a question about motive/scope is **required for document correctness** (e.g., "Is this for internal use or external customers?" affects compliance), it is permitted. But frame it as a technical constraint, not a motive inquiry.
+
+---
+
+## Output Schema Reference
+
+Your output must conform to `clarification_question_set.v2.json`.
+
+The schema will be provided separately. Key field semantics:
+
+### Top-Level Fields
+
+* `schema_version`: Must be `"clarification_question_set.v2"`
+* `mode`: Must be `"questions_only"`
+* `correlation_id`: UUID for tracking (will be provided in context)
+* `document_type`: The target document type (e.g., `"pm_discovery_doc"`)
+* `question_set_kind`: Category (e.g., `"discovery"`, `"architecture"`)
+* `artifact_scope`: Scope level (`"project"`, `"epic"`, `"story"`, `"document"`)
+* `questions`: Array of question objects (1-12 questions)
+* `qa`: Self-check block (you must verify your output)
+
+### Question Fields
+
+* `id`: Stable, machine-addressable identifier (e.g., `TARGET_USERS`, `DEPLOYMENT_SCALE`)
+* `text`: The question text. Must end with `?`
+* `why_it_matters`: Short rationale for UI display. Must not be prescriptive.
+* `priority`: `"must"` | `"should"` | `"could"`
+* `answer_type`: `"free_text"` | `"single_choice"` | `"multi_choice"` | `"yes_no"` | `"number"` | `"date"`
+* `choices`: Required when answer_type is `single_choice` or `multi_choice`. Array of `{value, label}` objects.
+* `required`: Boolean. Whether an answer is required.
+* `blocking`: Boolean. If true and unanswered, generation must not proceed.
+
+### QA Self-Check Block (Required)
+
+You must include a `qa` object verifying:
+
+```json
+{
+  "qa": {
+    "non_question_line_count": 0,
+    "declarative_sentence_count": 0,
+    "answer_leadin_count": 0,
+    "all_questions_end_with_qmark": true
+  }
+}
+```
+
+If any check fails, your output is invalid.
+
+---
+
+## Determinism & Audit Constraints
+
+* Given identical inputs, you must:
+  * Produce questions of the same intent and scope
+  * Avoid stylistic variance that changes meaning
+* All output must be:
+  * Fully loggable
+  * Replayable
+  * Free of hidden reasoning
+
+---
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+
+* Any declarative sentence appears outside `why_it_matters`
+* A question does not end with `?`
+* An answer or recommendation is implied
+* The output depends on unstated prior context
+* The schema is violated
+* The `qa` self-check block is missing or incorrect
+
+---
+
+## Governing Principle
+
+Your job is to answer **one question only**:
+
+> **"What must be clarified before this specific document can be generated responsibly?"**
+
+Nothing more.

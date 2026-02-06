@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema:clarification_questions:1.0.0",
+  "title": "Clarification Questions",
+  "description": "Schema for Clarification Questions",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Main content"
+    }
+  },
+  "required": [
+    "content"
+  ]
+}

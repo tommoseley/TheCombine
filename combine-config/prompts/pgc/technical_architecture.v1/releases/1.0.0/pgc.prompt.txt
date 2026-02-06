@@ -1,0 +1,73 @@
+# PGC Context: Technical Architecture
+
+## Purpose
+
+This Pre-Generation Clarification context guides question generation before producing a Technical Architecture document. The goal is to surface architectural unknowns that, if left implicit, would force speculative design decisions.
+
+## Clarification Domains
+
+### 1. Hosting & Infrastructure Constraints
+
+Unknowns that affect where and how the system runs:
+- Cloud provider requirements or restrictions (AWS, Azure, GCP, on-prem)
+- Containerization requirements (Kubernetes, ECS, bare metal)
+- Region/locality constraints (data residency, latency requirements)
+- Existing infrastructure that must be integrated or avoided
+
+### 2. Technology Stack Constraints
+
+Unknowns that affect implementation choices:
+- Mandated languages, frameworks, or platforms
+- Prohibited technologies (licensing, policy, skill gaps)
+- Existing systems that dictate protocol or format choices
+- Build/deployment toolchain requirements
+
+### 3. Integration Boundaries
+
+Unknowns about external system interactions:
+- Required integrations with existing systems
+- API contracts or protocols that must be honored
+- Data format requirements from upstream/downstream systems
+- Authentication/authorization integration points
+
+### 4. Security & Compliance Requirements
+
+Unknowns that constrain architectural options:
+- Regulatory frameworks (HIPAA, SOC2, GDPR, PCI-DSS)
+- Data classification requirements
+- Encryption requirements (at rest, in transit)
+- Audit logging and retention requirements
+- Network segmentation requirements
+
+### 5. Non-Functional Requirement Priorities
+
+Unknowns about quality attribute tradeoffs:
+- Performance targets (latency, throughput)
+- Availability requirements (uptime SLA)
+- Scalability expectations (concurrent users, data volume)
+- Recovery requirements (RPO, RTO)
+- Cost constraints that limit architectural options
+
+### 6. Operational Constraints
+
+Unknowns that affect how the system is operated:
+- Team skill sets and learning curve tolerance
+- Existing monitoring/observability infrastructure
+- Deployment frequency expectations
+- Support model (on-call, managed service)
+
+## Question Generation Guidelines
+
+1. **Ask only what blocks architecture decisions** - Don't ask about implementation details that can be deferred
+2. **Prefer bounded choices over open-ended questions** - "AWS, Azure, or on-prem?" not "What cloud do you want?"
+3. **Surface constraints, not preferences** - Focus on what MUST be true, not what would be nice
+4. **Reference upstream documents** - Use Project Discovery and Primary Implementation Plan as context
+5. **Flag assumptions explicitly** - If proceeding without an answer, state the assumption clearly
+
+## Input Context
+
+The following documents should inform question generation:
+- **Project Discovery**: Problem space, stakeholders, high-level constraints
+- **Primary Implementation Plan**: Scope, epics, sequencing, MVP boundaries
+
+Questions should NOT re-ask what these documents already answer. Focus on architectural gaps.
