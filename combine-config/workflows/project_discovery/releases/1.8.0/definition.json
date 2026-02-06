@@ -20,12 +20,12 @@
       "description": "Pre-generation clarification questions for Project Discovery",
       "task_ref": "tasks/Clarification Questions Generator v1.1",
       "includes": {
-        "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
+        "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
         "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json"
       },
       "_position": {
-        "x": -229.07922210849537,
-        "y": 41.045240532241564
+        "x": 50,
+        "y": 40
       }
     },
     {
@@ -34,14 +34,14 @@
       "description": "Generate Project Discovery document from Concierge Intake",
       "task_ref": "templates/Document Generator v1.0",
       "includes": {
-        "ROLE_PROMPT": "seed/prompts/roles/Technical Architect 1.0.txt",
-        "TASK_PROMPT": "seed/prompts/tasks/Project Discovery v1.4.txt",
-        "OUTPUT_SCHEMA": "seed/schemas/project_discovery.v1.json"
+        "ROLE_PROMPT": "combine-config/prompts/roles/technical_architect/releases/1.0.0/role.prompt.txt",
+        "TASK_PROMPT": "combine-config/prompts/tasks/project_discovery/releases/1.0.0/task.prompt.txt",
+        "OUTPUT_SCHEMA": "combine-config/schemas/project_discovery/releases/1.4.0/schema.json"
       },
       "produces": "project_discovery",
       "_position": {
-        "x": -222.80777891504604,
-        "y": 235.22620266120782
+        "x": 50,
+        "y": 230
       }
     },
     {
@@ -52,8 +52,8 @@
       "requires_qa": true,
       "qa_mode": "semantic",
       "_position": {
-        "x": 274.2120777891504,
-        "y": 67.75394063459572
+        "x": 65.63673877355257,
+        "y": 388.70992546781355
       }
     },
     {
@@ -62,14 +62,14 @@
       "description": "Rework Project Discovery based on QA feedback",
       "task_ref": "templates/Document Generator v1.0",
       "includes": {
-        "ROLE_PROMPT": "seed/prompts/roles/Technical Architect 1.0.txt",
-        "TASK_PROMPT": "seed/prompts/tasks/Project Discovery v1.4.txt",
-        "OUTPUT_SCHEMA": "seed/schemas/project_discovery.v1.json"
+        "ROLE_PROMPT": "combine-config/prompts/roles/technical_architect/releases/1.0.0/role.prompt.txt",
+        "TASK_PROMPT": "combine-config/prompts/tasks/project_discovery/releases/1.0.0/task.prompt.txt",
+        "OUTPUT_SCHEMA": "combine-config/schemas/project_discovery/releases/1.4.0/schema.json"
       },
       "produces": "project_discovery",
       "_position": {
-        "x": 708.3780821917808,
-        "y": 302.2410958904111
+        "x": 455.8070467336867,
+        "y": 201.92879812546062
       }
     },
     {

@@ -200,27 +200,41 @@ class WorkspaceService:
 
         Format: {scope}:{name}:{version}:{kind}
 
+        Special case for fragments:
+        Format: fragment:{frag_kind}:{frag_id}:{version}:{kind}
+        Example: fragment:role:technical_architect:1.0.0:content
+        The name becomes "{frag_kind}:{frag_id}" (e.g., "role:technical_architect")
+
         Examples:
         - doctype:project_discovery:1.4.0:task_prompt
         - role:technical_architect:1.0.0:role_prompt
         - template:document_generator:1.0.0:template
+        - fragment:role:technical_architect:1.0.0:content
 
         Returns:
             Dict with scope, name, version, kind
         """
         parts = artifact_id.split(":")
-        if len(parts) != 4:
+
+        # Handle fragment scope specially - it has 5 parts
+        # fragment:{frag_kind}:{frag_id}:{version}:{kind}
+        if len(parts) == 5 and parts[0] == "fragment":
+            scope = parts[0]
+            name = f"{parts[1]}:{parts[2]}"  # e.g., "role:technical_architect"
+            version = parts[3]
+            kind = parts[4]
+        elif len(parts) == 4:
+            scope, name, version, kind = parts
+        else:
             raise ArtifactIdError(
                 f"Invalid artifact ID format: {artifact_id}. "
                 f"Expected {{scope}}:{{name}}:{{version}}:{{kind}}"
             )
 
-        scope, name, version, kind = parts
-
-        if scope not in ("doctype", "role", "template", "workflow"):
+        if scope not in ("doctype", "role", "template", "workflow", "fragment"):
             raise ArtifactIdError(
                 f"Invalid scope '{scope}' in artifact ID. "
-                f"Expected: doctype, role, template, or workflow"
+                f"Expected: doctype, role, template, workflow, or fragment"
             )
 
         return {
@@ -253,6 +267,7 @@ class WorkspaceService:
                 "questions_prompt": "prompts/questions.prompt.txt",
                 "schema": "schemas/output.schema.json",
                 "manifest": "package.yaml",
+                "package": "package.yaml",  # alias for manifest
             }
             if kind not in kind_to_file:
                 raise ArtifactIdError(f"Unknown artifact kind for doctype: {kind}")
@@ -264,14 +279,55 @@ class WorkspaceService:
             return f"prompts/roles/{name}/releases/{version}/role.prompt.txt"
 
         elif scope == "template":
-            if kind != "template":
+            if kind == "template":
+                return f"prompts/templates/{name}/releases/{version}/template.txt"
+            elif kind == "meta":
+                return f"prompts/templates/{name}/releases/{version}/meta.yaml"
+            else:
                 raise ArtifactIdError(f"Unknown artifact kind for template: {kind}")
-            return f"prompts/templates/{name}/releases/{version}/template.txt"
 
         elif scope == "workflow":
             if kind != "definition":
                 raise ArtifactIdError(f"Unknown artifact kind for workflow: {kind}")
             return f"workflows/{name}/releases/{version}/definition.json"
+
+        elif scope == "fragment":
+            # Fragment artifacts - name format: {kind}:{doc_type_or_role_id}
+            # e.g., fragment:role:technical_architect:1.0.0:content
+            #       fragment:task:project_discovery:1.0.0:content
+            frag_parts = name.split(":", 1)
+            if len(frag_parts) != 2:
+                raise ArtifactIdError(
+                    f"Invalid fragment name format: {name}. "
+                    f"Expected {{kind}}:{{id}} (e.g., role:technical_architect)"
+                )
+            frag_kind, frag_id = frag_parts
+
+            if frag_kind == "role":
+                if kind == "content":
+                    return f"prompts/roles/{frag_id}/releases/{version}/role.prompt.txt"
+                elif kind == "meta":
+                    return f"prompts/roles/{frag_id}/releases/{version}/meta.yaml"
+                else:
+                    raise ArtifactIdError(f"Unknown artifact kind for role fragment: {kind}")
+            elif frag_kind in ("task", "qa", "pgc", "questions", "reflection"):
+                # These come from document type packages
+                kind_to_file = {
+                    "task": "prompts/task.prompt.txt",
+                    "qa": "prompts/qa.prompt.txt",
+                    "pgc": "prompts/pgc_context.prompt.txt",
+                    "questions": "prompts/questions.prompt.txt",
+                    "reflection": "prompts/reflection.prompt.txt",
+                }
+                if kind == "content":
+                    return f"document_types/{frag_id}/releases/{version}/{kind_to_file[frag_kind]}"
+                elif kind == "meta":
+                    # Meta for doctype fragments stored alongside the prompt
+                    return f"document_types/{frag_id}/releases/{version}/prompts/{frag_kind}.meta.yaml"
+                else:
+                    raise ArtifactIdError(f"Unknown artifact kind for {frag_kind} fragment: {kind}")
+            else:
+                raise ArtifactIdError(f"Unknown fragment kind: {frag_kind}")
 
         raise ArtifactIdError(f"Unknown scope: {scope}")
 
@@ -325,13 +381,21 @@ class WorkspaceService:
         if match:
             return f"doctype:{match.group(1)}:{match.group(2)}:manifest"
 
-        # Role prompts
+        # Role prompts (both role: and fragment: formats)
         match = re.match(
             r"prompts/roles/([^/]+)/releases/([^/]+)/role\.prompt\.txt$",
             file_path
         )
         if match:
             return f"role:{match.group(1)}:{match.group(2)}:role_prompt"
+
+        # Role meta.yaml
+        match = re.match(
+            r"prompts/roles/([^/]+)/releases/([^/]+)/meta\.yaml$",
+            file_path
+        )
+        if match:
+            return f"fragment:role:{match.group(1)}:{match.group(2)}:meta"
 
         # Templates
         match = re.match(
@@ -340,6 +404,13 @@ class WorkspaceService:
         )
         if match:
             return f"template:{match.group(1)}:{match.group(2)}:template"
+
+        match = re.match(
+            r"prompts/templates/([^/]+)/releases/([^/]+)/meta\.yaml$",
+            file_path
+        )
+        if match:
+            return f"template:{match.group(1)}:{match.group(2)}:meta"
 
         # Workflow definitions
         match = re.match(
@@ -1161,6 +1232,820 @@ class WorkspaceService:
             releases["workflows"].pop(workflow_id, None)
         else:
             releases["workflows"][workflow_id] = version
+
+        releases_path.write_text(
+            _json.dumps(releases, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    # =========================================================================
+    # Document Type Lifecycle
+    # =========================================================================
+
+    def create_document_type(
+        self,
+        workspace_id: str,
+        doc_type_id: str,
+        display_name: Optional[str] = None,
+        version: str = "1.0.0",
+        scope: str = "project",
+        role_ref: str = "prompt:role:technical_architect:1.0.0",
+    ) -> str:
+        """
+        Create a new document type definition (DCW).
+
+        Creates the directory structure, skeleton package.yaml,
+        empty prompt files, and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            doc_type_id: Document type ID (snake_case)
+            display_name: Display name (auto-generated from doc_type_id if None)
+            version: Initial version
+            scope: Scope level (project, epic, etc.)
+            role_ref: Reference to role prompt
+
+        Returns:
+            Artifact ID for the new document type
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate doc_type_id
+        if not re.match(r'^[a-z][a-z0-9_]*$', doc_type_id):
+            raise ArtifactError(
+                f"Invalid doc_type_id: '{doc_type_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Check if document type already exists
+        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
+        if doc_type_dir.exists():
+            raise ArtifactError(f"Document type already exists: {doc_type_id}")
+
+        # Auto-generate display name
+        if not display_name:
+            display_name = doc_type_id.replace('_', ' ').title()
+
+        # Create directory structure
+        import json as _json
+
+        release_dir = doc_type_dir / "releases" / version
+        prompts_dir = release_dir / "prompts"
+        schemas_dir = release_dir / "schemas"
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        schemas_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create package.yaml skeleton
+        package_yaml = f"""# Document Type Package Manifest
+# Schema: ../../../schemas/registry/package.schema.json
+
+doc_type_id: {doc_type_id}
+display_name: {display_name}
+version: {version}
+
+description: >
+  TODO: Add description for this document type.
+
+# Classification (per ADR-044)
+authority_level: descriptive
+creation_mode: llm_generated
+production_mode: generate
+scope: {scope}
+
+# Dependencies
+required_inputs: []
+optional_inputs: []
+
+# Shared artifact references
+role_prompt_ref: "{role_ref}"
+template_ref: "prompt:template:document_generator:1.0.0"
+qa_template_ref: "prompt:template:qa_evaluator:1.0.0"
+pgc_template_ref: "prompt:template:pgc_clarifier:1.0.0"
+schema_ref: "schema:{doc_type_id}:{version}"
+
+# Packaged artifacts (relative paths)
+artifacts:
+  task_prompt: prompts/task.prompt.txt
+  qa_prompt: prompts/qa.prompt.txt
+  pgc_context: prompts/pgc_context.prompt.txt
+  schema: schemas/output.schema.json
+
+# Test artifacts
+tests:
+  fixtures: []
+  golden_traces: []
+
+# UI configuration
+ui:
+  icon: document
+  category: general
+  display_order: 100
+"""
+        (release_dir / "package.yaml").write_text(package_yaml, encoding="utf-8")
+
+        # Create skeleton prompt files
+        task_prompt = f"""# Task Prompt for {display_name}
+
+You are producing a {display_name} document.
+
+## Instructions
+
+TODO: Add task instructions here.
+
+## Output Requirements
+
+Produce a structured JSON document following the output schema.
+"""
+        (prompts_dir / "task.prompt.txt").write_text(task_prompt, encoding="utf-8")
+
+        qa_prompt = f"""# QA Prompt for {display_name}
+
+Evaluate the {display_name} document for quality and completeness.
+
+## Evaluation Criteria
+
+TODO: Add evaluation criteria here.
+"""
+        (prompts_dir / "qa.prompt.txt").write_text(qa_prompt, encoding="utf-8")
+
+        pgc_prompt = f"""# PGC Context for {display_name}
+
+Context for pre-generation clarification.
+
+## Areas to Clarify
+
+TODO: Add clarification areas here.
+"""
+        (prompts_dir / "pgc_context.prompt.txt").write_text(pgc_prompt, encoding="utf-8")
+
+        # Create skeleton schema
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": f"schema:{doc_type_id}:{version}",
+            "title": display_name,
+            "description": f"Output schema for {display_name}",
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Document title"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Main content"
+                }
+            },
+            "required": ["title", "content"]
+        }
+        (schemas_dir / "output.schema.json").write_text(
+            _json.dumps(schema, indent=2),
+            encoding="utf-8",
+        )
+
+        # Update active_releases.json
+        self._update_active_releases_for_doc_type(doc_type_id, version)
+
+        return f"doctype:{doc_type_id}:{version}:package"
+
+    def delete_document_type(
+        self,
+        workspace_id: str,
+        doc_type_id: str,
+    ) -> None:
+        """
+        Delete a document type definition.
+
+        Removes the document type directory and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            doc_type_id: Document type ID to delete
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Verify document type exists
+        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
+        if not doc_type_dir.exists():
+            raise ArtifactNotFoundError(f"Document type not found: {doc_type_id}")
+
+        import shutil
+
+        # Remove directory tree
+        shutil.rmtree(doc_type_dir)
+
+        # Update active_releases.json
+        self._update_active_releases_for_doc_type(doc_type_id, None)
+
+    def _update_active_releases_for_doc_type(
+        self,
+        doc_type_id: str,
+        version: Optional[str],
+    ) -> None:
+        """
+        Update active_releases.json for a document type.
+
+        Args:
+            doc_type_id: Document type ID
+            version: Version to set, or None to remove
+        """
+        import json as _json
+
+        releases_path = self._git.config_path / "_active" / "active_releases.json"
+        if not releases_path.exists():
+            raise ArtifactError("active_releases.json not found")
+
+        with open(releases_path, "r", encoding="utf-8-sig") as f:
+            releases = _json.load(f)
+
+        if "document_types" not in releases:
+            releases["document_types"] = {}
+        if "schemas" not in releases:
+            releases["schemas"] = {}
+
+        if version is None:
+            releases["document_types"].pop(doc_type_id, None)
+            releases["schemas"].pop(doc_type_id, None)
+        else:
+            releases["document_types"][doc_type_id] = version
+            releases["schemas"][doc_type_id] = version
+
+        releases_path.write_text(
+            _json.dumps(releases, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    # =========================================================================
+    # DCW Workflow Lifecycle (Graph-based workflows for document types)
+    # =========================================================================
+
+    def create_dcw_workflow(
+        self,
+        workspace_id: str,
+        doc_type_id: str,
+        version: str = "1.0.0",
+    ) -> str:
+        """
+        Create a graph-based workflow definition for a document type.
+
+        Creates the workflow directory structure with a skeleton definition.json
+        containing PGC, generation, QA, remediation nodes and standard edges.
+
+        Args:
+            workspace_id: Workspace identifier
+            doc_type_id: Document type ID (must exist)
+            version: Initial version
+
+        Returns:
+            Artifact ID for the new workflow
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate doc_type_id format
+        if not re.match(r'^[a-z][a-z0-9_]*$', doc_type_id):
+            raise ArtifactError(
+                f"Invalid doc_type_id: '{doc_type_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Verify document type exists
+        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
+        if not doc_type_dir.exists():
+            raise ArtifactError(f"Document type not found: {doc_type_id}")
+
+        # Check if workflow already exists
+        workflow_dir = self._git.config_path / "workflows" / doc_type_id
+        if workflow_dir.exists():
+            raise ArtifactError(f"Workflow already exists: {doc_type_id}")
+
+        # Create display name
+        display_name = doc_type_id.replace('_', ' ').title()
+
+        # Create directory structure and definition.json
+        import json as _json
+        from datetime import date
+
+        release_dir = workflow_dir / "releases" / version
+        release_dir.mkdir(parents=True, exist_ok=True)
+
+        skeleton = {
+            "$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
+            "workflow_id": doc_type_id,
+            "version": version,
+            "name": f"{display_name} Workflow",
+            "description": f"Document creation workflow for {display_name}",
+            "scope_type": "document",
+            "document_type": doc_type_id,
+            "thread_ownership": {
+                "owns_thread": False,
+                "thread_purpose": None
+            },
+            "entry_node_ids": ["pgc"],
+            "nodes": [
+                {
+                    "node_id": "pgc",
+                    "type": "pgc",
+                    "description": f"Pre-generation clarification for {display_name}",
+                    "task_ref": "clarification_questions_generator",
+                    "includes": {},
+                    "_position": {"x": 50, "y": 40}
+                },
+                {
+                    "node_id": "generation",
+                    "type": "task",
+                    "description": f"Generate {display_name} document",
+                    "task_ref": "document_generator",
+                    "includes": {},
+                    "produces": doc_type_id,
+                    "_position": {"x": -220, "y": 235}
+                },
+                {
+                    "node_id": "qa",
+                    "type": "qa",
+                    "description": f"QA evaluation for {display_name}",
+                    "task_ref": f"tasks/{display_name} QA v1.0",
+                    "requires_qa": True,
+                    "qa_mode": "semantic",
+                    "_position": {"x": 65, "y": 390}
+                },
+                {
+                    "node_id": "remediation",
+                    "type": "task",
+                    "description": f"Rework {display_name} based on QA feedback",
+                    "task_ref": "document_generator",
+                    "includes": {},
+                    "produces": doc_type_id,
+                    "_position": {"x": 50, "y": 200}
+                },
+                {
+                    "node_id": "end_complete",
+                    "type": "end",
+                    "description": f"{display_name} document ready",
+                    "terminal_outcome": "stabilized",
+                    "gate_outcome": "complete",
+                    "_position": {"x": -160, "y": 800}
+                },
+                {
+                    "node_id": "end_failed",
+                    "type": "end",
+                    "description": "Generation failed",
+                    "terminal_outcome": "blocked",
+                    "gate_outcome": "failed",
+                    "_position": {"x": 190, "y": 800}
+                }
+            ],
+            "edges": [
+                {
+                    "edge_id": "pgc_to_generation",
+                    "from_node_id": "pgc",
+                    "to_node_id": "generation",
+                    "outcome": "success",
+                    "label": "Clarification complete, proceed to generation",
+                    "kind": "auto"
+                },
+                {
+                    "edge_id": "pgc_needs_answers",
+                    "from_node_id": "pgc",
+                    "to_node_id": None,
+                    "outcome": "needs_user_input",
+                    "label": "User must answer clarification questions",
+                    "kind": "auto",
+                    "non_advancing": True
+                },
+                {
+                    "edge_id": "generation_to_qa",
+                    "from_node_id": "generation",
+                    "to_node_id": "qa",
+                    "outcome": "success",
+                    "label": "Document generated, run QA",
+                    "kind": "auto"
+                },
+                {
+                    "edge_id": "generation_failed",
+                    "from_node_id": "generation",
+                    "to_node_id": "end_failed",
+                    "outcome": "failed",
+                    "label": "Document generation failed",
+                    "kind": "auto"
+                },
+                {
+                    "edge_id": "qa_pass",
+                    "from_node_id": "qa",
+                    "to_node_id": "end_complete",
+                    "outcome": "success",
+                    "label": "QA passed - document complete",
+                    "kind": "auto"
+                },
+                {
+                    "edge_id": "qa_fail_remediate",
+                    "from_node_id": "qa",
+                    "to_node_id": "remediation",
+                    "outcome": "failed",
+                    "label": "QA failed, remediate",
+                    "kind": "auto",
+                    "conditions": [{"type": "retry_count", "operator": "lt", "value": 2}]
+                },
+                {
+                    "edge_id": "qa_fail_circuit_breaker",
+                    "from_node_id": "qa",
+                    "to_node_id": "end_failed",
+                    "outcome": "failed",
+                    "label": "QA failed, circuit breaker",
+                    "kind": "auto",
+                    "conditions": [{"type": "retry_count", "operator": "gte", "value": 2}]
+                },
+                {
+                    "edge_id": "remediation_to_qa",
+                    "from_node_id": "remediation",
+                    "to_node_id": "qa",
+                    "outcome": "success",
+                    "label": "Remediation complete, re-run QA",
+                    "kind": "auto"
+                },
+                {
+                    "edge_id": "remediation_failed",
+                    "from_node_id": "remediation",
+                    "to_node_id": "end_failed",
+                    "outcome": "failed",
+                    "label": "Remediation failed",
+                    "kind": "auto"
+                }
+            ],
+            "governance": {
+                "adr_references": [],
+                "design_principles": [
+                    "Auto-complete on QA pass",
+                    "PGC clarification before generation"
+                ],
+                "circuit_breaker": {
+                    "max_retries": 2,
+                    "applies_to": ["qa", "remediation"],
+                    "on_trip": "end_failed with internal error flag"
+                }
+            },
+            "metadata": {
+                "created_date": date.today().isoformat(),
+                "updated_date": date.today().isoformat(),
+                "changelog": [f"v{version}: Initial workflow created"]
+            },
+            "requires_inputs": []
+        }
+
+        definition_path = release_dir / "definition.json"
+        definition_path.write_text(
+            _json.dumps(skeleton, indent=2),
+            encoding="utf-8",
+        )
+
+        # Update active_releases.json
+        self._update_active_releases(doc_type_id, version)
+
+        return f"workflow:{doc_type_id}:{version}:definition"
+
+    # =========================================================================
+    # Prompt Fragment Lifecycle (Role prompts)
+    # =========================================================================
+
+    def create_role_prompt(
+        self,
+        workspace_id: str,
+        role_id: str,
+        name: Optional[str] = None,
+        version: str = "1.0.0",
+    ) -> str:
+        """
+        Create a new role prompt.
+
+        Creates the directory structure, skeleton role.prompt.txt,
+        meta.yaml, and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            role_id: Role ID (snake_case)
+            name: Display name (auto-generated if None)
+            version: Initial version
+
+        Returns:
+            Artifact ID for the new role
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate role_id
+        if not re.match(r'^[a-z][a-z0-9_]*$', role_id):
+            raise ArtifactError(
+                f"Invalid role_id: '{role_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Check if role already exists
+        role_dir = self._git.config_path / "prompts" / "roles" / role_id
+        if role_dir.exists():
+            raise ArtifactError(f"Role already exists: {role_id}")
+
+        # Auto-generate display name
+        if not name:
+            name = role_id.replace('_', ' ').title()
+
+        # Create directory structure
+        import yaml as _yaml
+
+        release_dir = role_dir / "releases" / version
+        release_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create skeleton role prompt
+        role_prompt = f"""# {name} Role Prompt
+
+You are a {name.lower()}.
+
+## Responsibilities
+
+TODO: Define the role's responsibilities.
+
+## Constraints
+
+TODO: Define any constraints or guidelines.
+
+## Output Style
+
+TODO: Define the expected output style.
+"""
+        (release_dir / "role.prompt.txt").write_text(role_prompt, encoding="utf-8")
+
+        # Create meta.yaml
+        meta_content = _yaml.dump({
+            "name": name,
+            "intent": None,
+            "tags": [],
+        }, default_flow_style=False)
+        (release_dir / "meta.yaml").write_text(meta_content, encoding="utf-8")
+
+        # Update active_releases.json
+        self._update_active_releases_for_role(role_id, version)
+
+        return f"role:{role_id}:{version}:role_prompt"
+
+    def _update_active_releases_for_role(
+        self,
+        role_id: str,
+        version: Optional[str],
+    ) -> None:
+        """Update active_releases.json for a role."""
+        import json as _json
+
+        releases_path = self._git.config_path / "_active" / "active_releases.json"
+        if not releases_path.exists():
+            raise ArtifactError("active_releases.json not found")
+
+        with open(releases_path, "r", encoding="utf-8-sig") as f:
+            releases = _json.load(f)
+
+        if "roles" not in releases:
+            releases["roles"] = {}
+
+        if version is None:
+            releases["roles"].pop(role_id, None)
+        else:
+            releases["roles"][role_id] = version
+
+        releases_path.write_text(
+            _json.dumps(releases, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    # =========================================================================
+    # Template Lifecycle
+    # =========================================================================
+
+    def create_template(
+        self,
+        workspace_id: str,
+        template_id: str,
+        name: Optional[str] = None,
+        purpose: str = "general",
+        version: str = "1.0.0",
+    ) -> str:
+        """
+        Create a new template.
+
+        Creates the directory structure, skeleton template.txt,
+        meta.yaml, and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            template_id: Template ID (snake_case)
+            name: Display name (auto-generated if None)
+            purpose: Template purpose (document, qa, pgc, general)
+            version: Initial version
+
+        Returns:
+            Artifact ID for the new template
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate template_id
+        if not re.match(r'^[a-z][a-z0-9_]*$', template_id):
+            raise ArtifactError(
+                f"Invalid template_id: '{template_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Check if template already exists
+        template_dir = self._git.config_path / "prompts" / "templates" / template_id
+        if template_dir.exists():
+            raise ArtifactError(f"Template already exists: {template_id}")
+
+        # Auto-generate display name
+        if not name:
+            name = template_id.replace('_', ' ').title()
+
+        # Create directory structure
+        import yaml as _yaml
+
+        release_dir = template_dir / "releases" / version
+        release_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create skeleton template
+        template_content = f"""# {name} Template
+
+$$ROLE_PROMPT
+
+---
+
+$$TASK_PROMPT
+
+---
+
+## Output Schema
+
+$$OUTPUT_SCHEMA
+
+---
+
+Please produce a response conforming to the output schema.
+"""
+        (release_dir / "template.txt").write_text(template_content, encoding="utf-8")
+
+        # Create meta.yaml
+        meta_content = _yaml.dump({
+            "name": name,
+            "purpose": purpose,
+            "use_case": None,
+        }, default_flow_style=False)
+        (release_dir / "meta.yaml").write_text(meta_content, encoding="utf-8")
+
+        # Update active_releases.json
+        self._update_active_releases_for_template(template_id, version)
+
+        return f"template:{template_id}:{version}:template"
+
+    def _update_active_releases_for_template(
+        self,
+        template_id: str,
+        version: Optional[str],
+    ) -> None:
+        """Update active_releases.json for a template."""
+        import json as _json
+
+        releases_path = self._git.config_path / "_active" / "active_releases.json"
+        if not releases_path.exists():
+            raise ArtifactError("active_releases.json not found")
+
+        with open(releases_path, "r", encoding="utf-8-sig") as f:
+            releases = _json.load(f)
+
+        if "templates" not in releases:
+            releases["templates"] = {}
+
+        if version is None:
+            releases["templates"].pop(template_id, None)
+        else:
+            releases["templates"][template_id] = version
+
+        releases_path.write_text(
+            _json.dumps(releases, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    # =========================================================================
+    # Standalone Schema Lifecycle
+    # =========================================================================
+
+    def create_standalone_schema(
+        self,
+        workspace_id: str,
+        schema_id: str,
+        title: Optional[str] = None,
+        version: str = "1.0.0",
+    ) -> str:
+        """
+        Create a new standalone schema.
+
+        Creates the directory structure, skeleton schema.json,
+        and updates active_releases.json.
+
+        Args:
+            workspace_id: Workspace identifier
+            schema_id: Schema ID (snake_case)
+            title: Schema title (auto-generated if None)
+            version: Initial version
+
+        Returns:
+            Artifact ID for the new schema
+        """
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+
+        self._touch_workspace(workspace_id)
+
+        # Validate schema_id
+        if not re.match(r'^[a-z][a-z0-9_]*$', schema_id):
+            raise ArtifactError(
+                f"Invalid schema_id: '{schema_id}'. "
+                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+            )
+
+        # Check if schema already exists
+        schema_dir = self._git.config_path / "schemas" / schema_id
+        if schema_dir.exists():
+            raise ArtifactError(f"Schema already exists: {schema_id}")
+
+        # Auto-generate title
+        if not title:
+            title = schema_id.replace('_', ' ').title()
+
+        # Create directory structure
+        import json as _json
+
+        release_dir = schema_dir / "releases" / version
+        release_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create skeleton schema
+        schema_content = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": f"schema:{schema_id}:{version}",
+            "title": title,
+            "description": f"Schema for {title}",
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "Main content"
+                }
+            },
+            "required": ["content"]
+        }
+        (release_dir / "schema.json").write_text(
+            _json.dumps(schema_content, indent=2),
+            encoding="utf-8",
+        )
+
+        # Update active_releases.json
+        self._update_active_releases_for_schema(schema_id, version)
+
+        return f"schema:{schema_id}:{version}:schema"
+
+    def _update_active_releases_for_schema(
+        self,
+        schema_id: str,
+        version: Optional[str],
+    ) -> None:
+        """Update active_releases.json for a standalone schema."""
+        import json as _json
+
+        releases_path = self._git.config_path / "_active" / "active_releases.json"
+        if not releases_path.exists():
+            raise ArtifactError("active_releases.json not found")
+
+        with open(releases_path, "r", encoding="utf-8-sig") as f:
+            releases = _json.load(f)
+
+        if "schemas" not in releases:
+            releases["schemas"] = {}
+
+        if version is None:
+            releases["schemas"].pop(schema_id, None)
+        else:
+            releases["schemas"][schema_id] = version
 
         releases_path.write_text(
             _json.dumps(releases, indent=2) + "\n",

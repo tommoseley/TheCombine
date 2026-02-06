@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { useWorkflowEditor } from '../../../hooks/useWorkflowEditor';
+import { useAdminTemplates } from '../../../hooks/useAdminTemplates';
+import { useAdminSchemas } from '../../../hooks/useAdminSchemas';
+import usePromptFragments from '../../../hooks/usePromptFragments';
 import WorkflowCanvas from './WorkflowCanvas';
 import NodePropertiesPanel from './NodePropertiesPanel';
 import EdgePropertiesPanel from './EdgePropertiesPanel';
@@ -39,6 +42,11 @@ export default function WorkflowEditorContent({ workspaceId, artifactId, onArtif
             onArtifactSave?.(artifactId, result);
         },
     });
+
+    // Fetch templates, schemas, and prompt fragments for node property dropdowns
+    const { templates } = useAdminTemplates();
+    const { schemas } = useAdminSchemas();
+    const { fragmentsByKind } = usePromptFragments();
 
     // Get selected node data
     const selectedNode = useMemo(() => {
@@ -252,6 +260,11 @@ export default function WorkflowEditorContent({ workspaceId, artifactId, onArtif
                                     node={selectedNode}
                                     onChange={handleNodeChange}
                                     onDelete={handleNodeDelete}
+                                    templates={templates}
+                                    schemas={schemas}
+                                    roleFragments={fragmentsByKind.role || []}
+                                    taskFragments={fragmentsByKind.task || []}
+                                    pgcFragments={fragmentsByKind.pgc || []}
                                 />
                             )}
                             {selectedEdge && (

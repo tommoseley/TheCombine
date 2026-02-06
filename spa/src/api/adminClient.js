@@ -199,6 +199,12 @@ export const adminApi = {
         request(`/workbench/document-types/${docTypeId}/versions`),
 
     /**
+     * List all prompt fragments
+     * @returns {Promise<Object>} Prompt fragments list
+     */
+    getPromptFragments: () => request('/workbench/prompt-fragments'),
+
+    /**
      * List all roles
      * @returns {Promise<Object>} Roles list
      */
@@ -209,6 +215,23 @@ export const adminApi = {
      * @returns {Promise<Object>} Templates list
      */
     getTemplates: () => request('/workbench/templates'),
+
+    /**
+     * List all standalone schemas
+     * @returns {Promise<Object>} Schemas list
+     */
+    getSchemas: () => request('/workbench/schemas'),
+
+    /**
+     * Get standalone schema details
+     * @param {string} schemaId
+     * @param {string} version
+     * @returns {Promise<Object>} Schema details with content
+     */
+    getSchema: (schemaId, version = null) => {
+        const qs = version ? `?version=${version}` : '';
+        return request(`/workbench/schemas/${schemaId}${qs}`);
+    },
 
     /**
      * Get role details
@@ -279,6 +302,96 @@ export const adminApi = {
     deleteOrchestrationWorkflow: (workspaceId, workflowId) =>
         request(`/workspaces/${workspaceId}/orchestration-workflows/${workflowId}`, {
             method: 'DELETE',
+        }),
+
+    // =========================================================================
+    // Document Type Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a new document type (DCW)
+     * @param {string} workspaceId
+     * @param {Object} data - { doc_type_id, display_name?, version?, scope?, role_ref? }
+     * @returns {Promise<Object>} Created document type info
+     */
+    createDocumentType: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/document-types`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    /**
+     * Delete a document type
+     * @param {string} workspaceId
+     * @param {string} docTypeId
+     */
+    deleteDocumentType: (workspaceId, docTypeId) =>
+        request(`/workspaces/${workspaceId}/document-types/${docTypeId}`, {
+            method: 'DELETE',
+        }),
+
+    // =========================================================================
+    // DCW Workflow Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a DCW workflow for an existing document type
+     * @param {string} workspaceId
+     * @param {Object} data - { doc_type_id, version? }
+     * @returns {Promise<Object>} Created workflow info
+     */
+    createDcwWorkflow: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/dcw-workflows`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // =========================================================================
+    // Role Prompt Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a new role prompt
+     * @param {string} workspaceId
+     * @param {Object} data - { role_id, name?, version? }
+     * @returns {Promise<Object>} Created role prompt info
+     */
+    createRolePrompt: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/role-prompts`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // =========================================================================
+    // Template Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a new template
+     * @param {string} workspaceId
+     * @param {Object} data - { template_id, name?, purpose?, version? }
+     * @returns {Promise<Object>} Created template info
+     */
+    createTemplate: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/templates`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    // =========================================================================
+    // Standalone Schema Lifecycle
+    // =========================================================================
+
+    /**
+     * Create a new standalone schema
+     * @param {string} workspaceId
+     * @param {Object} data - { schema_id, title?, version? }
+     * @returns {Promise<Object>} Created schema info
+     */
+    createStandaloneSchema: (workspaceId, data) =>
+        request(`/workspaces/${workspaceId}/schemas`, {
+            method: 'POST',
+            body: JSON.stringify(data),
         }),
 
     /**

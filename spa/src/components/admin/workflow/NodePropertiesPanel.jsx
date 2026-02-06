@@ -33,9 +33,89 @@ const labelStyle = {
 };
 
 /**
+ * Build a template reference string for the task_ref field.
+ * Format: prompt:template:{template_id}:{version}
+ */
+function buildTemplateRef(template) {
+    if (!template) return '';
+    return `prompt:template:${template.template_id}:${template.active_version || template.version || '1.0.0'}`;
+}
+
+/**
+ * Parse a template reference to extract template_id.
+ * Format: prompt:template:{template_id}:{version}
+ */
+function parseTemplateRef(ref) {
+    if (!ref) return null;
+    const parts = ref.split(':');
+    if (parts.length >= 3 && parts[0] === 'prompt' && parts[1] === 'template') {
+        return parts[2];
+    }
+    // Legacy format: tasks/Name v1.0 or just the template_id
+    return ref;
+}
+
+/**
+ * Build a fragment reference string for includes.
+ * Format: prompt:{kind}:{fragment_id}:{version}
+ */
+function buildFragmentRef(fragment) {
+    if (!fragment) return '';
+    const kind = fragment.kind || 'role';
+    const id = fragment.fragment_id?.replace(`${kind}:`, '') || fragment.id || '';
+    const version = fragment.version || fragment.active_version || '1.0.0';
+    return `prompt:${kind}:${id}:${version}`;
+}
+
+/**
+ * Parse a fragment reference to extract the ID.
+ * Format: prompt:{kind}:{id}:{version}
+ */
+function parseFragmentRef(ref) {
+    if (!ref) return null;
+    const parts = ref.split(':');
+    if (parts.length >= 3 && parts[0] === 'prompt') {
+        return parts[2]; // Return the ID part
+    }
+    return ref;
+}
+
+/**
+ * Build a schema reference string for includes.
+ * Format: schema:{schema_id}:{version}
+ */
+function buildSchemaRef(schema) {
+    if (!schema) return '';
+    const version = schema.active_version || schema.version || '1.0.0';
+    return `schema:${schema.schema_id}:${version}`;
+}
+
+/**
+ * Parse a schema reference to extract the ID.
+ * Format: schema:{schema_id}:{version}
+ */
+function parseSchemaRef(ref) {
+    if (!ref) return null;
+    const parts = ref.split(':');
+    if (parts.length >= 2 && parts[0] === 'schema') {
+        return parts[1]; // Return the ID part
+    }
+    return ref;
+}
+
+/**
  * Side panel for editing selected workflow node properties.
  */
-export default function NodePropertiesPanel({ node, onChange, onDelete }) {
+export default function NodePropertiesPanel({
+    node,
+    onChange,
+    onDelete,
+    templates = [],
+    schemas = [],
+    roleFragments = [],
+    taskFragments = [],
+    pgcFragments = [],
+}) {
     const [localData, setLocalData] = useState(node);
 
     useEffect(() => {
@@ -63,7 +143,7 @@ export default function NodePropertiesPanel({ node, onChange, onDelete }) {
         onChange(updated);
     };
 
-    const addInclude = () => {
+    const addCustomInclude = () => {
         const includes = { ...localData.includes, NEW_KEY: '' };
         const updated = { ...localData, includes };
         setLocalData(updated);
@@ -71,6 +151,96 @@ export default function NodePropertiesPanel({ node, onChange, onDelete }) {
     };
 
     if (!localData) return null;
+
+    // Get current template_id from task_ref
+    const currentTemplateId = parseTemplateRef(localData.task_ref);
+
+    // Get current includes
+    const includes = localData.includes || {};
+    const currentRoleRef = includes.ROLE_PROMPT || '';
+    const currentTaskRef = includes.TASK_PROMPT || '';
+    const currentSchemaRef = includes.OUTPUT_SCHEMA || '';
+    const currentPgcRef = includes.PGC_CONTEXT || '';
+    const currentRoleId = parseFragmentRef(currentRoleRef);
+    const currentTaskId = parseFragmentRef(currentTaskRef);
+    const currentSchemaId = parseSchemaRef(currentSchemaRef);
+    const currentPgcId = parseFragmentRef(currentPgcRef);
+
+    // Get custom includes (not the predefined ones)
+    const customIncludes = Object.entries(includes).filter(
+        ([key]) => !['ROLE_PROMPT', 'TASK_PROMPT', 'OUTPUT_SCHEMA', 'PGC_CONTEXT'].includes(key)
+    );
+
+    // Handle template selection
+    const handleTemplateChange = (e) => {
+        const templateId = e.target.value;
+        if (!templateId) {
+            updateField('task_ref', '');
+            return;
+        }
+        const template = templates.find(t => t.template_id === templateId);
+        if (template) {
+            updateField('task_ref', buildTemplateRef(template));
+        }
+    };
+
+    // Handle role fragment selection
+    const handleRoleChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            removeInclude('ROLE_PROMPT');
+            return;
+        }
+        const fragment = roleFragments.find(f =>
+            f.fragment_id === `role:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateInclude('ROLE_PROMPT', buildFragmentRef(fragment));
+        }
+    };
+
+    // Handle task fragment selection
+    const handleTaskChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            removeInclude('TASK_PROMPT');
+            return;
+        }
+        const fragment = taskFragments.find(f =>
+            f.fragment_id === `task:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateInclude('TASK_PROMPT', buildFragmentRef(fragment));
+        }
+    };
+
+    // Handle schema selection
+    const handleSchemaChange = (e) => {
+        const schemaId = e.target.value;
+        if (!schemaId) {
+            removeInclude('OUTPUT_SCHEMA');
+            return;
+        }
+        const schema = schemas.find(s => s.schema_id === schemaId);
+        if (schema) {
+            updateInclude('OUTPUT_SCHEMA', buildSchemaRef(schema));
+        }
+    };
+
+    // Handle PGC context selection
+    const handlePgcChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            removeInclude('PGC_CONTEXT');
+            return;
+        }
+        const fragment = pgcFragments.find(f =>
+            f.fragment_id === `pgc:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateInclude('PGC_CONTEXT', buildFragmentRef(fragment));
+        }
+    };
 
     return (
         <div
@@ -140,17 +310,31 @@ export default function NodePropertiesPanel({ node, onChange, onDelete }) {
                     />
                 </div>
 
-                {/* Task Ref - for task, qa, pgc */}
+                {/* Interaction Template - for task, qa, pgc, intake_gate */}
                 {['task', 'qa', 'pgc', 'intake_gate'].includes(localData.type) && (
                     <div>
-                        <label style={labelStyle}>Task Ref</label>
-                        <input
-                            type="text"
-                            value={localData.task_ref || ''}
-                            onChange={e => updateField('task_ref', e.target.value)}
-                            placeholder="tasks/Name v1.0"
+                        <label style={labelStyle}>Interaction Template</label>
+                        <select
+                            value={currentTemplateId || ''}
+                            onChange={handleTemplateChange}
                             style={fieldStyle}
-                        />
+                        >
+                            <option value="">-- Select Template --</option>
+                            {templates.map(t => (
+                                <option key={t.template_id} value={t.template_id}>
+                                    {t.name || t.template_id.replace(/_/g, ' ')}
+                                </option>
+                            ))}
+                        </select>
+                        {localData.task_ref && (
+                            <div
+                                className="mt-1 text-xs font-mono truncate"
+                                style={{ color: 'var(--text-muted)' }}
+                                title={localData.task_ref}
+                            >
+                                {localData.task_ref}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -237,50 +421,165 @@ export default function NodePropertiesPanel({ node, onChange, onDelete }) {
                 {/* Includes (for task, pgc nodes) */}
                 {['task', 'pgc'].includes(localData.type) && (
                     <div>
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between mb-2">
                             <label style={labelStyle}>Includes</label>
-                            <button
-                                onClick={addInclude}
-                                className="text-xs px-1.5 py-0.5 rounded hover:opacity-80"
-                                style={{ color: 'var(--action-primary)', background: 'transparent' }}
+                        </div>
+
+                        {/* ROLE_PROMPT - dropdown from role fragments */}
+                        <div className="mb-2">
+                            <label
+                                className="text-xs mb-1 block"
+                                style={{ color: 'var(--text-muted)' }}
                             >
-                                + Add
-                            </button>
+                                ROLE_PROMPT
+                            </label>
+                            <select
+                                value={currentRoleId || ''}
+                                onChange={handleRoleChange}
+                                style={{ ...fieldStyle, fontSize: 11 }}
+                            >
+                                <option value="">-- Select Role --</option>
+                                {roleFragments.map(f => {
+                                    const id = f.fragment_id?.replace('role:', '') || f.id;
+                                    return (
+                                        <option key={f.fragment_id || f.id} value={id}>
+                                            {f.name || id?.replace(/_/g, ' ')}
+                                        </option>
+                                    );
+                                })}
+                            </select>
                         </div>
-                        <div className="space-y-2">
-                            {Object.entries(localData.includes || {}).map(([key, value]) => (
-                                <div key={key} className="flex gap-1">
-                                    <input
-                                        type="text"
-                                        value={key}
-                                        onChange={e => {
-                                            const newIncludes = { ...localData.includes };
-                                            delete newIncludes[key];
-                                            newIncludes[e.target.value] = value;
-                                            const updated = { ...localData, includes: newIncludes };
-                                            setLocalData(updated);
-                                            onChange(updated);
-                                        }}
-                                        style={{ ...fieldStyle, width: '35%', fontSize: 10 }}
-                                        placeholder="KEY"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={value}
-                                        onChange={e => updateInclude(key, e.target.value)}
-                                        style={{ ...fieldStyle, flex: 1, fontSize: 10 }}
-                                        placeholder="path/to/file"
-                                    />
-                                    <button
-                                        onClick={() => removeInclude(key)}
-                                        className="text-xs px-1"
-                                        style={{ color: '#ef4444' }}
-                                    >
-                                        x
-                                    </button>
+
+                        {/* TASK_PROMPT - dropdown from task fragments */}
+                        <div className="mb-2">
+                            <label
+                                className="text-xs mb-1 block"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                TASK_PROMPT
+                            </label>
+                            <select
+                                value={currentTaskId || ''}
+                                onChange={handleTaskChange}
+                                style={{ ...fieldStyle, fontSize: 11 }}
+                            >
+                                <option value="">-- Select Task --</option>
+                                {taskFragments.map(f => {
+                                    const id = f.fragment_id?.replace('task:', '') || f.id;
+                                    return (
+                                        <option key={f.fragment_id || f.id} value={id}>
+                                            {f.name || id?.replace(/_/g, ' ')}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+
+                        {/* OUTPUT_SCHEMA - dropdown from schemas */}
+                        <div className="mb-2">
+                            <label
+                                className="text-xs mb-1 block"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                OUTPUT_SCHEMA
+                            </label>
+                            <select
+                                value={currentSchemaId || ''}
+                                onChange={handleSchemaChange}
+                                style={{ ...fieldStyle, fontSize: 11 }}
+                            >
+                                <option value="">-- Select Schema --</option>
+                                {schemas.map(s => (
+                                    <option key={s.schema_id} value={s.schema_id}>
+                                        {s.title || s.schema_id.replace(/_/g, ' ')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* PGC_CONTEXT - dropdown from PGC fragments */}
+                        <div className="mb-2">
+                            <label
+                                className="text-xs mb-1 block"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                PGC_CONTEXT
+                            </label>
+                            <select
+                                value={currentPgcId || ''}
+                                onChange={handlePgcChange}
+                                style={{ ...fieldStyle, fontSize: 11 }}
+                            >
+                                <option value="">-- Select PGC Context --</option>
+                                {pgcFragments.map(f => {
+                                    const id = f.fragment_id?.replace('pgc:', '') || f.id;
+                                    return (
+                                        <option key={f.fragment_id || f.id} value={id}>
+                                            {f.name || id?.replace(/_/g, ' ')}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+
+                        {/* Custom includes */}
+                        {customIncludes.length > 0 && (
+                            <div className="mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-panel)' }}>
+                                <label
+                                    className="text-xs mb-1 block"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
+                                    Custom Includes
+                                </label>
+                                <div className="space-y-2">
+                                    {customIncludes.map(([key, value]) => (
+                                        <div key={key} className="flex gap-1">
+                                            <input
+                                                type="text"
+                                                value={key}
+                                                onChange={e => {
+                                                    const newIncludes = { ...localData.includes };
+                                                    delete newIncludes[key];
+                                                    newIncludes[e.target.value] = value;
+                                                    const updated = { ...localData, includes: newIncludes };
+                                                    setLocalData(updated);
+                                                    onChange(updated);
+                                                }}
+                                                style={{ ...fieldStyle, width: '35%', fontSize: 10 }}
+                                                placeholder="KEY"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={value}
+                                                onChange={e => updateInclude(key, e.target.value)}
+                                                style={{ ...fieldStyle, flex: 1, fontSize: 10 }}
+                                                placeholder="path/to/file"
+                                            />
+                                            <button
+                                                onClick={() => removeInclude(key)}
+                                                className="text-xs px-1"
+                                                style={{ color: '#ef4444' }}
+                                            >
+                                                x
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        )}
+
+                        {/* Add custom include button */}
+                        <button
+                            onClick={addCustomInclude}
+                            className="mt-2 text-xs px-2 py-1 rounded hover:opacity-80 w-full"
+                            style={{
+                                color: 'var(--action-primary)',
+                                background: 'transparent',
+                                border: '1px dashed var(--border-panel)',
+                            }}
+                        >
+                            + Add Custom Include
+                        </button>
                     </div>
                 )}
             </div>
