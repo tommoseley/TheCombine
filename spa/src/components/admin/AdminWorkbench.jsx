@@ -10,6 +10,7 @@ import { useAdminSchemas } from '../../hooks/useAdminSchemas';
 import usePromptFragments from '../../hooks/usePromptFragments';
 import { adminApi } from '../../api/adminClient';
 import DocTypeBrowser from './DocTypeBrowser';
+import BuildingBlocksTray from './BuildingBlocksTray';
 import PromptEditor from './PromptEditor';
 import RoleEditor from './RoleEditor';
 import TemplateEditor from './TemplateEditor';
@@ -40,6 +41,7 @@ export default function AdminWorkbench() {
     const [selectedSchema, setSelectedSchema] = useState(null);
     const [initialTab, setInitialTab] = useState(null);
     const [docTypeSource, setDocTypeSource] = useState(null); // 'docworkflow' | 'task' | 'schema'
+    const [isTrayOpen, setIsTrayOpen] = useState(false); // Building Blocks tray (WS-ADR-044-003)
 
     // Workspace lifecycle
     const {
@@ -476,11 +478,46 @@ export default function AdminWorkbench() {
 
     return (
         <div
-            className="flex h-screen overflow-hidden"
+            className="flex flex-col h-screen overflow-hidden"
             style={{ background: 'var(--bg-canvas)' }}
         >
-            {/* Left panel - Document Type, Role & Template Browser */}
-            <DocTypeBrowser
+            {/* Workbench Header */}
+            <div
+                className="flex items-center justify-between px-4 py-2"
+                style={{
+                    background: 'var(--bg-group-header)',
+                    borderBottom: '1px solid var(--border-panel)',
+                    flexShrink: 0,
+                }}
+            >
+                <span
+                    className="font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-primary)', fontSize: 11 }}
+                >
+                    Admin Workbench
+                </span>
+                <button
+                    onClick={() => setIsTrayOpen(!isTrayOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
+                    style={{
+                        background: isTrayOpen ? 'var(--action-primary)' : 'var(--bg-panel)',
+                        color: isTrayOpen ? '#000' : 'var(--text-secondary)',
+                        border: '1px solid var(--border-panel)',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        fontWeight: 500,
+                    }}
+                    title="Building Blocks"
+                >
+                    <span style={{ fontSize: 14 }}>&#9881;</span>
+                    <span>Building Blocks</span>
+                </button>
+            </div>
+
+            {/* Main content area */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* Left panel - Document Type, Role & Template Browser */}
+                <DocTypeBrowser
                 documentTypes={documentTypes}
                 roles={roles}
                 templates={templates}
@@ -565,15 +602,37 @@ export default function AdminWorkbench() {
                 />
             )}
 
-            {/* Right panel - Git Status */}
-            <GitStatusPanel
-                workspaceId={workspaceId}
-                state={workspaceState}
-                loading={stateLoading}
-                onCommit={handleCommit}
-                onDiscard={handleDiscard}
-                onClose={handleClose}
-                onRefresh={refreshState}
+                {/* Right panel - Git Status */}
+                <GitStatusPanel
+                    workspaceId={workspaceId}
+                    state={workspaceState}
+                    loading={stateLoading}
+                    onCommit={handleCommit}
+                    onDiscard={handleDiscard}
+                    onClose={handleClose}
+                    onRefresh={refreshState}
+                />
+            </div>
+
+            {/* Building Blocks Tray (WS-ADR-044-003) */}
+            <BuildingBlocksTray
+                isOpen={isTrayOpen}
+                onClose={() => setIsTrayOpen(false)}
+                promptFragments={promptFragments}
+                promptFragmentKindOptions={promptFragmentKindOptions}
+                templates={templates}
+                schemas={schemas}
+                documentTypes={documentTypes}
+                promptFragmentsLoading={promptFragmentsLoading}
+                templatesLoading={templatesLoading}
+                schemasLoading={schemasLoading}
+                onSelectFragment={handleSelectFragment}
+                onSelectTemplate={handleSelectTemplate}
+                onSelectSchema={handleSelectSchema}
+                onSelectStandaloneSchema={handleSelectStandaloneSchema}
+                onCreateFragment={handleCreateFragment}
+                onCreateTemplate={handleCreateTemplate}
+                onCreateSchema={handleCreateSchema}
             />
         </div>
     );

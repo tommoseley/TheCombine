@@ -135,15 +135,28 @@ function parseSchemaRef(ref) {
 }
 
 /**
- * Collapsible section component
+ * Collapsible section component.
+ * Supports both uncontrolled (defaultOpen) and controlled (isOpen + onToggle) modes.
  */
-function CollapsibleSection({ title, defaultOpen = false, children, badge }) {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+function CollapsibleSection({ title, defaultOpen = false, isOpen: controlledOpen, onToggle, children, badge }) {
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+
+    // Use controlled mode if isOpen prop is provided
+    const isControlled = controlledOpen !== undefined;
+    const isOpen = isControlled ? controlledOpen : internalOpen;
+
+    const handleToggle = () => {
+        if (isControlled && onToggle) {
+            onToggle();
+        } else {
+            setInternalOpen(!internalOpen);
+        }
+    };
 
     return (
         <div className="border rounded" style={{ borderColor: 'var(--border-panel)' }}>
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggle}
                 className="w-full px-2 py-1.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
                 style={{ background: 'var(--bg-canvas)' }}
             >
@@ -197,9 +210,13 @@ export default function NodePropertiesPanel({
     pgcFragments = [],
 }) {
     const [localData, setLocalData] = useState(node);
+    // Single-expansion for PGC LLM passes: 'A' | 'B' | null (WS-ADR-044-003 Phase 4)
+    const [expandedPass, setExpandedPass] = useState('A');
 
     useEffect(() => {
         setLocalData(node);
+        // Reset expanded pass when node changes
+        setExpandedPass('A');
     }, [node]);
 
     const updateField = (field, value) => {
@@ -585,8 +602,13 @@ export default function NodePropertiesPanel({
                     <div className="mt-4">
                         <div style={sectionHeaderStyle}>Gate Internals</div>
 
-                        {/* Pass A: Question Generation */}
-                        <CollapsibleSection title="Pass A: Question Generation" defaultOpen={true} badge="LLM">
+                        {/* Pass A: Question Generation - controlled expansion */}
+                        <CollapsibleSection
+                            title="Pass A: Question Generation"
+                            isOpen={expandedPass === 'A'}
+                            onToggle={() => setExpandedPass(expandedPass === 'A' ? null : 'A')}
+                            badge="LLM"
+                        >
                             <div className="space-y-2">
                                 {/* Template */}
                                 <div>
@@ -716,9 +738,14 @@ export default function NodePropertiesPanel({
                             </CollapsibleSection>
                         </div>
 
-                        {/* Pass B: Clarification Merge */}
+                        {/* Pass B: Clarification Merge - controlled expansion */}
                         <div className="mt-2">
-                            <CollapsibleSection title="Pass B: Clarification Merge" badge="LLM">
+                            <CollapsibleSection
+                                title="Pass B: Clarification Merge"
+                                isOpen={expandedPass === 'B'}
+                                onToggle={() => setExpandedPass(expandedPass === 'B' ? null : 'B')}
+                                badge="LLM"
+                            >
                                 <div className="space-y-2">
                                     {/* Template */}
                                     <div>
