@@ -4,9 +4,19 @@ const NODE_TYPES = [
     { value: 'intake_gate', label: 'Intake Gate' },
     { value: 'task', label: 'Task' },
     { value: 'qa', label: 'QA' },
-    { value: 'pgc', label: 'PGC' },
+    { value: 'pgc', label: 'PGC Gate' },
     { value: 'gate', label: 'Gate' },
     { value: 'end', label: 'End' },
+];
+
+const PGC_GATE_KINDS = [
+    { value: 'intake', label: 'Intake Gate', produces: 'pgc_clarifications.intake' },
+    { value: 'discovery', label: 'Discovery Gate', produces: 'pgc_clarifications.discovery' },
+    { value: 'plan', label: 'Plan Gate', produces: 'pgc_clarifications.plan' },
+    { value: 'architecture', label: 'Architecture Gate', produces: 'pgc_clarifications.architecture' },
+    { value: 'epic', label: 'Epic Gate', produces: 'pgc_clarifications.epic' },
+    { value: 'remediation', label: 'Remediation Gate', produces: 'pgc_clarifications.remediation' },
+    { value: 'compliance', label: 'Compliance Gate', produces: 'pgc_clarifications.compliance' },
 ];
 
 const QA_MODES = ['semantic', 'structural', 'hybrid'];
@@ -30,6 +40,27 @@ const labelStyle = {
     marginBottom: 2,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
+};
+
+const sectionHeaderStyle = {
+    fontSize: 10,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    padding: '6px 0',
+    borderBottom: '1px solid var(--border-panel)',
+    marginBottom: 8,
+};
+
+const passHeaderStyle = {
+    fontSize: 10,
+    fontWeight: 600,
+    color: 'var(--action-primary)',
+    marginBottom: 4,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
 };
 
 /**
@@ -104,6 +135,55 @@ function parseSchemaRef(ref) {
 }
 
 /**
+ * Collapsible section component
+ */
+function CollapsibleSection({ title, defaultOpen = false, children, badge }) {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    return (
+        <div className="border rounded" style={{ borderColor: 'var(--border-panel)' }}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full px-2 py-1.5 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                style={{ background: 'var(--bg-canvas)' }}
+            >
+                <div className="flex items-center gap-2">
+                    <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{
+                            color: 'var(--text-muted)',
+                            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.15s ease',
+                        }}
+                    >
+                        <path d="M9 18l6-6-6-6" />
+                    </svg>
+                    <span style={{ ...labelStyle, marginBottom: 0 }}>{title}</span>
+                </div>
+                {badge && (
+                    <span
+                        className="text-[9px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'var(--action-primary)', color: '#fff' }}
+                    >
+                        {badge}
+                    </span>
+                )}
+            </button>
+            {isOpen && (
+                <div className="p-2 border-t" style={{ borderColor: 'var(--border-panel)' }}>
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
  * Side panel for editing selected workflow node properties.
  */
 export default function NodePropertiesPanel({
@@ -150,12 +230,61 @@ export default function NodePropertiesPanel({
         onChange(updated);
     };
 
+    // PGC internals update helpers
+    const updateInternals = (internals) => {
+        const updated = { ...localData, internals };
+        setLocalData(updated);
+        onChange(updated);
+    };
+
+    const updateQuestionGeneration = (field, value) => {
+        const internals = localData.internals || getDefaultPgcInternals();
+        const questionGeneration = { ...internals.question_generation, [field]: value };
+        updateInternals({ ...internals, question_generation: questionGeneration });
+    };
+
+    const updateQuestionGenIncludes = (key, value) => {
+        const internals = localData.internals || getDefaultPgcInternals();
+        const includes = { ...internals.question_generation.includes, [key]: value };
+        const questionGeneration = { ...internals.question_generation, includes };
+        updateInternals({ ...internals, question_generation: questionGeneration });
+    };
+
+    const updateClarificationMerge = (field, value) => {
+        const internals = localData.internals || getDefaultPgcInternals();
+        const clarificationMerge = { ...internals.clarification_merge, [field]: value };
+        updateInternals({ ...internals, clarification_merge: clarificationMerge });
+    };
+
+    // Get default PGC internals structure
+    const getDefaultPgcInternals = () => ({
+        question_generation: {
+            template_ref: '',
+            includes: {
+                ROLE_PROMPT: '',
+                TASK_PROMPT: '',
+                PGC_CONTEXT: '',
+            },
+            output_schema_ref: 'schema:clarification_question_set:2.0.0',
+        },
+        operator_entry: {
+            renders: 'question_set',
+            captures: 'pgc_answers',
+        },
+        clarification_merge: {
+            template_ref: '',
+            output_schema_ref: 'schema:pgc_clarifications:1.0.0',
+        },
+    });
+
     if (!localData) return null;
 
-    // Get current template_id from task_ref
+    const isPgcNode = localData.type === 'pgc';
+
+    // For non-PGC nodes: Get current template_id from task_ref
     const currentTemplateId = parseTemplateRef(localData.task_ref);
 
-    // Get current includes
+    // For non-PGC nodes: Get current includes
     const includes = localData.includes || {};
     const currentRoleRef = includes.ROLE_PROMPT || '';
     const currentTaskRef = includes.TASK_PROMPT || '';
@@ -171,7 +300,17 @@ export default function NodePropertiesPanel({
         ([key]) => !['ROLE_PROMPT', 'TASK_PROMPT', 'OUTPUT_SCHEMA', 'PGC_CONTEXT'].includes(key)
     );
 
-    // Handle template selection
+    // For PGC nodes: Get internals
+    const internals = localData.internals || getDefaultPgcInternals();
+    const qgTemplateId = parseTemplateRef(internals.question_generation?.template_ref);
+    const qgRoleId = parseFragmentRef(internals.question_generation?.includes?.ROLE_PROMPT);
+    const qgTaskId = parseFragmentRef(internals.question_generation?.includes?.TASK_PROMPT);
+    const qgPgcId = parseFragmentRef(internals.question_generation?.includes?.PGC_CONTEXT);
+    const qgSchemaId = parseSchemaRef(internals.question_generation?.output_schema_ref);
+    const cmTemplateId = parseTemplateRef(internals.clarification_merge?.template_ref);
+    const cmSchemaId = parseSchemaRef(internals.clarification_merge?.output_schema_ref);
+
+    // Handle template selection (for non-PGC nodes)
     const handleTemplateChange = (e) => {
         const templateId = e.target.value;
         if (!templateId) {
@@ -184,7 +323,7 @@ export default function NodePropertiesPanel({
         }
     };
 
-    // Handle role fragment selection
+    // Handle role fragment selection (for non-PGC nodes)
     const handleRoleChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
@@ -199,7 +338,7 @@ export default function NodePropertiesPanel({
         }
     };
 
-    // Handle task fragment selection
+    // Handle task fragment selection (for non-PGC nodes)
     const handleTaskChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
@@ -214,7 +353,7 @@ export default function NodePropertiesPanel({
         }
     };
 
-    // Handle schema selection
+    // Handle schema selection (for non-PGC nodes)
     const handleSchemaChange = (e) => {
         const schemaId = e.target.value;
         if (!schemaId) {
@@ -227,7 +366,7 @@ export default function NodePropertiesPanel({
         }
     };
 
-    // Handle PGC context selection
+    // Handle PGC context selection (for non-PGC nodes)
     const handlePgcChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
@@ -242,9 +381,110 @@ export default function NodePropertiesPanel({
         }
     };
 
+    // Handle gate_kind change - auto-update produces
+    const handleGateKindChange = (e) => {
+        const gateKind = e.target.value;
+        const gateConfig = PGC_GATE_KINDS.find(g => g.value === gateKind);
+        const produces = gateConfig?.produces || `pgc_clarifications.${gateKind}`;
+        const updated = { ...localData, gate_kind: gateKind, produces };
+        setLocalData(updated);
+        onChange(updated);
+    };
+
+    // PGC-specific handlers
+    const handleQgTemplateChange = (e) => {
+        const templateId = e.target.value;
+        if (!templateId) {
+            updateQuestionGeneration('template_ref', '');
+            return;
+        }
+        const template = templates.find(t => t.template_id === templateId);
+        if (template) {
+            updateQuestionGeneration('template_ref', buildTemplateRef(template));
+        }
+    };
+
+    const handleQgRoleChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            updateQuestionGenIncludes('ROLE_PROMPT', '');
+            return;
+        }
+        const fragment = roleFragments.find(f =>
+            f.fragment_id === `role:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateQuestionGenIncludes('ROLE_PROMPT', buildFragmentRef(fragment));
+        }
+    };
+
+    const handleQgTaskChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            updateQuestionGenIncludes('TASK_PROMPT', '');
+            return;
+        }
+        const fragment = taskFragments.find(f =>
+            f.fragment_id === `task:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateQuestionGenIncludes('TASK_PROMPT', buildFragmentRef(fragment));
+        }
+    };
+
+    const handleQgPgcChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            updateQuestionGenIncludes('PGC_CONTEXT', '');
+            return;
+        }
+        const fragment = pgcFragments.find(f =>
+            f.fragment_id === `pgc:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateQuestionGenIncludes('PGC_CONTEXT', buildFragmentRef(fragment));
+        }
+    };
+
+    const handleQgSchemaChange = (e) => {
+        const schemaId = e.target.value;
+        if (!schemaId) {
+            updateQuestionGeneration('output_schema_ref', '');
+            return;
+        }
+        const schema = schemas.find(s => s.schema_id === schemaId);
+        if (schema) {
+            updateQuestionGeneration('output_schema_ref', buildSchemaRef(schema));
+        }
+    };
+
+    const handleCmTemplateChange = (e) => {
+        const templateId = e.target.value;
+        if (!templateId) {
+            updateClarificationMerge('template_ref', '');
+            return;
+        }
+        const template = templates.find(t => t.template_id === templateId);
+        if (template) {
+            updateClarificationMerge('template_ref', buildTemplateRef(template));
+        }
+    };
+
+    const handleCmSchemaChange = (e) => {
+        const schemaId = e.target.value;
+        if (!schemaId) {
+            updateClarificationMerge('output_schema_ref', '');
+            return;
+        }
+        const schema = schemas.find(s => s.schema_id === schemaId);
+        if (schema) {
+            updateClarificationMerge('output_schema_ref', buildSchemaRef(schema));
+        }
+    };
+
     return (
         <div
-            className="w-64 border-l overflow-y-auto flex-shrink-0"
+            className="w-72 border-l overflow-y-auto flex-shrink-0"
             style={{
                 borderColor: 'var(--border-panel)',
                 background: 'var(--bg-panel)',
@@ -259,7 +499,7 @@ export default function NodePropertiesPanel({
                     className="text-xs font-semibold uppercase tracking-wide"
                     style={{ color: 'var(--text-muted)' }}
                 >
-                    Node Properties
+                    {isPgcNode ? 'PGC Gate Properties' : 'Node Properties'}
                 </span>
                 <button
                     onClick={() => onDelete(localData.node_id)}
@@ -299,19 +539,241 @@ export default function NodePropertiesPanel({
                     </select>
                 </div>
 
+                {/* Gate Kind - PGC only */}
+                {isPgcNode && (
+                    <div>
+                        <label style={labelStyle}>Gate Kind</label>
+                        <select
+                            value={localData.gate_kind || 'discovery'}
+                            onChange={handleGateKindChange}
+                            style={fieldStyle}
+                        >
+                            {PGC_GATE_KINDS.map(g => (
+                                <option key={g.value} value={g.value}>{g.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 {/* Description */}
                 <div>
                     <label style={labelStyle}>Description</label>
                     <textarea
                         value={localData.description || ''}
                         onChange={e => updateField('description', e.target.value)}
-                        rows={3}
+                        rows={2}
                         style={{ ...fieldStyle, resize: 'vertical' }}
                     />
                 </div>
 
-                {/* Interaction Template - for task, qa, pgc, intake_gate */}
-                {['task', 'qa', 'pgc', 'intake_gate'].includes(localData.type) && (
+                {/* Produces - for PGC and task nodes */}
+                {(isPgcNode || ['task', 'intake_gate'].includes(localData.type)) && (
+                    <div>
+                        <label style={labelStyle}>Produces</label>
+                        <input
+                            type="text"
+                            value={localData.produces || ''}
+                            onChange={e => updateField('produces', e.target.value)}
+                            placeholder={isPgcNode ? 'pgc_clarifications.discovery' : 'document_type'}
+                            style={fieldStyle}
+                        />
+                    </div>
+                )}
+
+                {/* === PGC Gate Internals === */}
+                {isPgcNode && (
+                    <div className="mt-4">
+                        <div style={sectionHeaderStyle}>Gate Internals</div>
+
+                        {/* Pass A: Question Generation */}
+                        <CollapsibleSection title="Pass A: Question Generation" defaultOpen={true} badge="LLM">
+                            <div className="space-y-2">
+                                {/* Template */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        Template
+                                    </label>
+                                    <select
+                                        value={qgTemplateId || ''}
+                                        onChange={handleQgTemplateChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Template --</option>
+                                        {templates.map(t => (
+                                            <option key={t.template_id} value={t.template_id}>
+                                                {t.name || t.template_id.replace(/_/g, ' ')}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Role Prompt */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        ROLE_PROMPT
+                                    </label>
+                                    <select
+                                        value={qgRoleId || ''}
+                                        onChange={handleQgRoleChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Role --</option>
+                                        {roleFragments.map(f => {
+                                            const id = f.fragment_id?.replace('role:', '') || f.id;
+                                            return (
+                                                <option key={f.fragment_id || f.id} value={id}>
+                                                    {f.name || id?.replace(/_/g, ' ')}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {/* Task Prompt */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        TASK_PROMPT
+                                    </label>
+                                    <select
+                                        value={qgTaskId || ''}
+                                        onChange={handleQgTaskChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Task --</option>
+                                        {taskFragments.map(f => {
+                                            const id = f.fragment_id?.replace('task:', '') || f.id;
+                                            return (
+                                                <option key={f.fragment_id || f.id} value={id}>
+                                                    {f.name || id?.replace(/_/g, ' ')}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {/* PGC Context */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        PGC_CONTEXT
+                                    </label>
+                                    <select
+                                        value={qgPgcId || ''}
+                                        onChange={handleQgPgcChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select PGC Context --</option>
+                                        {pgcFragments.map(f => {
+                                            const id = f.fragment_id?.replace('pgc:', '') || f.id;
+                                            return (
+                                                <option key={f.fragment_id || f.id} value={id}>
+                                                    {f.name || id?.replace(/_/g, ' ')}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+
+                                {/* Output Schema */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        OUTPUT_SCHEMA
+                                    </label>
+                                    <select
+                                        value={qgSchemaId || ''}
+                                        onChange={handleQgSchemaChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Schema --</option>
+                                        {schemas.map(s => (
+                                            <option key={s.schema_id} value={s.schema_id}>
+                                                {s.title || s.schema_id.replace(/_/g, ' ')}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </CollapsibleSection>
+
+                        {/* Entry: Operator Answers */}
+                        <div className="mt-2">
+                            <CollapsibleSection title="Entry: Operator Answers" badge="UI">
+                                <div className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    <div className="flex justify-between">
+                                        <span>Renders:</span>
+                                        <span className="font-mono">{internals.operator_entry?.renders || 'question_set'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Captures:</span>
+                                        <span className="font-mono">{internals.operator_entry?.captures || 'pgc_answers'}</span>
+                                    </div>
+                                    <div
+                                        className="text-[10px] mt-2 p-2 rounded"
+                                        style={{ background: 'var(--bg-canvas)', color: 'var(--text-muted)' }}
+                                    >
+                                        Questions rendered in UI. User provides answers.
+                                    </div>
+                                </div>
+                            </CollapsibleSection>
+                        </div>
+
+                        {/* Pass B: Clarification Merge */}
+                        <div className="mt-2">
+                            <CollapsibleSection title="Pass B: Clarification Merge" badge="LLM">
+                                <div className="space-y-2">
+                                    {/* Template */}
+                                    <div>
+                                        <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                            Template
+                                        </label>
+                                        <select
+                                            value={cmTemplateId || ''}
+                                            onChange={handleCmTemplateChange}
+                                            style={{ ...fieldStyle, fontSize: 11 }}
+                                        >
+                                            <option value="">-- Select Template --</option>
+                                            {templates.map(t => (
+                                                <option key={t.template_id} value={t.template_id}>
+                                                    {t.name || t.template_id.replace(/_/g, ' ')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Output Schema */}
+                                    <div>
+                                        <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                            OUTPUT_SCHEMA
+                                        </label>
+                                        <select
+                                            value={cmSchemaId || ''}
+                                            onChange={handleCmSchemaChange}
+                                            style={{ ...fieldStyle, fontSize: 11 }}
+                                        >
+                                            <option value="">-- Select Schema --</option>
+                                            {schemas.map(s => (
+                                                <option key={s.schema_id} value={s.schema_id}>
+                                                    {s.title || s.schema_id.replace(/_/g, ' ')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        className="text-[10px] mt-2 p-2 rounded"
+                                        style={{ background: 'var(--bg-canvas)', color: 'var(--text-muted)' }}
+                                    >
+                                        Merges questions + answers into structured clarifications artifact.
+                                    </div>
+                                </div>
+                            </CollapsibleSection>
+                        </div>
+                    </div>
+                )}
+
+                {/* === Non-PGC Node Properties === */}
+
+                {/* Interaction Template - for task, qa, intake_gate (not pgc) */}
+                {['task', 'qa', 'intake_gate'].includes(localData.type) && (
                     <div>
                         <label style={labelStyle}>Interaction Template</label>
                         <select
@@ -335,20 +797,6 @@ export default function NodePropertiesPanel({
                                 {localData.task_ref}
                             </div>
                         )}
-                    </div>
-                )}
-
-                {/* Produces - for task nodes */}
-                {['task', 'intake_gate'].includes(localData.type) && (
-                    <div>
-                        <label style={labelStyle}>Produces</label>
-                        <input
-                            type="text"
-                            value={localData.produces || ''}
-                            onChange={e => updateField('produces', e.target.value)}
-                            placeholder="document_type"
-                            style={fieldStyle}
-                        />
                     </div>
                 )}
 
@@ -418,8 +866,8 @@ export default function NodePropertiesPanel({
                     </label>
                 </div>
 
-                {/* Includes (for task, pgc nodes) */}
-                {['task', 'pgc'].includes(localData.type) && (
+                {/* Includes (for task nodes - not pgc) */}
+                {localData.type === 'task' && (
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label style={labelStyle}>Includes</label>

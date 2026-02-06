@@ -231,10 +231,10 @@ class WorkspaceService:
                 f"Expected {{scope}}:{{name}}:{{version}}:{{kind}}"
             )
 
-        if scope not in ("doctype", "role", "template", "workflow", "fragment"):
+        if scope not in ("doctype", "role", "template", "workflow", "fragment", "schema"):
             raise ArtifactIdError(
                 f"Invalid scope '{scope}' in artifact ID. "
-                f"Expected: doctype, role, template, workflow, or fragment"
+                f"Expected: doctype, role, template, workflow, fragment, or schema"
             )
 
         return {
@@ -329,6 +329,13 @@ class WorkspaceService:
             else:
                 raise ArtifactIdError(f"Unknown fragment kind: {frag_kind}")
 
+        elif scope == "schema":
+            # Standalone schema artifacts
+            # e.g., schema:project_discovery:1.4.0:schema
+            if kind != "schema":
+                raise ArtifactIdError(f"Unknown artifact kind for schema: {kind}")
+            return f"schemas/{name}/releases/{version}/schema.json"
+
         raise ArtifactIdError(f"Unknown scope: {scope}")
 
     def _path_to_artifact_id(self, file_path: str) -> Optional[str]:
@@ -419,6 +426,14 @@ class WorkspaceService:
         )
         if match:
             return f"workflow:{match.group(1)}:{match.group(2)}:definition"
+
+        # Standalone schemas
+        match = re.match(
+            r"schemas/([^/]+)/releases/([^/]+)/schema\.json$",
+            file_path
+        )
+        if match:
+            return f"schema:{match.group(1)}:{match.group(2)}:schema"
 
         return None
 

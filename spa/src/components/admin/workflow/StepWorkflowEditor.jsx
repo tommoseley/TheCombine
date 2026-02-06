@@ -68,7 +68,7 @@ const DEFAULT_ITERATION_STEP = {
  * JSON tab: raw editable textarea.
  * Metadata tab: read-only governance fields.
  */
-export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSave, onDelete, onNavigateToWorkflow }) {
+export default function StepWorkflowEditor({ workspaceId, workflow, documentTypes = [], onArtifactSave, onDelete, onNavigateToWorkflow }) {
     const [activeTab, setActiveTab] = useState('steps');
     const [jsonText, setJsonText] = useState('');
     const [jsonError, setJsonError] = useState(null);
@@ -266,6 +266,7 @@ export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSa
                         <div className="h-full overflow-y-auto p-4">
                             <EditableStepsList
                                 steps={workflowJson?.steps || []}
+                                documentTypes={documentTypes}
                                 onStepChange={handleStepChange}
                                 onStepDelete={handleStepDelete}
                                 onReorder={handleStepsReorder}
@@ -348,7 +349,7 @@ export default function StepWorkflowEditor({ workspaceId, workflow, onArtifactSa
 // Sortable Steps List
 // =============================================================================
 
-function EditableStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
+function EditableStepsList({ steps, documentTypes = [], onStepChange, onStepDelete, onReorder }) {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -382,6 +383,7 @@ function EditableStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
                         key={step.step_id}
                         step={step}
                         index={idx}
+                        documentTypes={documentTypes}
                         onChange={onStepChange}
                         onDelete={onStepDelete}
                     />
@@ -395,7 +397,7 @@ function EditableStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
 // Sortable Step Card (wrapper for drag behavior)
 // =============================================================================
 
-function SortableStepCard({ step, index, onChange, onDelete }) {
+function SortableStepCard({ step, index, documentTypes = [], onChange, onDelete }) {
     const {
         attributes,
         listeners,
@@ -416,6 +418,7 @@ function SortableStepCard({ step, index, onChange, onDelete }) {
             <EditableStepCard
                 step={step}
                 index={index}
+                documentTypes={documentTypes}
                 onChange={onChange}
                 onDelete={onDelete}
                 dragHandleProps={{ ...attributes, ...listeners }}
@@ -428,7 +431,7 @@ function SortableStepCard({ step, index, onChange, onDelete }) {
 // Editable Step Card
 // =============================================================================
 
-function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, depth = 0 }) {
+function EditableStepCard({ step, index, documentTypes = [], onChange, onDelete, dragHandleProps, depth = 0 }) {
     const [localData, setLocalData] = useState(step);
     const [expanded, setExpanded] = useState(true);
 
@@ -619,12 +622,18 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
                             <div className="grid grid-cols-3 gap-2">
                                 <div>
                                     <label style={labelStyle}>Doc Type</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         value={localData.iterate_over?.doc_type || ''}
                                         onChange={e => updateIterateOver('doc_type', e.target.value)}
                                         style={fieldStyle}
-                                    />
+                                    >
+                                        <option value="">-- Select --</option>
+                                        {documentTypes.map(dt => (
+                                            <option key={dt.doc_type_id} value={dt.doc_type_id}>
+                                                {dt.doc_type_id}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Collection Field</label>
@@ -677,6 +686,7 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
                                 </div>
                                 <NestedStepsList
                                     steps={localData.steps || []}
+                                    documentTypes={documentTypes}
                                     onStepChange={handleNestedStepChange}
                                     onStepDelete={handleNestedStepDelete}
                                     onReorder={handleNestedReorder}
@@ -688,13 +698,18 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
                             {/* Production step fields */}
                             <div>
                                 <label style={labelStyle}>Produces</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={localData.produces || ''}
                                     onChange={e => updateField('produces', e.target.value)}
-                                    placeholder="document_type (e.g., project_discovery)"
                                     style={fieldStyle}
-                                />
+                                >
+                                    <option value="">-- Select document type --</option>
+                                    {documentTypes.map(dt => (
+                                        <option key={dt.doc_type_id} value={dt.doc_type_id}>
+                                            {dt.doc_type_id}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
@@ -748,8 +763,7 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
                                             <div key={iIdx} className="flex gap-1 items-end">
                                                 <div style={{ flex: 1 }}>
                                                     {iIdx === 0 && <label style={{ ...labelStyle, fontSize: 9 }}>Doc/Entity Type</label>}
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         value={input.doc_type || input.entity_type || ''}
                                                         onChange={e => {
                                                             const val = e.target.value;
@@ -759,9 +773,15 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
                                                                 updateInput(iIdx, 'doc_type', val);
                                                             }
                                                         }}
-                                                        placeholder="doc_type"
                                                         style={{ ...fieldStyle, fontSize: 11 }}
-                                                    />
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {documentTypes.map(dt => (
+                                                            <option key={dt.doc_type_id} value={dt.doc_type_id}>
+                                                                {dt.doc_type_id}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                                 <div style={{ width: '30%' }}>
                                                     {iIdx === 0 && <label style={{ ...labelStyle, fontSize: 9 }}>Scope</label>}
@@ -815,7 +835,7 @@ function EditableStepCard({ step, index, onChange, onDelete, dragHandleProps, de
 // Nested Steps List (for iteration steps - own DndContext)
 // =============================================================================
 
-function NestedStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
+function NestedStepsList({ steps, documentTypes = [], onStepChange, onStepDelete, onReorder }) {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -849,6 +869,7 @@ function NestedStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
                         key={step.step_id}
                         step={step}
                         index={idx}
+                        documentTypes={documentTypes}
                         onChange={onStepChange}
                         onDelete={onStepDelete}
                     />
@@ -858,7 +879,7 @@ function NestedStepsList({ steps, onStepChange, onStepDelete, onReorder }) {
     );
 }
 
-function NestedSortableStepCard({ step, index, onChange, onDelete }) {
+function NestedSortableStepCard({ step, index, documentTypes = [], onChange, onDelete }) {
     const {
         attributes,
         listeners,
@@ -879,6 +900,7 @@ function NestedSortableStepCard({ step, index, onChange, onDelete }) {
             <EditableStepCard
                 step={step}
                 index={index}
+                documentTypes={documentTypes}
                 onChange={onChange}
                 onDelete={onDelete}
                 dragHandleProps={{ ...attributes, ...listeners }}

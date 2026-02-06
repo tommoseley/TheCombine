@@ -297,6 +297,9 @@ class RolePrompt:
     role_id: str
     version: str
     content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
     _release_path: Optional[Path] = field(default=None, repr=False)
 
     @classmethod
@@ -304,12 +307,110 @@ class RolePrompt:
         """Load a role prompt from a release directory."""
         prompt_path = release_path / "role.prompt.txt"
         content = prompt_path.read_text(encoding="utf-8")
+
+        # Load optional metadata
+        name = None
+        intent = None
+        tags = []
+        metadata_path = release_path / "meta.yaml"
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = yaml.safe_load(f) or {}
+            name = metadata.get("name")
+            intent = metadata.get("intent")
+            tags = metadata.get("tags", [])
+
         return cls(
             role_id=role_id,
             version=version,
             content=content,
+            name=name,
+            intent=intent,
+            tags=tags,
             _release_path=release_path,
         )
+
+
+class PromptFragmentKind(str, Enum):
+    """Prompt fragment kind classification per WS-ADR-044-002."""
+    ROLE = "role"
+    TASK = "task"
+    QA = "qa"
+    PGC = "pgc"
+    QUESTIONS = "questions"
+    REFLECTION = "reflection"
+
+
+@dataclass
+class PromptFragment:
+    """
+    A prompt fragment - a reusable piece of prompt content.
+
+    Per WS-ADR-044-002, prompt fragments are the unified representation
+    of all prompt artifact types (roles, tasks, QA, PGC, questions).
+    """
+    fragment_id: str
+    kind: PromptFragmentKind
+    version: str
+    content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    source_doc_type: Optional[str] = None  # For task/qa/pgc derived from DCW
+    _release_path: Optional[Path] = field(default=None, repr=False)
+
+    @classmethod
+    def from_role(cls, role: "RolePrompt") -> "PromptFragment":
+        """Create a prompt fragment from a RolePrompt."""
+        return cls(
+            fragment_id=f"role:{role.role_id}",
+            kind=PromptFragmentKind.ROLE,
+            version=role.version,
+            content=role.content,
+            name=role.name or role.role_id.replace("_", " ").title(),
+            intent=role.intent,
+            tags=role.tags,
+            _release_path=role._release_path,
+        )
+
+    @classmethod
+    def from_doctype_artifact(
+        cls,
+        doc_type_id: str,
+        version: str,
+        kind: PromptFragmentKind,
+        content: str,
+        name: Optional[str] = None,
+        intent: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+    ) -> "PromptFragment":
+        """Create a prompt fragment from a document type artifact."""
+        kind_to_suffix = {
+            PromptFragmentKind.TASK: "task",
+            PromptFragmentKind.QA: "qa",
+            PromptFragmentKind.PGC: "pgc",
+            PromptFragmentKind.QUESTIONS: "questions",
+            PromptFragmentKind.REFLECTION: "reflection",
+        }
+        suffix = kind_to_suffix.get(kind, kind.value)
+        return cls(
+            fragment_id=f"{suffix}:{doc_type_id}",
+            kind=kind,
+            version=version,
+            content=content,
+            name=name or f"{doc_type_id.replace('_', ' ').title()} {kind.value.title()}",
+            intent=intent,
+            tags=tags or [],
+            source_doc_type=doc_type_id,
+        )
+
+
+class TemplatePurpose(str, Enum):
+    """Template purpose classification."""
+    DOCUMENT = "document"
+    QA = "qa"
+    PGC = "pgc"
+    GENERAL = "general"
 
 
 @dataclass
@@ -318,6 +419,9 @@ class Template:
     template_id: str
     version: str
     content: str
+    name: Optional[str] = None
+    purpose: Optional[TemplatePurpose] = None
+    use_case: Optional[str] = None
     _release_path: Optional[Path] = field(default=None, repr=False)
 
     @classmethod
@@ -325,10 +429,31 @@ class Template:
         """Load a template from a release directory."""
         template_path = release_path / "template.txt"
         content = template_path.read_text(encoding="utf-8")
+
+        # Load optional metadata
+        name = None
+        purpose = None
+        use_case = None
+        metadata_path = release_path / "meta.yaml"
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = yaml.safe_load(f) or {}
+            name = metadata.get("name")
+            purpose_str = metadata.get("purpose")
+            if purpose_str:
+                try:
+                    purpose = TemplatePurpose(purpose_str)
+                except ValueError:
+                    pass
+            use_case = metadata.get("use_case")
+
         return cls(
             template_id=template_id,
             version=version,
             content=content,
+            name=name,
+            purpose=purpose,
+            use_case=use_case,
             _release_path=release_path,
         )
 
@@ -356,6 +481,86 @@ class StandaloneSchema:
 
 
 @dataclass
+class TaskPrompt:
+    """A standalone task prompt loaded from combine-config/prompts/tasks/."""
+    task_id: str
+    version: str
+    content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    _release_path: Optional[Path] = field(default=None, repr=False)
+
+    @classmethod
+    def from_path(cls, release_path: Path, task_id: str, version: str) -> "TaskPrompt":
+        """Load a task prompt from a release directory."""
+        task_path = release_path / "task.prompt.txt"
+        content = task_path.read_text(encoding="utf-8")
+
+        # Load optional metadata
+        name = None
+        intent = None
+        tags = []
+        metadata_path = release_path / "meta.yaml"
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = yaml.safe_load(f) or {}
+            name = metadata.get("name")
+            intent = metadata.get("intent")
+            tags = metadata.get("tags", [])
+
+        return cls(
+            task_id=task_id,
+            version=version,
+            content=content,
+            name=name,
+            intent=intent,
+            tags=tags,
+            _release_path=release_path,
+        )
+
+
+@dataclass
+class PgcContext:
+    """A PGC context prompt loaded from combine-config/prompts/pgc/."""
+    pgc_id: str
+    version: str
+    content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    _release_path: Optional[Path] = field(default=None, repr=False)
+
+    @classmethod
+    def from_path(cls, release_path: Path, pgc_id: str, version: str) -> "PgcContext":
+        """Load a PGC context from a release directory."""
+        pgc_path = release_path / "pgc.prompt.txt"
+        content = pgc_path.read_text(encoding="utf-8")
+
+        # Load optional metadata
+        name = None
+        intent = None
+        tags = []
+        metadata_path = release_path / "meta.yaml"
+        if metadata_path.exists():
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                metadata = yaml.safe_load(f) or {}
+            name = metadata.get("name")
+            intent = metadata.get("intent")
+            tags = metadata.get("tags", [])
+
+        return cls(
+            pgc_id=pgc_id,
+            version=version,
+            content=content,
+            name=name,
+            intent=intent,
+            tags=tags,
+            _release_path=release_path,
+        )
+
+
+@dataclass
 class ActiveReleases:
     """Active release pointers loaded from _active/active_releases.json."""
     document_types: Dict[str, str] = field(default_factory=dict)
@@ -363,6 +568,8 @@ class ActiveReleases:
     templates: Dict[str, str] = field(default_factory=dict)
     schemas: Dict[str, str] = field(default_factory=dict)
     workflows: Dict[str, str] = field(default_factory=dict)
+    tasks: Dict[str, str] = field(default_factory=dict)
+    pgc: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_json(cls, json_path: Path) -> "ActiveReleases":
@@ -376,6 +583,8 @@ class ActiveReleases:
             templates=data.get("templates", {}),
             schemas=data.get("schemas", {}),
             workflows=data.get("workflows", {}),
+            tasks=data.get("tasks", {}),
+            pgc=data.get("pgc", {}),
         )
 
     def get_doc_type_version(self, doc_type_id: str) -> Optional[str]:
@@ -393,3 +602,11 @@ class ActiveReleases:
     def get_schema_version(self, schema_id: str) -> Optional[str]:
         """Get the active version for a standalone schema."""
         return self.schemas.get(schema_id)
+
+    def get_task_version(self, task_id: str) -> Optional[str]:
+        """Get the active version for a standalone task prompt."""
+        return self.tasks.get(task_id)
+
+    def get_pgc_version(self, pgc_id: str) -> Optional[str]:
+        """Get the active version for a PGC context."""
+        return self.pgc.get(pgc_id)

@@ -3,6 +3,8 @@
 Implements ADR-041: Prompt Template Include System.
 
 Assembly is deterministic: same inputs produce byte-identical output.
+
+Now uses combine-config/prompts/ as the canonical source.
 """
 
 import hashlib
@@ -10,8 +12,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 from uuid import UUID
+
+from app.config.package_loader import get_package_loader, PackageNotFoundError, VersionNotFoundError
 
 
 # Token patterns per ADR-041
@@ -62,19 +66,20 @@ class PromptAssembler:
         assembler = PromptAssembler()
         result = assembler.assemble(
             task_ref="Clarification Questions Generator v1.0",
-            includes={"PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt"},
+            includes={"PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt"},
             correlation_id=uuid4()
         )
     """
 
-    def __init__(self, template_root: str = "seed/prompts"):
+    def __init__(self, template_root: Optional[str] = None):
         """Initialize the assembler.
-        
+
         Args:
             template_root: Directory containing task prompt templates.
-                          Defaults to seed/prompts.
+                          Defaults to combine-config/prompts (via PackageLoader).
         """
-        self._template_root = template_root
+        self._loader = get_package_loader()
+        self._template_root = template_root or str(self._loader.config_path / "prompts")
 
     def assemble(
         self,
@@ -170,13 +175,33 @@ class PromptAssembler:
 
     def _resolve_path(self, path: str) -> Path:
         """Resolve a path relative to repository root.
-        
+
         Args:
-            path: Relative path (e.g., "seed/prompts/pgc-contexts/project_discovery.v1.txt")
-            
+            path: Relative path. Supports both old and new formats:
+                - Old: "seed/prompts/pgc-contexts/project_discovery.v1.txt"
+                - New: "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt"
+
         Returns:
             Resolved Path object
         """
+        # If it's a seed/prompts path, try to redirect to combine-config
+        if path.startswith("seed/prompts/"):
+            # Map old paths to new locations
+            new_path = path.replace("seed/prompts/", str(self._loader.config_path / "prompts") + "/")
+            # Handle pgc-contexts -> pgc
+            new_path = new_path.replace("/pgc-contexts/", "/pgc/")
+            # If a direct file path, convert to versioned path
+            # e.g., "pgc/project_discovery.v1.txt" -> "pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt"
+            p = Path(new_path)
+            if p.suffix == ".txt" and not "releases" in str(p):
+                # Try to find the release directory
+                stem = p.stem
+                parent = p.parent
+                versioned_path = parent / stem / "releases" / "1.0.0" / "pgc.prompt.txt"
+                if versioned_path.exists():
+                    return versioned_path
+            return Path(new_path)
+
         # For now, resolve relative to current working directory
         # In production, this would be relative to a configured repo root
         return Path(path)
@@ -228,20 +253,70 @@ class PromptAssembler:
 
     def _load_template(self, task_ref: str) -> str:
         """Load a task prompt template.
-        
+
         Args:
-            task_ref: Template reference (e.g., "Clarification Questions Generator v1.0")
-            
+            task_ref: Template reference. Supports formats:
+                - Legacy: "Clarification Questions Generator v1.0"
+                - New: "clarification_questions_generator" (uses active release)
+                - Prefixed: "tasks/Clarification Questions Generator v1.0"
+
         Returns:
             Template content with normalized line endings
-            
+
         Raises:
             IncludeNotFoundError: If template doesn't exist
             EncodingError: If template is not valid UTF-8
         """
-        # Template files use .txt extension
+        from app.domain.prompt.errors import IncludeNotFoundError
+
+        # Strip tasks/ prefix if present
+        if task_ref.startswith("tasks/"):
+            task_ref = task_ref[6:]
+
+        # Try to load via PackageLoader first (new versioned structure)
+        task_id, version = self._parse_legacy_name(task_ref)
+        try:
+            task = self._loader.get_task(task_id, version)
+            content = task.content
+            # Canonical newline normalization
+            content = content.replace("\r\n", "\n").replace("\r", "\n")
+            return content
+        except (PackageNotFoundError, VersionNotFoundError):
+            pass
+
+        # Fall back to legacy file path
         template_path = f"{self._template_root}/{task_ref}.txt"
-        return self._load_file(template_path)
+        try:
+            return self._load_file(template_path)
+        except Exception:
+            raise IncludeNotFoundError(
+                f"Task prompt '{task_ref}' not found (tried: {task_id} and {template_path})"
+            )
+
+    def _parse_legacy_name(self, name: str) -> tuple[str, Optional[str]]:
+        """Parse a legacy prompt name into (id, version).
+
+        Examples:
+            "Clarification Questions Generator v1.0" -> ("clarification_questions_generator", "1.0.0")
+            "clarification_questions_generator" -> ("clarification_questions_generator", None)
+        """
+        # Already in new format (snake_case without version)
+        if re.match(r'^[a-z][a-z0-9_]*$', name):
+            return name, None
+
+        # Extract version from end (e.g., "1.0", "v1.4")
+        version_match = re.search(r'\s*v?(\d+\.\d+)$', name, re.IGNORECASE)
+        if version_match:
+            version = version_match.group(1) + ".0"  # Convert 1.0 to 1.0.0
+            name = name[:version_match.start()]
+        else:
+            version = None
+
+        # Convert to snake_case
+        name_id = name.lower().strip().replace(' ', '_').replace('-', '_')
+        name_id = re.sub(r'_+', '_', name_id).strip('_')
+
+        return name_id, version
 
     def _resolve_workflow_tokens(self, content: str, includes: dict[str, str]) -> str:
         """Resolve $$SECTION_NAME tokens from workflow includes map.

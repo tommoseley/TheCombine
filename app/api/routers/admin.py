@@ -394,14 +394,14 @@ async def assemble_prompt(request: PromptAssemblyRequest):
     Assemble a prompt from template and includes.
     
     For testing ADR-041 prompt template assembly.
-    
+
     Example request:
     ```json
     {
-        "task_ref": "Clarification Questions Generator v1.0",
+        "task_ref": "clarification_questions_generator",
         "includes": {
-            "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
-            "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json"
+            "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
+            "OUTPUT_SCHEMA": "combine-config/schemas/clarification_question_set/releases/2.0.0/schema.json"
         }
     }
     ```

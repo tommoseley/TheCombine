@@ -42,7 +42,9 @@ export default function PromptEditor({
     docType,
     loading: detailsLoading = false,
     roles = [],
+    workflows = [],
     onArtifactSave,
+    onCreateDcwWorkflow,
     initialTab = null,
     docTypeSource = null,
 }) {
@@ -265,9 +267,9 @@ export default function PromptEditor({
             if (kind.id === 'pgc_template') {
                 return !!docType.pgc_template_ref;
             }
-            // Workflow tab shown if doc type has a workflow_ref
+            // Workflow tab always shown for document types (shows create button if no workflow)
             if (kind.id === 'workflow') {
-                return !!docType.workflow_ref;
+                return true;
             }
             // Other artifacts shown if they exist
             if (!docType.artifacts) return false;
@@ -276,11 +278,14 @@ export default function PromptEditor({
     }, [docType]);
 
     // Reset to first available kind if current selection is not available
+    // But NOT when in focused view (Building Blocks access) - keep the requested tab
+    const isFocusedView = docTypeSource === 'task' || docTypeSource === 'schema';
     useEffect(() => {
+        if (isFocusedView) return; // Don't reset in focused view
         if (promptKinds.length > 0 && !promptKinds.find(k => k.id === selectedKind)) {
             setSelectedKind(promptKinds[0].id);
         }
-    }, [promptKinds, selectedKind]);
+    }, [promptKinds, selectedKind, isFocusedView]);
 
     // Check if current tab is view-only or form-based (no source/resolved toggle)
     const isViewOnly = selectedKind === 'role_prompt' || selectedKind === 'template' || selectedKind === 'qa_template' || selectedKind === 'pgc_template';
@@ -288,6 +293,27 @@ export default function PromptEditor({
     const isSchema = selectedKind === 'schema';
     const isWorkflow = selectedKind === 'workflow';
     const showViewModeToggle = !isViewOnly && !isPackage && !isSchema && !isWorkflow;
+
+    // Check if this document type has a workflow defined
+    const hasWorkflow = useMemo(() => {
+        if (!docType?.doc_type_id) return false;
+        // Check if there's a workflow_ref or if the doc_type_id exists in workflows
+        if (docType.workflow_ref) return true;
+        return workflows.some(wf => wf.workflow_id === docType.doc_type_id);
+    }, [docType?.doc_type_id, docType?.workflow_ref, workflows]);
+
+    // State for creating workflow
+    const [creatingWorkflow, setCreatingWorkflow] = useState(false);
+
+    const handleCreateWorkflow = async () => {
+        if (!docType?.doc_type_id || !onCreateDcwWorkflow) return;
+        setCreatingWorkflow(true);
+        try {
+            await onCreateDcwWorkflow(docType.doc_type_id);
+        } finally {
+            setCreatingWorkflow(false);
+        }
+    };
 
     if (!docType && !detailsLoading) {
         return (
@@ -328,7 +354,7 @@ export default function PromptEditor({
     }
 
     // When opened from Building Blocks (task or schema), show focused view without tab bar
-    const isFocusedView = docTypeSource === 'task' || docTypeSource === 'schema';
+    // isFocusedView is defined above (near useEffect)
     const focusedLabel = docTypeSource === 'task' ? 'Interaction' : docTypeSource === 'schema' ? 'Schema' : null;
     // Building block artifacts (task_prompt, schema) are read-only when accessed from DCW tab bar
     const isDcwBuildingBlockView = !isFocusedView && (selectedKind === 'task_prompt' || selectedKind === 'schema');
@@ -613,11 +639,50 @@ export default function PromptEditor({
             <div className="flex-1 overflow-hidden flex flex-col">
                 {isWorkflow ? (
                     // Document production workflow - React Flow canvas
-                    <WorkflowEditorContent
-                        workspaceId={workspaceId}
-                        artifactId={docType.workflow_ref}
-                        onArtifactSave={onArtifactSave}
-                    />
+                    hasWorkflow ? (
+                        <WorkflowEditorContent
+                            workspaceId={workspaceId}
+                            artifactId={docType.workflow_ref}
+                            onArtifactSave={onArtifactSave}
+                        />
+                    ) : (
+                        // No workflow exists - show create option
+                        <div
+                            className="flex-1 flex items-center justify-center"
+                            style={{ background: 'var(--bg-canvas)' }}
+                        >
+                            <div className="text-center p-8 max-w-md">
+                                <div
+                                    className="text-lg font-semibold mb-2"
+                                    style={{ color: 'var(--text-primary)' }}
+                                >
+                                    No Workflow Defined
+                                </div>
+                                <div
+                                    className="text-sm mb-4"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
+                                    This document type doesn't have a workflow definition yet.
+                                    Create one to define how the document is produced.
+                                </div>
+                                {onCreateDcwWorkflow && (
+                                    <button
+                                        onClick={handleCreateWorkflow}
+                                        disabled={creatingWorkflow}
+                                        className="px-4 py-2 rounded text-sm font-semibold hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            cursor: creatingWorkflow ? 'wait' : 'pointer',
+                                            opacity: creatingWorkflow ? 0.7 : 1,
+                                        }}
+                                    >
+                                        {creatingWorkflow ? 'Creating...' : 'Create Workflow'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )
                 ) : selectedKind === 'package' ? (
                     // Package editor - form-based
                     <PackageEditor

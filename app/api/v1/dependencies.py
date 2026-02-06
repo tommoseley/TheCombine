@@ -18,12 +18,12 @@ from app.domain.workflow import (
 
 class Settings(BaseModel):
     """Application settings."""
-    
-    workflow_dir: Path = Path("seed/workflows")
-    prompt_dir: Path = Path("seed/prompts")
+
+    workflow_dir: Path = Path("combine-config/workflows")
+    prompt_dir: Path = Path("combine-config/prompts")
     state_dir: Path = Path("data/workflow_state")
     use_memory_persistence: bool = False
-    
+
     model_config = {"arbitrary_types_allowed": True}
 
 
@@ -62,9 +62,11 @@ def get_workflow_registry() -> WorkflowRegistry:
 
 @lru_cache
 def get_prompt_loader() -> PromptLoader:
-    """Get prompt loader for role/task prompts."""
-    settings = get_settings()
-    return PromptLoader(base_path=settings.prompt_dir)
+    """Get prompt loader for role/task prompts.
+
+    Uses PackageLoader internally, so prompt_dir setting is ignored.
+    """
+    return PromptLoader()
 
 
 def get_persistence() -> StatePersistence:

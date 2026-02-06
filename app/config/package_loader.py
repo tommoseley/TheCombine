@@ -13,6 +13,8 @@ from app.config.package_model import (
     DocumentTypePackage,
     RolePrompt,
     StandaloneSchema,
+    TaskPrompt,
+    PgcContext,
     Template,
     ActiveReleases,
 )
@@ -69,6 +71,8 @@ class PackageLoader:
         self._document_types_path = self.config_path / "document_types"
         self._roles_path = self.config_path / "prompts" / "roles"
         self._templates_path = self.config_path / "prompts" / "templates"
+        self._tasks_path = self.config_path / "prompts" / "tasks"
+        self._pgc_path = self.config_path / "prompts" / "pgc"
         self._schemas_path = self.config_path / "schemas"
 
         # Caches
@@ -76,6 +80,8 @@ class PackageLoader:
         self._package_cache: Dict[str, DocumentTypePackage] = {}
         self._role_cache: Dict[str, RolePrompt] = {}
         self._template_cache: Dict[str, Template] = {}
+        self._task_cache: Dict[str, TaskPrompt] = {}
+        self._pgc_cache: Dict[str, PgcContext] = {}
         self._schema_cache: Dict[str, StandaloneSchema] = {}
 
     def get_active_releases(self) -> ActiveReleases:
@@ -96,6 +102,8 @@ class PackageLoader:
         self._package_cache.clear()
         self._role_cache.clear()
         self._template_cache.clear()
+        self._task_cache.clear()
+        self._pgc_cache.clear()
         self._schema_cache.clear()
         logger.info("Package loader cache invalidated")
 
@@ -293,6 +301,126 @@ class PackageLoader:
 
         return [
             d.name for d in self._templates_path.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ]
+
+    # =========================================================================
+    # Task Prompts
+    # =========================================================================
+
+    def get_task(
+        self,
+        task_id: str,
+        version: Optional[str] = None,
+    ) -> TaskPrompt:
+        """
+        Load a standalone task prompt.
+
+        Args:
+            task_id: Task identifier (e.g., "project_discovery")
+            version: Specific version to load. If None, uses active release.
+
+        Returns:
+            Loaded TaskPrompt
+
+        Raises:
+            PackageNotFoundError: Task not found
+            VersionNotFoundError: Requested version not found
+        """
+        # Determine version
+        if version is None:
+            active = self.get_active_releases()
+            version = active.get_task_version(task_id)
+            if version is None:
+                raise PackageNotFoundError(
+                    f"No active release for task: {task_id}"
+                )
+
+        # Check cache
+        cache_key = f"{task_id}:{version}"
+        if cache_key in self._task_cache:
+            return self._task_cache[cache_key]
+
+        # Load task
+        task_path = self._tasks_path / task_id / "releases" / version
+        if not task_path.exists():
+            raise VersionNotFoundError(
+                f"Version {version} not found for task: {task_id}"
+            )
+
+        task = TaskPrompt.from_path(task_path, task_id, version)
+        self._task_cache[cache_key] = task
+
+        logger.debug(f"Loaded task prompt: {task_id} v{version}")
+        return task
+
+    def list_tasks(self) -> List[str]:
+        """List all available task IDs."""
+        if not self._tasks_path.exists():
+            return []
+
+        return [
+            d.name for d in self._tasks_path.iterdir()
+            if d.is_dir() and not d.name.startswith(".")
+        ]
+
+    # =========================================================================
+    # PGC Contexts
+    # =========================================================================
+
+    def get_pgc(
+        self,
+        pgc_id: str,
+        version: Optional[str] = None,
+    ) -> PgcContext:
+        """
+        Load a PGC context.
+
+        Args:
+            pgc_id: PGC identifier (e.g., "project_discovery.v1")
+            version: Specific version to load. If None, uses active release.
+
+        Returns:
+            Loaded PgcContext
+
+        Raises:
+            PackageNotFoundError: PGC context not found
+            VersionNotFoundError: Requested version not found
+        """
+        # Determine version
+        if version is None:
+            active = self.get_active_releases()
+            version = active.get_pgc_version(pgc_id)
+            if version is None:
+                raise PackageNotFoundError(
+                    f"No active release for PGC: {pgc_id}"
+                )
+
+        # Check cache
+        cache_key = f"{pgc_id}:{version}"
+        if cache_key in self._pgc_cache:
+            return self._pgc_cache[cache_key]
+
+        # Load PGC
+        pgc_path = self._pgc_path / pgc_id / "releases" / version
+        if not pgc_path.exists():
+            raise VersionNotFoundError(
+                f"Version {version} not found for PGC: {pgc_id}"
+            )
+
+        pgc = PgcContext.from_path(pgc_path, pgc_id, version)
+        self._pgc_cache[cache_key] = pgc
+
+        logger.debug(f"Loaded PGC context: {pgc_id} v{version}")
+        return pgc
+
+    def list_pgc(self) -> List[str]:
+        """List all available PGC context IDs."""
+        if not self._pgc_path.exists():
+            return []
+
+        return [
+            d.name for d in self._pgc_path.iterdir()
             if d.is_dir() and not d.name.startswith(".")
         ]
 

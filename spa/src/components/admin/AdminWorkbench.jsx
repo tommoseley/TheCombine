@@ -6,11 +6,15 @@ import { useAdminDocumentTypes } from '../../hooks/useAdminDocumentTypes';
 import { useAdminRoles } from '../../hooks/useAdminRoles';
 import { useAdminTemplates } from '../../hooks/useAdminTemplates';
 import { useAdminWorkflows } from '../../hooks/useAdminWorkflows';
+import { useAdminSchemas } from '../../hooks/useAdminSchemas';
+import usePromptFragments from '../../hooks/usePromptFragments';
 import { adminApi } from '../../api/adminClient';
 import DocTypeBrowser from './DocTypeBrowser';
 import PromptEditor from './PromptEditor';
 import RoleEditor from './RoleEditor';
 import TemplateEditor from './TemplateEditor';
+import SchemaEditor from './SchemaEditor';
+import PromptFragmentEditor from './PromptFragmentEditor';
 import StepWorkflowEditor from './workflow/StepWorkflowEditor';
 import GitStatusPanel from './GitStatusPanel';
 
@@ -32,6 +36,8 @@ export default function AdminWorkbench() {
     const [selectedRole, setSelectedRole] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedWorkflow, setSelectedWorkflow] = useState(null);
+    const [selectedFragment, setSelectedFragment] = useState(null);
+    const [selectedSchema, setSelectedSchema] = useState(null);
     const [initialTab, setInitialTab] = useState(null);
     const [docTypeSource, setDocTypeSource] = useState(null); // 'docworkflow' | 'task' | 'schema'
 
@@ -54,18 +60,21 @@ export default function AdminWorkbench() {
     const {
         documentTypes,
         loading: docTypesLoading,
+        refresh: refreshDocTypes,
     } = useAdminDocumentTypes();
 
     // Roles list
     const {
         roles,
         loading: rolesLoading,
+        refresh: refreshRoles,
     } = useAdminRoles();
 
     // Templates list
     const {
         templates,
         loading: templatesLoading,
+        refresh: refreshTemplates,
     } = useAdminTemplates();
 
     // Workflows list
@@ -74,6 +83,21 @@ export default function AdminWorkbench() {
         loading: workflowsLoading,
         refresh: refreshWorkflows,
     } = useAdminWorkflows();
+
+    // Prompt fragments (unified view)
+    const {
+        fragments: promptFragments,
+        loading: promptFragmentsLoading,
+        kindOptions: promptFragmentKindOptions,
+        refresh: refreshFragments,
+    } = usePromptFragments();
+
+    // Standalone schemas
+    const {
+        schemas,
+        loading: schemasLoading,
+        refresh: refreshSchemas,
+    } = useAdminSchemas();
 
     // Handle doc type selection - fetch full details
     const handleSelectDocType = useCallback(async (docType, tab = null, source = 'docworkflow') => {
@@ -117,6 +141,8 @@ export default function AdminWorkbench() {
         setSelectedDocTypeDetails(null);
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
     }, []);
 
     // Handle template selection
@@ -126,6 +152,8 @@ export default function AdminWorkbench() {
         setSelectedDocTypeDetails(null);
         setSelectedRole(null);
         setSelectedWorkflow(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
     }, []);
 
     // Handle workflow selection
@@ -135,6 +163,30 @@ export default function AdminWorkbench() {
         setSelectedDocTypeDetails(null);
         setSelectedRole(null);
         setSelectedTemplate(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
+    }, []);
+
+    // Handle prompt fragment selection
+    const handleSelectFragment = useCallback((fragment) => {
+        setSelectedFragment(fragment);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
+        setSelectedSchema(null);
+    }, []);
+
+    // Handle standalone schema selection
+    const handleSelectStandaloneSchema = useCallback((schema) => {
+        setSelectedSchema(schema);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
+        setSelectedFragment(null);
     }, []);
 
     // Handle navigation to a workflow by ID (e.g., from derived_from link)
@@ -203,6 +255,112 @@ export default function AdminWorkbench() {
             alert(`Failed to delete workflow: ${err.message}`);
         }
     }, [workspaceId, refreshWorkflows, refreshState]);
+
+    // Handle create document type
+    const handleCreateDocType = useCallback(async (data) => {
+        if (!workspaceId) return;
+        try {
+            const result = await adminApi.createDocumentType(workspaceId, data);
+            await refreshDocTypes();
+            refreshState();
+            // Auto-select the new document type
+            handleSelectDocType({
+                doc_type_id: result.doc_type_id,
+                display_name: data.display_name || result.doc_type_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                active_version: result.version,
+            });
+        } catch (err) {
+            console.error('Failed to create document type:', err);
+            alert(`Failed to create document type: ${err.message}`);
+        }
+    }, [workspaceId, refreshDocTypes, refreshState, handleSelectDocType]);
+
+    // Handle delete document type
+    const handleDeleteDocType = useCallback(async (docTypeId) => {
+        if (!workspaceId) return;
+        try {
+            await adminApi.deleteDocumentType(workspaceId, docTypeId);
+            await refreshDocTypes();
+            refreshState();
+            setSelectedDocType(null);
+            setSelectedDocTypeDetails(null);
+        } catch (err) {
+            console.error('Failed to delete document type:', err);
+            alert(`Failed to delete document type: ${err.message}`);
+        }
+    }, [workspaceId, refreshDocTypes, refreshState]);
+
+    // Handle create DCW workflow (graph-based workflow for document type)
+    const handleCreateDcwWorkflow = useCallback(async (docTypeId) => {
+        if (!workspaceId) return;
+        try {
+            await adminApi.createDcwWorkflow(workspaceId, { doc_type_id: docTypeId });
+            await refreshWorkflows();
+            refreshState();
+        } catch (err) {
+            console.error('Failed to create DCW workflow:', err);
+            alert(`Failed to create workflow: ${err.message}`);
+        }
+    }, [workspaceId, refreshWorkflows, refreshState]);
+
+    // Handle create prompt fragment (role prompt)
+    const handleCreateFragment = useCallback(async (data) => {
+        if (!workspaceId) return;
+        try {
+            const result = await adminApi.createRolePrompt(workspaceId, data);
+            await refreshFragments();
+            await refreshRoles();
+            refreshState();
+            // Auto-select the new fragment
+            handleSelectFragment({
+                fragment_id: `role:${result.role_id}`,
+                kind: 'role',
+                version: result.version,
+                name: data.name || result.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            });
+        } catch (err) {
+            console.error('Failed to create role prompt:', err);
+            alert(`Failed to create role prompt: ${err.message}`);
+        }
+    }, [workspaceId, refreshFragments, refreshRoles, refreshState, handleSelectFragment]);
+
+    // Handle create template
+    const handleCreateTemplate = useCallback(async (data) => {
+        if (!workspaceId) return;
+        try {
+            const result = await adminApi.createTemplate(workspaceId, data);
+            await refreshTemplates();
+            refreshState();
+            // Auto-select the new template
+            handleSelectTemplate({
+                template_id: result.template_id,
+                active_version: result.version,
+                name: data.name || result.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            });
+        } catch (err) {
+            console.error('Failed to create template:', err);
+            alert(`Failed to create template: ${err.message}`);
+        }
+    }, [workspaceId, refreshTemplates, refreshState, handleSelectTemplate]);
+
+    // Handle create standalone schema
+    const handleCreateSchema = useCallback(async (data) => {
+        if (!workspaceId) return;
+        try {
+            const result = await adminApi.createStandaloneSchema(workspaceId, data);
+            await refreshSchemas();
+            refreshState();
+            // Auto-select the new schema
+            handleSelectStandaloneSchema({
+                schema_id: result.schema_id,
+                active_version: result.version,
+                title: data.title || result.schema_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            });
+        } catch (err) {
+            console.error('Failed to create schema:', err);
+            alert(`Failed to create schema: ${err.message}`);
+        }
+    }, [workspaceId, refreshSchemas, refreshState, handleSelectStandaloneSchema]);
 
     // Handle workspace close
     const handleClose = useCallback(() => {
@@ -309,10 +467,12 @@ export default function AdminWorkbench() {
     }
 
     // Determine which editor to show
-    const showRoleEditor = selectedRole && !selectedDocType && !selectedTemplate && !selectedWorkflow;
-    const showTemplateEditor = selectedTemplate && !selectedDocType && !selectedRole && !selectedWorkflow;
-    const showWorkflowEditor = selectedWorkflow && !selectedDocType && !selectedRole && !selectedTemplate;
-    const showPromptEditor = !showRoleEditor && !showTemplateEditor && !showWorkflowEditor;
+    const showRoleEditor = selectedRole && !selectedDocType && !selectedTemplate && !selectedWorkflow && !selectedFragment && !selectedSchema;
+    const showTemplateEditor = selectedTemplate && !selectedDocType && !selectedRole && !selectedWorkflow && !selectedFragment && !selectedSchema;
+    const showWorkflowEditor = selectedWorkflow && !selectedDocType && !selectedRole && !selectedTemplate && !selectedFragment && !selectedSchema;
+    const showFragmentEditor = selectedFragment && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedSchema;
+    const showSchemaEditor = selectedSchema && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedFragment;
+    const showPromptEditor = !showRoleEditor && !showTemplateEditor && !showWorkflowEditor && !showFragmentEditor && !showSchemaEditor;
 
     return (
         <div
@@ -325,26 +485,39 @@ export default function AdminWorkbench() {
                 roles={roles}
                 templates={templates}
                 workflows={workflows}
+                promptFragments={promptFragments}
+                promptFragmentKindOptions={promptFragmentKindOptions}
+                schemas={schemas}
                 loading={docTypesLoading}
                 rolesLoading={rolesLoading}
                 templatesLoading={templatesLoading}
                 workflowsLoading={workflowsLoading}
+                promptFragmentsLoading={promptFragmentsLoading}
+                schemasLoading={schemasLoading}
                 selectedDocType={selectedDocType}
                 docTypeSource={docTypeSource}
                 selectedRole={selectedRole}
                 selectedTemplate={selectedTemplate}
                 selectedWorkflow={selectedWorkflow}
+                selectedFragment={selectedFragment}
+                selectedSchema={selectedSchema}
                 onSelectDocType={handleSelectDocType}
                 onSelectRole={handleSelectRole}
                 onSelectTemplate={handleSelectTemplate}
                 onSelectWorkflow={handleSelectWorkflow}
+                onSelectFragment={handleSelectFragment}
+                onSelectStandaloneSchema={handleSelectStandaloneSchema}
                 onCreateWorkflow={handleCreateWorkflow}
+                onCreateDocType={handleCreateDocType}
+                onCreateFragment={handleCreateFragment}
+                onCreateTemplate={handleCreateTemplate}
+                onCreateSchema={handleCreateSchema}
                 onSelectTask={handleSelectTask}
                 onSelectSchema={handleSelectSchema}
                 workspaceState={workspaceState}
             />
 
-            {/* Center panel - Editor (Prompt, Role, Template, or Workflow) */}
+            {/* Center panel - Editor (Prompt, Role, Template, Fragment, or Workflow) */}
             {showRoleEditor ? (
                 <RoleEditor
                     workspaceId={workspaceId}
@@ -357,13 +530,26 @@ export default function AdminWorkbench() {
                     template={selectedTemplate}
                     onArtifactSave={handleArtifactSave}
                 />
+            ) : showFragmentEditor ? (
+                <PromptFragmentEditor
+                    workspaceId={workspaceId}
+                    fragment={selectedFragment}
+                    onArtifactSave={handleArtifactSave}
+                />
             ) : showWorkflowEditor ? (
                 <StepWorkflowEditor
                     workspaceId={workspaceId}
                     workflow={selectedWorkflow}
+                    documentTypes={documentTypes}
                     onArtifactSave={handleArtifactSave}
                     onDelete={handleDeleteWorkflow}
                     onNavigateToWorkflow={handleNavigateToWorkflow}
+                />
+            ) : showSchemaEditor ? (
+                <SchemaEditor
+                    workspaceId={workspaceId}
+                    schema={selectedSchema}
+                    onArtifactSave={handleArtifactSave}
                 />
             ) : (
                 <PromptEditor
@@ -371,7 +557,9 @@ export default function AdminWorkbench() {
                     docType={selectedDocTypeDetails}
                     loading={detailsLoading}
                     roles={roles}
+                    workflows={workflows}
                     onArtifactSave={handleArtifactSave}
+                    onCreateDcwWorkflow={handleCreateDcwWorkflow}
                     initialTab={initialTab}
                     docTypeSource={docTypeSource}
                 />

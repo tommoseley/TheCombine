@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import KindFilter from './KindFilter';
 
 const STORAGE_KEY = 'doctype-browser-collapsed';
 
@@ -161,51 +162,62 @@ function ItemButton({ selected, onClick, label, sublabel, badge }) {
 /**
  * Collapsible Building Blocks item with colored dot and count badge.
  * Header shows dot, label, and count. Expands to show child items.
+ * Supports optional action button (e.g., "+ New").
  */
-function BuildingBlockItem({ label, count, dotColor, active, defaultOpen = false, children }) {
+function BuildingBlockItem({ label, count, dotColor, active, defaultOpen = false, action, children }) {
     const [open, setOpen] = usePersistedOpen(`bb:${label}`, defaultOpen);
 
     return (
         <div>
-            <button
-                onClick={() => setOpen(!open)}
-                className="w-full px-4 py-2 flex items-center justify-between text-sm hover:opacity-80 transition-opacity"
+            <div
+                className="flex items-center"
                 style={{
                     background: active ? 'var(--bg-selected)' : 'transparent',
-                    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
                     borderLeft: active
                         ? '2px solid var(--action-primary)'
                         : '2px solid transparent',
-                    cursor: 'pointer',
                 }}
             >
-                <span className="flex items-center gap-2">
-                    <span style={{ color: dotColor, fontSize: 10 }}>&#9679;</span>
-                    <span className="font-medium">{label}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                    <span
-                        style={{
-                            fontSize: 9,
-                            fontFamily: 'monospace',
-                            color: 'var(--text-muted)',
-                        }}
-                    >
-                        {count}
+                <button
+                    onClick={() => setOpen(!open)}
+                    className="flex-1 px-4 py-2 flex items-center justify-between text-sm hover:opacity-80 transition-opacity"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                    }}
+                >
+                    <span className="flex items-center gap-2">
+                        <span style={{ color: dotColor, fontSize: 10 }}>&#9679;</span>
+                        <span className="font-medium">{label}</span>
                     </span>
-                    <span
-                        style={{
-                            color: 'var(--text-muted)',
-                            transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-                            transition: 'transform 150ms ease',
-                            display: 'inline-block',
-                            fontSize: 9,
-                        }}
-                    >
-                        &#9662;
+                    <span className="flex items-center gap-2">
+                        <span
+                            style={{
+                                fontSize: 9,
+                                fontFamily: 'monospace',
+                                color: 'var(--text-muted)',
+                            }}
+                        >
+                            {count}
+                        </span>
+                        <span
+                            style={{
+                                color: 'var(--text-muted)',
+                                transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+                                transition: 'transform 150ms ease',
+                                display: 'inline-block',
+                                fontSize: 9,
+                            }}
+                        >
+                            &#9662;
+                        </span>
                     </span>
-                </span>
-            </button>
+                </button>
+                {action && <div className="pr-2">{action}</div>}
+            </div>
             {open && children}
         </div>
     );
@@ -242,6 +254,7 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
  *   Building Blocks
  *     > Roles (count badge)
  *     > Interactions (count badge)
+ *     > Prompt Fragments (count badge)
  *     > Schemas (count badge)
  *     > Templates (count badge)
  *   Governance
@@ -253,20 +266,33 @@ export default function DocTypeBrowser({
     roles = [],
     templates = [],
     workflows = [],
+    promptFragments = [],
+    promptFragmentKindOptions = [],
+    schemas = [],
     loading = false,
     rolesLoading = false,
     templatesLoading = false,
     workflowsLoading = false,
+    promptFragmentsLoading = false,
+    schemasLoading = false,
     selectedDocType = null,
     docTypeSource = null,
     selectedRole = null,
     selectedTemplate = null,
     selectedWorkflow = null,
+    selectedFragment = null,
+    selectedSchema = null,
     onSelectDocType,
     onSelectRole,
     onSelectTemplate,
     onSelectWorkflow,
+    onSelectFragment,
+    onSelectStandaloneSchema,
     onCreateWorkflow,
+    onCreateDocType,
+    onCreateFragment,
+    onCreateTemplate,
+    onCreateSchema,
     onSelectTask,
     onSelectSchema,
     workspaceState = null,
@@ -276,6 +302,28 @@ export default function DocTypeBrowser({
     const [selectedReference, setSelectedReference] = useState(null);
     const [newWorkflowId, setNewWorkflowId] = useState('');
     const [creating, setCreating] = useState(false);
+
+    // Create document type state
+    const [dcwCreateMode, setDcwCreateMode] = useState(false);
+    const [newDocTypeId, setNewDocTypeId] = useState('');
+    const [creatingDocType, setCreatingDocType] = useState(false);
+
+    // Prompt fragment filter state
+    const [fragmentKindFilter, setFragmentKindFilter] = useState('all');
+
+    // Creation dialog states
+    const [createFragmentMode, setCreateFragmentMode] = useState(false);
+    const [newFragmentKind, setNewFragmentKind] = useState('role');
+    const [newFragmentId, setNewFragmentId] = useState('');
+    const [creatingFragment, setCreatingFragment] = useState(false);
+
+    const [createTemplateMode, setCreateTemplateMode] = useState(false);
+    const [newTemplateId, setNewTemplateId] = useState('');
+    const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+    const [createSchemaMode, setCreateSchemaMode] = useState(false);
+    const [newSchemaId, setNewSchemaId] = useState('');
+    const [creatingSchema, setCreatingSchema] = useState(false);
 
     // Sort doc types alphabetically for DCW section
     const sortedDocTypes = [...documentTypes].sort((a, b) =>
@@ -299,10 +347,93 @@ export default function DocTypeBrowser({
     const dirtyCount = workspaceState?.modified_artifacts?.length ?? 0;
     const isDirty = workspaceState?.is_dirty ?? false;
 
+    // Filter prompt fragments by selected kind
+    const filteredFragments = fragmentKindFilter === 'all'
+        ? promptFragments
+        : promptFragments.filter(f => f.kind === fragmentKindFilter);
+
     const resetCreateForm = () => {
         setCreateMode(null);
         setSelectedReference(null);
         setNewWorkflowId('');
+    };
+
+    const resetDcwCreateForm = () => {
+        setDcwCreateMode(false);
+        setNewDocTypeId('');
+    };
+
+    const resetFragmentCreateForm = () => {
+        setCreateFragmentMode(false);
+        setNewFragmentKind('role');
+        setNewFragmentId('');
+    };
+
+    const resetTemplateCreateForm = () => {
+        setCreateTemplateMode(false);
+        setNewTemplateId('');
+    };
+
+    const resetSchemaCreateForm = () => {
+        setCreateSchemaMode(false);
+        setNewSchemaId('');
+    };
+
+    const handleCreateDocType = async () => {
+        const id = newDocTypeId.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) return;
+        setCreatingDocType(true);
+        try {
+            await onCreateDocType?.({ doc_type_id: id });
+            resetDcwCreateForm();
+        } catch {
+            // Error handled by parent
+        } finally {
+            setCreatingDocType(false);
+        }
+    };
+
+    const handleCreateFragment = async () => {
+        const id = newFragmentId.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) return;
+        setCreatingFragment(true);
+        try {
+            // For role fragments, pass role_id; API expects role_id for createRolePrompt
+            await onCreateFragment?.({ role_id: id, kind: newFragmentKind });
+            resetFragmentCreateForm();
+        } catch {
+            // Error handled by parent
+        } finally {
+            setCreatingFragment(false);
+        }
+    };
+
+    const handleCreateTemplate = async () => {
+        const id = newTemplateId.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) return;
+        setCreatingTemplate(true);
+        try {
+            await onCreateTemplate?.({ template_id: id });
+            resetTemplateCreateForm();
+        } catch {
+            // Error handled by parent
+        } finally {
+            setCreatingTemplate(false);
+        }
+    };
+
+    const handleCreateSchema = async () => {
+        const id = newSchemaId.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!id || !/^[a-z][a-z0-9_]*$/.test(id)) return;
+        setCreatingSchema(true);
+        try {
+            await onCreateSchema?.({ schema_id: id });
+            resetSchemaCreateForm();
+        } catch {
+            // Error handled by parent
+        } finally {
+            setCreatingSchema(false);
+        }
     };
 
     const handleCreateWorkflow = async () => {
@@ -546,7 +677,85 @@ export default function DocTypeBrowser({
                     </SubSection>
 
                     {/* --- Document Creation (DCWs) --- */}
-                    <SubSection title="Document Creation (DCWs)" dotColor="var(--dot-blue)">
+                    <SubSection
+                        title="Document Creation (DCWs)"
+                        dotColor="var(--dot-blue)"
+                        action={
+                            onCreateDocType && (
+                                <button
+                                    onClick={() => setDcwCreateMode(!dcwCreateMode)}
+                                    className="text-xs hover:opacity-80"
+                                    style={{
+                                        color: 'var(--action-primary)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                    title="Create new document type"
+                                >
+                                    + New
+                                </button>
+                            )
+                        }
+                    >
+                        {/* Create Document Type Form */}
+                        {dcwCreateMode && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <input
+                                    type="text"
+                                    value={newDocTypeId}
+                                    onChange={e => setNewDocTypeId(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleCreateDocType();
+                                        if (e.key === 'Escape') resetDcwCreateForm();
+                                    }}
+                                    placeholder="doc_type_id (snake_case)"
+                                    autoFocus
+                                    disabled={creatingDocType}
+                                    className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
+                                    style={{
+                                        background: 'var(--bg-input, var(--bg-panel))',
+                                        border: '1px solid var(--border-panel)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={handleCreateDocType}
+                                        disabled={creatingDocType || !newDocTypeId.trim()}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: creatingDocType ? 'wait' : 'pointer',
+                                            opacity: (!newDocTypeId.trim() || creatingDocType) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {creatingDocType ? 'Creating...' : 'Create'}
+                                    </button>
+                                    <button
+                                        onClick={resetDcwCreateForm}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <SectionState
                             loading={loading}
                             empty={!loading && documentTypes.length === 0}
@@ -569,90 +778,221 @@ export default function DocTypeBrowser({
                 </CollapsibleGroup>
 
                 {/* ============================================================
-                    BUILDING BLOCKS
+                    BUILDING BLOCKS (Per WS-ADR-044-002)
+                    - Prompt Fragments: unified view with kind filter
+                    - Templates: separate (composition with $$TOKEN slots)
+                    - Schemas: separate (JSON editor)
                     ============================================================ */}
                 <CollapsibleGroup title="Building Blocks" defaultOpen={true}>
+                    {/* --- Prompt Fragments (unified) --- */}
                     <BuildingBlockItem
-                        label="Roles"
-                        count={roles.length}
-                        dotColor="var(--dot-purple)"
-                        active={!!selectedRole}
+                        label="Prompt Fragments"
+                        count={promptFragments.length}
+                        dotColor="#f59e0b"
+                        active={!!selectedFragment}
+                        defaultOpen={true}
+                        action={
+                            onCreateFragment && (
+                                <button
+                                    onClick={() => setCreateFragmentMode(!createFragmentMode)}
+                                    className="text-xs hover:opacity-80"
+                                    style={{
+                                        color: 'var(--action-primary)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                    title="Create new prompt fragment"
+                                >
+                                    + New
+                                </button>
+                            )
+                        }
                     >
+                        {/* Create Fragment Form */}
+                        {createFragmentMode && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <div className="mb-2">
+                                    <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                                        Kind
+                                    </label>
+                                    <select
+                                        value={newFragmentKind}
+                                        onChange={e => setNewFragmentKind(e.target.value)}
+                                        className="w-full text-xs px-2 py-1.5 rounded"
+                                        style={{
+                                            background: 'var(--bg-input, var(--bg-panel))',
+                                            border: '1px solid var(--border-panel)',
+                                            color: 'var(--text-primary)',
+                                        }}
+                                    >
+                                        <option value="role">Role</option>
+                                    </select>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={newFragmentId}
+                                    onChange={e => setNewFragmentId(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleCreateFragment();
+                                        if (e.key === 'Escape') resetFragmentCreateForm();
+                                    }}
+                                    placeholder="fragment_id (snake_case)"
+                                    autoFocus
+                                    disabled={creatingFragment}
+                                    className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
+                                    style={{
+                                        background: 'var(--bg-input, var(--bg-panel))',
+                                        border: '1px solid var(--border-panel)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={handleCreateFragment}
+                                        disabled={creatingFragment || !newFragmentId.trim()}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: creatingFragment ? 'wait' : 'pointer',
+                                            opacity: (!newFragmentId.trim() || creatingFragment) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {creatingFragment ? 'Creating...' : 'Create'}
+                                    </button>
+                                    <button
+                                        onClick={resetFragmentCreateForm}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {/* Kind filter pills */}
+                        {promptFragmentKindOptions.length > 0 && (
+                            <KindFilter
+                                kinds={promptFragmentKindOptions}
+                                selectedKind={fragmentKindFilter}
+                                onSelect={setFragmentKindFilter}
+                            />
+                        )}
                         <SectionState
-                            loading={rolesLoading}
-                            empty={!rolesLoading && roles.length === 0}
-                            emptyMessage="No roles"
+                            loading={promptFragmentsLoading}
+                            empty={!promptFragmentsLoading && filteredFragments.length === 0}
+                            emptyMessage={fragmentKindFilter === 'all' ? 'No prompt fragments' : `No ${fragmentKindFilter} fragments`}
                         />
-                        {!rolesLoading && roles.length > 0 && (
+                        {!promptFragmentsLoading && filteredFragments.length > 0 && (
                             <div className="py-1">
-                                {roles.map(role => (
+                                {filteredFragments.map(fragment => (
                                     <ItemButton
-                                        key={role.role_id}
-                                        selected={selectedRole?.role_id === role.role_id}
-                                        onClick={() => onSelectRole?.(role)}
-                                        label={role.role_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                        sublabel={`v${role.active_version}`}
+                                        key={fragment.fragment_id}
+                                        selected={selectedFragment?.fragment_id === fragment.fragment_id}
+                                        onClick={() => onSelectFragment?.(fragment)}
+                                        label={fragment.name || fragment.fragment_id}
+                                        sublabel={`${fragment.kind} · v${fragment.version}`}
+                                        badge={fragment.kind}
                                     />
                                 ))}
                             </div>
                         )}
                     </BuildingBlockItem>
-                    <BuildingBlockItem
-                        label="Interactions"
-                        count={documentTypes.length}
-                        dotColor="var(--action-primary)"
-                        active={docTypeSource === 'task'}
-                    >
-                        <SectionState
-                            loading={loading}
-                            empty={!loading && documentTypes.length === 0}
-                            emptyMessage="No interactions"
-                        />
-                        {!loading && documentTypes.length > 0 && (
-                            <div className="py-1">
-                                {documentTypes.map(dt => (
-                                    <ItemButton
-                                        key={`task-${dt.doc_type_id}`}
-                                        selected={docTypeSource === 'task' && selectedDocType?.doc_type_id === dt.doc_type_id}
-                                        onClick={() => (onSelectTask || onSelectDocType)?.({ doc_type_id: dt.doc_type_id, display_name: dt.display_name, active_version: dt.active_version })}
-                                        label={dt.display_name}
-                                        sublabel={`from ${dt.doc_type_id}`}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </BuildingBlockItem>
-                    <BuildingBlockItem
-                        label="Schemas"
-                        count={documentTypes.length}
-                        dotColor="var(--dot-blue)"
-                        active={docTypeSource === 'schema'}
-                    >
-                        <SectionState
-                            loading={loading}
-                            empty={!loading && documentTypes.length === 0}
-                            emptyMessage="No schemas"
-                        />
-                        {!loading && documentTypes.length > 0 && (
-                            <div className="py-1">
-                                {documentTypes.map(dt => (
-                                    <ItemButton
-                                        key={`schema-${dt.doc_type_id}`}
-                                        selected={docTypeSource === 'schema' && selectedDocType?.doc_type_id === dt.doc_type_id}
-                                        onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: dt.doc_type_id, display_name: dt.display_name, active_version: dt.active_version })}
-                                        label={dt.display_name}
-                                        sublabel={`from ${dt.doc_type_id}`}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </BuildingBlockItem>
+
+                    {/* --- Templates (separate - composition structure) --- */}
                     <BuildingBlockItem
                         label="Templates"
                         count={templates.length}
                         dotColor="var(--dot-green)"
                         active={!!selectedTemplate}
+                        action={
+                            onCreateTemplate && (
+                                <button
+                                    onClick={() => setCreateTemplateMode(!createTemplateMode)}
+                                    className="text-xs hover:opacity-80"
+                                    style={{
+                                        color: 'var(--action-primary)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                    title="Create new template"
+                                >
+                                    + New
+                                </button>
+                            )
+                        }
                     >
+                        {/* Create Template Form */}
+                        {createTemplateMode && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <input
+                                    type="text"
+                                    value={newTemplateId}
+                                    onChange={e => setNewTemplateId(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleCreateTemplate();
+                                        if (e.key === 'Escape') resetTemplateCreateForm();
+                                    }}
+                                    placeholder="template_id (snake_case)"
+                                    autoFocus
+                                    disabled={creatingTemplate}
+                                    className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
+                                    style={{
+                                        background: 'var(--bg-input, var(--bg-panel))',
+                                        border: '1px solid var(--border-panel)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={handleCreateTemplate}
+                                        disabled={creatingTemplate || !newTemplateId.trim()}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: creatingTemplate ? 'wait' : 'pointer',
+                                            opacity: (!newTemplateId.trim() || creatingTemplate) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {creatingTemplate ? 'Creating...' : 'Create'}
+                                    </button>
+                                    <button
+                                        onClick={resetTemplateCreateForm}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <SectionState
                             loading={templatesLoading}
                             empty={!templatesLoading && templates.length === 0}
@@ -665,8 +1005,124 @@ export default function DocTypeBrowser({
                                         key={template.template_id}
                                         selected={selectedTemplate?.template_id === template.template_id}
                                         onClick={() => onSelectTemplate?.(template)}
-                                        label={template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                        label={template.name || template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                         sublabel={`v${template.active_version}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </BuildingBlockItem>
+
+                    {/* --- Schemas (separate - JSON editor) --- */}
+                    <BuildingBlockItem
+                        label="Schemas"
+                        count={schemas.length || documentTypes.length}
+                        dotColor="var(--dot-blue)"
+                        active={docTypeSource === 'schema' || !!selectedSchema}
+                        action={
+                            onCreateSchema && (
+                                <button
+                                    onClick={() => setCreateSchemaMode(!createSchemaMode)}
+                                    className="text-xs hover:opacity-80"
+                                    style={{
+                                        color: 'var(--action-primary)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                    title="Create new schema"
+                                >
+                                    + New
+                                </button>
+                            )
+                        }
+                    >
+                        {/* Create Schema Form */}
+                        {createSchemaMode && (
+                            <div
+                                className="px-4 py-2"
+                                style={{ background: 'var(--bg-canvas)' }}
+                            >
+                                <input
+                                    type="text"
+                                    value={newSchemaId}
+                                    onChange={e => setNewSchemaId(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') handleCreateSchema();
+                                        if (e.key === 'Escape') resetSchemaCreateForm();
+                                    }}
+                                    placeholder="schema_id (snake_case)"
+                                    autoFocus
+                                    disabled={creatingSchema}
+                                    className="w-full text-xs px-2 py-1.5 rounded mb-1.5"
+                                    style={{
+                                        background: 'var(--bg-input, var(--bg-panel))',
+                                        border: '1px solid var(--border-panel)',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                    }}
+                                />
+                                <div className="flex gap-1">
+                                    <button
+                                        onClick={handleCreateSchema}
+                                        disabled={creatingSchema || !newSchemaId.trim()}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'var(--action-primary)',
+                                            color: '#000',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: creatingSchema ? 'wait' : 'pointer',
+                                            opacity: (!newSchemaId.trim() || creatingSchema) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {creatingSchema ? 'Creating...' : 'Create'}
+                                    </button>
+                                    <button
+                                        onClick={resetSchemaCreateForm}
+                                        className="text-xs px-2 py-1 rounded hover:opacity-80"
+                                        style={{
+                                            background: 'transparent',
+                                            color: 'var(--text-muted)',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <SectionState
+                            loading={schemasLoading || loading}
+                            empty={!schemasLoading && !loading && (schemas.length === 0 && documentTypes.length === 0)}
+                            emptyMessage="No schemas"
+                        />
+                        {/* Standalone schemas first */}
+                        {!schemasLoading && schemas.length > 0 && (
+                            <div className="py-1">
+                                {schemas.map(schema => (
+                                    <ItemButton
+                                        key={`standalone-${schema.schema_id}`}
+                                        selected={selectedSchema?.schema_id === schema.schema_id}
+                                        onClick={() => onSelectStandaloneSchema?.(schema)}
+                                        label={schema.title || schema.schema_id}
+                                        sublabel={`v${schema.active_version}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        {/* DCW-derived schemas fallback */}
+                        {!loading && schemas.length === 0 && documentTypes.length > 0 && (
+                            <div className="py-1">
+                                {documentTypes.map(dt => (
+                                    <ItemButton
+                                        key={`schema-${dt.doc_type_id}`}
+                                        selected={docTypeSource === 'schema' && selectedDocType?.doc_type_id === dt.doc_type_id}
+                                        onClick={() => (onSelectSchema || onSelectDocType)?.({ doc_type_id: dt.doc_type_id, display_name: dt.display_name, active_version: dt.active_version })}
+                                        label={dt.display_name}
+                                        sublabel={`from ${dt.doc_type_id}`}
                                     />
                                 ))}
                             </div>

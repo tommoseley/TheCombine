@@ -97,12 +97,48 @@ class RoleDetail(BaseModel):
     role_id: str
     version: str
     content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+
+class PromptFragmentSummary(BaseModel):
+    """Summary of a prompt fragment for list responses."""
+    fragment_id: str
+    kind: str
+    version: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    content_preview: Optional[str] = None
+    source_doc_type: Optional[str] = None
+
+
+class PromptFragmentListResponse(BaseModel):
+    """Response for list prompt fragments endpoint."""
+    fragments: List[PromptFragmentSummary]
+    total: int
+
+
+class PromptFragmentDetail(BaseModel):
+    """Full prompt fragment details."""
+    fragment_id: str
+    kind: str
+    version: str
+    content: str
+    name: Optional[str] = None
+    intent: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    source_doc_type: Optional[str] = None
 
 
 class TemplateSummary(BaseModel):
     """Summary of a template for list responses."""
     template_id: str
     active_version: Optional[str] = None
+    name: Optional[str] = None
+    purpose: Optional[str] = None
+    use_case: Optional[str] = None
     content_preview: Optional[str] = None
     error: Optional[str] = None
 
@@ -118,6 +154,9 @@ class TemplateDetail(BaseModel):
     template_id: str
     version: str
     content: str
+    name: Optional[str] = None
+    purpose: Optional[str] = None
+    use_case: Optional[str] = None
 
 
 class WorkflowPlanSummary(BaseModel):
@@ -478,6 +517,52 @@ async def get_role(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error_code": "VERSION_NOT_FOUND", "message": str(e)},
+        )
+
+
+# ===========================================================================
+# Prompt Fragment Endpoints
+# ===========================================================================
+
+@router.get(
+    "/prompt-fragments",
+    response_model=PromptFragmentListResponse,
+    summary="List prompt fragments",
+    description="List all prompt fragments (roles, tasks, QA, PGC) with optional kind filter.",
+)
+async def list_prompt_fragments(
+    kind: Optional[str] = Query(None, description="Filter by kind (role, task, qa, pgc, questions, reflection)"),
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> PromptFragmentListResponse:
+    """List all prompt fragments."""
+    summaries = service.list_prompt_fragments(kind)
+    return PromptFragmentListResponse(
+        fragments=[PromptFragmentSummary(**s) for s in summaries],
+        total=len(summaries),
+    )
+
+
+@router.get(
+    "/prompt-fragments/{fragment_id:path}",
+    response_model=PromptFragmentDetail,
+    summary="Get prompt fragment",
+    description="Get full details of a prompt fragment by ID (e.g., role:technical_architect, task:project_discovery).",
+    responses={
+        404: {"description": "Fragment not found"},
+    },
+)
+async def get_prompt_fragment(
+    fragment_id: str,
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> PromptFragmentDetail:
+    """Get prompt fragment details."""
+    try:
+        details = service.get_prompt_fragment(fragment_id)
+        return PromptFragmentDetail(**details)
+    except PackageNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "FRAGMENT_NOT_FOUND", "message": str(e)},
         )
 
 

@@ -23,6 +23,8 @@ from app.config.package_model import (
     RolePrompt,
     Template,
     ActiveReleases,
+    PromptFragment,
+    PromptFragmentKind,
 )
 
 logger = logging.getLogger(__name__)
@@ -328,7 +330,253 @@ class AdminWorkbenchService:
             "role_id": role.role_id,
             "version": role.version,
             "content": role.content,
+            "name": role.name,
+            "intent": role.intent,
+            "tags": role.tags,
         }
+
+    # =========================================================================
+    # Prompt Fragments (Unified View)
+    # =========================================================================
+
+    def list_prompt_fragments(
+        self,
+        kind: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        List all prompt fragments, optionally filtered by kind.
+
+        Aggregates:
+        - Role prompts from combine-config/prompts/roles/
+        - Task/QA/PGC prompts from document type packages
+
+        Args:
+            kind: Optional kind filter (role, task, qa, pgc, questions, reflection)
+
+        Returns:
+            List of prompt fragment summaries
+        """
+        fragments = []
+
+        # Convert kind string to enum if provided
+        kind_filter = None
+        if kind:
+            try:
+                kind_filter = PromptFragmentKind(kind)
+            except ValueError:
+                pass  # Invalid kind, return empty or ignore filter
+
+        # 1. Role fragments from standalone roles
+        if kind_filter is None or kind_filter == PromptFragmentKind.ROLE:
+            role_ids = self._loader.list_roles()
+            active = self._loader.get_active_releases()
+
+            for role_id in sorted(role_ids):
+                active_version = active.get_role_version(role_id)
+                try:
+                    role = self._loader.get_role(role_id)
+                    fragment = PromptFragment.from_role(role)
+                    fragments.append({
+                        "fragment_id": fragment.fragment_id,
+                        "kind": fragment.kind.value,
+                        "version": fragment.version,
+                        "name": fragment.name,
+                        "intent": fragment.intent,
+                        "tags": fragment.tags,
+                        "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
+                        "source_doc_type": None,
+                    })
+                except PackageLoaderError as e:
+                    logger.warning(f"Could not load role {role_id}: {e}")
+
+        # 2. Task/QA/PGC/Questions/Reflection fragments from document types
+        doc_type_ids = self._loader.list_document_types()
+        active = self._loader.get_active_releases()
+
+        for doc_type_id in sorted(doc_type_ids):
+            try:
+                package = self._loader.get_document_type(doc_type_id)
+                display_name = package.display_name
+
+                # Task prompt
+                if kind_filter is None or kind_filter == PromptFragmentKind.TASK:
+                    task_content = package.get_task_prompt()
+                    if task_content:
+                        fragment = PromptFragment.from_doctype_artifact(
+                            doc_type_id=doc_type_id,
+                            version=package.version,
+                            kind=PromptFragmentKind.TASK,
+                            content=task_content,
+                            name=f"{display_name} Task",
+                        )
+                        fragments.append({
+                            "fragment_id": fragment.fragment_id,
+                            "kind": fragment.kind.value,
+                            "version": fragment.version,
+                            "name": fragment.name,
+                            "intent": fragment.intent,
+                            "tags": fragment.tags,
+                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
+                            "source_doc_type": doc_type_id,
+                        })
+
+                # QA prompt
+                if kind_filter is None or kind_filter == PromptFragmentKind.QA:
+                    qa_content = package.get_qa_prompt()
+                    if qa_content:
+                        fragment = PromptFragment.from_doctype_artifact(
+                            doc_type_id=doc_type_id,
+                            version=package.version,
+                            kind=PromptFragmentKind.QA,
+                            content=qa_content,
+                            name=f"{display_name} QA",
+                        )
+                        fragments.append({
+                            "fragment_id": fragment.fragment_id,
+                            "kind": fragment.kind.value,
+                            "version": fragment.version,
+                            "name": fragment.name,
+                            "intent": fragment.intent,
+                            "tags": fragment.tags,
+                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
+                            "source_doc_type": doc_type_id,
+                        })
+
+                # PGC context
+                if kind_filter is None or kind_filter == PromptFragmentKind.PGC:
+                    pgc_content = package.get_pgc_context()
+                    if pgc_content:
+                        fragment = PromptFragment.from_doctype_artifact(
+                            doc_type_id=doc_type_id,
+                            version=package.version,
+                            kind=PromptFragmentKind.PGC,
+                            content=pgc_content,
+                            name=f"{display_name} PGC",
+                        )
+                        fragments.append({
+                            "fragment_id": fragment.fragment_id,
+                            "kind": fragment.kind.value,
+                            "version": fragment.version,
+                            "name": fragment.name,
+                            "intent": fragment.intent,
+                            "tags": fragment.tags,
+                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
+                            "source_doc_type": doc_type_id,
+                        })
+
+                # Reflection prompt (for Concierge)
+                if kind_filter is None or kind_filter == PromptFragmentKind.REFLECTION:
+                    reflection_content = package.get_reflection_prompt()
+                    if reflection_content:
+                        fragment = PromptFragment.from_doctype_artifact(
+                            doc_type_id=doc_type_id,
+                            version=package.version,
+                            kind=PromptFragmentKind.REFLECTION,
+                            content=reflection_content,
+                            name=f"{display_name} Reflection",
+                        )
+                        fragments.append({
+                            "fragment_id": fragment.fragment_id,
+                            "kind": fragment.kind.value,
+                            "version": fragment.version,
+                            "name": fragment.name,
+                            "intent": fragment.intent,
+                            "tags": fragment.tags,
+                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
+                            "source_doc_type": doc_type_id,
+                        })
+
+            except PackageLoaderError as e:
+                logger.warning(f"Could not load document type {doc_type_id}: {e}")
+
+        return fragments
+
+    def get_prompt_fragment(
+        self,
+        fragment_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Get a prompt fragment by ID.
+
+        Fragment ID format: {kind}:{name}
+        - role:technical_architect
+        - task:project_discovery
+        - qa:project_discovery
+
+        Args:
+            fragment_id: Fragment identifier
+
+        Returns:
+            Fragment details including content
+
+        Raises:
+            PackageNotFoundError: Fragment not found
+        """
+        parts = fragment_id.split(":", 1)
+        if len(parts) != 2:
+            raise PackageNotFoundError(f"Invalid fragment ID format: {fragment_id}")
+
+        kind_str, name = parts
+
+        # Role fragments
+        if kind_str == "role":
+            role = self._loader.get_role(name)
+            fragment = PromptFragment.from_role(role)
+            return {
+                "fragment_id": fragment.fragment_id,
+                "kind": fragment.kind.value,
+                "version": fragment.version,
+                "content": fragment.content,
+                "name": fragment.name,
+                "intent": fragment.intent,
+                "tags": fragment.tags,
+                "source_doc_type": None,
+            }
+
+        # Document type derived fragments
+        if kind_str in ("task", "qa", "pgc", "questions", "reflection"):
+            package = self._loader.get_document_type(name)
+
+            content = None
+            kind = None
+            if kind_str == "task":
+                content = package.get_task_prompt()
+                kind = PromptFragmentKind.TASK
+            elif kind_str == "qa":
+                content = package.get_qa_prompt()
+                kind = PromptFragmentKind.QA
+            elif kind_str == "pgc":
+                content = package.get_pgc_context()
+                kind = PromptFragmentKind.PGC
+            elif kind_str == "reflection":
+                content = package.get_reflection_prompt()
+                kind = PromptFragmentKind.REFLECTION
+
+            if not content:
+                raise PackageNotFoundError(
+                    f"Fragment not found: {fragment_id} (no {kind_str} content in {name})"
+                )
+
+            fragment = PromptFragment.from_doctype_artifact(
+                doc_type_id=name,
+                version=package.version,
+                kind=kind,
+                content=content,
+                name=f"{package.display_name} {kind_str.title()}",
+            )
+
+            return {
+                "fragment_id": fragment.fragment_id,
+                "kind": fragment.kind.value,
+                "version": fragment.version,
+                "content": fragment.content,
+                "name": fragment.name,
+                "intent": fragment.intent,
+                "tags": fragment.tags,
+                "source_doc_type": name,
+            }
+
+        raise PackageNotFoundError(f"Unknown fragment kind: {kind_str}")
 
     # =========================================================================
     # Templates
@@ -353,6 +601,9 @@ class AdminWorkbenchService:
                 summaries.append({
                     "template_id": template_id,
                     "active_version": active_version,
+                    "name": template.name,
+                    "purpose": template.purpose.value if template.purpose else None,
+                    "use_case": template.use_case,
                     "content_preview": template.content[:200] + "..." if len(template.content) > 200 else template.content,
                 })
             except PackageLoaderError as e:
@@ -391,6 +642,9 @@ class AdminWorkbenchService:
             "template_id": template.template_id,
             "version": template.version,
             "content": template.content,
+            "name": template.name,
+            "purpose": template.purpose.value if template.purpose else None,
+            "use_case": template.use_case,
         }
 
     # =========================================================================

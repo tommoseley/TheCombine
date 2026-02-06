@@ -68,6 +68,14 @@ export default function WorkflowCanvas({
         setEdges(rfEdges);
     }, [workflowJson, setNodes, setEdges]);
 
+    // Sync selection state with external selectedNodeId
+    useEffect(() => {
+        setNodes(nds => nds.map(n => ({
+            ...n,
+            selected: n.id === selectedNodeId,
+        })));
+    }, [selectedNodeId, setNodes]);
+
     // Handle new edge connection
     const onConnect = useCallback((params) => {
         if (!workflowJson) return;

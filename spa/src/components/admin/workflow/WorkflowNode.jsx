@@ -18,8 +18,10 @@ function WorkflowNode({ data, selected }) {
                 padding: '8px 12px',
                 minWidth: 180,
                 maxWidth: 220,
-                boxShadow: selected ? `0 0 12px ${config.color}40` : 'none',
-                transition: 'box-shadow 0.2s',
+                boxShadow: selected
+                    ? `0 0 0 3px ${config.color}60, 0 0 20px ${config.color}80, 0 0 40px ${config.color}40`
+                    : 'none',
+                transition: 'box-shadow 0.2s, border-color 0.2s',
             }}
         >
             {/* Target handle (top) */}

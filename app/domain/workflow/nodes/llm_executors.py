@@ -4,7 +4,7 @@ This module provides factory functions to create node executors with real LLM
 integration, including ADR-010 logging compliance.
 
 Key Requirements (WS-ADR-025 Phase 1):
-- Load task prompts from seed/prompts/tasks/
+- Load task prompts from combine-config/prompts/tasks/ (via PackageLoader)
 - Use existing LLM providers (app/llm/providers/)
 - Integrate with ADR-010 logging (LLMExecutionLogger)
 - Maintain Control Boundary Invariant: executors MUST NOT make routing decisions

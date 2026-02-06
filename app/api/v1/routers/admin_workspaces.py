@@ -128,6 +128,78 @@ class CreateOrchestrationWorkflowResponse(BaseModel):
     artifact_id: str
 
 
+class CreateDocumentTypeRequest(BaseModel):
+    """Request to create a document type (DCW)."""
+    doc_type_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    display_name: Optional[str] = Field(None, max_length=200)
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+    scope: str = Field("project", pattern=r'^[a-z][a-z0-9_]*$')
+    role_ref: str = Field("prompt:role:technical_architect:1.0.0")
+
+
+class CreateDocumentTypeResponse(BaseModel):
+    """Response for document type creation."""
+    doc_type_id: str
+    version: str
+    artifact_id: str
+
+
+class CreateDcwWorkflowRequest(BaseModel):
+    """Request to create a DCW workflow for an existing document type."""
+    doc_type_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+
+
+class CreateDcwWorkflowResponse(BaseModel):
+    """Response for DCW workflow creation."""
+    doc_type_id: str
+    version: str
+    artifact_id: str
+
+
+class CreateRolePromptRequest(BaseModel):
+    """Request to create a role prompt."""
+    role_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    name: Optional[str] = Field(None, max_length=200)
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+
+
+class CreateRolePromptResponse(BaseModel):
+    """Response for role prompt creation."""
+    role_id: str
+    version: str
+    artifact_id: str
+
+
+class CreateTemplateRequest(BaseModel):
+    """Request to create a template."""
+    template_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    name: Optional[str] = Field(None, max_length=200)
+    purpose: str = Field("general", pattern=r'^(document|qa|pgc|general)$')
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+
+
+class CreateTemplateResponse(BaseModel):
+    """Response for template creation."""
+    template_id: str
+    version: str
+    artifact_id: str
+
+
+class CreateSchemaRequest(BaseModel):
+    """Request to create a standalone schema."""
+    schema_id: str = Field(..., min_length=2, max_length=100, pattern=r'^[a-z][a-z0-9_]*$')
+    title: Optional[str] = Field(None, max_length=200)
+    version: str = Field("1.0.0", pattern=r'^\d+\.\d+\.\d+$')
+
+
+class CreateSchemaResponse(BaseModel):
+    """Response for schema creation."""
+    schema_id: str
+    version: str
+    artifact_id: str
+
+
 class ArtifactDiffModel(BaseModel):
     """Diff for a single artifact."""
     artifact_id: str
@@ -350,6 +422,14 @@ async def get_artifact(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error_code": "INVALID_ARTIFACT_ID",
+                "message": str(e),
+            },
+        )
+    except ArtifactError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "ARTIFACT_ERROR",
                 "message": str(e),
             },
         )
@@ -701,6 +781,314 @@ async def delete_orchestration_workflow(
                 "message": str(e),
             },
         )
+
+
+# ===========================================================================
+# Document Type Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/document-types",
+    response_model=CreateDocumentTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create document type",
+    description="Create a new document type definition (DCW).",
+    responses={
+        404: {"description": "Workspace not found"},
+        400: {"description": "Invalid doc_type_id or document type already exists"},
+    },
+)
+async def create_document_type(
+    workspace_id: str,
+    body: CreateDocumentTypeRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateDocumentTypeResponse:
+    """Create a new document type."""
+    try:
+        artifact_id = service.create_document_type(
+            workspace_id=workspace_id,
+            doc_type_id=body.doc_type_id,
+            display_name=body.display_name,
+            version=body.version,
+            scope=body.scope,
+            role_ref=body.role_ref,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "DOCUMENT_TYPE_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateDocumentTypeResponse(
+        doc_type_id=body.doc_type_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
+
+
+@router.delete(
+    "/{workspace_id}/document-types/{doc_type_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete document type",
+    description="Delete a document type definition (DCW).",
+    responses={
+        404: {"description": "Workspace or document type not found"},
+    },
+)
+async def delete_document_type(
+    workspace_id: str,
+    doc_type_id: str,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> None:
+    """Delete a document type."""
+    try:
+        service.delete_document_type(
+            workspace_id=workspace_id,
+            doc_type_id=doc_type_id,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except ArtifactNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "DOCUMENT_TYPE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except ArtifactError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "DOCUMENT_TYPE_ERROR",
+                "message": str(e),
+            },
+        )
+
+
+# ===========================================================================
+# DCW Workflow Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/dcw-workflows",
+    response_model=CreateDcwWorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create DCW workflow",
+    description="Create a graph-based workflow definition for an existing document type.",
+    responses={
+        404: {"description": "Workspace or document type not found"},
+        400: {"description": "Invalid doc_type_id or workflow already exists"},
+    },
+)
+async def create_dcw_workflow(
+    workspace_id: str,
+    body: CreateDcwWorkflowRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateDcwWorkflowResponse:
+    """Create a DCW workflow for an existing document type."""
+    try:
+        artifact_id = service.create_dcw_workflow(
+            workspace_id=workspace_id,
+            doc_type_id=body.doc_type_id,
+            version=body.version,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "DCW_WORKFLOW_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateDcwWorkflowResponse(
+        doc_type_id=body.doc_type_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
+
+
+# ===========================================================================
+# Role Prompt Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/role-prompts",
+    response_model=CreateRolePromptResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create role prompt",
+    description="Create a new role prompt definition.",
+    responses={
+        404: {"description": "Workspace not found"},
+        400: {"description": "Invalid role_id or role already exists"},
+    },
+)
+async def create_role_prompt(
+    workspace_id: str,
+    body: CreateRolePromptRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateRolePromptResponse:
+    """Create a new role prompt."""
+    try:
+        artifact_id = service.create_role_prompt(
+            workspace_id=workspace_id,
+            role_id=body.role_id,
+            name=body.name,
+            version=body.version,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "ROLE_PROMPT_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateRolePromptResponse(
+        role_id=body.role_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
+
+
+# ===========================================================================
+# Template Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/templates",
+    response_model=CreateTemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create template",
+    description="Create a new template definition.",
+    responses={
+        404: {"description": "Workspace not found"},
+        400: {"description": "Invalid template_id or template already exists"},
+    },
+)
+async def create_template(
+    workspace_id: str,
+    body: CreateTemplateRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateTemplateResponse:
+    """Create a new template."""
+    try:
+        artifact_id = service.create_template(
+            workspace_id=workspace_id,
+            template_id=body.template_id,
+            name=body.name,
+            purpose=body.purpose,
+            version=body.version,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "TEMPLATE_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateTemplateResponse(
+        template_id=body.template_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
+
+
+# ===========================================================================
+# Standalone Schema Endpoints
+# ===========================================================================
+
+@router.post(
+    "/{workspace_id}/schemas",
+    response_model=CreateSchemaResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create schema",
+    description="Create a new standalone schema definition.",
+    responses={
+        404: {"description": "Workspace not found"},
+        400: {"description": "Invalid schema_id or schema already exists"},
+    },
+)
+async def create_schema(
+    workspace_id: str,
+    body: CreateSchemaRequest,
+    service: WorkspaceService = Depends(get_workspace_service),
+) -> CreateSchemaResponse:
+    """Create a new standalone schema."""
+    try:
+        artifact_id = service.create_standalone_schema(
+            workspace_id=workspace_id,
+            schema_id=body.schema_id,
+            title=body.title,
+            version=body.version,
+        )
+    except WorkspaceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error_code": "WORKSPACE_NOT_FOUND",
+                "message": str(e),
+            },
+        )
+    except (ArtifactError, ArtifactIdError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "SCHEMA_ERROR",
+                "message": str(e),
+            },
+        )
+
+    return CreateSchemaResponse(
+        schema_id=body.schema_id,
+        version=body.version,
+        artifact_id=artifact_id,
+    )
 
 
 # ===========================================================================

@@ -110,7 +110,7 @@ export const adminApi = {
      * @returns {Promise<Object>} Artifact content
      */
     getArtifact: (workspaceId, artifactId) =>
-        request(`/workspaces/${workspaceId}/artifacts/${artifactId}`),
+        request(`/workspaces/${workspaceId}/artifacts/${encodeURIComponent(artifactId)}`),
 
     /**
      * Write artifact content (auto-save)
@@ -120,7 +120,7 @@ export const adminApi = {
      * @returns {Promise<Object>} Write result with tier1 validation
      */
     writeArtifact: (workspaceId, artifactId, content) =>
-        request(`/workspaces/${workspaceId}/artifacts/${artifactId}`, {
+        request(`/workspaces/${workspaceId}/artifacts/${encodeURIComponent(artifactId)}`, {
             method: 'PUT',
             body: JSON.stringify({ content }),
         }),
@@ -133,7 +133,7 @@ export const adminApi = {
      * @returns {Promise<Object>} Preview with resolved prompt and provenance
      */
     getPreview: (workspaceId, artifactId, mode = 'execution') =>
-        request(`/workspaces/${workspaceId}/preview/${artifactId}?mode=${mode}`),
+        request(`/workspaces/${workspaceId}/preview/${encodeURIComponent(artifactId)}?mode=${mode}`),
 
     /**
      * Get diff for workspace changes

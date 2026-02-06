@@ -44,13 +44,13 @@ class PromptAssemblyService:
         service = PromptAssemblyService()
         result = service.assemble(
             task_ref="Clarification Questions Generator v1.0",
-            includes={"PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt"}
+            includes={"PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt"}
         )
-        
+
         # From workflow node
         result = service.assemble_from_workflow("pm_discovery", "pgc")
     """
-    
+
     def __init__(
         self,
         template_root: Optional[Path] = None,
@@ -58,18 +58,21 @@ class PromptAssemblyService:
     ):
         """
         Initialize service with path configuration.
-        
+
         Args:
-            template_root: Root directory for task templates. 
-                          Defaults to seed/prompts
+            template_root: Root directory for task templates.
+                          Defaults to combine-config/prompts (via PackageLoader)
             workflow_root: Root directory for workflow JSON files.
-                          Defaults to seed/workflows
+                          Defaults to combine-config/workflows
         """
-        self._template_root = template_root or Path("seed/prompts")
-        self._workflow_root = workflow_root or Path("seed/workflows")
-        
+        from app.config.package_loader import get_package_loader
+        loader = get_package_loader()
+
+        self._template_root = template_root or (loader.config_path / "prompts")
+        self._workflow_root = workflow_root or (loader.config_path / "workflows")
+
         self._assembler = PromptAssembler(
-            template_root=str(self._template_root),
+            template_root=str(self._template_root) if template_root else None,
         )
     
     def assemble(

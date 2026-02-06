@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-04
-**Updated By:** Claude (WS-ADR-044-001 executed: Admin Workbench UX redesign)
+**Last Updated:** 2026-02-06
+**Updated By:** Claude (PGC composite gates, schema editing, composition-first UI design)
 
 ## Current Focus
 
@@ -18,7 +18,8 @@ All work statements delivered:
 
 **IN PROGRESS:** ADR-044 -- Admin Workbench
 
-- **WS-ADR-044-001** (Executed, pending verification): Left rail and tab bar UX redesign
+- **WS-ADR-044-001** (Complete): Left rail and tab bar UX redesign
+- **WS-ADR-044-002** (Draft): Composition-First Workbench Redesign
 
 ---
 
@@ -30,7 +31,8 @@ All work statements delivered:
 - **Workspace lifecycle**: Git-branch isolation, create/close/TTL
 - **Document type editing**: Package, Role, Task, QA, PGC, Schema tabs with source/resolved views
 - **Role editing**: Standalone role prompt editor
-- **Template editing**: Standalone template editor
+- **Template editing**: Standalone template editor with metadata (name, purpose, use_case)
+- **Schema editing** (2026-02-06): Standalone schema editor with JSON content and info tabs; artifact ID URL encoding fix
 - **Package editing**: Standalone package editor
 - **Diff view**: Side-by-side diff viewer
 - **Workflow tab on document types**: React Flow canvas for document production workflows (concierge_intake, project_discovery)
@@ -52,6 +54,16 @@ All work statements delivered:
 - **Create-from-reference UX**: Primary creation path forks a reference POW as a template with lineage; blank creation secondary
 - **Editor metadata**: Classification badge in header, editable tags, derived_from navigation link, source version display
 - **Dot color CSS variables**: `--dot-green`, `--dot-blue`, `--dot-purple` defined per theme (Light, Industrial, Blueprint)
+- **POW step editor dropdowns** (2026-02-05): "Produces", "Doc Type" (iterate_over), "Doc/Entity Type" (inputs) now use select dropdowns populated with DCW list
+- **DCW workflow creation** (2026-02-05): Document types without workflows show "Create Workflow" button on Workflow tab; creates skeleton graph workflow with PGC/Generation/QA/Remediation/End nodes
+- **Document type creation** (2026-02-05): "+ New" button in DCW section creates new document type with skeleton package.yaml, prompts, and schema
+- **Node selection glow** (2026-02-05): Selected nodes in workflow canvas have prominent multi-layer glow effect
+- **Template metadata** (2026-02-05): Templates support `meta.yaml` with name, purpose, use_case fields; Metadata tab in TemplateEditor
+- **"Interaction Template" label** (2026-02-05): NodePropertiesPanel "Task Ref" renamed to "Interaction Template"
+- **PGC composite gate** (2026-02-06): PGC nodes are black-box gates with `gate_kind` (discovery, plan, architecture, epic, remediation, compliance); internals show Pass A (Question Generation), Entry (Operator Answers), Pass B (Clarification Merge) with progressive disclosure
+- **PGC gate taxonomy** (2026-02-06): 7 gate kinds with auto-populated `produces` field (e.g., `pgc_clarifications.discovery`)
+- **Node property dropdowns** (2026-02-06): Templates, roles, tasks, schemas, PGC fragments all use dropdowns populated from left rail data
+- **Standalone PGC fragments** (2026-02-06): PGC prompts extracted to `combine-config/prompts/pgc/{id}.v1/`; validation rule updated to accept either embedded or standalone
 
 ---
 
@@ -70,7 +82,8 @@ All work statements delivered:
 | WS-044-09 | Git Repository Layout | Complete |
 | WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
 | WS-044-11 | Golden Trace Runner | Deferred |
-| WS-ADR-044-001 | Left Rail and Tab Bar UX Redesign | Executed (pending verification) |
+| WS-ADR-044-001 | Left Rail and Tab Bar UX Redesign | Complete |
+| WS-ADR-044-002 | Composition-First Workbench Redesign | Draft |
 
 ## WS-045 Status (ADR-045 execution_state: complete)
 
@@ -141,9 +154,10 @@ React SPA (Vite)
 |   |   |   +-- AdminWorkbench.jsx       # Three-panel layout
 |   |   |   +-- DocTypeBrowser.jsx       # Sidebar (composition hierarchy)
 |   |   |   +-- PromptEditor.jsx         # Grouped tab bar editor
-|   |   |   +-- TabDropdown.jsx          # Dropdown tab component (new)
+|   |   |   +-- TabDropdown.jsx          # Dropdown tab component
 |   |   |   +-- RoleEditor.jsx
 |   |   |   +-- TemplateEditor.jsx
+|   |   |   +-- SchemaEditor.jsx         # Standalone schema editor
 |   |   |   +-- PackageEditor.jsx
 |   |   |   +-- DiffView.jsx
 |   |   |   +-- GitStatusPanel.jsx
@@ -153,7 +167,7 @@ React SPA (Vite)
 |   |   |       +-- WorkflowEditor.jsx        # Thin wrapper (standalone)
 |   |   |       +-- WorkflowCanvas.jsx
 |   |   |       +-- WorkflowNode.jsx
-|   |   |       +-- NodePropertiesPanel.jsx
+|   |   |       +-- NodePropertiesPanel.jsx   # PGC composite gate internals
 |   |   |       +-- EdgePropertiesPanel.jsx
 |   |   +-- ProjectTree.jsx
 |   |   +-- Floor.jsx
@@ -166,20 +180,25 @@ React SPA (Vite)
 |   |   +-- useAdminWorkflows.js
 |   |   +-- useAdminRoles.js
 |   |   +-- useAdminTemplates.js
+|   |   +-- useAdminSchemas.js
+|   |   +-- usePromptFragments.js
 |   +-- api/
 |   |   +-- client.js
-|   |   +-- adminClient.js
+|   |   +-- adminClient.js               # URL-encoded artifact IDs
 |   +-- utils/
 |       +-- workflowTransform.js
 +-- dist/
 
 combine-config/
-+-- _active/active_releases.json   # Includes schemas section
++-- _active/active_releases.json   # Includes schemas, pgc sections
 +-- document_types/                 # DCW packages with schema_ref
 +-- schemas/                        # Standalone schemas (ADR-045)
 |   +-- {schema_id}/releases/{ver}/schema.json
 +-- prompts/roles/                  # Shared role prompts
-+-- prompts/templates/              # Shared templates
++-- prompts/templates/              # Shared templates with meta.yaml
++-- prompts/pgc/                    # Standalone PGC fragments
+|   +-- {id}.v1/releases/{ver}/pgc.prompt.txt
++-- prompts/tasks/                  # Standalone task prompts
 +-- workflows/                      # Workflow definitions
 ```
 
@@ -198,6 +217,10 @@ combine-config/
 9. **POW classification (ADR-045/WS-002)** -- `pow_class` (reference/template/instance), `derived_from` lineage, `tags`; left rail groups by class; create-from-reference as primary path
 10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time; append-only audit trail
 11. **Grouped tab bar (WS-ADR-044-001)** -- Tabs grouped by Interaction Pass (Generation, QA, PGC) with dropdown menus; focused view for Building Block artifacts
+12. **DCW workflow creation** -- Document types can have workflows created on-demand; skeleton includes standard PGC/Gen/QA/Remediation/End graph
+13. **PGC composite gates** (2026-02-06) -- PGC is a black-box gate node with internals (Pass A: Question Gen, Entry: Operator Answers, Pass B: Clarification Merge); gate_kind determines purpose (discovery, plan, architecture, etc.)
+14. **Standalone PGC fragments** -- PGC prompts live in `prompts/pgc/{id}.v1/` not embedded in document type packages; validation rule accepts either
+15. **Artifact ID URL encoding** -- Frontend encodes artifact IDs with `encodeURIComponent()` for API calls
 
 ---
 
@@ -220,8 +243,11 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- Visual verification of WS-ADR-044-001 against approved wireframe (`docs/prototypes/workbench-wireframe.html`)
-- Change "Produces" field in orchestration step editor to a dropdown of available document production workflows
+- **WS-ADR-044-002** (Draft): Composition-First Workbench Redesign
+  - Left rail shows only POWs and DCWs (compositions)
+  - Building Blocks move to secondary collapsible tray
+  - Single editing surface (right panel) for selected Interaction Pass
+  - Progressive disclosure in Gate Internals
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started
 - WS-044-10 Phase 4 (seed/ cleanup) -- not started
@@ -229,7 +255,10 @@ cd spa && npm run dev
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Uncommitted schema changes in `combine-config/document_types/` (primary_implementation_plan, technical_architecture) -- review and commit or discard
+- Uncommitted changes from this session need commit
 
-### Known Risk
-- `reflection_prompt` artifact type exists in `allPromptKinds` but is not mapped to any tab dropdown group; verify no current document types use it
+### Known Issues
+- `clarification_questions` schema shows `active_version: null` in API despite being in active_releases.json - possible ID mismatch with `clarification_question_set`
+
+### Design Decisions Deferred
+- **Optional template tokens** (YAGNI): Allow `$$TOKEN?` syntax for optional tokens that get omitted if not in includes map. Trivial to implement when customer need arises.

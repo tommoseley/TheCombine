@@ -201,9 +201,14 @@ class ConfigValidator:
         Validate PGC requirement for authority level.
 
         Rule: No skipping mandatory PGC for Descriptive/Prescriptive documents.
+
+        PGC can be satisfied by either:
+        1. An embedded pgc_context artifact in the package
+        2. A standalone PGC fragment at prompts/pgc/{doc_type_id}.v1/
         """
         authority_level = manifest.get("authority_level", "")
         creation_mode = manifest.get("creation_mode", "")
+        doc_type_id = manifest.get("doc_type_id", "")
 
         # PGC is only required for LLM-generated documents
         if creation_mode != "llm_generated":
@@ -215,31 +220,43 @@ class ConfigValidator:
         if not requires_pgc:
             return
 
-        # Check if PGC context artifact is defined
+        # Check if PGC context artifact is defined in package
         artifacts = manifest.get("artifacts", {})
         pgc_context = artifacts.get("pgc_context")
 
-        if not pgc_context:
-            report.add_error(
-                rule_id="PGC_REQUIRED",
-                message=f"Documents with authority_level='{authority_level}' require PGC context. "
-                        "Add pgc_context artifact to package.",
-                file_path=str(package_path / "package.yaml"),
-                details={
-                    "authority_level": authority_level,
-                    "creation_mode": creation_mode,
-                },
-            )
-            return
+        if pgc_context:
+            # Check if PGC context file exists in package
+            pgc_path = package_path / pgc_context
+            if not pgc_path.exists():
+                report.add_error(
+                    rule_id="PGC_FILE_MISSING",
+                    message=f"PGC context file not found: {pgc_context}",
+                    file_path=str(pgc_path),
+                )
+            return  # PGC is defined in package, validation complete
 
-        # Check if PGC context file exists
-        pgc_path = package_path / pgc_context
-        if not pgc_path.exists():
-            report.add_error(
-                rule_id="PGC_FILE_MISSING",
-                message=f"PGC context file not found: {pgc_context}",
-                file_path=str(pgc_path),
-            )
+        # Check for standalone PGC fragment
+        # Convention: prompts/pgc/{doc_type_id}.v1/releases/{version}/pgc.prompt.txt
+        if self._loader and doc_type_id:
+            pgc_fragment_id = f"{doc_type_id}.v1"
+            pgc_fragments = self._loader.list_pgc()
+
+            if pgc_fragment_id in pgc_fragments:
+                # Standalone PGC fragment exists - requirement satisfied
+                return
+
+        # No PGC found - report error
+        report.add_error(
+            rule_id="PGC_REQUIRED",
+            message=f"Documents with authority_level='{authority_level}' require PGC context. "
+                    f"Add pgc_context artifact to package or create standalone fragment at "
+                    f"prompts/pgc/{doc_type_id}.v1/",
+            file_path=str(package_path / "package.yaml"),
+            details={
+                "authority_level": authority_level,
+                "creation_mode": creation_mode,
+            },
+        )
 
     def _validate_artifact_references(
         self,
