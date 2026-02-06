@@ -1,0 +1,23 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: pgc_clarification_merge
+version: "1.0.0"
+type: merger
+name: "PGC Clarification Merge"
+description: "Merges clarification questions (Pass A) with operator answers (Entry) into bound clarifications for Pass B output"
+
+config:
+  inputs:
+    - ref: pass_a_output
+      key: questions
+    - ref: entry_output
+      key: answers
+  merge_strategy: deep_merge
+  output_shape: pgc_clarifications.v1
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - pgc
+    - clarification
+    - gate

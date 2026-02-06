@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/mech-op-registry.v1.json",
+  "title": "Mechanical Operation Type Registry",
+  "description": "Schema for the Mechanical Operation Type Registry - defines available operation types with their configuration schemas",
+  "type": "object",
+  "required": ["types"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URL"
+    },
+    "types": {
+      "type": "object",
+      "description": "Map of operation type IDs to their definitions",
+      "additionalProperties": {
+        "$ref": "#/$defs/operationType"
+      }
+    },
+    "categories": {
+      "type": "object",
+      "description": "Map of category IDs to their metadata",
+      "additionalProperties": {
+        "$ref": "#/$defs/category"
+      }
+    }
+  },
+  "$defs": {
+    "operationType": {
+      "type": "object",
+      "required": ["name", "description", "category", "config_schema", "inputs", "outputs"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable operation type name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this operation type does"
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon identifier for UI display"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category ID for grouping in UI"
+        },
+        "config_schema": {
+          "type": "object",
+          "description": "JSON Schema defining the configuration fields for this operation type",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "object"
+            },
+            "required": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "properties": {
+              "type": "object"
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Input definitions for this operation type",
+          "items": {
+            "$ref": "#/$defs/ioDefinition"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output definitions for this operation type",
+          "items": {
+            "$ref": "#/$defs/ioDefinition"
+          }
+        }
+      }
+    },
+    "ioDefinition": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Input/output name"
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type (document, object, array, string, etc.)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of this input/output"
+        }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable category name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of this category"
+        }
+      }
+    }
+  }
+}

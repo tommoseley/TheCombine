@@ -68,5 +68,8 @@
   "pgc": {
     "project_discovery.v1": "1.0.0",
     "technical_architecture.v1": "1.0.0"
+  },
+  "mechanical_ops": {
+    "pgc_clarification_merge": "1.0.0"
   }
 }

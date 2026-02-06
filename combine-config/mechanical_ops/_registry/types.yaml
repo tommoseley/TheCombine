@@ -1,0 +1,214 @@
+$schema: https://thecombine.ai/schemas/mech-op-registry.v1.json
+
+types:
+  extractor:
+    name: "Extractor"
+    description: "Extracts structured fields from a document using JSONPath expressions"
+    icon: "scissors"
+    category: "data_access"
+    config_schema:
+      type: object
+      required:
+        - source_type
+        - field_paths
+        - output_shape
+      properties:
+        source_type:
+          type: string
+          description: "Document type to extract from"
+          ui_hint: "dropdown:document_types"
+        field_paths:
+          type: array
+          description: "JSONPath expressions to extract"
+          items:
+            type: object
+            required:
+              - path
+              - as
+            properties:
+              path:
+                type: string
+                description: "JSONPath expression (e.g., $.summary, $.items[*].name)"
+              as:
+                type: string
+                description: "Output field name for the extracted value"
+        output_shape:
+          type: string
+          description: "Schema for the extracted structure"
+          ui_hint: "dropdown:schemas"
+    inputs:
+      - name: "source_document"
+        type: "document"
+        description: "The document to extract from"
+    outputs:
+      - name: "extracted"
+        type: "object"
+        description: "Extracted fields matching output_shape"
+
+  merger:
+    name: "Merger"
+    description: "Combines multiple inputs into a single structured output"
+    icon: "git-merge"
+    category: "composition"
+    config_schema:
+      type: object
+      required:
+        - inputs
+        - merge_strategy
+        - output_shape
+      properties:
+        inputs:
+          type: array
+          description: "Input references with merge keys"
+          items:
+            type: object
+            required:
+              - ref
+              - key
+            properties:
+              ref:
+                type: string
+                description: "Input reference (e.g., pass_a_output, entry_output)"
+              key:
+                type: string
+                description: "Key in the merged output for this input"
+        merge_strategy:
+          type: string
+          enum:
+            - deep_merge
+            - shallow_merge
+            - concatenate
+          description: "How to combine the inputs"
+        output_shape:
+          type: string
+          description: "Schema for the merged output"
+          ui_hint: "dropdown:schemas"
+    inputs:
+      - name: "inputs"
+        type: "array"
+        description: "Multiple inputs to merge"
+    outputs:
+      - name: "merged"
+        type: "object"
+        description: "Combined output matching output_shape"
+
+  validator:
+    name: "Validator"
+    description: "Validates data against a schema and routes based on result"
+    icon: "check-circle"
+    category: "quality"
+    config_schema:
+      type: object
+      required:
+        - input
+        - schema_ref
+      properties:
+        input:
+          type: string
+          description: "Reference to data to validate"
+        schema_ref:
+          type: string
+          description: "Schema to validate against"
+          ui_hint: "dropdown:schemas"
+        on_pass:
+          type: string
+          default: "success"
+          description: "Outcome when validation passes"
+        on_fail:
+          type: string
+          default: "failed"
+          description: "Outcome when validation fails"
+    inputs:
+      - name: "data"
+        type: "any"
+        description: "Data to validate"
+    outputs:
+      - name: "result"
+        type: "object"
+        description: "Validation result with valid flag and errors array"
+
+  transformer:
+    name: "Transformer"
+    description: "Applies deterministic transformations to data structure"
+    icon: "shuffle"
+    category: "data_transform"
+    config_schema:
+      type: object
+      required:
+        - input
+        - transform_rules
+        - output_shape
+      properties:
+        input:
+          type: string
+          description: "Reference to input data"
+        transform_rules:
+          type: array
+          description: "Transformation operations to apply"
+          items:
+            type: object
+            description: "Transformation rule (flatten, rename, format, etc.)"
+        output_shape:
+          type: string
+          description: "Schema for transformed output"
+          ui_hint: "dropdown:schemas"
+    inputs:
+      - name: "source"
+        type: "object"
+        description: "Data to transform"
+    outputs:
+      - name: "transformed"
+        type: "object"
+        description: "Transformed data matching output_shape"
+
+  selector:
+    name: "Selector"
+    description: "Routes workflow based on field values (deterministic branching)"
+    icon: "git-branch"
+    category: "flow_control"
+    config_schema:
+      type: object
+      required:
+        - input
+        - field_path
+        - routes
+      properties:
+        input:
+          type: string
+          description: "Reference to data containing selector field"
+        field_path:
+          type: string
+          description: "JSONPath to the routing field"
+        routes:
+          type: object
+          description: "Map of field values to outcome names"
+          additionalProperties:
+            type: string
+        default:
+          type: string
+          description: "Fallback outcome if no route matches"
+    inputs:
+      - name: "data"
+        type: "object"
+        description: "Data containing the routing field"
+    outputs:
+      - name: "selected_route"
+        type: "string"
+        description: "The outcome name for the matched route"
+
+categories:
+  data_access:
+    name: "Data Access"
+    description: "Operations that read or extract from documents"
+  composition:
+    name: "Composition"
+    description: "Operations that combine multiple inputs"
+  quality:
+    name: "Quality"
+    description: "Operations that validate or check data"
+  data_transform:
+    name: "Data Transform"
+    description: "Operations that reshape data structures"
+  flow_control:
+    name: "Flow Control"
+    description: "Operations that determine workflow routing"

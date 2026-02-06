@@ -14,6 +14,10 @@ from app.api.services.admin_workbench_service import (
     AdminWorkbenchService,
     get_admin_workbench_service,
 )
+from app.api.services.mechanical_ops_service import (
+    MechanicalOpsService,
+    get_mechanical_ops_service,
+)
 from app.config.package_loader import (
     PackageNotFoundError,
     VersionNotFoundError,
@@ -224,6 +228,85 @@ class StandaloneSchemaDetail(BaseModel):
     schema_id: str
     version: str
     content: Dict[str, Any]
+
+
+# ===========================================================================
+# Mechanical Operations Response Models
+# ===========================================================================
+
+class OperationTypeSummary(BaseModel):
+    """Summary of a mechanical operation type."""
+    type_id: str
+    name: str
+    description: str
+    icon: str
+    category: str
+
+
+class OperationTypeListResponse(BaseModel):
+    """Response for list operation types endpoint."""
+    types: List[OperationTypeSummary]
+    total: int
+
+
+class OperationTypeDetail(BaseModel):
+    """Full operation type details."""
+    type_id: str
+    name: str
+    description: str
+    icon: str
+    category: str
+    config_schema: Dict[str, Any]
+    inputs: List[Dict[str, Any]]
+    outputs: List[Dict[str, Any]]
+
+
+class OperationCategorySummary(BaseModel):
+    """Summary of an operation category."""
+    category_id: str
+    name: str
+    description: str
+
+
+class OperationCategoryListResponse(BaseModel):
+    """Response for list operation categories endpoint."""
+    categories: List[OperationCategorySummary]
+    total: int
+
+
+class MechanicalOperationSummary(BaseModel):
+    """Summary of a mechanical operation instance."""
+    op_id: str
+    name: str
+    description: Optional[str] = None
+    type: Optional[str] = None
+    type_name: Optional[str] = None
+    category: str = "uncategorized"
+    active_version: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+    error: Optional[str] = None
+
+
+class MechanicalOperationListResponse(BaseModel):
+    """Response for list operations endpoint."""
+    operations: List[MechanicalOperationSummary]
+    total: int
+
+
+class MechanicalOperationDetail(BaseModel):
+    """Full mechanical operation details."""
+    op_id: str
+    version: str
+    type: str
+    type_name: str
+    category: str
+    name: str
+    description: str
+    config: Dict[str, Any]
+    config_schema: Dict[str, Any]
+    inputs: List[Dict[str, Any]]
+    outputs: List[Dict[str, Any]]
+    metadata: Dict[str, Any]
 
 
 class ActiveReleasesResponse(BaseModel):
@@ -665,6 +748,110 @@ async def get_standalone_schema(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error_code": "VERSION_NOT_FOUND", "message": str(e)},
+        )
+
+
+# ===========================================================================
+# Mechanical Operations Endpoints
+# ===========================================================================
+
+@router.get(
+    "/mechanical-ops/types",
+    response_model=OperationTypeListResponse,
+    summary="List operation types",
+    description="List all mechanical operation types from the registry.",
+)
+async def list_operation_types(
+    service: MechanicalOpsService = Depends(get_mechanical_ops_service),
+) -> OperationTypeListResponse:
+    """List all operation types."""
+    types = service.list_operation_types()
+    return OperationTypeListResponse(
+        types=[OperationTypeSummary(**t) for t in types],
+        total=len(types),
+    )
+
+
+@router.get(
+    "/mechanical-ops/types/{type_id}",
+    response_model=OperationTypeDetail,
+    summary="Get operation type",
+    description="Get full details of an operation type including config schema.",
+    responses={
+        404: {"description": "Operation type not found"},
+    },
+)
+async def get_operation_type(
+    type_id: str,
+    service: MechanicalOpsService = Depends(get_mechanical_ops_service),
+) -> OperationTypeDetail:
+    """Get operation type details."""
+    try:
+        details = service.get_operation_type(type_id)
+        return OperationTypeDetail(**details)
+    except PackageNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "OPERATION_TYPE_NOT_FOUND", "message": str(e)},
+        )
+
+
+@router.get(
+    "/mechanical-ops/categories",
+    response_model=OperationCategoryListResponse,
+    summary="List operation categories",
+    description="List all operation categories for grouping.",
+)
+async def list_operation_categories(
+    service: MechanicalOpsService = Depends(get_mechanical_ops_service),
+) -> OperationCategoryListResponse:
+    """List all operation categories."""
+    categories = service.list_categories()
+    return OperationCategoryListResponse(
+        categories=[OperationCategorySummary(**c) for c in categories],
+        total=len(categories),
+    )
+
+
+@router.get(
+    "/mechanical-ops",
+    response_model=MechanicalOperationListResponse,
+    summary="List mechanical operations",
+    description="List all mechanical operation instances.",
+)
+async def list_mechanical_operations(
+    service: MechanicalOpsService = Depends(get_mechanical_ops_service),
+) -> MechanicalOperationListResponse:
+    """List all mechanical operations."""
+    operations = service.list_operations()
+    return MechanicalOperationListResponse(
+        operations=[MechanicalOperationSummary(**o) for o in operations],
+        total=len(operations),
+    )
+
+
+@router.get(
+    "/mechanical-ops/{op_id}",
+    response_model=MechanicalOperationDetail,
+    summary="Get mechanical operation",
+    description="Get full details of a mechanical operation instance.",
+    responses={
+        404: {"description": "Operation not found"},
+    },
+)
+async def get_mechanical_operation(
+    op_id: str,
+    version: Optional[str] = Query(None, description="Specific version (default: active)"),
+    service: MechanicalOpsService = Depends(get_mechanical_ops_service),
+) -> MechanicalOperationDetail:
+    """Get mechanical operation details."""
+    try:
+        details = service.get_operation(op_id, version)
+        return MechanicalOperationDetail(**details)
+    except PackageNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error_code": "OPERATION_NOT_FOUND", "message": str(e)},
         )
 
 

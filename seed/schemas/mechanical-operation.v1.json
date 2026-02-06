@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/mechanical-operation.v1.json",
+  "title": "Mechanical Operation Instance",
+  "description": "Schema for Mechanical Operation instances - configured operations built from operation types",
+  "type": "object",
+  "required": ["id", "version", "type", "name", "config"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Schema reference URL"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique operation identifier (snake_case)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the operation"
+    },
+    "type": {
+      "type": "string",
+      "description": "Operation type ID (references types.yaml)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable operation name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what this specific operation does"
+    },
+    "config": {
+      "type": "object",
+      "description": "Operation configuration (validated against operation type's config_schema)"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "created_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the operation was created"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of this operation"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags for categorization and filtering"
+        }
+      }
+    }
+  }
+}
