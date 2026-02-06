@@ -19,20 +19,20 @@
                       "type":  "intake_gate",
                       "description":  "Single-pass classification and extraction of user intent",
                       "non_advancing":  false,
-                      "task_ref":  "tasks/Intake Gate v1.0"
+                      "task_ref":  "prompt:task:intake_gate:1.0.0"
                   },
                   {
                       "node_id":  "generation",
                       "type":  "task",
                       "description":  "Generate structured Intake Document from classified input",
-                      "task_ref":  "tasks/Intake Document Generation v1.0",
+                      "task_ref":  "prompt:task:intake_document_generation:1.0.0",
                       "produces":  "concierge_intake_document"
                   },
                   {
                       "node_id":  "qa",
                       "type":  "qa",
                       "description":  "Structural QA on generated intake document",
-                      "task_ref":  "tasks/Intake QA v1.0",
+                      "task_ref":  "prompt:task:intake_qa:1.0.0",
                       "requires_qa":  true,
                       "qa_mode":  "structural"
                   },
@@ -40,7 +40,7 @@
                       "node_id":  "remediation",
                       "type":  "task",
                       "description":  "Rework intake document based on QA feedback",
-                      "task_ref":  "tasks/Intake Document Generation v1.0",
+                      "task_ref":  "prompt:task:intake_document_generation:1.0.0",
                       "produces":  "concierge_intake_document"
                   },
                   {
