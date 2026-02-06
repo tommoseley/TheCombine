@@ -249,10 +249,14 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **ADR-047** (Accepted): Mechanical Operations -- Non-LLM Building Blocks
-  - Types: Extractors, Mergers, Validators, Transformers, Selectors
-  - Node internal types: LLM (Interaction Pass), MECH (Mechanical Op), UI (Operator Entry)
-  - Enables data-pipeline nodes without LLM calls
+- **WS-ADR-047-001** (Accepted): Mechanical Operations Foundation
+  - Phase 1: Operation Type Registry (Extractor, Merger)
+  - Phase 2: Backend Loading Service
+  - Phase 3: Execution Handlers
+  - Phase 4: API Endpoints
+  - Phase 5: Building Blocks Tray Integration
+  - Phase 6: Node Properties Panel for MECH
+  - Phase 7: First Instance (pgc_clarification_merge)
 - **Genericize Intake Gate**: Migrate from hardcoded intake_gate to use Interaction Template pattern
   - Create Discovery Interaction Template for intake workflows
   - Standard pattern: Interaction Template -> LLM -> Structured Output
