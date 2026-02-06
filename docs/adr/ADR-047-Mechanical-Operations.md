@@ -1,7 +1,8 @@
 # ADR-047 -- Mechanical Operations: Non-LLM Building Blocks
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-02-06
+**Accepted:** 2026-02-06
 **Decision Type:** Architectural / Ontological
 
 **Related ADRs:**

@@ -249,7 +249,7 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **ADR-047** (Draft): Mechanical Operations -- Non-LLM Building Blocks
+- **ADR-047** (Accepted): Mechanical Operations -- Non-LLM Building Blocks
   - Types: Extractors, Mergers, Validators, Transformers, Selectors
   - Node internal types: LLM (Interaction Pass), MECH (Mechanical Op), UI (Operator Entry)
   - Enables data-pipeline nodes without LLM calls
