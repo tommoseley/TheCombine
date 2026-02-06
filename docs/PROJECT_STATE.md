@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-06
-**Updated By:** Claude (PGC composite gates, schema editing, composition-first UI design)
+**Updated By:** Claude (WS-ADR-044-003 complete, BuildingBlocksTray, concierge_intake migration)
 
 ## Current Focus
 
@@ -19,7 +19,7 @@ All work statements delivered:
 **IN PROGRESS:** ADR-044 -- Admin Workbench
 
 - **WS-ADR-044-001** (Complete): Left rail and tab bar UX redesign
-- **WS-ADR-044-002** (Draft): Composition-First Workbench Redesign
+- **WS-ADR-044-003** (Complete): Composition-First Workbench Redesign -- Left rail shows only compositions, Building Blocks in secondary tray, PGC internals with single-expansion
 
 ---
 
@@ -64,6 +64,10 @@ All work statements delivered:
 - **PGC gate taxonomy** (2026-02-06): 7 gate kinds with auto-populated `produces` field (e.g., `pgc_clarifications.discovery`)
 - **Node property dropdowns** (2026-02-06): Templates, roles, tasks, schemas, PGC fragments all use dropdowns populated from left rail data
 - **Standalone PGC fragments** (2026-02-06): PGC prompts extracted to `combine-config/prompts/pgc/{id}.v1/`; validation rule updated to accept either embedded or standalone
+- **Composition-First UI** (2026-02-06, WS-ADR-044-003): Left rail shows only POWs and DCWs; Building Blocks moved to secondary slide-out tray
+- **BuildingBlocksTray** (2026-02-06): Slide-out drawer with Prompt Fragments, Templates, Schemas tabs; closes only via X button (not on item selection or outside click)
+- **PGC single-expansion** (2026-02-06): Pass A and Pass B in PGC Gate Internals use mutual exclusion -- only one expanded at a time
+- **concierge_intake workflow migration** (2026-02-06): Task refs updated from seed format to combine-config artifact refs (`prompt:task:intake_gate:1.0.0`)
 
 ---
 
@@ -83,7 +87,7 @@ All work statements delivered:
 | WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
 | WS-044-11 | Golden Trace Runner | Deferred |
 | WS-ADR-044-001 | Left Rail and Tab Bar UX Redesign | Complete |
-| WS-ADR-044-002 | Composition-First Workbench Redesign | Draft |
+| WS-ADR-044-003 | Composition-First Workbench Redesign | Complete |
 
 ## WS-045 Status (ADR-045 execution_state: complete)
 
@@ -221,6 +225,8 @@ combine-config/
 13. **PGC composite gates** (2026-02-06) -- PGC is a black-box gate node with internals (Pass A: Question Gen, Entry: Operator Answers, Pass B: Clarification Merge); gate_kind determines purpose (discovery, plan, architecture, etc.)
 14. **Standalone PGC fragments** -- PGC prompts live in `prompts/pgc/{id}.v1/` not embedded in document type packages; validation rule accepts either
 15. **Artifact ID URL encoding** -- Frontend encodes artifact IDs with `encodeURIComponent()` for API calls
+16. **BuildingBlocksTray behavior** -- Slide-out tray closes only via X button, not on item selection or clicking editor; enables multi-select workflows
+17. **Task ref artifact format** -- Workflow task_refs use `prompt:task:{name}:{version}` format pointing to combine-config artifacts
 
 ---
 
@@ -243,11 +249,13 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **WS-ADR-044-002** (Draft): Composition-First Workbench Redesign
-  - Left rail shows only POWs and DCWs (compositions)
-  - Building Blocks move to secondary collapsible tray
-  - Single editing surface (right panel) for selected Interaction Pass
-  - Progressive disclosure in Gate Internals
+- **ADR-047** (Draft): Mechanical Operations -- Non-LLM Building Blocks
+  - Types: Extractors, Mergers, Validators, Transformers, Selectors
+  - Node internal types: LLM (Interaction Pass), MECH (Mechanical Op), UI (Operator Entry)
+  - Enables data-pipeline nodes without LLM calls
+- **Genericize Intake Gate**: Migrate from hardcoded intake_gate to use Interaction Template pattern
+  - Create Discovery Interaction Template for intake workflows
+  - Standard pattern: Interaction Template -> LLM -> Structured Output
 - Clean up software_product_development definition.json to remove role/task_prompt from steps
 - WS-044-04 (DocDef & Sidecar Editor) -- not started
 - WS-044-10 Phase 4 (seed/ cleanup) -- not started
@@ -255,7 +263,7 @@ cd spa && npm run dev
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Uncommitted changes from this session need commit
+- Migrate remaining seed/ workflows and prompts to combine-config/
 
 ### Known Issues
 - `clarification_questions` schema shows `active_version: null` in API despite being in active_releases.json - possible ID mismatch with `clarification_question_set`
