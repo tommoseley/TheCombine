@@ -19,6 +19,10 @@ from app.api.services.mech_handlers.registry import (
     register_handler,
     HANDLER_REGISTRY,
 )
+from app.api.services.mech_handlers.executor import (
+    execute_operation,
+    execute_operation_by_ref,
+)
 
 __all__ = [
     "MechHandler",
@@ -31,4 +35,6 @@ __all__ = [
     "get_handler",
     "register_handler",
     "HANDLER_REGISTRY",
+    "execute_operation",
+    "execute_operation_by_ref",
 ]
