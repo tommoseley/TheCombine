@@ -84,6 +84,7 @@
     "discovery_invariant_pinner": "1.0.0",
     "discovery_exclusion_filter": "1.0.0",
     "intake_classification_extractor": "1.0.0",
-    "intake_invariant_pinner": "1.0.0"
+    "intake_invariant_pinner": "1.0.0",
+    "intake_route": "1.0.0"
   }
 }

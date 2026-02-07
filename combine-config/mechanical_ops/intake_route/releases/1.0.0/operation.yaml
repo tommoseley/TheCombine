@@ -1,0 +1,62 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: intake_route
+version: "1.0.0"
+type: router
+name: "Intake Route Selector"
+description: "Maps intake classification to follow-on POW reference"
+
+# Input: intake_record with classification fields
+# Output: routing_decision with next_pow_ref, confidence, candidates
+
+config:
+  # Fields to extract from intake for routing
+  classification_fields:
+    - path: $.project_type
+      as: project_type
+    - path: $.artifact_type
+      as: artifact_type
+    - path: $.audience
+      as: audience
+    - path: $.classification
+      as: classification
+    - path: $.confidence
+      as: intake_confidence
+
+  # Confidence threshold for auto-routing
+  min_confidence_to_auto_route: medium
+
+  # Routing rules: match conditions → POW ref
+  # Rules evaluated in order, first match wins
+  routes:
+    - name: "Software Product"
+      match:
+        project_type: ["greenfield", "enhancement"]
+        artifact_type: ["web_application", "mobile_application", "api", "application", "platform"]
+      pow_ref: "pow:software_product_development@1.0.0"
+      confidence: high
+      reason: "Standard software product delivery workflow"
+
+    - name: "Migration/Integration"
+      match:
+        project_type: ["migration", "integration"]
+      pow_ref: "pow:software_product_development@1.0.0"
+      confidence: medium
+      reason: "Migration/integration projects use software delivery with constraints"
+
+    - name: "Unknown/Fallback"
+      match: {}  # Matches anything
+      pow_ref: "pow:software_product_development@1.0.0"
+      confidence: low
+      reason: "Fallback to software delivery - operator should confirm"
+
+  # Output schema
+  output_schema: "schema:routing_decision:1.0.0"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  adr_reference: "ADR-048"
+  tags:
+    - intake
+    - routing
+    - pow
