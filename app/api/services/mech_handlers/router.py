@@ -65,11 +65,12 @@ class RouterHandler(MechHandler):
             MechResult with routing_decision
         """
         try:
-            # Get intake record
-            intake = context.get_input("intake_record")
-            if intake is None:
-                # Try source_document as fallback
-                intake = context.get_input("source_document")
+            # Get intake record - try multiple input names
+            intake = None
+            for input_name in ["concierge_intake", "intake_record", "source_document"]:
+                if context.has_input(input_name):
+                    intake = context.get_input(input_name)
+                    break
 
             if not intake:
                 return MechResult.fail(

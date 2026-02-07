@@ -5,7 +5,7 @@ type: router
 name: "Intake Route Selector"
 description: "Maps intake classification to follow-on POW reference"
 
-# Input: intake_record with classification fields
+# Input: concierge_intake with classification fields
 # Output: routing_decision with next_pow_ref, confidence, candidates
 
 config:

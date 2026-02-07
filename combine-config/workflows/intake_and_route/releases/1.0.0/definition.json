@@ -1,7 +1,7 @@
 {
   "schema_version": "workflow.v2",
   "workflow_id": "intake_and_route",
-  "revision": "wfrev_2026_02_07_b",
+  "revision": "wfrev_2026_02_07_c",
   "effective_date": "2026-02-07",
   "name": "Intake & Routing",
   "description": "Front-door POW: captures operator intent, classifies project, routes to appropriate follow-on workflow",
@@ -19,12 +19,12 @@
     }
   },
   "produced_artifacts": {
-    "intake_record": {
-      "name": "Intake Record",
+    "concierge_intake": {
+      "name": "Concierge Intake",
       "scope": "project",
-      "schema_ref": "schema:intake_record@1.0.0",
+      "schema_ref": "schema:concierge_intake@1.0.0",
       "acceptance_required": false,
-      "description": "Canonical intake artifact with reflected intent and intent classification"
+      "description": "Intake document with reflected intent and classification from Concierge DCW"
     },
     "routing_decision": {
       "name": "Routing Decision",
@@ -60,7 +60,7 @@
       "scope": "project",
       "inputs": [
         {
-          "artifact_id": "intake_record",
+          "artifact_id": "concierge_intake",
           "scope": "project"
         }
       ],
@@ -70,7 +70,7 @@
       },
       "config": {
         "min_confidence_to_auto_route": "medium",
-        "route_on": "intake_record.intent_class",
+        "route_on": "concierge_intake.intent_class",
         "routes": {
           "plan_work": "pow:software_product_development@1.0.0",
           "explore_problem": "pow:software_product_development@1.0.0",
@@ -137,7 +137,7 @@
       "scope": "project",
       "inputs": [
         {
-          "artifact_id": "intake_record",
+          "artifact_id": "concierge_intake",
           "scope": "project"
         },
         {
@@ -152,8 +152,8 @@
       "config": {
         "seed_inputs": [
           {
-            "name": "intake_record",
-            "from_artifact_id": "intake_record"
+            "name": "concierge_intake",
+            "from_artifact_id": "concierge_intake"
           },
           {
             "name": "routing_decision",
