@@ -72,6 +72,9 @@
   "mechanical_ops": {
     "pgc_clarification_merge": "1.0.0",
     "concierge_entry": "1.0.0",
-    "pgc_operator_answers": "1.0.0"
+    "pgc_operator_answers": "1.0.0",
+    "intake_context_extractor": "1.0.0",
+    "discovery_context_extractor": "1.0.0",
+    "qa_feedback_merger": "1.0.0"
   }
 }

@@ -1,0 +1,23 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: qa_feedback_merger
+version: "1.0.0"
+type: merger
+name: "QA Feedback Merger"
+description: "Combines QA evaluation results with original document for remediation context"
+
+config:
+  inputs:
+    - ref: original_document
+      key: document
+    - ref: qa_result
+      key: qa_feedback
+  merge_strategy: deep_merge
+  output_shape: document_with_qa_feedback.v1
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - qa
+    - remediation
+    - merge

@@ -1,0 +1,27 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: intake_context_extractor
+version: "1.0.0"
+type: extractor
+name: "Intake Context Extractor"
+description: "Extracts summary and constraints from intake document for downstream workflow nodes"
+
+config:
+  source_type: concierge_intake
+  field_paths:
+    - path: $.project_summary
+      as: summary
+    - path: $.identified_constraints
+      as: constraints
+    - path: $.scope_type
+      as: scope_type
+    - path: $.urgency
+      as: urgency
+  output_shape: extracted_intake_context.v1
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - intake
+    - extraction
+    - context
