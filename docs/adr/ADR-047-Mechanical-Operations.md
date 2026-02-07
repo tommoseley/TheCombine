@@ -791,4 +791,181 @@ ADR-047 is considered satisfied when:
 
 ---
 
+## Addendum A: Entry Operations (UI Mechanical Ops)
+
+**Added:** 2026-02-06
+
+### A.1 Rationale
+
+ADR-047 §5 defines three internal types: LLM, MECH, and UI. The Operation Type Registry (§8.1) defines five code-based operation types (Extractor, Merger, Validator, Transformer, Selector). This addendum extends the registry with **Entry** operations for UI internal types.
+
+Entry operations follow the same contract structure as code-based mechanical ops:
+- Typed inputs (what to render)
+- Typed outputs (structured user response)
+- Schema-validated
+- Versioned and governed
+
+The difference is the executor: a React component instead of Python code.
+
+### A.2 Entry Operation Type
+
+Add to `combine-config/mechanical_ops/_registry/types.yaml`:
+
+```yaml
+entry:
+  name: "Entry"
+  description: "Captures structured input from an operator via UI"
+  icon: "user-edit"
+  category: "human_input"
+  config_schema:
+    type: object
+    required: [renders, captures]
+    properties:
+      renders:
+        type: string
+        description: "Schema defining what to display to operator"
+        ui_hint: "dropdown:schemas"
+      captures:
+        type: string
+        description: "Schema defining expected operator response"
+        ui_hint: "dropdown:schemas"
+      entry_prompt:
+        type: string
+        description: "Instructions shown to operator"
+      layout:
+        type: string
+        enum: [form, wizard, review]
+        default: form
+        description: "UI layout hint"
+      validation_mode:
+        type: string
+        enum: [strict, lenient]
+        default: strict
+        description: "How strictly to enforce captures schema"
+  inputs:
+    - name: "context"
+      type: "object"
+      description: "Data to render for operator review/action"
+  outputs:
+    - name: "response"
+      type: "object"
+      description: "Structured operator input matching captures schema"
+
+categories:
+  # ... existing categories ...
+  human_input:
+    name: "Human Input"
+    description: "Operations that capture structured input from operators"
+```
+
+### A.3 Entry Operation Instances
+
+**concierge_entry** - Intake confirmation UI:
+```yaml
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+op_id: concierge_entry
+version: "1.0.0"
+type: entry
+name: "Concierge Entry"
+description: "Operator confirms or corrects intake classification"
+
+config:
+  renders: intake_classification.v1
+  captures: intake_confirmation.v1
+  entry_prompt: "Review the intake classification. Confirm or correct as needed."
+  layout: review
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - intake
+    - confirmation
+```
+
+**pgc_operator_answers** - PGC answer collection UI:
+```yaml
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+op_id: pgc_operator_answers
+version: "1.0.0"
+type: entry
+name: "PGC Operator Answers"
+description: "Operator provides answers to generated clarification questions"
+
+config:
+  renders: clarification_question_set.v2
+  captures: operator_answers.v1
+  entry_prompt: "Please answer the clarification questions below."
+  layout: form
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - pgc
+    - clarification
+```
+
+### A.4 Execution Model
+
+Entry operations execute differently from code-based mechanical ops:
+
+1. **Render**: React component receives `renders` data from workflow context
+2. **Wait**: Execution pauses until operator submits response
+3. **Capture**: Response validated against `captures` schema
+4. **Resume**: Workflow advances with validated response as output
+
+The workflow engine treats Entry nodes as blocking until operator action completes.
+
+### A.5 React Component Contract
+
+Entry operation instances map to React components via a registry:
+
+```typescript
+// Entry component receives:
+interface EntryComponentProps {
+  operation: MechanicalOperation;  // Full operation definition
+  context: object;                  // Data matching renders schema
+  onSubmit: (response: object) => void;  // Must match captures schema
+  onCancel?: () => void;
+}
+
+// Component registry
+const entryComponents: Record<string, React.FC<EntryComponentProps>> = {
+  'concierge_entry': ConciergeEntryForm,
+  'pgc_operator_answers': PGCAnswerForm,
+  // Generic fallback for unknown ops
+  '_default': GenericEntryForm,
+};
+```
+
+### A.6 Building Blocks Integration
+
+Entry operations appear in the Mechanical Ops tab alongside code-based ops:
+
+```
+Mechanical Ops
+├── ── By Type ──
+│   ├── Extractors (2)
+│   ├── Mergers (1)
+│   ├── Entry (2)           # <-- New
+│   │   ├── concierge_entry
+│   │   └── pgc_operator_answers
+│   └── ...
+└── ── By Category ──
+    ├── Human Input (2)     # <-- New category
+    └── ...
+```
+
+### A.7 Updated Acceptance Criteria
+
+Add to §14:
+
+13. Entry operation type is defined in the Operation Type Registry
+14. At least two Entry operation instances exist (concierge_entry, pgc_operator_answers)
+15. React component contract is implemented for Entry operations
+16. Workflow engine handles Entry node blocking/resume correctly
+
+---
+
 _End of ADR-047_
