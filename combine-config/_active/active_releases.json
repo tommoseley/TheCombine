@@ -32,7 +32,9 @@
     "implementation_plan": "1.0.0",
     "epic": "1.0.0",
     "feature": "1.0.0",
-    "clarification_questions": "1.0.0"
+    "clarification_questions": "1.0.0",
+    "intake_classification": "1.0.0",
+    "intake_confirmation": "1.0.0"
   },
   "workflows": {
     "concierge_intake": "1.3.0",
@@ -78,6 +80,8 @@
     "qa_feedback_merger": "1.0.0",
     "pgc_clarification_processor": "1.0.0",
     "discovery_invariant_pinner": "1.0.0",
-    "discovery_exclusion_filter": "1.0.0"
+    "discovery_exclusion_filter": "1.0.0",
+    "intake_classification_extractor": "1.0.0",
+    "intake_invariant_pinner": "1.0.0"
   }
 }

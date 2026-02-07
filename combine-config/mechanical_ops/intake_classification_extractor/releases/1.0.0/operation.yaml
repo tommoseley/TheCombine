@@ -1,0 +1,28 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+op_id: intake_classification_extractor
+version: "1.0.0"
+type: extractor
+name: "Intake Classification Extractor"
+description: "Extracts key fields from LLM intake classification"
+
+config:
+  source_type: intake_classification
+  field_paths:
+    - path: $.project_type
+      as: project_type
+    - path: $.artifact_type
+      as: artifact_type
+    - path: $.audience
+      as: audience
+    - path: $.intake_summary
+      as: intake_summary
+    - path: $.confidence
+      as: confidence
+  output_shape: extracted_intake_context
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  tags:
+    - intake
+    - extraction

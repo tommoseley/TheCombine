@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/intake_classification.v1.json",
+  "title": "Intake Classification",
+  "description": "Output of LLM intake classification pass",
+  "type": "object",
+  "required": ["classification", "project_type", "intake_summary"],
+  "properties": {
+    "classification": {
+      "type": "string",
+      "enum": ["qualified", "needs_clarification", "out_of_scope"],
+      "description": "Whether the intake is ready to proceed"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": ["greenfield", "enhancement", "migration", "integration", "unknown"],
+      "description": "Type of project being described"
+    },
+    "artifact_type": {
+      "type": "string",
+      "description": "Primary deliverable (web app, API, mobile app, etc.)"
+    },
+    "audience": {
+      "type": "string",
+      "description": "Who will use the artifact"
+    },
+    "intake_summary": {
+      "type": "string",
+      "description": "Concise summary of the intake request"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "LLM confidence in classification"
+    },
+    "missing_information": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "What information is missing for full qualification"
+    },
+    "classification_rationale": {
+      "type": "string",
+      "description": "Why this classification was chosen"
+    }
+  }
+}

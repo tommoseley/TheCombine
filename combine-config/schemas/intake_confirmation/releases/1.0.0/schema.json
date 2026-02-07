@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/intake_confirmation.v1.json",
+  "title": "Intake Confirmation",
+  "description": "Operator confirmation/correction of intake classification",
+  "type": "object",
+  "required": ["confirmed", "project_type", "artifact_type", "audience"],
+  "properties": {
+    "confirmed": {
+      "type": "boolean",
+      "description": "Whether operator confirms the classification as-is"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": ["greenfield", "enhancement", "migration", "integration"],
+      "description": "Confirmed project type"
+    },
+    "artifact_type": {
+      "type": "string",
+      "description": "Confirmed primary deliverable"
+    },
+    "audience": {
+      "type": "string",
+      "description": "Confirmed target audience"
+    },
+    "corrections": {
+      "type": "object",
+      "description": "Any corrections the operator made",
+      "additionalProperties": { "type": "string" }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional operator notes"
+    }
+  }
+}

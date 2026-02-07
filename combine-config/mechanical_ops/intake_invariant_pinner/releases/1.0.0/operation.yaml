@@ -1,0 +1,18 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+op_id: intake_invariant_pinner
+version: "1.0.0"
+type: invariant_pinner
+name: "Intake Invariant Pinner"
+description: "Pins confirmed intake fields as binding constraints"
+
+config:
+  deduplicate: true
+  source_field: "intake_confirmation"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  tags:
+    - intake
+    - invariant
+    - pinning
