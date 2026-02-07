@@ -63,15 +63,16 @@ function TraySection({ title, count, dotColor, defaultOpen = false, action, chil
 /**
  * Item button within a tray section.
  */
-function TrayItem({ onClick, label, sublabel, badge }) {
+function TrayItem({ onClick, label, sublabel, badge, isSelected }) {
     return (
         <button
             onClick={onClick}
             className="w-full px-4 py-2 text-left text-sm hover:opacity-80 transition-opacity"
             style={{
-                background: 'transparent',
+                background: isSelected ? 'var(--bg-selected, rgba(99, 102, 241, 0.15))' : 'transparent',
                 border: 'none',
-                color: 'var(--text-secondary)',
+                borderLeft: isSelected ? '3px solid var(--action-primary)' : '3px solid transparent',
+                color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
             }}
         >
@@ -150,6 +151,11 @@ export default function BuildingBlocksTray({
     templatesLoading = false,
     schemasLoading = false,
     mechanicalOpsLoading = false,
+    // Selected items (for highlighting)
+    selectedFragment = null,
+    selectedTemplate = null,
+    selectedSchema = null,
+    selectedMechanicalOp = null,
     // Handlers
     onSelectFragment,
     onSelectTemplate,
@@ -427,6 +433,7 @@ export default function BuildingBlocksTray({
                                         label={fragment.name || fragment.fragment_id}
                                         sublabel={`${fragment.kind} · v${fragment.version}`}
                                         badge={fragment.kind}
+                                        isSelected={selectedFragment?.fragment_id === fragment.fragment_id}
                                     />
                                 ))}
                             </div>
@@ -528,6 +535,7 @@ export default function BuildingBlocksTray({
                                         onClick={() => handleSelect(onSelectTemplate, template)}
                                         label={template.name || template.template_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                         sublabel={`v${template.active_version}`}
+                                        isSelected={selectedTemplate?.template_id === template.template_id}
                                     />
                                 ))}
                             </div>
@@ -630,6 +638,7 @@ export default function BuildingBlocksTray({
                                         onClick={() => handleSelect(onSelectStandaloneSchema, schema)}
                                         label={schema.title || schema.schema_id}
                                         sublabel={`v${schema.active_version}`}
+                                        isSelected={selectedSchema?.schema_id === schema.schema_id}
                                     />
                                 ))}
                             </div>
@@ -693,6 +702,7 @@ export default function BuildingBlocksTray({
                                                         label={op.name}
                                                         sublabel={`v${op.active_version}`}
                                                         badge={op.type}
+                                                        isSelected={selectedMechanicalOp?.op_id === op.op_id}
                                                     />
                                                 ))
                                             ) : (

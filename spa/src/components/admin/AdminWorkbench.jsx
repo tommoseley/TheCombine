@@ -687,6 +687,10 @@ export default function AdminWorkbench() {
                 promptFragmentsLoading={promptFragmentsLoading}
                 templatesLoading={templatesLoading}
                 schemasLoading={schemasLoading}
+                selectedFragment={selectedFragment}
+                selectedTemplate={selectedTemplate}
+                selectedSchema={selectedSchema}
+                selectedMechanicalOp={selectedMechanicalOp}
                 onSelectFragment={handleSelectFragment}
                 onSelectTemplate={handleSelectTemplate}
                 onSelectSchema={handleSelectSchema}
