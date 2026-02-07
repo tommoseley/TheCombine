@@ -1096,54 +1096,143 @@ export default function NodePropertiesPanel({
                     </div>
                 )}
 
-                {/* === UI Configuration (ADR-047) === */}
+                {/* === UI Configuration (ADR-047 Addendum A: Entry Operations) === */}
                 {localData.type === 'task' && localData.internal_type === 'UI' && (
                     <div className="space-y-3">
-                        <div
-                            className="p-2 rounded text-xs"
-                            style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border-panel)' }}
-                        >
-                            <div className="flex items-center gap-2 mb-1">
-                                <span
-                                    className="px-1.5 py-0.5 rounded font-semibold uppercase"
-                                    style={{
-                                        fontSize: 9,
-                                        background: '#3b82f6',
-                                        color: '#fff',
-                                    }}
+                        <div>
+                            <label style={labelStyle}>Entry Operation</label>
+                            <select
+                                value={parseMechOpRef(localData.op_ref) || ''}
+                                onChange={e => {
+                                    const opId = e.target.value;
+                                    if (!opId) {
+                                        updateField('op_ref', '');
+                                        return;
+                                    }
+                                    const op = mechanicalOps.find(o => o.op_id === opId);
+                                    if (op) {
+                                        updateField('op_ref', buildMechOpRef(op));
+                                    }
+                                }}
+                                style={fieldStyle}
+                            >
+                                <option value="">-- Select Entry Operation --</option>
+                                {mechanicalOps.filter(op => op.type === 'entry').map(op => (
+                                    <option key={op.op_id} value={op.op_id}>
+                                        {op.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {localData.op_ref && (
+                                <div
+                                    className="mt-1 text-xs font-mono truncate"
+                                    style={{ color: 'var(--text-muted)' }}
+                                    title={localData.op_ref}
                                 >
-                                    UI
-                                </span>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                                    Operator Entry
-                                </span>
-                            </div>
-                            <div style={{ color: 'var(--text-muted)' }}>
-                                This node presents a form to the operator and captures their input.
-                            </div>
+                                    {localData.op_ref}
+                                </div>
+                            )}
                         </div>
 
-                        <div>
-                            <label style={labelStyle}>Renders</label>
-                            <input
-                                type="text"
-                                value={localData.renders || ''}
-                                onChange={e => updateField('renders', e.target.value)}
-                                placeholder="e.g., question_set"
-                                style={fieldStyle}
-                            />
-                        </div>
+                        {/* Show Entry operation details when selected */}
+                        {localData.op_ref && (() => {
+                            const opId = parseMechOpRef(localData.op_ref);
+                            const op = mechanicalOps.find(o => o.op_id === opId);
+                            if (!op) return null;
+                            const config = op.config || {};
+                            return (
+                                <div
+                                    className="p-2 rounded text-xs space-y-2"
+                                    style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border-panel)' }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className="px-1.5 py-0.5 rounded font-semibold uppercase"
+                                            style={{
+                                                fontSize: 9,
+                                                background: 'var(--dot-orange, #f97316)',
+                                                color: '#fff',
+                                            }}
+                                        >
+                                            Entry
+                                        </span>
+                                        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                            {op.name}
+                                        </span>
+                                    </div>
+                                    {op.description && (
+                                        <div style={{ color: 'var(--text-muted)' }}>
+                                            {op.description}
+                                        </div>
+                                    )}
+                                    <div className="pt-2 border-t space-y-1" style={{ borderColor: 'var(--border-panel)' }}>
+                                        <div className="flex justify-between">
+                                            <span style={{ color: 'var(--text-muted)' }}>Renders:</span>
+                                            <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                                                {config.renders || '-'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span style={{ color: 'var(--text-muted)' }}>Captures:</span>
+                                            <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                                                {config.captures || '-'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span style={{ color: 'var(--text-muted)' }}>Layout:</span>
+                                            <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                                                {config.layout || 'form'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {config.entry_prompt && (
+                                        <div
+                                            className="p-2 rounded mt-2"
+                                            style={{ background: 'var(--bg-panel)' }}
+                                        >
+                                            <div className="text-[10px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
+                                                Entry Prompt
+                                            </div>
+                                            <div style={{ color: 'var(--text-primary)' }}>
+                                                {config.entry_prompt}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
-                        <div>
-                            <label style={labelStyle}>Captures</label>
-                            <input
-                                type="text"
-                                value={localData.captures || ''}
-                                onChange={e => updateField('captures', e.target.value)}
-                                placeholder="e.g., user_answers"
-                                style={fieldStyle}
-                            />
-                        </div>
+                        {/* Fallback: manual renders/captures if no operation selected */}
+                        {!localData.op_ref && (
+                            <>
+                                <div
+                                    className="p-2 rounded text-xs"
+                                    style={{ background: 'var(--bg-canvas)', color: 'var(--text-muted)' }}
+                                >
+                                    Select an Entry operation above, or define custom renders/captures below.
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Renders</label>
+                                    <input
+                                        type="text"
+                                        value={localData.renders || ''}
+                                        onChange={e => updateField('renders', e.target.value)}
+                                        placeholder="e.g., question_set"
+                                        style={fieldStyle}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Captures</label>
+                                    <input
+                                        type="text"
+                                        value={localData.captures || ''}
+                                        onChange={e => updateField('captures', e.target.value)}
+                                        placeholder="e.g., user_answers"
+                                        style={fieldStyle}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

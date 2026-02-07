@@ -1,0 +1,20 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: pgc_operator_answers
+version: "1.0.0"
+type: entry
+name: "PGC Operator Answers"
+description: "Operator provides answers to generated clarification questions"
+
+config:
+  renders: clarification_question_set.v2
+  captures: operator_answers.v1
+  entry_prompt: "Please answer the clarification questions below."
+  layout: form
+
+metadata:
+  created_date: "2026-02-06"
+  author: "system"
+  tags:
+    - pgc
+    - clarification
+    - gate

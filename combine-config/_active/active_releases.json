@@ -70,6 +70,8 @@
     "technical_architecture.v1": "1.0.0"
   },
   "mechanical_ops": {
-    "pgc_clarification_merge": "1.0.0"
+    "pgc_clarification_merge": "1.0.0",
+    "concierge_entry": "1.0.0",
+    "pgc_operator_answers": "1.0.0"
   }
 }

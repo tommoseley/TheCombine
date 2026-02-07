@@ -48,9 +48,11 @@ def _register_builtin_handlers():
     """Register the built-in handlers."""
     from app.api.services.mech_handlers.extractor import ExtractorHandler
     from app.api.services.mech_handlers.merger import MergerHandler
+    from app.api.services.mech_handlers.entry import EntryHandler
 
     register_handler(ExtractorHandler)
     register_handler(MergerHandler)
+    register_handler(EntryHandler)
 
 
 # Auto-register on module load

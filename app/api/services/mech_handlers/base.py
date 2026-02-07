@@ -87,12 +87,14 @@ class MechResult:
         error: Error message (if failed)
         outcome: Outcome name for edge routing
         error_code: Machine-readable error code
+        entry_config: Configuration for Entry operations (UI must handle)
     """
     success: bool
     output: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     outcome: str = "success"
     error_code: Optional[str] = None
+    entry_config: Optional[Dict[str, Any]] = None
 
     @classmethod
     def ok(cls, output: Dict[str, Any], outcome: str = "success") -> "MechResult":
@@ -112,6 +114,34 @@ class MechResult:
             error=error,
             outcome=outcome,
             error_code=error_code,
+        )
+
+    @classmethod
+    def pending_entry(
+        cls,
+        op_id: str,
+        renders: Any,
+        captures_schema: str,
+        entry_prompt: Optional[str] = None,
+        layout: str = "form",
+    ) -> "MechResult":
+        """
+        Create a pending entry result for Entry operations.
+
+        Entry operations don't execute server-side; they return this
+        result to indicate the UI must capture operator input.
+        """
+        return cls(
+            success=True,
+            output=None,
+            outcome="pending_entry",
+            entry_config={
+                "op_id": op_id,
+                "renders": renders,
+                "captures_schema": captures_schema,
+                "entry_prompt": entry_prompt,
+                "layout": layout,
+            },
         )
 
 

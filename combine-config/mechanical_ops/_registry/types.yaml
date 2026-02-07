@@ -196,6 +196,52 @@ types:
         type: "string"
         description: "The outcome name for the matched route"
 
+  entry:
+    name: "Entry"
+    description: "Captures structured input from an operator via UI"
+    icon: "user-edit"
+    category: "human_input"
+    config_schema:
+      type: object
+      required:
+        - renders
+        - captures
+      properties:
+        renders:
+          type: string
+          description: "Schema defining what to display to operator"
+          ui_hint: "dropdown:schemas"
+        captures:
+          type: string
+          description: "Schema defining expected operator response"
+          ui_hint: "dropdown:schemas"
+        entry_prompt:
+          type: string
+          description: "Instructions shown to operator"
+        layout:
+          type: string
+          enum:
+            - form
+            - wizard
+            - review
+          default: form
+          description: "UI layout hint"
+        validation_mode:
+          type: string
+          enum:
+            - strict
+            - lenient
+          default: strict
+          description: "How strictly to enforce captures schema"
+    inputs:
+      - name: "context"
+        type: "object"
+        description: "Data to render for operator review/action"
+    outputs:
+      - name: "response"
+        type: "object"
+        description: "Structured operator input matching captures schema"
+
 categories:
   data_access:
     name: "Data Access"
@@ -212,3 +258,6 @@ categories:
   flow_control:
     name: "Flow Control"
     description: "Operations that determine workflow routing"
+  human_input:
+    name: "Human Input"
+    description: "Operations that capture structured input from operators"

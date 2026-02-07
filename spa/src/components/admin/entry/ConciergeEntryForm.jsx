@@ -1,0 +1,319 @@
+import React, { useState } from 'react';
+
+/**
+ * Concierge Entry Form
+ *
+ * Specific Entry component for concierge_entry operation.
+ * Displays intake classification and allows operator to confirm or correct.
+ *
+ * Context (renders: intake_classification.v1):
+ * - category: string (e.g., 'new_feature', 'bug_fix', 'enhancement')
+ * - summary: string
+ * - confidence: number (0-1)
+ * - extracted_entities: object
+ *
+ * Response (captures: intake_confirmation.v1):
+ * - confirmed: boolean
+ * - corrected_category?: string
+ * - notes?: string
+ */
+export default function ConciergeEntryForm({ operation, context, onSubmit, onCancel }) {
+    const [mode, setMode] = useState('confirm'); // 'confirm' or 'correct'
+    const [correctedCategory, setCorrectedCategory] = useState(context?.category || '');
+    const [notes, setNotes] = useState('');
+
+    const config = operation?.config || {};
+    const entryPrompt = config.entry_prompt || 'Review the intake classification.';
+
+    const categories = [
+        { value: 'new_feature', label: 'New Feature' },
+        { value: 'bug_fix', label: 'Bug Fix' },
+        { value: 'enhancement', label: 'Enhancement' },
+        { value: 'refactor', label: 'Refactor' },
+        { value: 'documentation', label: 'Documentation' },
+        { value: 'question', label: 'Question' },
+        { value: 'other', label: 'Other' },
+    ];
+
+    const handleSubmit = () => {
+        const response = {
+            confirmed: mode === 'confirm',
+            timestamp: new Date().toISOString(),
+        };
+
+        if (mode === 'correct') {
+            response.corrected_category = correctedCategory;
+        }
+
+        if (notes.trim()) {
+            response.notes = notes.trim();
+        }
+
+        onSubmit(response);
+    };
+
+    const confidencePercent = context?.confidence
+        ? Math.round(context.confidence * 100)
+        : null;
+
+    return (
+        <div
+            className="flex flex-col h-full"
+            style={{ background: 'var(--bg-canvas)' }}
+        >
+            {/* Header */}
+            <div
+                className="px-4 py-3 border-b"
+                style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel)' }}
+            >
+                <div className="flex items-center gap-3">
+                    <span
+                        className="px-2 py-1 rounded font-semibold uppercase"
+                        style={{
+                            fontSize: 10,
+                            background: 'var(--dot-green, #22c55e)',
+                            color: '#fff',
+                        }}
+                    >
+                        Intake
+                    </span>
+                    <div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            Concierge Entry
+                        </div>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            Confirm or correct the intake classification
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+                <div className="max-w-2xl space-y-6">
+                    {/* Entry Prompt */}
+                    <div
+                        className="p-3 rounded"
+                        style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-panel)' }}
+                    >
+                        <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                            {entryPrompt}
+                        </div>
+                    </div>
+
+                    {/* Classification Summary */}
+                    <div>
+                        <h3
+                            className="text-xs font-semibold uppercase tracking-wide mb-3"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            Classification Result
+                        </h3>
+
+                        <div
+                            className="p-4 rounded space-y-3"
+                            style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-panel)' }}
+                        >
+                            {/* Category */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                    Category
+                                </span>
+                                <span
+                                    className="px-3 py-1 rounded font-semibold"
+                                    style={{
+                                        background: 'var(--accent-primary, #3b82f6)',
+                                        color: '#fff',
+                                        fontSize: 12,
+                                    }}
+                                >
+                                    {context?.category?.replace(/_/g, ' ').toUpperCase() || 'Unknown'}
+                                </span>
+                            </div>
+
+                            {/* Confidence */}
+                            {confidencePercent !== null && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                        Confidence
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-24 h-2 rounded-full overflow-hidden"
+                                            style={{ background: 'var(--bg-canvas)' }}
+                                        >
+                                            <div
+                                                className="h-full rounded-full"
+                                                style={{
+                                                    width: `${confidencePercent}%`,
+                                                    background: confidencePercent >= 80
+                                                        ? '#22c55e'
+                                                        : confidencePercent >= 60
+                                                            ? '#f59e0b'
+                                                            : '#ef4444',
+                                                }}
+                                            />
+                                        </div>
+                                        <span className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
+                                            {confidencePercent}%
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Summary */}
+                            {context?.summary && (
+                                <div>
+                                    <span className="text-sm block mb-1" style={{ color: 'var(--text-muted)' }}>
+                                        Summary
+                                    </span>
+                                    <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                                        {context.summary}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Mode Selection */}
+                    <div>
+                        <h3
+                            className="text-xs font-semibold uppercase tracking-wide mb-3"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            Your Decision
+                        </h3>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setMode('confirm')}
+                                className="flex-1 p-4 rounded text-left"
+                                style={{
+                                    background: mode === 'confirm'
+                                        ? 'rgba(34, 197, 94, 0.1)'
+                                        : 'var(--bg-panel)',
+                                    border: mode === 'confirm'
+                                        ? '2px solid #22c55e'
+                                        : '1px solid var(--border-panel)',
+                                }}
+                            >
+                                <div className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                                    Confirm
+                                </div>
+                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    The classification is correct
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => setMode('correct')}
+                                className="flex-1 p-4 rounded text-left"
+                                style={{
+                                    background: mode === 'correct'
+                                        ? 'rgba(249, 115, 22, 0.1)'
+                                        : 'var(--bg-panel)',
+                                    border: mode === 'correct'
+                                        ? '2px solid #f97316'
+                                        : '1px solid var(--border-panel)',
+                                }}
+                            >
+                                <div className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                                    Correct
+                                </div>
+                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    I need to change the category
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Correction Fields */}
+                    {mode === 'correct' && (
+                        <div>
+                            <h3
+                                className="text-xs font-semibold uppercase tracking-wide mb-3"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                Correct Category
+                            </h3>
+
+                            <select
+                                value={correctedCategory}
+                                onChange={(e) => setCorrectedCategory(e.target.value)}
+                                className="w-full p-3 rounded"
+                                style={{
+                                    background: 'var(--bg-input, var(--bg-canvas))',
+                                    border: '1px solid var(--border-panel)',
+                                    color: 'var(--text-primary)',
+                                }}
+                            >
+                                <option value="">Select category...</option>
+                                {categories.map((cat) => (
+                                    <option key={cat.value} value={cat.value}>
+                                        {cat.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Notes */}
+                    <div>
+                        <h3
+                            className="text-xs font-semibold uppercase tracking-wide mb-3"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            Notes (Optional)
+                        </h3>
+
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Add any additional context or notes..."
+                            className="w-full p-3 rounded text-sm"
+                            style={{
+                                background: 'var(--bg-input, var(--bg-canvas))',
+                                border: '1px solid var(--border-panel)',
+                                color: 'var(--text-primary)',
+                                minHeight: 80,
+                                resize: 'vertical',
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div
+                className="px-4 py-3 border-t flex justify-end gap-2"
+                style={{ borderColor: 'var(--border-panel)', background: 'var(--bg-panel)' }}
+            >
+                {onCancel && (
+                    <button
+                        onClick={onCancel}
+                        className="px-4 py-2 rounded text-sm"
+                        style={{
+                            background: 'var(--bg-canvas)',
+                            border: '1px solid var(--border-panel)',
+                            color: 'var(--text-secondary)',
+                        }}
+                    >
+                        Cancel
+                    </button>
+                )}
+                <button
+                    onClick={handleSubmit}
+                    disabled={mode === 'correct' && !correctedCategory}
+                    className="px-4 py-2 rounded text-sm font-semibold"
+                    style={{
+                        background: mode === 'confirm' ? '#22c55e' : '#f97316',
+                        color: '#fff',
+                        opacity: mode === 'correct' && !correctedCategory ? 0.5 : 1,
+                    }}
+                >
+                    {mode === 'confirm' ? 'Confirm Classification' : 'Submit Correction'}
+                </button>
+            </div>
+        </div>
+    );
+}

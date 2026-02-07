@@ -2,7 +2,7 @@
 Mechanical Operation Handlers.
 
 Per ADR-047, these handlers execute deterministic data transformations
-without LLM invocation.
+without LLM invocation. Entry handlers return pending_entry for UI capture.
 """
 
 from app.api.services.mech_handlers.base import (
@@ -13,6 +13,7 @@ from app.api.services.mech_handlers.base import (
 )
 from app.api.services.mech_handlers.extractor import ExtractorHandler
 from app.api.services.mech_handlers.merger import MergerHandler
+from app.api.services.mech_handlers.entry import EntryHandler
 from app.api.services.mech_handlers.registry import (
     get_handler,
     register_handler,
@@ -26,6 +27,7 @@ __all__ = [
     "MechHandlerError",
     "ExtractorHandler",
     "MergerHandler",
+    "EntryHandler",
     "get_handler",
     "register_handler",
     "HANDLER_REGISTRY",
