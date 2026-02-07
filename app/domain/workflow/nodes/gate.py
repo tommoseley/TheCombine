@@ -1,16 +1,23 @@
 """Gate node executor for Document Interaction Workflow Plans (ADR-039).
 
 Gate nodes are decision points that determine workflow routing.
+
+Supports two modes:
+1. Simple gates: consent gates and outcome selection gates
+2. Gate Profiles (ADR-047): gates with internals (LLM/MECH/UI passes)
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
     NodeExecutor,
     NodeResult,
 )
+
+if TYPE_CHECKING:
+    from app.api.services.mechanical_ops_service import MechanicalOpsService
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +30,26 @@ class GateNodeExecutor(NodeExecutor):
     - Collect user decision
     - Return the selected outcome
 
+    Gate Profile nodes (ADR-047):
+    - Have internals configuration with LLM/MECH/UI passes
+    - Delegate to IntakeGateProfileExecutor for execution
+
     BOUNDARY CONSTRAINTS:
     - Returns outcome based on user selection or evaluation
     - Does NOT inspect edges or make routing decisions
     - Does NOT decide which path to take - only reports the selected outcome
     """
+
+    def __init__(
+        self,
+        llm_service=None,
+        prompt_loader=None,
+        ops_service: Optional["MechanicalOpsService"] = None,
+    ):
+        self.llm_service = llm_service
+        self.prompt_loader = prompt_loader
+        self._ops_service = ops_service
+        self._profile_executor = None  # Lazy initialization
 
     def get_supported_node_type(self) -> str:
         """Return the node type this executor handles."""
@@ -44,13 +66,18 @@ class GateNodeExecutor(NodeExecutor):
 
         Args:
             node_id: The gate node ID
-            node_config: Node configuration with gate_outcomes, requires_consent
+            node_config: Node configuration with gate_outcomes, requires_consent, or internals
             context: Workflow context with user responses
             state_snapshot: Read-only workflow state
 
         Returns:
             NodeResult with outcome based on user selection
         """
+        # Check for Gate Profile (ADR-047) - has internals
+        internals = node_config.get("internals")
+        if internals:
+            return await self._execute_gate_profile(node_id, node_config, context, state_snapshot)
+
         requires_consent = node_config.get("requires_consent", False)
         gate_outcomes = node_config.get("gate_outcomes", [])
 
@@ -182,4 +209,32 @@ class GateNodeExecutor(NodeExecutor):
                 "gate_outcome": selected_option_id,
                 "selected_option_id": selected_option_id,
             },
+        )
+
+    async def _execute_gate_profile(
+        self,
+        node_id: str,
+        node_config: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        state_snapshot: Dict[str, Any],
+    ) -> NodeResult:
+        """Execute a Gate Profile node with internals (ADR-047).
+
+        Delegates to IntakeGateProfileExecutor for actual execution.
+        """
+        # Lazy import to avoid circular dependency
+        if self._profile_executor is None:
+            from app.domain.workflow.nodes.intake_gate_profile import IntakeGateProfileExecutor
+            self._profile_executor = IntakeGateProfileExecutor(
+                llm_service=self.llm_service,
+                prompt_loader=self.prompt_loader,
+                ops_service=self._ops_service,
+            )
+
+        logger.info(f"Gate {node_id}: Delegating to Gate Profile executor")
+        return await self._profile_executor.execute(
+            node_id=node_id,
+            node_config=node_config,
+            context=context,
+            state_snapshot=state_snapshot,
         )

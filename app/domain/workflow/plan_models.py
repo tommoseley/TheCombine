@@ -102,6 +102,7 @@ class Node:
     gate_outcome: Optional[str] = None
     non_advancing: bool = False
     includes: Dict[str, str] = field(default_factory=dict)  # ADR-041 template includes
+    internals: Dict[str, Any] = field(default_factory=dict)  # ADR-047 Gate Profile internals
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "Node":
@@ -119,6 +120,7 @@ class Node:
             gate_outcome=raw.get("gate_outcome"),
             non_advancing=raw.get("non_advancing", False),
             includes=raw.get("includes", {}),
+            internals=raw.get("internals", {}),
         )
 
 

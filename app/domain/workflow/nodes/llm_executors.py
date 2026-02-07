@@ -312,7 +312,10 @@ async def create_llm_executors(
             llm_service=llm_service,
             prompt_loader=prompt_loader,
         ),
-        NodeType.GATE: GateNodeExecutor(),
+        NodeType.GATE: GateNodeExecutor(
+            llm_service=llm_service,
+            prompt_loader=prompt_loader,
+        ),
         NodeType.END: EndNodeExecutor(),
     }
 

@@ -824,6 +824,21 @@ class PlanExecutor:
         # Handle user input requirement
         if result.requires_user_input:
             logger.info(f"Setting paused state with payload={result.user_input_payload is not None}, schema_ref={result.user_input_schema_ref}")
+
+            # Store Gate Profile metadata in context_state for resumption (ADR-047)
+            # This includes intake_gate_phase, intake_classification, etc.
+            gate_profile_keys = [
+                "intake_gate_phase", "intake_classification", "extracted",
+                "entry_op_ref", "user_input"
+            ]
+            gate_metadata = {}
+            for key in gate_profile_keys:
+                if key in result.metadata:
+                    gate_metadata[key] = result.metadata[key]
+            if gate_metadata:
+                state.update_context_state(gate_metadata)
+                logger.info(f"Stored Gate Profile metadata: {list(gate_metadata.keys())}")
+
             state.set_paused(
                 prompt=result.user_prompt,
                 choices=result.user_choices,
@@ -857,9 +872,19 @@ class PlanExecutor:
 
         # Store intake gate metadata in context_state for downstream nodes
         # This includes: intake_summary, project_type, user_input, interpretation, phase
-        if current_node.type == NodeType.INTAKE_GATE and result.outcome == "qualified":
+        # Supports both legacy INTAKE_GATE type and new GATE type with internals (ADR-047)
+        is_intake_gate = (
+            current_node.type == NodeType.INTAKE_GATE or
+            (current_node.type == NodeType.GATE and current_node.internals)
+        )
+        if is_intake_gate and result.outcome == "qualified":
             intake_metadata = {}
-            for key in ["intake_summary", "project_type", "user_input", "intent_canon", "extracted_data", "interpretation", "phase"]:
+            for key in [
+                "intake_summary", "project_type", "user_input", "intent_canon",
+                "extracted_data", "interpretation", "phase",
+                # Gate Profile keys (ADR-047)
+                "intake_classification", "intake_confirmation", "artifact_type", "audience",
+            ]:
                 if key in result.metadata:
                     intake_metadata[key] = result.metadata[key]
             if intake_metadata:
