@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-07
-**Updated By:** Claude (WS-ADR-047-005 complete, ADR-048 drafted, intake_and_route POW created)
+**Updated By:** Claude (ADR-048 mechanical operations complete)
 
 ## Current Focus
 
@@ -17,19 +17,30 @@ All work statements delivered:
 **DRAFT:** ADR-048 -- Intake POW and Workflow Routing
 
 Defines front-door architecture:
-- `intake_and_route` POW with DCW → route → spawn steps
+- `intake_and_route` POW with DCW → route → validate → spawn steps
 - Complete-and-handoff spawn model with lineage tracking
 - `routing_decision.v1` schema with candidates and QA checks
 
-**IN PROGRESS:** ADR-048 Implementation
+**COMPLETE:** ADR-048 Mechanical Operations
 
 | Component | Status |
 |-----------|--------|
 | `intake_and_route` POW definition | Complete |
 | `routing_decision` schema | Complete |
+| `spawn_receipt` schema | Complete |
+| `route_confirmation` schema | Complete |
 | `intake_route` operation + RouterHandler | Complete |
-| `confirm_route` entry operation | Pending |
-| `spawn_pow_instance` operation | Pending |
+| `validate_routing_decision` operation + ValidatorHandler | Complete |
+| `confirm_route` entry operation (EntryHandler) | Complete |
+| `spawn_pow_instance` operation + SpawnerHandler | Complete |
+
+**PENDING:** ADR-048 Integration
+
+| Component | Status |
+|-----------|--------|
+| Wire intake_and_route POW to execute | Pending |
+| Actual child POW creation in SpawnerHandler | Pending |
+| UX: Collapsed receipt view for completed Intake | Pending |
 
 ---
 
@@ -96,17 +107,24 @@ combine-config/
 |   +-- project_discovery/releases/1.8.0/...
 +-- schemas/
 |   +-- routing_decision/releases/1.0.0/schema.json        # ADR-048
+|   +-- spawn_receipt/releases/1.0.0/schema.json           # ADR-048 lineage
+|   +-- route_confirmation/releases/1.0.0/schema.json      # ADR-048 entry
 |   +-- intake_classification/releases/1.0.0/...
 |   +-- intake_confirmation/releases/1.0.0/...
 +-- mechanical_ops/
 |   +-- intake_route/releases/1.0.0/operation.yaml         # Router operation
+|   +-- validate_routing_decision/releases/1.0.0/...       # Validator operation
+|   +-- confirm_route/releases/1.0.0/operation.yaml        # Entry operation
+|   +-- spawn_pow_instance/releases/1.0.0/operation.yaml   # Spawner operation
 |   +-- intake_classification_extractor/...
 |   +-- intake_invariant_pinner/...
 
 app/api/services/mech_handlers/
 +-- router.py              # RouterHandler for intake_route
++-- validator.py           # ValidatorHandler for validate_routing_decision
++-- spawner.py             # SpawnerHandler for spawn_pow_instance
 +-- extractor.py
-+-- entry.py
++-- entry.py               # EntryHandler (enhanced for confirm_route)
 +-- invariant_pinner.py
 +-- exclusion_filter.py
 
@@ -147,9 +165,9 @@ python -m pytest tests/ -k "plan_executor" -v
 ## Handoff Notes
 
 ### Next Work
-- **confirm_route** entry operation -- Operator confirms low-confidence routing
-- **spawn_pow_instance** operation -- Create follow-on POW execution with lineage
 - Wire intake_and_route POW to actually execute (currently definition only)
+- Integrate SpawnerHandler with ExecutionService to create actual child POW executions
+- Add lineage fields to WorkflowExecution model (spawned_from_execution_id, spawned_by_operation_id)
 - UX: Collapsed receipt view for completed Intake POW
 
 ### Cleanup Tasks
