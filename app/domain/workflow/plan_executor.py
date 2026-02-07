@@ -891,25 +891,27 @@ class PlanExecutor:
                 state.update_context_state(intake_metadata)
                 logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
             
-            # Pause for user review if phase is "review" (WS-INTAKE-001)
-            # But don't pause again if we're already past review (phase == "generating")
-            current_phase = state.context_state.get("phase")
-            if result.metadata.get("phase") == "review" and current_phase != "generating":
-                # Advance to next node BEFORE pausing (so resume starts at generation, not intake)
-                router = EdgeRouter(plan)
-                next_node_id, _ = router.get_next_node(
-                    current_node_id=current_node.node_id,
-                    outcome=result.outcome,
-                    state=state,
-                )
-                if next_node_id:
-                    state.current_node_id = next_node_id
-                    logger.info(f"Advanced to {next_node_id} before pausing for review")
-                
-                state.set_paused(prompt=None, choices=None)
-                await self._persistence.save(state)
-                logger.info("Intake qualified - pausing for user review")
-                return  # Don't execute next node until user clicks Initialize
+            # Legacy INTAKE_GATE: Pause for user review if phase is "review"
+            # Gate Profile nodes (GATE with internals) handle their own pausing via Entry
+            # so this only applies to legacy intake_gate nodes
+            if current_node.type == NodeType.INTAKE_GATE:
+                current_phase = state.context_state.get("phase")
+                if result.metadata.get("phase") == "review" and current_phase != "generating":
+                    # Advance to next node BEFORE pausing (so resume starts at generation, not intake)
+                    router = EdgeRouter(plan)
+                    next_node_id, _ = router.get_next_node(
+                        current_node_id=current_node.node_id,
+                        outcome=result.outcome,
+                        state=state,
+                    )
+                    if next_node_id:
+                        state.current_node_id = next_node_id
+                        logger.info(f"Advanced to {next_node_id} before pausing for review")
+
+                    state.set_paused(prompt=None, choices=None)
+                    await self._persistence.save(state)
+                    logger.info("Intake qualified - pausing for user review")
+                    return  # Don't execute next node until user clicks Initialize
 
         # Pre-routing: Set generating_node_id for QA failures (needed by edge router)
         if current_node.type == NodeType.QA and result.outcome == "failed":
