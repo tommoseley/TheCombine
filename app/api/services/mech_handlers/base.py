@@ -124,24 +124,45 @@ class MechResult:
         captures_schema: str,
         entry_prompt: Optional[str] = None,
         layout: str = "form",
+        ui_hints: Optional[Dict[str, Any]] = None,
+        merge_strategy: Optional[Dict[str, Any]] = None,
+        renders_schema: Optional[str] = None,
     ) -> "MechResult":
         """
         Create a pending entry result for Entry operations.
 
         Entry operations don't execute server-side; they return this
         result to indicate the UI must capture operator input.
+
+        Args:
+            op_id: Operation identifier
+            renders: Data to render to the operator
+            captures_schema: Schema ref for operator input
+            entry_prompt: Prompt text for the operator
+            layout: UI layout (form, wizard, review)
+            ui_hints: Additional hints for frontend rendering
+            merge_strategy: How to merge captured data into existing artifacts
+            renders_schema: Schema ref for the rendered data
         """
+        entry_config = {
+            "op_id": op_id,
+            "renders": renders,
+            "captures_schema": captures_schema,
+            "entry_prompt": entry_prompt,
+            "layout": layout,
+        }
+        if renders_schema:
+            entry_config["renders_schema"] = renders_schema
+        if ui_hints:
+            entry_config["ui_hints"] = ui_hints
+        if merge_strategy:
+            entry_config["merge_strategy"] = merge_strategy
+
         return cls(
             success=True,
             output=None,
             outcome="pending_entry",
-            entry_config={
-                "op_id": op_id,
-                "renders": renders,
-                "captures_schema": captures_schema,
-                "entry_prompt": entry_prompt,
-                "layout": layout,
-            },
+            entry_config=entry_config,
         )
 
 

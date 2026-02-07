@@ -54,12 +54,16 @@ class EntryHandler(MechHandler):
         captures_schema = config.get("captures", "")
         entry_prompt = config.get("entry_prompt", "")
         layout = config.get("layout", "form")
+        ui_hints = config.get("ui_hints")
+        merge_strategy = config.get("merge_strategy")
 
         # Get the context data to render (if available)
-        # The 'context' input is what gets displayed to the operator
+        # Try multiple input names: context, routing_decision, source_document
         renders_data = None
-        if context.has_input("context"):
-            renders_data = context.get_input("context")
+        for input_name in ["context", "routing_decision", "source_document"]:
+            if context.has_input(input_name):
+                renders_data = context.get_input(input_name)
+                break
 
         return MechResult.pending_entry(
             op_id=config.get("op_id", "unknown"),
@@ -67,6 +71,9 @@ class EntryHandler(MechHandler):
             captures_schema=captures_schema,
             entry_prompt=entry_prompt,
             layout=layout,
+            ui_hints=ui_hints,
+            merge_strategy=merge_strategy,
+            renders_schema=renders_schema,
         )
 
     def validate_config(self, config: Dict[str, Any]) -> List[str]:

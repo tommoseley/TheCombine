@@ -36,7 +36,8 @@
     "intake_classification": "1.0.0",
     "intake_confirmation": "1.0.0",
     "routing_decision": "1.0.0",
-    "spawn_receipt": "1.0.0"
+    "spawn_receipt": "1.0.0",
+    "route_confirmation": "1.0.0"
   },
   "workflows": {
     "intake_and_route": "1.0.0",
@@ -87,6 +88,7 @@
     "intake_classification_extractor": "1.0.0",
     "intake_invariant_pinner": "1.0.0",
     "intake_route": "1.0.0",
-    "validate_routing_decision": "1.0.0"
+    "validate_routing_decision": "1.0.0",
+    "confirm_route": "1.0.0"
   }
 }

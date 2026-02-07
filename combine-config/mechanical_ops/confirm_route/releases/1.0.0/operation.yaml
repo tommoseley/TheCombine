@@ -1,0 +1,57 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: confirm_route
+version: "1.0.0"
+type: entry
+name: "Confirm Route"
+description: "Operator confirms or corrects a low-confidence routing decision"
+
+# Input: routing_decision with candidates
+# Output: Updated routing_decision with operator_confirmed=true
+
+config:
+  op_id: confirm_route
+
+  # What to display to the operator
+  renders: "schema:routing_decision@1.0.0"
+
+  # What the operator submits
+  captures: "schema:route_confirmation@1.0.0"
+
+  # Layout for the entry UI
+  layout: review
+
+  # Prompt shown to operator
+  entry_prompt: |
+    The routing confidence is low. Please review the suggested workflow
+    and either confirm or select a different option from the candidates.
+
+  # UI hints for the frontend
+  ui_hints:
+    show_candidates: true
+    show_scores: true
+    allow_override: true
+    confirm_button_text: "Confirm Route"
+    override_button_text: "Select Different Route"
+
+  # How to merge confirmation into routing_decision
+  merge_strategy:
+    target: routing_decision
+    mappings:
+      - from: "$.selected_pow_ref"
+        to: "$.decision.next_pow_ref"
+      - from: "$.confirmation_note"
+        to: "$.decision.confirmation_note"
+    set_fields:
+      - path: "$.decision.operator_confirmed"
+        value: true
+      - path: "$.decision.confidence"
+        value: "high"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  adr_reference: "ADR-048"
+  tags:
+    - entry
+    - routing
+    - confirmation
