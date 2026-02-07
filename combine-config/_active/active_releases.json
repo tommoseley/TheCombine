@@ -89,6 +89,7 @@
     "intake_invariant_pinner": "1.0.0",
     "intake_route": "1.0.0",
     "validate_routing_decision": "1.0.0",
-    "confirm_route": "1.0.0"
+    "confirm_route": "1.0.0",
+    "spawn_pow_instance": "1.0.0"
   }
 }

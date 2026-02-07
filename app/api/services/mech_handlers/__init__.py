@@ -30,6 +30,7 @@ from app.api.services.mech_handlers.invariant_pinner import InvariantPinnerHandl
 from app.api.services.mech_handlers.exclusion_filter import ExclusionFilterHandler
 from app.api.services.mech_handlers.router import RouterHandler
 from app.api.services.mech_handlers.validator import ValidatorHandler
+from app.api.services.mech_handlers.spawner import SpawnerHandler
 
 from app.api.services.mech_handlers.executor import (
     execute_operation,
@@ -49,6 +50,7 @@ __all__ = [
     "ExclusionFilterHandler",
     "RouterHandler",
     "ValidatorHandler",
+    "SpawnerHandler",
     "get_handler",
     "register_handler",
     "HANDLER_REGISTRY",

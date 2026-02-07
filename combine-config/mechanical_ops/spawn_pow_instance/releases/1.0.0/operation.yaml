@@ -1,0 +1,43 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: spawn_pow_instance
+version: "1.0.0"
+type: spawner
+name: "Spawn POW Instance"
+description: "Creates a new POW execution with lineage tracking and seed inputs"
+
+# Input: intake_record, routing_decision
+# Output: spawn_receipt with child_execution_id and lineage
+
+config:
+  # Artifacts to pass to spawned POW as initial context
+  seed_inputs:
+    - name: intake_record
+      from_artifact_id: intake_record
+    - name: routing_decision
+      from_artifact_id: routing_decision
+
+  # Write a project event when spawning
+  write_project_event: true
+
+  # Return the child execution ID in the receipt
+  return_child_execution_id: true
+
+  # Lineage configuration
+  lineage:
+    # Set spawned_from_execution_id on child to current execution
+    set_spawned_from_execution_id: true
+    # Set spawned_by_operation_id on child to this operation
+    set_spawned_by_operation_id: true
+
+  # Output schema for the spawn receipt
+  output_schema: "schema:spawn_receipt@1.0.0"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  adr_reference: "ADR-048"
+  tags:
+    - spawner
+    - pow
+    - lineage
+    - orchestration
