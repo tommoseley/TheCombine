@@ -34,9 +34,11 @@
     "feature": "1.0.0",
     "clarification_questions": "1.0.0",
     "intake_classification": "1.0.0",
-    "intake_confirmation": "1.0.0"
+    "intake_confirmation": "1.0.0",
+    "routing_decision": "1.0.0"
   },
   "workflows": {
+    "intake_and_route": "1.0.0",
     "concierge_intake": "1.4.0",
     "project_discovery": "1.8.0",
     "software_product_development": "1.0.0",

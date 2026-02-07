@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/routing_decision.v1.json",
+  "title": "Routing Decision",
+  "description": "Captures which follow-on POW to spawn and why",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "correlation_id", "source_intake_ref", "decision", "candidates", "qa"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "routing_decision.v1"
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Correlation ID for tracing"
+    },
+    "source_intake_ref": {
+      "type": "string",
+      "description": "Artifact ref/id for the intake_record used to produce this decision"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["next_pow_ref", "confidence", "reason"],
+      "properties": {
+        "next_pow_ref": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "description": "POW reference to spawn (e.g., pow:software_product_development@1.0.0)"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Confidence in routing decision"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 240,
+          "description": "Why this route was chosen"
+        },
+        "operator_confirmed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether operator explicitly confirmed this route"
+        },
+        "confirmation_note": {
+          "type": ["string", "null"],
+          "maxLength": 240,
+          "description": "Optional note from operator confirmation"
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "description": "All POWs considered during routing",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pow_ref", "score", "why"],
+        "properties": {
+          "pow_ref": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 180
+          }
+        }
+      }
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["has_winner", "winner_in_candidates"],
+      "description": "Mechanical QA checks",
+      "properties": {
+        "has_winner": {
+          "type": "boolean",
+          "const": true
+        },
+        "winner_in_candidates": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}

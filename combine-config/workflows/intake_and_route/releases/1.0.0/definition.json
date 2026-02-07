@@ -1,0 +1,152 @@
+{
+  "schema_version": "workflow.v2",
+  "workflow_id": "intake_and_route",
+  "revision": "wfrev_2026_02_07_a",
+  "effective_date": "2026-02-07",
+  "name": "Intake & Routing",
+  "description": "Front-door POW: captures operator intent, classifies project, routes to appropriate follow-on workflow",
+  "pow_class": "reference",
+  "derived_from": null,
+  "source_version": null,
+  "tags": [
+    "intake",
+    "routing",
+    "front_door"
+  ],
+
+  "scopes": {
+    "project": {
+      "parent": null
+    }
+  },
+
+  "document_types": {
+    "intake_record": {
+      "name": "Intake Record",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": false,
+      "description": "Canonical intake artifact with classified intent"
+    },
+    "routing_decision": {
+      "name": "Routing Decision",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": false,
+      "description": "Which follow-on POW to spawn and why"
+    },
+    "spawn_receipt": {
+      "name": "Spawn Receipt",
+      "scope": "project",
+      "may_own": [],
+      "acceptance_required": false,
+      "description": "Record of spawned POW instance"
+    }
+  },
+
+  "steps": [
+    {
+      "step_id": "intake",
+      "name": "Concierge Intake",
+      "type": "dcw_run",
+      "dcw_ref": "dcw:concierge_intake@1.4.0",
+      "produces": "intake_record",
+      "scope": "project",
+      "inputs": [],
+      "description": "Run the Concierge Intake DCW to classify operator intent"
+    },
+    {
+      "step_id": "route_selection",
+      "name": "Route Selection",
+      "type": "mechanical_op",
+      "op_ref": "op:intake_route@1.0.0",
+      "produces": "routing_decision",
+      "scope": "project",
+      "inputs": [
+        {
+          "doc_type": "intake_record",
+          "scope": "project"
+        }
+      ],
+      "config": {
+        "min_confidence_to_auto_route": "medium",
+        "routes": {
+          "software_product": "pow:software_product_development@1.0.0",
+          "unknown": "pow:software_product_development@1.0.0"
+        }
+      },
+      "description": "Determine which follow-on POW to spawn based on intake classification"
+    },
+    {
+      "step_id": "confirm_route",
+      "name": "Confirm Route",
+      "type": "entry_op",
+      "op_ref": "op:confirm_route@1.0.0",
+      "condition": "routing_decision.decision.confidence == 'low'",
+      "produces": "routing_decision",
+      "scope": "project",
+      "inputs": [
+        {
+          "doc_type": "routing_decision",
+          "scope": "project"
+        }
+      ],
+      "optional": true,
+      "description": "Operator confirms or corrects routing decision (only if low confidence)"
+    },
+    {
+      "step_id": "spawn_pow",
+      "name": "Spawn Follow-on POW",
+      "type": "mechanical_op",
+      "op_ref": "op:spawn_pow_instance@1.0.0",
+      "produces": "spawn_receipt",
+      "scope": "project",
+      "inputs": [
+        {
+          "doc_type": "intake_record",
+          "scope": "project"
+        },
+        {
+          "doc_type": "routing_decision",
+          "scope": "project"
+        }
+      ],
+      "config": {
+        "seed_inputs": [
+          {"name": "intake_record", "from": "intake_record"},
+          {"name": "routing_decision", "from": "routing_decision"}
+        ],
+        "write_project_event": true,
+        "return_child_execution_id": true
+      },
+      "description": "Create and initialize the follow-on POW instance"
+    }
+  ],
+
+  "terminal_outcomes": {
+    "routed": {
+      "description": "Intake complete, follow-on POW spawned",
+      "success": true
+    },
+    "abandoned": {
+      "description": "Operator abandoned intake",
+      "success": false
+    }
+  },
+
+  "governance": {
+    "adr_references": ["ADR-048"],
+    "design_principles": [
+      "Universal front door - all projects start here",
+      "Explicit routing as governed mechanical operation",
+      "Complete-and-handoff spawn model",
+      "Full lineage via spawned_from_execution_id"
+    ]
+  },
+
+  "metadata": {
+    "created_date": "2026-02-07",
+    "author": "system",
+    "work_statement": "ADR-048"
+  }
+}
