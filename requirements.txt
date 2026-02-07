@@ -17,4 +17,5 @@ authlib>=1.6.6
 alembic>=1.17.2
 jsonschema>=4.25.1
 jsonschema-path>=0.3.4
+jsonpath-ng>=1.7.0
 sse-starlette>=2.0.0
