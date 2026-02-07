@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-06
-**Updated By:** Claude (WS-ADR-044-003 complete, BuildingBlocksTray, concierge_intake migration)
+**Updated By:** Claude (WS-ADR-047-001 complete, Mechanical Operations)
 
 ## Current Focus
 
@@ -15,6 +15,11 @@ All work statements delivered:
 
 All work statements delivered:
 - **WS-ADR-046-001** (Complete): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend (ProjectWorkflow component), project lifecycle integration
+
+**COMPLETE:** ADR-047 -- Mechanical Operations (execution_state: complete)
+
+All work statements delivered:
+- **WS-ADR-047-001** (Complete): 7 phases -- Operation Type Registry, Backend Service, Execution Handlers, API Endpoints, Building Blocks Integration, Node Properties Panel, First Instance (pgc_clarification_merge)
 
 **IN PROGRESS:** ADR-044 -- Admin Workbench
 
@@ -68,6 +73,15 @@ All work statements delivered:
 - **BuildingBlocksTray** (2026-02-06): Slide-out drawer with Prompt Fragments, Templates, Schemas tabs; closes only via X button (not on item selection or outside click)
 - **PGC single-expansion** (2026-02-06): Pass A and Pass B in PGC Gate Internals use mutual exclusion -- only one expanded at a time
 - **concierge_intake workflow migration** (2026-02-06): Task refs updated from seed format to combine-config artifact refs (`prompt:task:intake_gate:1.0.0`)
+- **Mechanical Operations** (2026-02-06, WS-ADR-047-001): Non-LLM building blocks for deterministic data transformations
+  - Operation Type Registry with 5 types (Extractor, Merger, Validator, Transformer, Selector)
+  - Execution handlers for Extractor (JSONPath) and Merger (deep/shallow merge, concatenate)
+  - API endpoints for mechanical ops data
+  - Building Blocks tray Mechanical Ops section with type grouping
+  - Node internal_type selector (LLM/MECH/UI) in NodePropertiesPanel
+  - PGC Pass B supports MECH internal type for clarification merge
+  - MechanicalOpEditor for viewing operation details
+  - First instance: pgc_clarification_merge for PGC Pass B
 
 ---
 
@@ -101,6 +115,12 @@ All work statements delivered:
 | WS | Title | Status |
 |---|---|---|
 | WS-ADR-046-001 | POW Instance Storage and Runtime Binding | Complete |
+
+## WS-047 Status (ADR-047 execution_state: complete)
+
+| WS | Title | Status |
+|---|---|---|
+| WS-ADR-047-001 | Mechanical Operations Foundation | Complete |
 
 ---
 
@@ -171,8 +191,9 @@ React SPA (Vite)
 |   |   |       +-- WorkflowEditor.jsx        # Thin wrapper (standalone)
 |   |   |       +-- WorkflowCanvas.jsx
 |   |   |       +-- WorkflowNode.jsx
-|   |   |       +-- NodePropertiesPanel.jsx   # PGC composite gate internals
+|   |   |       +-- NodePropertiesPanel.jsx   # PGC composite gate internals, MECH support
 |   |   |       +-- EdgePropertiesPanel.jsx
+|   |   +-- MechanicalOpEditor.jsx         # Mechanical operation viewer (ADR-047)
 |   |   +-- ProjectTree.jsx
 |   |   +-- Floor.jsx
 |   |   +-- ProjectWorkflow.jsx          # Workflow instance viewer (ADR-046)
@@ -194,7 +215,7 @@ React SPA (Vite)
 +-- dist/
 
 combine-config/
-+-- _active/active_releases.json   # Includes schemas, pgc sections
++-- _active/active_releases.json   # Includes schemas, pgc, mechanical_ops sections
 +-- document_types/                 # DCW packages with schema_ref
 +-- schemas/                        # Standalone schemas (ADR-045)
 |   +-- {schema_id}/releases/{ver}/schema.json
@@ -204,6 +225,9 @@ combine-config/
 |   +-- {id}.v1/releases/{ver}/pgc.prompt.txt
 +-- prompts/tasks/                  # Standalone task prompts
 +-- workflows/                      # Workflow definitions
++-- mechanical_ops/                 # Mechanical operations (ADR-047)
+|   +-- _registry/types.yaml       # Operation type registry
+|   +-- {op_id}/releases/{ver}/operation.yaml
 ```
 
 ---
@@ -227,6 +251,7 @@ combine-config/
 15. **Artifact ID URL encoding** -- Frontend encodes artifact IDs with `encodeURIComponent()` for API calls
 16. **BuildingBlocksTray behavior** -- Slide-out tray closes only via X button, not on item selection or clicking editor; enables multi-select workflows
 17. **Task ref artifact format** -- Workflow task_refs use `prompt:task:{name}:{version}` format pointing to combine-config artifacts
+18. **Mechanical Operations (ADR-047)** -- Non-LLM building blocks for deterministic data transformations; 5 operation types (Extractor, Merger, Validator, Transformer, Selector); nodes have `internal_type` field (LLM/MECH/UI); PGC Pass B can use MECH for clarification merge
 
 ---
 
@@ -249,14 +274,6 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **WS-ADR-047-001** (Accepted): Mechanical Operations Foundation
-  - Phase 1: Operation Type Registry (Extractor, Merger)
-  - Phase 2: Backend Loading Service
-  - Phase 3: Execution Handlers
-  - Phase 4: API Endpoints
-  - Phase 5: Building Blocks Tray Integration
-  - Phase 6: Node Properties Panel for MECH
-  - Phase 7: First Instance (pgc_clarification_merge)
 - **Genericize Intake Gate**: Migrate from hardcoded intake_gate to use Interaction Template pattern
   - Create Discovery Interaction Template for intake workflows
   - Standard pattern: Interaction Template -> LLM -> Structured Output
