@@ -29,6 +29,7 @@ from app.api.services.mech_handlers.clarification_merger import (
 from app.api.services.mech_handlers.invariant_pinner import InvariantPinnerHandler
 from app.api.services.mech_handlers.exclusion_filter import ExclusionFilterHandler
 from app.api.services.mech_handlers.router import RouterHandler
+from app.api.services.mech_handlers.validator import ValidatorHandler
 
 from app.api.services.mech_handlers.executor import (
     execute_operation,
@@ -47,6 +48,7 @@ __all__ = [
     "InvariantPinnerHandler",
     "ExclusionFilterHandler",
     "RouterHandler",
+    "ValidatorHandler",
     "get_handler",
     "register_handler",
     "HANDLER_REGISTRY",

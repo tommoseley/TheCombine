@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.ai/schemas/spawn_receipt.v1.json",
+  "title": "Spawn Receipt",
+  "description": "Record of a spawned POW instance with lineage tracking",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "spawned_at",
+    "child_execution_id",
+    "child_pow_ref",
+    "lineage"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "spawn_receipt.v1",
+      "description": "Schema version identifier"
+    },
+    "spawned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the POW was spawned"
+    },
+    "child_execution_id": {
+      "type": "string",
+      "description": "Execution ID of the spawned POW instance"
+    },
+    "child_pow_ref": {
+      "type": "string",
+      "pattern": "^pow:[a-z_]+@[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Reference to the spawned POW definition (e.g., pow:software_product_development@1.0.0)"
+    },
+    "lineage": {
+      "type": "object",
+      "required": ["spawned_from_execution_id", "spawned_by_operation_id"],
+      "properties": {
+        "spawned_from_execution_id": {
+          "type": "string",
+          "description": "Execution ID of the parent POW that spawned this one"
+        },
+        "spawned_by_operation_id": {
+          "type": "string",
+          "description": "Operation ID (step_id) that performed the spawn"
+        },
+        "spawned_by_step_name": {
+          "type": "string",
+          "description": "Human-readable name of the step that spawned"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Lineage pointers for tracing spawn chain"
+    },
+    "seed_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "artifact_id"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Input name in the spawned POW"
+          },
+          "artifact_id": {
+            "type": "string",
+            "description": "Source artifact ID from parent POW"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "List of artifacts passed as seed inputs to the spawned POW"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Project ID the spawned POW belongs to"
+    },
+    "project_event_written": {
+      "type": "boolean",
+      "description": "Whether a project event was written for this spawn"
+    }
+  },
+  "additionalProperties": false
+}

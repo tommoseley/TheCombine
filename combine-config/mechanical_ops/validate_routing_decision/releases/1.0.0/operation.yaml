@@ -1,0 +1,42 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: validate_routing_decision
+version: "1.0.0"
+type: validator
+name: "Routing Decision Validator"
+description: "Validates that the routing decision references a resolvable and active POW"
+
+# Input: routing_decision artifact
+# Output: none (pass-through validation, fails on error)
+
+config:
+  # Validation checks
+  must_resolve_pow_ref: true
+  must_be_active_in_release: true
+
+  # Fields to validate
+  validate_fields:
+    - path: $.decision.next_pow_ref
+      check: pow_ref_resolvable
+      error_code: "unresolvable_pow_ref"
+      error_message: "The selected POW reference cannot be resolved"
+
+    - path: $.decision.confidence
+      check: enum
+      allowed: ["low", "medium", "high"]
+      error_code: "invalid_confidence"
+      error_message: "Confidence must be low, medium, or high"
+
+    - path: $.qa.has_winner
+      check: equals
+      expected: true
+      error_code: "no_winner"
+      error_message: "Routing decision must have a winner"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  adr_reference: "ADR-048"
+  tags:
+    - validation
+    - routing
+    - pow
