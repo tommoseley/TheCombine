@@ -772,6 +772,7 @@ class PlanExecutor:
             "terminal_outcome": node.terminal_outcome,
             "gate_outcome": node.gate_outcome,
             "includes": node.includes,  # ADR-041 template includes
+            "internals": node.internals,  # ADR-047 Gate Profile internals
         }
 
         # Build state snapshot
