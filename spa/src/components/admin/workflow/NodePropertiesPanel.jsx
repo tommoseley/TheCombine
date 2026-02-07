@@ -9,6 +9,13 @@ const NODE_TYPES = [
     { value: 'end', label: 'End' },
 ];
 
+// ADR-047: Node internal types
+const INTERNAL_TYPES = [
+    { value: 'LLM', label: 'LLM', description: 'AI-powered interaction' },
+    { value: 'MECH', label: 'Mechanical', description: 'Deterministic operation' },
+    { value: 'UI', label: 'UI', description: 'Operator entry' },
+];
+
 const PGC_GATE_KINDS = [
     { value: 'intake', label: 'Intake Gate', produces: 'pgc_clarifications.intake' },
     { value: 'discovery', label: 'Discovery Gate', produces: 'pgc_clarifications.discovery' },
@@ -197,6 +204,28 @@ function CollapsibleSection({ title, defaultOpen = false, isOpen: controlledOpen
 }
 
 /**
+ * Build a mechanical operation reference string.
+ * Format: mech:{type}:{op_id}:{version}
+ */
+function buildMechOpRef(op) {
+    if (!op) return '';
+    return `mech:${op.type}:${op.op_id}:${op.active_version || op.version || '1.0.0'}`;
+}
+
+/**
+ * Parse a mechanical operation reference to extract op_id.
+ * Format: mech:{type}:{op_id}:{version}
+ */
+function parseMechOpRef(ref) {
+    if (!ref) return null;
+    const parts = ref.split(':');
+    if (parts.length >= 3 && parts[0] === 'mech') {
+        return parts[2]; // Return the op_id
+    }
+    return ref;
+}
+
+/**
  * Side panel for editing selected workflow node properties.
  */
 export default function NodePropertiesPanel({
@@ -208,6 +237,9 @@ export default function NodePropertiesPanel({
     roleFragments = [],
     taskFragments = [],
     pgcFragments = [],
+    // ADR-047: Mechanical operations
+    mechanicalOpTypes = [],
+    mechanicalOps = [],
 }) {
     const [localData, setLocalData] = useState(node);
     // Single-expansion for PGC LLM passes: 'A' | 'B' | null (WS-ADR-044-003 Phase 4)
@@ -739,51 +771,154 @@ export default function NodePropertiesPanel({
                         </div>
 
                         {/* Pass B: Clarification Merge - controlled expansion */}
+                        {/* Supports both LLM and MECH internal types per ADR-047 */}
                         <div className="mt-2">
                             <CollapsibleSection
                                 title="Pass B: Clarification Merge"
                                 isOpen={expandedPass === 'B'}
                                 onToggle={() => setExpandedPass(expandedPass === 'B' ? null : 'B')}
-                                badge="LLM"
+                                badge={internals.clarification_merge?.internal_type || 'LLM'}
                             >
                                 <div className="space-y-2">
-                                    {/* Template */}
+                                    {/* Internal Type selector for Pass B */}
                                     <div>
                                         <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
-                                            Template
+                                            Internal Type
                                         </label>
                                         <select
-                                            value={cmTemplateId || ''}
-                                            onChange={handleCmTemplateChange}
+                                            value={internals.clarification_merge?.internal_type || 'LLM'}
+                                            onChange={e => updateClarificationMerge('internal_type', e.target.value)}
                                             style={{ ...fieldStyle, fontSize: 11 }}
                                         >
-                                            <option value="">-- Select Template --</option>
-                                            {templates.map(t => (
-                                                <option key={t.template_id} value={t.template_id}>
-                                                    {t.name || t.template_id.replace(/_/g, ' ')}
-                                                </option>
-                                            ))}
+                                            <option value="LLM">LLM</option>
+                                            <option value="MECH">Mechanical</option>
                                         </select>
                                     </div>
 
-                                    {/* Output Schema */}
-                                    <div>
-                                        <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
-                                            OUTPUT_SCHEMA
-                                        </label>
-                                        <select
-                                            value={cmSchemaId || ''}
-                                            onChange={handleCmSchemaChange}
-                                            style={{ ...fieldStyle, fontSize: 11 }}
-                                        >
-                                            <option value="">-- Select Schema --</option>
-                                            {schemas.map(s => (
-                                                <option key={s.schema_id} value={s.schema_id}>
-                                                    {s.title || s.schema_id.replace(/_/g, ' ')}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    {/* LLM Configuration */}
+                                    {(internals.clarification_merge?.internal_type || 'LLM') === 'LLM' && (
+                                        <>
+                                            <div>
+                                                <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                                    Template
+                                                </label>
+                                                <select
+                                                    value={cmTemplateId || ''}
+                                                    onChange={handleCmTemplateChange}
+                                                    style={{ ...fieldStyle, fontSize: 11 }}
+                                                >
+                                                    <option value="">-- Select Template --</option>
+                                                    {templates.map(t => (
+                                                        <option key={t.template_id} value={t.template_id}>
+                                                            {t.name || t.template_id.replace(/_/g, ' ')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                                    OUTPUT_SCHEMA
+                                                </label>
+                                                <select
+                                                    value={cmSchemaId || ''}
+                                                    onChange={handleCmSchemaChange}
+                                                    style={{ ...fieldStyle, fontSize: 11 }}
+                                                >
+                                                    <option value="">-- Select Schema --</option>
+                                                    {schemas.map(s => (
+                                                        <option key={s.schema_id} value={s.schema_id}>
+                                                            {s.title || s.schema_id.replace(/_/g, ' ')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* MECH Configuration (ADR-047) */}
+                                    {internals.clarification_merge?.internal_type === 'MECH' && (
+                                        <>
+                                            <div>
+                                                <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                                    Operation
+                                                </label>
+                                                <select
+                                                    value={parseMechOpRef(internals.clarification_merge?.op_ref) || ''}
+                                                    onChange={e => {
+                                                        const opId = e.target.value;
+                                                        if (!opId) {
+                                                            updateClarificationMerge('op_ref', '');
+                                                            return;
+                                                        }
+                                                        const op = mechanicalOps.find(o => o.op_id === opId);
+                                                        if (op) {
+                                                            updateClarificationMerge('op_ref', buildMechOpRef(op));
+                                                        }
+                                                    }}
+                                                    style={{ ...fieldStyle, fontSize: 11 }}
+                                                >
+                                                    <option value="">-- Select Operation --</option>
+                                                    {mechanicalOps.filter(op => op.type === 'merger').map(op => (
+                                                        <option key={op.op_id} value={op.op_id}>
+                                                            {op.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {internals.clarification_merge?.op_ref && (() => {
+                                                const opId = parseMechOpRef(internals.clarification_merge.op_ref);
+                                                const op = mechanicalOps.find(o => o.op_id === opId);
+                                                if (!op) return null;
+                                                return (
+                                                    <div
+                                                        className="p-2 rounded text-[10px]"
+                                                        style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border-panel)' }}
+                                                    >
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span
+                                                                className="px-1.5 py-0.5 rounded font-semibold uppercase"
+                                                                style={{
+                                                                    fontSize: 8,
+                                                                    background: 'var(--dot-purple, #a855f7)',
+                                                                    color: '#fff',
+                                                                }}
+                                                            >
+                                                                {op.type}
+                                                            </span>
+                                                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                                                {op.name}
+                                                            </span>
+                                                        </div>
+                                                        {op.description && (
+                                                            <div style={{ color: 'var(--text-muted)' }}>
+                                                                {op.description}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            <div>
+                                                <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                                    OUTPUT_SCHEMA
+                                                </label>
+                                                <select
+                                                    value={cmSchemaId || ''}
+                                                    onChange={handleCmSchemaChange}
+                                                    style={{ ...fieldStyle, fontSize: 11 }}
+                                                >
+                                                    <option value="">-- Select Schema --</option>
+                                                    {schemas.map(s => (
+                                                        <option key={s.schema_id} value={s.schema_id}>
+                                                            {s.title || s.schema_id.replace(/_/g, ' ')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
 
                                     <div
                                         className="text-[10px] mt-2 p-2 rounded"
@@ -799,8 +934,32 @@ export default function NodePropertiesPanel({
 
                 {/* === Non-PGC Node Properties === */}
 
-                {/* Interaction Template - for task, qa, intake_gate (not pgc) */}
-                {['task', 'qa', 'intake_gate'].includes(localData.type) && (
+                {/* Internal Type selector - for task nodes (ADR-047) */}
+                {localData.type === 'task' && (
+                    <div>
+                        <label style={labelStyle}>Internal Type</label>
+                        <select
+                            value={localData.internal_type || 'LLM'}
+                            onChange={e => updateField('internal_type', e.target.value)}
+                            style={fieldStyle}
+                        >
+                            {INTERNAL_TYPES.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                        </select>
+                        <div
+                            className="mt-1 text-xs"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            {INTERNAL_TYPES.find(t => t.value === (localData.internal_type || 'LLM'))?.description}
+                        </div>
+                    </div>
+                )}
+
+                {/* === LLM Configuration (default) === */}
+                {/* Interaction Template - for task, qa, intake_gate when internal_type is LLM or not set */}
+                {['task', 'qa', 'intake_gate'].includes(localData.type) &&
+                 (localData.internal_type || 'LLM') === 'LLM' && (
                     <div>
                         <label style={labelStyle}>Interaction Template</label>
                         <select
@@ -824,6 +983,167 @@ export default function NodePropertiesPanel({
                                 {localData.task_ref}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* === MECH Configuration (ADR-047) === */}
+                {localData.type === 'task' && localData.internal_type === 'MECH' && (
+                    <div className="space-y-3">
+                        <div>
+                            <label style={labelStyle}>Mechanical Operation</label>
+                            <select
+                                value={parseMechOpRef(localData.op_ref) || ''}
+                                onChange={e => {
+                                    const opId = e.target.value;
+                                    if (!opId) {
+                                        updateField('op_ref', '');
+                                        return;
+                                    }
+                                    const op = mechanicalOps.find(o => o.op_id === opId);
+                                    if (op) {
+                                        updateField('op_ref', buildMechOpRef(op));
+                                    }
+                                }}
+                                style={fieldStyle}
+                            >
+                                <option value="">-- Select Operation --</option>
+                                {mechanicalOpTypes.map(opType => {
+                                    const opsOfType = mechanicalOps.filter(op => op.type === opType.type_id);
+                                    if (opsOfType.length === 0) return null;
+                                    return (
+                                        <optgroup key={opType.type_id} label={opType.name}>
+                                            {opsOfType.map(op => (
+                                                <option key={op.op_id} value={op.op_id}>
+                                                    {op.name}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    );
+                                })}
+                            </select>
+                            {localData.op_ref && (
+                                <div
+                                    className="mt-1 text-xs font-mono truncate"
+                                    style={{ color: 'var(--text-muted)' }}
+                                    title={localData.op_ref}
+                                >
+                                    {localData.op_ref}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Show operation type info when selected */}
+                        {localData.op_ref && (() => {
+                            const opId = parseMechOpRef(localData.op_ref);
+                            const op = mechanicalOps.find(o => o.op_id === opId);
+                            const opType = op ? mechanicalOpTypes.find(t => t.type_id === op.type) : null;
+                            if (!op) return null;
+                            return (
+                                <div
+                                    className="p-2 rounded text-xs"
+                                    style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border-panel)' }}
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span
+                                            className="px-1.5 py-0.5 rounded font-semibold uppercase"
+                                            style={{
+                                                fontSize: 9,
+                                                background: 'var(--dot-purple, #a855f7)',
+                                                color: '#fff',
+                                            }}
+                                        >
+                                            {opType?.name || op.type}
+                                        </span>
+                                        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                            {op.name}
+                                        </span>
+                                    </div>
+                                    {op.description && (
+                                        <div style={{ color: 'var(--text-muted)' }}>
+                                            {op.description}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Output Schema for MECH nodes */}
+                        <div>
+                            <label style={labelStyle}>Output Schema</label>
+                            <select
+                                value={parseSchemaRef(localData.output_schema_ref) || ''}
+                                onChange={e => {
+                                    const schemaId = e.target.value;
+                                    if (!schemaId) {
+                                        updateField('output_schema_ref', '');
+                                        return;
+                                    }
+                                    const schema = schemas.find(s => s.schema_id === schemaId);
+                                    if (schema) {
+                                        updateField('output_schema_ref', buildSchemaRef(schema));
+                                    }
+                                }}
+                                style={fieldStyle}
+                            >
+                                <option value="">-- Select Schema --</option>
+                                {schemas.map(s => (
+                                    <option key={s.schema_id} value={s.schema_id}>
+                                        {s.title || s.schema_id.replace(/_/g, ' ')}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {/* === UI Configuration (ADR-047) === */}
+                {localData.type === 'task' && localData.internal_type === 'UI' && (
+                    <div className="space-y-3">
+                        <div
+                            className="p-2 rounded text-xs"
+                            style={{ background: 'var(--bg-canvas)', border: '1px solid var(--border-panel)' }}
+                        >
+                            <div className="flex items-center gap-2 mb-1">
+                                <span
+                                    className="px-1.5 py-0.5 rounded font-semibold uppercase"
+                                    style={{
+                                        fontSize: 9,
+                                        background: '#3b82f6',
+                                        color: '#fff',
+                                    }}
+                                >
+                                    UI
+                                </span>
+                                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                    Operator Entry
+                                </span>
+                            </div>
+                            <div style={{ color: 'var(--text-muted)' }}>
+                                This node presents a form to the operator and captures their input.
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={labelStyle}>Renders</label>
+                            <input
+                                type="text"
+                                value={localData.renders || ''}
+                                onChange={e => updateField('renders', e.target.value)}
+                                placeholder="e.g., question_set"
+                                style={fieldStyle}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={labelStyle}>Captures</label>
+                            <input
+                                type="text"
+                                value={localData.captures || ''}
+                                onChange={e => updateField('captures', e.target.value)}
+                                placeholder="e.g., user_answers"
+                                style={fieldStyle}
+                            />
+                        </div>
                     </div>
                 )}
 
@@ -893,8 +1213,8 @@ export default function NodePropertiesPanel({
                     </label>
                 </div>
 
-                {/* Includes (for task nodes - not pgc) */}
-                {localData.type === 'task' && (
+                {/* Includes (for task nodes with LLM internal_type - not pgc) */}
+                {localData.type === 'task' && (localData.internal_type || 'LLM') === 'LLM' && (
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label style={labelStyle}>Includes</label>

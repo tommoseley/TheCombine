@@ -131,6 +131,8 @@ function SectionState({ loading, empty, emptyMessage = 'None found' }) {
  * - Only opened intentionally by user
  * - Click item -> opens editor (tray stays open)
  * - Close button or click-outside -> closes tray
+ *
+ * Per ADR-047, Mechanical Operations are added as a new Building Block type.
  */
 export default function BuildingBlocksTray({
     isOpen,
@@ -141,15 +143,19 @@ export default function BuildingBlocksTray({
     templates = [],
     schemas = [],
     documentTypes = [], // Fallback for DCW-derived schemas
+    mechanicalOpTypes = [],
+    mechanicalOps = [],
     // Loading states
     promptFragmentsLoading = false,
     templatesLoading = false,
     schemasLoading = false,
+    mechanicalOpsLoading = false,
     // Handlers
     onSelectFragment,
     onSelectTemplate,
     onSelectSchema,
     onSelectStandaloneSchema,
+    onSelectMechanicalOp,
     onCreateFragment,
     onCreateTemplate,
     onCreateSchema,
@@ -644,6 +650,72 @@ export default function BuildingBlocksTray({
                                         sublabel={`from ${dt.doc_type_id}`}
                                     />
                                 ))}
+                            </div>
+                        )}
+                    </TraySection>
+
+                    {/* --- Mechanical Operations (ADR-047) --- */}
+                    <TraySection
+                        title="Mechanical Ops"
+                        count={mechanicalOps.length}
+                        dotColor="var(--dot-purple, #a855f7)"
+                    >
+                        <SectionState
+                            loading={mechanicalOpsLoading}
+                            empty={!mechanicalOpsLoading && mechanicalOps.length === 0 && mechanicalOpTypes.length === 0}
+                            emptyMessage="No mechanical operations"
+                        />
+
+                        {/* Group operations by type */}
+                        {!mechanicalOpsLoading && mechanicalOpTypes.length > 0 && (
+                            <div className="py-1">
+                                {mechanicalOpTypes.map(opType => {
+                                    const opsOfType = mechanicalOps.filter(op => op.type === opType.type_id);
+                                    return (
+                                        <div key={opType.type_id}>
+                                            {/* Type header */}
+                                            <div
+                                                className="px-4 py-1.5 text-xs font-semibold flex items-center gap-2"
+                                                style={{ color: 'var(--text-muted)' }}
+                                            >
+                                                <span style={{ fontSize: 10 }}>⚙</span>
+                                                <span>{opType.name}</span>
+                                                <span style={{ fontFamily: 'monospace', fontSize: 9 }}>
+                                                    ({opsOfType.length})
+                                                </span>
+                                            </div>
+                                            {/* Operations of this type */}
+                                            {opsOfType.length > 0 ? (
+                                                opsOfType.map(op => (
+                                                    <TrayItem
+                                                        key={op.op_id}
+                                                        onClick={() => handleSelect(onSelectMechanicalOp, op)}
+                                                        label={op.name}
+                                                        sublabel={`v${op.active_version}`}
+                                                        badge={op.type}
+                                                    />
+                                                ))
+                                            ) : (
+                                                <div
+                                                    className="px-6 py-1 text-xs italic"
+                                                    style={{ color: 'var(--text-muted)' }}
+                                                >
+                                                    No instances
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Show types even if no instances, when ops not loading but types loaded */}
+                        {!mechanicalOpsLoading && mechanicalOpTypes.length === 0 && mechanicalOps.length === 0 && (
+                            <div
+                                className="px-4 py-2 text-xs"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
+                                Operation types not loaded
                             </div>
                         )}
                     </TraySection>

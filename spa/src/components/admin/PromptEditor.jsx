@@ -47,6 +47,9 @@ export default function PromptEditor({
     onCreateDcwWorkflow,
     initialTab = null,
     docTypeSource = null,
+    // ADR-047: Mechanical operations
+    mechanicalOpTypes = [],
+    mechanicalOps = [],
 }) {
     // Which artifact type tab is selected
     const [selectedKind, setSelectedKind] = useState(initialTab || 'task_prompt');
@@ -644,6 +647,8 @@ export default function PromptEditor({
                             workspaceId={workspaceId}
                             artifactId={docType.workflow_ref}
                             onArtifactSave={onArtifactSave}
+                            mechanicalOpTypes={mechanicalOpTypes}
+                            mechanicalOps={mechanicalOps}
                         />
                     ) : (
                         // No workflow exists - show create option

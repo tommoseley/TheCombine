@@ -23,7 +23,14 @@ const TAB_STYLE = {
  * properties panels. Used both embedded in PromptEditor (as a doc type tab)
  * and standalone in WorkflowEditor.
  */
-export default function WorkflowEditorContent({ workspaceId, artifactId, onArtifactSave }) {
+export default function WorkflowEditorContent({
+    workspaceId,
+    artifactId,
+    onArtifactSave,
+    // ADR-047: Mechanical operations
+    mechanicalOpTypes = [],
+    mechanicalOps = [],
+}) {
     const [activeTab, setActiveTab] = useState('canvas');
     const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [selectedEdgeId, setSelectedEdgeId] = useState(null);
@@ -265,6 +272,8 @@ export default function WorkflowEditorContent({ workspaceId, artifactId, onArtif
                                     roleFragments={fragmentsByKind.role || []}
                                     taskFragments={fragmentsByKind.task || []}
                                     pgcFragments={fragmentsByKind.pgc || []}
+                                    mechanicalOpTypes={mechanicalOpTypes}
+                                    mechanicalOps={mechanicalOps}
                                 />
                             )}
                             {selectedEdge && (

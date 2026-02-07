@@ -32,8 +32,8 @@
       "task_ref": "prompt:template:document_generator:1.0.0",
       "produces": "concierge_intake_document",
       "_position": {
-        "x": 50,
-        "y": 230
+        "x": -143.76,
+        "y": 150.9142857142857
       }
     },
     {
@@ -44,8 +44,8 @@
       "requires_qa": true,
       "qa_mode": "structural",
       "_position": {
-        "x": 145,
-        "y": 420
+        "x": 826.1257142857144,
+        "y": 431.86285714285714
       }
     },
     {

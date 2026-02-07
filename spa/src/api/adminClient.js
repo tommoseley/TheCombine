@@ -404,6 +404,46 @@ export const adminApi = {
      * Invalidate cache
      */
     invalidateCache: () => request('/workbench/cache/invalidate', { method: 'POST' }),
+
+    // =========================================================================
+    // Mechanical Operations (ADR-047)
+    // =========================================================================
+
+    /**
+     * List all mechanical operation types from registry
+     * @returns {Promise<Object>} Operation types list
+     */
+    getMechanicalOpTypes: () => request('/workbench/mechanical-ops/types'),
+
+    /**
+     * Get mechanical operation type details
+     * @param {string} typeId
+     * @returns {Promise<Object>} Type details with config schema
+     */
+    getMechanicalOpType: (typeId) => request(`/workbench/mechanical-ops/types/${typeId}`),
+
+    /**
+     * List all mechanical operation categories
+     * @returns {Promise<Object>} Categories list
+     */
+    getMechanicalOpCategories: () => request('/workbench/mechanical-ops/categories'),
+
+    /**
+     * List all mechanical operation instances
+     * @returns {Promise<Object>} Operations list
+     */
+    getMechanicalOps: () => request('/workbench/mechanical-ops'),
+
+    /**
+     * Get mechanical operation instance details
+     * @param {string} opId
+     * @param {string} version
+     * @returns {Promise<Object>} Operation details with config
+     */
+    getMechanicalOp: (opId, version = null) => {
+        const qs = version ? `?version=${version}` : '';
+        return request(`/workbench/mechanical-ops/${opId}${qs}`);
+    },
 };
 
 export { AdminApiError };

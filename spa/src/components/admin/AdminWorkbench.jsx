@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../hooks';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useWorkspaceState } from '../../hooks/useWorkspaceState';
@@ -101,6 +101,32 @@ export default function AdminWorkbench() {
         refresh: refreshSchemas,
     } = useAdminSchemas();
 
+    // Mechanical operations (ADR-047)
+    const [mechanicalOpTypes, setMechanicalOpTypes] = useState([]);
+    const [mechanicalOps, setMechanicalOps] = useState([]);
+    const [mechanicalOpsLoading, setMechanicalOpsLoading] = useState(false);
+    const [selectedMechanicalOp, setSelectedMechanicalOp] = useState(null);
+
+    // Load mechanical ops on mount
+    useEffect(() => {
+        const loadMechanicalOps = async () => {
+            setMechanicalOpsLoading(true);
+            try {
+                const [typesRes, opsRes] = await Promise.all([
+                    adminApi.getMechanicalOpTypes(),
+                    adminApi.getMechanicalOps(),
+                ]);
+                setMechanicalOpTypes(typesRes.types || []);
+                setMechanicalOps(opsRes.operations || []);
+            } catch (err) {
+                console.error('Failed to load mechanical ops:', err);
+            } finally {
+                setMechanicalOpsLoading(false);
+            }
+        };
+        loadMechanicalOps();
+    }, []);
+
     // Handle doc type selection - fetch full details
     const handleSelectDocType = useCallback(async (docType, tab = null, source = 'docworkflow') => {
         setSelectedDocType(docType);
@@ -108,6 +134,9 @@ export default function AdminWorkbench() {
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
         setSelectedDocTypeDetails(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
         setInitialTab(tab);
         setDocTypeSource(source);
 
@@ -145,6 +174,7 @@ export default function AdminWorkbench() {
         setSelectedWorkflow(null);
         setSelectedFragment(null);
         setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, []);
 
     // Handle template selection
@@ -156,6 +186,7 @@ export default function AdminWorkbench() {
         setSelectedWorkflow(null);
         setSelectedFragment(null);
         setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, []);
 
     // Handle workflow selection
@@ -167,6 +198,7 @@ export default function AdminWorkbench() {
         setSelectedTemplate(null);
         setSelectedFragment(null);
         setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, []);
 
     // Handle prompt fragment selection
@@ -178,6 +210,7 @@ export default function AdminWorkbench() {
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
         setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, []);
 
     // Handle standalone schema selection
@@ -189,6 +222,19 @@ export default function AdminWorkbench() {
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
         setSelectedFragment(null);
+        setSelectedMechanicalOp(null);
+    }, []);
+
+    // Handle mechanical operation selection (ADR-047)
+    const handleSelectMechanicalOp = useCallback((op) => {
+        setSelectedMechanicalOp(op);
+        setSelectedDocType(null);
+        setSelectedDocTypeDetails(null);
+        setSelectedRole(null);
+        setSelectedTemplate(null);
+        setSelectedWorkflow(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
     }, []);
 
     // Handle navigation to a workflow by ID (e.g., from derived_from link)
@@ -219,6 +265,9 @@ export default function AdminWorkbench() {
         setSelectedRole(null);
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, []);
 
     // Handle create workflow
@@ -373,6 +422,9 @@ export default function AdminWorkbench() {
         setSelectedRole(null);
         setSelectedTemplate(null);
         setSelectedWorkflow(null);
+        setSelectedFragment(null);
+        setSelectedSchema(null);
+        setSelectedMechanicalOp(null);
     }, [reinitialize]);
 
     // Auth check
@@ -599,6 +651,8 @@ export default function AdminWorkbench() {
                     onCreateDcwWorkflow={handleCreateDcwWorkflow}
                     initialTab={initialTab}
                     docTypeSource={docTypeSource}
+                    mechanicalOpTypes={mechanicalOpTypes}
+                    mechanicalOps={mechanicalOps}
                 />
             )}
 
@@ -633,6 +687,10 @@ export default function AdminWorkbench() {
                 onCreateFragment={handleCreateFragment}
                 onCreateTemplate={handleCreateTemplate}
                 onCreateSchema={handleCreateSchema}
+                mechanicalOpTypes={mechanicalOpTypes}
+                mechanicalOps={mechanicalOps}
+                mechanicalOpsLoading={mechanicalOpsLoading}
+                onSelectMechanicalOp={handleSelectMechanicalOp}
             />
         </div>
     );
