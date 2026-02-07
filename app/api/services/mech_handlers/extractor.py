@@ -18,10 +18,12 @@ from app.api.services.mech_handlers.base import (
     TransformError,
     InputMissingError,
 )
+from app.api.services.mech_handlers.registry import register_handler
 
 logger = logging.getLogger(__name__)
 
 
+@register_handler
 class ExtractorHandler(MechHandler):
     """
     Handler for extractor operations.

@@ -1,0 +1,33 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: pgc_clarification_processor
+version: "1.0.0"
+type: clarification_merger
+name: "PGC Clarification Processor"
+description: "Merges PGC questions with operator answers and extracts binding invariants for constraint pinning"
+
+config:
+  extract_invariants: true
+  normalize_answers: true
+
+inputs:
+  questions:
+    description: "PGC question objects from clarification question generation"
+    required: true
+  answers:
+    description: "Operator answers keyed by question ID"
+    required: true
+
+outputs:
+  clarifications:
+    description: "Merged clarification objects with binding status"
+  invariants:
+    description: "Binding invariants extracted from clarifications"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  tags:
+    - pgc
+    - clarification
+    - invariant
+    - gate

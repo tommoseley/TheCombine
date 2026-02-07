@@ -75,6 +75,9 @@
     "pgc_operator_answers": "1.0.0",
     "intake_context_extractor": "1.0.0",
     "discovery_context_extractor": "1.0.0",
-    "qa_feedback_merger": "1.0.0"
+    "qa_feedback_merger": "1.0.0",
+    "pgc_clarification_processor": "1.0.0",
+    "discovery_invariant_pinner": "1.0.0",
+    "discovery_exclusion_filter": "1.0.0"
   }
 }

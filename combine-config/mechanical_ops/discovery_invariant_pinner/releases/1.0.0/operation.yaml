@@ -1,0 +1,31 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: discovery_invariant_pinner
+version: "1.0.0"
+type: invariant_pinner
+name: "Discovery Invariant Pinner"
+description: "Pins binding invariants into document known_constraints, removing LLM-generated duplicates"
+
+config:
+  deduplicate: true
+  keyword_match_threshold: 2
+
+inputs:
+  document:
+    description: "Document to pin invariants into (e.g., project discovery document)"
+    required: true
+  invariants:
+    description: "Binding invariants from PGC clarification processing"
+    required: true
+
+outputs:
+  document:
+    description: "Document with pinned constraints in known_constraints[]"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  tags:
+    - discovery
+    - invariant
+    - constraint
+    - pinning

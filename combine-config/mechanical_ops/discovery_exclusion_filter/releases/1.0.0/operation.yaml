@@ -1,0 +1,31 @@
+$schema: https://thecombine.ai/schemas/mechanical-operation.v1.json
+id: discovery_exclusion_filter
+version: "1.0.0"
+type: exclusion_filter
+name: "Discovery Exclusion Filter"
+description: "Filters document sections (recommendations, decision points) that mention excluded topics"
+
+config:
+  filter_recommendations: true
+  filter_decision_points: true
+
+inputs:
+  document:
+    description: "Document to filter (e.g., project discovery document)"
+    required: true
+  invariants:
+    description: "Invariants containing exclusion tags (invariant_kind=exclusion)"
+    required: true
+
+outputs:
+  document:
+    description: "Document with excluded topics filtered from recommendations and decision points"
+
+metadata:
+  created_date: "2026-02-07"
+  author: "system"
+  tags:
+    - discovery
+    - exclusion
+    - filter
+    - constraint

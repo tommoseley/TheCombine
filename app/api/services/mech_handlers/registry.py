@@ -43,17 +43,5 @@ def get_handler(operation_type: str) -> Optional[MechHandler]:
     return None
 
 
-# Register built-in handlers
-def _register_builtin_handlers():
-    """Register the built-in handlers."""
-    from app.api.services.mech_handlers.extractor import ExtractorHandler
-    from app.api.services.mech_handlers.merger import MergerHandler
-    from app.api.services.mech_handlers.entry import EntryHandler
-
-    register_handler(ExtractorHandler)
-    register_handler(MergerHandler)
-    register_handler(EntryHandler)
-
-
-# Auto-register on module load
-_register_builtin_handlers()
+# Note: Handler registration happens via @register_handler decorator
+# when handler modules are imported. See __init__.py for import order.

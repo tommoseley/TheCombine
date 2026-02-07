@@ -11,14 +11,24 @@ from app.api.services.mech_handlers.base import (
     ExecutionContext,
     MechHandlerError,
 )
-from app.api.services.mech_handlers.extractor import ExtractorHandler
-from app.api.services.mech_handlers.merger import MergerHandler
-from app.api.services.mech_handlers.entry import EntryHandler
+
+# Import registry first - handlers use @register_handler decorator
 from app.api.services.mech_handlers.registry import (
     get_handler,
     register_handler,
     HANDLER_REGISTRY,
 )
+
+# Handler imports trigger decorator registration
+from app.api.services.mech_handlers.extractor import ExtractorHandler
+from app.api.services.mech_handlers.merger import MergerHandler
+from app.api.services.mech_handlers.entry import EntryHandler
+from app.api.services.mech_handlers.clarification_merger import (
+    ClarificationMergerHandler,
+)
+from app.api.services.mech_handlers.invariant_pinner import InvariantPinnerHandler
+from app.api.services.mech_handlers.exclusion_filter import ExclusionFilterHandler
+
 from app.api.services.mech_handlers.executor import (
     execute_operation,
     execute_operation_by_ref,
@@ -32,6 +42,9 @@ __all__ = [
     "ExtractorHandler",
     "MergerHandler",
     "EntryHandler",
+    "ClarificationMergerHandler",
+    "InvariantPinnerHandler",
+    "ExclusionFilterHandler",
     "get_handler",
     "register_handler",
     "HANDLER_REGISTRY",

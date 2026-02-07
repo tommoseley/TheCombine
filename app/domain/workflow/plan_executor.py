@@ -48,6 +48,11 @@ from app.domain.workflow.thread_manager import ThreadManager
 from app.domain.workflow.outcome_recorder import OutcomeRecorder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Type hint only - actual import is lazy to avoid circular imports
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.api.services.mechanical_ops_service import MechanicalOpsService
+
 logger = logging.getLogger(__name__)
 
 
@@ -147,6 +152,7 @@ class PlanExecutor:
         thread_manager: Optional[ThreadManager] = None,
         outcome_recorder: Optional[OutcomeRecorder] = None,
         db_session: Optional[AsyncSession] = None,
+        ops_service: Optional["MechanicalOpsService"] = None,
     ):
         """Initialize the executor.
 
@@ -159,12 +165,20 @@ class PlanExecutor:
                            If provided, enables thread ownership for workflows.
             outcome_recorder: Optional outcome recorder for governance audit.
                              If provided, records dual outcomes on completion.
+            ops_service: Optional mechanical ops service for operation dispatch.
+                        If not provided, creates a default instance.
         """
         self._persistence = persistence
         self._plan_registry = plan_registry or get_plan_registry()
         self._thread_manager = thread_manager
         self._outcome_recorder = outcome_recorder
         self._db_session = db_session
+
+        # Lazy import to avoid circular dependency
+        if ops_service is None:
+            from app.api.services.mechanical_ops_service import MechanicalOpsService
+            ops_service = MechanicalOpsService()
+        self._ops_service = ops_service
 
         # Node executors by type - injectable for testing
         if executors:
@@ -318,11 +332,29 @@ class PlanExecutor:
                 # ADR-042: Get questions (with DB fallback for restart scenarios)
                 questions = await self._get_pgc_questions_for_merge(state)
 
-                # ADR-042: Merge questions with answers and derive binding
-                from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                # ADR-042/ADR-047: Merge questions with answers via mechanical operation
+                from app.api.services.mech_handlers import execute_operation
 
-                clarifications = merge_clarifications(questions, user_input)
-                invariants = extract_invariants(clarifications)
+                op = self._ops_service.get_operation("pgc_clarification_processor")
+                if op:
+                    result = await execute_operation(
+                        operation=op,
+                        inputs={"questions": questions, "answers": user_input},
+                    )
+                    if result.success:
+                        clarifications = result.output.get("clarifications", [])
+                        invariants = result.output.get("invariants", [])
+                    else:
+                        logger.warning(f"Clarification merge failed: {result.error}, using fallback")
+                        # Fallback to direct call if operation fails
+                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                        clarifications = merge_clarifications(questions, user_input)
+                        invariants = extract_invariants(clarifications)
+                else:
+                    # Fallback if operation not configured
+                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                    clarifications = merge_clarifications(questions, user_input)
+                    invariants = extract_invariants(clarifications)
 
                 state.update_context_state({
                     "pgc_answers": user_input,  # backward compat
@@ -665,15 +697,28 @@ class PlanExecutor:
                 context.context_state["pgc_questions"] = pgc_answer.questions
                 context.context_state["pgc_answers"] = pgc_answer.answers
 
-                # ADR-042: Also merge clarifications if not present
+                # ADR-042/ADR-047: Also merge clarifications if not present
                 if not context.context_state.get("pgc_clarifications"):
-                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                    from app.api.services.mech_handlers import execute_operation
 
-                    clarifications = merge_clarifications(
-                        pgc_answer.questions,
-                        pgc_answer.answers,
-                    )
-                    invariants = extract_invariants(clarifications)
+                    op = self._ops_service.get_operation("pgc_clarification_processor")
+                    if op:
+                        result = await execute_operation(
+                            operation=op,
+                            inputs={"questions": pgc_answer.questions, "answers": pgc_answer.answers},
+                        )
+                        if result.success:
+                            clarifications = result.output.get("clarifications", [])
+                            invariants = result.output.get("invariants", [])
+                        else:
+                            logger.warning(f"Clarification merge failed: {result.error}, using fallback")
+                            from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                            clarifications = merge_clarifications(pgc_answer.questions, pgc_answer.answers)
+                            invariants = extract_invariants(clarifications)
+                    else:
+                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                        clarifications = merge_clarifications(pgc_answer.questions, pgc_answer.answers)
+                        invariants = extract_invariants(clarifications)
 
                     context.context_state["pgc_clarifications"] = clarifications
                     context.context_state["pgc_invariants"] = invariants
@@ -791,17 +836,19 @@ class PlanExecutor:
         # Note: produced_document is a direct field on NodeResult, not in metadata
         if result.produced_document:
             produces_key = result.metadata.get("produces", "last_produced")
-            
-            # ADR-042: Pin invariants into known_constraints BEFORE storing
+
+            # ADR-042/ADR-047: Pin invariants into known_constraints BEFORE storing
             # This runs after generation, before QA, making constraints mechanical
-            pinned_document = self._pin_invariants_to_known_constraints(
+            pinned_document = await self._pin_invariants_via_operation(
                 result.produced_document, state
             )
-            
-            # ADR-042: Filter excluded topics from recommendations
+
+            # ADR-042/ADR-047: Filter excluded topics from recommendations
             # Prevents boilerplate recs from violating exclusion constraints
-            filtered_document = self._filter_excluded_topics(pinned_document, state)
-            
+            filtered_document = await self._filter_excluded_via_operation(
+                pinned_document, state
+            )
+
             state.update_context_state({
                 f"document_{produces_key}": filtered_document,
                 "last_produced_document": pinned_document,
@@ -1195,19 +1242,98 @@ class PlanExecutor:
         except Exception as e:
             logger.warning(f"Failed to record governance outcome: {e}")
 
+    async def _pin_invariants_via_operation(
+        self,
+        document: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> Dict[str, Any]:
+        """Pin binding invariants via mechanical operation.
+
+        ADR-047: Dispatches to discovery_invariant_pinner operation.
+        Falls back to inline method if operation not available.
+
+        Args:
+            document: The produced document
+            state: Workflow state containing pgc_invariants
+
+        Returns:
+            Document with pinned constraints
+        """
+        invariants = state.context_state.get("pgc_invariants", [])
+        if not invariants:
+            return document
+
+        from app.api.services.mech_handlers import execute_operation
+
+        op = self._ops_service.get_operation("discovery_invariant_pinner")
+        if op:
+            result = await execute_operation(
+                operation=op,
+                inputs={"document": document, "invariants": invariants},
+            )
+            if result.success and result.output:
+                return result.output
+            else:
+                logger.warning(f"Invariant pinning operation failed: {result.error}, using fallback")
+
+        # Fallback to existing method
+        return self._pin_invariants_to_known_constraints(document, state)
+
+    async def _filter_excluded_via_operation(
+        self,
+        document: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> Dict[str, Any]:
+        """Filter excluded topics via mechanical operation.
+
+        ADR-047: Dispatches to discovery_exclusion_filter operation.
+        Falls back to inline method if operation not available.
+
+        Args:
+            document: The document to filter
+            state: Workflow state containing pgc_invariants
+
+        Returns:
+            Document with excluded topics filtered
+        """
+        invariants = state.context_state.get("pgc_invariants", [])
+        if not invariants:
+            return document
+
+        from app.api.services.mech_handlers import execute_operation
+
+        op = self._ops_service.get_operation("discovery_exclusion_filter")
+        if op:
+            result = await execute_operation(
+                operation=op,
+                inputs={"document": document, "invariants": invariants},
+            )
+            if result.success and result.output:
+                return result.output
+            else:
+                logger.warning(f"Exclusion filter operation failed: {result.error}, using fallback")
+
+        # Fallback to existing method
+        return self._filter_excluded_topics(document, state)
+
     def _pin_invariants_to_known_constraints(
         self,
         document: Dict[str, Any],
         state: DocumentWorkflowState,
     ) -> Dict[str, Any]:
         """Pin binding invariants into document's known_constraints[].
-        
+
+        .. deprecated::
+            Use `_pin_invariants_via_operation` instead, which dispatches to
+            the `discovery_invariant_pinner` mechanical operation (ADR-047).
+            This method is kept as a fallback and will be removed in a future release.
+
         ADR-042 Fix #2: This runs AFTER generation, BEFORE QA.
-        
+
         Strategy: Build canonical pinned constraints from invariants, then
         REMOVE any LLM-generated constraints that duplicate them. This ensures
         consistent schema and no duplicates.
-        
+
         Args:
             document: The produced document (will be copied, not mutated)
             state: Workflow state containing pgc_invariants
@@ -1315,14 +1441,19 @@ class PlanExecutor:
         state: DocumentWorkflowState,
     ) -> Dict[str, Any]:
         """Filter recommendations and decision points mentioning excluded topics.
-        
+
+        .. deprecated::
+            Use `_filter_excluded_via_operation` instead, which dispatches to
+            the `discovery_exclusion_filter` mechanical operation (ADR-047).
+            This method is kept as a fallback and will be removed in a future release.
+
         ADR-042: Mechanical post-processing to remove boilerplate content
         that violates exclusion constraints. Runs after generation, before QA.
-        
+
         Args:
             document: The produced document (will be copied, not mutated)
             state: Workflow state containing pgc_invariants
-            
+
         Returns:
             Document with excluded topics filtered out
         """

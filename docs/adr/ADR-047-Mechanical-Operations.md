@@ -968,4 +968,70 @@ Add to §14:
 
 ---
 
+## Addendum B: Implementation Report
+
+**Updated:** 2026-02-07
+
+### B.1 Implementation Status
+
+| Component | Status | Work Statement |
+|-----------|--------|----------------|
+| Operation Type Registry | Complete | WS-ADR-047-001 |
+| Base Handler Framework | Complete | WS-ADR-047-001 |
+| Extractor Handler | Complete | WS-ADR-047-001 |
+| Merger Handler | Complete | WS-ADR-047-001 |
+| Entry Handler | Complete | WS-ADR-047-002 |
+| Clarification Merger Handler | Complete | WS-ADR-047-004 |
+| Invariant Pinner Handler | Complete | WS-ADR-047-004 |
+| Exclusion Filter Handler | Complete | WS-ADR-047-004 |
+| plan_executor.py refactoring | Complete | WS-ADR-047-004 |
+
+### B.2 Handler Registry
+
+All handlers are registered via `@register_handler` decorator in `app/api/services/mech_handlers/`:
+
+| Handler Class | Operation Type | File |
+|---------------|----------------|------|
+| ExtractorHandler | extractor | extractor.py |
+| MergerHandler | merger | merger.py |
+| EntryHandler | entry | entry.py |
+| ClarificationMergerHandler | clarification_merger | clarification_merger.py |
+| InvariantPinnerHandler | invariant_pinner | invariant_pinner.py |
+| ExclusionFilterHandler | exclusion_filter | exclusion_filter.py |
+
+### B.3 Operation Instances
+
+Active operation instances in `combine-config/mechanical_ops/`:
+
+| Operation ID | Type | Purpose |
+|--------------|------|---------|
+| pgc_clarification_merge | merger | Merges Q+A (legacy) |
+| concierge_entry | entry | Intake confirmation UI |
+| pgc_operator_answers | entry | PGC answer collection |
+| intake_context_extractor | extractor | Extract intake context |
+| discovery_context_extractor | extractor | Extract discovery context |
+| qa_feedback_merger | merger | Merge QA feedback |
+| pgc_clarification_processor | clarification_merger | Merge Q+A with invariant extraction |
+| discovery_invariant_pinner | invariant_pinner | Pin invariants to known_constraints |
+| discovery_exclusion_filter | exclusion_filter | Filter excluded topics |
+
+### B.4 Remaining Work
+
+Per ADR-047 §14 Acceptance Criteria:
+
+- [x] 1. Mechanical Operation primitive defined
+- [x] 2. Operation Type Registry exists with types
+- [x] 3. Extractor and Merger implemented
+- [ ] 4. Interaction Definition composite (UI work pending)
+- [ ] 5. Workflow editor LLM/MECH/UI visualization (UI work pending)
+- [ ] 6. Node properties panel dropdown (UI work pending)
+- [ ] 7. Building Blocks tray Mechanical Ops tab (UI work pending)
+- [ ] 8. "New Operation" flow (UI work pending)
+- [x] 9. At least one workflow uses MECH node (project_discovery PGC)
+- [x] 10. Execution engine dispatches correctly
+- [ ] 11. Building Blocks facet filtering (UI work pending)
+- [x] 12. PGC gates use correct schemas
+
+---
+
 _End of ADR-047_

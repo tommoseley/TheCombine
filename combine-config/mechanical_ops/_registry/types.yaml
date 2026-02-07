@@ -242,6 +242,93 @@ types:
         type: "object"
         description: "Structured operator input matching captures schema"
 
+  clarification_merger:
+    name: "Clarification Merger"
+    description: "Merges PGC questions with operator answers, derives binding constraints"
+    icon: "message-square-plus"
+    category: "composition"
+    config_schema:
+      type: object
+      properties:
+        extract_invariants:
+          type: boolean
+          default: true
+          description: "Also extract binding invariants from merged clarifications"
+        normalize_answers:
+          type: boolean
+          default: true
+          description: "Normalize answer text to canonical form"
+    inputs:
+      - name: "questions"
+        type: "array"
+        description: "PGC question objects from question generation"
+      - name: "answers"
+        type: "object"
+        description: "Operator answers keyed by question ID"
+    outputs:
+      - name: "clarifications"
+        type: "array"
+        description: "Merged clarification objects with binding status"
+      - name: "invariants"
+        type: "array"
+        description: "Binding invariants extracted from clarifications (if extract_invariants=true)"
+
+  invariant_pinner:
+    name: "Invariant Pinner"
+    description: "Pins binding invariants into document known_constraints, removing duplicates"
+    icon: "pin"
+    category: "data_transform"
+    config_schema:
+      type: object
+      properties:
+        deduplicate:
+          type: boolean
+          default: true
+          description: "Remove LLM constraints that duplicate pinned ones"
+        keyword_match_threshold:
+          type: integer
+          default: 2
+          description: "Minimum keyword matches to consider a constraint duplicate"
+    inputs:
+      - name: "document"
+        type: "object"
+        description: "Document to pin invariants into"
+      - name: "invariants"
+        type: "array"
+        description: "Binding invariants to pin"
+    outputs:
+      - name: "document"
+        type: "object"
+        description: "Document with pinned constraints in known_constraints"
+
+  exclusion_filter:
+    name: "Exclusion Filter"
+    description: "Filters document sections mentioning excluded topics"
+    icon: "filter-x"
+    category: "data_transform"
+    config_schema:
+      type: object
+      properties:
+        filter_recommendations:
+          type: boolean
+          default: true
+          description: "Filter recommendations_for_pm mentioning exclusions"
+        filter_decision_points:
+          type: boolean
+          default: true
+          description: "Filter early_decision_points overlapping bindings"
+    inputs:
+      - name: "document"
+        type: "object"
+        description: "Document to filter"
+      - name: "invariants"
+        type: "array"
+        description: "Invariants containing exclusion tags"
+    outputs:
+      - name: "document"
+        type: "object"
+        description: "Document with excluded topics filtered out"
+
 categories:
   data_access:
     name: "Data Access"

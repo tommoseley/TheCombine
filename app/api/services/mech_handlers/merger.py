@@ -15,10 +15,12 @@ from app.api.services.mech_handlers.base import (
     ExecutionContext,
     InputMissingError,
 )
+from app.api.services.mech_handlers.registry import register_handler
 
 logger = logging.getLogger(__name__)
 
 
+@register_handler
 class MergerHandler(MechHandler):
     """
     Handler for merger operations.
