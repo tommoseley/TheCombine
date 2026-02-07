@@ -1,30 +1,35 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-06
-**Updated By:** Claude (WS-ADR-047-001 complete, Mechanical Operations)
+**Last Updated:** 2026-02-07
+**Updated By:** Claude (WS-ADR-047-005 complete, ADR-048 drafted, intake_and_route POW created)
 
 ## Current Focus
-
-**COMPLETE:** ADR-045 -- System Ontology (execution_state: complete)
-
-All work statements delivered:
-- **WS-ADR-045-001** (Complete): Left rail restructure, tasks as building blocks, schema extraction, docs
-- **WS-ADR-045-002** (Complete): POW classification (`pow_class`, `derived_from`, `source_version`, `tags`), left rail grouping by class, create-from-reference UX, editor metadata
-
-**COMPLETE:** ADR-046 -- POW Instance Storage and Runtime Binding (execution_state: complete)
-
-All work statements delivered:
-- **WS-ADR-046-001** (Complete): 6 phases -- DB migration, domain model, service layer, API endpoints, frontend (ProjectWorkflow component), project lifecycle integration
 
 **COMPLETE:** ADR-047 -- Mechanical Operations (execution_state: complete)
 
 All work statements delivered:
-- **WS-ADR-047-001** (Complete): 7 phases -- Operation Type Registry, Backend Service, Execution Handlers, API Endpoints, Building Blocks Integration, Node Properties Panel, First Instance (pgc_clarification_merge)
+- **WS-ADR-047-001** (Complete): Mechanical Operations Foundation
+- **WS-ADR-047-002** (Complete): Entry Operations Implementation
+- **WS-ADR-047-003** (Complete): Extraction Operations
+- **WS-ADR-047-004** (Complete): Handler Refactoring
+- **WS-ADR-047-005** (Complete): Concierge Intake Gate Refactoring -- Gate Profile pattern with LLM/MECH/UI internals
 
-**IN PROGRESS:** ADR-044 -- Admin Workbench
+**DRAFT:** ADR-048 -- Intake POW and Workflow Routing
 
-- **WS-ADR-044-001** (Complete): Left rail and tab bar UX redesign
-- **WS-ADR-044-003** (Complete): Composition-First Workbench Redesign -- Left rail shows only compositions, Building Blocks in secondary tray, PGC internals with single-expansion
+Defines front-door architecture:
+- `intake_and_route` POW with DCW → route → spawn steps
+- Complete-and-handoff spawn model with lineage tracking
+- `routing_decision.v1` schema with candidates and QA checks
+
+**IN PROGRESS:** ADR-048 Implementation
+
+| Component | Status |
+|-----------|--------|
+| `intake_and_route` POW definition | Complete |
+| `routing_decision` schema | Complete |
+| `intake_route` operation + RouterHandler | Complete |
+| `confirm_route` entry operation | Pending |
+| `spawn_pow_instance` operation | Pending |
 
 ---
 
@@ -33,94 +38,38 @@ All work statements delivered:
 **Location:** `/admin/workbench` (SPA route)
 
 ### Features Complete
-- **Workspace lifecycle**: Git-branch isolation, create/close/TTL
-- **Document type editing**: Package, Role, Task, QA, PGC, Schema tabs with source/resolved views
-- **Role editing**: Standalone role prompt editor
-- **Template editing**: Standalone template editor with metadata (name, purpose, use_case)
-- **Schema editing** (2026-02-06): Standalone schema editor with JSON content and info tabs; artifact ID URL encoding fix
-- **Package editing**: Standalone package editor
-- **Diff view**: Side-by-side diff viewer
-- **Workflow tab on document types**: React Flow canvas for document production workflows (concierge_intake, project_discovery)
-- **Orchestration workflow editor**: Interactive step editing with drag-to-reorder (@dnd-kit), add/delete steps, JSON tab, metadata view
-- **Workflow CRUD**: Create new orchestration workflows from sidebar, delete from editor header
-- **Git status panel**: Dirty indicator, commit dialog, discard, diff view
-- **Preview engine**: Resolved prompt preview with provenance
-- **Tier 1 validation**: Package validation, graph workflow validation (PlanValidator), step workflow JSON validation
-- **Left rail redesigned** (WS-ADR-044-001): Flat POW list with `pow_class` badges, flat alphabetical DCW list with version badges, collapsible Building Blocks with colored dots and count badges, Git Status in Governance
-- **Sidebar header hierarchy**: Distinct background colors and typography for group vs sub-section headers; collapsed/expanded state persisted to localStorage
-- **Grouped tab bar** (WS-ADR-044-001): Tabs grouped by Interaction Pass -- Package, Workflow, Generation (dropdown), QA (dropdown), PGC (dropdown), Schema; TabDropdown component with click-outside-to-close
-- **Focused Building Block view**: Interactions/Schemas opened from Building Blocks show just the artifact content without tab bar; DCWs show full grouped tab bar
-- **Interactions as Building Blocks**: Derived from document types, navigate to focused task prompt view; selection decoupled from Document Workflows
-- **Schemas as Building Blocks**: Derived from document types, navigate to focused schema view; selection decoupled from Document Workflows
-- **Standalone schema extraction**: 7 schemas extracted to `combine-config/schemas/` with `schema_ref` in package.yaml
-- **Dual-read schema resolution**: Backend resolves standalone schemas first, falls back to packaged
-- **Schema API endpoints**: `/admin/workbench/schemas` list and `/admin/workbench/schemas/{id}` detail
-- **POW classification** (WS-ADR-045-002): `pow_class` (reference/template/instance), `derived_from` lineage, `tags` on workflow definitions
-- **Create-from-reference UX**: Primary creation path forks a reference POW as a template with lineage; blank creation secondary
-- **Editor metadata**: Classification badge in header, editable tags, derived_from navigation link, source version display
-- **Dot color CSS variables**: `--dot-green`, `--dot-blue`, `--dot-purple` defined per theme (Light, Industrial, Blueprint)
-- **POW step editor dropdowns** (2026-02-05): "Produces", "Doc Type" (iterate_over), "Doc/Entity Type" (inputs) now use select dropdowns populated with DCW list
-- **DCW workflow creation** (2026-02-05): Document types without workflows show "Create Workflow" button on Workflow tab; creates skeleton graph workflow with PGC/Generation/QA/Remediation/End nodes
-- **Document type creation** (2026-02-05): "+ New" button in DCW section creates new document type with skeleton package.yaml, prompts, and schema
-- **Node selection glow** (2026-02-05): Selected nodes in workflow canvas have prominent multi-layer glow effect
-- **Template metadata** (2026-02-05): Templates support `meta.yaml` with name, purpose, use_case fields; Metadata tab in TemplateEditor
-- **"Interaction Template" label** (2026-02-05): NodePropertiesPanel "Task Ref" renamed to "Interaction Template"
-- **PGC composite gate** (2026-02-06): PGC nodes are black-box gates with `gate_kind` (discovery, plan, architecture, epic, remediation, compliance); internals show Pass A (Question Generation), Entry (Operator Answers), Pass B (Clarification Merge) with progressive disclosure
-- **PGC gate taxonomy** (2026-02-06): 7 gate kinds with auto-populated `produces` field (e.g., `pgc_clarifications.discovery`)
-- **Node property dropdowns** (2026-02-06): Templates, roles, tasks, schemas, PGC fragments all use dropdowns populated from left rail data
-- **Standalone PGC fragments** (2026-02-06): PGC prompts extracted to `combine-config/prompts/pgc/{id}.v1/`; validation rule updated to accept either embedded or standalone
-- **Composition-First UI** (2026-02-06, WS-ADR-044-003): Left rail shows only POWs and DCWs; Building Blocks moved to secondary slide-out tray
-- **BuildingBlocksTray** (2026-02-06): Slide-out drawer with Prompt Fragments, Templates, Schemas tabs; closes only via X button (not on item selection or outside click)
-- **PGC single-expansion** (2026-02-06): Pass A and Pass B in PGC Gate Internals use mutual exclusion -- only one expanded at a time
-- **concierge_intake workflow migration** (2026-02-06): Task refs updated from seed format to combine-config artifact refs (`prompt:task:intake_gate:1.0.0`)
-- **Mechanical Operations** (2026-02-06, WS-ADR-047-001): Non-LLM building blocks for deterministic data transformations
-  - Operation Type Registry with 5 types (Extractor, Merger, Validator, Transformer, Selector)
-  - Execution handlers for Extractor (JSONPath) and Merger (deep/shallow merge, concatenate)
-  - API endpoints for mechanical ops data
-  - Building Blocks tray Mechanical Ops section with type grouping
-  - Node internal_type selector (LLM/MECH/UI) in NodePropertiesPanel
-  - PGC Pass B supports MECH internal type for clarification merge
-  - MechanicalOpEditor for viewing operation details
-  - First instance: pgc_clarification_merge for PGC Pass B
+- All features from previous state
+- **Gate Profile pattern** (2026-02-07): Concierge Intake uses Gate Profile with 4 internals (pass_a/LLM, extract/MECH, entry/UI, pin/MECH)
+- **intake_and_route POW** (2026-02-07): Front-door POW visible in left rail under "Project Orchestration (POWs)"
+- **RouterHandler** (2026-02-07): Mechanical operation handler for routing intake to follow-on POW
+- **Selected item highlighting** (2026-02-07): Building Blocks tray highlights selected items
 
 ---
-
-## WS-044 Status
-
-| WS | Title | Status |
-|---|---|---|
-| WS-044-01 | Core Architecture | Complete |
-| WS-044-02 | Package Model | Complete |
-| WS-044-03 | Prompt & Schema Editors | Complete |
-| WS-044-04 | DocDef & Sidecar Editor | Not started |
-| WS-044-05 | Workflow & Production Mode Config | Partial |
-| WS-044-06 | Preview & Dry-Run Engine | Complete |
-| WS-044-07 | Release & Rollback Management | Complete |
-| WS-044-08 | Governance Guardrails | Complete |
-| WS-044-09 | Git Repository Layout | Complete |
-| WS-044-10 | Migration (seed/ -> combine-config/) | Phases 1-3 complete |
-| WS-044-11 | Golden Trace Runner | Deferred |
-| WS-ADR-044-001 | Left Rail and Tab Bar UX Redesign | Complete |
-| WS-ADR-044-003 | Composition-First Workbench Redesign | Complete |
-
-## WS-045 Status (ADR-045 execution_state: complete)
-
-| WS | Title | Status |
-|---|---|---|
-| WS-ADR-045-001 | Left Rail Restructure and Schema Extraction | Complete |
-| WS-ADR-045-002 | POW Classification, Lineage, Left Rail Grouping | Complete |
-
-## WS-046 Status (ADR-046 execution_state: complete)
-
-| WS | Title | Status |
-|---|---|---|
-| WS-ADR-046-001 | POW Instance Storage and Runtime Binding | Complete |
 
 ## WS-047 Status (ADR-047 execution_state: complete)
 
 | WS | Title | Status |
 |---|---|---|
 | WS-ADR-047-001 | Mechanical Operations Foundation | Complete |
+| WS-ADR-047-002 | Entry Operations Implementation | Complete |
+| WS-ADR-047-003 | Extraction Operations | Complete |
+| WS-ADR-047-004 | Handler Refactoring | Complete |
+| WS-ADR-047-005 | Concierge Intake Gate Refactoring | Complete |
+
+---
+
+## Workflow Architecture
+
+### Document Creation Workflows (DCWs)
+Graph-based workflows (ADR-039) for single document production:
+- `concierge_intake` v1.4.0 -- Gate Profile with LLM classification + Entry confirmation
+- `project_discovery` v1.8.0
+- `technical_architecture` v1.0.0
+
+### Project Orchestration Workflows (POWs)
+Step-based workflows for cross-document orchestration:
+- `intake_and_route` v1.0.0 -- Front-door POW (ADR-048)
+- `software_product_development` v1.0.0
 
 ---
 
@@ -130,128 +79,52 @@ All work statements delivered:
 **Served At:** `/` (root URL for all users)
 
 ### Features Complete
-- **Lobby**: Entry terminal for unauthenticated users
-- **Authentication**: OAuth SSO (Google, Microsoft)
-- **User Management**: Bottom-left sidebar with avatar, name, email
-- ProjectTree sidebar with project selection highlighting
-- Floor component with Production Line status and Project Info block
-- **ProjectWorkflow panel**: Assign workflow to project, instance viewer with steps and drift indicator
-- Theme switching (Industrial, Light, Blueprint)
-- Concierge intake sidecar with chat interface
-- SSE-based generation progress
-- Project management: rename, archive/unarchive, delete
-- **Admin Workbench**: Full prompt/workflow editing environment
-
-### Authentication Flow
-1. User visits `/` -> SPA loads
-2. SPA checks auth via `/api/me`
-3. Unauthenticated -> Lobby component
-4. User clicks SSO button -> `/auth/login/{provider}`
-5. OAuth callback -> redirects to `/`
-6. Authenticated -> Production environment (AppContent)
+- All previous features
+- **Building Blocks tray highlighting** (2026-02-07): Selected items show left border accent
+- **Orchestration workflow display** (2026-02-07): Both POWs (intake_and_route, software_product_development) visible in left rail
 
 ---
 
 ## Architecture
 
 ```
-FastAPI Backend
-+-- /                    -> Serve React SPA (handles own auth state)
-+-- /api/me              -> Auth check endpoint
-+-- /auth/login/*        -> OAuth initiation
-+-- /auth/callback/*     -> OAuth callback
-+-- /auth/logout         -> Session termination
-+-- /api/v1/projects/*   -> REST: list, create, get, update, archive, delete
-+-- /api/v1/projects/{id}/workflow  -> REST: workflow instance CRUD, drift, history
-+-- /api/v1/intake/*     -> REST + SSE: concierge intake workflow
-+-- /api/v1/production/* -> REST + SSE: production line status
-+-- /api/v1/admin/workbench/*    -> Read-only config browsing (incl. /schemas)
-+-- /api/v1/admin/workspaces/*   -> Workspace-scoped editing + commit
-+-- /assets/*            -> SPA static assets (JS, CSS)
-+-- /admin/*             -> Jinja2 templates (legacy)
-
-React SPA (Vite)
-+-- src/
-|   +-- App.jsx
-|   +-- components/
-|   |   +-- admin/
-|   |   |   +-- AdminWorkbench.jsx       # Three-panel layout
-|   |   |   +-- DocTypeBrowser.jsx       # Sidebar (composition hierarchy)
-|   |   |   +-- PromptEditor.jsx         # Grouped tab bar editor
-|   |   |   +-- TabDropdown.jsx          # Dropdown tab component
-|   |   |   +-- RoleEditor.jsx
-|   |   |   +-- TemplateEditor.jsx
-|   |   |   +-- SchemaEditor.jsx         # Standalone schema editor
-|   |   |   +-- PackageEditor.jsx
-|   |   |   +-- DiffView.jsx
-|   |   |   +-- GitStatusPanel.jsx
-|   |   |   +-- workflow/
-|   |   |       +-- StepWorkflowEditor.jsx    # Orchestration workflow editor
-|   |   |       +-- WorkflowEditorContent.jsx # Reusable React Flow canvas
-|   |   |       +-- WorkflowEditor.jsx        # Thin wrapper (standalone)
-|   |   |       +-- WorkflowCanvas.jsx
-|   |   |       +-- WorkflowNode.jsx
-|   |   |       +-- NodePropertiesPanel.jsx   # PGC composite gate internals, MECH support
-|   |   |       +-- EdgePropertiesPanel.jsx
-|   |   +-- MechanicalOpEditor.jsx         # Mechanical operation viewer (ADR-047)
-|   |   +-- ProjectTree.jsx
-|   |   +-- Floor.jsx
-|   |   +-- ProjectWorkflow.jsx          # Workflow instance viewer (ADR-046)
-|   |   +-- ConciergeIntakeSidecar.jsx
-|   +-- hooks/
-|   |   +-- useAuth.jsx
-|   |   +-- useWorkspace.js
-|   |   +-- useWorkflowEditor.js
-|   |   +-- useAdminWorkflows.js
-|   |   +-- useAdminRoles.js
-|   |   +-- useAdminTemplates.js
-|   |   +-- useAdminSchemas.js
-|   |   +-- usePromptFragments.js
-|   +-- api/
-|   |   +-- client.js
-|   |   +-- adminClient.js               # URL-encoded artifact IDs
-|   +-- utils/
-|       +-- workflowTransform.js
-+-- dist/
-
 combine-config/
-+-- _active/active_releases.json   # Includes schemas, pgc, mechanical_ops sections
-+-- document_types/                 # DCW packages with schema_ref
-+-- schemas/                        # Standalone schemas (ADR-045)
-|   +-- {schema_id}/releases/{ver}/schema.json
-+-- prompts/roles/                  # Shared role prompts
-+-- prompts/templates/              # Shared templates with meta.yaml
-+-- prompts/pgc/                    # Standalone PGC fragments
-|   +-- {id}.v1/releases/{ver}/pgc.prompt.txt
-+-- prompts/tasks/                  # Standalone task prompts
-+-- workflows/                      # Workflow definitions
-+-- mechanical_ops/                 # Mechanical operations (ADR-047)
-|   +-- _registry/types.yaml       # Operation type registry
-|   +-- {op_id}/releases/{ver}/operation.yaml
++-- workflows/
+|   +-- intake_and_route/releases/1.0.0/definition.json    # Front-door POW (ADR-048)
+|   +-- software_product_development/releases/1.0.0/...    # Main delivery POW
+|   +-- concierge_intake/releases/1.4.0/...                # Gate Profile DCW
+|   +-- project_discovery/releases/1.8.0/...
++-- schemas/
+|   +-- routing_decision/releases/1.0.0/schema.json        # ADR-048
+|   +-- intake_classification/releases/1.0.0/...
+|   +-- intake_confirmation/releases/1.0.0/...
++-- mechanical_ops/
+|   +-- intake_route/releases/1.0.0/operation.yaml         # Router operation
+|   +-- intake_classification_extractor/...
+|   +-- intake_invariant_pinner/...
+
+app/api/services/mech_handlers/
++-- router.py              # RouterHandler for intake_route
++-- extractor.py
++-- entry.py
++-- invariant_pinner.py
++-- exclusion_filter.py
+
+app/domain/workflow/nodes/
++-- intake_gate_profile.py # IntakeGateProfileExecutor for Gate Profile pattern
++-- gate.py                # Delegates to profile executor when internals present
 ```
 
 ---
 
 ## Key Technical Decisions
 
-1. **SPA at Root** -- SPA served for all users, handles its own auth state
-2. **Lobby Boundary** -- No production UI components shared with lobby
-3. **Document Production vs Orchestration Workflows** -- Graph-based (ADR-039) for per-document production, step-based (workflow.v2) for cross-document orchestration
-4. **Orchestration steps are declarative** -- Steps declare what document to produce, not how (role/task belong on production workflow)
-5. **@dnd-kit for drag-to-reorder** -- Modern React DnD, supports nested sortable contexts
-6. **Workspace-scoped CRUD** -- Workflow create/delete goes through workspace service for Git-branch isolation
-7. **System Ontology (ADR-045)** -- Prompt Fragments shape behavior; Schemas define acceptability; Interaction Passes bind and execute both
-8. **Schema dual-read** -- Standalone schemas checked first, packaged schemas as fallback (transition support)
-9. **POW classification (ADR-045/WS-002)** -- `pow_class` (reference/template/instance), `derived_from` lineage, `tags`; left rail groups by class; create-from-reference as primary path
-10. **Instance POWs in database (ADR-046)** -- Project-scoped mutable workflow instances stored in DB, not `combine-config/`; drift computed at read time; append-only audit trail
-11. **Grouped tab bar (WS-ADR-044-001)** -- Tabs grouped by Interaction Pass (Generation, QA, PGC) with dropdown menus; focused view for Building Block artifacts
-12. **DCW workflow creation** -- Document types can have workflows created on-demand; skeleton includes standard PGC/Gen/QA/Remediation/End graph
-13. **PGC composite gates** (2026-02-06) -- PGC is a black-box gate node with internals (Pass A: Question Gen, Entry: Operator Answers, Pass B: Clarification Merge); gate_kind determines purpose (discovery, plan, architecture, etc.)
-14. **Standalone PGC fragments** -- PGC prompts live in `prompts/pgc/{id}.v1/` not embedded in document type packages; validation rule accepts either
-15. **Artifact ID URL encoding** -- Frontend encodes artifact IDs with `encodeURIComponent()` for API calls
-16. **BuildingBlocksTray behavior** -- Slide-out tray closes only via X button, not on item selection or clicking editor; enables multi-select workflows
-17. **Task ref artifact format** -- Workflow task_refs use `prompt:task:{name}:{version}` format pointing to combine-config artifacts
-18. **Mechanical Operations (ADR-047)** -- Non-LLM building blocks for deterministic data transformations; 5 operation types (Extractor, Merger, Validator, Transformer, Selector); nodes have `internal_type` field (LLM/MECH/UI); PGC Pass B can use MECH for clarification merge
+All previous decisions plus:
+
+19. **Gate Profile pattern (ADR-047/WS-005)** -- Gates with internals (pass_a/LLM, extract/MECH, entry/UI, pin/MECH) replace special-case executor code
+20. **Intake POW architecture (ADR-048)** -- Concierge Intake becomes its own POW that spawns follow-on workflows; complete-and-handoff model
+21. **Routing as mechanical operation** -- Route selection is config-driven via RouterHandler; no LLM for routing decisions
+22. **Lineage tracking** -- Spawned POW stores `spawned_from_execution_id`, `spawned_by_operation_id`; project maintains `executions[]` array
 
 ---
 
@@ -265,8 +138,8 @@ python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 # Build SPA for production
 cd spa && npm run build
 
-# Run SPA dev server (for development only)
-cd spa && npm run dev
+# Run tests
+python -m pytest tests/ -k "plan_executor" -v
 ```
 
 ---
@@ -274,20 +147,19 @@ cd spa && npm run dev
 ## Handoff Notes
 
 ### Next Work
-- **Genericize Intake Gate**: Migrate from hardcoded intake_gate to use Interaction Template pattern
-  - Create Discovery Interaction Template for intake workflows
-  - Standard pattern: Interaction Template -> LLM -> Structured Output
-- Clean up software_product_development definition.json to remove role/task_prompt from steps
-- WS-044-04 (DocDef & Sidecar Editor) -- not started
-- WS-044-10 Phase 4 (seed/ cleanup) -- not started
+- **confirm_route** entry operation -- Operator confirms low-confidence routing
+- **spawn_pow_instance** operation -- Create follow-on POW execution with lineage
+- Wire intake_and_route POW to actually execute (currently definition only)
+- UX: Collapsed receipt view for completed Intake POW
 
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Migrate remaining seed/ workflows and prompts to combine-config/
+- Migrate remaining seed/ workflows to combine-config/
 
 ### Known Issues
-- `clarification_questions` schema shows `active_version: null` in API despite being in active_releases.json - possible ID mismatch with `clarification_question_set`
+- LLM classification in Gate Profile has prompt ref parsing issue (`prompt:task:intake_gate:1.0.0` resolves incorrectly); fallback pattern matching works
+- `seed/workflows/` must be synced with `combine-config/` for PlanRegistry to load correct versions
 
 ### Design Decisions Deferred
-- **Optional template tokens** (YAGNI): Allow `$$TOKEN?` syntax for optional tokens that get omitted if not in includes map. Trivial to implement when customer need arises.
+- **Optional template tokens** (YAGNI): Allow `$$TOKEN?` syntax for optional tokens
