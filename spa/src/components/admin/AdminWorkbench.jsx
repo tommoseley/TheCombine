@@ -16,6 +16,7 @@ import RoleEditor from './RoleEditor';
 import TemplateEditor from './TemplateEditor';
 import SchemaEditor from './SchemaEditor';
 import PromptFragmentEditor from './PromptFragmentEditor';
+import MechanicalOpEditor from './MechanicalOpEditor';
 import StepWorkflowEditor from './workflow/StepWorkflowEditor';
 import GitStatusPanel from './GitStatusPanel';
 
@@ -521,12 +522,13 @@ export default function AdminWorkbench() {
     }
 
     // Determine which editor to show
-    const showRoleEditor = selectedRole && !selectedDocType && !selectedTemplate && !selectedWorkflow && !selectedFragment && !selectedSchema;
-    const showTemplateEditor = selectedTemplate && !selectedDocType && !selectedRole && !selectedWorkflow && !selectedFragment && !selectedSchema;
-    const showWorkflowEditor = selectedWorkflow && !selectedDocType && !selectedRole && !selectedTemplate && !selectedFragment && !selectedSchema;
-    const showFragmentEditor = selectedFragment && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedSchema;
-    const showSchemaEditor = selectedSchema && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedFragment;
-    const showPromptEditor = !showRoleEditor && !showTemplateEditor && !showWorkflowEditor && !showFragmentEditor && !showSchemaEditor;
+    const showRoleEditor = selectedRole && !selectedDocType && !selectedTemplate && !selectedWorkflow && !selectedFragment && !selectedSchema && !selectedMechanicalOp;
+    const showTemplateEditor = selectedTemplate && !selectedDocType && !selectedRole && !selectedWorkflow && !selectedFragment && !selectedSchema && !selectedMechanicalOp;
+    const showWorkflowEditor = selectedWorkflow && !selectedDocType && !selectedRole && !selectedTemplate && !selectedFragment && !selectedSchema && !selectedMechanicalOp;
+    const showFragmentEditor = selectedFragment && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedSchema && !selectedMechanicalOp;
+    const showSchemaEditor = selectedSchema && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedFragment && !selectedMechanicalOp;
+    const showMechanicalOpEditor = selectedMechanicalOp && !selectedDocType && !selectedRole && !selectedTemplate && !selectedWorkflow && !selectedFragment && !selectedSchema;
+    const showPromptEditor = !showRoleEditor && !showTemplateEditor && !showWorkflowEditor && !showFragmentEditor && !showSchemaEditor && !showMechanicalOpEditor;
 
     return (
         <div
@@ -639,6 +641,11 @@ export default function AdminWorkbench() {
                     workspaceId={workspaceId}
                     schema={selectedSchema}
                     onArtifactSave={handleArtifactSave}
+                />
+            ) : showMechanicalOpEditor ? (
+                <MechanicalOpEditor
+                    mechanicalOp={selectedMechanicalOp}
+                    mechanicalOpTypes={mechanicalOpTypes}
                 />
             ) : (
                 <PromptEditor
