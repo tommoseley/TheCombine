@@ -838,3 +838,432 @@ class TestInMemoryStatePersistence:
 
         loaded = await persistence.load("nonexistent")
         assert loaded is None
+
+
+class TestPinInvariantsToKnownConstraints:
+    """Tests for _pin_invariants_to_known_constraints transformation.
+
+    Per WS-ADR-047-004 Phase 1: Test coverage for refactoring target.
+    """
+
+    @pytest.fixture
+    def executor(self):
+        """Create executor for testing transformation methods."""
+        persistence = InMemoryStatePersistence()
+        return PlanExecutor(persistence=persistence)
+
+    @pytest.fixture
+    def mock_state(self):
+        """Create mock state with context_state."""
+        from app.domain.workflow.document_workflow_state import (
+            DocumentWorkflowState,
+            DocumentWorkflowStatus,
+        )
+        return DocumentWorkflowState(
+            execution_id="exec-123",
+            workflow_id="wf-1",
+            project_id="proj-456",
+            document_type="test",
+            current_node_id="start",
+            status=DocumentWorkflowStatus.RUNNING,
+        )
+
+    def test_no_invariants_returns_original(self, executor, mock_state):
+        """No invariants returns document unchanged."""
+        document = {"known_constraints": ["existing constraint"]}
+        mock_state.context_state = {}  # No pgc_invariants
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        assert result == document
+        assert result["known_constraints"] == ["existing constraint"]
+
+    def test_pins_invariants_to_known_constraints(self, executor, mock_state):
+        """Invariants are pinned to known_constraints with proper structure."""
+        document = {"known_constraints": []}
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "TARGET_PLATFORM",
+                    "user_answer_label": "Web browser",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        assert len(result["known_constraints"]) == 1
+        pinned = result["known_constraints"][0]
+        assert pinned["text"] == "Web browser"
+        assert pinned["source"] == "user_clarification"
+        assert pinned["constraint_id"] == "TARGET_PLATFORM"
+        assert pinned["binding"] is True
+
+    def test_uses_normalized_text_when_available(self, executor, mock_state):
+        """Uses normalized_text instead of answer_label when available."""
+        document = {"known_constraints": []}
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "EXISTING_SYSTEMS",
+                    "user_answer_label": "No",
+                    "normalized_text": "No integrations with existing systems are in scope.",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        pinned = result["known_constraints"][0]
+        assert pinned["text"] == "No integrations with existing systems are in scope."
+
+    def test_removes_duplicate_llm_constraints(self, executor, mock_state):
+        """LLM constraints duplicating pinned ones are removed."""
+        document = {
+            "known_constraints": [
+                {"text": "Application must target web browser platform"},
+                {"text": "Unrelated constraint about security"},
+            ]
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "TARGET_PLATFORM",
+                    "user_answer_label": "Web browser",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        # Should have pinned + one non-duplicate (2 total)
+        assert len(result["known_constraints"]) == 2
+        # First should be the pinned constraint
+        assert result["known_constraints"][0]["source"] == "user_clarification"
+        # Second should be the non-duplicate
+        assert "security" in result["known_constraints"][1]["text"].lower()
+
+    def test_keeps_non_duplicate_llm_constraints(self, executor, mock_state):
+        """LLM constraints not duplicating pinned ones are kept."""
+        document = {
+            "known_constraints": [
+                {"text": "Must support 1000 concurrent users"},
+                {"text": "Database must be PostgreSQL"},
+            ]
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "TARGET_PLATFORM",
+                    "user_answer_label": "Mobile app",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        # Should have pinned + both LLM constraints (3 total)
+        assert len(result["known_constraints"]) == 3
+
+    def test_does_not_mutate_original_document(self, executor, mock_state):
+        """Original document is not mutated."""
+        original_constraints = [{"text": "Original constraint"}]
+        document = {"known_constraints": original_constraints.copy()}
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "TEST",
+                    "user_answer_label": "Test value",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        # Original document unchanged
+        assert document["known_constraints"] == original_constraints
+        # Result is different
+        assert len(result["known_constraints"]) == 2
+
+    def test_handles_string_constraints(self, executor, mock_state):
+        """Handles LLM constraints as plain strings."""
+        document = {
+            "known_constraints": [
+                "Web browser is the target platform",
+                "Must support offline mode",
+            ]
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "TARGET_PLATFORM",
+                    "user_answer_label": "Web browser",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        # Should remove the duplicate string constraint
+        assert len(result["known_constraints"]) == 2
+
+    def test_skips_invariants_with_empty_answer_label(self, executor, mock_state):
+        """Invariants with empty answer_label are skipped."""
+        document = {"known_constraints": []}
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "EMPTY",
+                    "user_answer_label": "",
+                    "user_answer": "",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        # Empty answer_label and empty user_answer -> skipped
+        assert len(result["known_constraints"]) == 0
+
+    def test_uses_user_answer_as_fallback(self, executor, mock_state):
+        """Uses str(user_answer) when user_answer_label is missing."""
+        document = {"known_constraints": []}
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "WITH_ANSWER",
+                    "user_answer": "some value",
+                    "binding": True,
+                },
+            ]
+        }
+
+        result = executor._pin_invariants_to_known_constraints(document, mock_state)
+
+        assert len(result["known_constraints"]) == 1
+        assert result["known_constraints"][0]["text"] == "some value"
+
+
+class TestFilterExcludedTopics:
+    """Tests for _filter_excluded_topics transformation.
+
+    Per WS-ADR-047-004 Phase 1: Test coverage for refactoring target.
+    """
+
+    @pytest.fixture
+    def executor(self):
+        """Create executor for testing transformation methods."""
+        persistence = InMemoryStatePersistence()
+        return PlanExecutor(persistence=persistence)
+
+    @pytest.fixture
+    def mock_state(self):
+        """Create mock state with context_state."""
+        from app.domain.workflow.document_workflow_state import (
+            DocumentWorkflowState,
+            DocumentWorkflowStatus,
+        )
+        return DocumentWorkflowState(
+            execution_id="exec-123",
+            workflow_id="wf-1",
+            project_id="proj-456",
+            document_type="test",
+            current_node_id="start",
+            status=DocumentWorkflowStatus.RUNNING,
+        )
+
+    def test_no_exclusions_returns_original(self, executor, mock_state):
+        """No exclusion invariants returns document unchanged."""
+        document = {
+            "recommendations_for_pm": [{"recommendation": "Consider integrations"}],
+            "early_decision_points": [{"area": "Platform choice"}],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "PLATFORM",
+                    "invariant_kind": "requirement",  # Not exclusion
+                    "canonical_tags": ["web"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        assert len(result["recommendations_for_pm"]) == 1
+        assert len(result["early_decision_points"]) == 1
+
+    def test_filters_recommendations_mentioning_excluded_tags(self, executor, mock_state):
+        """Recommendations mentioning excluded tags are removed."""
+        document = {
+            "recommendations_for_pm": [
+                {"recommendation": "Consider offline support for mobile users"},
+                {"recommendation": "Add user authentication"},
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE_MODE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": ["offline"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        assert len(result["recommendations_for_pm"]) == 1
+        assert "authentication" in result["recommendations_for_pm"][0]["recommendation"]
+
+    def test_keeps_recommendations_not_mentioning_tags(self, executor, mock_state):
+        """Recommendations not mentioning excluded tags are kept."""
+        document = {
+            "recommendations_for_pm": [
+                {"recommendation": "Use React for frontend"},
+                {"recommendation": "Implement caching layer"},
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE_MODE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": ["offline", "sync"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        assert len(result["recommendations_for_pm"]) == 2
+
+    def test_filters_decision_points_overlapping_bindings(self, executor, mock_state):
+        """Decision points overlapping any binding invariant are removed.
+
+        Note: Decision point filtering only runs when exclusions are present.
+        """
+        document = {
+            "recommendations_for_pm": [],  # Need for exclusion to trigger
+            "early_decision_points": [
+                {"decision_area": "Platform selection", "options": ["web", "mobile"]},
+                {"decision_area": "Database choice", "options": ["postgres", "mysql"]},
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE_MODE",
+                    "invariant_kind": "exclusion",  # Need an exclusion to trigger filtering
+                    "canonical_tags": ["offline"],
+                },
+                {
+                    "id": "TARGET_PLATFORM",
+                    "invariant_kind": "requirement",
+                    "canonical_tags": ["platform", "web"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        # Platform decision should be removed (overlaps binding with "platform" or "web" tag)
+        assert len(result["early_decision_points"]) == 1
+        assert "database" in result["early_decision_points"][0]["decision_area"].lower()
+
+    def test_does_not_mutate_original_document(self, executor, mock_state):
+        """Original document is not mutated."""
+        original_recs = [{"recommendation": "Add offline support"}]
+        document = {
+            "recommendations_for_pm": original_recs.copy(),
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": ["offline"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        # Original unchanged
+        assert document["recommendations_for_pm"] == original_recs
+        # Result filtered
+        assert len(result["recommendations_for_pm"]) == 0
+
+    def test_handles_string_recommendations(self, executor, mock_state):
+        """Handles recommendations as plain strings."""
+        document = {
+            "recommendations_for_pm": [
+                "Consider offline functionality",
+                "Use secure authentication",
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": ["offline"],
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        assert len(result["recommendations_for_pm"]) == 1
+        assert "authentication" in result["recommendations_for_pm"][0]
+
+    def test_exclusion_without_tags_is_ignored(self, executor, mock_state):
+        """Exclusion invariants without canonical_tags are ignored."""
+        document = {
+            "recommendations_for_pm": [
+                {"recommendation": "Consider offline support"},
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": [],  # Empty tags
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        # Nothing filtered because no tags to match
+        assert len(result["recommendations_for_pm"]) == 1
+
+    def test_case_insensitive_tag_matching(self, executor, mock_state):
+        """Tag matching is case insensitive."""
+        document = {
+            "recommendations_for_pm": [
+                {"recommendation": "Implement OFFLINE mode for better UX"},
+            ],
+        }
+        mock_state.context_state = {
+            "pgc_invariants": [
+                {
+                    "id": "OFFLINE",
+                    "invariant_kind": "exclusion",
+                    "canonical_tags": ["offline"],  # lowercase
+                },
+            ]
+        }
+
+        result = executor._filter_excluded_topics(document, mock_state)
+
+        # Should still filter (case insensitive)
+        assert len(result["recommendations_for_pm"]) == 0
