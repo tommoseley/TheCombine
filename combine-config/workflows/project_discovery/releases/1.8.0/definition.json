@@ -31,8 +31,8 @@
           "output_schema_ref": "schema:clarification_questions:1.0.0"
         },
         "operator_entry": {
-          "renders": "question_set",
-          "captures": "pgc_answers"
+          "internal_type": "MECH",
+          "op_ref": "mech:entry:pgc_operator_answers:1.0.0"
         },
         "clarification_merge": {
           "template_ref": "prompt:template:pgc_clarifier:1.0.0",

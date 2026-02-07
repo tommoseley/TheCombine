@@ -32,9 +32,11 @@
       "task_ref": "prompt:template:document_generator:1.0.0",
       "produces": "concierge_intake_document",
       "_position": {
-        "x": -143.76,
-        "y": 150.9142857142857
-      }
+        "x": -315.77142857142854,
+        "y": 373.3428571428571
+      },
+      "internal_type": "UI",
+      "op_ref": "mech:entry:concierge_entry:1.0.0"
     },
     {
       "node_id": "qa",
@@ -88,8 +90,8 @@
       "terminal_outcome": "abandoned",
       "gate_outcome": null,
       "_position": {
-        "x": 330,
-        "y": 230
+        "x": 498.0571428571428,
+        "y": 175.62857142857143
       }
     }
   ],
