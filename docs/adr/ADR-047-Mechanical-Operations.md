@@ -1022,15 +1022,30 @@ Per ADR-047 §14 Acceptance Criteria:
 - [x] 1. Mechanical Operation primitive defined
 - [x] 2. Operation Type Registry exists with types
 - [x] 3. Extractor and Merger implemented
-- [ ] 4. Interaction Definition composite (UI work pending)
-- [ ] 5. Workflow editor LLM/MECH/UI visualization (UI work pending)
-- [ ] 6. Node properties panel dropdown (UI work pending)
-- [ ] 7. Building Blocks tray Mechanical Ops tab (UI work pending)
-- [ ] 8. "New Operation" flow (UI work pending)
+- [ ] 4. Interaction Definition composite as formal UI bundle (low priority)
+- [x] 5. Workflow editor supports LLM/MECH/UI internal types
+- [x] 6. Node properties panel shows operation dropdown for MECH nodes
+- [x] 7. Building Blocks tray has Mechanical Ops tab
+- [ ] 8. "New Operation" creation flow (future enhancement)
 - [x] 9. At least one workflow uses MECH node (project_discovery PGC)
 - [x] 10. Execution engine dispatches correctly
-- [ ] 11. Building Blocks facet filtering (UI work pending)
+- [ ] 11. Building Blocks facet filtering (future enhancement)
 - [x] 12. PGC gates use correct schemas
+
+### B.5 Future Enhancements (Phase 3-4)
+
+Per ADR-047 §12 Migration Path:
+
+| Phase | Item | Status |
+|-------|------|--------|
+| Phase 3 | Validator operation type | Not started |
+| Phase 3 | Transformer operation type | Not started |
+| Phase 3 | Selector operation type | Not started |
+| Phase 3 | Operation testing/preview | Not started |
+| Phase 4 | Convert LLM nodes to MECH | Not started |
+| Phase 4 | Performance/cost measurement | Not started |
+
+These are optimization phases, not required for core functionality.
 
 ---
 
