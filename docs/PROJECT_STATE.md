@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-08
-**Updated By:** Claude (Intake message ordering and auth fixes)
+**Updated By:** Claude (Concierge UX streamlining)
 
 ## Current Focus
 
@@ -93,6 +93,9 @@ Step-based workflows for cross-document orchestration:
 - All previous features
 - **Building Blocks tray highlighting** (2026-02-07): Selected items show left border accent
 - **Orchestration workflow display** (2026-02-07): Both POWs (intake_and_route, software_product_development) visible in left rail
+- **Auto-assign workflow** (2026-02-08): Projects auto-assign `software_product_development` on creation
+- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe → Confirm → Done
+- **Externalized intro content** (2026-02-08): Concierge intro loaded from YAML (`/content/concierge-intro.yaml`)
 
 ---
 
@@ -131,6 +134,9 @@ app/api/services/mech_handlers/
 app/domain/workflow/nodes/
 +-- intake_gate_profile.py # IntakeGateProfileExecutor for Gate Profile pattern
 +-- gate.py                # Delegates to profile executor when internals present
+
+spa/public/content/
++-- concierge-intro.yaml   # Externalized Concierge intro text (served at /content/)
 ```
 
 ---
@@ -143,6 +149,7 @@ All previous decisions plus:
 20. **Intake POW architecture (ADR-048)** -- Concierge Intake becomes its own POW that spawns follow-on workflows; complete-and-handoff model
 21. **Routing as mechanical operation** -- Route selection is config-driven via RouterHandler; no LLM for routing decisions
 22. **Lineage tracking** -- Spawned POW stores `spawned_from_execution_id`, `spawned_by_operation_id`; project maintains `executions[]` array
+23. **Mechanical confidence (pending)** -- Derive `requires_confirmation` from ambiguous intent, multiple candidates, missing fields; no LLM self-confidence
 
 ---
 
@@ -170,6 +177,12 @@ python -m pytest tests/ -k "plan_executor" -v
 - Added duplicate prevention when `pending_prompt` matches last assistant message
 - Added `require_auth` dependency to all intake endpoints
 - Fixed user fields on project creation (`created_by`, `owner_id`, `organization_id` now populated)
+- Auto-assign `software_product_development` workflow on project creation
+- Streamlined Concierge phases: Describe → Confirm → Done (removed Review/Generate)
+- Renamed "Project Type" to "Intent Classification" in confirmation form
+- Added "Confirmation requested" notice to entry form
+- Externalized Concierge intro content to `/content/concierge-intro.yaml`
+- Fixed `useConciergeIntake` hook to use `updateFromState` on start
 
 ### Previous Fixes (2026-02-07)
 - Fixed prompt ref parsing (`prompt:task:intake_gate:1.0.0` now resolves correctly)
