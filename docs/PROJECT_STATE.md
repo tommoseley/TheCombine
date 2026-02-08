@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-07
-**Updated By:** Claude (Gate Profile intake working end-to-end)
+**Last Updated:** 2026-02-08
+**Updated By:** Claude (Intake message ordering and auth fixes)
 
 ## Current Focus
 
@@ -164,7 +164,14 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
-### Recent Fixes (2026-02-07)
+### Recent Fixes (2026-02-08)
+- Fixed conversation message ordering (messages now build top-to-bottom, not bottom-to-top)
+- Fixed `/start` endpoint to return full `IntakeStateResponse` for consistent UI rendering
+- Added duplicate prevention when `pending_prompt` matches last assistant message
+- Added `require_auth` dependency to all intake endpoints
+- Fixed user fields on project creation (`created_by`, `owner_id`, `organization_id` now populated)
+
+### Previous Fixes (2026-02-07)
 - Fixed prompt ref parsing (`prompt:task:intake_gate:1.0.0` now resolves correctly)
 - Fixed LLM service call signature in Gate Profile executor
 - Fixed `db_session` not passed to PlanExecutor (document persistence now works)

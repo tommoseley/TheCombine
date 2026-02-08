@@ -28,6 +28,30 @@ export default function ProjectWorkflow({ projectId }) {
     const [driftLoading, setDriftLoading] = useState(false);
     const [showDrift, setShowDrift] = useState(false);
 
+    // Auto-assign default workflow when none exists
+    const autoAssignDefault = useCallback(async () => {
+        try {
+            const data = await adminApi.getOrchestrationWorkflows();
+            const workflows = (data.workflows || [])
+                .filter(wf => wf.workflow_id !== 'intake_and_route');
+
+            // Find software_product_development or use first available
+            const defaultWf = workflows.find(wf => wf.workflow_id === 'software_product_development')
+                || workflows[0];
+
+            if (defaultWf) {
+                const instanceData = await api.createWorkflowInstance(
+                    projectId,
+                    defaultWf.workflow_id,
+                    defaultWf.active_version,
+                );
+                setInstance(instanceData);
+            }
+        } catch (err) {
+            console.error('Failed to auto-assign workflow:', err);
+        }
+    }, [projectId]);
+
     const loadInstance = useCallback(async () => {
         if (!projectId) return;
         setLoading(true);
@@ -38,13 +62,15 @@ export default function ProjectWorkflow({ projectId }) {
         } catch (err) {
             if (err.status === 404) {
                 setInstance(null);
+                // Auto-assign default workflow
+                await autoAssignDefault();
             } else {
                 setError(err.message);
             }
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, autoAssignDefault]);
 
     useEffect(() => { loadInstance(); }, [loadInstance]);
 
@@ -53,7 +79,10 @@ export default function ProjectWorkflow({ projectId }) {
         setPickerLoading(true);
         try {
             const data = await adminApi.getOrchestrationWorkflows();
-            setAvailableWorkflows(data.workflows || []);
+            // Filter out intake_and_route - it's system-internal, not user-selectable
+            const userSelectableWorkflows = (data.workflows || [])
+                .filter(wf => wf.workflow_id !== 'intake_and_route');
+            setAvailableWorkflows(userSelectableWorkflows);
         } catch {
             setAvailableWorkflows([]);
         } finally {
