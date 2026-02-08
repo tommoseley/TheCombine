@@ -54,10 +54,6 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
         onSubmit(response);
     };
 
-    const confidencePercent = context?.confidence
-        ? Math.round(context.confidence * 100)
-        : null;
-
     return (
         <div
             className="flex flex-col h-full"
@@ -103,6 +99,14 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                         </div>
                     </div>
 
+                    {/* Confirmation Notice */}
+                    <div
+                        className="text-xs"
+                        style={{ color: 'var(--text-muted)' }}
+                    >
+                        Confirmation requested
+                    </div>
+
                     {/* Classification Summary */}
                     <div>
                         <h3
@@ -116,10 +120,10 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                             className="p-4 rounded space-y-3"
                             style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-panel)' }}
                         >
-                            {/* Project Type */}
+                            {/* Intent Classification */}
                             <div className="flex items-center justify-between">
                                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                                    Project Type
+                                    Intent Classification
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded font-semibold"
@@ -154,36 +158,6 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                     <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                                         {context.audience}
                                     </span>
-                                </div>
-                            )}
-
-                            {/* Confidence */}
-                            {confidencePercent !== null && (
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                                        Confidence
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-24 h-2 rounded-full overflow-hidden"
-                                            style={{ background: 'var(--bg-canvas)' }}
-                                        >
-                                            <div
-                                                className="h-full rounded-full"
-                                                style={{
-                                                    width: `${confidencePercent}%`,
-                                                    background: confidencePercent >= 80
-                                                        ? '#22c55e'
-                                                        : confidencePercent >= 60
-                                                            ? '#f59e0b'
-                                                            : '#ef4444',
-                                                }}
-                                            />
-                                        </div>
-                                        <span className="text-sm font-mono" style={{ color: 'var(--text-secondary)' }}>
-                                            {confidencePercent}%
-                                        </span>
-                                    </div>
                                 </div>
                             )}
 
@@ -259,7 +233,7 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                     Correct
                                 </div>
                                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    I need to change the category
+                                    I need to change the classification before proceeding
                                 </div>
                             </button>
                         </div>
@@ -272,7 +246,7 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                 className="text-xs font-semibold uppercase tracking-wide mb-3"
                                 style={{ color: 'var(--text-muted)' }}
                             >
-                                Correct Project Type
+                                Correct Intent Classification
                             </h3>
 
                             <select
@@ -285,7 +259,7 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                     color: 'var(--text-primary)',
                                 }}
                             >
-                                <option value="">Select project type...</option>
+                                <option value="">Select intent classification...</option>
                                 {projectTypes.map((pt) => (
                                     <option key={pt.value} value={pt.value}>
                                         {pt.label}

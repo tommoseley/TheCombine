@@ -77,12 +77,7 @@ export function useConciergeIntake() {
             if (!mountedRef.current) return;
 
             setExecutionId(response.execution_id);
-            setPhase(response.phase || 'describe');
-            setPendingPrompt(response.pending_prompt);
-            setMessages([]);
-            setInterpretation({});
-            setProject(null);
-            setGateOutcome(null);
+            updateFromState(response);
         } catch (err) {
             if (!mountedRef.current) return;
             setError(err.message || 'Failed to start intake');

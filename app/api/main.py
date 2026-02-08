@@ -160,6 +160,11 @@ if SPA_ENABLED:
     # Mount SPA assets at /assets (JS, CSS bundles)
     app.mount("/assets", StaticFiles(directory="spa/dist/assets"), name="spa-assets")
     logger.info("SPA assets mounted at /assets")
+    # Mount SPA content (YAML/JSON config files)
+    SPA_CONTENT_PATH = SPA_DIST_PATH / "content"
+    if SPA_CONTENT_PATH.exists():
+        app.mount("/content", StaticFiles(directory="spa/dist/content"), name="spa-content")
+        logger.info("SPA content mounted at /content")
 
 # ============================================================================
 @app.get("/test-session")

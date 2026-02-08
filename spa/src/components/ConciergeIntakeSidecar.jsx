@@ -1,9 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import yaml from 'js-yaml';
 import { useConciergeIntake } from '../hooks';
 import MessageList from './concierge/MessageList';
 import ChatInput from './concierge/ChatInput';
-import InterpretationEditor from './concierge/InterpretationEditor';
-import GeneratingIndicator from './concierge/GeneratingIndicator';
 import CompletionCard from './concierge/CompletionCard';
 import ConciergeEntryForm from './admin/entry/ConciergeEntryForm';
 
@@ -18,14 +17,9 @@ import ConciergeEntryForm from './admin/entry/ConciergeEntryForm';
  */
 export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
     const {
-        executionId,
         phase,
         messages,
         pendingPrompt,
-        interpretation,
-        confidence,
-        missingFields,
-        canInitialize,
         gateOutcome,
         project,
         error,
@@ -35,14 +29,22 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
         intakeGatePhase,
         startIntake,
         submitMessage,
-        updateField,
-        lockAndGenerate,
         reset,
     } = useConciergeIntake();
 
-    // Start intake on mount
+    // Intro content loaded from YAML
+    const [introData, setIntroData] = useState(null);
+
+    // Start intake and load intro content on mount
     useEffect(() => {
         startIntake();
+
+        // Load intro content from YAML
+        fetch('/content/concierge-intro.yaml')
+            .then(res => res.text())
+            .then(text => setIntroData(yaml.load(text)))
+            .catch(err => console.error('Failed to load intro content:', err));
+
         return () => reset();
     }, []);
 
@@ -65,11 +67,10 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
     };
 
     const renderPhaseIndicator = () => {
+        // Gate Profile flow: Describe -> Confirm -> (auto-generate) -> Done
         const phases = [
             { id: 'describe', label: 'Describe' },
             { id: 'confirm', label: 'Confirm' },
-            { id: 'review', label: 'Review' },
-            { id: 'generating', label: 'Generate' },
             { id: 'complete', label: 'Done' },
         ];
 
@@ -77,6 +78,10 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
         let currentPhase = phase;
         if (intakeGatePhase === 'awaiting_confirmation') {
             currentPhase = 'confirm';
+        }
+        // Map old phases to new simplified phases
+        if (currentPhase === 'review' || currentPhase === 'generating') {
+            currentPhase = 'complete';
         }
 
         const currentIdx = phases.findIndex((p) => p.id === currentPhase);
@@ -128,45 +133,46 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
 
         switch (phase) {
             case 'describe':
+                // Intro content loaded from YAML, scrolls with conversation
+                const introContent = introData ? (
+                    <div className="mb-4 pb-4 border-b" style={{ borderColor: 'var(--border-panel)' }}>
+                        <h3
+                            className="text-base font-semibold mb-3"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
+                            {introData.title}
+                        </h3>
+                        <div
+                            className="text-sm space-y-3"
+                            style={{ color: 'var(--text-secondary)' }}
+                        >
+                            {introData.paragraphs?.map((p, idx) => (
+                                <p key={idx}>{p}</p>
+                            ))}
+                        </div>
+                        {introData.call_to_action && (
+                            <p
+                                className="text-sm font-medium mt-4"
+                                style={{ color: 'var(--text-primary)' }}
+                            >
+                                {introData.call_to_action}
+                            </p>
+                        )}
+                    </div>
+                ) : null;
+
                 return (
                     <>
                         <MessageList
                             messages={messages}
                             pendingPrompt={pendingPrompt}
+                            introContent={introContent}
                         />
                         <ChatInput
                             onSubmit={submitMessage}
                             disabled={submitting}
                             placeholder="Describe what you want to build..."
                         />
-                    </>
-                );
-
-            case 'review':
-                return (
-                    <>
-                        <MessageList messages={messages} />
-                        <div
-                            className="border-t"
-                            style={{ borderColor: 'var(--border-panel)' }}
-                        >
-                            <InterpretationEditor
-                                interpretation={interpretation}
-                                missingFields={missingFields}
-                                canInitialize={canInitialize}
-                                onUpdateField={updateField}
-                                onInitialize={lockAndGenerate}
-                                loading={loading}
-                            />
-                        </div>
-                    </>
-                );
-
-            case 'generating':
-                return (
-                    <>
-                        <MessageList messages={messages} />
-                        <GeneratingIndicator />
                     </>
                 );
 

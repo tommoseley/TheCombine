@@ -3,8 +3,9 @@ import { useRef, useEffect } from 'react';
 /**
  * Chat message display component.
  * User messages on right (emerald), assistant on left (violet).
+ * Optional introContent renders at top and scrolls with conversation.
  */
-export default function MessageList({ messages, pendingPrompt }) {
+export default function MessageList({ messages, pendingPrompt, introContent }) {
     const endRef = useRef(null);
 
     useEffect(() => {
@@ -13,6 +14,8 @@ export default function MessageList({ messages, pendingPrompt }) {
 
     return (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {introContent}
+
             {messages.map((msg, idx) => (
                 <div
                     key={idx}
