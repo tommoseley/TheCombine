@@ -26,6 +26,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.core.database import get_db
 from app.core.config import USE_WORKFLOW_ENGINE_LLM
+from app.auth.dependencies import require_auth
+from app.auth.models import User
 from app.domain.workflow.plan_executor import PlanExecutor
 from app.domain.workflow.pg_state_persistence import PgStatePersistence
 from app.domain.workflow.plan_registry import get_plan_registry
@@ -134,7 +136,12 @@ async def _get_executor(db: AsyncSession) -> PlanExecutor:
 
 
 def _extract_messages(state) -> List[IntakeMessage]:
-    """Extract conversation messages from workflow state."""
+    """Extract conversation messages from workflow state.
+
+    Messages are returned in chronological order (oldest first).
+    The pending_user_input_rendered is included as the last assistant message
+    to maintain consistent top-to-bottom conversation flow.
+    """
     messages = []
     node_history = list(state.node_history)
 
@@ -146,9 +153,6 @@ def _extract_messages(state) -> List[IntakeMessage]:
             ))
         response = execution.metadata.get("response") or execution.metadata.get("user_prompt")
         if response:
-            is_last = (i == len(node_history) - 1)
-            if is_last and state.pending_user_input_rendered:
-                continue
             messages.append(IntakeMessage(
                 role="assistant",
                 content=response,
@@ -189,11 +193,25 @@ def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> In
     confidence = calculate_confidence(interpretation_raw)
     missing = get_missing_fields(interpretation_raw)
 
+    # Extract messages first
+    messages = _extract_messages(state)
+
+    # Don't show pending_prompt if it's already the last assistant message
+    # This prevents duplication in the UI
+    pending_prompt = state.pending_user_input_rendered
+    if pending_prompt and messages:
+        last_assistant = next(
+            (m for m in reversed(messages) if m.role == "assistant"),
+            None
+        )
+        if last_assistant and last_assistant.content == pending_prompt:
+            pending_prompt = None
+
     return IntakeStateResponse(
         execution_id=state.execution_id,
         phase=phase,
-        messages=_extract_messages(state),
-        pending_prompt=state.pending_user_input_rendered,
+        messages=messages,
+        pending_prompt=pending_prompt,
         pending_choices=state.pending_choices,
         interpretation=interpretation,
         confidence=confidence,
@@ -210,13 +228,16 @@ def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> In
 # --- Endpoints ---
 
 
-@router.post("/start", response_model=StartIntakeResponse)
+@router.post("/start", response_model=IntakeStateResponse)
 async def start_intake(
     db: AsyncSession = Depends(get_db),
-) -> StartIntakeResponse:
+    current_user: User = Depends(require_auth),
+) -> IntakeStateResponse:
     """Start a new intake workflow execution.
 
     Creates a workflow execution and runs to first pause (initial question).
+    Returns full state including messages for consistent UI rendering.
+    Requires authentication - user_id stored for project creation.
     """
     if not USE_WORKFLOW_ENGINE_LLM:
         raise HTTPException(
@@ -235,11 +256,7 @@ async def start_intake(
         )
         state = await executor.run_to_completion_or_pause(state.execution_id)
 
-        return StartIntakeResponse(
-            execution_id=state.execution_id,
-            phase=state.context_state.get("phase", "describe"),
-            pending_prompt=state.pending_user_input_rendered,
-        )
+        return _build_state_response(state)
 
     except Exception as e:
         logger.exception(f"Failed to start intake: {e}")
@@ -253,6 +270,7 @@ async def start_intake(
 async def get_intake_state(
     execution_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> IntakeStateResponse:
     """Get the current state of an intake workflow."""
     executor = await _get_executor(db)
@@ -266,7 +284,7 @@ async def get_intake_state(
 
     project = None
     if state.status == DocumentWorkflowStatus.COMPLETED and state.gate_outcome == "qualified":
-        project = await _get_created_project(state, db)
+        project = await _get_created_project(state, db, str(current_user.user_id))
 
     return _build_state_response(state, project)
 
@@ -276,6 +294,7 @@ async def submit_message(
     execution_id: str,
     request: SubmitMessageRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> IntakeStateResponse:
     """Submit a user message to the intake workflow.
 
@@ -299,7 +318,7 @@ async def submit_message(
 
     project = None
     if state.status == DocumentWorkflowStatus.COMPLETED and state.gate_outcome == "qualified":
-        project = await _get_created_project(state, db)
+        project = await _get_created_project(state, db, str(current_user.user_id))
 
     return _build_state_response(state, project)
 
@@ -310,6 +329,7 @@ async def update_field(
     field_key: str,
     request: UpdateFieldRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> IntakeStateResponse:
     """Update a single interpretation field (user edit, auto-locks)."""
     executor = await _get_executor(db)
@@ -347,6 +367,7 @@ async def update_field(
 async def initialize_project(
     execution_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> IntakeStateResponse:
     """Confirm interpretation and proceed to generation phase.
 
@@ -392,6 +413,7 @@ async def intake_events(
     request: Request,
     execution_id: str,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
 ) -> EventSourceResponse:
     """SSE stream for intake generation progress.
 
@@ -405,7 +427,7 @@ async def intake_events(
     and push updates until completion.
     """
     return EventSourceResponse(
-        _intake_event_generator(request, execution_id, db)
+        _intake_event_generator(request, execution_id, db, str(current_user.user_id))
     )
 
 
@@ -413,6 +435,7 @@ async def _intake_event_generator(
     request: Request,
     execution_id: str,
     db: AsyncSession,
+    user_id: Optional[str] = None,
 ) -> AsyncGenerator[dict, None]:
     """Generate SSE events during intake workflow execution."""
     executor = await _get_executor(db)
@@ -437,7 +460,7 @@ async def _intake_event_generator(
 
     # Check if already complete
     if state.status == DocumentWorkflowStatus.COMPLETED:
-        project = await _get_created_project(state, db)
+        project = await _get_created_project(state, db, user_id)
         yield {
             "event": "complete",
             "data": json.dumps({
@@ -481,7 +504,7 @@ async def _intake_event_generator(
         # Workflow complete - create project if qualified
         project = None
         if state.status == DocumentWorkflowStatus.COMPLETED and state.gate_outcome == "qualified":
-            project = await _get_created_project(state, db)
+            project = await _get_created_project(state, db, user_id)
 
         yield {
             "event": "complete",
@@ -501,10 +524,19 @@ async def _intake_event_generator(
         }
 
 
-async def _get_created_project(state, db: AsyncSession) -> Optional[Dict[str, Any]]:
+async def _get_created_project(
+    state,
+    db: AsyncSession,
+    user_id: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """Get or create project from completed intake.
 
     Idempotent: checks if project already exists for this execution before creating.
+
+    Args:
+        state: Workflow execution state
+        db: Database session
+        user_id: Optional user ID for owner/created_by fields
     """
     from sqlalchemy import select
     from app.api.models.project import Project
@@ -533,7 +565,7 @@ async def _get_created_project(state, db: AsyncSession) -> Optional[Dict[str, An
                 db=db,
                 intake_document=intake_doc,
                 execution_id=state.execution_id,
-                user_id=None,
+                user_id=user_id,
             )
             if project:
                 return {
