@@ -7,32 +7,34 @@ import React, { useState } from 'react';
  * Displays intake classification and allows operator to confirm or correct.
  *
  * Context (renders: intake_classification.v1):
- * - category: string (e.g., 'new_feature', 'bug_fix', 'enhancement')
- * - summary: string
+ * - classification: string ('qualified', 'needs_clarification', 'out_of_scope')
+ * - project_type: string ('greenfield', 'enhancement', 'migration', etc.)
+ * - artifact_type: string (e.g., 'web_application', 'api', 'mobile_application')
+ * - audience: string
+ * - intake_summary: string
  * - confidence: number (0-1)
- * - extracted_entities: object
+ * - missing_information: string[]
+ * - classification_rationale: string
  *
  * Response (captures: intake_confirmation.v1):
  * - confirmed: boolean
- * - corrected_category?: string
+ * - corrected_project_type?: string
  * - notes?: string
  */
 export default function ConciergeEntryForm({ operation, context, onSubmit, onCancel }) {
     const [mode, setMode] = useState('confirm'); // 'confirm' or 'correct'
-    const [correctedCategory, setCorrectedCategory] = useState(context?.category || '');
+    const [correctedProjectType, setCorrectedProjectType] = useState(context?.project_type || '');
     const [notes, setNotes] = useState('');
 
     const config = operation?.config || {};
     const entryPrompt = config.entry_prompt || 'Review the intake classification.';
 
-    const categories = [
-        { value: 'new_feature', label: 'New Feature' },
-        { value: 'bug_fix', label: 'Bug Fix' },
-        { value: 'enhancement', label: 'Enhancement' },
-        { value: 'refactor', label: 'Refactor' },
-        { value: 'documentation', label: 'Documentation' },
-        { value: 'question', label: 'Question' },
-        { value: 'other', label: 'Other' },
+    const projectTypes = [
+        { value: 'greenfield', label: 'Greenfield (New Project)' },
+        { value: 'enhancement', label: 'Enhancement (Existing Project)' },
+        { value: 'migration', label: 'Migration' },
+        { value: 'integration', label: 'Integration' },
+        { value: 'unknown', label: 'Unknown / Other' },
     ];
 
     const handleSubmit = () => {
@@ -42,7 +44,7 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
         };
 
         if (mode === 'correct') {
-            response.corrected_category = correctedCategory;
+            response.corrected_project_type = correctedProjectType;
         }
 
         if (notes.trim()) {
@@ -114,10 +116,10 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                             className="p-4 rounded space-y-3"
                             style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-panel)' }}
                         >
-                            {/* Category */}
+                            {/* Project Type */}
                             <div className="flex items-center justify-between">
                                 <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                                    Category
+                                    Project Type
                                 </span>
                                 <span
                                     className="px-3 py-1 rounded font-semibold"
@@ -127,9 +129,33 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                         fontSize: 12,
                                     }}
                                 >
-                                    {context?.category?.replace(/_/g, ' ').toUpperCase() || 'Unknown'}
+                                    {context?.project_type?.replace(/_/g, ' ').toUpperCase() || 'Unknown'}
                                 </span>
                             </div>
+
+                            {/* Artifact Type */}
+                            {context?.artifact_type && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                        Artifact Type
+                                    </span>
+                                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                                        {context.artifact_type.replace(/_/g, ' ')}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Audience */}
+                            {context?.audience && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                                        Audience
+                                    </span>
+                                    <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                                        {context.audience}
+                                    </span>
+                                </div>
+                            )}
 
                             {/* Confidence */}
                             {confidencePercent !== null && (
@@ -162,13 +188,25 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                             )}
 
                             {/* Summary */}
-                            {context?.summary && (
+                            {context?.intake_summary && (
                                 <div>
                                     <span className="text-sm block mb-1" style={{ color: 'var(--text-muted)' }}>
                                         Summary
                                     </span>
                                     <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                                        {context.summary}
+                                        {context.intake_summary}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Classification Rationale */}
+                            {context?.classification_rationale && (
+                                <div>
+                                    <span className="text-sm block mb-1" style={{ color: 'var(--text-muted)' }}>
+                                        Rationale
+                                    </span>
+                                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                        {context.classification_rationale}
                                     </p>
                                 </div>
                             )}
@@ -234,12 +272,12 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                 className="text-xs font-semibold uppercase tracking-wide mb-3"
                                 style={{ color: 'var(--text-muted)' }}
                             >
-                                Correct Category
+                                Correct Project Type
                             </h3>
 
                             <select
-                                value={correctedCategory}
-                                onChange={(e) => setCorrectedCategory(e.target.value)}
+                                value={correctedProjectType}
+                                onChange={(e) => setCorrectedProjectType(e.target.value)}
                                 className="w-full p-3 rounded"
                                 style={{
                                     background: 'var(--bg-input, var(--bg-canvas))',
@@ -247,10 +285,10 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                                     color: 'var(--text-primary)',
                                 }}
                             >
-                                <option value="">Select category...</option>
-                                {categories.map((cat) => (
-                                    <option key={cat.value} value={cat.value}>
-                                        {cat.label}
+                                <option value="">Select project type...</option>
+                                {projectTypes.map((pt) => (
+                                    <option key={pt.value} value={pt.value}>
+                                        {pt.label}
                                     </option>
                                 ))}
                             </select>
@@ -303,12 +341,12 @@ export default function ConciergeEntryForm({ operation, context, onSubmit, onCan
                 )}
                 <button
                     onClick={handleSubmit}
-                    disabled={mode === 'correct' && !correctedCategory}
+                    disabled={mode === 'correct' && !correctedProjectType}
                     className="px-4 py-2 rounded text-sm font-semibold"
                     style={{
                         background: mode === 'confirm' ? '#22c55e' : '#f97316',
                         color: '#fff',
-                        opacity: mode === 'correct' && !correctedCategory ? 0.5 : 1,
+                        opacity: mode === 'correct' && !correctedProjectType ? 0.5 : 1,
                     }}
                 >
                     {mode === 'confirm' ? 'Confirm Classification' : 'Submit Correction'}

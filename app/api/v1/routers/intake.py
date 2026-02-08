@@ -71,6 +71,9 @@ class IntakeStateResponse(BaseModel):
     can_initialize: bool = False
     gate_outcome: Optional[str] = None
     project: Optional[Dict[str, Any]] = None
+    # Gate Profile fields (ADR-047)
+    intake_classification: Optional[Dict[str, Any]] = None
+    intake_gate_phase: Optional[str] = None
 
 
 class StartIntakeResponse(BaseModel):
@@ -119,12 +122,14 @@ async def _get_executor(db: AsyncSession) -> PlanExecutor:
             executors=executors,
             thread_manager=thread_manager,
             outcome_recorder=outcome_recorder,
+            db_session=db,
         )
     else:
         return PlanExecutor(
             persistence=PgStatePersistence(db),
             plan_registry=get_plan_registry(),
             executors=create_mock_executors(),
+            db_session=db,
         )
 
 
@@ -196,6 +201,9 @@ def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> In
         can_initialize=confidence >= 1.0,
         gate_outcome=state.gate_outcome,
         project=project,
+        # Gate Profile fields (ADR-047)
+        intake_classification=state.context_state.get("intake_classification"),
+        intake_gate_phase=state.context_state.get("intake_gate_phase"),
     )
 
 

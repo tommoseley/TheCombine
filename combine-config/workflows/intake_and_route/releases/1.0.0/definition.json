@@ -49,7 +49,7 @@
       "dcw_ref": "dcw:concierge_intake@1.4.0",
       "scope": "project",
       "inputs": [],
-      "produces": "concierge_intake",
+      "produces": "",
       "description": "Run the Concierge Intake DCW to capture and classify operator intent"
     },
     {

@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-07
-**Updated By:** Claude (ADR-048 mechanical operations complete)
+**Updated By:** Claude (Gate Profile intake working end-to-end)
 
 ## Current Focus
 
@@ -164,6 +164,14 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
+### Recent Fixes (2026-02-07)
+- Fixed prompt ref parsing (`prompt:task:intake_gate:1.0.0` now resolves correctly)
+- Fixed LLM service call signature in Gate Profile executor
+- Fixed `db_session` not passed to PlanExecutor (document persistence now works)
+- Fixed `intake_gate_phase` not copied to context_state on qualified outcome (UI now advances)
+- Added ConciergeEntryForm rendering in ConciergeIntakeSidecar for operator confirmation
+- ADR-010 instrumentation verified: prompts, messages, and JSON envelopes all logged
+
 ### Next Work
 - Wire intake_and_route POW to actually execute (currently definition only)
 - Integrate SpawnerHandler with ExecutionService to create actual child POW executions
@@ -174,9 +182,9 @@ python -m pytest tests/ -k "plan_executor" -v
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
 - Migrate remaining seed/ workflows to combine-config/
+- **Remove deprecated HTMX admin section** (`app/web/routes/admin/`) -- Old admin pages (admin_routes.py, composer_routes.py, dashboard.py, documents.py, pages.py, partials.py) are superseded by React SPA AdminWorkbench; remove after confirming no active usage
 
 ### Known Issues
-- LLM classification in Gate Profile has prompt ref parsing issue (`prompt:task:intake_gate:1.0.0` resolves incorrectly); fallback pattern matching works
 - `seed/workflows/` must be synced with `combine-config/` for PlanRegistry to load correct versions
 
 ### Design Decisions Deferred

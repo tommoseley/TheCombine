@@ -253,13 +253,16 @@ class IntakeGateProfileExecutor(NodeExecutor):
             task_ref = pass_a_config.get("task_ref", "prompt:task:intake_gate:1.0.0")
             task_prompt = self.prompt_loader.load_task_prompt(task_ref)
 
-            # Build full prompt
-            full_prompt = f"{task_prompt}\n\n## User Input\n{user_input}"
+            # Build messages for LLM
+            user_message = f"## User Input\n{user_input}"
+            messages = [{"role": "user", "content": user_message}]
 
-            # Execute LLM
+            # Execute LLM with task prompt as system prompt
             response = await self.llm_service.complete(
-                prompt=full_prompt,
-                task_id=f"{node_id}_pass_a",
+                messages=messages,
+                system_prompt=task_prompt,
+                task_ref=f"{node_id}_pass_a",
+                node_id=node_id,
             )
 
             # Parse JSON response

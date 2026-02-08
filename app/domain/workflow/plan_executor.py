@@ -885,6 +885,7 @@ class PlanExecutor:
                 "extracted_data", "interpretation", "phase",
                 # Gate Profile keys (ADR-047)
                 "intake_classification", "intake_confirmation", "artifact_type", "audience",
+                "intake_gate_phase",
             ]:
                 if key in result.metadata:
                     intake_metadata[key] = result.metadata[key]

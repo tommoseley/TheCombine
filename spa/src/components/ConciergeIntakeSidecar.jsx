@@ -5,6 +5,7 @@ import ChatInput from './concierge/ChatInput';
 import InterpretationEditor from './concierge/InterpretationEditor';
 import GeneratingIndicator from './concierge/GeneratingIndicator';
 import CompletionCard from './concierge/CompletionCard';
+import ConciergeEntryForm from './admin/entry/ConciergeEntryForm';
 
 /**
  * Concierge Intake Sidecar - Full conversational intake experience.
@@ -30,6 +31,8 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
         error,
         loading,
         submitting,
+        intakeClassification,
+        intakeGatePhase,
         startIntake,
         submitMessage,
         updateField,
@@ -55,15 +58,28 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
         handleClose();
     };
 
+    // Handler for entry form confirmation (Gate Profile ADR-047)
+    const handleEntrySubmit = (response) => {
+        // Submit the confirmation as JSON string
+        submitMessage(JSON.stringify(response));
+    };
+
     const renderPhaseIndicator = () => {
         const phases = [
             { id: 'describe', label: 'Describe' },
+            { id: 'confirm', label: 'Confirm' },
             { id: 'review', label: 'Review' },
             { id: 'generating', label: 'Generate' },
             { id: 'complete', label: 'Done' },
         ];
 
-        const currentIdx = phases.findIndex((p) => p.id === phase);
+        // Map gate phase to UI phase for indicator
+        let currentPhase = phase;
+        if (intakeGatePhase === 'awaiting_confirmation') {
+            currentPhase = 'confirm';
+        }
+
+        const currentIdx = phases.findIndex((p) => p.id === currentPhase);
 
         return (
             <div className="flex items-center gap-1 text-[10px]">
@@ -95,6 +111,18 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-8 h-8 border-2 border-t-violet-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
                 </div>
+            );
+        }
+
+        // Gate Profile: Show entry form when awaiting confirmation (ADR-047)
+        if (intakeGatePhase === 'awaiting_confirmation' && intakeClassification) {
+            return (
+                <ConciergeEntryForm
+                    operation={{ config: { entry_prompt: pendingPrompt } }}
+                    context={intakeClassification}
+                    onSubmit={handleEntrySubmit}
+                    onCancel={handleClose}
+                />
             );
         }
 

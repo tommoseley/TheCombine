@@ -26,6 +26,9 @@ export function useConciergeIntake() {
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    // Gate Profile fields (ADR-047)
+    const [intakeClassification, setIntakeClassification] = useState(null);
+    const [intakeGatePhase, setIntakeGatePhase] = useState(null);
 
     const sseRef = useRef(null);
     const mountedRef = useRef(true);
@@ -57,6 +60,9 @@ export function useConciergeIntake() {
         setCanInitialize(state.can_initialize || false);
         setGateOutcome(state.gate_outcome);
         setProject(state.project);
+        // Gate Profile fields (ADR-047)
+        setIntakeClassification(state.intake_classification);
+        setIntakeGatePhase(state.intake_gate_phase);
     }, []);
 
     /**
@@ -281,6 +287,9 @@ export function useConciergeIntake() {
         error,
         loading,
         submitting,
+        // Gate Profile fields (ADR-047)
+        intakeClassification,
+        intakeGatePhase,
 
         // Actions
         startIntake,
