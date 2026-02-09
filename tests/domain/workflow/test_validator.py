@@ -18,8 +18,8 @@ from app.domain.workflow.validator import WorkflowValidator
 
 @pytest.fixture
 def valid_workflow():
-    """Load the sample valid workflow."""
-    path = Path("seed/workflows/software_product_development.v1.json")
+    """Load the sample valid workflow from combine-config."""
+    path = Path("combine-config/workflows/software_product_development/releases/1.0.0/definition.json")
     with open(path, encoding="utf-8-sig") as f:
         return json.load(f)
 

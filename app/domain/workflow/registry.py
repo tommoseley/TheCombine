@@ -3,8 +3,9 @@
 Provides singleton-like access to available workflows.
 """
 
+import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import logging
 
 from app.domain.workflow.loader import WorkflowLoader, WorkflowLoadError
@@ -21,50 +22,92 @@ class WorkflowNotFoundError(Exception):
 
 class WorkflowRegistry:
     """In-memory registry of available workflows.
-    
+
     Loads all workflows from a directory on initialization.
     Provides lookup by workflow_id.
-    
+
+    Supports two structures:
+    1. Flat: directory/*.json (legacy seed/workflows/)
+    2. Versioned: directory/{workflow_id}/releases/{version}/definition.json
+       Uses _active/active_releases.json for version resolution.
+
     Usage:
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         workflow = registry.get("software_product_development")
-        
+
         # Or list all available
         for wf_id in registry.list_ids():
             print(wf_id)
     """
-    
+
     def __init__(
-        self, 
+        self,
         workflows_dir: Optional[Path] = None,
         loader: Optional[WorkflowLoader] = None,
     ):
         """Initialize registry.
-        
+
         Args:
             workflows_dir: Directory containing workflow JSON files.
-                          Defaults to seed/workflows
+                          Defaults to combine-config/workflows
             loader: Custom loader instance. Defaults to new WorkflowLoader.
         """
         self._workflows: Dict[str, Workflow] = {}
         self._loader = loader or WorkflowLoader()
-        self._workflows_dir = workflows_dir or Path("seed/workflows")
-        
+        self._workflows_dir = workflows_dir or Path("combine-config/workflows")
+
         self._load_all()
-    
+
+    def _load_active_releases(self) -> Optional[Dict[str, Any]]:
+        """Load active_releases.json from combine-config structure.
+
+        Returns:
+            Parsed active_releases dict or None if not found
+        """
+        # active_releases.json is at combine-config/_active/active_releases.json
+        # If directory is combine-config/workflows, look in parent/_active/
+        active_path = self._workflows_dir.parent / "_active" / "active_releases.json"
+        if active_path.exists():
+            try:
+                with open(active_path, "r", encoding="utf-8-sig") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to load active_releases.json: {e}")
+        return None
+
     def _load_all(self) -> None:
-        """Load all workflows from the workflows directory."""
+        """Load all workflows from the workflows directory.
+
+        Supports both flat and versioned structures.
+        """
         if not self._workflows_dir.exists():
             logger.warning(f"Workflows directory not found: {self._workflows_dir}")
             return
-        
-        for path in self._workflows_dir.glob("*.json"):
-            try:
-                workflow = self._loader.load(path)
-                self._workflows[workflow.workflow_id] = workflow
-                logger.info(f"Loaded workflow: {workflow.workflow_id} ({workflow.name})")
-            except WorkflowLoadError as e:
-                logger.error(f"Failed to load workflow {path}: {e}")
+
+        # Check for versioned structure (combine-config style)
+        active_releases = self._load_active_releases()
+        if active_releases:
+            # Load from versioned structure
+            for workflow_id, version in active_releases.get("workflows", {}).items():
+                definition_path = self._workflows_dir / workflow_id / "releases" / version / "definition.json"
+                if definition_path.exists():
+                    try:
+                        workflow = self._loader.load(definition_path)
+                        self._workflows[workflow.workflow_id] = workflow
+                        logger.info(f"Loaded workflow: {workflow.workflow_id} v{version}")
+                    except WorkflowLoadError as e:
+                        logger.warning(f"Failed to load workflow {workflow_id}: {e}")
+                else:
+                    logger.warning(f"Workflow definition not found: {definition_path}")
+        else:
+            # Fall back to flat structure (legacy)
+            for path in self._workflows_dir.glob("*.json"):
+                try:
+                    workflow = self._loader.load(path)
+                    self._workflows[workflow.workflow_id] = workflow
+                    logger.info(f"Loaded workflow: {workflow.workflow_id} ({workflow.name})")
+                except WorkflowLoadError as e:
+                    logger.error(f"Failed to load workflow {path}: {e}")
                 # Continue loading others
     
     def get(self, workflow_id: str) -> Workflow:

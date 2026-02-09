@@ -208,20 +208,20 @@ class TestPlanLoadErrorFormatting:
 
 
 class TestLoadActualConciergeIntakePlan:
-    """Integration test loading the actual concierge_intake.v1.json."""
+    """Integration test loading the actual concierge_intake workflow."""
 
     def test_load_concierge_intake_plan(self, loader):
-        """Load the actual concierge_intake.v1.json file."""
+        """Load the actual concierge_intake workflow from combine-config."""
         plan_path = Path(__file__).parent.parent.parent.parent / \
-            "seed" / "workflows" / "concierge_intake.v1.json"
+            "combine-config" / "workflows" / "concierge_intake" / "releases" / "1.4.0" / "definition.json"
 
         if not plan_path.exists():
-            pytest.skip("concierge_intake.v1.json not found")
+            pytest.skip("concierge_intake 1.4.0 definition.json not found")
 
         plan = loader.load(plan_path)
 
         assert plan.workflow_id == "concierge_intake"
-        assert plan.version == "1.3.0"  # Updated with constraint binding
+        assert plan.version == "1.4.0"
         assert plan.scope_type == "document"
         assert plan.document_type == "concierge_intake"
         assert len(plan.nodes) == 7

@@ -1,9 +1,11 @@
 """Loader for Document Interaction Workflow Plans (ADR-039).
 
 Loads, validates, and parses workflow plan JSON files into typed models.
+Supports combine-config/ versioned structure with active_releases.json.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +14,8 @@ from app.domain.workflow.plan_validator import (
     PlanValidationError,
     PlanValidator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PlanLoadError(Exception):
@@ -100,8 +104,13 @@ class PlanLoader:
     def load_all(self, directory: Path) -> List[WorkflowPlan]:
         """Load all workflow plans from a directory.
 
+        Supports two structures:
+        1. Flat: directory/*.json (legacy seed/workflows/)
+        2. Versioned: directory/{workflow_id}/releases/{version}/definition.json
+           Uses _active/active_releases.json for version resolution.
+
         Args:
-            directory: Directory containing workflow plan JSON files
+            directory: Directory containing workflow plans
 
         Returns:
             List of loaded WorkflowPlans
@@ -110,18 +119,55 @@ class PlanLoader:
             PlanLoadError: If any plan fails to load
         """
         plans = []
-        for path in sorted(directory.glob("*.json")):
-            # Skip non-plan files (e.g., schema files, old workflow.v1 files)
-            try:
-                with open(path, "r", encoding="utf-8-sig") as f:
-                    raw = json.load(f)
 
-                # Check if this looks like a workflow plan (has nodes/edges)
-                if "nodes" in raw and "edges" in raw:
-                    plan = self.load(path)
-                    plans.append(plan)
-            except (json.JSONDecodeError, PlanLoadError):
-                # Skip files that aren't valid plans
-                continue
+        # Check for versioned structure (combine-config style)
+        active_releases = self._load_active_releases(directory)
+        if active_releases:
+            # Load from versioned structure
+            for workflow_id, version in active_releases.get("workflows", {}).items():
+                definition_path = directory / workflow_id / "releases" / version / "definition.json"
+                if definition_path.exists():
+                    try:
+                        plan = self.load(definition_path)
+                        plans.append(plan)
+                        logger.debug(f"Loaded workflow {workflow_id} v{version}")
+                    except PlanLoadError as e:
+                        logger.warning(f"Failed to load workflow {workflow_id}: {e}")
+                else:
+                    logger.warning(f"Workflow definition not found: {definition_path}")
+        else:
+            # Fall back to flat structure (legacy)
+            for path in sorted(directory.glob("*.json")):
+                try:
+                    with open(path, "r", encoding="utf-8-sig") as f:
+                        raw = json.load(f)
+
+                    # Check if this looks like a workflow plan (has nodes/edges)
+                    if "nodes" in raw and "edges" in raw:
+                        plan = self.load(path)
+                        plans.append(plan)
+                except (json.JSONDecodeError, PlanLoadError):
+                    # Skip files that aren't valid plans
+                    continue
 
         return plans
+
+    def _load_active_releases(self, directory: Path) -> Optional[Dict[str, Any]]:
+        """Load active_releases.json from combine-config structure.
+
+        Args:
+            directory: The workflows directory (e.g., combine-config/workflows/)
+
+        Returns:
+            Parsed active_releases dict or None if not found
+        """
+        # active_releases.json is at combine-config/_active/active_releases.json
+        # If directory is combine-config/workflows, look in parent/_active/
+        active_path = directory.parent / "_active" / "active_releases.json"
+        if active_path.exists():
+            try:
+                with open(active_path, "r", encoding="utf-8-sig") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to load active_releases.json: {e}")
+        return None

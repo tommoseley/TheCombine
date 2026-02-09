@@ -30,10 +30,10 @@ class WorkflowLoadError(Exception):
 
 class WorkflowLoader:
     """Load and parse workflow definitions.
-    
+
     Usage:
         loader = WorkflowLoader()
-        workflow = loader.load(Path("seed/workflows/my_workflow.v1.json"))
+        workflow = loader.load(Path("combine-config/workflows/my_workflow/releases/1.0.0/definition.json"))
     """
     
     def __init__(self, validator: Optional[WorkflowValidator] = None):

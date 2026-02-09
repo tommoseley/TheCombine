@@ -10,8 +10,8 @@ from pathlib import Path
 
 @pytest.fixture
 def workflow_plan():
-    """Load the actual concierge_intake workflow plan."""
-    plan_path = Path(__file__).parent.parent.parent.parent / "seed" / "workflows" / "concierge_intake.v1.json"
+    """Load the actual concierge_intake workflow plan from combine-config."""
+    plan_path = Path(__file__).parent.parent.parent.parent / "combine-config" / "workflows" / "concierge_intake" / "releases" / "1.4.0" / "definition.json"
     with open(plan_path) as f:
         return json.load(f)
 
@@ -23,11 +23,11 @@ class TestWorkflowPlanStructure:
         assert workflow_plan["workflow_id"] == "concierge_intake"
 
     def test_has_version(self, workflow_plan):
-        assert workflow_plan["version"] == "1.3.0"
+        assert workflow_plan["version"] == "1.4.0"
 
     def test_has_entry_node(self, workflow_plan):
         assert "entry_node_ids" in workflow_plan
-        assert "intake" in workflow_plan["entry_node_ids"]
+        assert "intake_gate" in workflow_plan["entry_node_ids"]
 
     def test_scope_type_is_document(self, workflow_plan):
         assert workflow_plan["scope_type"] == "document"
@@ -45,13 +45,13 @@ class TestNodeTypes:
     """Tests for node type definitions."""
 
     def test_all_nodes_have_valid_type(self, workflow_plan):
-        valid_types = {"intake_gate", "task", "qa", "end"}
+        valid_types = {"gate", "task", "qa", "end"}
         for node in workflow_plan["nodes"]:
             assert node["type"] in valid_types, f"Invalid type: {node['type']}"
 
     def test_intake_is_intake_gate_type(self, workflow_plan):
-        intake = next(n for n in workflow_plan["nodes"] if n["node_id"] == "intake")
-        assert intake["type"] == "intake_gate"
+        intake = next(n for n in workflow_plan["nodes"] if n["node_id"] == "intake_gate")
+        assert intake["type"] == "gate"
 
     def test_generation_is_task_type(self, workflow_plan):
         gen = next(n for n in workflow_plan["nodes"] if n["node_id"] == "generation")
@@ -98,28 +98,23 @@ class TestThreadOwnership:
 
 
 class TestIntakeToGeneration:
-    """Tests for intake node routing."""
+    """Tests for intake gate node routing."""
 
-    def test_intake_routes_to_generation_on_qualified(self, workflow_plan):
-        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "intake_qualified")
-        assert edge["from_node_id"] == "intake"
+    def test_gate_routes_to_generation_on_qualified(self, workflow_plan):
+        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "gate_qualified")
+        assert edge["from_node_id"] == "intake_gate"
         assert edge["to_node_id"] == "generation"
         assert edge["outcome"] == "qualified"
 
-    def test_intake_has_needs_user_input_edge(self, workflow_plan):
-        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "intake_insufficient")
-        assert edge["outcome"] == "needs_user_input"
+    def test_gate_has_needs_clarification_edge(self, workflow_plan):
+        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "gate_needs_clarification")
+        assert edge["outcome"] == "needs_clarification"
         assert edge.get("non_advancing") == True
 
-    def test_intake_has_out_of_scope_edge(self, workflow_plan):
-        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "intake_out_of_scope")
+    def test_gate_has_out_of_scope_edge(self, workflow_plan):
+        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "gate_out_of_scope")
         assert edge["to_node_id"] == "end_abandoned"
         assert edge["outcome"] == "out_of_scope"
-
-    def test_intake_has_redirect_edge(self, workflow_plan):
-        edge = next(e for e in workflow_plan["edges"] if e["edge_id"] == "intake_redirect")
-        assert edge["to_node_id"] == "end_abandoned"
-        assert edge["outcome"] == "redirect"
 
 
 class TestQARouting:
@@ -167,8 +162,7 @@ class TestGraphIntegrity:
 
     def test_all_edge_targets_exist(self, workflow_plan):
         node_ids = {n["node_id"] for n in workflow_plan["nodes"]}
-        node_ids.add("")  # Allow empty target for non-advancing edges
-        node_ids.add(None)  # Also allow None
+        node_ids.add(None)  # Allow None target for non-advancing edges
         for edge in workflow_plan["edges"]:
             assert edge["to_node_id"] in node_ids, f"Edge {edge['edge_id']} targets non-existent node {edge['to_node_id']}"
 

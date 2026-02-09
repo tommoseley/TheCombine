@@ -147,13 +147,13 @@ class TestWorkflowLoader:
         assert len(exc_info.value.errors) > 0
     
     def test_load_file_from_real_workflow(self, loader):
-        """Load the real sample workflow file."""
-        path = Path("seed/workflows/software_product_development.v1.json")
+        """Load the real sample workflow file from combine-config."""
+        path = Path("combine-config/workflows/software_product_development/releases/1.0.0/definition.json")
         if not path.exists():
             pytest.skip("Sample workflow not found")
-        
+
         workflow = loader.load(path)
-        
+
         assert workflow.workflow_id == "software_product_development"
         assert len(workflow.steps) > 0
     

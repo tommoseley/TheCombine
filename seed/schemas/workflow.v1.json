@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://thecombine.ai/schemas/workflow.v1.json",
   "title": "Workflow Definition",
-  "description": "Schema for The Combine workflow definitions per ADR-027",
+  "description": "Schema for The Combine workflow definitions per ADR-027 (supports v1 and v2)",
   "type": "object",
   "required": [
     "schema_version",
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "workflow.v1",
+      "enum": ["workflow.v1", "workflow.v2"],
       "description": "Schema version identifier"
     },
     "workflow_id": {
@@ -43,6 +43,24 @@
     "description": {
       "type": "string",
       "description": "Optional workflow description"
+    },
+    "pow_class": {
+      "type": "string",
+      "enum": ["reference", "project_instance"],
+      "description": "POW classification (v2): reference template or project instance"
+    },
+    "derived_from": {
+      "type": ["string", "null"],
+      "description": "Parent POW ID if this is a derived instance (v2)"
+    },
+    "source_version": {
+      "type": ["string", "null"],
+      "description": "Version of source POW when derived (v2)"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Workflow classification tags (v2)"
     },
     "scopes": {
       "$ref": "#/$defs/scopes"
@@ -71,7 +89,7 @@
       "description": "Ordered list of workflow steps"
     }
   },
-  "additionalProperties": false,
+  "additionalProperties": true,
   "$defs": {
     "scopes": {
       "type": "object",

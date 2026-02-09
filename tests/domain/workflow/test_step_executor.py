@@ -67,7 +67,7 @@ def simple_step():
         step_id="test_step",
         scope="project",
         role="Technical Architect 1.0",
-        task_prompt="Project Discovery v1.0",
+        task_prompt="project_discovery",
         produces="test_output",
         inputs=[],
     )
@@ -158,7 +158,7 @@ class TestStepExecutor:
             step_id="test_step",
             scope="project",
             role="Technical Architect 1.0",
-            task_prompt="Project Discovery v1.0",
+            task_prompt="project_discovery",
             produces="test_output",
             inputs=[InputReference(scope="project", doc_type="input_doc")],
         )
@@ -181,7 +181,7 @@ class TestStepExecutor:
             step_id="test_step",
             scope="project",
             role="Technical Architect 1.0",
-            task_prompt="Project Discovery v1.0",
+            task_prompt="project_discovery",
             produces="test_output",
             inputs=[InputReference(scope="project", doc_type="missing", required=True)],
         )

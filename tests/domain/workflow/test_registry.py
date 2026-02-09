@@ -12,14 +12,14 @@ class TestWorkflowRegistry:
     
     def test_loads_from_real_directory(self):
         """Registry loads workflows from seed/workflows."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         assert registry.count() >= 1
         assert "software_product_development" in registry.list_ids()
     
     def test_get_returns_workflow(self):
         """get() returns loaded workflow."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         workflow = registry.get("software_product_development")
         
@@ -28,14 +28,14 @@ class TestWorkflowRegistry:
     
     def test_get_raises_for_missing(self):
         """get() raises WorkflowNotFoundError for unknown ID."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         with pytest.raises(WorkflowNotFoundError, match="not found"):
             registry.get("nonexistent_workflow")
     
     def test_get_optional_returns_none(self):
         """get_optional() returns None for unknown ID."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         result = registry.get_optional("nonexistent")
         
@@ -43,7 +43,7 @@ class TestWorkflowRegistry:
     
     def test_list_ids_returns_all(self):
         """list_ids() returns all loaded workflow IDs."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         ids = registry.list_ids()
         
@@ -52,7 +52,7 @@ class TestWorkflowRegistry:
     
     def test_list_all_returns_workflows(self):
         """list_all() returns all Workflow objects."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         workflows = registry.list_all()
         
@@ -60,7 +60,7 @@ class TestWorkflowRegistry:
     
     def test_add_workflow(self):
         """add() inserts workflow into registry."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         initial_count = registry.count()
         
         test_workflow = Workflow(
@@ -83,7 +83,7 @@ class TestWorkflowRegistry:
     
     def test_remove_workflow(self):
         """remove() removes workflow from registry."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         test_workflow = Workflow(
             schema_version="workflow.v1",
@@ -106,7 +106,7 @@ class TestWorkflowRegistry:
     
     def test_remove_returns_false_for_missing(self):
         """remove() returns False for unknown ID."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         
         result = registry.remove("nonexistent")
         
@@ -121,7 +121,7 @@ class TestWorkflowRegistry:
     
     def test_reload_refreshes_from_disk(self):
         """reload() reloads all workflows from disk."""
-        registry = WorkflowRegistry(Path("seed/workflows"))
+        registry = WorkflowRegistry(Path("combine-config/workflows"))
         initial_count = registry.count()
         
         # Add a test workflow (not on disk)

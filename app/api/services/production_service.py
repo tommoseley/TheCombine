@@ -36,8 +36,8 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
     - may_own: list of entity types this document can own (for parent-child relationships)
     - collection_field: field name containing child entities (if may_own is set)
     """
-    # Try to load from master workflow definition first
-    master_workflow_path = Path("seed/workflows/software_product_development.v1.json")
+    # Try to load from master workflow definition first (combine-config versioned structure)
+    master_workflow_path = Path("combine-config/workflows/software_product_development/releases/1.0.0/definition.json")
     if master_workflow_path.exists():
         try:
             with open(master_workflow_path) as f:

@@ -11,7 +11,11 @@ from app.domain.prompt.errors import PromptAssemblyError
 
 
 class TestPromptAssemblyService:
-    """Tests for PromptAssemblyService."""
+    """Tests for PromptAssemblyService.
+
+    Note: PromptAssemblyService uses PackageLoader for task prompts.
+    Tests use existing seed paths for includes that still exist there.
+    """
 
     @pytest.fixture
     def service(self):
@@ -23,8 +27,9 @@ class TestPromptAssemblyService:
 
     def test_assemble_direct(self, service):
         """Direct assembly with task_ref and includes."""
+        # Use v1.1 which is the version that exists
         result = service.assemble(
-            task_ref="tasks/Clarification Questions Generator v1.0",
+            task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
                 "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
                 "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
@@ -32,7 +37,7 @@ class TestPromptAssemblyService:
             correlation_id="550e8400-e29b-41d4-a716-446655440001",
         )
 
-        assert result.task_ref == "tasks/Clarification Questions Generator v1.0"
+        assert result.task_ref == "tasks/Clarification Questions Generator v1.1"
         assert len(result.content) > 0
         assert len(result.content_hash) == 64  # SHA-256 hex string
         assert "PGC_CONTEXT" in result.includes_resolved
@@ -90,15 +95,15 @@ class TestPromptAssemblyService:
     def test_deterministic_hash(self, service):
         """Same inputs produce same hash."""
         result1 = service.assemble(
-            task_ref="tasks/Clarification Questions Generator v1.0",
+            task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
                 "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
                 "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
             },
         )
-        
+
         result2 = service.assemble(
-            task_ref="tasks/Clarification Questions Generator v1.0",
+            task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
                 "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
                 "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",

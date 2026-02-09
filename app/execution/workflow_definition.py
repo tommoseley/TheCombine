@@ -187,15 +187,15 @@ class WorkflowDefinition:
 
 class WorkflowLoader:
     """Load workflow definitions from files."""
-    
+
     def __init__(self, workflows_dir: Optional[Path] = None):
         """
         Initialize loader.
-        
+
         Args:
             workflows_dir: Directory containing workflow JSON files
         """
-        self._workflows_dir = workflows_dir or Path("seed/workflows")
+        self._workflows_dir = workflows_dir or Path("combine-config/workflows")
         self._cache: Dict[str, WorkflowDefinition] = {}
     
     def load(self, workflow_id: str) -> Optional[WorkflowDefinition]:

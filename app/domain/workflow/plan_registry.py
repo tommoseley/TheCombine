@@ -27,7 +27,7 @@ class PlanRegistry:
 
     Usage:
         registry = PlanRegistry()
-        registry.load_from_directory(Path("seed/workflows"))
+        registry.load_from_directory(Path("combine-config/workflows"))
         plan = registry.get("concierge_intake")
     """
 
@@ -183,13 +183,13 @@ def get_plan_registry() -> PlanRegistry:
     """Get the global plan registry instance.
 
     Creates a new instance if one doesn't exist.
-    Auto-loads workflows from seed/workflows directory.
+    Auto-loads workflows from combine-config/workflows directory.
     """
     global _global_registry
     if _global_registry is None:
         _global_registry = PlanRegistry()
-        # Auto-load workflows from seed directory
-        workflow_dir = Path("seed/workflows")
+        # Auto-load workflows from combine-config (versioned structure)
+        workflow_dir = Path("combine-config/workflows")
         if workflow_dir.exists():
             try:
                 count = _global_registry.load_from_directory(workflow_dir)
