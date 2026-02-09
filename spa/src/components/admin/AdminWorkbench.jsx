@@ -567,12 +567,21 @@ export default function AdminWorkbench() {
                     flexShrink: 0,
                 }}
             >
-                <span
-                    className="font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--text-primary)', fontSize: 11 }}
-                >
-                    Admin Workbench
-                </span>
+                <div className="flex items-center gap-3">
+                    <img
+                        src="/logo-dark.png"
+                        alt="The Combine"
+                        className="h-6 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => { window.location.href = '/'; }}
+                        title="Return to Home"
+                    />
+                    <span
+                        className="font-bold uppercase tracking-widest"
+                        style={{ color: 'var(--text-primary)', fontSize: 11 }}
+                    >
+                        Admin Workbench
+                    </span>
+                </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleReloadConfig}
