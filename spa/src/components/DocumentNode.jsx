@@ -240,7 +240,6 @@ export default function DocumentNode({ data }) {
                     nodeWidth={data.width}
                     onSubmit={(answers) => data.onSubmitQuestions?.(data.id, answers)}
                     onClose={() => data.onCollapse?.()}
-                    onZoomComplete={() => data.onZoomToNode?.(data.id)}
                 />
             )}
 

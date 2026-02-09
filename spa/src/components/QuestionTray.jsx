@@ -1,29 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TRAY } from '../utils/constants';
 
-export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose, onZoomComplete }) {
+const NORMAL_WIDTH = 320;
+const EXPANDED_WIDTH = 480;
+
+export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }) {
     const [answers, setAnswers] = useState({});
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const allAnswered = questions
         .filter(q => q.required)
         .every(q => answers[q.id]);
 
-    useEffect(() => {
-        if (onZoomComplete) {
-            const timer = setTimeout(() => onZoomComplete(), 150);
-            return () => clearTimeout(timer);
-        }
-    }, [onZoomComplete]);
+    const width = isExpanded ? EXPANDED_WIDTH : NORMAL_WIDTH;
 
     return (
         <div
             className="absolute top-0 border border-amber-500/50 rounded-lg shadow-2xl tray-slide"
             style={{
                 left: nodeWidth + TRAY.GAP,
-                width: TRAY.WIDTH,
+                width,
                 boxShadow: '0 0 30px rgba(0,0,0,0.5)',
                 zIndex: 1000,
-                background: 'var(--bg-sidecar)'
+                background: 'var(--bg-sidecar)',
+                transition: 'width 0.2s ease',
             }}
         >
             {/* Horizontal bridge - top aligned at header center */}
@@ -40,16 +40,34 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose, 
                 <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide">
                     Operator Input Required
                 </span>
-                <button
-                    onClick={onClose}
-                    style={{ color: 'var(--text-sidecar-muted)' }}
-                    className="hover:opacity-70 text-sm leading-none"
-                >
-                    &times;
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        title={isExpanded ? 'Contract' : 'Expand'}
+                        className="hover:opacity-70 transition-opacity p-1"
+                        style={{ color: 'var(--text-sidecar-muted)' }}
+                    >
+                        {isExpanded ? (
+                            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M9 1v4h4M5 13v-4H1M9 5L13 1M5 9L1 13" />
+                            </svg>
+                        ) : (
+                            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M13 5V1h-4M1 9v4h4M13 1L9 5M1 13l4-4" />
+                            </svg>
+                        )}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        style={{ color: 'var(--text-sidecar-muted)' }}
+                        className="hover:opacity-70 text-sm leading-none"
+                    >
+                        &times;
+                    </button>
+                </div>
             </div>
 
-            <div className="p-3 space-y-3 max-h-64 overflow-y-auto">
+            <div className={`p-3 space-y-3 overflow-y-auto ${isExpanded ? 'max-h-[480px]' : 'max-h-96'}`}>
                 {questions.map(q => (
                     <div key={q.id}>
                         <label
