@@ -58,6 +58,18 @@ const ARTIFACT_DISPLAY = {
     stabilized: 'Stabilized',
 };
 
+/**
+ * Format document type ID as human-readable name
+ * e.g., "technical_architecture" -> "Technical Architecture"
+ */
+function formatDocTypeName(docType) {
+    if (!docType) return '';
+    return docType
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
 export default function DocumentNode({ data }) {
     const level = data.level || 1;
     const isL1 = level === 1;
@@ -207,6 +219,17 @@ export default function DocumentNode({ data }) {
                             )
                         )}
                     </div>
+
+                    {/* Show what this node is waiting for */}
+                    {data.blockedBy?.length > 0 && (isBlocked || artifactState === 'ready') && (
+                        <div
+                            className="mt-2 pt-2 border-t text-[8px]"
+                            style={{ borderColor: 'var(--border-node)', color: 'var(--text-muted)' }}
+                        >
+                            <span className="font-medium">Waiting for: </span>
+                            {data.blockedBy.map(formatDocTypeName).join(', ')}
+                        </div>
+                    )}
                 </div>
             </div>
 
