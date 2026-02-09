@@ -5,22 +5,57 @@ import FeatureGrid from './FeatureGrid';
 import DocumentViewer from './DocumentViewer';
 
 /**
- * Production state display names (operator-facing)
+ * Unified Artifact State Model
+ *
+ * 4 artifact states (what users see):
+ * - Blocked: Can't proceed (missing inputs, failed QA, needs operator)
+ * - In Progress: Work happening (queued or actively executing)
+ * - Ready: Gates passed, awaiting acceptance
+ * - Stabilized: Governed, immutable, trusted
+ *
+ * Execution state (queued/active/complete) is hidden - only for engine/logs.
  */
-const STATE_DISPLAY = {
-    produced: 'Produced',
-    in_production: 'In Production',
-    ready_for_production: 'Ready',
-    requirements_not_met: 'Requirements Not Met',
-    awaiting_operator: 'Awaiting Operator',
-    halted: 'Halted',
-    // Legacy mappings
-    stabilized: 'Produced',
-    active: 'In Production',
-    queued: 'Ready',
-    blocked: 'Requirements Not Met',
-    ready: 'Produced',
-    waiting: 'Ready',
+
+// Colors for artifact states
+const ARTIFACT_COLORS = {
+    blocked: { bg: '#ef4444', text: '#ef4444' },      // red
+    in_progress: { bg: '#f59e0b', text: '#f59e0b' },  // amber
+    ready: { bg: '#eab308', text: '#eab308' },        // yellow
+    stabilized: { bg: '#10b981', text: '#10b981' },   // green
+};
+
+/**
+ * Map raw execution/legacy states to unified artifact states
+ */
+function getArtifactState(rawState) {
+    // Stabilized (green) - governed, immutable
+    if (['produced', 'stabilized', 'ready', 'complete'].includes(rawState)) {
+        return 'stabilized';
+    }
+    // Blocked (red) - can't proceed
+    if (['requirements_not_met', 'blocked', 'halted', 'failed'].includes(rawState)) {
+        return 'blocked';
+    }
+    // In Progress (amber) - work happening
+    if (['in_production', 'active', 'queued', 'awaiting_operator'].includes(rawState)) {
+        return 'in_progress';
+    }
+    // Ready (yellow) - gates passed, awaiting acceptance
+    if (['ready_for_production', 'waiting', 'pending_acceptance'].includes(rawState)) {
+        return 'ready';
+    }
+    // Default to ready for unknown states
+    return 'ready';
+}
+
+/**
+ * Display names for artifact states
+ */
+const ARTIFACT_DISPLAY = {
+    blocked: 'Blocked',
+    in_progress: 'In Progress',
+    ready: 'Ready',
+    stabilized: 'Stabilized',
 };
 
 export default function DocumentNode({ data }) {
@@ -32,42 +67,30 @@ export default function DocumentNode({ data }) {
     const hasFeatures = data.features?.length > 0;
     const needsInput = data.stations?.some(s => s.needs_input);
 
-    // Normalize state for display (handle legacy values)
+    // Map raw state to unified artifact state
     const rawState = data.state || 'ready_for_production';
-    const isProduced = ['produced', 'stabilized', 'ready'].includes(rawState);
-    const isInProduction = ['in_production', 'active'].includes(rawState);
-    const isRequirementsNotMet = ['requirements_not_met', 'blocked'].includes(rawState);
+    const artifactState = getArtifactState(rawState);
 
-    const showStations = isInProduction && data.stations;
-    const stateClass = isInProduction ? 'node-active' : '';
+    // Derived booleans for logic
+    const isStabilized = artifactState === 'stabilized';
+    const isInProgress = artifactState === 'in_progress';
+    const isBlocked = artifactState === 'blocked';
+
+    const showStations = isInProgress && data.stations;
+    const stateClass = isInProgress ? 'node-active' : '';
     const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';
 
-    // State colors - using semantic CSS variables
-    const stateBg = isProduced
-        ? 'var(--state-produced-bg, var(--state-stabilized-bg))'
-        : isInProduction
-            ? 'var(--state-in-production-bg, var(--state-active-bg))'
-            : isRequirementsNotMet
-                ? 'var(--state-requirements-not-met-bg, var(--state-blocked-bg, var(--state-queued-bg)))'
-                : 'var(--state-ready-bg, var(--state-queued-bg))';
+    // Colors from artifact state
+    const colors = ARTIFACT_COLORS[artifactState];
+    const stateBg = colors.bg;
+    const stateText = colors.text;
 
-    const stateText = isProduced
-        ? 'var(--state-produced-text, var(--state-stabilized-text))'
-        : isInProduction
-            ? 'var(--state-in-production-text, var(--state-active-text))'
-            : isRequirementsNotMet
-                ? 'var(--state-requirements-not-met-text, var(--state-blocked-text, var(--state-queued-text)))'
-                : 'var(--state-ready-text, var(--state-queued-text))';
-
-    const borderColor = isInProduction
-        ? 'var(--state-in-production-bg, var(--state-active-bg))'
-        : isProduced
-            ? 'var(--state-produced-bg, var(--state-stabilized-bg))'
-            : 'var(--border-node)';
+    // Border color emphasizes the state
+    const borderColor = colors.bg;
 
     // Display name for state
-    const displayState = STATE_DISPLAY[rawState] || rawState;
+    const displayState = ARTIFACT_DISPLAY[artifactState];
 
     return (
         <div className="relative">
@@ -138,10 +161,10 @@ export default function DocumentNode({ data }) {
 
                     {/* Action buttons */}
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                        {isL1 && isProduced && (
+                        {isL1 && isStabilized && (
                             <button
-                                className="px-2 py-1 bg-emerald-500/20 rounded text-[9px] hover:bg-emerald-500/30 transition-colors"
-                                style={{ color: 'var(--action-success)' }}
+                                className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
+                                style={{ backgroundColor: '#10b981', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     data.onExpand?.(data.id, 'document');
@@ -208,7 +231,7 @@ export default function DocumentNode({ data }) {
                 />
             )}
 
-            {isExpanded && expandType === 'document' && isL1 && isProduced && (
+            {isExpanded && expandType === 'document' && isL1 && isStabilized && (
                 <DocumentViewer
                     document={data}
                     projectId={data.projectId}

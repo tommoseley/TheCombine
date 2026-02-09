@@ -133,14 +133,147 @@ export default function RenderModelViewer({
 }
 
 /**
+ * Extract plain text from a block for clipboard copy
+ */
+function extractBlockText(block) {
+    if (!block || !block.data) return '';
+
+    const { type, data } = block;
+
+    // Handle different block types
+    switch (type) {
+        case 'schema:ParagraphBlockV1':
+            return data.text || '';
+
+        case 'schema:StringListBlockV1':
+            return (data.items || []).map(item =>
+                typeof item === 'string' ? `- ${item}` : `- ${item.text || ''}`
+            ).join('\n');
+
+        case 'schema:IndicatorBlockV1':
+            return `${data.label || ''}: ${data.value || ''}`;
+
+        case 'schema:OpenQuestionV1':
+            return `Q: ${data.question || ''}\nA: ${data.answer || 'No answer yet'}`;
+
+        case 'schema:OpenQuestionsBlockV1':
+            return (data.questions || []).map(q =>
+                `Q: ${q.question || ''}\nA: ${q.answer || 'No answer yet'}`
+            ).join('\n\n');
+
+        case 'schema:RisksBlockV1':
+        case 'schema:DependenciesBlockV1':
+            return (data.items || []).map(item =>
+                `- ${item.title || item.name || ''}: ${item.description || ''}`
+            ).join('\n');
+
+        case 'schema:SummaryBlockV1':
+            return data.summary || data.text || '';
+
+        case 'schema:EpicSummaryBlockV1':
+        case 'schema:StorySummaryBlockV1':
+            return [
+                data.title || '',
+                data.description || data.summary || '',
+            ].filter(Boolean).join('\n\n');
+
+        case 'schema:UnknownsBlockV1':
+            return (data.items || data.unknowns || []).map(item =>
+                typeof item === 'string' ? `- ${item}` : `- ${item.description || item.text || ''}`
+            ).join('\n');
+
+        case 'schema:IntakeSummaryBlockV1':
+            return data.summary || '';
+
+        case 'schema:IntakeProjectTypeBlockV1':
+            return `Project Type: ${data.project_type || data.type || ''}`;
+
+        case 'schema:IntakeConstraintsBlockV1':
+            return (data.constraints || []).map(c => `- ${c}`).join('\n');
+
+        case 'schema:IntakeOpenGapsBlockV1':
+            return (data.gaps || data.open_gaps || []).map(g => `- ${g}`).join('\n');
+
+        case 'schema:IntakeOutcomeBlockV1':
+            return `Outcome: ${data.outcome || data.status || ''}`;
+
+        default:
+            // Fallback: try common field names
+            if (data.text) return data.text;
+            if (data.content) return data.content;
+            if (data.summary) return data.summary;
+            if (data.items && Array.isArray(data.items)) {
+                return data.items.map(item =>
+                    typeof item === 'string' ? `- ${item}` : `- ${JSON.stringify(item)}`
+                ).join('\n');
+            }
+            return '';
+    }
+}
+
+/**
+ * Copy icon SVG component
+ */
+function CopyIcon({ size = 14 }) {
+    return (
+        <svg
+            width={size}
+            height={size}
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <rect x="5" y="5" width="9" height="9" rx="1" />
+            <path d="M2 11V3a1 1 0 011-1h8" />
+        </svg>
+    );
+}
+
+/**
+ * Check icon SVG component (shown after copy)
+ */
+function CheckIcon({ size = 14 }) {
+    return (
+        <svg
+            width={size}
+            height={size}
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M3 8l4 4 6-7" />
+        </svg>
+    );
+}
+
+/**
  * Individual section renderer
  */
 function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
+    const [copied, setCopied] = useState(false);
     const { section_id, title, description, blocks = [], sidecar_max_items } = section;
     const isCompact = variant === 'compact' || variant === 'sidecar';
     const isSidecar = variant === 'sidecar';
 
     if (blocks.length === 0) return null;
+
+    const handleCopy = async (e) => {
+        e.stopPropagation(); // Don't toggle section
+        const text = blocks.map(extractBlockText).filter(Boolean).join('\n\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
 
     // Apply sidecar_max_items limit when in sidecar mode
     const displayBlocks = (isSidecar && sidecar_max_items && blocks.length > sidecar_max_items)
@@ -201,21 +334,41 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                         </p>
                     )}
                 </div>
-                <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={{
-                        color: '#9ca3af',
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.2s',
-                    }}
-                >
-                    <path d="M4 6l4 4 4-4" />
-                </svg>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                        onClick={handleCopy}
+                        title={copied ? 'Copied!' : 'Copy section'}
+                        style={{
+                            padding: 4,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: copied ? '#10b981' : '#9ca3af',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 4,
+                            transition: 'color 0.2s',
+                        }}
+                    >
+                        {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+                    </button>
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{
+                            color: '#9ca3af',
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: 'transform 0.2s',
+                        }}
+                    >
+                        <path d="M4 6l4 4 4-4" />
+                    </svg>
+                </div>
             </button>
 
             {/* Section content */}
