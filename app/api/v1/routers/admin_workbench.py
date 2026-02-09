@@ -342,6 +342,23 @@ class AssembledPromptResponse(BaseModel):
 
 
 # ===========================================================================
+# Cache Management
+# ===========================================================================
+
+@router.post(
+    "/invalidate-cache",
+    summary="Invalidate config cache",
+    description="Invalidate all cached configuration to pick up changes without restart.",
+)
+async def invalidate_cache(
+    service: AdminWorkbenchService = Depends(get_admin_workbench_service),
+) -> Dict[str, str]:
+    """Invalidate all config caches to pick up new workflows, document types, etc."""
+    service.invalidate_cache()
+    return {"status": "ok", "message": "Cache invalidated"}
+
+
+# ===========================================================================
 # Document Type Endpoints
 # ===========================================================================
 

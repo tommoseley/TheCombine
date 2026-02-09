@@ -108,25 +108,27 @@ export default function AdminWorkbench() {
     const [mechanicalOpsLoading, setMechanicalOpsLoading] = useState(false);
     const [selectedMechanicalOp, setSelectedMechanicalOp] = useState(null);
 
+    // Load mechanical ops
+    const refreshMechanicalOps = useCallback(async () => {
+        setMechanicalOpsLoading(true);
+        try {
+            const [typesRes, opsRes] = await Promise.all([
+                adminApi.getMechanicalOpTypes(),
+                adminApi.getMechanicalOps(),
+            ]);
+            setMechanicalOpTypes(typesRes.types || []);
+            setMechanicalOps(opsRes.operations || []);
+        } catch (err) {
+            console.error('Failed to load mechanical ops:', err);
+        } finally {
+            setMechanicalOpsLoading(false);
+        }
+    }, []);
+
     // Load mechanical ops on mount
     useEffect(() => {
-        const loadMechanicalOps = async () => {
-            setMechanicalOpsLoading(true);
-            try {
-                const [typesRes, opsRes] = await Promise.all([
-                    adminApi.getMechanicalOpTypes(),
-                    adminApi.getMechanicalOps(),
-                ]);
-                setMechanicalOpTypes(typesRes.types || []);
-                setMechanicalOps(opsRes.operations || []);
-            } catch (err) {
-                console.error('Failed to load mechanical ops:', err);
-            } finally {
-                setMechanicalOpsLoading(false);
-            }
-        };
-        loadMechanicalOps();
-    }, []);
+        refreshMechanicalOps();
+    }, [refreshMechanicalOps]);
 
     // Handle doc type selection - fetch full details
     const handleSelectDocType = useCallback(async (docType, tab = null, source = 'docworkflow') => {
@@ -428,6 +430,27 @@ export default function AdminWorkbench() {
         setSelectedMechanicalOp(null);
     }, [reinitialize]);
 
+    // Handle reload config (invalidate server cache and refresh all data)
+    const handleReloadConfig = useCallback(async () => {
+        try {
+            await adminApi.invalidateCache();
+            // Refresh all data
+            await Promise.all([
+                refreshDocTypes(),
+                refreshRoles(),
+                refreshTemplates(),
+                refreshWorkflows(),
+                refreshFragments(),
+                refreshSchemas(),
+                refreshMechanicalOps(),
+                refreshState(),
+            ]);
+        } catch (err) {
+            console.error('Failed to reload config:', err);
+            alert(`Failed to reload config: ${err.message}`);
+        }
+    }, [refreshDocTypes, refreshRoles, refreshTemplates, refreshWorkflows, refreshFragments, refreshSchemas, refreshMechanicalOps, refreshState]);
+
     // Auth check
     if (authLoading) {
         return (
@@ -550,6 +573,22 @@ export default function AdminWorkbench() {
                 >
                     Admin Workbench
                 </span>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleReloadConfig}
+                        className="flex items-center gap-1 px-2 py-1 rounded hover:opacity-80 transition-opacity"
+                        style={{
+                            background: 'var(--bg-panel)',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-panel)',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                        }}
+                        title="Reload config from disk (invalidate cache)"
+                    >
+                        <span style={{ fontSize: 12 }}>&#8635;</span>
+                        <span>Reload</span>
+                    </button>
                 <button
                     onClick={() => setIsTrayOpen(!isTrayOpen)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded hover:opacity-80 transition-opacity"
@@ -566,6 +605,7 @@ export default function AdminWorkbench() {
                     <span style={{ fontSize: 14 }}>&#9881;</span>
                     <span>Building Blocks</span>
                 </button>
+                </div>
             </div>
 
             {/* Main content area */}

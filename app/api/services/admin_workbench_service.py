@@ -48,6 +48,16 @@ class AdminWorkbenchService:
         self._loader = loader or get_package_loader()
         self._workflow_doc_type_map: Optional[Dict[str, str]] = None
 
+    def invalidate_cache(self) -> None:
+        """
+        Invalidate all caches to pick up config changes without restart.
+
+        Call this after modifying workflow definitions, document types,
+        or active_releases.json.
+        """
+        self._workflow_doc_type_map = None
+        self._loader.invalidate_cache()
+
     # =========================================================================
     # Internal: Workflow-to-DocType mapping
     # =========================================================================

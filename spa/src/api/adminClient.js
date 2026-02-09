@@ -401,9 +401,9 @@ export const adminApi = {
     getActiveReleases: () => request('/workbench/active-releases'),
 
     /**
-     * Invalidate cache
+     * Invalidate config cache to pick up workflow/doc type changes without restart
      */
-    invalidateCache: () => request('/workbench/cache/invalidate', { method: 'POST' }),
+    invalidateCache: () => request('/workbench/invalidate-cache', { method: 'POST' }),
 
     // =========================================================================
     // Mechanical Operations (ADR-047)
