@@ -138,13 +138,20 @@ function transformTrack(track, interrupts = []) {
     }
 
     // Build questions from interrupt if awaiting operator
+    // Questions can be in: interrupt.questions, interrupt.payload.data.questions,
+    // or interrupt.payload.data (if array)
     let questions = null;
-    if (interrupt && interrupt.questions) {
-        questions = interrupt.questions.map((q, i) => ({
-            id: q.id || `q${i + 1}`,
-            text: q.question || q.text || q,
-            required: q.required !== false,
-        }));
+    if (interrupt) {
+        const rawQuestions = interrupt.questions ||
+                             interrupt.payload?.data?.questions ||
+                             (Array.isArray(interrupt.payload?.data) ? interrupt.payload.data : null);
+        if (rawQuestions && Array.isArray(rawQuestions)) {
+            questions = rawQuestions.map((q, i) => ({
+                id: q.id || `q${i + 1}`,
+                text: q.question || q.text || q,
+                required: q.required !== false,
+            }));
+        }
     }
 
     return {
