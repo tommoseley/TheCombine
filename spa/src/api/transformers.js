@@ -192,7 +192,8 @@ function buildStations(apiStations, trackState, currentStation) {
         id: s.station,
         label: STATION_LABELS[s.station] || s.station.toUpperCase(),
         state: s.state || 'pending',
-        needs_input: s.needs_input || false,
+        // needs_input is true if station says so OR if track is awaiting_operator and station is active
+        needs_input: s.needs_input || (trackState === 'awaiting_operator' && s.state === 'active'),
     }));
 }
 
