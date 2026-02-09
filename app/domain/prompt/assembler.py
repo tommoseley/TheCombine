@@ -256,6 +256,8 @@ class PromptAssembler:
 
         Args:
             task_ref: Template reference. Supports formats:
+                - URN: "prompt:template:document_generator:1.0.0"
+                - URN: "prompt:task:project_discovery:1.4.0"
                 - Legacy: "Clarification Questions Generator v1.0"
                 - New: "clarification_questions_generator" (uses active release)
                 - Prefixed: "tasks/Clarification Questions Generator v1.0"
@@ -268,6 +270,32 @@ class PromptAssembler:
             EncodingError: If template is not valid UTF-8
         """
         from app.domain.prompt.errors import IncludeNotFoundError
+
+        # Handle URN format: prompt:type:name:version
+        if task_ref.startswith("prompt:"):
+            parts = task_ref.split(":")
+            if len(parts) == 4:
+                _, prompt_type, name, version = parts
+                try:
+                    if prompt_type == "template":
+                        template = self._loader.get_template(name, version)
+                        content = template.content
+                    elif prompt_type == "task":
+                        task = self._loader.get_task(name, version)
+                        content = task.content
+                    elif prompt_type == "role":
+                        role = self._loader.get_role(name, version)
+                        content = role.content
+                    else:
+                        raise IncludeNotFoundError(
+                            f"Unknown prompt type '{prompt_type}' in URN: {task_ref}"
+                        )
+                    # Canonical newline normalization
+                    return content.replace("\r\n", "\n").replace("\r", "\n")
+                except (PackageNotFoundError, VersionNotFoundError) as e:
+                    raise IncludeNotFoundError(
+                        f"Prompt '{task_ref}' not found: {e}"
+                    )
 
         # Strip tasks/ prefix if present
         if task_ref.startswith("tasks/"):
@@ -345,7 +373,7 @@ class PromptAssembler:
                 raise UnresolvedTokenError(token_name)
 
             include_path = includes[token_name]
-            include_content = self._load_file(include_path).strip()
+            include_content = self._load_include(include_path).strip()
 
             # Check for nested tokens (prohibited per ADR-041)
             if self._has_tokens(include_content):
@@ -358,19 +386,73 @@ class PromptAssembler:
 
         return content
 
+    def _load_include(self, path: str) -> str:
+        """Load content from a file path or URN reference.
+
+        Args:
+            path: Either a file path or URN reference:
+                - File: "combine-config/prompts/roles/technical_architect.txt"
+                - Prompt URN: "prompt:role:technical_architect:1.0.0"
+                - Schema URN: "schema:project_discovery:1.4.0"
+
+        Returns:
+            Content with normalized line endings
+
+        Raises:
+            IncludeNotFoundError: If resource doesn't exist
+        """
+        from app.domain.prompt.errors import IncludeNotFoundError
+
+        # Handle prompt URN format: prompt:type:name:version
+        if path.startswith("prompt:"):
+            parts = path.split(":")
+            if len(parts) == 4:
+                _, prompt_type, name, version = parts
+                try:
+                    if prompt_type == "template":
+                        resource = self._loader.get_template(name, version)
+                    elif prompt_type == "task":
+                        resource = self._loader.get_task(name, version)
+                    elif prompt_type == "role":
+                        resource = self._loader.get_role(name, version)
+                    else:
+                        raise IncludeNotFoundError(
+                            f"Unknown prompt type '{prompt_type}' in URN: {path}"
+                        )
+                    content = resource.content
+                    return content.replace("\r\n", "\n").replace("\r", "\n")
+                except (PackageNotFoundError, VersionNotFoundError) as e:
+                    raise IncludeNotFoundError(f"{path}: {e}")
+
+        # Handle schema URN format: schema:name:version
+        if path.startswith("schema:"):
+            parts = path.split(":")
+            if len(parts) == 3:
+                _, name, version = parts
+                try:
+                    schema = self._loader.get_schema(name, version)
+                    # Schema content is JSON, return as minified string
+                    import json
+                    return json.dumps(schema.content, separators=(",", ":"))
+                except (PackageNotFoundError, VersionNotFoundError) as e:
+                    raise IncludeNotFoundError(f"{path}: {e}")
+
+        # Fall back to file path
+        return self._load_file(path)
+
     def _resolve_template_includes(self, content: str) -> str:
-        """Resolve $$include <path> tokens from file system.
-        
-        Process in lexical order. Fail on first missing file.
-        
+        """Resolve $$include <path> tokens from file system or URN references.
+
+        Process in lexical order. Fail on first missing resource.
+
         Args:
             content: Content with Template Include tokens
-            
+
         Returns:
             Content with all Template Includes resolved
-            
+
         Raises:
-            IncludeNotFoundError: If include file doesn't exist
+            IncludeNotFoundError: If include resource doesn't exist
             NestedTokenError: If include contains tokens
             EncodingError: If include is not valid UTF-8
         """
@@ -380,7 +462,7 @@ class PromptAssembler:
 
         for full_match, path in includes:
             path = path.strip()
-            include_content = self._load_file(path).strip()
+            include_content = self._load_include(path).strip()
 
             # Check for nested tokens (prohibited per ADR-041)
             if self._has_tokens(include_content):
