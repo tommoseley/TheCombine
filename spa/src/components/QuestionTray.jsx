@@ -1,8 +1,177 @@
 import { useState } from 'react';
 import { TRAY } from '../utils/constants';
 
-const NORMAL_WIDTH = 320;
-const EXPANDED_WIDTH = 480;
+const NORMAL_WIDTH = 400;
+const EXPANDED_WIDTH = 560;
+
+/**
+ * Render the appropriate input control based on question type
+ */
+function QuestionInput({ question, value, onChange }) {
+    const answerType = question.answer_type || 'text';
+    const choices = question.choices || [];
+
+    // Single choice - radio buttons
+    if (answerType === 'single_choice' && choices.length > 0) {
+        return (
+            <div className="space-y-1.5">
+                {choices.map((choice) => (
+                    <label
+                        key={choice.value}
+                        className="flex items-center gap-2 cursor-pointer group"
+                    >
+                        <input
+                            type="radio"
+                            name={question.id}
+                            value={choice.value}
+                            checked={value === choice.value}
+                            onChange={() => onChange(choice.value)}
+                            className="w-3.5 h-3.5 accent-amber-500"
+                        />
+                        <span
+                            className="text-xs group-hover:opacity-80"
+                            style={{ color: 'var(--text-sidecar)' }}
+                        >
+                            {choice.label}
+                        </span>
+                    </label>
+                ))}
+            </div>
+        );
+    }
+
+    // Multi choice - checkboxes
+    if (answerType === 'multi_choice' && choices.length > 0) {
+        const selected = Array.isArray(value) ? value : [];
+        return (
+            <div className="space-y-1.5">
+                {choices.map((choice) => (
+                    <label
+                        key={choice.value}
+                        className="flex items-center gap-2 cursor-pointer group"
+                    >
+                        <input
+                            type="checkbox"
+                            checked={selected.includes(choice.value)}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    onChange([...selected, choice.value]);
+                                } else {
+                                    onChange(selected.filter(v => v !== choice.value));
+                                }
+                            }}
+                            className="w-3.5 h-3.5 accent-amber-500"
+                        />
+                        <span
+                            className="text-xs group-hover:opacity-80"
+                            style={{ color: 'var(--text-sidecar)' }}
+                        >
+                            {choice.label}
+                        </span>
+                    </label>
+                ))}
+            </div>
+        );
+    }
+
+    // Boolean - yes/no toggle
+    if (answerType === 'boolean') {
+        return (
+            <div className="flex gap-3">
+                {[{ label: 'Yes', value: true }, { label: 'No', value: false }].map((opt) => (
+                    <label
+                        key={String(opt.value)}
+                        className="flex items-center gap-2 cursor-pointer group"
+                    >
+                        <input
+                            type="radio"
+                            name={question.id}
+                            checked={value === opt.value}
+                            onChange={() => onChange(opt.value)}
+                            className="w-3.5 h-3.5 accent-amber-500"
+                        />
+                        <span
+                            className="text-xs group-hover:opacity-80"
+                            style={{ color: 'var(--text-sidecar)' }}
+                        >
+                            {opt.label}
+                        </span>
+                    </label>
+                ))}
+            </div>
+        );
+    }
+
+    // Number input
+    if (answerType === 'number') {
+        return (
+            <input
+                type="number"
+                className="w-full rounded px-2 py-1.5 text-xs border"
+                style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-input)',
+                    color: 'var(--text-input)'
+                }}
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+            />
+        );
+    }
+
+    // Long text / free text - textarea
+    if (answerType === 'free_text' || answerType === 'long_text') {
+        return (
+            <textarea
+                className="w-full rounded px-2 py-1.5 text-xs border resize-none"
+                style={{
+                    background: 'var(--bg-input)',
+                    borderColor: 'var(--border-input)',
+                    color: 'var(--text-input)',
+                    minHeight: 60,
+                }}
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value)}
+            />
+        );
+    }
+
+    // Default: text input
+    return (
+        <input
+            type="text"
+            className="w-full rounded px-2 py-1.5 text-xs border"
+            style={{
+                background: 'var(--bg-input)',
+                borderColor: 'var(--border-input)',
+                color: 'var(--text-input)'
+            }}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+        />
+    );
+}
+
+/**
+ * Priority badge
+ */
+function PriorityBadge({ priority }) {
+    if (!priority) return null;
+
+    const colors = {
+        must: { bg: 'bg-red-500/20', text: 'text-red-400' },
+        should: { bg: 'bg-amber-500/20', text: 'text-amber-400' },
+        could: { bg: 'bg-blue-500/20', text: 'text-blue-400' },
+    };
+
+    const c = colors[priority] || colors.should;
+
+    return (
+        <span className={`${c.bg} ${c.text} text-[8px] px-1.5 py-0.5 rounded uppercase font-semibold`}>
+            {priority}
+        </span>
+    );
+}
 
 export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }) {
     const [answers, setAnswers] = useState({});
@@ -10,9 +179,17 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
 
     const allAnswered = questions
         .filter(q => q.required)
-        .every(q => answers[q.id]);
+        .every(q => {
+            const val = answers[q.id];
+            if (Array.isArray(val)) return val.length > 0;
+            return val !== undefined && val !== '';
+        });
 
     const width = isExpanded ? EXPANDED_WIDTH : NORMAL_WIDTH;
+
+    const handleChange = (questionId, value) => {
+        setAnswers(prev => ({ ...prev, [questionId]: value }));
+    };
 
     return (
         <div
@@ -67,28 +244,39 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                 </div>
             </div>
 
-            <div className={`p-3 space-y-3 overflow-y-auto ${isExpanded ? 'max-h-[480px]' : 'max-h-96'}`}>
+            <div className={`p-3 space-y-4 overflow-y-auto ${isExpanded ? 'max-h-[520px]' : 'max-h-[420px]'}`}>
                 {questions.map(q => (
-                    <div key={q.id}>
-                        <label
-                            className="block text-[10px] mb-1"
-                            style={{ color: 'var(--text-sidecar-muted)' }}
-                        >
-                            {q.text} {q.required && <span className="text-amber-600">*</span>}
-                        </label>
-                        <input
-                            type="text"
-                            className="w-full rounded px-2 py-1.5 text-xs border"
-                            style={{
-                                background: 'var(--bg-input)',
-                                borderColor: 'var(--border-input)',
-                                color: 'var(--text-input)'
-                            }}
-                            value={answers[q.id] || ''}
-                            onChange={(e) => setAnswers(prev => ({
-                                ...prev,
-                                [q.id]: e.target.value
-                            }))}
+                    <div
+                        key={q.id}
+                        className="pb-3"
+                        style={{ borderBottom: '1px solid var(--border-input)' }}
+                    >
+                        {/* Question header with priority */}
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                            <label
+                                className="block text-[11px] font-medium"
+                                style={{ color: 'var(--text-sidecar)' }}
+                            >
+                                {q.text} {q.required && <span className="text-amber-500">*</span>}
+                            </label>
+                            <PriorityBadge priority={q.priority} />
+                        </div>
+
+                        {/* Why it matters */}
+                        {q.why_it_matters && (
+                            <p
+                                className="text-[9px] mb-2 italic"
+                                style={{ color: 'var(--text-sidecar-muted)' }}
+                            >
+                                {q.why_it_matters}
+                            </p>
+                        )}
+
+                        {/* Input control */}
+                        <QuestionInput
+                            question={q}
+                            value={answers[q.id]}
+                            onChange={(val) => handleChange(q.id, val)}
                         />
                     </div>
                 ))}

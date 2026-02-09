@@ -150,6 +150,14 @@ function transformTrack(track, interrupts = []) {
                 id: q.id || `q${i + 1}`,
                 text: q.question || q.text || q,
                 required: q.required !== false,
+                // Pass through rich question metadata
+                choices: q.choices || null,
+                answer_type: q.answer_type || 'text',
+                why_it_matters: q.why_it_matters || null,
+                priority: q.priority || null,
+                blocking: q.blocking !== false,
+                default: q.default || null,
+                constraint_kind: q.constraint_kind || null,
             }));
         }
     }
