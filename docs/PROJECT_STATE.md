@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-08
-**Updated By:** Claude (Concierge UX streamlining)
+**Last Updated:** 2026-02-09
+**Updated By:** Claude (workflow loading migration to combine-config)
 
 ## Current Focus
 
@@ -171,7 +171,15 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
-### Recent Fixes (2026-02-08)
+### Recent Fixes (2026-02-09)
+- Migrated workflow loading from `seed/workflows/` to `combine-config/workflows/` (commit `19ad038`)
+- WorkflowRegistry now supports versioned structure (`{id}/releases/{version}/definition.json`)
+- Extended `workflow.v1.json` schema to allow v2 fields (pow_class, derived_from, source_version, tags)
+- Fixed naming inconsistency in software_product_development (`implementation_plan_primary`)
+- Updated 16 files (8 production, 8 test) to use combine-config paths and snake_case IDs
+- All 1955 tests pass (from 25 failures)
+
+### Previous Fixes (2026-02-08)
 - Fixed conversation message ordering (messages now build top-to-bottom, not bottom-to-top)
 - Fixed `/start` endpoint to return full `IntakeStateResponse` for consistent UI rendering
 - Added duplicate prevention when `pending_prompt` matches last assistant message
@@ -184,7 +192,7 @@ python -m pytest tests/ -k "plan_executor" -v
 - Externalized Concierge intro content to `/content/concierge-intro.yaml`
 - Fixed `useConciergeIntake` hook to use `updateFromState` on start
 
-### Previous Fixes (2026-02-07)
+### Earlier Fixes (2026-02-07)
 - Fixed prompt ref parsing (`prompt:task:intake_gate:1.0.0` now resolves correctly)
 - Fixed LLM service call signature in Gate Profile executor
 - Fixed `db_session` not passed to PlanExecutor (document persistence now works)
@@ -201,11 +209,11 @@ python -m pytest tests/ -k "plan_executor" -v
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Migrate remaining seed/ workflows to combine-config/
+- Consider removing `seed/workflows/` after verifying PromptAssemblyService migration
 - **Remove deprecated HTMX admin section** (`app/web/routes/admin/`) -- Old admin pages (admin_routes.py, composer_routes.py, dashboard.py, documents.py, pages.py, partials.py) are superseded by React SPA AdminWorkbench; remove after confirming no active usage
 
 ### Known Issues
-- `seed/workflows/` must be synced with `combine-config/` for PlanRegistry to load correct versions
+- None (seed/workflows sync issue resolved 2026-02-09)
 
 ### Design Decisions Deferred
 - **Optional template tokens** (YAGNI): Allow `$$TOKEN?` syntax for optional tokens
