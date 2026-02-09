@@ -129,6 +129,23 @@ The following constraints apply to all work on this project:
 
   _See ADR-040 and session log 2026-01-17._
 
+- **No Black Boxes (ADR-049)**
+
+  Every DCW (Document Creation Workflow) MUST be explicitly composed of gates, passes, and mechanical operations.
+
+  **"Generate" is deprecated as a step abstraction — it hides too much.**
+
+  DCWs are first-class workflows, not opaque steps inside POWs. If a step does something non-trivial, it must show its passes.
+
+  Composition patterns:
+  - **Full pattern**: PGC Gate (LLM → UI → MECH) → Generation (LLM) → QA Gate (LLM + remediation)
+  - **QA-only pattern**: Generation (LLM) → QA Gate (LLM + remediation)
+  - **Gate Profile pattern**: Multi-pass classification with internals
+
+  **If you are about to create a DCW with opaque "Generate" steps, STOP — decompose into explicit gates.**
+
+  _See ADR-049._
+
 Violation of these constraints is considered a failure to follow project rules.
 
 ---

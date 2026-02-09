@@ -42,7 +42,7 @@
   "workflows": {
     "intake_and_route": "1.0.0",
     "concierge_intake": "1.4.0",
-    "project_discovery": "1.8.0",
+    "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
     "technical_architecture": "1.0.0"
   },
