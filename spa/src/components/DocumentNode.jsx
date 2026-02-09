@@ -188,8 +188,8 @@ export default function DocumentNode({ data }) {
 
                         {needsInput && hasQuestions && !isExpanded && (
                             <button
-                                className="px-2 py-1 bg-amber-500/20 rounded text-[9px] hover:bg-amber-500/30 transition-colors amber-pulse"
-                                style={{ color: 'var(--action-warning)' }}
+                                className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all amber-pulse"
+                                style={{ backgroundColor: '#f59e0b', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     data.onExpand?.(data.id, 'questions');
