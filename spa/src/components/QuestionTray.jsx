@@ -82,7 +82,7 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                             style={{
                                 background: 'var(--bg-input)',
                                 borderColor: 'var(--border-input)',
-                                color: 'var(--text-sidecar)'
+                                color: 'var(--text-input)'
                             }}
                             value={answers[q.id] || ''}
                             onChange={(e) => setAnswers(prev => ({
