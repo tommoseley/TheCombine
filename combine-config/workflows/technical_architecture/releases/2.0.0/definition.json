@@ -14,7 +14,9 @@
     "owns_thread": false,
     "thread_purpose": null
   },
-  "entry_node_ids": ["pgc_gate"],
+  "entry_node_ids": [
+    "pgc_gate"
+  ],
   "nodes": [
     {
       "node_id": "pgc_gate",
@@ -49,7 +51,10 @@
           "op_ref": "mech:merger:pgc_clarification_merge:1.0.0"
         }
       },
-      "_position": { "x": 50, "y": 40 }
+      "_position": {
+        "x": 50,
+        "y": 40
+      }
     },
     {
       "node_id": "generation",
@@ -65,9 +70,15 @@
       },
       "produces": "technical_architecture",
       "inputs": [
-        { "from": "pgc_gate", "field": "clarifications" }
+        {
+          "from": "pgc_gate",
+          "field": "clarifications"
+        }
       ],
-      "_position": { "x": 50, "y": 230 }
+      "_position": {
+        "x": 50,
+        "y": 230
+      }
     },
     {
       "node_id": "qa_gate",
@@ -92,7 +103,10 @@
         "max_attempts": 2,
         "feedback_to": "remediation"
       },
-      "_position": { "x": 65, "y": 389 }
+      "_position": {
+        "x": 200,
+        "y": 420
+      }
     },
     {
       "node_id": "remediation",
@@ -108,9 +122,15 @@
       },
       "produces": "technical_architecture",
       "inputs": [
-        { "from": "qa_gate", "field": "feedback" }
+        {
+          "from": "qa_gate",
+          "field": "feedback"
+        }
       ],
-      "_position": { "x": 539, "y": 207 }
+      "_position": {
+        "x": 340,
+        "y": 610
+      }
     },
     {
       "node_id": "end_stabilized",
@@ -118,7 +138,10 @@
       "name": "Document Stabilized",
       "description": "Technical Architecture document is complete and governed",
       "terminal_outcome": "stabilized",
-      "_position": { "x": -164, "y": 796 }
+      "_position": {
+        "x": 40,
+        "y": 610
+      }
     },
     {
       "node_id": "end_blocked",
@@ -126,7 +149,10 @@
       "name": "Document Blocked",
       "description": "Generation failed - circuit breaker or unrecoverable error",
       "terminal_outcome": "blocked",
-      "_position": { "x": 190, "y": 800 }
+      "_position": {
+        "x": 190,
+        "y": 800
+      }
     }
   ],
   "edges": [
@@ -173,7 +199,11 @@
       "outcome": "fail",
       "label": "QA failed, attempt remediation",
       "conditions": [
-        { "type": "retry_count", "operator": "lt", "value": 2 }
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
       ]
     },
     {
@@ -183,7 +213,11 @@
       "outcome": "fail",
       "label": "Circuit breaker - max remediation attempts",
       "conditions": [
-        { "type": "retry_count", "operator": "gte", "value": 2 }
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
       ]
     },
     {
@@ -201,7 +235,10 @@
       "label": "Remediation failed"
     }
   ],
-  "terminal_outcomes": ["stabilized", "blocked"],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
   "governance": {
     "adr_references": [
       "ADR-012",
@@ -219,7 +256,10 @@
     ],
     "circuit_breaker": {
       "max_retries": 2,
-      "applies_to": ["qa_gate", "remediation"],
+      "applies_to": [
+        "qa_gate",
+        "remediation"
+      ],
       "on_trip": "end_blocked"
     }
   },
@@ -234,5 +274,7 @@
       "- Schema upgraded to workflow.v2"
     ]
   },
-  "requires_inputs": ["project_discovery"]
+  "requires_inputs": [
+    "project_discovery"
+  ]
 }

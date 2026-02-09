@@ -14,7 +14,9 @@
     "owns_thread": false,
     "thread_purpose": null
   },
-  "entry_node_ids": ["generation"],
+  "entry_node_ids": [
+    "generation"
+  ],
   "nodes": [
     {
       "node_id": "generation",
@@ -29,7 +31,10 @@
         "OUTPUT_SCHEMA": "schema:implementation_plan:1.0.0"
       },
       "produces": "implementation_plan",
-      "_position": { "x": 50, "y": 40 }
+      "_position": {
+        "x": 50,
+        "y": 40
+      }
     },
     {
       "node_id": "qa_gate",
@@ -54,7 +59,10 @@
         "max_attempts": 2,
         "feedback_to": "remediation"
       },
-      "_position": { "x": 50, "y": 200 }
+      "_position": {
+        "x": 449.7297297297297,
+        "y": 148.10810810810813
+      }
     },
     {
       "node_id": "remediation",
@@ -70,9 +78,15 @@
       },
       "produces": "implementation_plan",
       "inputs": [
-        { "from": "qa_gate", "field": "feedback" }
+        {
+          "from": "qa_gate",
+          "field": "feedback"
+        }
       ],
-      "_position": { "x": 400, "y": 200 }
+      "_position": {
+        "x": 504.5945945945946,
+        "y": 361.62162162162156
+      }
     },
     {
       "node_id": "end_stabilized",
@@ -80,7 +94,10 @@
       "name": "Document Stabilized",
       "description": "Implementation Plan document is complete and governed",
       "terminal_outcome": "stabilized",
-      "_position": { "x": 50, "y": 400 }
+      "_position": {
+        "x": 40,
+        "y": 420
+      }
     },
     {
       "node_id": "end_blocked",
@@ -88,7 +105,10 @@
       "name": "Document Blocked",
       "description": "Generation failed - circuit breaker or unrecoverable error",
       "terminal_outcome": "blocked",
-      "_position": { "x": 400, "y": 400 }
+      "_position": {
+        "x": 190,
+        "y": 610
+      }
     }
   ],
   "edges": [
@@ -120,7 +140,11 @@
       "outcome": "fail",
       "label": "QA failed, attempt remediation",
       "conditions": [
-        { "type": "retry_count", "operator": "lt", "value": 2 }
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
       ]
     },
     {
@@ -130,7 +154,11 @@
       "outcome": "fail",
       "label": "Circuit breaker - max remediation attempts",
       "conditions": [
-        { "type": "retry_count", "operator": "gte", "value": 2 }
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
       ]
     },
     {
@@ -148,7 +176,10 @@
       "label": "Remediation failed"
     }
   ],
-  "terminal_outcomes": ["stabilized", "blocked"],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
   "governance": {
     "adr_references": [
       "ADR-012",
@@ -166,7 +197,10 @@
     ],
     "circuit_breaker": {
       "max_retries": 2,
-      "applies_to": ["qa_gate", "remediation"],
+      "applies_to": [
+        "qa_gate",
+        "remediation"
+      ],
       "on_trip": "end_blocked"
     }
   },
@@ -180,5 +214,8 @@
       "- Generation and remediation nodes marked with internal_type: LLM"
     ]
   },
-  "requires_inputs": ["primary_implementation_plan", "technical_architecture"]
+  "requires_inputs": [
+    "primary_implementation_plan",
+    "technical_architecture"
+  ]
 }
