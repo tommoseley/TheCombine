@@ -44,7 +44,8 @@
     "concierge_intake": "1.4.0",
     "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
-    "technical_architecture": "2.0.0"
+    "technical_architecture": "2.0.0",
+    "implementation_plan": "1.0.0"
   },
   "tasks": {
     "task_prompt_auditor": "1.0.0",
