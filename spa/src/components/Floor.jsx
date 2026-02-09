@@ -242,6 +242,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 onNodeClick={onNodeClick}
                 nodeTypes={nodeTypes}
                 nodesDraggable={false} nodesConnectable={false} edgesUpdatable={false} edgesFocusable={false} elementsSelectable={false}
+                zoomOnScroll={false}
                 fitView fitViewOptions={{ padding: 0.2 }}
                 minZoom={0.3} maxZoom={1.5}
                 style={{ background: 'var(--bg-canvas)' }}
@@ -445,7 +446,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     </div>
                 </Panel>
                 <Panel position="bottom-right">
-                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Scroll to zoom | Drag to pan</div>
+                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Pinch to zoom | Drag to pan</div>
                 </Panel>
             </ReactFlow>
 
