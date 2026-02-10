@@ -127,6 +127,9 @@ class TaskNodeExecutor(NodeExecutor):
             # Parse and store produced document
             produced_document = self._parse_response(response, produces)
 
+            # Debug: log what we got back
+            logger.debug(f"Task node {node_id}: Response length={len(response)}, keys={list(produced_document.keys()) if isinstance(produced_document, dict) else 'not-dict'}")
+
             # Update context with produced document
             if produces:
                 context.document_content[produces] = produced_document
@@ -419,13 +422,18 @@ class TaskNodeExecutor(NodeExecutor):
                 start = response.index("```json") + 7
                 end = response.index("```", start)
                 json_str = response[start:end].strip()
+                logger.debug(f"Parsing JSON block: {json_str[:200]}...")
                 return json.loads(json_str)
             elif response.strip().startswith("{"):
+                logger.debug(f"Parsing raw JSON: {response[:200]}...")
                 return json.loads(response)
-        except (json.JSONDecodeError, ValueError):
-            pass
+            else:
+                logger.warning(f"Response doesn't contain JSON. First 200 chars: {response[:200]}...")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"JSON parse failed: {e}. Response snippet: {response[:300]}...")
 
         # Fallback: return as raw content
+        logger.warning(f"Falling back to raw content for produces={produces}")
         return {
             "type": produces or "unknown",
             "content": response,

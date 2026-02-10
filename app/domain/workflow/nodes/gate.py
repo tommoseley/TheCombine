@@ -227,10 +227,18 @@ class GateNodeExecutor(NodeExecutor):
         internals = node_config.get("internals", {})
         gate_kind = node_config.get("gate_kind")
 
+        logger.info(f"Gate {node_id}: gate_kind={gate_kind}, internals_keys={list(internals.keys())}")
+
         # Route QA gates to QANodeExecutor
         if gate_kind == "qa" or "evaluate" in internals:
             logger.info(f"Gate {node_id}: Routing to QA executor (gate_kind={gate_kind})")
             return await self._execute_qa_gate(node_id, node_config, context, state_snapshot)
+
+        # Route PGC gates to PGC executor
+        # Check gate_kind first, then fall back to node_id pattern matching
+        if gate_kind == "pgc" or (gate_kind is None and "pgc" in node_id.lower()):
+            logger.info(f"Gate {node_id}: Routing to PGC executor (gate_kind={gate_kind})")
+            return await self._execute_pgc_gate(node_id, node_config, context, state_snapshot)
 
         # Route intake-style gates to IntakeGateProfileExecutor
         if self._profile_executor is None:
@@ -312,3 +320,203 @@ class GateNodeExecutor(NodeExecutor):
                     "gate_kind": "qa",
                 },
             )
+
+    def _resolve_urn(self, urn: str) -> str:
+        """Resolve URN-style reference to file path.
+
+        URN formats:
+        - prompt:{type}:{name}:{version} -> Maps to prompt file paths
+        - schema:{name}:{version} -> Maps to schema file paths
+        """
+        if not urn:
+            return urn
+
+        # Schema URNs (schema:name:version) - map to actual schema files
+        if urn.startswith("schema:"):
+            parts = urn.split(":")
+            if len(parts) >= 3:
+                _, name, version = parts[:3]
+                # Map schema names to actual files
+                # v2 workflow uses clarification_questions but actual schema is clarification_question_set
+                if name == "clarification_questions":
+                    return "seed/schemas/clarification_question_set.v2.json"
+                # Default: pass through for assembler to handle
+                return urn
+            return urn
+
+        # Handle prompt URNs
+        if not urn.startswith("prompt:"):
+            return urn
+
+        parts = urn.split(":")
+        if len(parts) < 4:
+            return urn
+
+        _, prompt_type, name, version = parts[:4]
+
+        # Map prompt types to file paths
+        if prompt_type == "pgc":
+            # pgc contexts: prompt:pgc:project_discovery.v1:1.0.0 -> seed/prompts/pgc-contexts/project_discovery.v1.txt
+            return f"seed/prompts/pgc-contexts/{name}.txt"
+        elif prompt_type == "role":
+            # roles: prompt:role:technical_architect:1.0.0 -> seed/prompts/roles/Technical Architect 1.0.txt
+            name_formatted = name.replace("_", " ").title()
+            return f"seed/prompts/roles/{name_formatted} {version.replace('.0.0', '.0')}.txt"
+        elif prompt_type == "task":
+            # tasks: prompt:task:project_discovery:1.4.0 -> seed/prompts/tasks/Project Discovery v1.4.txt
+            name_formatted = name.replace("_", " ").title()
+            version_short = version.rsplit(".", 1)[0] if version.count(".") > 1 else version
+            return f"seed/prompts/tasks/{name_formatted} v{version_short}.txt"
+        elif prompt_type == "template":
+            # templates: prompt:template:pgc_clarifier:1.0.0 -> tasks/Clarification Questions Generator v1.1
+            if "pgc_clarifier" in name:
+                return "tasks/Clarification Questions Generator v1.1"
+            elif "document_generator" in name:
+                return "templates/Document Generator v1.0"
+            return f"templates/{name}"
+        else:
+            return urn
+
+    async def _execute_pgc_gate(
+        self,
+        node_id: str,
+        node_config: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        state_snapshot: Dict[str, Any],
+    ) -> NodeResult:
+        """Execute a PGC (Pre-Gen Clarification) gate.
+
+        PGC gates have 3 phases:
+        1. pass_a: Generate questions (LLM)
+        2. entry: Collect user answers (UI pause)
+        3. merge: Combine questions + answers into clarifications
+
+        State tracking:
+        - context.context_state["pgc_questions"] = questions from pass_a
+        - context.context_state["pgc_answers"] = answers from entry phase
+        """
+        from app.domain.workflow.nodes.task import TaskNodeExecutor
+
+        internals = node_config.get("internals", {})
+        pass_a = internals.get("pass_a", {})
+        produces = node_config.get("produces", "pgc_clarifications")
+
+        # Check current phase based on what's in context
+        pgc_questions = context.context_state.get("pgc_questions")
+        pgc_answers = context.context_state.get("pgc_answers")
+
+        # Debug: log all keys in context_state to diagnose state propagation
+        context_keys = list(context.context_state.keys())
+        logger.info(
+            f"PGC Gate {node_id}: questions={pgc_questions is not None}, "
+            f"answers={pgc_answers is not None}, context_keys={context_keys}"
+        )
+
+        # Phase 3: merge - we have both questions and answers
+        if pgc_questions and pgc_answers:
+            logger.info(f"PGC Gate {node_id}: Phase 3 (merge) - combining questions and answers")
+
+            # Merge questions with answers
+            merged_clarifications = []
+            questions_list = pgc_questions.get("questions", [])
+
+            for q in questions_list:
+                q_id = q.get("id", "")
+                answer = pgc_answers.get(q_id, "")
+                merged_clarifications.append({
+                    "id": q_id,
+                    "question": q.get("text", q.get("question", "")),
+                    "answer": answer,
+                    "priority": q.get("priority", "should"),
+                    "why_it_matters": q.get("why_it_matters", ""),
+                })
+
+            # Store merged clarifications in context for document generation
+            clarifications_doc = {
+                "schema_version": "pgc_clarifications.v1",
+                "clarifications": merged_clarifications,
+                "question_count": len(questions_list),
+                "answered_count": len([c for c in merged_clarifications if c.get("answer")]),
+            }
+
+            context.document_content[produces] = clarifications_doc
+
+            logger.info(f"PGC Gate {node_id}: Merge complete, {len(merged_clarifications)} clarifications")
+
+            # Return "qualified" outcome to match v2 workflow edge (pgc_gate -> generation)
+            return NodeResult(
+                outcome="qualified",
+                produced_document=clarifications_doc,
+                metadata={
+                    "gate_id": node_id,
+                    "gate_kind": "pgc",
+                    "phase": "merge",
+                    "produces": produces,
+                },
+            )
+
+        # Phase 2: entry - we have questions but no answers, need user input
+        # This shouldn't normally happen here since the pause happens in phase 1
+        # But handle it for robustness
+        if pgc_questions and not pgc_answers:
+            logger.info(f"PGC Gate {node_id}: Phase 2 (entry) - waiting for user answers")
+            return NodeResult.needs_user_input(
+                prompt="Please answer the clarification questions",
+                choices=None,
+                gate_id=node_id,
+                user_input_payload=pgc_questions,
+            )
+
+        # Phase 1: pass_a - generate questions
+        logger.info(f"PGC Gate {node_id}: Phase 1 (pass_a) - generating questions")
+
+        # Resolve URN-style references to file paths
+        task_ref = self._resolve_urn(pass_a.get("template_ref", ""))
+        includes = {}
+        for key, value in pass_a.get("includes", {}).items():
+            includes[key] = self._resolve_urn(value)
+
+        # Add OUTPUT_SCHEMA from output_schema_ref if present (v2 workflow format)
+        if pass_a.get("output_schema_ref"):
+            includes["OUTPUT_SCHEMA"] = self._resolve_urn(pass_a.get("output_schema_ref"))
+
+        # Build task node config from pass_a internal
+        task_node_config = {
+            "type": "pgc",  # Triggers PGC behavior in TaskNodeExecutor
+            "task_ref": task_ref,
+            "includes": includes,
+            "produces": produces,
+        }
+
+        # Create task executor for PGC
+        task_executor = TaskNodeExecutor(
+            llm_service=self.llm_service,
+            prompt_loader=self.prompt_loader,
+        )
+
+        logger.info(f"PGC Gate {node_id}: Executing pass_a with task_ref={task_ref}")
+
+        # Execute PGC via task executor
+        result = await task_executor.execute(
+            node_id=node_id,
+            node_config=task_node_config,
+            context=context,
+            state_snapshot=state_snapshot,
+        )
+
+        # If pass_a succeeded and returned questions, store them in context for phase tracking
+        logger.info(f"PGC Gate {node_id}: result.outcome={result.outcome}, has_produced_doc={result.produced_document is not None}")
+        if result.outcome == "needs_user_input" and result.produced_document:
+            # Store questions in context_state for phase tracking
+            # This will be persisted by the plan executor
+            context.context_state["pgc_questions"] = result.produced_document
+            logger.info(f"PGC Gate {node_id}: Stored {len(result.produced_document.get('questions', []))} questions in context_state")
+
+        # Add gate metadata to result
+        if result.metadata is None:
+            result.metadata = {}
+        result.metadata["gate_id"] = node_id
+        result.metadata["gate_kind"] = "pgc"
+        result.metadata["phase"] = "pass_a"
+
+        return result

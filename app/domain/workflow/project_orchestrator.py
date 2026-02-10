@@ -46,7 +46,7 @@ class TrackState:
     """State of a single document track in the orchestration."""
 
     document_type: str
-    state: ProductionState = ProductionState.QUEUED
+    state: ProductionState = ProductionState.READY_FOR_PRODUCTION
     execution_id: Optional[str] = None
     blocked_by: List[str] = field(default_factory=list)
     started_at: Optional[datetime] = None

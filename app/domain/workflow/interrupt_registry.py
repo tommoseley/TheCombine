@@ -306,17 +306,26 @@ class InterruptRegistry:
         execution.status = "running"
 
         # Update context_state with resolution
-        context_state = execution.context_state or {}
+        # IMPORTANT: Make a copy to ensure SQLAlchemy detects the change
+        # (modifying a mutable JSONB column in-place may not trigger dirty tracking)
+        context_state = dict(execution.context_state or {})
         context_state["last_resolution"] = resolution
         context_state["resolution_timestamp"] = datetime.now(timezone.utc).isoformat()
 
         # Store answers in context_state for PGC resolution
         if "answers" in resolution:
-            existing_answers = context_state.get("pgc_answers", {})
+            existing_answers = dict(context_state.get("pgc_answers", {}))
             existing_answers.update(resolution["answers"])
             context_state["pgc_answers"] = existing_answers
+            logger.info(
+                f"Stored {len(resolution['answers'])} answers in context_state for {interrupt_id}"
+            )
 
         execution.context_state = context_state
+
+        # Signal SQLAlchemy that this column was modified (belt and suspenders)
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(execution, "context_state")
 
         await self.db.flush()
 

@@ -358,7 +358,13 @@ class QANodeExecutor(NodeExecutor):
 
         # Try to get from context_state if available
         if hasattr(context, "context_state") and context.context_state:
-            pgc_questions = context.context_state.get("pgc_questions", [])
+            # pgc_questions may be the full PGC document (dict with 'questions' key)
+            # or just the list of questions - handle both cases
+            raw_pgc_questions = context.context_state.get("pgc_questions", [])
+            if isinstance(raw_pgc_questions, dict):
+                pgc_questions = raw_pgc_questions.get("questions", [])
+            else:
+                pgc_questions = raw_pgc_questions
             pgc_answers = context.context_state.get("pgc_answers", {})
             intake = context.context_state.get("concierge_intake")
 
@@ -471,7 +477,12 @@ class QANodeExecutor(NodeExecutor):
         pgc_questions = []
         pgc_answers = {}
         if hasattr(context, "context_state") and context.context_state:
-            pgc_questions = context.context_state.get("pgc_questions", [])
+            # pgc_questions may be the full PGC document (dict with 'questions' key)
+            raw_pgc_questions = context.context_state.get("pgc_questions", [])
+            if isinstance(raw_pgc_questions, dict):
+                pgc_questions = raw_pgc_questions.get("questions", [])
+            else:
+                pgc_questions = raw_pgc_questions
             pgc_answers = context.context_state.get("pgc_answers", {})
 
         logger.info(

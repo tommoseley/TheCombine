@@ -233,6 +233,52 @@ async def start_production(
         logger.info(f"Starting production for {document_type} in project {project_id}")
 
         try:
+            # Get workflow plan to check required inputs
+            registry = get_plan_registry()
+            plan = registry.get_by_document_type(document_type)
+            if not plan:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "status": "error",
+                        "project_id": project_id,
+                        "document_type": document_type,
+                        "message": f"No workflow plan found for document type: {document_type}",
+                    },
+                )
+
+            # Load required input documents from project
+            from sqlalchemy import select
+            from app.api.models.document import Document
+            from uuid import UUID
+
+            input_documents = {}
+            if plan.requires_inputs:
+                try:
+                    project_uuid = UUID(project_id)
+                except ValueError:
+                    # project_id might not be a UUID, handle gracefully
+                    project_uuid = None
+
+                for required_type in plan.requires_inputs:
+                    if project_uuid:
+                        result = await db.execute(
+                            select(Document)
+                            .where(Document.space_type == "project")
+                            .where(Document.space_id == project_uuid)
+                            .where(Document.doc_type_id == required_type)
+                            .where(Document.is_latest == True)
+                        )
+                        doc = result.scalar_one_or_none()
+                        if doc:
+                            input_documents[required_type] = doc.content
+                            logger.info(f"Loaded required input: {required_type} (doc {doc.id})")
+                        else:
+                            logger.warning(f"Required input document '{required_type}' not found for project {project_id}")
+
+            # Build initial context with input documents
+            initial_context = {"input_documents": input_documents}
+
             # Create executor
             executors = await create_llm_executors(db)
             executor = PlanExecutor(
@@ -246,8 +292,11 @@ async def start_production(
             state = await executor.start_execution(
                 project_id=project_id,
                 document_type=document_type,
-                initial_context={},
+                initial_context=initial_context,
             )
+
+            # Run to first pause point (gate requiring input or completion)
+            state = await executor.run_to_completion_or_pause(state.execution_id)
 
             # Emit event for UI
             await publish_event(

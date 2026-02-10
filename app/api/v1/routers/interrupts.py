@@ -133,6 +133,8 @@ async def resolve_interrupt(
     # Build resolution dict from request
     resolution: Dict[str, Any] = {}
 
+    logger.info(f"Resolve request: answers={request.answers}, decision={request.decision}, notes={request.notes}")
+
     if request.answers:
         resolution["answers"] = request.answers
 
@@ -163,6 +165,28 @@ async def resolve_interrupt(
     await db.commit()
 
     logger.info(f"Resolved interrupt {interrupt_id}")
+
+    # Resume workflow execution
+    try:
+        from app.domain.workflow.plan_executor import PlanExecutor
+        from app.domain.workflow.pg_state_persistence import PgStatePersistence
+        from app.domain.workflow.plan_registry import get_plan_registry
+        from app.domain.workflow.nodes.llm_executors import create_llm_executors
+
+        executors = await create_llm_executors(db)
+        executor = PlanExecutor(
+            persistence=PgStatePersistence(db),
+            plan_registry=get_plan_registry(),
+            executors=executors,
+            db_session=db,
+        )
+
+        # Continue execution from where it was paused
+        state = await executor.run_to_completion_or_pause(interrupt_id)
+        logger.info(f"Resumed execution {interrupt_id}, now at node {state.current_node_id}, status={state.status}")
+    except Exception as e:
+        logger.error(f"Failed to resume execution after interrupt resolution: {e}")
+        # Don't fail the request - interrupt is resolved, execution can be retried
 
     # Emit SSE event for UI update
     try:

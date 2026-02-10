@@ -120,7 +120,11 @@ class PgStatePersistence:
     async def load(self, execution_id: str) -> Optional[DocumentWorkflowState]:
         """Load workflow state by execution ID via ORM."""
         from app.api.models.workflow_execution import WorkflowExecution
-        
+
+        # Expire any cached data to ensure we get fresh from DB
+        await self._db.execute(select(WorkflowExecution).where(WorkflowExecution.execution_id == execution_id))
+        self._db.expire_all()
+
         result = await self._db.execute(
             select(WorkflowExecution).where(WorkflowExecution.execution_id == execution_id)
         )
@@ -128,6 +132,10 @@ class PgStatePersistence:
 
         if not row:
             return None
+
+        # Debug: log context_state keys
+        context_keys = list((row.context_state or {}).keys())
+        logger.debug(f"Loading execution {execution_id}: context_state keys = {context_keys}")
 
         return self._row_to_state(row)
 
