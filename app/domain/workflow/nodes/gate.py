@@ -218,11 +218,21 @@ class GateNodeExecutor(NodeExecutor):
         context: DocumentWorkflowContext,
         state_snapshot: Dict[str, Any],
     ) -> NodeResult:
-        """Execute a Gate Profile node with internals (ADR-047).
+        """Execute a Gate Profile node with internals (ADR-047/ADR-049).
 
-        Delegates to IntakeGateProfileExecutor for actual execution.
+        Routes to appropriate executor based on gate_kind or internals structure:
+        - QA gates (gate_kind=qa or has evaluate internal) → QANodeExecutor
+        - Intake gates (has pass_a internal) → IntakeGateProfileExecutor
         """
-        # Lazy import to avoid circular dependency
+        internals = node_config.get("internals", {})
+        gate_kind = node_config.get("gate_kind")
+
+        # Route QA gates to QANodeExecutor
+        if gate_kind == "qa" or "evaluate" in internals:
+            logger.info(f"Gate {node_id}: Routing to QA executor (gate_kind={gate_kind})")
+            return await self._execute_qa_gate(node_id, node_config, context, state_snapshot)
+
+        # Route intake-style gates to IntakeGateProfileExecutor
         if self._profile_executor is None:
             from app.domain.workflow.nodes.intake_gate_profile import IntakeGateProfileExecutor
             self._profile_executor = IntakeGateProfileExecutor(
@@ -231,10 +241,74 @@ class GateNodeExecutor(NodeExecutor):
                 ops_service=self._ops_service,
             )
 
-        logger.info(f"Gate {node_id}: Delegating to Gate Profile executor")
+        logger.info(f"Gate {node_id}: Delegating to Intake Gate Profile executor")
         return await self._profile_executor.execute(
             node_id=node_id,
             node_config=node_config,
             context=context,
             state_snapshot=state_snapshot,
         )
+
+    async def _execute_qa_gate(
+        self,
+        node_id: str,
+        node_config: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        state_snapshot: Dict[str, Any],
+    ) -> NodeResult:
+        """Execute a QA gate with evaluate internal.
+
+        Uses QANodeExecutor to run the QA evaluation.
+        """
+        from app.domain.workflow.nodes.qa import QANodeExecutor
+
+        # Extract QA config from internals.evaluate
+        internals = node_config.get("internals", {})
+        evaluate_config = internals.get("evaluate", {})
+
+        # Build QA node config from evaluate internal
+        qa_node_config = {
+            "task_ref": evaluate_config.get("task_ref"),
+            "schema_ref": evaluate_config.get("schema_ref"),
+            "qa_mode": evaluate_config.get("qa_mode", "semantic"),
+            "requires_qa": True,
+            # Pass through any includes for prompt resolution
+            "includes": evaluate_config.get("includes", {}),
+        }
+
+        # Create QA executor
+        qa_executor = QANodeExecutor(
+            llm_service=self.llm_service,
+            prompt_loader=self.prompt_loader,
+        )
+
+        logger.info(f"QA Gate {node_id}: Executing QA evaluation with task_ref={qa_node_config.get('task_ref')}")
+
+        # Execute QA
+        result = await qa_executor.execute(
+            node_id=node_id,
+            node_config=qa_node_config,
+            context=context,
+            state_snapshot=state_snapshot,
+        )
+
+        # Map QA result to gate outcomes
+        # QA pass -> "pass" edge, QA fail -> "fail" edge (triggers remediation)
+        if result.outcome == "success":
+            return NodeResult(
+                outcome="pass",
+                metadata={
+                    **result.metadata,
+                    "gate_id": node_id,
+                    "gate_kind": "qa",
+                },
+            )
+        else:
+            return NodeResult(
+                outcome="fail",
+                metadata={
+                    **result.metadata,
+                    "gate_id": node_id,
+                    "gate_kind": "qa",
+                },
+            )
