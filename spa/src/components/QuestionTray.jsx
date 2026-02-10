@@ -176,6 +176,7 @@ function PriorityBadge({ priority }) {
 export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }) {
     const [answers, setAnswers] = useState({});
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const allAnswered = questions
         .filter(q => q.required)
@@ -189,6 +190,17 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
 
     const handleChange = (questionId, value) => {
         setAnswers(prev => ({ ...prev, [questionId]: value }));
+    };
+
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            await onSubmit(answers);
+        } catch (err) {
+            console.error('Submit failed:', err);
+            setIsSubmitting(false);
+        }
+        // Don't reset isSubmitting - component will unmount after successful submit
     };
 
     return (
@@ -285,14 +297,14 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
             <div className="p-3" style={{ borderTop: '1px solid var(--border-node)' }}>
                 <button
                     className={`w-full py-2 rounded text-xs font-medium transition-colors ${
-                        allAnswered
+                        allAnswered && !isSubmitting
                             ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
                             : 'subway-button cursor-not-allowed'
                     }`}
-                    disabled={!allAnswered}
-                    onClick={() => onSubmit(answers)}
+                    disabled={!allAnswered || isSubmitting}
+                    onClick={handleSubmit}
                 >
-                    Submit & Continue
+                    {isSubmitting ? 'Submitting...' : 'Submit & Continue'}
                 </button>
             </div>
         </div>

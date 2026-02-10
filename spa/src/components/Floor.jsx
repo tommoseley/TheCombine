@@ -145,34 +145,48 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         },
         onStartProduction: async (docTypeId) => {
             console.log('Starting production for:', docTypeId);
+
+            // Optimistic update: immediately show as in_production with first station active
+            setData(prev => prev.map(item => {
+                if (item.id === docTypeId) {
+                    return {
+                        ...item,
+                        state: 'in_production',
+                        stations: [
+                            { id: 'pgc', label: 'PGC', state: 'active' },
+                            { id: 'asm', label: 'ASM', state: 'pending' },
+                            { id: 'draft', label: 'DRAFT', state: 'pending' },
+                            { id: 'qa', label: 'QA', state: 'pending' },
+                            { id: 'rem', label: 'REM', state: 'pending' },
+                            { id: 'done', label: 'DONE', state: 'pending' },
+                        ],
+                    };
+                }
+                return item;
+            }));
+
             try {
                 await startProduction(docTypeId);
             } catch (err) {
                 console.error('Failed to start production:', err);
+                // Revert on error - refetch will restore correct state
             }
         },
         onSubmitQuestions: async (id, answers) => {
             console.log('Submitted:', id, answers);
 
-            // Find the document to get its interruptId
-            const doc = data.find(d => d.id === id);
-            if (doc?.interruptId) {
-                try {
-                    await resolveInterrupt(doc.interruptId, answers);
-                } catch (err) {
-                    console.error('Failed to submit answers:', err);
-                }
-            }
-
+            // Close the tray immediately
             setExpandedId(null);
             setExpandType(null);
 
-            // Optimistically update local state
+            // Optimistically update local state - mark PGC complete, ASM active
             setData(prev => {
                 const update = (items) => items.map(item => {
                     if (item.id === id && item.stations) {
                         return {
-                            ...item, stations: item.stations.map(s =>
+                            ...item,
+                            state: 'in_production',
+                            stations: item.stations.map(s =>
                                 s.id === 'pgc' ? { ...s, state: 'complete', needs_input: false } :
                                     s.id === 'asm' ? { ...s, state: 'active' } : s
                             )
@@ -183,6 +197,16 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 });
                 return update(prev);
             });
+
+            // Find the document to get its interruptId and submit
+            const doc = data.find(d => d.id === id);
+            if (doc?.interruptId) {
+                try {
+                    await resolveInterrupt(doc.interruptId, answers);
+                } catch (err) {
+                    console.error('Failed to submit answers:', err);
+                }
+            }
         }
     }), [reactFlowInstance, data, resolveInterrupt, startProduction]);
 
