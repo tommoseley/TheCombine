@@ -162,11 +162,17 @@ async def resolve_interrupt(
             detail=f"Interrupt '{interrupt_id}' not found or already resolved",
         )
 
+    # Get interrupt details BEFORE resolving (it will be cleared after)
+    interrupt = await registry.get_interrupt(interrupt_id)
+    project_id = interrupt.project_id if interrupt else None
+    document_type = interrupt.document_type if interrupt else None
+
     await db.commit()
 
     logger.info(f"Resolved interrupt {interrupt_id}")
 
     # Resume workflow execution
+    final_state = None
     try:
         from app.domain.workflow.plan_executor import PlanExecutor
         from app.domain.workflow.pg_state_persistence import PgStatePersistence
@@ -182,30 +188,42 @@ async def resolve_interrupt(
         )
 
         # Continue execution from where it was paused
-        state = await executor.run_to_completion_or_pause(interrupt_id)
-        logger.info(f"Resumed execution {interrupt_id}, now at node {state.current_node_id}, status={state.status}")
+        final_state = await executor.run_to_completion_or_pause(interrupt_id)
+        logger.info(f"Resumed execution {interrupt_id}, now at node {final_state.current_node_id}, status={final_state.status}")
     except Exception as e:
         logger.error(f"Failed to resume execution after interrupt resolution: {e}")
         # Don't fail the request - interrupt is resolved, execution can be retried
 
-    # Emit SSE event for UI update
+    # Emit SSE events for UI update
     try:
         from app.api.v1.routers.production import publish_event
 
-        # Get interrupt details to find project_id
-        interrupt = await registry.get_interrupt(interrupt_id)
-        if interrupt:
+        if project_id:
+            # Always emit interrupt_resolved
             await publish_event(
-                interrupt.project_id,
+                project_id,
                 "interrupt_resolved",
                 {
                     "interrupt_id": interrupt_id,
                     "execution_id": interrupt_id,
-                    "document_type": interrupt.document_type,
+                    "document_type": document_type,
                 },
             )
+
+            # If workflow completed, emit track_stabilized
+            if final_state and final_state.terminal_outcome == "stabilized":
+                await publish_event(
+                    project_id,
+                    "track_stabilized",
+                    {
+                        "execution_id": interrupt_id,
+                        "document_type": document_type,
+                        "outcome": "stabilized",
+                    },
+                )
+                logger.info(f"Emitted track_stabilized event for {document_type}")
     except Exception as e:
-        logger.warning(f"Failed to emit interrupt_resolved event: {e}")
+        logger.warning(f"Failed to emit SSE events: {e}")
 
     return JSONResponse({
         "status": "resolved",

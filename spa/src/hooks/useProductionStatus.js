@@ -115,6 +115,17 @@ export function useProductionStatus(projectId) {
             }
         });
 
+        eventSource.addEventListener('track_stabilized', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Track stabilized:', data);
+                // Refresh to get the final state
+                fetchStatus();
+            } catch (err) {
+                console.error('Failed to parse track_stabilized:', err);
+            }
+        });
+
         eventSource.onerror = (err) => {
             console.error('SSE error:', err);
             setConnected(false);
