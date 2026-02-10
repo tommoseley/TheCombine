@@ -52,10 +52,12 @@ class Station(str, Enum):
     Used for branch map visualization and telemetry.
 
     When a document is "In Production", it's at one of these stations.
+    Per WS-SUBWAY-MAP-001 Phase 2, there are 6 stations.
     """
 
     PGC = "pgc"  # Pre-Gen Check: binding constraints from intake, upstream docs
     ASM = "asm"  # Assembly: LLM constructing the artifact
+    DRAFT = "draft"  # Draft Available: document content ready for preview while QA runs
     QA = "qa"  # Audit: semantic and structural validation
     REM = "rem"  # Remediation: self-correction cycle
     DONE = "done"  # Finalization: production complete
@@ -183,6 +185,7 @@ STATE_DISPLAY_TEXT = {
 STATION_DISPLAY_TEXT = {
     Station.PGC: "Pre-Gen Check",
     Station.ASM: "Assembly",
+    Station.DRAFT: "Draft Available",
     Station.QA: "Audit",
     Station.REM: "Remediation",
     Station.DONE: "Complete",

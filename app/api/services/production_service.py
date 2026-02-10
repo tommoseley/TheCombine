@@ -22,6 +22,120 @@ from app.domain.workflow.plan_registry import get_plan_registry
 logger = logging.getLogger(__name__)
 
 
+def _build_station_sequence(
+    current_node: str,
+    status: str,
+    terminal_outcome: Optional[str],
+    pending_user_input: bool,
+) -> List[Dict[str, str]]:
+    """Build station sequence for a workflow execution.
+
+    Maps workflow node progress to station dots (ADR-043):
+    - PGC: Pre-Gen Check (pgc_gate nodes)
+    - ASM: Assembly (generation/task nodes)
+    - QA: Quality Audit (qa_gate nodes)
+    - REM: Remediation (remediation nodes) - only shown if active
+    - DONE: Complete
+
+    Args:
+        current_node: Current workflow node ID
+        status: Execution status (running, paused, completed, failed)
+        terminal_outcome: Terminal outcome if completed (stabilized, blocked)
+        pending_user_input: Whether waiting for user input
+
+    Returns:
+        List of station dicts with id, label, state
+    """
+    # Determine which station is active based on current node
+    # Station sequence: PGC -> ASM -> DRAFT -> QA -> REM -> DONE
+    # DRAFT represents the state where document content exists but is not yet QA'd
+    current_station = None
+    if current_node:
+        node_lower = current_node.lower()
+        if "pgc" in node_lower:
+            current_station = "pgc"
+        elif "generation" in node_lower or node_lower == "task":
+            current_station = "asm"
+        elif "qa" in node_lower:
+            # QA node means DRAFT is complete (document generated), now auditing
+            current_station = "qa"
+        elif "remediat" in node_lower:
+            current_station = "rem"
+        elif "end" in node_lower or "stabilized" in node_lower:
+            current_station = "done"
+        # Note: DRAFT is an implicit station - when ASM completes and QA starts,
+        # DRAFT transitions from pending->complete automatically
+
+    # Station order - all 6 stations per WS-SUBWAY-MAP-001 Phase 2
+    # DRAFT = document content available for preview while QA runs
+    # REM = Remediation (when QA fails and regeneration needed)
+    station_order = ["pgc", "asm", "draft", "qa", "rem", "done"]
+    station_labels = {
+        "pgc": "PGC",
+        "asm": "ASM",
+        "draft": "DRAFT",
+        "qa": "QA",
+        "rem": "REM",
+        "done": "DONE",
+    }
+
+    stations = []
+    current_idx = station_order.index(current_station) if current_station in station_order else -1
+
+    # Handle completed/stabilized state
+    if terminal_outcome == "stabilized" or status == "completed":
+        # All stations complete
+        for sid in station_order:
+            stations.append({
+                "station": sid,
+                "label": station_labels[sid],
+                "state": "complete",
+            })
+        return stations
+
+    # Handle failed/blocked state
+    if terminal_outcome == "blocked" or status == "failed":
+        for i, sid in enumerate(station_order):
+            if i < current_idx:
+                state = "complete"
+            elif i == current_idx:
+                state = "failed"
+            else:
+                state = "pending"
+            stations.append({
+                "station": sid,
+                "label": station_labels[sid],
+                "state": state,
+            })
+        return stations
+
+    # Build stations based on current position
+    for i, sid in enumerate(station_order):
+        if i < current_idx:
+            state = "complete"
+        elif i == current_idx:
+            state = "active"
+            # If pending user input at PGC, mark as needs_input
+            if sid == "pgc" and pending_user_input:
+                stations.append({
+                    "station": sid,
+                    "label": station_labels[sid],
+                    "state": "active",
+                    "needs_input": True,
+                })
+                continue
+        else:
+            state = "pending"
+
+        stations.append({
+            "station": sid,
+            "label": station_labels[sid],
+            "state": state,
+        })
+
+    return stations
+
+
 def get_document_type_dependencies() -> List[Dict[str, Any]]:
     """Get document type dependencies for the production line.
 
@@ -197,6 +311,13 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         if doc.status not in ["failed", "error", "cancelled"]:
             concierge_track["state"] = ProductionState.PRODUCED.value
             stabilized_types.add("concierge_intake")
+            # Show all stations as complete for produced documents
+            concierge_track["stations"] = _build_station_sequence(
+                current_node="end_stabilized",
+                status="completed",
+                terminal_outcome="stabilized",
+                pending_user_input=False,
+            )
     tracks.append(concierge_track)
 
     # Get document types from master workflow definition
@@ -249,6 +370,13 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             if doc.status not in ["failed", "error", "cancelled"]:
                 track["state"] = ProductionState.PRODUCED.value
                 stabilized_types.add(type_id)
+                # Show all stations as complete for produced documents
+                track["stations"] = _build_station_sequence(
+                    current_node="end_stabilized",
+                    status="completed",
+                    terminal_outcome="stabilized",
+                    pending_user_input=False,
+                )
             else:
                 track["state"] = ProductionState.READY_FOR_PRODUCTION.value
 
@@ -279,30 +407,14 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 else:
                     track["station"] = Station.ASM.value
 
-            # Build station sequence from execution_log
-            execution_log = ex.execution_log or []
-            stations = []
-            for node_exec in execution_log[-6:]:  # Last 6 nodes
-                node_id = node_exec.get("node_id", "")
-                outcome = node_exec.get("outcome", "")
-
-                station = {"station": "asm", "state": "pending"}
-                if "pgc" in node_id.lower():
-                    station["station"] = "bind"
-                elif "qa" in node_id.lower():
-                    station["station"] = "aud"
-                elif "remediat" in node_id.lower():
-                    station["station"] = "rem"
-
-                if outcome == "success":
-                    station["state"] = "complete"
-                elif outcome == "failed":
-                    station["state"] = "failed"
-                elif node_id == current_node:
-                    station["state"] = "active"
-
-                stations.append(station)
-
+            # Build station sequence based on current workflow state
+            # Stations: PGC -> ASM -> QA -> REM (if needed) -> DONE
+            stations = _build_station_sequence(
+                current_node=current_node,
+                status=ex.status,
+                terminal_outcome=ex.terminal_outcome,
+                pending_user_input=ex.pending_user_input,
+            )
             track["stations"] = stations
 
         tracks.append(track)

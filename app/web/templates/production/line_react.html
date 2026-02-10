@@ -267,7 +267,11 @@ const EDGE_COLORS = {
 };
 const getEdgeColor = (state, theme) => EDGE_COLORS[theme]?.[state] || EDGE_COLORS.industrial.queued;
 const TRAY = { GAP: 8, WIDTH: 280 };
-const STATION_IDS = ['pgc', 'asm', 'draft', 'qa', 'done'];
+// All 6 stations per WS-SUBWAY-MAP-001 Phase 2:
+// PGC = Pre-Gen Check (questions), ASM = Assembly (generation)
+// DRAFT = Document available for preview, QA = Quality Audit
+// REM = Remediation (if QA fails), DONE = Complete
+const STATION_IDS = ['pgc', 'asm', 'draft', 'qa', 'rem', 'done'];
 
 // ============================================================
 // MODULE: Transform backend tracks to graph nodes
@@ -380,21 +384,57 @@ const buildGraph = (data, expandedId, callbacks) => {
 // ============================================================
 // MODULE: StationDots component
 // ============================================================
-function StationDots({ stations }) {
+function StationDots({ stations, onPreview }) {
     if (!stations?.length) return null;
     return (
         <div className="flex items-center gap-0.5 mt-2">
             {stations.map((s, i) => {
-                const dotColor = s.state === 'complete' ? 'var(--state-stabilized-bg)' :
-                                s.state === 'active' ? 'var(--state-active-bg)' : 'var(--state-queued-bg)';
-                const lineColor = s.state === 'complete' ? 'var(--state-stabilized-bg)' : 'var(--state-queued-bg)';
-                const labelColor = s.state === 'active' ? 'var(--state-active-text)' : 'var(--text-muted)';
+                const stationId = s.id || s.station;
+                // State colors per WS-SUBWAY-MAP-001 Phase 2:
+                // pending: gray/slate (empty circle)
+                // complete: green/emerald (filled circle)
+                // active: amber/indigo (filled, pulsing)
+                // draft_available: cyan (clickable to preview) - special state for DRAFT station when complete
+                // failed: red
+                const isDraftPreviewable = stationId === 'draft' && s.state === 'complete';
+                const isFailed = s.state === 'failed';
+
+                let dotColor;
+                if (isFailed) {
+                    dotColor = 'var(--state-blocked-bg)';
+                } else if (isDraftPreviewable) {
+                    dotColor = '#06b6d4'; // cyan for draft available
+                } else if (s.state === 'complete') {
+                    dotColor = 'var(--state-stabilized-bg)';
+                } else if (s.state === 'active') {
+                    dotColor = 'var(--state-active-bg)';
+                } else {
+                    dotColor = 'var(--state-queued-bg)';
+                }
+
+                const lineColor = s.state === 'complete' || isDraftPreviewable ? 'var(--state-stabilized-bg)' : 'var(--state-queued-bg)';
+                const labelColor = s.state === 'active' ? 'var(--state-active-text)' :
+                                   isDraftPreviewable ? '#06b6d4' :
+                                   isFailed ? 'var(--state-blocked-text)' : 'var(--text-muted)';
+
+                const dotStyle = {
+                    background: dotColor,
+                    cursor: isDraftPreviewable && onPreview ? 'pointer' : 'default'
+                };
+
                 return (
-                    <React.Fragment key={s.id || i}>
+                    <React.Fragment key={stationId || i}>
                         {i > 0 && <div className="w-4 h-0.5" style={{ background: lineColor }} />}
                         <div className="flex flex-col items-center">
-                            <div className={'w-3 h-3 rounded-full' + (s.state === 'active' ? ' station-active' : '')} style={{ background: dotColor }} />
-                            <span className="text-[7px] mt-0.5" style={{ color: labelColor, fontWeight: s.state === 'active' ? 500 : 400 }}>{s.label || s.station?.toUpperCase()}</span>
+                            <div
+                                className={'w-3 h-3 rounded-full' + (s.state === 'active' ? ' station-active' : '')}
+                                style={dotStyle}
+                                onClick={isDraftPreviewable && onPreview ? () => onPreview() : undefined}
+                                title={isDraftPreviewable ? 'Preview draft' : undefined}
+                            />
+                            <span className="text-[7px] mt-0.5" style={{ color: labelColor, fontWeight: s.state === 'active' ? 500 : 400 }}>
+                                {s.label || stationId?.toUpperCase()}
+                            </span>
                         </div>
                     </React.Fragment>
                 );
@@ -578,7 +618,12 @@ function DocumentNode({ data }) {
                         </div>
                     </div>
 
-                    {showStations && <StationDots stations={data.stations} />}
+                    {showStations && (
+                        <StationDots
+                            stations={data.stations}
+                            onPreview={data.state !== 'stabilized' ? () => data.onExpand?.(data.id, 'document') : undefined}
+                        />
+                    )}
 
                     {isBlocked && data.blocked_by?.length > 0 && (
                         <p className="text-[9px] mt-2" style={{ color: 'var(--state-blocked-text)' }}>

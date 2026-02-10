@@ -47,8 +47,8 @@ class TestStation:
     """Tests for Station enum."""
 
     def test_all_stations_defined(self):
-        """All canonical stations from ADR-043 are present."""
-        expected = {"pgc", "asm", "qa", "rem", "done"}
+        """All canonical stations from WS-SUBWAY-MAP-001 Phase 2 are present."""
+        expected = {"pgc", "asm", "draft", "qa", "rem", "done"}
         actual = {s.value for s in Station}
         assert actual == expected
 
