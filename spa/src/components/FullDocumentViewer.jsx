@@ -119,7 +119,11 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+                <div
+                    className="overflow-y-auto p-6"
+                    style={{ maxHeight: 'calc(90vh - 80px)' }}
+                    onWheel={(e) => e.stopPropagation()}
+                >
                     {error && (
                         <div className="text-center py-12">
                             <p className="text-red-500">{error}</p>

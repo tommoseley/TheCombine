@@ -38,15 +38,16 @@ const STATE_MAP = {
 };
 
 /**
- * Map station abbreviations to display labels
+ * Map station IDs to full display labels
  */
 const STATION_LABELS = {
-    'pgc': 'PGC',
-    'bind': 'BIND',
-    'asm': 'ASM',
-    'aud': 'AUD',
-    'rem': 'REM',
-    'done': 'DONE',
+    'pgc': 'Pre-Gen Check',
+    'bind': 'Binding',
+    'asm': 'Assembly',
+    'aud': 'Quality Audit',
+    'qa': 'Quality Audit',
+    'rem': 'Remediation',
+    'done': 'Done',
 };
 
 /**
@@ -131,9 +132,10 @@ function transformTrack(track, interrupts = []) {
     // Find matching interrupt for this track
     const interrupt = interrupts.find(i => i.document_type === track.document_type);
 
-    // Build stations array (only for in_production or awaiting_operator)
+    // Build stations array for in_production, awaiting_operator, or produced documents
+    // Produced documents show all stations complete (subway map visual)
     let stations = null;
-    if (state === 'in_production' || needsInput) {
+    if (state === 'in_production' || needsInput || state === 'produced') {
         stations = buildStations(track.stations, track.state, track.station);
     }
 

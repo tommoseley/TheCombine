@@ -200,6 +200,12 @@ body {
 .amber-pulse { animation: amberBlink 1.5s ease-in-out infinite; }
 @keyframes amberBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 
+.station-needs-input { animation: needsInputPulse 1s ease-in-out infinite; }
+@keyframes needsInputPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.6); }
+    50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.3); }
+}
+
 .tray-slide { animation: slideRight 0.2s ease-out; }
 @keyframes slideRight { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
 

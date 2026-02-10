@@ -10,7 +10,9 @@ export default function StationDots({ stations }) {
                     ? 'var(--state-stabilized-bg)'
                     : s.state === 'active'
                         ? 'var(--state-active-bg)'
-                        : 'var(--state-queued-bg)';
+                        : s.state === 'failed'
+                            ? 'var(--state-blocked-bg)'
+                            : 'var(--state-queued-bg)';
 
                 const lineColor = s.state === 'complete'
                     ? 'var(--state-stabilized-bg)'
@@ -30,14 +32,18 @@ export default function StationDots({ stations }) {
                         )}
                         <div className="flex flex-col items-center">
                             <div
-                                className={`w-3 h-3 rounded-full${s.state === 'active' ? ' station-active' : ''}`}
-                                style={{ background: dotColor }}
+                                className={`w-3 h-3 rounded-full${s.state === 'active' ? ' station-active' : ''}${s.needs_input ? ' station-needs-input' : ''}`}
+                                style={{
+                                    background: dotColor,
+                                    // Add ring for needs_input state
+                                    boxShadow: s.needs_input ? '0 0 0 2px var(--state-active-bg)' : undefined,
+                                }}
                             />
                             <span
                                 className="text-[7px] mt-0.5"
                                 style={{
-                                    color: labelColor,
-                                    fontWeight: s.state === 'active' ? 500 : 400
+                                    color: s.needs_input ? 'var(--state-active-text)' : labelColor,
+                                    fontWeight: s.state === 'active' || s.needs_input ? 500 : 400
                                 }}
                             >
                                 {s.label}

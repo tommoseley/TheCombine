@@ -463,7 +463,7 @@ export function RenderModelSidecar({
 
     const serial = `${projectCode || 'DOC'} - ${documentName || 'Document'}`;
 
-    // Stop drag events from propagating to the floor canvas
+    // Stop drag and wheel events from propagating to the floor canvas
     const stopPropagation = (e) => {
         e.stopPropagation();
     };
@@ -474,6 +474,7 @@ export function RenderModelSidecar({
             style={{ left: nodeWidth + 30, width, zIndex: 1000, transition: 'width 0.2s ease' }}
             onMouseDown={stopPropagation}
             onPointerDown={stopPropagation}
+            onWheel={stopPropagation}
         >
             {/* Horizontal bridge */}
             <div

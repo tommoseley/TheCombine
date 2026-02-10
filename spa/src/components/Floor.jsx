@@ -143,6 +143,14 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         onViewFullDocument: (docId) => {
             setFullViewerDocId(docId);
         },
+        onStartProduction: async (docTypeId) => {
+            console.log('Starting production for:', docTypeId);
+            try {
+                await startProduction(docTypeId);
+            } catch (err) {
+                console.error('Failed to start production:', err);
+            }
+        },
         onSubmitQuestions: async (id, answers) => {
             console.log('Submitted:', id, answers);
 
@@ -176,7 +184,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 return update(prev);
             });
         }
-    }), [reactFlowInstance, data, resolveInterrupt]);
+    }), [reactFlowInstance, data, resolveInterrupt, startProduction]);
 
     const { layoutNodes, layoutEdges } = useMemo(() => {
         if (data.length === 0) return { layoutNodes: [], layoutEdges: [] };

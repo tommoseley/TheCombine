@@ -88,7 +88,8 @@ export default function DocumentNode({ data }) {
     const isInProgress = artifactState === 'in_progress';
     const isBlocked = artifactState === 'blocked';
 
-    const showStations = isInProgress && data.stations;
+    // Show stations for in-progress documents AND stabilized documents (all complete)
+    const showStations = (isInProgress || isStabilized) && data.stations;
     const stateClass = isInProgress ? 'node-active' : '';
     const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';
@@ -183,6 +184,19 @@ export default function DocumentNode({ data }) {
                                 }}
                             >
                                 View Document
+                            </button>
+                        )}
+
+                        {isL1 && artifactState === 'ready' && (
+                            <button
+                                className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
+                                style={{ backgroundColor: '#eab308', color: 'white' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    data.onStartProduction?.(data.id);
+                                }}
+                            >
+                                Start Production
                             </button>
                         )}
 
