@@ -142,28 +142,31 @@ export function useProductionStatus(projectId) {
     }, []);
 
     // Resolve an interrupt (submit answers)
+    // NOTE: Don't fetchStatus immediately - let SSE events update the UI
+    // This allows optimistic updates in the component to persist until real data arrives
     const resolveInterrupt = useCallback(async (interruptId, answers) => {
         try {
             await api.resolveInterrupt(interruptId, { answers });
-            // Refresh status after resolving
-            await fetchStatus();
+            // Don't fetch immediately - SSE will provide updates as production continues
         } catch (err) {
             console.error('Failed to resolve interrupt:', err);
             throw err;
         }
-    }, [fetchStatus]);
+    }, []);
 
     // Start production for a document type
+    // NOTE: Don't fetchStatus immediately - let SSE events update the UI
+    // This allows optimistic updates in the component to persist until real data arrives
     const startProduction = useCallback(async (documentType = null) => {
         try {
             await api.startProduction(projectId, documentType);
             setLineState('active');
-            await fetchStatus();
+            // Don't fetch immediately - SSE will provide updates as production progresses
         } catch (err) {
             console.error('Failed to start production:', err);
             throw err;
         }
-    }, [projectId, fetchStatus]);
+    }, [projectId]);
 
     // Initial fetch and SSE connection
     useEffect(() => {
