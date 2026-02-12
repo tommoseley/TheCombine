@@ -77,7 +77,7 @@ export default function DocumentNode({ data }) {
     const expandType = data.expandType;
     const hasQuestions = data.questions?.length > 0;
     const hasFeatures = data.features?.length > 0;
-    const needsInput = data.stations?.some(s => s.needs_input);
+    const needsInput = data.stations?.some(s => s.state === 'active' && s.needs_input);
 
     // Map raw state to unified artifact state
     const rawState = data.state || 'ready_for_production';

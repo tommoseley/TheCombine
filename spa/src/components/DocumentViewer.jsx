@@ -264,6 +264,7 @@ function FallbackSidecar({
                         overflowY: 'auto',
                         maxHeight: isExpanded ? 600 : 400,
                     }}
+                    onWheel={(e) => e.stopPropagation()}
                 >
                     <div
                         style={{
@@ -285,6 +286,7 @@ function FallbackSidecar({
                             padding: 16,
                             overflow: 'auto',
                         }}
+                        onWheel={(e) => e.stopPropagation()}
                     >
                         <pre
                             style={{

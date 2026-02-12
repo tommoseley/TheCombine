@@ -44,9 +44,9 @@
     --state-blocked-bg: #ef4444;
     --state-blocked-text: #dc2626;
     --state-blocked-edge: #ef4444;
-    --state-ready-bg: #00E5FF;
-    --state-ready-text: #00b8d4;
-    --state-ready-edge: #00E5FF;
+    --state-ready-bg: #1e40af;
+    --state-ready-text: #1e3a8a;
+    --state-ready-edge: #1e40af;
 
     --bg-group-header: #e2e8f0;
     --bg-subsection-header: #f1f5f9;

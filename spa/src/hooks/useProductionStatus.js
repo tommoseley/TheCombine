@@ -126,6 +126,99 @@ export function useProductionStatus(projectId) {
             }
         });
 
+        // WS-STATION-DATA-001 Phase 3: Handle stations_declared event
+        // Apply station list directly without refetching
+        eventSource.addEventListener('stations_declared', (event) => {
+            try {
+                const eventData = JSON.parse(event.data);
+                console.log('Stations declared:', eventData);
+                const { document_type, stations } = eventData;
+                
+                setData(prev => {
+                    const exists = prev.some(item => item.id === document_type);
+                    console.log('stations_declared raw stations:', stations);
+                    const stationData = stations.map(s => ({
+                        id: s.id,
+                        label: s.label,
+                        state: s.state,
+                        phases: s.phases || [],
+                        phase: null,  // Current active phase (set by station_changed)
+                    }));
+                    console.log('stations_declared processed:', stationData);
+                    
+                    if (exists) {
+                        // Update existing track - set state to in_production so stations render
+                        return prev.map(item => 
+                            item.id === document_type 
+                                ? { ...item, state: 'in_production', stations: stationData }
+                                : item
+                        );
+                    } else {
+                        // Add new track with stations
+                        return [...prev, {
+                            id: document_type,
+                            name: document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                            state: 'in_production',
+                            stations: stationData,
+                        }];
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to parse stations_declared:', err);
+            }
+        });
+
+        // WS-STATION-DATA-001 Phase 3: Handle station_changed event
+        // Update single station state without refetching
+        eventSource.addEventListener('station_changed', (event) => {
+            try {
+                const eventData = JSON.parse(event.data);
+                console.log('Station changed:', eventData);
+                const { document_type, station_id, state: newState } = eventData;
+                
+                setData(prev => prev.map(item => {
+                    if (item.id !== document_type) return item;
+                    // Skip if no stations yet (will be populated by stations_declared or fetch)
+                    if (!item.stations) return item;
+                    return {
+                        ...item,
+                        stations: item.stations.map(s => 
+                            s.id === station_id ? { ...s, state: newState } : s
+                        ),
+                    };
+                }));
+            } catch (err) {
+                console.error('Failed to parse station_changed:', err);
+            }
+        });
+
+        // Handle internal_step event - updates current phase within a station
+        eventSource.addEventListener('internal_step', (event) => {
+            try {
+                const eventData = JSON.parse(event.data);
+                console.log('Internal step:', eventData);
+                const { document_type, station_id, step } = eventData;
+                
+                setData(prev => prev.map(item => {
+                    if (item.id !== document_type) return item;
+                    if (!item.stations) return item;
+                    return {
+                        ...item,
+                        stations: item.stations.map(s => 
+                            s.id === station_id 
+                                ? { 
+                                    ...s, 
+                                    currentStep: step,  // { key, name, type, number, total }
+                                  }
+                                : s
+                        ),
+                    };
+                }));
+            } catch (err) {
+                console.error('Failed to parse internal_step:', err);
+            }
+        });
+
         eventSource.onerror = (err) => {
             console.error('SSE error:', err);
             setConnected(false);

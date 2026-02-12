@@ -146,20 +146,14 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         onStartProduction: async (docTypeId) => {
             console.log('Starting production for:', docTypeId);
 
-            // Optimistic update: immediately show as in_production with first station active
+            // Optimistic update: immediately show as in_production
+            // Stations will be populated by backend via SSE (workflow-driven per WS-STATION-DATA-001)
             setData(prev => prev.map(item => {
                 if (item.id === docTypeId) {
                     return {
                         ...item,
                         state: 'in_production',
-                        stations: [
-                            { id: 'pgc', label: 'PGC', state: 'active' },
-                            { id: 'asm', label: 'ASM', state: 'pending' },
-                            { id: 'draft', label: 'DRAFT', state: 'pending' },
-                            { id: 'qa', label: 'QA', state: 'pending' },
-                            { id: 'rem', label: 'REM', state: 'pending' },
-                            { id: 'done', label: 'DONE', state: 'pending' },
-                        ],
+                        // Don't set hardcoded stations - let backend provide them
                     };
                 }
                 return item;
@@ -289,10 +283,10 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                                 <div>
                                     <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
                                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                        {lineState === 'active' && <span className="text-amber-500">● Active</span>}
-                                        {lineState === 'stopped' && <span className="text-red-500">● Stopped</span>}
-                                        {lineState === 'complete' && <span className="text-emerald-500">● Complete</span>}
-                                        {lineState === 'idle' && <span>● Idle</span>}
+                                        {lineState === 'active' && <span className="text-amber-500">Ã¢â€”Â Active</span>}
+                                        {lineState === 'stopped' && <span className="text-red-500">Ã¢â€”Â Stopped</span>}
+                                        {lineState === 'complete' && <span className="text-emerald-500">Ã¢â€”Â Complete</span>}
+                                        {lineState === 'idle' && <span>Ã¢â€”Â Idle</span>}
                                         {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
                                     </p>
                                 </div>
@@ -446,9 +440,10 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 <MiniMap
                     position="top-right"
                     nodeColor={(node) => {
-                        // Use unified artifact state colors via CSS variable values
+                        // Get CSS variables from themed element (not documentElement which has no theme class)
                         const state = node.data?.state;
-                        const cs = getComputedStyle(document.documentElement);
+                        const themedEl = document.querySelector('[class*="theme-"]') || document.body;
+                        const cs = getComputedStyle(themedEl);
                         if (['produced', 'stabilized', 'ready', 'complete'].includes(state)) return cs.getPropertyValue('--state-stabilized-bg').trim();
                         if (['requirements_not_met', 'blocked', 'halted', 'failed'].includes(state)) return cs.getPropertyValue('--state-blocked-bg').trim();
                         if (['in_production', 'active', 'queued', 'awaiting_operator'].includes(state)) return cs.getPropertyValue('--state-active-bg').trim();

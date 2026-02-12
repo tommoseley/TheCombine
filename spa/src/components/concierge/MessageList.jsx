@@ -13,7 +13,7 @@ export default function MessageList({ messages, pendingPrompt, introContent }) {
     }, [messages, pendingPrompt]);
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3" onWheel={(e) => e.stopPropagation()}>
             {introContent}
 
             {messages.map((msg, idx) => (

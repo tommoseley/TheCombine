@@ -116,6 +116,7 @@ export default function AccountsSidecar({ onClose }) {
         >
             <div
                 className="flex flex-col w-full max-w-md max-h-[80vh] rounded-xl shadow-2xl tray-slide"
+                onWheel={(e) => e.stopPropagation()}
                 style={{
                     background: 'var(--bg-panel)',
                     border: '1px solid var(--border-panel)',

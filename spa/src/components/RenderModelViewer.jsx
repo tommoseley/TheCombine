@@ -422,6 +422,7 @@ function FallbackViewer({ title, content, reason }) {
                     padding: 16,
                     overflow: 'auto',
                 }}
+                onWheel={(e) => e.stopPropagation()}
             >
                 <pre
                     style={{
@@ -601,6 +602,7 @@ export function RenderModelSidecar({
                         overflowY: 'auto',
                         maxHeight: isExpanded ? 600 : 400,
                     }}
+                    onWheel={(e) => e.stopPropagation()}
                 >
                     <RenderModelViewer
                         renderModel={renderModel}

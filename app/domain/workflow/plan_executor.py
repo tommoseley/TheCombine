@@ -48,6 +48,9 @@ from app.domain.workflow.thread_manager import ThreadManager
 from app.domain.workflow.outcome_recorder import OutcomeRecorder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Import publish_event for station events (WS-STATION-DATA-001 Phase 2)
+from app.api.v1.routers.production import publish_event
+
 # Type hint only - actual import is lazy to avoid circular imports
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -262,6 +265,17 @@ class PlanExecutor:
         # Save initial state
         await self._persistence.save(state)
 
+        # WS-STATION-DATA-001 Phase 2: Emit stations_declared event
+        await self._emit_stations_declared(plan, state)
+
+        # WS-STATION-DATA-001 Phase 2: Emit initial station_changed for entry node
+        await self._emit_station_changed(plan, state, entry_node.node_id, "active")
+
+        # Emit initial internal_step if entry node has internals
+        if entry_node.internals:
+            first_phase = list(entry_node.internals.keys())[0]
+            await self._emit_internal_step(plan, state, entry_node, first_phase)
+
         logger.info(
             f"Started execution {execution_id} for document {project_id} "
             f"at node {entry_node.node_id}"
@@ -328,7 +342,11 @@ class PlanExecutor:
             # Don't re-execute PGC - that would generate new questions
             if current_node.type == NodeType.PGC and user_input:
                 logger.info(f"PGC node {current_node.node_id} received user answers - merging clarifications (ADR-042)")
-
+                
+                # Emit internal_step for merge phase
+                if current_node.internals and "merge" in current_node.internals:
+                    await self._emit_internal_step(plan, state, current_node, "merge")
+                
                 # ADR-042: Get questions (with DB fallback for restart scenarios)
                 questions = await self._get_pgc_questions_for_merge(state)
 
@@ -398,6 +416,17 @@ class PlanExecutor:
             state.set_failed(str(e))
             await self._persistence.save(state)
             raise PlanExecutorError(f"Node execution failed: {e}") from e
+
+        # Emit internal_step event based on result and phase transitions
+        if current_node.internals:
+            if result.requires_user_input and "entry" in current_node.internals:
+                # Transitioning to UI entry phase (waiting for user input)
+                await self._emit_internal_step(plan, state, current_node, "entry")
+            elif result.metadata and result.metadata.get("phase"):
+                # Emit the phase from result (e.g., "merge" after user submits)
+                await self._emit_internal_step(
+                    plan, state, current_node, result.metadata["phase"]
+                )
 
         # Persist conversation turns to thread (if applicable)
         await self._persist_conversation(result, current_node, state, context)
@@ -953,6 +982,8 @@ class PlanExecutor:
                 f"No matching edge from {current_node.node_id} "
                 f"with outcome '{result.outcome}'"
             )
+            # WS-STATION-DATA-001 Phase 2: Mark current station as blocked
+            await self._emit_station_changed(plan, state, current_node.node_id, "blocked")
             state.set_failed(
                 f"No routing edge for outcome '{result.outcome}' "
                 f"from node {current_node.node_id}"
@@ -981,6 +1012,14 @@ class PlanExecutor:
                 )
 
             state.current_node_id = next_node_id
+
+            # WS-STATION-DATA-001 Phase 2: Mark current station complete, then done station complete
+            current_station = plan.get_node_station(current_node.node_id)
+            if current_station:
+                await self._emit_station_changed(plan, state, current_node.node_id, "complete")
+            # Terminal node maps to "done" station - mark it complete
+            await self._emit_station_changed(plan, state, next_node_id, "complete")
+
             state.set_completed(
                 terminal_outcome=terminal_outcome,
                 gate_outcome=gate_outcome,
@@ -999,8 +1038,18 @@ class PlanExecutor:
             )
             return
 
+        # WS-STATION-DATA-001 Phase 2: Mark current station complete if moving to different station
+        current_station = plan.get_node_station(current_node.node_id)
+        next_station = plan.get_node_station(next_node_id)
+        if current_station and (not next_station or current_station.id != next_station.id):
+            await self._emit_station_changed(plan, state, current_node.node_id, "complete")
+
         # Advance to next node
         state.current_node_id = next_node_id
+
+        # WS-STATION-DATA-001 Phase 2: Mark new station as active
+        if next_station and (not current_station or next_station.id != current_station.id):
+            await self._emit_station_changed(plan, state, next_node_id, "active")
 
         # Handle QA failure -> increment retry for generating node
         # Note: generating_node_id was already set on state before routing
@@ -1826,6 +1875,167 @@ class PlanExecutor:
             logger.error(f"Failed to persist document: {e}")
             # Don't fail the workflow - document is still in context_state
             await self._db_session.rollback()
+    # =========================================================================
+    # WS-STATION-DATA-001 Phase 2: Station Event Emission
+    # =========================================================================
+
+    async def _emit_stations_declared(
+        self,
+        plan: WorkflowPlan,
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Emit stations_declared event on workflow start.
+
+        Broadcasts the full station list for this workflow so UI can
+        render station dots immediately, including phases (sub-steps) per station.
+
+        Args:
+            plan: The workflow plan (contains station metadata)
+            state: The workflow state (for project_id, execution_id)
+        """
+        try:
+            stations = plan.get_stations()
+            if not stations:
+                logger.debug(f"No stations defined in plan {plan.workflow_id}")
+                return
+
+            # Collect phases (internals) per station
+            phases_by_station: Dict[str, List[str]] = {}
+            for node in plan.nodes:
+                if node.station and node.internals:
+                    station_id = node.station.id
+                    if station_id not in phases_by_station:
+                        phases_by_station[station_id] = []
+                    # Add internal keys as phases (preserves dict order from Python 3.7+)
+                    for phase_key in node.internals.keys():
+                        if phase_key not in phases_by_station[station_id]:
+                            phases_by_station[station_id].append(phase_key)
+
+            # All stations start as pending, include phases if any
+            station_data = [
+                {
+                    "id": s["id"],
+                    "label": s["label"],
+                    "order": s["order"],
+                    "state": "pending",
+                    "phases": phases_by_station.get(s["id"], []),
+                }
+                for s in stations
+            ]
+
+            await publish_event(
+                state.project_id,
+                "stations_declared",
+                {
+                    "document_type": state.document_type,
+                    "execution_id": state.execution_id,
+                    "stations": station_data,
+                },
+            )
+            logger.debug(
+                f"Emitted stations_declared for {state.document_type}: "
+                f"{[s['id'] for s in station_data]}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to emit stations_declared: {e}")
+
+    async def _emit_station_changed(
+        self,
+        plan: WorkflowPlan,
+        state: DocumentWorkflowState,
+        node_id: str,
+        station_state: str,
+        phase: Optional[str] = None,
+    ) -> None:
+        """Emit station_changed event when station state changes.
+
+        Args:
+            plan: The workflow plan
+            state: The workflow state
+            node_id: The node causing the change
+            station_state: New station state (pending, active, complete, blocked)
+            phase: Optional sub-phase (pass_a, entry, merge, etc.)
+        """
+        try:
+            station = plan.get_node_station(node_id)
+            if not station:
+                logger.debug(f"No station for node {node_id}")
+                return
+
+            data = {
+                "document_type": state.document_type,
+                "execution_id": state.execution_id,
+                "station_id": station.id,
+                "state": station_state,
+            }
+            if phase:
+                data["phase"] = phase
+
+            await publish_event(state.project_id, "station_changed", data)
+            logger.debug(
+                f"Emitted station_changed: {station.id} -> {station_state}"
+                f"{f' (phase: {phase})' if phase else ''}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to emit station_changed: {e}")
+
+    async def _emit_internal_step(
+        self,
+        plan: WorkflowPlan,
+        state: DocumentWorkflowState,
+        node: Node,
+        phase_key: str,
+    ) -> None:
+        """Emit internal_step event when entering an internal phase.
+        
+        Broadcasts detailed step information for UI display:
+        - Station context
+        - Internal step details (key, name, type)
+        - Progress (step number, total steps)
+        
+        Args:
+            plan: The workflow plan
+            state: The workflow state
+            node: The node being executed
+            phase_key: The internal phase key (e.g., 'pass_a', 'entry', 'merge')
+        """
+        try:
+            station = plan.get_node_station(node.node_id)
+            if not station or not node.internals:
+                return
+            
+            # Get internal details
+            internal = node.internals.get(phase_key, {})
+            internal_name = internal.get("name", phase_key)
+            internal_type = internal.get("internal_type", "UNKNOWN")
+            
+            # Calculate step position
+            internal_keys = list(node.internals.keys())
+            step_number = internal_keys.index(phase_key) + 1 if phase_key in internal_keys else 1
+            total_steps = len(internal_keys)
+            
+            data = {
+                "document_type": state.document_type,
+                "execution_id": state.execution_id,
+                "station_id": station.id,
+                "node_id": node.node_id,
+                "step": {
+                    "key": phase_key,
+                    "name": internal_name,
+                    "type": internal_type,
+                    "number": step_number,
+                    "total": total_steps,
+                },
+            }
+            
+            await publish_event(state.project_id, "internal_step", data)
+            logger.debug(
+                f"Emitted internal_step: {station.id}.{phase_key} "
+                f"({step_number}/{total_steps}: {internal_name})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to emit internal_step: {e}")
+
     async def get_execution_status(
         self,
         execution_id: str,

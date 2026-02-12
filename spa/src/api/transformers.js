@@ -6,7 +6,7 @@
  * These transformers bridge the gap.
  */
 
-import { STATION_IDS } from '../utils/constants';
+// STATION_IDS removed - stations now driven by workflow definitions (WS-STATION-DATA-001)
 
 /**
  * Map API production state to SPA state
@@ -37,19 +37,7 @@ const STATE_MAP = {
     'stabilized': 'produced',
 };
 
-/**
- * Map station IDs to full display labels
- */
-const STATION_LABELS = {
-    'pgc': 'PGC',
-    'bind': 'BIND',
-    'asm': 'ASM',
-    'draft': 'DRAFT',
-    'aud': 'QA',
-    'qa': 'QA',
-    'rem': 'REM',
-    'done': 'DONE',
-};
+// STATION_LABELS removed - labels now come from workflow definitions via API
 
 /**
  * Transform API project list to SPA projects object
@@ -133,10 +121,10 @@ function transformTrack(track, interrupts = []) {
     // Find matching interrupt for this track
     const interrupt = interrupts.find(i => i.document_type === track.document_type);
 
-    // Build stations array for in_production, awaiting_operator, or produced documents
-    // Produced documents show all stations complete (subway map visual)
+    // Build stations array for in_production or awaiting_operator documents
+    // Stabilized documents hide stations (handled in DocumentNode.jsx)
     let stations = null;
-    if (state === 'in_production' || needsInput || state === 'produced') {
+    if (state === 'in_production' || needsInput) {
         stations = buildStations(track.stations, track.state, track.station);
     }
 
@@ -181,30 +169,21 @@ function transformTrack(track, interrupts = []) {
 
 /**
  * Build stations array for active documents
+ * 
+ * Per WS-STATION-DATA-001: Stations are now driven by workflow definitions.
+ * The backend sends the complete station list with states.
  */
 function buildStations(apiStations, trackState, currentStation) {
     if (!apiStations || apiStations.length === 0) {
-        // Generate default stations based on current state/station
-        // Use the station field from the API if available
-        const activeStation = currentStation ||
-                              (trackState === 'awaiting_operator' ? 'pgc' :
-                               trackState === 'in_production' ? 'asm' : null);
-
-        return STATION_IDS.map(id => ({
-            id,
-            label: STATION_LABELS[id] || id.toUpperCase(),
-            state: activeStation === id ? 'active' :
-                   STATION_IDS.indexOf(id) < STATION_IDS.indexOf(activeStation) ? 'complete' : 'pending',
-            needs_input: id === 'pgc' && trackState === 'awaiting_operator',
-        }));
+        // No stations from API - workflow may not have station metadata yet
+        return null;
     }
 
     return apiStations.map(s => ({
         id: s.station,
-        label: STATION_LABELS[s.station] || s.station.toUpperCase(),
+        label: s.label || s.station.toUpperCase(),
         state: s.state || 'pending',
-        // needs_input is true if station says so OR if track is awaiting_operator and station is active
-        needs_input: s.needs_input || (trackState === 'awaiting_operator' && s.state === 'active'),
+        needs_input: s.needs_input || false,
     }));
 }
 

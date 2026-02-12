@@ -96,6 +96,7 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
         <div
             ref={containerRef}
             className="h-full flex flex-col relative"
+            onWheel={(e) => e.stopPropagation()}
             style={{
                 width: currentWidth,
                 minWidth: currentWidth,

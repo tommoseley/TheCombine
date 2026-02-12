@@ -55,6 +55,27 @@ class EdgeCondition:
 
 
 @dataclass
+class StationMetadata:
+    """Station metadata for production floor display.
+    
+    Stations are user-meaningful phases, not 1:1 with nodes.
+    Multiple nodes may map to the same station.
+    """
+    id: str  # e.g., "pgc", "draft", "qa", "done"
+    label: str  # e.g., "PGC", "DRAFT", "QA", "DONE"
+    order: int  # Display order (1, 2, 3...)
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, Any]) -> "StationMetadata":
+        """Create from raw dict."""
+        return cls(
+            id=raw["id"],
+            label=raw["label"],
+            order=raw["order"],
+        )
+
+
+@dataclass
 class Edge:
     """A directed edge between nodes in the workflow graph."""
     edge_id: str
@@ -103,6 +124,7 @@ class Node:
     non_advancing: bool = False
     includes: Dict[str, str] = field(default_factory=dict)  # ADR-041 template includes
     internals: Dict[str, Any] = field(default_factory=dict)  # ADR-047 Gate Profile internals
+    station: Optional[StationMetadata] = None  # WS-STATION-DATA-001: Production floor station
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "Node":
@@ -121,6 +143,7 @@ class Node:
             non_advancing=raw.get("non_advancing", False),
             includes=raw.get("includes", {}),
             internals=raw.get("internals", {}),
+            station=StationMetadata.from_dict(raw["station"]) if raw.get("station") else None,
         )
 
 
@@ -300,6 +323,44 @@ class WorkflowPlan:
         for mapping in self.outcome_mapping:
             if mapping.gate_outcome == gate_outcome:
                 return mapping.terminal_outcome
+        return None
+
+    def get_stations(self) -> List[Dict[str, Any]]:
+        """Get ordered station list from node metadata.
+        
+        Multiple nodes may map to the same station (deduped by id).
+        Returns stations sorted by order field.
+        
+        Returns:
+            List of station dicts: [{id, label, order}]
+        """
+        stations_by_id: Dict[str, StationMetadata] = {}
+        for node in self.nodes:
+            if node.station and node.station.id not in stations_by_id:
+                stations_by_id[node.station.id] = node.station
+        
+        # Sort by order and convert to dicts
+        sorted_stations = sorted(stations_by_id.values(), key=lambda s: s.order)
+        return [{"id": s.id, "label": s.label, "order": s.order} for s in sorted_stations]
+
+    def get_node_station(self, node_id: str) -> Optional[StationMetadata]:
+        """Get the station for a specific node.
+        
+        Handles internal nodes (e.g., "pass_a", "entry") by finding the
+        parent gate node that contains them in its internals.
+        """
+        # Direct lookup first
+        node = self.get_node(node_id)
+        if node and node.station:
+            return node.station
+        
+        # If not found or no station, search for parent gate containing this internal
+        for potential_parent in self.nodes:
+            if potential_parent.internals:
+                if node_id in potential_parent.internals:
+                    if potential_parent.station:
+                        return potential_parent.station
+        
         return None
 
     @classmethod

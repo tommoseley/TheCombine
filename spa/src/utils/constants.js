@@ -79,8 +79,8 @@ export const TRAY = {
     WIDTH: 280
 };
 
-// Station IDs in order
-export const STATION_IDS = ['pgc', 'asm', 'draft', 'qa', 'done'];
+// Station IDs removed - now driven by workflow definitions per WS-STATION-DATA-001
+// Stations come from backend API in track.stations[]
 
 // Theme list
 export const THEMES = ['industrial', 'light', 'blueprint'];

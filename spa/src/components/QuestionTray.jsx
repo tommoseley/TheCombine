@@ -203,6 +203,9 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
         // Don't reset isSubmitting - component will unmount after successful submit
     };
 
+    // Stop events from propagating to ReactFlow canvas
+    const stopPropagation = (e) => e.stopPropagation();
+
     return (
         <div
             className="absolute top-0 border border-amber-500/50 rounded-lg shadow-2xl tray-slide"
@@ -214,6 +217,9 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                 background: 'var(--bg-sidecar)',
                 transition: 'width 0.2s ease',
             }}
+            onMouseDown={stopPropagation}
+            onPointerDown={stopPropagation}
+            onWheel={stopPropagation}
         >
             {/* Horizontal bridge - top aligned at header center */}
             <div

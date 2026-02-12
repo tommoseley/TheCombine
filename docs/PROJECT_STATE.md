@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-09
-**Updated By:** Claude (workflow loading migration to combine-config)
+**Last Updated:** 2026-02-12
+**Updated By:** Claude (WS-STATION-DATA-001 complete, internal_step events, UI polish)
 
 ## Current Focus
 
@@ -17,7 +17,7 @@ All work statements delivered:
 **DRAFT:** ADR-048 -- Intake POW and Workflow Routing
 
 Defines front-door architecture:
-- `intake_and_route` POW with DCW → route → validate → spawn steps
+- `intake_and_route` POW with DCW â†’ route â†’ validate â†’ spawn steps
 - Complete-and-handoff spawn model with lineage tracking
 - `routing_decision.v1` schema with candidates and QA checks
 
@@ -57,6 +57,29 @@ Defines front-door architecture:
 
 ---
 
+
+---
+
+## WS-STATION-DATA-001 Status (Complete)
+
+Event-driven station display system for production floor UI.
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | Complete | Station metadata in workflow definitions, backend derivation |
+| Phase 2 | Complete | Backend event emission (stations_declared, station_changed, internal_step) |
+| Phase 3 | Complete | Frontend event handling, real-time UI updates |
+
+### Events Emitted
+- `stations_declared` - Full station list on workflow start (with phases array)
+- `station_changed` - Station state transitions (pending/active/complete/blocked)
+- `internal_step` - Sub-step progress within stations (name, type, number/total)
+
+### UI Features
+- Station dots with even spacing (flex-1 distribution)
+- Progress line: green (complete) → amber (to active) → gray (pending)
+- Current step name displayed below stations
+- Pulsing animation on active station needing input
 ## WS-047 Status (ADR-047 execution_state: complete)
 
 | WS | Title | Status |
@@ -94,8 +117,11 @@ Step-based workflows for cross-document orchestration:
 - **Building Blocks tray highlighting** (2026-02-07): Selected items show left border accent
 - **Orchestration workflow display** (2026-02-07): Both POWs (intake_and_route, software_product_development) visible in left rail
 - **Auto-assign workflow** (2026-02-08): Projects auto-assign `software_product_development` on creation
-- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe → Confirm → Done
+- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe â†’ Confirm â†’ Done
 - **Externalized intro content** (2026-02-08): Concierge intro loaded from YAML (`/content/concierge-intro.yaml`)
+- **SSE interrupt fix** (2026-02-11): SSE events now emit correctly after interrupt resolution
+- **Station abbreviations** (2026-02-11): Station dots use PGC/ASM/DRAFT/QA/REM/DONE labels; hidden on stabilized docs
+- **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue â†’ amber â†’ cyan â†’ emerald)
 
 ---
 
@@ -171,7 +197,23 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
-### Recent Fixes (2026-02-09)
+### Recent Fixes (2026-02-12)
+- **WS-STATION-DATA-001 complete**: Event-driven station display with stations_declared, station_changed, internal_step events
+- Added internal_step event emission for PGC phases (pass_a/entry/merge) from workflow definition internals
+- Fixed station progress line colors (green → amber → gray)
+- Fixed scroll behavior in all sidecars/panels (onWheel stopPropagation)
+- Added spinner to Concierge confirmation button during submission
+- Fixed "Answer Questions" button persisting after PGC completion (only check active stations)
+- Removed hardcoded phase emissions in favor of data-driven events from workflow internals
+
+### Previous Fixes (2026-02-11)
+- Fixed SSE event emission after interrupt resolution (`get_interrupt()` moved before `resolve()`)
+- Station dots now abbreviation-only; hidden on stabilized documents
+- All state colors moved to CSS variables with new luminance/chroma palette
+- Added missing `--state-blocked-*` and `--state-ready-*` CSS variables
+- Fixed blueprint theme stabilized color (was white, now emerald)
+
+### Previous Fixes (2026-02-09)
 - Migrated workflow loading from `seed/workflows/` to `combine-config/workflows/` (commit `19ad038`)
 - WorkflowRegistry now supports versioned structure (`{id}/releases/{version}/definition.json`)
 - Extended `workflow.v1.json` schema to allow v2 fields (pow_class, derived_from, source_version, tags)
@@ -186,7 +228,7 @@ python -m pytest tests/ -k "plan_executor" -v
 - Added `require_auth` dependency to all intake endpoints
 - Fixed user fields on project creation (`created_by`, `owner_id`, `organization_id` now populated)
 - Auto-assign `software_product_development` workflow on project creation
-- Streamlined Concierge phases: Describe → Confirm → Done (removed Review/Generate)
+- Streamlined Concierge phases: Describe â†’ Confirm â†’ Done (removed Review/Generate)
 - Renamed "Project Type" to "Intent Classification" in confirmation form
 - Added "Confirmation requested" notice to entry form
 - Externalized Concierge intro content to `/content/concierge-intro.yaml`

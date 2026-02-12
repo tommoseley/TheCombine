@@ -1,16 +1,23 @@
-/**
+﻿/**
  * Factory functions for creating document/project data structures
+ * 
+ * Note: Stations are now workflow-driven per WS-STATION-DATA-001.
+ * createStations is kept for test compatibility but should not be used
+ * in production code - stations come from the backend API.
  */
-import { STATION_IDS } from '../utils/constants';
 
 export const createDocument = (id, name, desc, state = 'queued', intent = 'mandatory', options = {}) => ({
     id, name, desc, state, intent, level: 1, ...options
 });
 
-export const createStations = (activeStation = null) => STATION_IDS.map(id => ({
+/**
+ * @deprecated Stations are now workflow-driven. Use API-provided stations.
+ * Kept for test fixtures only.
+ */
+export const createStations = (activeStation = null, stationIds = ['pgc', 'draft', 'qa', 'done']) => stationIds.map((id, idx) => ({
     id,
     label: id.toUpperCase(),
-    state: activeStation === id ? 'active' : STATION_IDS.indexOf(id) < STATION_IDS.indexOf(activeStation) ? 'complete' : 'pending',
+    state: activeStation === id ? 'active' : stationIds.indexOf(id) < stationIds.indexOf(activeStation) ? 'complete' : 'pending',
     needs_input: activeStation === id && id === 'pgc'
 }));
 
@@ -32,7 +39,7 @@ export const createNewProject = (name) => {
         status: 'active',
         data: [
             createDocument('concierge', 'Concierge Intake', 'Tell us about your project', 'active', 'mandatory', {
-                stations: createStations('pgc'),
+                stations: createStations('pgc', ['intake', 'draft', 'qa', 'done']),
                 questions: createQuestions([
                     'What is the primary goal of this project?',
                     'Who are the main stakeholders?',

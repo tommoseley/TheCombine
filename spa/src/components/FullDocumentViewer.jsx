@@ -204,6 +204,7 @@ function RawContentViewer({ content, docTypeId }) {
                     padding: 16,
                     overflow: 'auto',
                 }}
+                onWheel={(e) => e.stopPropagation()}
             >
                 <pre
                     style={{

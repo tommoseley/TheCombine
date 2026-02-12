@@ -205,6 +205,7 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
                     background: 'var(--bg-panel)',
                     border: '1px solid var(--border-panel)',
                 }}
+                onWheel={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div

@@ -16,86 +16,94 @@ from app.api.models.document import Document
 from app.api.models.document_type import DocumentType
 from app.api.models.project import Project
 from app.api.models.workflow_execution import WorkflowExecution
-from app.domain.workflow.production_state import ProductionState, Station
+from app.domain.workflow.production_state import ProductionState
 from app.domain.workflow.plan_registry import get_plan_registry
+from app.domain.workflow.plan_loader import PlanLoader
 
 logger = logging.getLogger(__name__)
 
 
-def _build_station_sequence(
+# Cache for workflow plans (avoid repeated file I/O)
+_workflow_plan_cache: Dict[str, Any] = {}
+
+
+def _get_workflow_plan(document_type: str):
+    """Load workflow plan for a document type.
+    
+    Uses combine-config versioned structure.
+    Returns WorkflowPlan or None if not found.
+    """
+    from pathlib import Path
+    
+    if document_type in _workflow_plan_cache:
+        return _workflow_plan_cache[document_type]
+    
+    # Try to load from combine-config
+    active_releases_path = Path("combine-config/_active/active_releases.json")
+    if active_releases_path.exists():
+        try:
+            with open(active_releases_path) as f:
+                active = json.load(f)
+            version = active.get("workflows", {}).get(document_type)
+            if version:
+                plan_path = Path(f"combine-config/workflows/{document_type}/releases/{version}/definition.json")
+                if plan_path.exists():
+                    loader = PlanLoader()
+                    plan = loader.load(plan_path)
+                    _workflow_plan_cache[document_type] = plan
+                    return plan
+        except Exception as e:
+            logger.warning(f"Failed to load workflow plan for {document_type}: {e}")
+    
+    _workflow_plan_cache[document_type] = None
+    return None
+
+
+def _build_station_sequence_from_workflow(
+    workflow_stations: List[Dict[str, Any]],
     current_node: str,
+    current_node_station_id: Optional[str],
     status: str,
     terminal_outcome: Optional[str],
     pending_user_input: bool,
 ) -> List[Dict[str, str]]:
-    """Build station sequence for a workflow execution.
+    """Build station sequence from workflow-defined stations.
 
-    Maps workflow node progress to station dots (ADR-043):
-    - PGC: Pre-Gen Check (pgc_gate nodes)
-    - ASM: Assembly (generation/task nodes)
-    - QA: Quality Audit (qa_gate nodes)
-    - REM: Remediation (remediation nodes) - only shown if active
-    - DONE: Complete
+    Per WS-STATION-DATA-001: Stations are derived from DCW node metadata,
+    not hardcoded. Multiple nodes may map to the same station.
 
     Args:
+        workflow_stations: Station list from WorkflowPlan.get_stations()
         current_node: Current workflow node ID
+        current_node_station_id: Station ID for current node (from node metadata)
         status: Execution status (running, paused, completed, failed)
         terminal_outcome: Terminal outcome if completed (stabilized, blocked)
         pending_user_input: Whether waiting for user input
 
     Returns:
-        List of station dicts with id, label, state
+        List of station dicts with station, label, state, needs_input
     """
-    # Determine which station is active based on current node
-    # Station sequence: PGC -> ASM -> DRAFT -> QA -> REM -> DONE
-    # DRAFT represents the state where document content exists but is not yet QA'd
-    current_station = None
-    if current_node:
-        node_lower = current_node.lower()
-        if "pgc" in node_lower:
-            current_station = "pgc"
-        elif "generation" in node_lower or node_lower == "task":
-            current_station = "asm"
-        elif "qa" in node_lower:
-            # QA node means DRAFT is complete (document generated), now auditing
-            current_station = "qa"
-        elif "remediat" in node_lower:
-            current_station = "rem"
-        elif "end" in node_lower or "stabilized" in node_lower:
-            current_station = "done"
-        # Note: DRAFT is an implicit station - when ASM completes and QA starts,
-        # DRAFT transitions from pending->complete automatically
-
-    # Station order - all 6 stations per WS-SUBWAY-MAP-001 Phase 2
-    # DRAFT = document content available for preview while QA runs
-    # REM = Remediation (when QA fails and regeneration needed)
-    station_order = ["pgc", "asm", "draft", "qa", "rem", "done"]
-    station_labels = {
-        "pgc": "PGC",
-        "asm": "ASM",
-        "draft": "DRAFT",
-        "qa": "QA",
-        "rem": "REM",
-        "done": "DONE",
-    }
+    if not workflow_stations:
+        # Fallback for workflows without station metadata
+        return []
 
     stations = []
-    current_idx = station_order.index(current_station) if current_station in station_order else -1
+    station_order = [s["id"] for s in workflow_stations]
+    current_idx = station_order.index(current_node_station_id) if current_node_station_id in station_order else -1
 
     # Handle completed/stabilized state
     if terminal_outcome == "stabilized" or status == "completed":
-        # All stations complete
-        for sid in station_order:
+        for s in workflow_stations:
             stations.append({
-                "station": sid,
-                "label": station_labels[sid],
+                "station": s["id"],
+                "label": s["label"],
                 "state": "complete",
             })
         return stations
 
     # Handle failed/blocked state
     if terminal_outcome == "blocked" or status == "failed":
-        for i, sid in enumerate(station_order):
+        for i, s in enumerate(workflow_stations):
             if i < current_idx:
                 state = "complete"
             elif i == current_idx:
@@ -103,23 +111,23 @@ def _build_station_sequence(
             else:
                 state = "pending"
             stations.append({
-                "station": sid,
-                "label": station_labels[sid],
+                "station": s["id"],
+                "label": s["label"],
                 "state": state,
             })
         return stations
 
     # Build stations based on current position
-    for i, sid in enumerate(station_order):
+    for i, s in enumerate(workflow_stations):
         if i < current_idx:
             state = "complete"
         elif i == current_idx:
             state = "active"
-            # If pending user input at PGC, mark as needs_input
-            if sid == "pgc" and pending_user_input:
+            # If pending user input at current station, mark as needs_input
+            if pending_user_input:
                 stations.append({
-                    "station": sid,
-                    "label": station_labels[sid],
+                    "station": s["id"],
+                    "label": s["label"],
                     "state": "active",
                     "needs_input": True,
                 })
@@ -128,8 +136,8 @@ def _build_station_sequence(
             state = "pending"
 
         stations.append({
-            "station": sid,
-            "label": station_labels[sid],
+            "station": s["id"],
+            "label": s["label"],
             "state": state,
         })
 
@@ -312,12 +320,18 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             concierge_track["state"] = ProductionState.PRODUCED.value
             stabilized_types.add("concierge_intake")
             # Show all stations as complete for produced documents
-            concierge_track["stations"] = _build_station_sequence(
-                current_node="end_stabilized",
-                status="completed",
-                terminal_outcome="stabilized",
-                pending_user_input=False,
-            )
+            # Load workflow plan to get station metadata
+            concierge_plan = _get_workflow_plan("concierge_intake")
+            if concierge_plan:
+                workflow_stations = concierge_plan.get_stations()
+                concierge_track["stations"] = _build_station_sequence_from_workflow(
+                    workflow_stations=workflow_stations,
+                    current_node="end_stabilized",
+                    current_node_station_id="done",
+                    status="completed",
+                    terminal_outcome="stabilized",
+                    pending_user_input=False,
+                )
     tracks.append(concierge_track)
 
     # Get document types from master workflow definition
@@ -371,12 +385,17 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 track["state"] = ProductionState.PRODUCED.value
                 stabilized_types.add(type_id)
                 # Show all stations as complete for produced documents
-                track["stations"] = _build_station_sequence(
-                    current_node="end_stabilized",
-                    status="completed",
-                    terminal_outcome="stabilized",
-                    pending_user_input=False,
-                )
+                workflow_plan = _get_workflow_plan(type_id)
+                if workflow_plan:
+                    workflow_stations = workflow_plan.get_stations()
+                    track["stations"] = _build_station_sequence_from_workflow(
+                        workflow_stations=workflow_stations,
+                        current_node="end_stabilized",
+                        current_node_station_id="done",
+                        status="completed",
+                        terminal_outcome="stabilized",
+                        pending_user_input=False,
+                    )
             else:
                 track["state"] = ProductionState.READY_FOR_PRODUCTION.value
 
@@ -397,25 +416,28 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 track["state"] = ProductionState.AWAITING_OPERATOR.value
             elif ex.status in ["running", "in_progress"]:
                 track["state"] = ProductionState.IN_PRODUCTION.value
-                # Determine current station from node type
-                if "qa" in current_node.lower():
-                    track["station"] = Station.QA.value
-                elif "remediat" in current_node.lower():
-                    track["station"] = Station.REM.value
-                elif "pgc" in current_node.lower():
-                    track["station"] = Station.PGC.value
-                else:
-                    track["station"] = Station.ASM.value
 
-            # Build station sequence based on current workflow state
-            # Stations: PGC -> ASM -> QA -> REM (if needed) -> DONE
-            stations = _build_station_sequence(
-                current_node=current_node,
-                status=ex.status,
-                terminal_outcome=ex.terminal_outcome,
-                pending_user_input=ex.pending_user_input,
-            )
-            track["stations"] = stations
+
+            # Build station sequence from workflow definition
+            workflow_plan = _get_workflow_plan(type_id)
+            if workflow_plan:
+                workflow_stations = workflow_plan.get_stations()
+                # Get station ID for current node
+                current_station_id = None
+                node_station = workflow_plan.get_node_station(current_node)
+                if node_station:
+                    current_station_id = node_station.id
+                
+                stations = _build_station_sequence_from_workflow(
+                    workflow_stations=workflow_stations,
+                    current_node=current_node,
+                    current_node_station_id=current_station_id,
+                    status=ex.status,
+                    terminal_outcome=ex.terminal_outcome,
+                    pending_user_input=ex.pending_user_input,
+                )
+                track["stations"] = stations
+                track["active_station_id"] = current_station_id
 
         tracks.append(track)
 

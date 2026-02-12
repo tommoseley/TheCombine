@@ -12,6 +12,9 @@ export default function FeatureGrid({ features, epicName, nodeWidth, onClose, on
         }
     }, [onZoomComplete]);
 
+    // Stop events from propagating to ReactFlow canvas
+    const stopPropagation = (e) => e.stopPropagation();
+
     return (
         <div
             className="absolute top-0 border border-indigo-500/50 rounded-lg shadow-2xl tray-slide"
@@ -22,6 +25,9 @@ export default function FeatureGrid({ features, epicName, nodeWidth, onClose, on
                 zIndex: 1000,
                 background: 'var(--bg-sidecar)'
             }}
+            onMouseDown={stopPropagation}
+            onPointerDown={stopPropagation}
+            onWheel={stopPropagation}
         >
             {/* Horizontal bridge */}
             <div
