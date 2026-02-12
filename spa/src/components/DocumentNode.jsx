@@ -16,12 +16,12 @@ import DocumentViewer from './DocumentViewer';
  * Execution state (queued/active/complete) is hidden - only for engine/logs.
  */
 
-// Colors for artifact states
+// Artifact state colors via CSS variables (defined in themes.css)
 const ARTIFACT_COLORS = {
-    blocked: { bg: '#ef4444', text: '#ef4444' },      // red
-    in_progress: { bg: '#f59e0b', text: '#f59e0b' },  // amber
-    ready: { bg: '#eab308', text: '#eab308' },        // yellow
-    stabilized: { bg: '#10b981', text: '#10b981' },   // green
+    blocked: { bg: 'var(--state-blocked-bg)', text: 'var(--state-blocked-text)' },
+    in_progress: { bg: 'var(--state-active-bg)', text: 'var(--state-active-text)' },
+    ready: { bg: 'var(--state-ready-bg)', text: 'var(--state-ready-text)' },
+    stabilized: { bg: 'var(--state-stabilized-bg)', text: 'var(--state-stabilized-text)' },
 };
 
 /**
@@ -88,8 +88,8 @@ export default function DocumentNode({ data }) {
     const isInProgress = artifactState === 'in_progress';
     const isBlocked = artifactState === 'blocked';
 
-    // Show stations for in-progress documents AND stabilized documents (all complete)
-    const showStations = (isInProgress || isStabilized) && data.stations;
+    // Show stations only for in-progress documents; stabilized documents don't need them
+    const showStations = isInProgress && data.stations;
     const stateClass = isInProgress ? 'node-active' : '';
     const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';
@@ -177,7 +177,7 @@ export default function DocumentNode({ data }) {
                         {isL1 && isStabilized && (
                             <button
                                 className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
-                                style={{ backgroundColor: '#10b981', color: 'white' }}
+                                style={{ backgroundColor: 'var(--state-stabilized-bg)', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     data.onExpand?.(data.id, 'document');
@@ -190,7 +190,7 @@ export default function DocumentNode({ data }) {
                         {isL1 && artifactState === 'ready' && (
                             <button
                                 className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
-                                style={{ backgroundColor: '#eab308', color: 'white' }}
+                                style={{ backgroundColor: 'var(--state-ready-bg)', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     data.onStartProduction?.(data.id);
@@ -203,7 +203,7 @@ export default function DocumentNode({ data }) {
                         {needsInput && hasQuestions && !isExpanded && (
                             <button
                                 className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all amber-pulse"
-                                style={{ backgroundColor: '#f59e0b', color: 'white' }}
+                                style={{ backgroundColor: 'var(--state-active-bg)', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     data.onExpand?.(data.id, 'questions');

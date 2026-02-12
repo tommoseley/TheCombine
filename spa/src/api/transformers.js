@@ -41,13 +41,14 @@ const STATE_MAP = {
  * Map station IDs to full display labels
  */
 const STATION_LABELS = {
-    'pgc': 'Pre-Gen Check',
-    'bind': 'Binding',
-    'asm': 'Assembly',
-    'aud': 'Quality Audit',
-    'qa': 'Quality Audit',
-    'rem': 'Remediation',
-    'done': 'Done',
+    'pgc': 'PGC',
+    'bind': 'BIND',
+    'asm': 'ASM',
+    'draft': 'DRAFT',
+    'aud': 'QA',
+    'qa': 'QA',
+    'rem': 'REM',
+    'done': 'DONE',
 };
 
 /**

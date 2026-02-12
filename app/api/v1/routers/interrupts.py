@@ -153,6 +153,12 @@ async def resolve_interrupt(
             detail="Resolution must include at least one of: answers, decision, notes, escalation_option",
         )
 
+    # Get interrupt details BEFORE resolving (resolve clears pending_user_input,
+    # which get_interrupt filters on, so it would return None after resolve)
+    interrupt = await registry.get_interrupt(interrupt_id)
+    project_id = interrupt.project_id if interrupt else None
+    document_type = interrupt.document_type if interrupt else None
+
     # Resolve the interrupt
     success = await registry.resolve(interrupt_id, resolution)
 
@@ -161,11 +167,6 @@ async def resolve_interrupt(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Interrupt '{interrupt_id}' not found or already resolved",
         )
-
-    # Get interrupt details BEFORE resolving (it will be cleared after)
-    interrupt = await registry.get_interrupt(interrupt_id)
-    project_id = interrupt.project_id if interrupt else None
-    document_type = interrupt.document_type if interrupt else None
 
     await db.commit()
 
