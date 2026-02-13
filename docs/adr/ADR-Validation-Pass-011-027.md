@@ -1,4 +1,4 @@
-﻿# ADR Validation Pass: ADR-011 ↔ ADR-027 ↔ Workflow Schema
+# ADR Validation Pass: ADR-011 ↔ ADR-027 ↔ Workflow Schema
 
 **Date:** 2026-01-02  
 **Validator:** Claude  

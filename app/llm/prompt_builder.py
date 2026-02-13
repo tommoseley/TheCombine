@@ -1,4 +1,4 @@
-﻿"""Prompt builder for assembling LLM messages."""
+"""Prompt builder for assembling LLM messages."""
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol

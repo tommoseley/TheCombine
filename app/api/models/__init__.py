@@ -1,4 +1,4 @@
-﻿"""
+"""
 Models for The Combine.
 """
 from app.api.models.project import Project

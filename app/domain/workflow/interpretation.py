@@ -1,4 +1,4 @@
-﻿"""
+"""
 Interpretation field management for Intake workflow.
 
 Implements single-writer locking and confidence calculation for the

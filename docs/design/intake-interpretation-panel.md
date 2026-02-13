@@ -1,4 +1,4 @@
-﻿# Intake Interpretation Panel Design
+# Intake Interpretation Panel Design
 
 ## Status: Draft
 ## Author: Tom Moseley / AI Collaboration

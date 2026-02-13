@@ -1,4 +1,4 @@
-﻿"""add concierge intake tables
+"""add concierge intake tables
 
 Revision ID: 20260114_144631
 Revises: (will be filled by alembic)

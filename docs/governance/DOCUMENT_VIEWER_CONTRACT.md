@@ -1,4 +1,4 @@
-﻿# DocumentViewer Contract v1.0
+# DocumentViewer Contract v1.0
 
 **Status:** Frozen  
 **Effective:** 2026-01-09  

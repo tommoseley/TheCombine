@@ -1,4 +1,4 @@
-﻿"""Tests for SSE streaming endpoint."""
+"""Tests for SSE streaming endpoint."""
 
 import pytest
 import asyncio

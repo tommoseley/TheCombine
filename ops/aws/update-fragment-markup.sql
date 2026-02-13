@@ -1,4 +1,4 @@
-﻿UPDATE fragment_artifacts 
+UPDATE fragment_artifacts 
 SET fragment_markup = '<div class="flex items-start" data-question-id="{{ item.id }}">
     {% if item.blocking %}
     <i data-lucide="alert-circle" class="w-4 h-4 mr-2 text-red-600 dark:text-red-500 flex-shrink-0 mt-0.5"></i>

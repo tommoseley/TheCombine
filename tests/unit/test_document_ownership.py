@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for ADR-011-Part-2 Document Ownership (DocumentService extension).
 
 Test Categories per ADR-011-Part-2 Section 8:

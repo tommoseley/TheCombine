@@ -1,4 +1,4 @@
-﻿"""Document condenser for role-aware summarization."""
+"""Document condenser for role-aware summarization."""
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional

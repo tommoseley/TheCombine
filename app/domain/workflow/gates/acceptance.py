@@ -1,4 +1,4 @@
-﻿"""Acceptance gate - human approval flow for documents.
+"""Acceptance gate - human approval flow for documents.
 
 MVP scope per ADR-021:
 - Boolean accept/reject

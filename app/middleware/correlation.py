@@ -1,4 +1,4 @@
-﻿"""
+"""
 Correlation ID middleware.
 
 Converts X-Correlation-ID header (string) to UUID once.

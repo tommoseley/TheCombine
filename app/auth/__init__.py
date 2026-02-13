@@ -1,4 +1,4 @@
-﻿"""Authentication module for The Combine."""
+"""Authentication module for The Combine."""
 
 from .models import (
     User,

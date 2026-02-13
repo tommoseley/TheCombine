@@ -1,4 +1,4 @@
-﻿"""
+"""
 Database configuration and session management.
 
 Provides async database sessions and metadata for ORM models.

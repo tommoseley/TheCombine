@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Status API Endpoints (ADR-007)
 
 Provides endpoints for:

@@ -1,4 +1,4 @@
-﻿"""Tests for environment configuration and validation."""
+"""Tests for environment configuration and validation."""
 
 import pytest
 import os

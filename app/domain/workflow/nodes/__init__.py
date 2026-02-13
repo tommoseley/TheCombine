@@ -1,4 +1,4 @@
-﻿"""Node executors for Document Interaction Workflow Plans (ADR-039).
+"""Node executors for Document Interaction Workflow Plans (ADR-039).
 
 Each node type has a dedicated executor that implements the NodeExecutor protocol.
 

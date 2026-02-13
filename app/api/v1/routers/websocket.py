@@ -1,4 +1,4 @@
-﻿"""WebSocket endpoint for real-time execution updates."""
+"""WebSocket endpoint for real-time execution updates."""
 
 import asyncio
 import json

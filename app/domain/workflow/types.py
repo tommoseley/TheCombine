@@ -1,4 +1,4 @@
-﻿"""Validation result types for workflow validation."""
+"""Validation result types for workflow validation."""
 
 from dataclasses import dataclass, field
 from enum import Enum

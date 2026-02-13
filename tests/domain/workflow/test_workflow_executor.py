@@ -1,4 +1,4 @@
-﻿"""Tests for workflow executor."""
+"""Tests for workflow executor."""
 
 import pytest
 from typing import Dict, Any

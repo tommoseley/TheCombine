@@ -1,4 +1,4 @@
-﻿# POL-ADR-EXEC-001: ADR Execution Authorization Process
+# POL-ADR-EXEC-001: ADR Execution Authorization Process
 
 | | |
 |---|---|

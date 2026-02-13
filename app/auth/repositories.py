@@ -1,4 +1,4 @@
-﻿"""Authentication repositories."""
+"""Authentication repositories."""
 
 from typing import Dict, List, Optional, Protocol, runtime_checkable
 from datetime import datetime, timezone

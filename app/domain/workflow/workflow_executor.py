@@ -1,4 +1,4 @@
-﻿"""Workflow executor - orchestrate multi-step workflow execution.
+"""Workflow executor - orchestrate multi-step workflow execution.
 
 Coordinates step sequencing, iteration expansion, acceptance pauses,
 and state management for complete workflow execution.

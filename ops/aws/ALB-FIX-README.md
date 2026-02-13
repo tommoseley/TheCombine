@@ -1,4 +1,4 @@
-﻿# ALB Fix Scripts
+# ALB Fix Scripts
 
 These scripts fix the ECS service to use the Application Load Balancer.
 

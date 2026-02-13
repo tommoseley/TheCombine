@@ -1,4 +1,4 @@
-﻿"""
+"""
 Structured logging configuration for The Combine.
 
 Supports both human-readable (development) and JSON (staging/production) formats.

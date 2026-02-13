@@ -1,4 +1,4 @@
-﻿{
+{
   "$id": "schema:RenderModelV1",
   "title": "Render Model V1",
   "type": "object",

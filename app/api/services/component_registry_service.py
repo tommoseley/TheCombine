@@ -1,4 +1,4 @@
-﻿"""
+"""
 ComponentRegistryService for ADR-034 Canonical Components.
 
 Provides read-first operations for component artifacts:

@@ -1,4 +1,4 @@
-﻿# Procedure: Add Component
+# Procedure: Add Component
 
 **Status:** Frozen  
 **Effective:** 2026-01-09  

@@ -1,4 +1,4 @@
-﻿"""Tests for Document Interaction Workflow Plan models (ADR-039)."""
+"""Tests for Document Interaction Workflow Plan models (ADR-039)."""
 
 import pytest
 

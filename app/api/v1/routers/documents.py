@@ -1,4 +1,4 @@
-﻿"""V1 Documents API endpoints."""
+"""V1 Documents API endpoints."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional

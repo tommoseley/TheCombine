@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-EPIC-DETAIL: Epic Detail DocDef Migration
+# WS-ADR-034-EPIC-DETAIL: Epic Detail DocDef Migration
 
 | | |
 |---|---|

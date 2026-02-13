@@ -1,1 +1,1 @@
-﻿"""OAuth providers module."""
+"""OAuth providers module."""

@@ -1,4 +1,4 @@
-﻿# Document System Cleanup & Governance Alignment
+# Document System Cleanup & Governance Alignment
 
 ## Canonical Charter v3 (Consolidated)
 

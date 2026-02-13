@@ -1,4 +1,4 @@
-﻿"""End-to-end workflow integration tests."""
+"""End-to-end workflow integration tests."""
 
 import pytest
 from uuid import uuid4

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for RenderModelBuilder.
 
 Per WS-ADR-034-POC Phase 8.3: Tests for render model builder service.

@@ -1,4 +1,4 @@
-﻿# Document Page Architecture
+# Document Page Architecture
 
 ## Overview
 

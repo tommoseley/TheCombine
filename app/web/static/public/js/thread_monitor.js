@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Thread Status Monitor - ADR-035
  * Monitors active LLM threads and shows generation status.
  * Persists across navigation via localStorage and server polling.

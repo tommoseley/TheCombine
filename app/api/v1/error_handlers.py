@@ -1,4 +1,4 @@
-﻿"""Error handlers for consistent API error responses."""
+"""Error handlers for consistent API error responses."""
 
 import logging
 from typing import Callable

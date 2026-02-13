@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Fragment Registry Service (ADR-032).
 """
 

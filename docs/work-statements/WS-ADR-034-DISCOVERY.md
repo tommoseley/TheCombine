@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-DISCOVERY: Project Discovery DocDef Migration
+# WS-ADR-034-DISCOVERY: Project Discovery DocDef Migration
 
 | | |
 |---|---|

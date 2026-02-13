@@ -1,4 +1,4 @@
-﻿"""
+"""
 SchemaArtifact model for ADR-031 Schema Registry.
 
 Stores canonical schema types and document schemas as governed artifacts.

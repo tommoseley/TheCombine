@@ -1,4 +1,4 @@
-﻿# Phase 6: LLM Integration & Document Persistence - Summary
+# Phase 6: LLM Integration & Document Persistence - Summary
 
 ## Overview
 

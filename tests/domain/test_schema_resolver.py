@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Schema Resolver (ADR-031).
 """
 

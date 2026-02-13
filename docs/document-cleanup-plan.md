@@ -1,4 +1,4 @@
-﻿# Document Rendering & Generation Cleanup Plan v2
+# Document Rendering & Generation Cleanup Plan v2
 
 > **Governing Document**: This plan implements the [Document System Charter](./document-system-charter.md).
 > 

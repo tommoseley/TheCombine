@@ -1,4 +1,4 @@
-﻿"""Authentication middleware for protecting routes."""
+"""Authentication middleware for protecting routes."""
 
 from functools import wraps
 from typing import Callable, List, Optional

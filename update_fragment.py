@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 from app.core.database import async_session_factory
 from app.api.services.fragment_registry_service import FragmentRegistryService
 from seed.registry.fragment_artifacts import EPIC_STORIES_CARD_BLOCK_V1_FRAGMENT

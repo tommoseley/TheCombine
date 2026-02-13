@@ -1,4 +1,4 @@
-﻿# Phase 3 Summary: HTTP API Layer
+# Phase 3 Summary: HTTP API Layer
 
 **Duration:** Days 1-5  
 **Tests Added:** 46  

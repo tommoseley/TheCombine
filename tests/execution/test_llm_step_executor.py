@@ -1,4 +1,4 @@
-﻿"""Tests for LLM step executor."""
+"""Tests for LLM step executor."""
 
 import pytest
 import json

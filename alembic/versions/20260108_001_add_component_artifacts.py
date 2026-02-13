@@ -1,4 +1,4 @@
-﻿"""Add component_artifacts table for ADR-034 Canonical Components
+"""Add component_artifacts table for ADR-034 Canonical Components
 
 Revision ID: 20260108_001
 Revises: 20260106_003

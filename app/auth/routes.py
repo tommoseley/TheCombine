@@ -1,4 +1,4 @@
-﻿"""
+"""
 Authentication routes.
 
 ADR-008: Multi-Provider OAuth Authentication

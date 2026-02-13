@@ -1,4 +1,4 @@
-﻿"""Tests for prompt builder."""
+"""Tests for prompt builder."""
 
 import pytest
 

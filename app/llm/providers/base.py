@@ -1,4 +1,4 @@
-﻿"""LLM provider base protocol."""
+"""LLM provider base protocol."""
 
 from abc import ABC, abstractmethod
 from typing import List, Optional, Protocol, runtime_checkable

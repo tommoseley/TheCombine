@@ -1,4 +1,4 @@
-﻿# ADR-030: Backend-for-Frontend (BFF) Layer and ViewModel Boundary
+# ADR-030: Backend-for-Frontend (BFF) Layer and ViewModel Boundary
 
 | | |
 |---|---|

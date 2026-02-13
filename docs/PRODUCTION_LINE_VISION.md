@@ -1,4 +1,4 @@
-﻿# Production Line UI Vision - Subway Map
+# Production Line UI Vision - Subway Map
 
 Created: 2026-01-27
 Context: Session discussion about dependency visualization for Production Line

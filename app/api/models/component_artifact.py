@@ -1,4 +1,4 @@
-﻿"""
+"""
 ComponentArtifact model for ADR-034 Canonical Components.
 
 Stores canonical component specifications that bind schema, prompt guidance,

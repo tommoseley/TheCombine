@@ -1,4 +1,4 @@
-﻿"""LLM providers module."""
+"""LLM providers module."""
 
 from app.llm.providers.base import LLMProvider, BaseLLMProvider
 from app.llm.providers.anthropic import AnthropicProvider

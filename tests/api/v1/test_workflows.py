@@ -1,4 +1,4 @@
-﻿"""Tests for workflow endpoints."""
+"""Tests for workflow endpoints."""
 
 import pytest
 from fastapi.testclient import TestClient

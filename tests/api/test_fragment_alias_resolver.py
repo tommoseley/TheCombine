@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for FragmentRegistryService canonical ID resolution.
 
 Per WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS: Aliases removed.

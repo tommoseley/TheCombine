@@ -1,4 +1,4 @@
-﻿"""Add parent_document_id for document ownership (ADR-011-Part-2)
+"""Add parent_document_id for document ownership (ADR-011-Part-2)
 
 Revision ID: 20260105_001
 Revises: 20251231_004_add_llm_execution_logging

@@ -1,1 +1,1 @@
-﻿"""Tier-2 tests package."""
+"""Tier-2 tests package."""

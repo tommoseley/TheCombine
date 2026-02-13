@@ -1,4 +1,4 @@
-﻿# ADR-033: Data-Only Experience Contracts and Render Model Standard
+# ADR-033: Data-Only Experience Contracts and Render Model Standard
 
 | | |
 |---|---|

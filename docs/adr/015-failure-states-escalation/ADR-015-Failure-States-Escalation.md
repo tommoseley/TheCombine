@@ -1,4 +1,4 @@
-﻿# ADR-015 — Failure States & Escalation Semantics
+# ADR-015 — Failure States & Escalation Semantics
 
 **Status:** Draft (Scaffold)  
 **Date:** 2026-01-02  

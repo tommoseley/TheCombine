@@ -1,1 +1,1 @@
-﻿"""Auth tests module."""
+"""Auth tests module."""

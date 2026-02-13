@@ -1,4 +1,4 @@
-﻿"""Tests for workflow state."""
+"""Tests for workflow state."""
 
 import pytest
 from datetime import datetime, timezone

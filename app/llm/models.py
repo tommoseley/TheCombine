@@ -1,4 +1,4 @@
-﻿"""LLM domain models."""
+"""LLM domain models."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

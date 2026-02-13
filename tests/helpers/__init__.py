@@ -1,1 +1,1 @@
-﻿"""Test helpers package."""
+"""Test helpers package."""

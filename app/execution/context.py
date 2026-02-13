@@ -1,4 +1,4 @@
-﻿"""Execution context for workflow runs."""
+"""Execution context for workflow runs."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

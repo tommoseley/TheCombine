@@ -1,4 +1,4 @@
-﻿"""Tests for acceptance and clarification endpoints."""
+"""Tests for acceptance and clarification endpoints."""
 
 import pytest
 from fastapi import FastAPI

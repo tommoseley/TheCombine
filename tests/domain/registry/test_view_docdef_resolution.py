@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Phase 1: Config Consolidation (WS-DOCUMENT-SYSTEM-CLEANUP)
 
 Verifies that view_docdef is read from document_types table

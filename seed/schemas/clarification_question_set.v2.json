@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://thecombine.dev/schemas/clarification_question_set.v2.json",
   "title": "ClarificationQuestionSetV2",

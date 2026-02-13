@@ -1,4 +1,4 @@
-﻿# ADR-024 — Clarification Question Protocol & Usability Constraints
+# ADR-024 — Clarification Question Protocol & Usability Constraints
 
 **Status:** Accepted  
 **Date:** 2026-01-02  

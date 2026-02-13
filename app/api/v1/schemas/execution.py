@@ -1,4 +1,4 @@
-﻿"""Execution-related API schemas."""
+"""Execution-related API schemas."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional

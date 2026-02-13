@@ -1,4 +1,4 @@
-﻿# ADR-034: DocumentViewer Implementation Summary
+# ADR-034: DocumentViewer Implementation Summary
 
 **Date:** 2026-01-09
 **Status:** Routes functional, tests passing

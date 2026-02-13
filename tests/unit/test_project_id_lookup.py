@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for project route UUID/string ID handling.
 
 Bug: GET /projects/{uuid} returns 404 because _get_project_with_icon

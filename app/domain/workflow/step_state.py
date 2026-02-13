@@ -1,4 +1,4 @@
-﻿"""Step execution state model.
+"""Step execution state model.
 
 Tracks the state of a step as it progresses through execution.
 """

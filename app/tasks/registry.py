@@ -1,4 +1,4 @@
-﻿"""
+"""
 Background task registry for document builds.
 
 Simple in-memory registry for tracking async tasks.

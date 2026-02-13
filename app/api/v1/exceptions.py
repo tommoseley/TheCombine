@@ -1,4 +1,4 @@
-﻿"""Custom exceptions for API layer."""
+"""Custom exceptions for API layer."""
 
 from typing import Any, Dict, Optional
 

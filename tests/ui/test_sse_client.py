@@ -1,4 +1,4 @@
-﻿"""Tests for SSE client integration."""
+"""Tests for SSE client integration."""
 
 import pytest
 import asyncio

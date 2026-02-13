@@ -1,4 +1,4 @@
-﻿# Procedure: Add Document
+# Procedure: Add Document
 
 **Status:** Frozen  
 **Effective:** 2026-01-09  

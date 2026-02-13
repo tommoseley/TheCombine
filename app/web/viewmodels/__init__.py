@@ -1,4 +1,4 @@
-﻿from .epic_backlog_vm import (
+from .epic_backlog_vm import (
     EpicBacklogVM,
     EpicBacklogSectionVM,
     EpicCardVM,

@@ -1,4 +1,4 @@
-﻿"""Anthropic Claude LLM provider."""
+"""Anthropic Claude LLM provider."""
 
 import time
 import logging

@@ -1,4 +1,4 @@
-﻿"""Unit tests for interpretation field management.
+"""Unit tests for interpretation field management.
 
 Tests the single-writer locking and confidence calculation logic.
 """

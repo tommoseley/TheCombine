@@ -1,4 +1,4 @@
-﻿"""Workflow gates - validation and control points."""
+"""Workflow gates - validation and control points."""
 
 from app.domain.workflow.gates.clarification import ClarificationGate, ClarificationResult
 from app.domain.workflow.gates.qa import QAGate

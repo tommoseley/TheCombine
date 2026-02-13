@@ -1,4 +1,4 @@
-﻿# Governance Documents
+# Governance Documents
 
 This directory contains canonical governance specifications for The Combine.
 

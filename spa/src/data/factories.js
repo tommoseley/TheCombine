@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Factory functions for creating document/project data structures
  * 
  * Note: Stations are now workflow-driven per WS-STATION-DATA-001.

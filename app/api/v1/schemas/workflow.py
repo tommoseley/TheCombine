@@ -1,4 +1,4 @@
-﻿"""Workflow-related API schemas."""
+"""Workflow-related API schemas."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional

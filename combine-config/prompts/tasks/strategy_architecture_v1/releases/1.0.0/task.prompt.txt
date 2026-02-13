@@ -1,4 +1,4 @@
-﻿# Architecture Design Task
+# Architecture Design Task
 
 Design system architecture based on the Project Discovery and Requirements documents.
 

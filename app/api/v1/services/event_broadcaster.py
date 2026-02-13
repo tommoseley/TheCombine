@@ -1,4 +1,4 @@
-﻿"""Event broadcaster for real-time execution updates."""
+"""Event broadcaster for real-time execution updates."""
 
 import asyncio
 from datetime import datetime, timezone

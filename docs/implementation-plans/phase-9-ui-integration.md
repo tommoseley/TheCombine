@@ -1,4 +1,4 @@
-﻿# Phase 9: UI Integration & End-to-End Testing
+# Phase 9: UI Integration & End-to-End Testing
 
 ## Overview
 

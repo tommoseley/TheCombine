@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Schema Registry Service (ADR-031).
 """
 

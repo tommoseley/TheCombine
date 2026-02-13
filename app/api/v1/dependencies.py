@@ -1,4 +1,4 @@
-﻿"""FastAPI dependency injection for API endpoints."""
+"""FastAPI dependency injection for API endpoints."""
 
 from functools import lru_cache
 from pathlib import Path

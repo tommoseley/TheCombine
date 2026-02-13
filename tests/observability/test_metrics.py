@@ -1,4 +1,4 @@
-﻿"""Tests for metrics collection."""
+"""Tests for metrics collection."""
 
 import pytest
 from decimal import Decimal

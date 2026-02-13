@@ -1,4 +1,4 @@
-﻿{
+{
   "$id": "schema:RenderActionV1",
   "title": "Render Action V1",
   "type": "object",

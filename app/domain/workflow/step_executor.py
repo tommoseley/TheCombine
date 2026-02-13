@@ -1,4 +1,4 @@
-﻿"""Step executor - execute a single workflow step per ADR-012.
+"""Step executor - execute a single workflow step per ADR-012.
 
 This is the main orchestrator for step-level execution, combining:
 - Prompt loading

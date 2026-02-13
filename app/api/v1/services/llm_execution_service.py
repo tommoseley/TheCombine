@@ -1,4 +1,4 @@
-﻿"""LLM Execution Service - bridges API to LLMStepExecutor."""
+"""LLM Execution Service - bridges API to LLMStepExecutor."""
 
 import asyncio
 from dataclasses import dataclass, field

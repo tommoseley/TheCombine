@@ -1,4 +1,4 @@
-﻿"""Tests for V1 Documents API."""
+"""Tests for V1 Documents API."""
 
 import pytest
 from uuid import uuid4

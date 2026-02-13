@@ -1,4 +1,4 @@
-﻿"""
+"""
 Services for The Combine.
 """
 from .project_service import *

@@ -1,4 +1,4 @@
-﻿"""
+"""
 FastAPI dependencies for The Combine.
 
 Centralized dependency injection for:

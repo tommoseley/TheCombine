@@ -1,4 +1,4 @@
-﻿"""
+"""
 Fragment models for ADR-032 Fragment-Based Rendering.
 
 Stores canonical rendering fragments and their bindings to schema types.

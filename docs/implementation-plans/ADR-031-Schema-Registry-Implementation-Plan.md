@@ -1,4 +1,4 @@
-﻿# ADR-031 Implementation Plan: Canonical Schema Types and Schema Registry
+# ADR-031 Implementation Plan: Canonical Schema Types and Schema Registry
 
 **Created:** 2026-01-06  
 **ADR Version:** Draft  

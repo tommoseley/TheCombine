@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for ADR-034 proof of concept.
 
 Per WS-ADR-034-POC Phase 8.4: End-to-end integration tests.

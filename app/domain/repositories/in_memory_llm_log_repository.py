@@ -1,4 +1,4 @@
-﻿"""
+"""
 In-memory implementation for Tier-1 tests.
 
 Real storage semantics, queryable, no DB dependency.

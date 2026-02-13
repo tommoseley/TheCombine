@@ -1,4 +1,4 @@
-﻿"""
+"""
 Component and Fragment Completeness Tests.
 
 Per WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS:

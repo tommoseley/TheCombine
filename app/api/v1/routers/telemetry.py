@@ -1,4 +1,4 @@
-﻿"""Telemetry API endpoints for cost tracking and metrics."""
+"""Telemetry API endpoints for cost tracking and metrics."""
 
 from datetime import date, datetime
 from decimal import Decimal

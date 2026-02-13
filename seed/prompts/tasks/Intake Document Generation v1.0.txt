@@ -1,4 +1,4 @@
-﻿# Intake Document Generation v1.0
+# Intake Document Generation v1.0
 
 ## Purpose
 

@@ -1,4 +1,4 @@
-﻿"""Health check service for The Combine."""
+"""Health check service for The Combine."""
 
 import time
 from dataclasses import dataclass, field

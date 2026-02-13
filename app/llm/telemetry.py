@@ -1,4 +1,4 @@
-﻿"""LLM telemetry service for cost tracking and metrics."""
+"""LLM telemetry service for cost tracking and metrics."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, date, timezone

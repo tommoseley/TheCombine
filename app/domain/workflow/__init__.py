@@ -1,4 +1,4 @@
-﻿"""Workflow domain module.
+"""Workflow domain module.
 
 Provides workflow definition loading, validation, and execution.
 """

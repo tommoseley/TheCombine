@@ -1,4 +1,4 @@
-﻿"""Personal Access Token service."""
+"""Personal Access Token service."""
 
 import hashlib
 import secrets

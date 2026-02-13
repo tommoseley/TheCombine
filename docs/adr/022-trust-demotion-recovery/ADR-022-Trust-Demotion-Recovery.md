@@ -1,4 +1,4 @@
-﻿# ADR-022 — Trust Demotion, Recovery, and Revocation
+# ADR-022 — Trust Demotion, Recovery, and Revocation
 
 **Status:** Draft  
 **Version:** 0.1  

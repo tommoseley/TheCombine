@@ -1,4 +1,4 @@
-﻿"""Execution management endpoints."""
+"""Execution management endpoints."""
 
 from functools import lru_cache
 from typing import Any, Dict, List, Optional

@@ -1,4 +1,4 @@
-﻿# WS-STORY-BACKLOG-VIEW
+# WS-STORY-BACKLOG-VIEW
 
 | Field | Value |
 |---|---|

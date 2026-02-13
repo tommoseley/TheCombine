@@ -1,4 +1,4 @@
-﻿"""Add fragment_artifacts and fragment_bindings tables for ADR-032
+"""Add fragment_artifacts and fragment_bindings tables for ADR-032
 
 Revision ID: 20260106_003
 Revises: 20260106_002

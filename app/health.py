@@ -1,4 +1,4 @@
-﻿"""Health check endpoint for production monitoring."""
+"""Health check endpoint for production monitoring."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

@@ -1,4 +1,4 @@
-﻿"""Observability module for The Combine."""
+"""Observability module for The Combine."""
 
 from app.observability.logging import (
     JSONFormatter,

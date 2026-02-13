@@ -1,4 +1,4 @@
-﻿# Phase 4 Implementation Plan: UI Integration
+# Phase 4 Implementation Plan: UI Integration
 
 **Objective:** Build HTMX-powered web UI for workflow management, execution monitoring, and human interaction flows.
 

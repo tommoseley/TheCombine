@@ -1,4 +1,4 @@
-﻿"""API integration tests - verifying all endpoints work together."""
+"""API integration tests - verifying all endpoints work together."""
 
 import pytest
 from uuid import uuid4

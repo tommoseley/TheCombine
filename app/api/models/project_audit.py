@@ -1,4 +1,4 @@
-﻿"""
+"""
 ProjectAudit model for The Combine.
 
 Append-only audit log for project lifecycle events.

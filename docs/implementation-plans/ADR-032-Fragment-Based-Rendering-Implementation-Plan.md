@@ -1,4 +1,4 @@
-﻿# ADR-032 Implementation Plan: Fragment-Based Rendering
+# ADR-032 Implementation Plan: Fragment-Based Rendering
 
 | | |
 |---|---|

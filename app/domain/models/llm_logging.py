@@ -1,4 +1,4 @@
-﻿"""
+"""
 SQLAlchemy models for LLM Execution Logging (ADR-010).
 
 Domain models for execution telemetry and operational data.

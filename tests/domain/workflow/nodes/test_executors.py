@@ -1,4 +1,4 @@
-﻿"""Tests for node executors (ADR-039)."""
+"""Tests for node executors (ADR-039)."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock

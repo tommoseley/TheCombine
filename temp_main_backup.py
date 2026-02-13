@@ -1,4 +1,4 @@
-﻿"""
+"""
 Main FastAPI application for The Combine API.
 
 The Combine: AI-driven pipeline automation system.

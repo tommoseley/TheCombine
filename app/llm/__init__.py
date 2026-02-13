@@ -1,4 +1,4 @@
-﻿"""LLM integration module for The Combine."""
+"""LLM integration module for The Combine."""
 
 from app.llm.models import (
     Message,

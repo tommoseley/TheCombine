@@ -1,4 +1,4 @@
-﻿"""Add LLM thread queue tables (ADR-035)
+"""Add LLM thread queue tables (ADR-035)
 
 Revision ID: 20260110_001
 Revises: 20260108_002_add_document_definitions

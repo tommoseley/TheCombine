@@ -1,4 +1,4 @@
-﻿"""Admin UI routes."""
+"""Admin UI routes."""
 from .pages import router as pages_router
 from .dashboard import router as dashboard_router
 from .partials import router as partials_router

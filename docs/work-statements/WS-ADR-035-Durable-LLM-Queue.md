@@ -1,4 +1,4 @@
-﻿# WS-ADR-035: Durable LLM Threaded Queue & Execution Ledger
+# WS-ADR-035: Durable LLM Threaded Queue & Execution Ledger
 
 ## Overview
 

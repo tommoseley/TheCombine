@@ -1,4 +1,4 @@
-﻿# Phase 5: Authentication & Production Readiness - Summary
+# Phase 5: Authentication & Production Readiness - Summary
 
 ## Overview
 

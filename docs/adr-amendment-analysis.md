@@ -1,4 +1,4 @@
-﻿# ADR & Governance Amendment Analysis
+# ADR & Governance Amendment Analysis
 
 > **Governing Document**: [Document System Charter](./document-system-charter.md)
 > 

@@ -1,1 +1,1 @@
-﻿"""Execution tests."""
+"""Execution tests."""

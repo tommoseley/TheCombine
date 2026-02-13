@@ -1,4 +1,4 @@
-﻿"""Permission and role-based access control."""
+"""Permission and role-based access control."""
 
 from enum import Enum
 from typing import List, Set

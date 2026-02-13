@@ -1,4 +1,4 @@
-﻿"""
+"""
 GovernanceOutcome model for The Combine.
 
 Records governance layer outcomes for Intake Gate and other gates.

@@ -1,4 +1,4 @@
-﻿"""Execution module for The Combine."""
+"""Execution module for The Combine."""
 
 from app.execution.context import ExecutionContext, StepProgress
 from app.execution.llm_step_executor import LLMStepExecutor, StepInput, StepOutput

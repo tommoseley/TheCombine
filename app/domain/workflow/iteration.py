@@ -1,4 +1,4 @@
-﻿"""Iteration handler - expand iterate_over blocks.
+"""Iteration handler - expand iterate_over blocks.
 
 Transforms iteration steps into concrete instances for execution.
 """

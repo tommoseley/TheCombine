@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM execution logging service for ADR-010.
 
 Refactored to use repository pattern:

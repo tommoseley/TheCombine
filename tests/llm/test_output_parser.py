@@ -1,4 +1,4 @@
-﻿"""Tests for output parsing and validation."""
+"""Tests for output parsing and validation."""
 
 import pytest
 import json

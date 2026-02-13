@@ -1,4 +1,4 @@
-﻿"""Services for API layer."""
+"""Services for API layer."""
 
 from app.api.v1.services.execution_service import (
     ExecutionService,

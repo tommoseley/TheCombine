@@ -1,4 +1,4 @@
-﻿"""Integration tests for workflow API - end-to-end flows."""
+"""Integration tests for workflow API - end-to-end flows."""
 
 import pytest
 from fastapi import FastAPI

@@ -1,4 +1,4 @@
-﻿"""Tests for LLM telemetry service."""
+"""Tests for LLM telemetry service."""
 
 import pytest
 from datetime import date, datetime, timezone

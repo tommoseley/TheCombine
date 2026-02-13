@@ -1,4 +1,4 @@
-﻿"""Repository protocols and in-memory implementations."""
+"""Repository protocols and in-memory implementations."""
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone

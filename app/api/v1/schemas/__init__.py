@@ -1,4 +1,4 @@
-﻿"""API schema models."""
+"""API schema models."""
 
 from app.api.v1.schemas.common import (
     ErrorResponse,

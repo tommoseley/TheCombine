@@ -1,4 +1,4 @@
-﻿"""Authentication services."""
+"""Authentication services."""
 
 import hashlib
 import secrets

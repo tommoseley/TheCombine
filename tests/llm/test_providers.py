@@ -1,4 +1,4 @@
-﻿"""Tests for LLM providers."""
+"""Tests for LLM providers."""
 
 import pytest
 import json

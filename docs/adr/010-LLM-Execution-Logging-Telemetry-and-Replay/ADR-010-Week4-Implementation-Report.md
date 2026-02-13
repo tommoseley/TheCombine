@@ -1,4 +1,4 @@
-﻿# ADR-010 Week 4 Implementation Report
+# ADR-010 Week 4 Implementation Report
 ## Deploy to Test Environment
 
 **Date:** January 2, 2026  

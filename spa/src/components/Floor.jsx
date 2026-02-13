@@ -283,10 +283,10 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                                 <div>
                                     <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
                                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                        {lineState === 'active' && <span className="text-amber-500">Ã¢â€”Â Active</span>}
-                                        {lineState === 'stopped' && <span className="text-red-500">Ã¢â€”Â Stopped</span>}
-                                        {lineState === 'complete' && <span className="text-emerald-500">Ã¢â€”Â Complete</span>}
-                                        {lineState === 'idle' && <span>Ã¢â€”Â Idle</span>}
+                                        {lineState === 'active' && <span className="text-amber-500">● Active</span>}
+                                        {lineState === 'stopped' && <span className="text-red-500">● Stopped</span>}
+                                        {lineState === 'complete' && <span className="text-emerald-500">● Complete</span>}
+                                        {lineState === 'idle' && <span>● Idle</span>}
                                         {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
                                     </p>
                                 </div>

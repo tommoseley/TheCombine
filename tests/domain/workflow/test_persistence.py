@@ -1,4 +1,4 @@
-﻿"""Tests for state persistence."""
+"""Tests for state persistence."""
 
 import pytest
 from pathlib import Path

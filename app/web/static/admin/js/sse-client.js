@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Server-Sent Events (SSE) client for real-time execution updates
  * Calm Authority - The Combine
  * 

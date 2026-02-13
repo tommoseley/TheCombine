@@ -1,4 +1,4 @@
-﻿# ADR-034 Amendment A: Clarifications & Contract Completion
+# ADR-034 Amendment A: Clarifications & Contract Completion
 
 | | |
 |---|---|

@@ -1,4 +1,4 @@
-﻿# Component Completeness Standards
+# Component Completeness Standards
 
 **Status:** Frozen  
 **Effective:** 2026-01-09  

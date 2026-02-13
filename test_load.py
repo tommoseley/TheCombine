@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 sys.path.insert(0, '/home/tommoseley/dev/TheCombine')
 from app.domain.workflow.plan_loader import PlanLoader
 from pathlib import Path

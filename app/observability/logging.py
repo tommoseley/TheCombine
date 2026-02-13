@@ -1,4 +1,4 @@
-﻿"""Structured logging configuration for The Combine."""
+"""Structured logging configuration for The Combine."""
 
 import json
 import logging

@@ -1,4 +1,4 @@
-﻿# POL-WS-001: Standard Work Statements
+# POL-WS-001: Standard Work Statements
 
 | | |
 |---|---|

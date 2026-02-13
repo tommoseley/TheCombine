@@ -1,4 +1,4 @@
-﻿"""
+"""
 Seed data for schema_artifacts table.
 
 Per ADR-031: Canonical types are seeded as governed artifacts.

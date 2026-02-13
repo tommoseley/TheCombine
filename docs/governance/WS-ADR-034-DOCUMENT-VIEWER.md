@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-DOCUMENT-VIEWER
+# WS-ADR-034-DOCUMENT-VIEWER
 
 **Status:** Draft  
 **Created:** 2026-01-09

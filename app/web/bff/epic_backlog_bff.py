@@ -1,4 +1,4 @@
-﻿"""
+"""
 BFF (Backend-for-Frontend) for Epic Backlog view.
 
 Per ADR-030: BFF is the sole interface between UX and core.

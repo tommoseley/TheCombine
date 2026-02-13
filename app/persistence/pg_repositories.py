@@ -1,4 +1,4 @@
-﻿"""PostgreSQL repository implementations."""
+"""PostgreSQL repository implementations."""
 
 import json
 from datetime import datetime, timezone

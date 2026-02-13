@@ -1,4 +1,4 @@
-﻿# ADR-036: Document Lifecycle & Staleness Semantics
+# ADR-036: Document Lifecycle & Staleness Semantics
 
 | | |
 |---|---|

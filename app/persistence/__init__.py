@@ -1,4 +1,4 @@
-﻿"""Persistence module for The Combine."""
+"""Persistence module for The Combine."""
 
 from app.persistence.models import (
     StoredDocument,

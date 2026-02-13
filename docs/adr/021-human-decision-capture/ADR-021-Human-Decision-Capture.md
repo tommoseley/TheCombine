@@ -1,4 +1,4 @@
-﻿# ADR-021 — Human Decision Capture & Accountability
+# ADR-021 — Human Decision Capture & Accountability
 
 **Status:** Draft  
 **Version:** 0.1  

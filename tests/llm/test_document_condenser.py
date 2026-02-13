@@ -1,4 +1,4 @@
-﻿"""Tests for document condenser."""
+"""Tests for document condenser."""
 
 import pytest
 

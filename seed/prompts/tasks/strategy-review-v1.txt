@@ -1,4 +1,4 @@
-﻿# Quality Review Task
+# Quality Review Task
 
 Review all strategy documents for completeness, consistency, and quality.
 

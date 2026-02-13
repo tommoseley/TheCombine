@@ -1,4 +1,4 @@
-﻿"""
+"""
 Render Shape Semantics - Frozen Invariant Tests
 
 These tests validate the authoritative semantics defined in:

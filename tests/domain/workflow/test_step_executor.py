@@ -1,4 +1,4 @@
-﻿"""Tests for step executor."""
+"""Tests for step executor."""
 
 import pytest
 from typing import Any, Dict, Optional

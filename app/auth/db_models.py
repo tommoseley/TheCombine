@@ -1,4 +1,4 @@
-﻿"""
+"""
 SQLAlchemy ORM models for authentication tables.
 
 ADR-008: Multi-Provider OAuth Authentication

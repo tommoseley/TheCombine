@@ -1,4 +1,4 @@
-﻿"""
+"""
 DocumentDefinitionService for ADR-034 Document Composition Manifest.
 
 Provides read-first operations for document definitions:

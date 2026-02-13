@@ -1,4 +1,4 @@
-﻿# Phase 3: HTTP API Layer
+# Phase 3: HTTP API Layer
 
 **Goal:** Expose workflow execution via FastAPI endpoints with proper error handling, authentication hooks, and real-time status updates.
 

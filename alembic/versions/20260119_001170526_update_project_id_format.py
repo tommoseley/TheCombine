@@ -1,4 +1,4 @@
-﻿"""Update project_id format to support LIR-001 pattern.
+"""Update project_id format to support LIR-001 pattern.
 
 Revision ID: update_project_id_format
 Revises: 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM Log Repositories.
 
 Provides storage implementations for LLM execution logging.

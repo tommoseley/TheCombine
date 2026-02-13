@@ -1,4 +1,4 @@
-﻿# ADR-034 Document Composition: Project Summary
+# ADR-034 Document Composition: Project Summary
 
 **Last Updated:** 2026-01-09  
 **Status:** Active Development  

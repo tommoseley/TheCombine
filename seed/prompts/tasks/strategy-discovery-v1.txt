@@ -1,4 +1,4 @@
-﻿# Project Discovery Task
+# Project Discovery Task
 
 Analyze the provided project information and generate a comprehensive project discovery document.
 

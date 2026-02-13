@@ -1,4 +1,4 @@
-﻿# ADR-014 — Quality Assurance Modes
+# ADR-014 — Quality Assurance Modes
 
 **Status:** Draft (Scaffold)  
 **Date:** 2026-01-02  

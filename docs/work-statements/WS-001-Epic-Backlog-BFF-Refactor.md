@@ -1,4 +1,4 @@
-﻿# WS-001: Epic Backlog BFF Refactor
+# WS-001: Epic Backlog BFF Refactor
 
 | | |
 |---|---|

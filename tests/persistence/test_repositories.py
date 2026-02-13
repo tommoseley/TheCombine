@@ -1,4 +1,4 @@
-﻿"""Tests for persistence repositories."""
+"""Tests for persistence repositories."""
 
 import pytest
 from uuid import uuid4

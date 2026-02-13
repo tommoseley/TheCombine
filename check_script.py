@@ -1,4 +1,4 @@
-﻿try:
+try:
     import asyncio
     from app.core.database import async_session_factory
     from sqlalchemy import text

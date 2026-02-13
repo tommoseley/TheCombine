@@ -1,4 +1,4 @@
-﻿# Requirements Analysis Task
+# Requirements Analysis Task
 
 Based on the Project Discovery document, create a detailed requirements specification.
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for Epic Backlog Fragment Rendering (ADR-033).
 
 ADR-033: Fragment rendering is a web channel concern, not BFF.

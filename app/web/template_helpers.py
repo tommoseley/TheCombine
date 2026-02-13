@@ -1,4 +1,4 @@
-﻿"""
+"""
 Template helpers for Jinja2 rendering.
 
 ADR-033: Fragment rendering is a web channel concern, not BFF.

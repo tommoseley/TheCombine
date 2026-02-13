@@ -1,4 +1,4 @@
-﻿"""
+"""
 Fragment Renderer for ADR-032.
 
 Renders canonical schema types using bound fragments.

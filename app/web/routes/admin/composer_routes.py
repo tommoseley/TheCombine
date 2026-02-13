@@ -1,4 +1,4 @@
-﻿"""
+"""
 Composer preview routes for ADR-034 Document Composition.
 
 Provides preview endpoints for document composition:

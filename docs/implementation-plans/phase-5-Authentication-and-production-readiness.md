@@ -1,4 +1,4 @@
-﻿# Phase 5: Authentication & Production Readiness
+# Phase 5: Authentication & Production Readiness
 
 ## Timeline: 5 Days
 

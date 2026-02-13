@@ -1,4 +1,4 @@
-﻿"""
+"""
 Golden-trace tests for DocDefs.
 
 These tests assert stable UX semantics:

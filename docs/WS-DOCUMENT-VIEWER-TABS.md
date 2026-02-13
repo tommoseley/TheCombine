@@ -1,4 +1,4 @@
-﻿# WS-DOCUMENT-VIEWER-TABS
+# WS-DOCUMENT-VIEWER-TABS
 
 | Field | Value |
 |---|---|

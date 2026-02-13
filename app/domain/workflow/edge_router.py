@@ -1,4 +1,4 @@
-﻿"""Edge router for Document Interaction Workflow Plans (ADR-039).
+"""Edge router for Document Interaction Workflow Plans (ADR-039).
 
 Evaluates edges and conditions to determine the next node in workflow execution.
 

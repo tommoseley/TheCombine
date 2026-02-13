@@ -1,4 +1,4 @@
-﻿"""Tests for structured logging."""
+"""Tests for structured logging."""
 
 import pytest
 import json

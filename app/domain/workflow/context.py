@@ -1,4 +1,4 @@
-﻿"""Workflow context - scope-aware document and entity storage.
+"""Workflow context - scope-aware document and entity storage.
 
 Implements the DocumentStore protocol from Phase 1, providing
 storage that respects scope hierarchy during workflow execution.

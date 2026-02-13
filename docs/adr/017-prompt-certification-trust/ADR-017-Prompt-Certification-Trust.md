@@ -1,4 +1,4 @@
-﻿# ADR-017 — Prompt Certification & Trust Levels
+# ADR-017 — Prompt Certification & Trust Levels
 
 **Status:** Draft  
 **Date:** 2026-01-02  

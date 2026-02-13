@@ -1,4 +1,4 @@
-﻿# ADR-010 Week 2 Implementation Report
+# ADR-010 Week 2 Implementation Report
 ## LLM Execution Logging - Repository Pattern Integration
 
 **Date:** January 1, 2026  

@@ -1,4 +1,4 @@
-﻿# ADR-018 — Prompt Change Control & Deprecation
+# ADR-018 — Prompt Change Control & Deprecation
 
 **Status:** Draft  
 **Version:** 0.1  

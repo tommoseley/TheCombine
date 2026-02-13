@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for schema artifact seeding (ADR-031, ADR-033).
 """
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Schema Resolver for ADR-031.
 
 Resolves $ref: "schema:<id>" references and produces self-contained bundles.

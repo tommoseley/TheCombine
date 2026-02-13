@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-EXP3: Stories Grouped Under Epics (Second Container Type)
+# WS-ADR-034-EXP3: Stories Grouped Under Epics (Second Container Type)
 
 | | |
 |---|---|

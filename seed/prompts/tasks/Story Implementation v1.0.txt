@@ -1,4 +1,4 @@
-﻿# Story Implementation v1.0
+# Story Implementation v1.0
 
 ## Purpose
 Guide the implementation of a single user story.

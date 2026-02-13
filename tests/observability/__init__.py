@@ -1,1 +1,1 @@
-﻿"""Observability tests."""
+"""Observability tests."""

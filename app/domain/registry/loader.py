@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Registry Loader - Query functions and seed data.
 
 This module provides:

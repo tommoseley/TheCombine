@@ -1,4 +1,4 @@
-﻿"""Output parsing and validation for LLM responses."""
+"""Output parsing and validation for LLM responses."""
 
 import json
 import re

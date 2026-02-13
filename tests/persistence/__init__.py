@@ -1,1 +1,1 @@
-﻿"""Persistence tests."""
+"""Persistence tests."""

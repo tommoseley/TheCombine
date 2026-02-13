@@ -1,4 +1,4 @@
-﻿# WS-SUBWAY-MAP-001: Production Line Subway Map Implementation
+# WS-SUBWAY-MAP-001: Production Line Subway Map Implementation
 
 **Created:** 2026-01-27
 **Status:** Draft - Pending Acceptance

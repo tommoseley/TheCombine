@@ -1,4 +1,4 @@
-﻿"""
+"""
 DocumentDefinition model for ADR-034 Document Composition Manifest.
 
 Stores document definitions that compose canonical components into

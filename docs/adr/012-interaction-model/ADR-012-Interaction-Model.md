@@ -1,4 +1,4 @@
-﻿# ADR-012 — Interaction Model
+# ADR-012 — Interaction Model
 
 **Status:** Accepted  
 **Version:** v1.1  

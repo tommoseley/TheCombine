@@ -1,4 +1,4 @@
-﻿"""Add document_definitions table for ADR-034 Document Composition Manifest
+"""Add document_definitions table for ADR-034 Document Composition Manifest
 
 Revision ID: 20260108_002
 Revises: 20260108_001

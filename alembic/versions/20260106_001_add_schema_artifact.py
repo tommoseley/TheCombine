@@ -1,4 +1,4 @@
-﻿"""Add schema_artifact table for ADR-031 Schema Registry
+"""Add schema_artifact table for ADR-031 Schema Registry
 
 Revision ID: 20260106_001
 Revises: 20260105_001_add_parent_document_id

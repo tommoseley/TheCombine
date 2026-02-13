@@ -1,4 +1,4 @@
-﻿"""OAuth provider base interface."""
+"""OAuth provider base interface."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Fragment Renderer (ADR-032).
 """
 

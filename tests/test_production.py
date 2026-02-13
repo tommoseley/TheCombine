@@ -1,4 +1,4 @@
-﻿"""Tests for production readiness."""
+"""Tests for production readiness."""
 
 import pytest
 import os

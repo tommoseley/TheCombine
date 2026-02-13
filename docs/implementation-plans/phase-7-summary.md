@@ -1,4 +1,4 @@
-﻿# Phase 7: End-to-End Integration - Summary
+# Phase 7: End-to-End Integration - Summary
 
 ## Overview
 

@@ -1,4 +1,4 @@
-﻿"""Scope hierarchy helper for workflow validation.
+"""Scope hierarchy helper for workflow validation.
 
 Implements ADR-011 scope relationships without hardcoding specific scopes.
 All scope relationships are derived from workflow["scopes"].

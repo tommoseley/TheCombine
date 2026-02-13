@@ -1,4 +1,4 @@
-﻿# ADR-027 — Workflow Definition, Selection, and Governance
+# ADR-027 — Workflow Definition, Selection, and Governance
 
 **Status:** Accepted  
 **Date:** 2026-01-02

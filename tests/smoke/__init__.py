@@ -1,1 +1,1 @@
-﻿"""Smoke tests."""
+"""Smoke tests."""

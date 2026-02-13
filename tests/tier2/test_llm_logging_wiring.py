@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tier-2 tests: Wiring (HTTP -> Logger -> Repo).
 
 Uses SpyLLMLogRepository to verify call contracts.

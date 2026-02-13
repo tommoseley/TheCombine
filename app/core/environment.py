@@ -1,4 +1,4 @@
-﻿"""
+"""
 Environment configuration and validation for The Combine.
 
 Provides environment detection, required variable validation,

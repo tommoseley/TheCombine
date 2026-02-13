@@ -1,4 +1,4 @@
-﻿# The Combine - Product Vision
+# The Combine - Product Vision
 
 Created: 2026-01-27
 Context: Session discussion about the end-state vision for The Combine

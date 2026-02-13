@@ -1,4 +1,4 @@
-﻿# Document Migration Checklist (Canonical)
+# Document Migration Checklist (Canonical)
 
 | | |
 |---|---|

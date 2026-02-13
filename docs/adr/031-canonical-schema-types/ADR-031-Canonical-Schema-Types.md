@@ -1,4 +1,4 @@
-﻿# ADR-031: Canonical Schema Types and DB-Backed Schema Registry
+# ADR-031: Canonical Schema Types and DB-Backed Schema Registry
 
 | | |
 |---|---|

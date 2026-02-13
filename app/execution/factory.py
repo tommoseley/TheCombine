@@ -1,4 +1,4 @@
-﻿"""LLM provider factory."""
+"""LLM provider factory."""
 
 from typing import Optional
 

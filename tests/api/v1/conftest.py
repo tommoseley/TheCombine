@@ -1,4 +1,4 @@
-﻿"""Test fixtures for API tests."""
+"""Test fixtures for API tests."""
 
 import pytest
 from fastapi import FastAPI

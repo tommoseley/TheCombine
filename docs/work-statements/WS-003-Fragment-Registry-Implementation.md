@@ -1,4 +1,4 @@
-﻿# WS-003: Fragment Registry Implementation
+# WS-003: Fragment Registry Implementation
 
 | | |
 |---|---|

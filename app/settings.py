@@ -1,4 +1,4 @@
-﻿"""Application configuration management."""
+"""Application configuration management."""
 
 import os
 from dataclasses import dataclass, field

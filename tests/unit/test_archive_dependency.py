@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for verify_project_not_archived dependency.
 """
 

@@ -1,4 +1,4 @@
-﻿"""Tests for WebSocket endpoint and event broadcasting."""
+"""Tests for WebSocket endpoint and event broadcasting."""
 
 import asyncio
 import pytest

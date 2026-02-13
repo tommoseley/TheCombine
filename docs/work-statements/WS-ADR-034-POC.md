@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-POC: Canonical Component & Document Composition Proof of Concept
+# WS-ADR-034-POC: Canonical Component & Document Composition Proof of Concept
 
 | | |
 |---|---|

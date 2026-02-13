@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Viewer routes for The Combine UI.
 
 Per DOCUMENT_VIEWER_CONTRACT v1.0:

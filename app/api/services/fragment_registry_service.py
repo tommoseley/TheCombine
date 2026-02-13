@@ -1,4 +1,4 @@
-﻿"""
+"""
 Fragment Registry Service for ADR-032.
 
 Provides CRUD operations and binding management for fragment artifacts.

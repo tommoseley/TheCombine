@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for PromptAssembler.
 
 Per WS-ADR-034-POC Phase 8.2: Tests for prompt assembly service.

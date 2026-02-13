@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-EXP: Container Block Proof of Concept — OpenQuestionsBlockV1
+# WS-ADR-034-EXP: Container Block Proof of Concept — OpenQuestionsBlockV1
 
 | | |
 |---|---|

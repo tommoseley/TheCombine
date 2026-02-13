@@ -1,4 +1,4 @@
-﻿"""
+"""
 Thread Execution Service - ADR-035.
 
 Orchestrates the durable LLM execution lifecycle:

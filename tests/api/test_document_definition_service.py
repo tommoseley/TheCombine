@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for DocumentDefinitionService.
 
 Per WS-ADR-034-POC Phase 8.1: Service unit tests for document definition service.

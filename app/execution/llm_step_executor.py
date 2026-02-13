@@ -1,4 +1,4 @@
-﻿"""LLM-integrated step executor."""
+"""LLM-integrated step executor."""
 
 import json
 import logging

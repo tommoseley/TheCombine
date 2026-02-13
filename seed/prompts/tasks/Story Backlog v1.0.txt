@@ -1,4 +1,4 @@
-﻿# Story Backlog v1.0
+# Story Backlog v1.0
 
 ## Purpose
 Break down an epic into implementable user stories.

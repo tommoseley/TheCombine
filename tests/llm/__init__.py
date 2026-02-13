@@ -1,1 +1,1 @@
-﻿"""LLM tests module."""
+"""LLM tests module."""

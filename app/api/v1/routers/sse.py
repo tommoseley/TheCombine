@@ -1,4 +1,4 @@
-﻿"""Server-Sent Events endpoint for execution progress streaming."""
+"""Server-Sent Events endpoint for execution progress streaming."""
 
 import asyncio
 import json

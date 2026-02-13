@@ -1,4 +1,4 @@
-﻿# Phase 8: API Integration & Real-Time Progress - Summary
+# Phase 8: API Integration & Real-Time Progress - Summary
 
 ## Overview
 

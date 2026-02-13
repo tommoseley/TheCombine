@@ -1,4 +1,4 @@
-﻿"""
+"""
 Admin routes for The Combine UI via ORM
 
 Provides administrative views for system configuration:

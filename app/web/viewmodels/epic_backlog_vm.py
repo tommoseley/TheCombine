@@ -1,4 +1,4 @@
-﻿"""
+"""
 ViewModels for Epic Backlog view.
 
 Per ADR-030: Templates consume ViewModels exclusively.

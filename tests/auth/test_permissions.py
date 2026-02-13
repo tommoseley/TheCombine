@@ -1,4 +1,4 @@
-﻿"""Tests for permissions and role-based access control."""
+"""Tests for permissions and role-based access control."""
 
 import pytest
 

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for ProjectAuditService (ORM version).
 """
 

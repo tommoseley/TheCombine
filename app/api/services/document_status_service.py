@@ -1,4 +1,4 @@
-﻿"""
+"""
 Document Status Service - ADR-007 Implementation
 
 Derives document readiness and acceptance states for sidebar display.

@@ -1,4 +1,4 @@
-﻿"""Tests for iteration handler."""
+"""Tests for iteration handler."""
 
 import pytest
 

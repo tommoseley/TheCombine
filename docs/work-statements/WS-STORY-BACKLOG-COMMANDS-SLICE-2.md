@@ -1,4 +1,4 @@
-﻿# WS-STORY-BACKLOG-COMMANDS-SLICE-2
+# WS-STORY-BACKLOG-COMMANDS-SLICE-2
 
 | Field | Value |
 |---|---|

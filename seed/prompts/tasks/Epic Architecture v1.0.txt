@@ -1,4 +1,4 @@
-﻿# Epic Architecture v1.0
+# Epic Architecture v1.0
 
 ## Purpose
 Define the technical architecture for a specific epic within the project architecture boundaries.

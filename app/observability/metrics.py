@@ -1,4 +1,4 @@
-﻿"""Metrics collection for The Combine."""
+"""Metrics collection for The Combine."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

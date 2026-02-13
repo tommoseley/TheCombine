@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 sys.path.insert(0, '/home/tommoseley/dev/TheCombine')
 try:
     from app.domain.workflow.plan_registry import get_plan_registry

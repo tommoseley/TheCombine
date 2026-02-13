@@ -1,4 +1,4 @@
-﻿# ADR-030 Implementation Plan: BFF Layer and ViewModel Boundary
+# ADR-030 Implementation Plan: BFF Layer and ViewModel Boundary
 
 **Created:** 2026-01-06  
 **ADR Version:** 1.0  

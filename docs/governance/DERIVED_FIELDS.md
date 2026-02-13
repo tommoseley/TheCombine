@@ -1,4 +1,4 @@
-﻿# Derived Fields in Views (Frozen)
+# Derived Fields in Views (Frozen)
 
 | | |
 |---|---|

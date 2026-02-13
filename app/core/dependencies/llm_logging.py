@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM Logging dependency providers.
 
 Provides FastAPI dependencies for LLM execution logging (ADR-010).

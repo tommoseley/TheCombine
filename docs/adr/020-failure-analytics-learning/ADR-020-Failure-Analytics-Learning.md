@@ -1,4 +1,4 @@
-﻿# ADR-020 — Failure Analytics & Learning Signals
+# ADR-020 — Failure Analytics & Learning Signals
 
 **Status:** Draft  
 **Version:** 0.1  

@@ -1,4 +1,4 @@
-﻿# ADR-019 — Trust Boundary Enforcement in Prompt Composition
+# ADR-019 — Trust Boundary Enforcement in Prompt Composition
 
 **Status:** Draft  
 **Version:** 0.1  

@@ -1,4 +1,4 @@
-﻿# ADR-016 — Escalation Targets & Human-in-the-Loop Design
+# ADR-016 — Escalation Targets & Human-in-the-Loop Design
 
 **Status:** Draft (Scaffold)  
 **Date:** 2026-01-02  

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Schema Registry Service for ADR-031.
 
 Provides CRUD operations and lifecycle management for schema artifacts.

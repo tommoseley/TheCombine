@@ -1,4 +1,4 @@
-﻿"""Workflow state - track overall workflow execution progress.
+"""Workflow state - track overall workflow execution progress.
 
 Manages the complete state of a workflow execution including
 step progress, iteration tracking, and acceptance decisions.

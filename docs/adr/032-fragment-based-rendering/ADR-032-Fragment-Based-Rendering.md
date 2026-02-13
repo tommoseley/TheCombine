@@ -1,4 +1,4 @@
-﻿# ADR-032: Fragment-Based Rendering for Schema-Driven Documents
+# ADR-032: Fragment-Based Rendering for Schema-Driven Documents
 
 | | |
 |---|---|

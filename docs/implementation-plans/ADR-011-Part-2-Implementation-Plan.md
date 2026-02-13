@@ -1,4 +1,4 @@
-﻿# ADR-011-Part-2 Implementation Plan
+# ADR-011-Part-2 Implementation Plan
 
 **Created:** 2026-01-05  
 **ADR Version:** 0.93  

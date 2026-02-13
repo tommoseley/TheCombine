@@ -1,4 +1,4 @@
-﻿# WS-002: Schema Registry Implementation
+# WS-002: Schema Registry Implementation
 
 | | |
 |---|---|

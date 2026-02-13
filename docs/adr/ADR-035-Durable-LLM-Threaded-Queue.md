@@ -1,4 +1,4 @@
-﻿# ADR-035 — Durable LLM Threaded Queue & Execution Ledger
+# ADR-035 — Durable LLM Threaded Queue & Execution Ledger
 
 | Field | Value |
 |-------|-------|

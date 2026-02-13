@@ -1,4 +1,4 @@
-﻿# WS-ADR-034-EXP2: Structural Variety + Deep-Nesting Probe
+# WS-ADR-034-EXP2: Structural Variety + Deep-Nesting Probe
 
 | | |
 |---|---|

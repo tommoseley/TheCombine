@@ -1,4 +1,4 @@
-﻿# WS-004: Remove HTML from BFF Contracts (ADR-033 Compliance)
+# WS-004: Remove HTML from BFF Contracts (ADR-033 Compliance)
 
 | | |
 |---|---|

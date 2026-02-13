@@ -1,4 +1,4 @@
-﻿# ADR-011 — Document Ownership Model
+# ADR-011 — Document Ownership Model
 
 **Status:** Accepted  
 **Date:** 2026-01-02  

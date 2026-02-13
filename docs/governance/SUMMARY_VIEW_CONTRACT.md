@@ -1,4 +1,4 @@
-﻿# Summary View Contract (Frozen)
+# Summary View Contract (Frozen)
 
 | | |
 |---|---|

@@ -1,4 +1,4 @@
-﻿# ADR-023 — Regulatory Readiness & Audit Export Model
+# ADR-023 — Regulatory Readiness & Audit Export Model
 
 **Status:** Draft  
 **Version:** 0.1  

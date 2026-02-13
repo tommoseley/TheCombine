@@ -1,4 +1,4 @@
-﻿# ADR-010 Week 3 Implementation Report
+# ADR-010 Week 3 Implementation Report
 ## LLM Execution Replay
 
 **Date:** January 1, 2026  

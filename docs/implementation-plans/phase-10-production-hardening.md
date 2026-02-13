@@ -1,4 +1,4 @@
-﻿# Phase 10: Production Hardening for Staging
+# Phase 10: Production Hardening for Staging
 
 ## Overview
 

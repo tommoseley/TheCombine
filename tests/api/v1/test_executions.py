@@ -1,4 +1,4 @@
-﻿"""Tests for execution endpoints."""
+"""Tests for execution endpoints."""
 
 import pytest
 from fastapi import FastAPI

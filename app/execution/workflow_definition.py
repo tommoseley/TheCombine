@@ -1,4 +1,4 @@
-﻿"""Workflow definition models and loader."""
+"""Workflow definition models and loader."""
 
 import json
 import logging

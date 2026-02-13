@@ -1,4 +1,4 @@
-﻿# Render Shape Semantics (Frozen)
+# Render Shape Semantics (Frozen)
 
 | | |
 |---|---|

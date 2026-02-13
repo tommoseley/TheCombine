@@ -1,4 +1,4 @@
-﻿"""State persistence - save and restore workflow state.
+"""State persistence - save and restore workflow state.
 
 Provides file-based persistence for development/testing.
 Production implementations may use database storage.

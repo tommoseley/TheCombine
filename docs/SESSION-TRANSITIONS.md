@@ -1,4 +1,4 @@
-﻿# Session Transition Protocol
+# Session Transition Protocol
 
 **Purpose:** Ensure continuity when closing one Claude session and starting another.
 

@@ -1,4 +1,4 @@
-﻿"""LLM API pricing utilities."""
+"""LLM API pricing utilities."""
 import logging
 from app.core.config import Settings
 

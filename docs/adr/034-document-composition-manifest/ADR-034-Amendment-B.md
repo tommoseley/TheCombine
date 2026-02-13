@@ -1,4 +1,4 @@
-﻿# ADR-034-B: Flatten-First Canonical Data, Hierarchy as View
+# ADR-034-B: Flatten-First Canonical Data, Hierarchy as View
 
 | | |
 |---|---|

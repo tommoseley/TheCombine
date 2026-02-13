@@ -1,4 +1,4 @@
-﻿# Fragment Standards
+# Fragment Standards
 
 **Status:** Frozen  
 **Effective:** 2026-01-09  

@@ -1,4 +1,4 @@
-﻿"""Operational tests for Docker configuration."""
+"""Operational tests for Docker configuration."""
 
 import pytest
 import yaml

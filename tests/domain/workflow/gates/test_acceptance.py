@@ -1,4 +1,4 @@
-﻿"""Tests for acceptance gate."""
+"""Tests for acceptance gate."""
 
 import pytest
 

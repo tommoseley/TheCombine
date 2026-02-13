@@ -1,4 +1,4 @@
-﻿"""Common schema types for API responses."""
+"""Common schema types for API responses."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional

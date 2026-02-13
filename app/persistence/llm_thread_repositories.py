@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM Thread Queue Repositories - ADR-035.
 
 Repository layer for durable LLM execution:

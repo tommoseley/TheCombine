@@ -1,4 +1,4 @@
-﻿"""Google OAuth provider."""
+"""Google OAuth provider."""
 
 from app.auth.models import OAuthTokens, OAuthUserInfo
 from .base import OAuthProvider, OAuthConfig

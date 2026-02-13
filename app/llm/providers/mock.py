@@ -1,4 +1,4 @@
-﻿"""Mock LLM provider for testing."""
+"""Mock LLM provider for testing."""
 
 import time
 from dataclasses import dataclass, field

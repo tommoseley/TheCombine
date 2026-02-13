@@ -1,4 +1,4 @@
-﻿# Implementation Plan: Phase 0 - Schema & Validation
+# Implementation Plan: Phase 0 - Schema & Validation
 
 **Date:** 2026-01-02  
 **Target Duration:** 1-2 days  

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for Epic Backlog BFF function.
 
 Per ADR-030 and WS-001: Verify BFF returns correct ViewModels.

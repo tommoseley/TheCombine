@@ -1,4 +1,4 @@
-﻿# Concierge Intent Reflection v1.0
+# Concierge Intent Reflection v1.0
 
 ## Purpose
 

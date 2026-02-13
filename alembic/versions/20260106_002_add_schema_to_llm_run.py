@@ -1,4 +1,4 @@
-﻿"""Add schema_id and schema_bundle_hash to llm_run for ADR-031
+"""Add schema_id and schema_bundle_hash to llm_run for ADR-031
 
 Revision ID: 20260106_002
 Revises: 20260106_001

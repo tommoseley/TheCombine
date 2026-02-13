@@ -1,4 +1,4 @@
-﻿"""Tests for workflow context."""
+"""Tests for workflow context."""
 
 import pytest
 

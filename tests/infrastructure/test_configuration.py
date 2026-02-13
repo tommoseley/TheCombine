@@ -1,4 +1,4 @@
-﻿"""Tests for infrastructure configuration."""
+"""Tests for infrastructure configuration."""
 
 import pytest
 import json

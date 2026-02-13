@@ -1,4 +1,4 @@
-﻿"""
+"""
 PromptAssembler for ADR-034 Document Composition.
 
 Mechanically assembles LLM prompts from document definitions and component specs.

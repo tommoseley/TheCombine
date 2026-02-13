@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tier-1 tests: Business logic + persistence semantics.
 
 Uses InMemoryLLMLogRepository - no SQLAlchemy, no DB.

@@ -1,4 +1,4 @@
-﻿"""Tests for health check functionality."""
+"""Tests for health check functionality."""
 
 import pytest
 from datetime import datetime, timezone

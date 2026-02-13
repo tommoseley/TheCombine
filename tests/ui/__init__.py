@@ -1,1 +1,1 @@
-﻿"""UI tests."""
+"""UI tests."""

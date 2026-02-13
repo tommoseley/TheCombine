@@ -1,4 +1,4 @@
-﻿"""Tests for step state model."""
+"""Tests for step state model."""
 
 import pytest
 from datetime import datetime

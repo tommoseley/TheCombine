@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for frozen derivation rules in RenderModelBuilder.
 
 These are CONTRACT tests - if they fail, the derivation semantics have changed.

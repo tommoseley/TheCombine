@@ -1,4 +1,4 @@
-﻿"""Tests for execution context."""
+"""Tests for execution context."""
 
 import pytest
 from uuid import uuid4

@@ -1,4 +1,4 @@
-﻿"""Tests for remediation loop."""
+"""Tests for remediation loop."""
 
 import pytest
 

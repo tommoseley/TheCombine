@@ -1,4 +1,4 @@
-﻿"""Execution service - business logic for workflow execution management."""
+"""Execution service - business logic for workflow execution management."""
 
 import uuid
 from datetime import datetime, timezone

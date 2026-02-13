@@ -1,4 +1,4 @@
-﻿"""
+"""
 LLM Thread Queue Models - ADR-035 Durable LLM Execution.
 
 Three tables for durable LLM work:

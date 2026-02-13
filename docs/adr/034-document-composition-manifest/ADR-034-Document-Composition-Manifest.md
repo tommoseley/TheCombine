@@ -1,4 +1,4 @@
-﻿# ADR-034: Document Composition Manifest & Canonical Components
+# ADR-034: Document Composition Manifest & Canonical Components
 
 | | |
 |---|---|
