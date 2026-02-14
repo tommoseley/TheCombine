@@ -153,8 +153,13 @@ export function reactFlowToWorkflow(rfNodes, rfEdges, originalWorkflow) {
 
 /**
  * Apply dagre auto-layout to React Flow nodes.
+ * @param {Array} nodes - React Flow nodes
+ * @param {Array} edges - React Flow edges
+ * @param {string} direction - Layout direction ('TB' or 'LR')
+ * @param {number} nodeWidth - Node width for layout (default: NODE_WIDTH)
+ * @param {number} nodeHeight - Node height for layout (default: NODE_HEIGHT)
  */
-export function applyDagreLayout(nodes, edges, direction = 'TB') {
+export function applyDagreLayout(nodes, edges, direction = 'TB', nodeWidth = NODE_WIDTH, nodeHeight = NODE_HEIGHT) {
     const g = new dagre.graphlib.Graph();
     g.setDefaultEdgeLabel(() => ({}));
     g.setGraph({
@@ -166,7 +171,7 @@ export function applyDagreLayout(nodes, edges, direction = 'TB') {
     });
 
     nodes.forEach(node => {
-        g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+        g.setNode(node.id, { width: nodeWidth, height: nodeHeight });
     });
 
     edges.forEach(edge => {
@@ -183,8 +188,8 @@ export function applyDagreLayout(nodes, edges, direction = 'TB') {
         return {
             ...node,
             position: {
-                x: pos.x - NODE_WIDTH / 2,
-                y: pos.y - NODE_HEIGHT / 2,
+                x: pos.x - nodeWidth / 2,
+                y: pos.y - nodeHeight / 2,
             },
         };
     });

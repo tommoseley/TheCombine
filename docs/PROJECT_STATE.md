@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-12
-**Updated By:** Claude (WS-STATION-DATA-001 complete, internal_step events, UI polish)
+**Last Updated:** 2026-02-13
+**Updated By:** Claude (WorkflowBlockV2: React Flow graph diagrams for architecture workflows)
 
 ## Current Focus
 
@@ -17,7 +17,7 @@ All work statements delivered:
 **DRAFT:** ADR-048 -- Intake POW and Workflow Routing
 
 Defines front-door architecture:
-- `intake_and_route` POW with DCW â†’ route â†’ validate â†’ spawn steps
+- `intake_and_route` POW with DCW → route → validate → spawn steps
 - Complete-and-handoff spawn model with lineage tracking
 - `routing_decision.v1` schema with candidates and QA checks
 
@@ -117,11 +117,12 @@ Step-based workflows for cross-document orchestration:
 - **Building Blocks tray highlighting** (2026-02-07): Selected items show left border accent
 - **Orchestration workflow display** (2026-02-07): Both POWs (intake_and_route, software_product_development) visible in left rail
 - **Auto-assign workflow** (2026-02-08): Projects auto-assign `software_product_development` on creation
-- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe â†’ Confirm â†’ Done
+- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe → Confirm → Done
 - **Externalized intro content** (2026-02-08): Concierge intro loaded from YAML (`/content/concierge-intro.yaml`)
 - **SSE interrupt fix** (2026-02-11): SSE events now emit correctly after interrupt resolution
 - **Station abbreviations** (2026-02-11): Station dots use PGC/ASM/DRAFT/QA/REM/DONE labels; hidden on stabilized docs
-- **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue â†’ amber â†’ cyan â†’ emerald)
+- **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue → amber → cyan → emerald)
+- **WorkflowBlockV2** (2026-02-13): React Flow graph diagrams for architecture workflows; V1 steps auto-converted to linear node chains; supports branching, gates, error paths, retry loops, parallel rails
 
 ---
 
@@ -197,7 +198,18 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
-### Recent Fixes (2026-02-12)
+### Recent Work (2026-02-13, Session 2)
+- **WorkflowBlockV2 (Phase 1)**: V2 schema + React Flow renderer + V1 auto-conversion
+- 3 new SPA files: `archWorkflowConfig.js`, `ArchWorkflowNode.jsx`, `WorkflowBlockV2.jsx`
+- V1 block registry entry remapped to V2 renderer (existing documents render as React Flow graphs)
+- Phase 2 pending: LLM task prompt update to generate graph-aware workflows with nodes/edges
+
+### Recent Fixes (2026-02-12, Session 2)
+- **Project-wide encoding cleanup**: Stripped BOM from 336+ files, normalized CRLF to LF, repaired mojibake (latin-1 and CP1252 variants)
+- Fixed corrupted `●` status indicators in Floor.jsx (displayed as `Ã¢â€"Â`)
+- Fixed CP1252 mojibake arrows in PROJECT_STATE.md, ADR-039, ADR-037, ADR-INVENTORY, and 4 work statements
+
+### Previous Fixes (2026-02-12, Session 1)
 - **WS-STATION-DATA-001 complete**: Event-driven station display with stations_declared, station_changed, internal_step events
 - Added internal_step event emission for PGC phases (pass_a/entry/merge) from workflow definition internals
 - Fixed station progress line colors (green → amber → gray)
@@ -228,7 +240,7 @@ python -m pytest tests/ -k "plan_executor" -v
 - Added `require_auth` dependency to all intake endpoints
 - Fixed user fields on project creation (`created_by`, `owner_id`, `organization_id` now populated)
 - Auto-assign `software_product_development` workflow on project creation
-- Streamlined Concierge phases: Describe â†’ Confirm â†’ Done (removed Review/Generate)
+- Streamlined Concierge phases: Describe → Confirm → Done (removed Review/Generate)
 - Renamed "Project Type" to "Intent Classification" in confirmation form
 - Added "Confirmation requested" notice to entry form
 - Externalized Concierge intro content to `/content/concierge-intro.yaml`

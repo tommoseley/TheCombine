@@ -975,6 +975,82 @@ WORKFLOW_BLOCK_V1_SCHEMA = {
 
 
 # =============================================================================
+# ADR-034: Workflow V2 Schema (Graph-based)
+# =============================================================================
+
+WORKFLOW_BLOCK_V2_SCHEMA = {
+    "$id": "schema:WorkflowBlockV2",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "title": "Workflow Block V2",
+    "description": "A graph-based workflow with nodes and edges. Supports branching, gates, error paths, retry loops, and parallel rails. V1 steps[] auto-converted at render time.",
+    "required": ["id", "name"],
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "trigger": {"type": "string"},
+        "nodes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["node_id", "type", "label"],
+                "properties": {
+                    "node_id": {"type": "string", "minLength": 1},
+                    "type": {
+                        "type": "string",
+                        "enum": ["action", "gate", "escalation", "parallel_fork", "parallel_join", "start", "end"]
+                    },
+                    "label": {"type": "string", "minLength": 1},
+                    "actor": {"type": "string"},
+                    "description": {"type": "string"},
+                    "inputs": {"type": "array", "items": {"type": "string"}},
+                    "outputs": {"type": "array", "items": {"type": "string"}},
+                    "notes": {"type": "array", "items": {"type": "string"}},
+                },
+                "additionalProperties": False
+            }
+        },
+        "edges": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["edge_id", "from_node_id", "to_node_id"],
+                "properties": {
+                    "edge_id": {"type": "string", "minLength": 1},
+                    "from_node_id": {"type": "string", "minLength": 1},
+                    "to_node_id": {"type": "string", "minLength": 1},
+                    "label": {"type": "string"},
+                    "type": {
+                        "type": "string",
+                        "enum": ["normal", "error", "retry", "parallel"],
+                        "default": "normal"
+                    },
+                },
+                "additionalProperties": False
+            }
+        },
+        "steps": {
+            "type": "array",
+            "description": "V1 compatibility: sequential steps. Auto-converted to nodes/edges at render time.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "order": {"type": "integer"},
+                    "actor": {"type": "string"},
+                    "action": {"type": "string"},
+                    "inputs": {"type": "array", "items": {"type": "string"}},
+                    "outputs": {"type": "array", "items": {"type": "string"}},
+                    "notes": {"type": "array", "items": {"type": "string"}},
+                }
+            }
+        },
+    },
+    "additionalProperties": False
+}
+
+
+# =============================================================================
 # ADR-034: Data Model Schema
 # =============================================================================
 
@@ -1619,6 +1695,17 @@ INITIAL_SCHEMA_ARTIFACTS: List[Dict[str, Any]] = [
         "kind": "type",
         "status": "accepted",
         "schema_json": WORKFLOW_BLOCK_V1_SCHEMA,
+        "governance_refs": {
+            "adrs": ["ADR-034"],
+            "policies": []
+        },
+    },
+    {
+        "schema_id": "WorkflowBlockV2",
+        "version": "1.0",
+        "kind": "type",
+        "status": "accepted",
+        "schema_json": WORKFLOW_BLOCK_V2_SCHEMA,
         "governance_refs": {
             "adrs": ["ADR-034"],
             "policies": []

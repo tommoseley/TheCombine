@@ -108,7 +108,8 @@ def test_expected_schema_count():
     # + 1 stories container + 6 architecture schemas (arch component, quality attribute,
     # interface, workflow, data model, epic stories card)
     # + 1 ConciergeIntakeDocumentV1 (ADR-025/ADR-039)
-    assert len(INITIAL_SCHEMA_ARTIFACTS) == 35
+    # + 1 WorkflowBlockV2 (graph-based workflow)
+    assert len(INITIAL_SCHEMA_ARTIFACTS) == 36
 
 
 # =============================================================================

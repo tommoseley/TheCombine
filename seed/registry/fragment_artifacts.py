@@ -779,6 +779,74 @@ WORKFLOW_BLOCK_V1_FRAGMENT = """
 # ADR-034: Data Model Block Fragment
 # =============================================================================
 
+WORKFLOW_BLOCK_V2_FRAGMENT = """
+<div class="workflow-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="WorkflowBlockV2">
+  <h4 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ block.data.name }}</h4>
+
+  {% if block.data.description %}
+  <p class="text-gray-600 dark:text-gray-300 mb-3">{{ block.data.description }}</p>
+  {% endif %}
+
+  {% if block.data.trigger %}
+  <div class="mb-3 text-sm">
+    <span class="font-medium text-gray-700 dark:text-gray-200">Trigger:</span>
+    <span class="text-gray-600 dark:text-gray-300">{{ block.data.trigger }}</span>
+  </div>
+  {% endif %}
+
+  {% if block.data.nodes and block.data.nodes | length > 0 %}
+  <div class="mt-3">
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Nodes:</span>
+    <div class="mt-2 space-y-2">
+      {% for node in block.data.nodes %}
+      <div class="flex gap-3 text-sm items-start">
+        <span class="flex-shrink-0 px-2 py-0.5 rounded text-xs font-bold
+          {% if node.type == 'gate' %}bg-amber-100 text-amber-700
+          {% elif node.type == 'escalation' %}bg-red-100 text-red-700
+          {% elif node.type == 'start' %}bg-green-100 text-green-700
+          {% elif node.type == 'end' %}bg-gray-100 text-gray-600
+          {% elif node.type == 'parallel_fork' or node.type == 'parallel_join' %}bg-purple-100 text-purple-700
+          {% else %}bg-blue-100 text-blue-700{% endif %}">
+          {{ node.type }}
+        </span>
+        <div class="flex-1">
+          <span class="font-medium text-gray-800 dark:text-gray-100">{{ node.label }}</span>
+          {% if node.actor %}
+          <span class="text-xs text-indigo-600 ml-2">({{ node.actor }})</span>
+          {% endif %}
+          {% if node.description %}
+          <p class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{{ node.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% elif block.data.steps and block.data.steps | length > 0 %}
+  <div class="mt-3">
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Steps:</span>
+    <div class="mt-2 space-y-2">
+      {% for step in block.data.steps %}
+      <div class="flex gap-3 text-sm">
+        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-medium">
+          {{ step.order }}
+        </span>
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-medium text-gray-800 dark:text-gray-100">{{ step.actor }}</span>
+            <span class="text-gray-400">&rarr;</span>
+            <span class="text-gray-600 dark:text-gray-300">{{ step.action }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+"""
+
+
 DATA_MODEL_BLOCK_V1_FRAGMENT = """
 <div class="data-model-card border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 bg-white dark:bg-gray-800" data-block-type="DataModelBlockV1">
   <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ block.data.name }}</h4>
@@ -1068,6 +1136,14 @@ INITIAL_FRAGMENT_ARTIFACTS: List[Dict[str, Any]] = [
         "schema_type_id": "WorkflowBlockV1",
         "status": "accepted",
         "fragment_markup": WORKFLOW_BLOCK_V1_FRAGMENT,
+    },
+    # ADR-034: Workflow Block V2 (graph-based)
+    {
+        "fragment_id": "fragment:WorkflowBlockV2:web:1.0.0",
+        "version": "1.0",
+        "schema_type_id": "WorkflowBlockV2",
+        "status": "accepted",
+        "fragment_markup": WORKFLOW_BLOCK_V2_FRAGMENT,
     },
     # ADR-034: Data Model Block
     {

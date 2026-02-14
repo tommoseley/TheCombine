@@ -1068,12 +1068,12 @@ ARCHITECTURAL_SUMMARY_VIEW_DOCDEF = {
             "source_pointer": "/",
             "viewer_tab": "implementation",
         },
-        # Workflows
+        # Workflows (V2: graph-based with React Flow rendering)
         {
             "section_id": "workflows",
             "title": "Workflows",
             "order": 230,
-            "component_id": "component:WorkflowBlockV1:1.0.0",
+            "component_id": "component:WorkflowBlockV2:1.0.0",
             "shape": "container",
             "repeat_over": "/workflows",
             "source_pointer": "/",
@@ -1389,6 +1389,28 @@ WORKFLOW_BLOCK_V1_COMPONENT = {
 
 
 # =============================================================================
+# ADR-034: Workflow Block V2 (Graph-based)
+# =============================================================================
+
+WORKFLOW_BLOCK_V2_COMPONENT = {
+    "component_id": "component:WorkflowBlockV2:1.0.0",
+    "schema_id": "schema:WorkflowBlockV2",
+    "generation_guidance": {
+        "bullets": [
+            "Graph-based workflow with nodes[] and edges[].",
+            "Each node has node_id, type (action|gate|escalation|parallel_fork|parallel_join|start|end), and label.",
+            "Gate nodes MUST have 2+ outgoing edges (pass/fail paths).",
+            "Error handling paths must be explicit edges with type=error.",
+            "Retry loops use edges with type=retry.",
+            "V1 steps[] data is auto-converted to linear graph at render time.",
+        ]
+    },
+    "view_bindings": {"web": {"fragment_id": "fragment:WorkflowBlockV2:web:1.0.0"}},
+    "status": "accepted",
+}
+
+
+# =============================================================================
 # ADR-034: Data Model Block
 # =============================================================================
 
@@ -1613,6 +1635,7 @@ INITIAL_COMPONENT_ARTIFACTS: List[Dict[str, Any]] = [
     QUALITY_ATTRIBUTE_BLOCK_V1_COMPONENT,
     INTERFACE_BLOCK_V1_COMPONENT,
     WORKFLOW_BLOCK_V1_COMPONENT,
+    WORKFLOW_BLOCK_V2_COMPONENT,
     DATA_MODEL_BLOCK_V1_COMPONENT,
     EPIC_STORIES_CARD_BLOCK_V1_COMPONENT,
     # ADR-039: Concierge Intake compound components

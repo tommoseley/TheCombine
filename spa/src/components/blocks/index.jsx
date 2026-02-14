@@ -12,6 +12,12 @@ import RisksBlock from './RisksBlock';
 import SummaryBlock from './SummaryBlock';
 import EpicSummaryBlock from './EpicSummaryBlock';
 import StorySummaryBlock from './StorySummaryBlock';
+import ArchComponentBlock from './ArchComponentBlock';
+import WorkflowBlock from './WorkflowBlock';
+import WorkflowBlockV2 from './WorkflowBlockV2';
+import QualityAttributeBlock from './QualityAttributeBlock';
+import DataModelBlock from './DataModelBlock';
+import InterfaceBlock from './InterfaceBlock';
 import GenericBlock from './GenericBlock';
 
 // Discovery blocks
@@ -40,6 +46,14 @@ const BLOCK_REGISTRY = {
     // Risk/Dependency blocks
     'schema:RisksBlockV1': RisksBlock,
     'schema:DependenciesBlockV1': RisksBlock, // Same visual treatment
+
+    // Architecture blocks
+    'schema:ArchComponentBlockV1': ArchComponentBlock,
+    'schema:WorkflowBlockV1': WorkflowBlockV2, // V2 handles V1 data via auto-conversion
+    'schema:WorkflowBlockV2': WorkflowBlockV2,
+    'schema:QualityAttributeBlockV1': QualityAttributeBlock,
+    'schema:DataModelBlockV1': DataModelBlock,
+    'schema:InterfaceBlockV1': InterfaceBlock,
 
     // Summary blocks
     'schema:SummaryBlockV1': SummaryBlock,
@@ -84,6 +98,12 @@ export {
     SummaryBlock,
     EpicSummaryBlock,
     StorySummaryBlock,
+    ArchComponentBlock,
+    WorkflowBlock,
+    WorkflowBlockV2,
+    QualityAttributeBlock,
+    DataModelBlock,
+    InterfaceBlock,
     GenericBlock,
     UnknownsBlock,
     IntakeSummaryBlock,
