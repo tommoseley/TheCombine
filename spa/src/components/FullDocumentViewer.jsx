@@ -81,6 +81,11 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
         );
     }
 
+    // Extract metadata for header and admin link
+    const metadata = renderModel?.metadata || {};
+    const executionId = metadata.execution_id;
+    const adminUrl = executionId ? `/admin/executions/${executionId}` : '/admin/executions';
+
     // Route Technical Architecture documents to specialized viewer
     const isTechnicalArchitecture = docTypeId === 'technical_architecture';
 
@@ -107,7 +112,10 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                     </button>
                     <TechnicalArchitectureViewer
                         renderModel={renderModel}
+                        projectId={projectId}
                         projectCode={projectCode}
+                        docTypeId={docTypeId}
+                        executionId={executionId}
                         pgcContext={pgcContext}
                         onClose={onClose}
                     />
@@ -126,39 +134,15 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg shadow-2xl"
                 style={{ background: '#ffffff' }}
             >
-                {/* Header */}
-                <div
-                    className="sticky top-0 px-6 py-4 border-b flex items-center justify-between"
-                    style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
-                >
-                    <div>
-                        {/* Project code badge */}
-                        {projectCode && (
-                            <div
-                                style={{
-                                    display: 'inline-block',
-                                    padding: '2px 8px',
-                                    background: '#10b981',
-                                    color: 'white',
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    borderRadius: 4,
-                                    letterSpacing: '0.05em',
-                                }}
-                            >
-                                {projectCode}
-                            </div>
-                        )}
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+                {/* Document Header */}
+                <DocumentHeader
+                    title={renderModel?.title}
+                    projectCode={projectCode}
+                    adminUrl={adminUrl}
+                    executionId={executionId}
+                    metadata={metadata}
+                    onClose={onClose}
+                />
 
                 {/* Content */}
                 <div
@@ -173,7 +157,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                     )}
 
                     {renderModel && (
-                        <RenderModelViewer renderModel={renderModel} variant="full" />
+                        <RenderModelViewer renderModel={renderModel} variant="full" hideHeader={true} />
                     )}
 
                     {rawContent && !renderModel && (
@@ -191,6 +175,138 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                         <PgcContextSection pgcContext={pgcContext} />
                     )}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Document header with title, project badge, metadata, and close button.
+ * Used by both generic and specialized document viewers.
+ */
+function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, onClose }) {
+    const displayTitle = (() => {
+        if (!title) return 'Document';
+        const colonIndex = title.indexOf(': ');
+        return colonIndex > -1 ? title.slice(colonIndex + 2) : title;
+    })();
+
+    const docType = metadata?.document_type
+        ? metadata.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        : null;
+
+    const formatDate = (iso) => {
+        if (!iso) return null;
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+            });
+        } catch { return null; }
+    };
+
+    const generatedDate = formatDate(metadata?.created_at);
+    const updatedDate = formatDate(metadata?.updated_at);
+    const version = metadata?.version;
+    const lifecycleState = metadata?.lifecycle_state;
+
+    return (
+        <div
+            className="sticky top-0 px-6 py-4 border-b"
+            style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+        >
+            <div className="flex items-start justify-between">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Top line: badges */}
+                    <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 6 }}>
+                        {projectCode && (
+                            <a
+                                href={adminUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={executionId ? `View execution ${executionId}` : 'Open Admin Executions'}
+                                style={{
+                                    padding: '2px 8px',
+                                    background: '#10b981',
+                                    color: 'white',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    borderRadius: 4,
+                                    letterSpacing: '0.05em',
+                                    textDecoration: 'none',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {projectCode}
+                            </a>
+                        )}
+                        {docType && (
+                            <span style={{
+                                padding: '2px 8px',
+                                background: '#eef2ff',
+                                color: '#4f46e5',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                            }}>
+                                {docType}
+                            </span>
+                        )}
+                        {lifecycleState && (
+                            <span style={{
+                                padding: '2px 8px',
+                                background: lifecycleState === 'complete' ? '#dcfce7' : '#fef3c7',
+                                color: lifecycleState === 'complete' ? '#166534' : '#92400e',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                            }}>
+                                {lifecycleState}
+                            </span>
+                        )}
+                        {version && version > 1 && (
+                            <span style={{
+                                padding: '2px 8px',
+                                background: '#f3f4f6',
+                                color: '#6b7280',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                            }}>
+                                v{version}
+                            </span>
+                        )}
+                    </div>
+                    {/* Title */}
+                    <h2 style={{
+                        margin: 0,
+                        fontSize: 20,
+                        fontWeight: 700,
+                        color: '#111827',
+                        lineHeight: 1.3,
+                    }}>
+                        {displayTitle}
+                    </h2>
+                    {/* Date line */}
+                    {generatedDate && (
+                        <div style={{ marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
+                            Generated {generatedDate}
+                            {updatedDate && updatedDate !== generatedDate && (
+                                <span> &middot; Updated {updatedDate}</span>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    style={{ flexShrink: 0, marginLeft: 12 }}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
         </div>
     );

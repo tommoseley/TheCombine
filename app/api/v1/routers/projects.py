@@ -804,6 +804,33 @@ async def get_document_render_model(
                 else:
                     logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
 
+    # Normalize LLM output keys to match docdef source pointers
+    # LLM may produce alternate key names; docdef uses canonical forms
+    if isinstance(document_data, dict):
+        # data_models (LLM) -> data_model (docdef repeat_over)
+        if "data_models" in document_data and "data_model" not in document_data:
+            document_data["data_model"] = document_data["data_models"]
+        # api_interfaces (LLM) -> interfaces (docdef repeat_over)
+        if "api_interfaces" in document_data and "interfaces" not in document_data:
+            document_data["interfaces"] = document_data["api_interfaces"]
+        # risks (LLM schema) -> identified_risks (docdef source_pointer)
+        if "risks" in document_data and "identified_risks" not in document_data:
+            document_data["identified_risks"] = document_data["risks"]
+        # quality_attributes: flatten object-of-arrays to array-of-objects
+        qa = document_data.get("quality_attributes")
+        if isinstance(qa, dict) and not isinstance(qa, list):
+            # Convert {"performance": ["...", ...], "security": ["...", ...]}
+            # to [{"name": "Performance", "acceptance_criteria": ["...", ...]}, ...]
+            flattened = []
+            for category, items in qa.items():
+                if isinstance(items, list):
+                    flattened.append({
+                        "name": category.replace("_", " ").title(),
+                        "acceptance_criteria": items,
+                    })
+            if flattened:
+                document_data["quality_attributes"] = flattened
+
     # Build the RenderModel
     try:
         docdef_service = DocumentDefinitionService(db)
@@ -839,7 +866,57 @@ async def get_document_render_model(
             lifecycle_state=document.lifecycle_state,
         )
 
-        return render_model.to_dict()
+        result_dict = render_model.to_dict()
+
+        # Inject document metadata for header display
+        meta = result_dict.setdefault("metadata", {})
+        meta["document_type"] = doc_type_id
+        meta["version"] = document.version
+        meta["lifecycle_state"] = document.lifecycle_state
+        meta["created_at"] = document.created_at.isoformat() if document.created_at else None
+        meta["updated_at"] = document.updated_at.isoformat() if document.updated_at else None
+        meta["created_by"] = document.created_by
+
+        # Look up the workflow execution that produced this document.
+        # Prefer completed executions; match by project + doc type only.
+        exec_id = None
+
+        # 1. Completed execution for this project + doc type (best match)
+        exec_result = await db.execute(
+            select(WorkflowExecution.execution_id)
+            .where(WorkflowExecution.project_id == project.id)
+            .where(WorkflowExecution.workflow_id == doc_type_id)
+            .where(WorkflowExecution.status == "completed")
+            .order_by(WorkflowExecution.execution_id.desc())
+            .limit(1)
+        )
+        exec_id = exec_result.scalar_one_or_none()
+
+        # 2. Fallback: any status for this project + doc type
+        if not exec_id:
+            exec_result = await db.execute(
+                select(WorkflowExecution.execution_id)
+                .where(WorkflowExecution.project_id == project.id)
+                .where(WorkflowExecution.workflow_id == doc_type_id)
+                .order_by(WorkflowExecution.execution_id.desc())
+                .limit(1)
+            )
+            exec_id = exec_result.scalar_one_or_none()
+
+        # 3. Fallback: match by document_id (for executions without project_id)
+        if not exec_id:
+            exec_result = await db.execute(
+                select(WorkflowExecution.execution_id)
+                .where(WorkflowExecution.document_id == str(document.id))
+                .order_by(WorkflowExecution.execution_id.desc())
+                .limit(1)
+            )
+            exec_id = exec_result.scalar_one_or_none()
+
+        if exec_id:
+            meta["execution_id"] = exec_id
+
+        return result_dict
 
     except DocDefNotFoundError as e:
         logger.warning(f"DocDef not found for {doc_type_id}: {e}")

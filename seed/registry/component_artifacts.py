@@ -520,6 +520,28 @@ PROJECT_DISCOVERY_DOCDEF = {
             "viewer_tab": "overview",
             "sidecar_max_items": 3,
         },
+        # Stakeholder Questions (questions container) - FULL VIEW
+        {
+            "section_id": "stakeholder_questions",
+            "title": "Stakeholder Questions",
+            "order": 45,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/stakeholder_questions",
+            "context": {"title": "Stakeholder Questions"},
+            "viewer_tab": "overview",
+        },
+        # Early Decision Points (questions container) - FULL VIEW
+        {
+            "section_id": "early_decision_points",
+            "title": "Early Decision Points",
+            "order": 47,
+            "component_id": "component:OpenQuestionsBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/early_decision_points",
+            "context": {"title": "Early Decision Points"},
+            "viewer_tab": "overview",
+        },
         # Guardrails (string list container) - FULL VIEW ONLY
         {
             "section_id": "guardrails",

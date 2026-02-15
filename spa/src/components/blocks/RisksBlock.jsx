@@ -86,7 +86,7 @@ export default function RisksBlock({ block }) {
                                             Impact: {item.impact}
                                         </p>
                                     )}
-                                    {item.mitigation && (
+                                    {(item.impact_on_planning) && (
                                         <p
                                             style={{
                                                 margin: '4px 0 0',
@@ -95,7 +95,19 @@ export default function RisksBlock({ block }) {
                                                 opacity: 0.8,
                                             }}
                                         >
-                                            Mitigation: {item.mitigation}
+                                            Planning impact: {item.impact_on_planning}
+                                        </p>
+                                    )}
+                                    {(item.mitigation || item.mitigation_direction) && (
+                                        <p
+                                            style={{
+                                                margin: '4px 0 0',
+                                                fontSize: 12,
+                                                color: colors.text,
+                                                opacity: 0.8,
+                                            }}
+                                        >
+                                            Mitigation: {item.mitigation || item.mitigation_direction}
                                         </p>
                                     )}
                                     {item.status && (

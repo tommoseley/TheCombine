@@ -4,7 +4,11 @@
  */
 export default function OpenQuestionBlock({ block }) {
     const { data } = block;
-    const { id, text, blocking, why_it_matters, priority, tags, options } = data;
+    const text = data.text || data.question || data.decision_area;
+    const { id, blocking, priority, tags, options } = data;
+    const why_it_matters = data.why_it_matters || data.why_early;
+    const directed_to = data.directed_to;
+    const recommendation = data.recommendation_direction;
 
     const priorityColors = {
         must: { bg: '#fee2e2', text: '#991b1b' },
@@ -84,6 +88,19 @@ export default function OpenQuestionBlock({ block }) {
                                 BLOCKING
                             </span>
                         )}
+                        {directed_to && (
+                            <span
+                                style={{
+                                    fontSize: 10,
+                                    padding: '2px 8px',
+                                    borderRadius: 10,
+                                    background: '#e0e7ff',
+                                    color: '#3730a3',
+                                }}
+                            >
+                                {directed_to.replace(/_/g, ' ')}
+                            </span>
+                        )}
                         {priority && (
                             <span
                                 style={{
@@ -117,7 +134,7 @@ export default function OpenQuestionBlock({ block }) {
                     {/* Options if present */}
                     {options && options.length > 0 && (
                         <div style={{ marginTop: 8 }}>
-                            <span style={{ fontSize: 11, color: '#6b7280' }}>Options: </span>
+                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Options: </span>
                             {options.map((opt, i) => (
                                 <span
                                     key={i}
@@ -131,6 +148,19 @@ export default function OpenQuestionBlock({ block }) {
                                 </span>
                             ))}
                         </div>
+                    )}
+
+                    {/* Recommendation direction */}
+                    {recommendation && (
+                        <p
+                            style={{
+                                margin: '4px 0 0',
+                                fontSize: 12,
+                                color: '#059669',
+                            }}
+                        >
+                            Recommendation: {recommendation}
+                        </p>
                     )}
                 </div>
             </div>

@@ -4,7 +4,8 @@
  */
 export default function DataModelBlock({ block }) {
     const { data } = block;
-    if (!data || !data.name) return null;
+    const entityName = data?.name || data?.entity_name;
+    if (!data || !entityName) return null;
 
     const fields = Array.isArray(data.fields) ? data.fields : [];
     const primaryKeys = Array.isArray(data.primary_keys) ? data.primary_keys : [];
@@ -21,7 +22,7 @@ export default function DataModelBlock({ block }) {
             }}
         >
             <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e293b' }}>
-                {data.name}
+                {entityName}
             </h4>
             {data.description && (
                 <p style={{ margin: '0 0 10px', fontSize: 13, color: '#475569' }}>
@@ -51,7 +52,7 @@ export default function DataModelBlock({ block }) {
                                     {f.required ? 'Yes' : 'No'}
                                 </td>
                                 <td style={{ padding: '4px 8px', color: '#6b7280' }}>
-                                    {Array.isArray(f.notes) ? f.notes.join('; ') : f.notes || ''}
+                                    {Array.isArray(f.notes) ? f.notes.join('; ') : f.notes || f.description || ''}
                                 </td>
                             </tr>
                         ))}
