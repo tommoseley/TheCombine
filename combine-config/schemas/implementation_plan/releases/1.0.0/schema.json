@@ -1,150 +1,320 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/implementation_plan_final.v2.json",
   "type": "object",
-  "title": "Implementation Plan",
-  "description": "Final implementation plan with committed Epics",
-  "required": ["plan_summary", "epics"],
+  "title": "Implementation Plan (Final)",
+  "description": "Final implementation plan with committed Epics refined from Primary Implementation Plan epic candidates, informed by Technical Architecture.",
+  "additionalProperties": false,
+  "required": ["plan_summary", "epics", "candidate_reconciliation"],
   "properties": {
     "plan_summary": {
       "type": "object",
       "description": "High-level plan overview",
+      "additionalProperties": false,
+      "required": ["overall_intent", "mvp_definition", "key_constraints", "sequencing_rationale"],
       "properties": {
         "overall_intent": {
           "type": "string",
+          "minLength": 1,
           "description": "What this plan aims to achieve"
         },
         "mvp_definition": {
           "type": "string",
+          "minLength": 1,
           "description": "What constitutes MVP"
         },
         "key_constraints": {
           "type": "array",
           "description": "Key constraints shaping the plan",
-          "items": {"type": "string"}
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
         },
         "sequencing_rationale": {
           "type": "string",
+          "minLength": 1,
           "description": "Why Epics are ordered this way"
         }
       }
     },
+
     "epics": {
       "type": "array",
       "description": "Committed Epics for implementation",
-      "items": {
-        "type": "object",
-        "required": ["epic_id", "name", "intent", "sequence", "mvp_phase"],
-        "properties": {
-          "epic_id": {
-            "type": "string",
-            "description": "Unique identifier (snake_case)",
-            "pattern": "^[a-z][a-z0-9_]*$"
-          },
-          "name": {
-            "type": "string",
-            "description": "Human-readable Epic name"
-          },
-          "intent": {
-            "type": "string",
-            "description": "What this Epic accomplishes"
-          },
-          "sequence": {
-            "type": "integer",
-            "description": "Execution order (1-based)",
-            "minimum": 1
-          },
-          "mvp_phase": {
-            "type": "string",
-            "description": "MVP or later phase",
-            "enum": ["mvp", "later"]
-          },
-          "design_required": {
-            "type": "string",
-            "description": "Design phase requirement level",
-            "enum": ["not_needed", "recommended", "required"]
-          },
-          "in_scope": {
-            "type": "array",
-            "description": "What is explicitly in scope",
-            "items": {"type": "string"}
-          },
-          "out_of_scope": {
-            "type": "array",
-            "description": "What is explicitly excluded",
-            "items": {"type": "string"}
-          },
-          "dependencies": {
-            "type": "array",
-            "description": "Epic IDs this depends on",
-            "items": {
-              "type": "object",
-              "properties": {
-                "epic_id": {"type": "string"},
-                "dependency_type": {
-                  "type": "string",
-                  "enum": ["must_complete_first", "can_start_after", "soft"]
-                },
-                "notes": {"type": "string"}
-              }
-            }
-          },
-          "risks": {
-            "type": "array",
-            "description": "Epic-specific risks",
-            "items": {
-              "type": "object",
-              "properties": {
-                "risk": {"type": "string"},
-                "impact": {
-                  "type": "string",
-                  "enum": ["low", "medium", "high"]
-                },
-                "mitigation": {"type": "string"}
-              }
-            }
-          },
-          "open_questions": {
-            "type": "array",
-            "description": "Unresolved questions",
-            "items": {
-              "type": "object",
-              "properties": {
-                "question": {"type": "string"},
-                "blocking": {"type": "boolean"},
-                "default_assumption": {"type": "string"}
-              }
-            }
-          },
-          "architecture_notes": {
-            "type": "array",
-            "description": "Notes from Technical Architecture",
-            "items": {"type": "string"}
-          }
-        }
-      }
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/epic" }
     },
+
+    "candidate_reconciliation": {
+      "type": "array",
+      "description": "Audit-friendly mapping of each Primary Implementation Plan epic candidate to its final outcome in this plan.",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/candidate_reconciliation_item" }
+    },
+
     "cross_cutting_concerns": {
       "type": "array",
       "description": "Concerns spanning multiple Epics",
-      "items": {"type": "string"}
+      "minItems": 0,
+      "items": { "type": "string", "minLength": 1 }
     },
+
     "risk_summary": {
       "type": "array",
-      "description": "Aggregated risk summary",
-      "items": {
-        "type": "object",
-        "properties": {
-          "risk": {"type": "string"},
-          "affected_epics": {
-            "type": "array",
-            "items": {"type": "string"}
-          },
-          "overall_impact": {
+      "description": "Aggregated risk summary across epics",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/risk_summary_item" }
+    }
+  },
+
+  "definitions": {
+    "epic": {
+      "type": "object",
+      "description": "A committed Epic suitable for spawning an Epic child document.",
+      "additionalProperties": false,
+      "required": [
+        "epic_id",
+        "name",
+        "intent",
+        "sequence",
+        "mvp_phase",
+        "transformation",
+        "source_candidate_ids"
+      ],
+      "properties": {
+        "epic_id": {
+          "type": "string",
+          "description": "Unique identifier (snake_case). Prefer stability across revisions when meaning is preserved.",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable Epic name"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this Epic accomplishes"
+        },
+        "sequence": {
+          "type": "integer",
+          "description": "Execution order (1-based)",
+          "minimum": 1
+        },
+        "mvp_phase": {
+          "type": "string",
+          "description": "MVP or later phase",
+          "enum": ["mvp", "later"]
+        },
+        "design_required": {
+          "type": "string",
+          "description": "Design phase requirement level",
+          "enum": ["not_needed", "recommended", "required"]
+        },
+
+        "source_candidate_ids": {
+          "type": "array",
+          "description": "Primary Implementation Plan epic candidate IDs that this committed Epic was derived from. Empty only if transformation='added'.",
+          "items": {
             "type": "string",
-            "enum": ["low", "medium", "high", "critical"]
-          },
-          "mitigation_strategy": {"type": "string"}
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "transformation": {
+          "type": "string",
+          "description": "How this committed Epic relates to IPP epic candidates.",
+          "enum": ["kept", "split", "merged", "added"]
+        },
+        "transformation_notes": {
+          "type": "string",
+          "description": "Short justification for the transformation (why it was split/merged/added, or what changed materially).",
+          "minLength": 0,
+          "maxLength": 600
+        },
+
+        "in_scope": {
+          "type": "array",
+          "description": "What is explicitly in scope",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "out_of_scope": {
+          "type": "array",
+          "description": "What is explicitly excluded",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
+        },
+
+        "dependencies": {
+          "type": "array",
+          "description": "Epic IDs this depends on",
+          "minItems": 0,
+          "items": { "$ref": "#/definitions/epic_dependency" }
+        },
+
+        "risks": {
+          "type": "array",
+          "description": "Epic-specific risks",
+          "minItems": 0,
+          "items": { "$ref": "#/definitions/epic_risk" }
+        },
+
+        "open_questions": {
+          "type": "array",
+          "description": "Unresolved questions",
+          "minItems": 0,
+          "items": { "$ref": "#/definitions/open_question" }
+        },
+
+        "architecture_notes": {
+          "type": "array",
+          "description": "Notes from Technical Architecture that materially shaped this Epic (constraints, dependencies, major decisions).",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
         }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "transformation": { "const": "added" } },
+            "required": ["transformation"]
+          },
+          "then": {
+            "properties": {
+              "source_candidate_ids": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "epic_dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["epic_id", "dependency_type"],
+      "properties": {
+        "epic_id": {
+          "type": "string",
+          "description": "Dependent epic_id",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "dependency_type": {
+          "type": "string",
+          "enum": ["must_complete_first", "can_start_after", "soft"]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 400
+        }
+      }
+    },
+
+    "epic_risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk", "impact", "mitigation"],
+      "properties": {
+        "risk": { "type": "string", "minLength": 1 },
+        "impact": { "type": "string", "enum": ["low", "medium", "high"] },
+        "mitigation": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "blocking"],
+      "properties": {
+        "question": { "type": "string", "minLength": 1 },
+        "blocking": { "type": "boolean" },
+        "default_assumption": {
+          "type": "string",
+          "description": "If unanswered, what assumption (if any) allows progress without silently inventing requirements.",
+          "minLength": 0,
+          "maxLength": 300
+        }
+      }
+    },
+
+    "candidate_reconciliation_item": {
+      "type": "object",
+      "description": "How a single IPP epic candidate was treated in this final plan.",
+      "additionalProperties": false,
+      "required": ["candidate_id", "outcome", "resulting_epic_ids", "notes"],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Epic candidate identifier from Primary Implementation Plan"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["kept", "split", "merged", "dropped"],
+          "description": "Disposition of the candidate in the final plan"
+        },
+        "resulting_epic_ids": {
+          "type": "array",
+          "description": "Committed epic_id values that result from this candidate. Empty only when outcome='dropped'.",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Short rationale, ideally referencing architecture constraints/decisions or explicit scope changes.",
+          "minLength": 0,
+          "maxLength": 600
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "dropped" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "resulting_epic_ids": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "outcome": { "enum": ["kept", "split", "merged"] } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "properties": {
+              "resulting_epic_ids": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      ]
+    },
+
+    "risk_summary_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk", "affected_epics", "overall_impact", "mitigation_strategy"],
+      "properties": {
+        "risk": { "type": "string", "minLength": 1 },
+        "affected_epics": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        },
+        "overall_impact": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "mitigation_strategy": { "type": "string", "minLength": 1 }
       }
     }
   }
