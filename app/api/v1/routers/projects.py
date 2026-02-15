@@ -74,6 +74,7 @@ class ProjectUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=2000)
     icon: Optional[str] = Field(None, max_length=50)
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Partial metadata merge")
 
 
 class ProjectResponse(BaseModel):
@@ -88,6 +89,7 @@ class ProjectResponse(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     is_archived: bool = False
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class ProjectListResponse(BaseModel):
@@ -205,6 +207,7 @@ def _project_to_response(project: Project) -> ProjectResponse:
         created_at=project.created_at.isoformat() if project.created_at else None,
         updated_at=project.updated_at.isoformat() if project.updated_at else None,
         is_archived=project.archived_at is not None,
+        metadata=project.meta,
     )
 
 
@@ -394,6 +397,10 @@ async def update_project(
         project.description = request.description.strip() if request.description else None
     if request.icon is not None:
         project.icon = request.icon
+    if request.metadata is not None:
+        current = dict(project.meta or {})
+        current.update(request.metadata)
+        project.meta = current
 
     await db.commit()
     await db.refresh(project)
@@ -765,8 +772,49 @@ async def get_document_render_model(
 
     view_docdef = doc_type.view_docdef if doc_type else None
 
+    # Helper: build common metadata dict for all response paths
+    async def _build_doc_metadata() -> Dict[str, Any]:
+        meta: Dict[str, Any] = {
+            "document_type": doc_type_id,
+            "document_type_name": doc_type.name if doc_type else None,
+            "version": document.version,
+            "lifecycle_state": document.lifecycle_state,
+            "created_at": document.created_at.isoformat() if document.created_at else None,
+            "updated_at": document.updated_at.isoformat() if document.updated_at else None,
+            "created_by": document.created_by,
+        }
+        # Look up the workflow execution that produced this document
+        exec_id = None
+        for query in [
+            select(WorkflowExecution.execution_id)
+            .where(WorkflowExecution.project_id == project.id)
+            .where(WorkflowExecution.workflow_id == doc_type_id)
+            .where(WorkflowExecution.status == "completed")
+            .order_by(WorkflowExecution.execution_id.desc())
+            .limit(1),
+            select(WorkflowExecution.execution_id)
+            .where(WorkflowExecution.project_id == project.id)
+            .where(WorkflowExecution.workflow_id == doc_type_id)
+            .order_by(WorkflowExecution.execution_id.desc())
+            .limit(1),
+            select(WorkflowExecution.execution_id)
+            .where(WorkflowExecution.document_id == str(document.id))
+            .order_by(WorkflowExecution.execution_id.desc())
+            .limit(1),
+        ]:
+            result = await db.execute(query)
+            exec_id = result.scalar_one_or_none()
+            if exec_id:
+                break
+        if exec_id:
+            meta["execution_id"] = exec_id
+        return meta
+
     if not view_docdef:
         # No view_docdef configured - return raw content wrapped in basic structure
+        meta = await _build_doc_metadata()
+        meta["fallback"] = True
+        meta["reason"] = "no_view_docdef"
         return {
             "render_model_version": "1.0",
             "schema_id": "schema:RenderModelV1",
@@ -774,10 +822,7 @@ async def get_document_render_model(
             "document_type": doc_type_id,
             "title": document.title or doc_type_id,
             "sections": [],
-            "metadata": {
-                "fallback": True,
-                "reason": "no_view_docdef",
-            },
+            "metadata": meta,
             "raw_content": document.content,
         }
 
@@ -869,58 +914,19 @@ async def get_document_render_model(
         result_dict = render_model.to_dict()
 
         # Inject document metadata for header display
+        doc_meta = await _build_doc_metadata()
         meta = result_dict.setdefault("metadata", {})
-        meta["document_type"] = doc_type_id
-        meta["version"] = document.version
-        meta["lifecycle_state"] = document.lifecycle_state
-        meta["created_at"] = document.created_at.isoformat() if document.created_at else None
-        meta["updated_at"] = document.updated_at.isoformat() if document.updated_at else None
-        meta["created_by"] = document.created_by
-
-        # Look up the workflow execution that produced this document.
-        # Prefer completed executions; match by project + doc type only.
-        exec_id = None
-
-        # 1. Completed execution for this project + doc type (best match)
-        exec_result = await db.execute(
-            select(WorkflowExecution.execution_id)
-            .where(WorkflowExecution.project_id == project.id)
-            .where(WorkflowExecution.workflow_id == doc_type_id)
-            .where(WorkflowExecution.status == "completed")
-            .order_by(WorkflowExecution.execution_id.desc())
-            .limit(1)
-        )
-        exec_id = exec_result.scalar_one_or_none()
-
-        # 2. Fallback: any status for this project + doc type
-        if not exec_id:
-            exec_result = await db.execute(
-                select(WorkflowExecution.execution_id)
-                .where(WorkflowExecution.project_id == project.id)
-                .where(WorkflowExecution.workflow_id == doc_type_id)
-                .order_by(WorkflowExecution.execution_id.desc())
-                .limit(1)
-            )
-            exec_id = exec_result.scalar_one_or_none()
-
-        # 3. Fallback: match by document_id (for executions without project_id)
-        if not exec_id:
-            exec_result = await db.execute(
-                select(WorkflowExecution.execution_id)
-                .where(WorkflowExecution.document_id == str(document.id))
-                .order_by(WorkflowExecution.execution_id.desc())
-                .limit(1)
-            )
-            exec_id = exec_result.scalar_one_or_none()
-
-        if exec_id:
-            meta["execution_id"] = exec_id
+        meta.update(doc_meta)
 
         return result_dict
 
     except DocDefNotFoundError as e:
         logger.warning(f"DocDef not found for {doc_type_id}: {e}")
         # Return fallback with raw content
+        meta = await _build_doc_metadata()
+        meta["fallback"] = True
+        meta["reason"] = "docdef_not_found"
+        meta["view_docdef"] = view_docdef
         return {
             "render_model_version": "1.0",
             "schema_id": "schema:RenderModelV1",
@@ -928,11 +934,7 @@ async def get_document_render_model(
             "document_type": doc_type_id,
             "title": document.title or doc_type_id,
             "sections": [],
-            "metadata": {
-                "fallback": True,
-                "reason": "docdef_not_found",
-                "view_docdef": view_docdef,
-            },
+            "metadata": meta,
             "raw_content": document.content,
         }
     except Exception as e:

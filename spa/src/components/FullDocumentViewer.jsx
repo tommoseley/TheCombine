@@ -13,6 +13,8 @@ import TechnicalArchitectureViewer from './viewers/TechnicalArchitectureViewer';
 export default function FullDocumentViewer({ projectId, projectCode, docTypeId, onClose }) {
     const [renderModel, setRenderModel] = useState(null);
     const [rawContent, setRawContent] = useState(null);
+    const [docMetadata, setDocMetadata] = useState({});
+    const [docTitle, setDocTitle] = useState(null);
     const [pgcContext, setPgcContext] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -31,6 +33,10 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 // Try to fetch RenderModel first (data-driven display)
                 try {
                     const rm = await api.getDocumentRenderModel(projectId, docTypeId);
+                    // Always preserve metadata and title from render model response
+                    if (rm?.metadata) setDocMetadata(rm.metadata);
+                    if (rm?.title) setDocTitle(rm.title);
+
                     if (rm && rm.sections && rm.sections.length > 0) {
                         setRenderModel(rm);
                         setRawContent(null);
@@ -82,7 +88,8 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
     }
 
     // Extract metadata for header and admin link
-    const metadata = renderModel?.metadata || {};
+    // Use docMetadata (persisted from render model response) which survives fallback paths
+    const metadata = renderModel?.metadata || docMetadata;
     const executionId = metadata.execution_id;
     const adminUrl = executionId ? `/admin/executions/${executionId}` : '/admin/executions';
 
@@ -136,7 +143,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
             >
                 {/* Document Header */}
                 <DocumentHeader
-                    title={renderModel?.title}
+                    title={renderModel?.title || docTitle}
                     projectCode={projectCode}
                     adminUrl={adminUrl}
                     executionId={executionId}
@@ -191,9 +198,10 @@ function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, o
         return colonIndex > -1 ? title.slice(colonIndex + 2) : title;
     })();
 
-    const docType = metadata?.document_type
-        ? metadata.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-        : null;
+    const docType = metadata?.document_type_name
+        || (metadata?.document_type
+            ? metadata.document_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+            : null);
 
     const formatDate = (iso) => {
         if (!iso) return null;

@@ -254,6 +254,7 @@ function AppContent() {
                                 projectCode={projects[activeProjectId]?.projectId}
                                 projectName={projects[activeProjectId]?.name}
                                 isArchived={projects[activeProjectId]?.isArchived}
+                                savedLayout={projects[activeProjectId]?.metadata?.floor_layout}
                                 autoExpandNodeId={autoExpandNode}
                                 theme={theme}
                                 onThemeChange={setTheme}

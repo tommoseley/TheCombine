@@ -46,6 +46,7 @@ from app.domain.workflow.nodes.base import (
 )
 from app.domain.workflow.thread_manager import ThreadManager
 from app.domain.workflow.outcome_recorder import OutcomeRecorder
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import publish_event for station events (WS-STATION-DATA-001 Phase 2)
@@ -1884,12 +1885,39 @@ class PlanExecutor:
             # Embed PGC clarifications (questions + answers) for traceability
             self._embed_pgc_clarifications(doc_content, state)
 
+            # Derive a meaningful title for the document
+            doc_title = doc_content.get("title") or doc_content.get("project_name")
+            if not doc_title:
+                # Look up project name and document type display name
+                from app.api.models.project import Project as ProjectModel
+                from app.api.models.document_type import DocumentType as DocTypeModel
+                proj_result = await self._db_session.execute(
+                    select(ProjectModel.name).where(
+                        ProjectModel.id == UUID(state.project_id)
+                    )
+                )
+                project_name = proj_result.scalar_one_or_none()
+                dt_result = await self._db_session.execute(
+                    select(DocTypeModel.name).where(
+                        DocTypeModel.doc_type_id == state.document_type
+                    )
+                )
+                doc_type_name = dt_result.scalar_one_or_none()
+                if project_name and doc_type_name:
+                    doc_title = f"{project_name}: {doc_type_name}"
+                elif project_name:
+                    doc_title = project_name
+                elif doc_type_name:
+                    doc_title = doc_type_name
+                else:
+                    doc_title = state.document_type.replace("_", " ").title()
+
             # Create the document record
             document = Document(
                 space_type="project",
                 space_id=UUID(state.project_id),
                 doc_type_id=state.document_type,
-                title=doc_content.get("project_name", f"{state.document_type} Document"),
+                title=doc_title,
                 content=doc_content,
                 version=1,
                 is_latest=True,
@@ -1900,22 +1928,89 @@ class PlanExecutor:
 
             self._db_session.add(document)
             await self._db_session.commit()
-            
+
             # Update context_state with system-corrected document
             # so API responses show corrected values
             doc_key = f"document_{state.document_type}"
             state.context_state[doc_key] = doc_content
             await self._persistence.save(state)
-            
+
             logger.info(
                 f"Persisted {state.document_type} document to database "
                 f"(id={document.id}, artifact_id={system_artifact_id}, project={state.project_id})"
+            )
+
+            # Spawn child documents if the handler defines them
+            await self._spawn_child_documents(
+                state, doc_content, document.id, document.title
             )
 
         except Exception as e:
             logger.error(f"Failed to persist document: {e}")
             # Don't fail the workflow - document is still in context_state
             await self._db_session.rollback()
+
+    async def _spawn_child_documents(
+        self,
+        state: DocumentWorkflowState,
+        doc_content: Dict[str, Any],
+        parent_id: "UUID",
+        parent_title: str,
+    ) -> None:
+        """Spawn child documents using the handler's get_child_documents().
+
+        For example, implementation_plan creates Epic child documents.
+
+        Args:
+            state: The completed workflow state
+            doc_content: The parent document content
+            parent_id: UUID of the parent document
+            parent_title: Title of the parent document
+        """
+        from app.domain.handlers.registry import handler_exists, get_handler
+        from app.api.models.document import Document
+        from uuid import UUID
+
+        if not handler_exists(state.document_type):
+            return
+
+        handler = get_handler(state.document_type)
+        child_specs = handler.get_child_documents(doc_content, parent_title or "")
+
+        if not child_specs:
+            return
+
+        created_count = 0
+        for spec in child_specs:
+            try:
+                child_doc = Document(
+                    space_type="project",
+                    space_id=UUID(state.project_id),
+                    doc_type_id=spec["doc_type_id"],
+                    title=spec["title"],
+                    content=spec["content"],
+                    version=1,
+                    is_latest=True,
+                    status="draft",
+                    created_by=None,
+                    parent_document_id=parent_id,
+                )
+                child_doc.update_revision_hash()
+                self._db_session.add(child_doc)
+                created_count += 1
+            except Exception as e:
+                logger.error(
+                    f"Failed to create child document "
+                    f"{spec.get('doc_type_id')}/{spec.get('identifier')}: {e}"
+                )
+
+        if created_count > 0:
+            await self._db_session.commit()
+            logger.info(
+                f"Spawned {created_count} child documents from "
+                f"{state.document_type} (parent={parent_id})"
+            )
+
     # =========================================================================
     # WS-STATION-DATA-001 Phase 2: Station Event Emission
     # =========================================================================

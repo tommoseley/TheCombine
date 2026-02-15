@@ -56,6 +56,7 @@ export function transformProjectsList(apiResponse) {
             icon: project.icon,
             createdAt: project.created_at,
             isArchived: project.is_archived || false,
+            metadata: project.metadata || {},
         };
     }
 

@@ -5,7 +5,7 @@ import { GRID, getEdgeColor } from './constants';
 /**
  * Apply Dagre layout to nodes and edges (L1 spine only)
  */
-export const getLayoutedElements = (nodes, edges) => {
+export const getLayoutedElements = (nodes, edges, savedPositions = null) => {
     const g = new dagre.graphlib.Graph();
     g.setGraph({
         rankdir: 'TB',
@@ -30,14 +30,17 @@ export const getLayoutedElements = (nodes, edges) => {
     return {
         nodes: nodes.map((n) => {
             const pos = g.node(n.id);
+            const dagrePos = {
+                x: pos.x - (n.data.width ?? 280) / 2,
+                y: pos.y - (n.data.height ?? 90) / 2
+            };
+            // Use saved position if available, otherwise Dagre
+            const saved = savedPositions?.[n.id];
             return {
                 ...n,
                 targetPosition: Position.Top,
                 sourcePosition: Position.Bottom,
-                position: {
-                    x: pos.x - (n.data.width ?? 280) / 2,
-                    y: pos.y - (n.data.height ?? 90) / 2
-                }
+                position: saved || dagrePos
             };
         }),
         edges
@@ -68,7 +71,6 @@ export const buildGraph = (data, expandedId, callbacks) => {
             id: item.id,
             type: 'documentNode',
             data: { ...item, width, height, isExpanded, ...callbacks },
-            draggable: false,
             connectable: false,
             position: { x: 0, y: 0 },
             zIndex: isExpanded ? 1000 : 0

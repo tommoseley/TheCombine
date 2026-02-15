@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ReactFlow, {
     useNodesState,
     useEdgesState,
@@ -15,11 +15,12 @@ import ProjectWorkflow from './ProjectWorkflow';
 import { buildGraph, getLayoutedElements, addEpicsToLayout } from '../utils/layout';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
+import { api } from '../api/client';
 
 const nodeTypes = { documentNode: DocumentNode, waypoint: WaypointNode };
 const THEME_LABELS = { industrial: 'Industrial', light: 'Light', blueprint: 'Blueprint' };
 
-export default function Floor({ projectId, projectCode, projectName, isArchived, autoExpandNodeId, theme, onThemeChange, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
+export default function Floor({ projectId, projectCode, projectName, isArchived, savedLayout, autoExpandNodeId, theme, onThemeChange, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
     const {
         data: productionData,
         lineState,
@@ -42,6 +43,12 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     const [actionLoading, setActionLoading] = useState(false);
     const [showWorkflow, setShowWorkflow] = useState(false);
     const reactFlowInstance = useReactFlow();
+
+    // Layout persistence refs
+    const currentPositionsRef = useRef(savedLayout?.node_positions || null);
+    const viewportRef = useRef(savedLayout?.viewport || null);
+    const saveTimerRef = useRef(null);
+    const viewportRestoredRef = useRef(false);
 
     // Update data when productionData changes
     useEffect(() => {
@@ -66,10 +73,45 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         setExpandType(null);
     }, [projectId]);
 
+    // Cleanup debounce timer on unmount
+    useEffect(() => {
+        return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    }, []);
+
     const cycleTheme = useCallback(() => {
         const idx = THEMES.indexOf(theme);
         onThemeChange(THEMES[(idx + 1) % THEMES.length]);
     }, [theme, onThemeChange]);
+
+    // Debounced save of floor layout to project metadata
+    const debounceSave = useCallback(() => {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            const layout = {
+                node_positions: currentPositionsRef.current,
+                viewport: viewportRef.current,
+            };
+            api.saveFloorLayout(projectId, layout).catch(err =>
+                console.error('Failed to save floor layout:', err)
+            );
+        }, 800);
+    }, [projectId]);
+
+    // Save node positions on drag stop
+    const onNodeDragStop = useCallback((event, node) => {
+        const positions = { ...(currentPositionsRef.current || {}) };
+        positions[node.id] = node.position;
+        currentPositionsRef.current = positions;
+        debounceSave();
+    }, [debounceSave]);
+
+    // Save viewport on pan/zoom end
+    const onMoveEnd = useCallback((event, viewport) => {
+        if (viewport) {
+            viewportRef.current = viewport;
+            debounceSave();
+        }
+    }, [debounceSave]);
 
     const handleStartEdit = useCallback(() => {
         setEditName(projectName || '');
@@ -216,7 +258,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
         const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
         const { nodes, edges, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
-        const dagreResult = getLayoutedElements(nodes, edges);
+        const dagreResult = getLayoutedElements(nodes, edges, currentPositionsRef.current);
         const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
         const nodesWithType = allNodes.map(n => ({ ...n, data: { ...n.data, expandType: n.id === expandedId ? expandType : null } }));
         return { layoutNodes: nodesWithType, layoutEdges: allEdges };
@@ -230,12 +272,40 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
         const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
         const { nodes: n, edges: e, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
-        const dagreResult = getLayoutedElements(n, e);
+        const dagreResult = getLayoutedElements(n, e, currentPositionsRef.current);
         const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
         const nodesWithType = allNodes.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
         setNodes(nodesWithType);
         setEdges(allEdges);
     }, [data, expandedId, expandType, callbacks, setNodes, setEdges, theme, onZoomToNode, projectId, projectCode]);
+
+    // Restore saved viewport once after initial layout
+    useEffect(() => {
+        if (!viewportRestoredRef.current && viewportRef.current && nodes.length > 0) {
+            viewportRestoredRef.current = true;
+            setTimeout(() => {
+                reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
+            }, 100);
+        }
+    }, [nodes.length, reactFlowInstance]);
+
+    // Reset layout to auto-computed Dagre positions
+    const handleResetLayout = useCallback(() => {
+        currentPositionsRef.current = null;
+        viewportRef.current = null;
+        api.saveFloorLayout(projectId, null).catch(err =>
+            console.error('Failed to clear floor layout:', err)
+        );
+        // Rebuild layout without saved positions
+        const cbs = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
+        const { nodes: n, edges: e, epicBacklogId, epicChildren } = buildGraph(data, expandedId, cbs);
+        const dagreResult = getLayoutedElements(n, e, null);
+        const { nodes: allN, edges: allE } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, cbs);
+        const nodesWithType = allN.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
+        setNodes(nodesWithType);
+        setEdges(allE);
+        setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 300 }), 50);
+    }, [projectId, callbacks, expandType, theme, onZoomToNode, projectCode, data, expandedId, setNodes, setEdges, reactFlowInstance]);
 
     const onNodeClick = useCallback((_, node) => {
         // Node clicks are handled by buttons within the node (View Document, Answer Questions, etc.)
@@ -273,10 +343,12 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 nodes={nodes} edges={edges}
                 onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
                 onNodeClick={onNodeClick}
+                onNodeDragStop={onNodeDragStop}
+                onMoveEnd={onMoveEnd}
                 nodeTypes={nodeTypes}
-                nodesDraggable={false} nodesConnectable={false} edgesUpdatable={false} edgesFocusable={false} elementsSelectable={false}
-                zoomOnScroll={false}
-                fitView fitViewOptions={{ padding: 0.2 }}
+                nodesDraggable nodesConnectable={false} edgesUpdatable={false} edgesFocusable={false}
+                zoomOnScroll
+                fitView={!viewportRef.current} fitViewOptions={{ padding: 0.2 }}
                 minZoom={0.3} maxZoom={1.5}
                 style={{ background: 'var(--bg-canvas)' }}
                 proOptions={{ hideAttribution: true }}
@@ -297,12 +369,26 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                                         {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
                                     </p>
                                 </div>
-                                <button
-                                    onClick={cycleTheme}
-                                    className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-                                >
-                                    {THEME_LABELS[theme]}
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={handleResetLayout}
+                                        className="subway-button p-1.5 rounded-md transition-colors"
+                                        title="Reset layout"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8" />
+                                            <path d="M21 3v5h-5" />
+                                            <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16" />
+                                            <path d="M3 21v-5h5" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={cycleTheme}
+                                        className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                                    >
+                                        {THEME_LABELS[theme]}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -476,7 +562,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     </div>
                 </Panel>
                 <Panel position="bottom-right">
-                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Pinch to zoom | Drag to pan</div>
+                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Scroll to zoom | Drag to pan | Drag nodes to rearrange</div>
                 </Panel>
             </ReactFlow>
 

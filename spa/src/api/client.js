@@ -111,6 +111,11 @@ export const api = {
         body: JSON.stringify(data),
     }),
 
+    saveFloorLayout: (projectId, layout) => request(`/projects/${projectId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ metadata: { floor_layout: layout } }),
+    }),
+
     archiveProject: (projectId) => request(`/projects/${projectId}/archive`, {
         method: 'POST',
     }),
