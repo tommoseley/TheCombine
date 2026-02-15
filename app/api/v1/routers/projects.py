@@ -8,6 +8,7 @@ Provides RESTful API for project management:
 - GET /api/v1/projects/{id}/tree - Get project with documents
 """
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -38,6 +39,8 @@ from app.domain.services.render_model_builder import (
     DocDefNotFoundError,
 )
 from app.api.models.workflow_instance import WorkflowInstance
+from app.api.models.pgc_answer import PGCAnswer
+from app.api.models.workflow_execution import WorkflowExecution
 from app.api.services.admin_workbench_service import get_admin_workbench_service
 from app.api.services.workflow_instance_service import WorkflowInstanceService, DriftSummary
 
@@ -778,6 +781,29 @@ async def get_document_render_model(
             "raw_content": document.content,
         }
 
+    # Unwrap document content if stored in raw envelope format
+    # Some documents are stored as {"raw": true, "content": "```json\n{...}\n```"}
+    # instead of the direct JSON structure
+    document_data = document.content
+    if isinstance(document_data, dict) and document_data.get("raw") and "content" in document_data:
+        raw_content = document_data["content"]
+        if isinstance(raw_content, str):
+            cleaned = raw_content.strip()
+            # Strip markdown code fences if present
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned[:-3].strip()
+            try:
+                document_data = json.loads(cleaned)
+            except json.JSONDecodeError:
+                # LLM output may be truncated - try to repair by closing open structures
+                repaired = _repair_truncated_json(cleaned)
+                if repaired:
+                    document_data = repaired
+                else:
+                    logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
+
     # Build the RenderModel
     try:
         docdef_service = DocumentDefinitionService(db)
@@ -790,11 +816,26 @@ async def get_document_render_model(
             schema_service=schema_service,
         )
 
+        # Determine best title - prefer document data over raw doc_type_id fallbacks
+        display_title = document.title
+        if not display_title or "_" in display_title:
+            # Try to extract title from document data
+            if isinstance(document_data, dict):
+                # Check common locations for a human-readable title
+                display_title = (
+                    document_data.get("title")
+                    or (document_data.get("architecture_summary") or {}).get("title")
+                    or display_title
+                )
+            # If still contains underscores, humanize
+            if display_title and "_" in display_title:
+                display_title = display_title.replace("_", " ").replace(" Document", "").title()
+
         render_model = await builder.build(
             document_def_id=view_docdef,
-            document_data=document.content,
+            document_data=document_data,
             document_id=str(document.id),
-            title=document.title,
+            title=display_title,
             lifecycle_state=document.lifecycle_state,
         )
 
@@ -823,6 +864,235 @@ async def get_document_render_model(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to build render model: {str(e)}",
         )
+
+
+@router.get("/{project_id}/documents/{doc_type_id}/pgc")
+async def get_document_pgc_context(
+    project_id: str,
+    doc_type_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Get PGC (Pre-Generation Clarification) context for a document.
+
+    Returns the PGC questions (with why_it_matters rationale) and the
+    operator's answers. Checks two sources:
+    1. pgc_answers table (newer executions)
+    2. workflow_executions.context_state (older executions)
+    """
+    project = await _resolve_project(project_id, db)
+
+    # Source 1: pgc_answers table (newer format)
+    result = await db.execute(
+        select(PGCAnswer)
+        .where(PGCAnswer.project_id == project.id)
+        .where(PGCAnswer.workflow_id == doc_type_id)
+        .order_by(PGCAnswer.created_at.desc())
+        .limit(1)
+    )
+    pgc_answer = result.scalar_one_or_none()
+
+    if pgc_answer:
+        clarifications = _build_pgc_from_answers_table(pgc_answer)
+        return {
+            "clarifications": clarifications,
+            "has_pgc": True,
+            "execution_id": pgc_answer.execution_id,
+            "created_at": pgc_answer.created_at.isoformat() if pgc_answer.created_at else None,
+        }
+
+    # Source 2: workflow_executions context_state (older format)
+    we_result = await db.execute(
+        select(WorkflowExecution)
+        .where(WorkflowExecution.project_id == project.id)
+        .where(WorkflowExecution.document_type == doc_type_id)
+        .where(WorkflowExecution.status == "completed")
+        .order_by(WorkflowExecution.execution_id.desc())
+        .limit(1)
+    )
+    execution = we_result.scalar_one_or_none()
+
+    if execution and execution.context_state:
+        clarifications = _build_pgc_from_context_state(execution.context_state)
+        if clarifications:
+            return {
+                "clarifications": clarifications,
+                "has_pgc": True,
+                "execution_id": execution.execution_id,
+                "created_at": None,
+            }
+
+    return {"clarifications": [], "has_pgc": False}
+
+
+def _repair_truncated_json(text: str) -> Optional[Dict[str, Any]]:
+    """Attempt to repair truncated JSON from LLM output.
+
+    LLM outputs may be cut off mid-structure when hitting token limits.
+    This tries to close any open brackets/braces to make the JSON parseable,
+    so the RenderModel can at least display the sections that were completed.
+    """
+    # Track open delimiters (ignoring those inside strings)
+    stack = []
+    in_string = False
+    escape = False
+
+    for ch in text:
+        if escape:
+            escape = False
+            continue
+        if ch == '\\' and in_string:
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in ('{', '['):
+            stack.append(ch)
+        elif ch == '}' and stack and stack[-1] == '{':
+            stack.pop()
+        elif ch == ']' and stack and stack[-1] == '[':
+            stack.pop()
+
+    if not stack:
+        return None  # Nothing to repair or empty
+
+    # Build closing sequence
+    # First, ensure we're not in the middle of a string or value
+    # Trim back to the last complete value (comma or colon boundary)
+    trimmed = text.rstrip()
+    # Remove trailing comma if present
+    if trimmed.endswith(','):
+        trimmed = trimmed[:-1]
+
+    # Close open structures in reverse order
+    closers = {'[': ']', '{': '}'}
+    suffix = ''.join(closers.get(c, '') for c in reversed(stack))
+
+    try:
+        return json.loads(trimmed + suffix)
+    except json.JSONDecodeError:
+        # Try more aggressive trimming - remove last incomplete key-value
+        lines = trimmed.rsplit('\n', 1)
+        if len(lines) > 1:
+            try:
+                trimmed2 = lines[0].rstrip().rstrip(',')
+                return json.loads(trimmed2 + suffix)
+            except json.JSONDecodeError:
+                pass
+        return None
+
+
+def _build_pgc_from_answers_table(pgc_answer: PGCAnswer) -> List[Dict[str, Any]]:
+    """Build clarifications from pgc_answers table (newer format)."""
+    questions = pgc_answer.questions or []
+    answers = pgc_answer.answers or {}
+
+    clarifications = []
+    for q in questions:
+        qid = q.get("id", "")
+        user_answer = answers.get(qid)
+        answer_label = _resolve_answer_label(q, user_answer)
+
+        clarifications.append({
+            "question_id": qid,
+            "question": q.get("text", ""),
+            "why_it_matters": q.get("why_it_matters"),
+            "answer": answer_label,
+            "binding": q.get("constraint_kind") in ("exclusion", "requirement") or q.get("priority") == "must",
+        })
+
+    return clarifications
+
+
+def _build_pgc_from_context_state(context_state: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Build clarifications from workflow execution context_state (older format).
+
+    Checks multiple keys where PGC data may be stored:
+    - pgc_clarifications (newer context format)
+    - document_pgc_clarifications.* (older context format)
+    - pgc_questions + pgc_answers (raw data fallback)
+    """
+    # Try pgc_clarifications (newer context format, has full merged data)
+    pgc_clars = context_state.get("pgc_clarifications", [])
+    if pgc_clars:
+        return [
+            {
+                "question_id": c.get("id", ""),
+                "question": c.get("text", ""),
+                "why_it_matters": c.get("why_it_matters"),
+                "answer": c.get("user_answer_label") or str(c.get("user_answer", "")),
+                "binding": c.get("binding", False),
+            }
+            for c in pgc_clars
+            if c.get("resolved", True)
+        ]
+
+    # Try document_pgc_clarifications.* keys (older context format)
+    for key, value in context_state.items():
+        if key.startswith("document_pgc_clarifications.") and isinstance(value, dict):
+            clars = value.get("clarifications", [])
+            if clars:
+                # Older format has questions in pgc_questions with why_it_matters
+                questions_obj = context_state.get("pgc_questions", {})
+                questions_list = questions_obj.get("questions", [])
+                q_map = {q.get("id"): q for q in questions_list}
+
+                return [
+                    {
+                        "question_id": c.get("id", ""),
+                        "question": c.get("question", ""),
+                        "why_it_matters": c.get("why_it_matters") or q_map.get(c.get("id"), {}).get("why_it_matters"),
+                        "answer": _resolve_answer_label(
+                            q_map.get(c.get("id"), {}),
+                            c.get("answer"),
+                        ),
+                        "binding": c.get("priority") == "must" or c.get("binding", False),
+                    }
+                    for c in clars
+                ]
+
+    # Raw fallback: pgc_questions + pgc_answers
+    questions_obj = context_state.get("pgc_questions", {})
+    raw_answers = context_state.get("pgc_answers", {})
+    questions_list = questions_obj.get("questions", [])
+    if questions_list and raw_answers:
+        return [
+            {
+                "question_id": q.get("id", ""),
+                "question": q.get("text", ""),
+                "why_it_matters": q.get("why_it_matters"),
+                "answer": _resolve_answer_label(q, raw_answers.get(q.get("id"))),
+                "binding": q.get("constraint_kind") in ("exclusion", "requirement") or q.get("priority") == "must",
+            }
+            for q in questions_list
+        ]
+
+    return []
+
+
+def _resolve_answer_label(question: Dict[str, Any], user_answer: Any) -> Optional[str]:
+    """Resolve human-readable answer label from question choices."""
+    if user_answer is None:
+        return None
+
+    answer_type = question.get("answer_type", "free_text")
+    choices = question.get("choices", [])
+
+    if answer_type == "single_choice" and choices:
+        for c in choices:
+            if (c.get("id") or c.get("value")) == user_answer:
+                return c.get("label", str(user_answer))
+    elif answer_type == "multi_choice" and choices and isinstance(user_answer, list):
+        choice_map = {(c.get("id") or c.get("value")): c.get("label") for c in choices}
+        return ", ".join(choice_map.get(s, str(s)) for s in user_answer)
+    elif answer_type == "yes_no" and isinstance(user_answer, bool):
+        return "Yes" if user_answer else "No"
+
+    if isinstance(user_answer, list):
+        return ", ".join(str(s) for s in user_answer)
+    return str(user_answer)
 
 
 # =============================================================================

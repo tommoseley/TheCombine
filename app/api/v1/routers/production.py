@@ -298,6 +298,23 @@ async def start_production(
             # Run to first pause point (gate requiring input or completion)
             state = await executor.run_to_completion_or_pause(state.execution_id)
 
+            # Check if execution failed immediately (e.g., LLM overloaded)
+            if state.status.value == "failed":
+                logger.warning(
+                    f"Execution {state.execution_id} failed immediately at "
+                    f"node {state.current_node_id}"
+                )
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "failed",
+                        "project_id": project_id,
+                        "document_type": document_type,
+                        "execution_id": state.execution_id,
+                        "message": "The AI service may be temporarily busy. Please try again in a minute.",
+                    },
+                )
+
             # Emit event for UI
             await publish_event(
                 project_id,

@@ -34,7 +34,7 @@ export default function RisksBlock({ block }) {
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {items.map((item, i) => {
-                    const severity = item.severity || item.likelihood || 'medium';
+                    const severity = item.severity || item.impact || item.likelihood || 'medium';
                     const colors = severityColors[severity] || severityColors.medium;
 
                     return (
@@ -72,7 +72,7 @@ export default function RisksBlock({ block }) {
                                             fontWeight: 500,
                                         }}
                                     >
-                                        {item.description || item.reason || JSON.stringify(item)}
+                                        {item.risk || item.description || item.reason || JSON.stringify(item)}
                                     </p>
                                     {item.impact && (
                                         <p
@@ -96,6 +96,19 @@ export default function RisksBlock({ block }) {
                                             }}
                                         >
                                             Mitigation: {item.mitigation}
+                                        </p>
+                                    )}
+                                    {item.status && (
+                                        <p
+                                            style={{
+                                                margin: '4px 0 0',
+                                                fontSize: 11,
+                                                color: colors.text,
+                                                opacity: 0.7,
+                                                textTransform: 'capitalize',
+                                            }}
+                                        >
+                                            Status: {item.status}
                                         </p>
                                     )}
                                 </div>

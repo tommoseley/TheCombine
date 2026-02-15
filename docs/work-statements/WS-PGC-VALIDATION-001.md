@@ -23,7 +23,7 @@ Before starting this work:
 - [x] ADR-041 Phases 1-7 complete (prompt template includes operational)
 - [x] Schema v2 migration complete (`clarification_question_set.v2.json` in use)
 - [x] QA node executor exists at `app/domain/workflow/nodes/qa.py`
-- [x] Document workflow end-to-end functional (start â†’ PGC â†’ input â†’ generation â†’ QA â†’ persist)
+- [x] Document workflow end-to-end functional (start → PGC → input → generation → QA → persist)
 - [x] Database has `pending_user_input_payload` and `pending_user_input_schema_ref` columns
 
 ---
@@ -587,7 +587,7 @@ This work statement is complete when:
    - QA node receives PGC data in context
 
 3. **Integration Verified:**
-   - End-to-end test: start workflow â†’ answer PGC â†’ generate â†’ QA uses persisted answers
+   - End-to-end test: start workflow → answer PGC → generate → QA uses persisted answers
    - Validation warnings appear in QA result metadata
 
 4. **Documentation:**

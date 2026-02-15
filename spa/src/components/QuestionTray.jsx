@@ -208,7 +208,7 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
 
     return (
         <div
-            className="absolute top-0 border border-amber-500/50 rounded-lg shadow-2xl tray-slide"
+            className="absolute top-0 border border-amber-500/50 rounded-lg shadow-2xl tray-slide nowheel nopan nodrag"
             style={{
                 left: nodeWidth + TRAY.GAP,
                 width,
@@ -216,6 +216,7 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                 zIndex: 1000,
                 background: 'var(--bg-sidecar)',
                 transition: 'width 0.2s ease',
+                userSelect: 'text',
             }}
             onMouseDown={stopPropagation}
             onPointerDown={stopPropagation}
@@ -262,7 +263,7 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                 </div>
             </div>
 
-            <div className={`p-3 space-y-4 overflow-y-auto ${isExpanded ? 'max-h-[520px]' : 'max-h-[420px]'}`}>
+            <div className={`p-3 space-y-4 overflow-y-auto nowheel ${isExpanded ? 'max-h-[520px]' : 'max-h-[420px]'}`}>
                 {questions.map(q => (
                     <div
                         key={q.id}

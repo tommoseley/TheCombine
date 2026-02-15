@@ -45,7 +45,8 @@
     "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
     "technical_architecture": "2.0.0",
-    "implementation_plan": "1.0.0"
+    "implementation_plan": "1.0.0",
+    "implementation_plan_primary": "1.0.0"
   },
   "tasks": {
     "task_prompt_auditor": "1.0.0",
@@ -70,11 +71,13 @@
     "pm_discovery_generation": "1.0.0",
     "project_discovery_qa": "1.1.0",
     "strategy_review_v1": "1.0.0",
-    "epic_architecture": "1.0.0"
+    "epic_architecture": "1.0.0",
+    "primary_implementation_plan": "1.0.0"
   },
   "pgc": {
     "project_discovery.v1": "1.0.0",
-    "technical_architecture.v1": "1.0.0"
+    "technical_architecture.v1": "1.0.0",
+    "primary_implementation_plan.v1": "1.0.0"
   },
   "mechanical_ops": {
     "pgc_clarification_merge": "1.0.0",

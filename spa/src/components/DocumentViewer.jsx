@@ -139,8 +139,8 @@ function FallbackSidecar({
 
     return (
         <div
-            className="absolute top-0 tray-slide"
-            style={{ left: nodeWidth + 30, width, zIndex: 1000, transition: 'width 0.2s ease' }}
+            className="absolute top-0 tray-slide nowheel nopan nodrag"
+            style={{ left: nodeWidth + 30, width, zIndex: 1000, transition: 'width 0.2s ease', userSelect: 'text' }}
             onMouseDown={stopPropagation}
             onPointerDown={stopPropagation}
             onWheel={stopPropagation}
@@ -256,7 +256,7 @@ function FallbackSidecar({
                     </div>
                 </div>
 
-                {/* Content - Raw JSON display */}
+                {/* Content - Smart structured display */}
                 <div
                     style={{
                         flex: 1,
@@ -266,42 +266,7 @@ function FallbackSidecar({
                     }}
                     onWheel={(e) => e.stopPropagation()}
                 >
-                    <div
-                        style={{
-                            padding: '12px 16px',
-                            background: '#fef3c7',
-                            border: '1px solid #fde68a',
-                            borderRadius: 8,
-                            marginBottom: 16,
-                            fontSize: 12,
-                            color: '#92400e',
-                        }}
-                    >
-                        No view definition configured - displaying raw content
-                    </div>
-                    <div
-                        style={{
-                            background: '#f8fafc',
-                            borderRadius: 8,
-                            padding: 16,
-                            overflow: 'auto',
-                        }}
-                        onWheel={(e) => e.stopPropagation()}
-                    >
-                        <pre
-                            style={{
-                                margin: 0,
-                                fontSize: 11,
-                                color: '#374151',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                fontFamily: 'monospace',
-                                lineHeight: 1.5,
-                            }}
-                        >
-                            {JSON.stringify(rawContent, null, 2)}
-                        </pre>
-                    </div>
+                    <SidecarContent content={rawContent} />
                 </div>
 
                 {/* Footer */}
@@ -337,4 +302,101 @@ function FallbackSidecar({
             </div>
         </div>
     );
+}
+
+/**
+ * Smart sidecar content - renders structured fields as compact list,
+ * falls back to truncated JSON for unrecognized content.
+ */
+function SidecarContent({ content }) {
+    if (!content || typeof content !== 'object') {
+        return <p style={{ fontSize: 12, color: '#9ca3af' }}>No content</p>;
+    }
+
+    const title = content.project_name || content.title || content.name;
+    const SKIP = new Set(['project_name', 'title', 'name', 'meta', 'description']);
+
+    // Collect renderable sections
+    const sections = Object.entries(content)
+        .filter(([k, v]) => !SKIP.has(k) && v != null)
+        .map(([k, v]) => ({ key: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), value: v }));
+
+    if (sections.length === 0) {
+        return <pre style={{ fontSize: 11, color: '#374151', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>{JSON.stringify(content, null, 2)}</pre>;
+    }
+
+    return (
+        <div className="space-y-3">
+            {title && <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>{title}</h3>}
+            {sections.map(({ key, label, value }) => {
+                // Object (not array) - show summary fields
+                if (typeof value === 'object' && !Array.isArray(value)) {
+                    const subFields = Object.entries(value).filter(([, v]) => typeof v === 'string');
+                    if (subFields.length === 0) return null;
+                    return (
+                        <div key={key}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
+                            {subFields.slice(0, 3).map(([sk, sv]) => (
+                                <p key={sk} style={{ fontSize: 12, color: '#374151', margin: '0 0 2px', lineHeight: 1.5 }}>
+                                    <span style={{ fontWeight: 600 }}>{sk.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}:</span> {sv.length > 120 ? sv.slice(0, 120) + '...' : sv}
+                                </p>
+                            ))}
+                        </div>
+                    );
+                }
+
+                // Array
+                if (Array.isArray(value) && value.length > 0) {
+                    return (
+                        <div key={key}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label} ({value.length})</div>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                                {value.slice(0, 5).map((item, i) => {
+                                    const text = typeof item === 'string' ? item : extractItemText(item);
+                                    const id = typeof item === 'object' && item?.id ? item.id : null;
+                                    return (
+                                        <li key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0', display: 'flex', gap: 4 }}>
+                                            <span style={{ color: '#9ca3af', flexShrink: 0 }}>{'\u2022'}</span>
+                                            <span>
+                                                {id && <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#9ca3af', marginRight: 4 }}>{id}</span>}
+                                                {text.length > 100 ? text.slice(0, 100) + '...' : text}
+                                            </span>
+                                        </li>
+                                    );
+                                })}
+                                {value.length > 5 && <li style={{ fontSize: 11, color: '#9ca3af', padding: '2px 0' }}>...and {value.length - 5} more</li>}
+                            </ul>
+                        </div>
+                    );
+                }
+
+                // Scalar
+                if (typeof value === 'string') {
+                    return (
+                        <div key={key}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>{label}</div>
+                            <p style={{ fontSize: 12, color: '#374151', margin: 0 }}>{value.length > 150 ? value.slice(0, 150) + '...' : value}</p>
+                        </div>
+                    );
+                }
+
+                return null;
+            })}
+        </div>
+    );
+}
+
+/** Extract primary text from an object item */
+function extractItemText(item) {
+    if (typeof item === 'string') return item;
+    if (typeof item !== 'object' || item === null) return String(item);
+    const textKeys = ['constraint', 'assumption', 'guardrail', 'recommendation', 'description', 'question', 'text', 'statement', 'name', 'title'];
+    for (const k of textKeys) {
+        if (item[k] && typeof item[k] === 'string') return item[k];
+    }
+    // Return first string value
+    for (const v of Object.values(item)) {
+        if (typeof v === 'string' && v.length > 10) return v;
+    }
+    return JSON.stringify(item);
 }

@@ -179,9 +179,9 @@ Implement thread ownership per ADR-035.
 
 **Thread Lifecycle:**
 
-1. Workflow starts â†’ Create thread (`thread_purpose: intake_conversation`)
-2. Each concierge turn â†’ Append to thread
-3. Workflow completes â†’ Thread finalized (immutable)
+1. Workflow starts → Create thread (`thread_purpose: intake_conversation`)
+2. Each concierge turn → Append to thread
+3. Workflow completes → Thread finalized (immutable)
 
 ---
 
@@ -229,18 +229,18 @@ Connect Concierge UI to workflow engine, replacing direct LLM calls.
 
 **Key Changes:**
 
-1. **Start Conversation** â†’ `POST /api/v1/document-workflows/start`
+1. **Start Conversation** → `POST /api/v1/document-workflows/start`
    - `document_type: "concierge_intake"`
    - Returns `execution_id`
 
-2. **Send Message** â†’ `POST /api/v1/document-workflows/executions/{id}/input`
+2. **Send Message** → `POST /api/v1/document-workflows/executions/{id}/input`
    - User message as `user_input`
    - Returns next prompt/response
 
-3. **Run to Pause** â†’ `POST /api/v1/document-workflows/executions/{id}/run`
+3. **Run to Pause** → `POST /api/v1/document-workflows/executions/{id}/run`
    - Engine executes until user input needed
 
-4. **Get Status** â†’ `GET /api/v1/document-workflows/executions/{id}`
+4. **Get Status** → `GET /api/v1/document-workflows/executions/{id}`
    - Shows current node, pending input, etc.
 
 **State Mapping:**
@@ -287,13 +287,13 @@ Deprecated `concierge_intake_session` and `concierge_intake_event` tables MUST N
 
 ### Integration Tests
 
-- Full workflow execution (start â†’ clarification â†’ consent â†’ generation â†’ QA â†’ outcome)
-- Circuit breaker behavior (QA failure â†’ remediation â†’ escalation)
+- Full workflow execution (start → clarification → consent → generation → QA → outcome)
+- Circuit breaker behavior (QA failure → remediation → escalation)
 - Thread persistence and replay
 
 ### E2E Tests
 
-- Concierge UI â†’ Workflow Engine â†’ LLM â†’ Document artifact
+- Concierge UI → Workflow Engine → LLM → Document artifact
 - All gate outcome paths (qualified, not_ready, out_of_scope, redirect)
 
 ---

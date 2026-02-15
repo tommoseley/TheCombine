@@ -26,6 +26,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         loading,
         error,
         connected,
+        notification,
+        dismissNotification,
         resolveInterrupt,
         startProduction,
     } = useProductionStatus(projectId);
@@ -152,8 +154,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 if (item.id === docTypeId) {
                     return {
                         ...item,
+                        _prevState: item.state,
                         state: 'in_production',
-                        // Don't set hardcoded stations - let backend provide them
                     };
                 }
                 return item;
@@ -162,8 +164,13 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             try {
                 await startProduction(docTypeId);
             } catch (err) {
-                console.error('Failed to start production:', err);
-                // Revert on error - refetch will restore correct state
+                // Error handling and notification done in the hook
+                // Revert optimistic update and clear any SSE-driven stations
+                setData(prev => prev.map(item =>
+                    item.id === docTypeId
+                        ? { ...item, state: item._prevState || 'ready_for_production', stations: null }
+                        : item
+                ));
             }
         },
         onSubmitQuestions: async (id, answers) => {
@@ -472,6 +479,46 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Pinch to zoom | Drag to pan</div>
                 </Panel>
             </ReactFlow>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div
+                    className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg border"
+                    style={{
+                        background: notification.type === 'error' ? '#fef2f2' : '#f0fdf4',
+                        borderColor: notification.type === 'error' ? '#fecaca' : '#bbf7d0',
+                        maxWidth: 500,
+                        animation: 'fadeIn 0.2s ease-out',
+                    }}
+                >
+                    <span style={{
+                        fontSize: 18,
+                        color: notification.type === 'error' ? '#dc2626' : '#16a34a',
+                        flexShrink: 0,
+                    }}>
+                        {notification.type === 'error' ? '\u26A0' : '\u2714'}
+                    </span>
+                    <span style={{ fontSize: 13, color: '#1f2937', lineHeight: 1.4 }}>
+                        {notification.message}
+                    </span>
+                    <button
+                        onClick={dismissNotification}
+                        style={{
+                            marginLeft: 'auto',
+                            background: 'none',
+                            border: 'none',
+                            color: '#9ca3af',
+                            fontSize: 18,
+                            cursor: 'pointer',
+                            padding: '0 2px',
+                            lineHeight: 1,
+                            flexShrink: 0,
+                        }}
+                    >
+                        &times;
+                    </button>
+                </div>
+            )}
 
             {/* Full Document Viewer Modal */}
             {fullViewerDocId && (

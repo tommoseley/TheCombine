@@ -1,15 +1,15 @@
 {
   "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
   "schema_version": "workflow.v2",
-  "workflow_id": "technical_architecture",
-  "revision": "dcwrev_2026_02_09_a",
-  "effective_date": "2026-02-09",
-  "version": "2.0.0",
-  "name": "Technical Architecture",
-  "description": "Architecture document creation with explicit PGC clarification gate and QA gate. Follows ADR-049 No Black Boxes principle.",
+  "workflow_id": "implementation_plan_primary",
+  "revision": "dcwrev_2026_02_13_a",
+  "effective_date": "2026-02-13",
+  "version": "1.0.0",
+  "name": "Primary Implementation Plan",
+  "description": "Primary implementation plan document creation with PGC clarification gate and QA gate. Follows ADR-049 No Black Boxes principle.",
   "workflow_type": "dcw",
   "scope_type": "document",
-  "document_type": "technical_architecture",
+  "document_type": "implementation_plan_primary",
   "thread_ownership": {
     "owns_thread": false,
     "thread_purpose": null
@@ -22,9 +22,9 @@
       "node_id": "pgc_gate",
       "type": "gate",
       "name": "Clarification Gate",
-      "description": "Pre-generation clarification to surface unknowns before document generation",
+      "description": "Pre-generation clarification to surface scope boundaries and epic candidate unknowns",
       "gate_kind": "pgc",
-      "produces": "pgc_clarifications.technical_architecture",
+      "produces": "pgc_clarifications.implementation_plan_primary",
       "internals": {
         "pass_a": {
           "internal_type": "LLM",
@@ -32,9 +32,9 @@
           "description": "Generate clarification questions based on discovery context",
           "template_ref": "prompt:template:pgc_clarifier:1.0.0",
           "includes": {
-            "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-            "TASK_PROMPT": "prompt:task:technical_architecture:1.0.0",
-            "PGC_CONTEXT": "prompt:pgc:technical_architecture.v1:1.0.0"
+            "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+            "TASK_PROMPT": "prompt:task:primary_implementation_plan:1.0.0",
+            "PGC_CONTEXT": "prompt:pgc:primary_implementation_plan.v1:1.0.0"
           },
           "output_schema_ref": "schema:clarification_questions:1.0.0"
         },
@@ -65,15 +65,15 @@
       "node_id": "generation",
       "type": "task",
       "name": "Document Generation",
-      "description": "Generate Technical Architecture document using clarified context",
+      "description": "Generate Primary Implementation Plan document using clarified context",
       "internal_type": "LLM",
       "task_ref": "prompt:template:document_generator:1.0.0",
       "includes": {
-        "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-        "TASK_PROMPT": "prompt:task:technical_architecture:1.0.0",
-        "OUTPUT_SCHEMA": "schema:technical_architecture:1.0.0"
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:primary_implementation_plan:1.0.0",
+        "OUTPUT_SCHEMA": "schema:primary_implementation_plan:1.0.0"
       },
-      "produces": "technical_architecture",
+      "produces": "implementation_plan_primary",
       "inputs": [
         {
           "from": "pgc_gate",
@@ -114,8 +114,8 @@
         "feedback_to": "remediation"
       },
       "_position": {
-        "x": 200,
-        "y": 420
+        "x": 65,
+        "y": 389
       },
       "station": {
         "id": "qa",
@@ -131,11 +131,11 @@
       "internal_type": "LLM",
       "task_ref": "prompt:template:document_generator:1.0.0",
       "includes": {
-        "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
-        "TASK_PROMPT": "prompt:task:technical_architecture:1.0.0",
-        "OUTPUT_SCHEMA": "schema:technical_architecture:1.0.0"
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:primary_implementation_plan:1.0.0",
+        "OUTPUT_SCHEMA": "schema:primary_implementation_plan:1.0.0"
       },
-      "produces": "technical_architecture",
+      "produces": "implementation_plan_primary",
       "inputs": [
         {
           "from": "qa_gate",
@@ -143,8 +143,8 @@
         }
       ],
       "_position": {
-        "x": 340,
-        "y": 610
+        "x": 539,
+        "y": 207
       },
       "station": {
         "id": "qa",
@@ -156,11 +156,11 @@
       "node_id": "end_stabilized",
       "type": "end",
       "name": "Document Stabilized",
-      "description": "Technical Architecture document is complete and governed",
+      "description": "Primary Implementation Plan document is complete and governed",
       "terminal_outcome": "stabilized",
       "_position": {
-        "x": 40,
-        "y": 610
+        "x": -164,
+        "y": 796
       },
       "station": {
         "id": "done",
@@ -280,7 +280,7 @@
     ],
     "design_principles": [
       "No Black Boxes - all gates explicitly composed (ADR-049)",
-      "PGC Gate: question_generation (LLM) → entry (UI) → merge (MECH)",
+      "PGC Gate: question_generation (LLM) -> entry (UI) -> merge (MECH)",
       "QA Gate: evaluate (LLM) with remediation loop",
       "Uses project_discovery as upstream input"
     ],
@@ -294,14 +294,14 @@
     }
   },
   "metadata": {
-    "created_date": "2026-02-09",
-    "work_statement": "WS-ADR-049-002",
+    "created_date": "2026-02-13",
     "changelog": [
-      "v2.0.0: Decomposed per ADR-049 No Black Boxes principle",
+      "v1.0.0: Initial DCW created per ADR-049 No Black Boxes principle",
+      "- Full PGC pattern (PGC gate + generation + QA gate + remediation)",
       "- PGC gate with explicit internals (pass_a/LLM, entry/UI, merge/MECH)",
       "- QA gate with explicit evaluate internal (LLM)",
       "- Generation and remediation nodes marked with internal_type: LLM",
-      "- Schema upgraded to workflow.v2"
+      "- Uses generic qa_semantic_compliance task for QA evaluation"
     ]
   },
   "requires_inputs": [

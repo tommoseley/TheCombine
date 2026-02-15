@@ -1697,6 +1697,44 @@ class PlanExecutor:
             f"ADR-042: Promoted {len(pgc_invariants)} PGC invariants to document structure"
         )
 
+    def _embed_pgc_clarifications(
+        self,
+        doc_content: Dict[str, Any],
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Embed PGC clarifications (questions + answers) into document.
+
+        If the workflow included a PGC gate, the full set of clarification
+        questions and operator answers are embedded in the final document
+        for traceability. Only resolved clarifications are included.
+
+        Args:
+            doc_content: The document content dict (mutated in place)
+            state: The workflow state containing pgc_clarifications
+        """
+        clarifications = state.context_state.get("pgc_clarifications", [])
+        if not clarifications:
+            return
+
+        embedded = []
+        for c in clarifications:
+            if not c.get("resolved"):
+                continue
+            entry = {
+                "question_id": c.get("id", ""),
+                "question": c.get("text", ""),
+                "why_it_matters": c.get("why_it_matters"),
+                "answer": c.get("user_answer_label") or str(c.get("user_answer", "")),
+                "binding": c.get("binding", False),
+            }
+            embedded.append(entry)
+
+        if embedded:
+            doc_content["pgc_clarifications"] = embedded
+            logger.info(
+                f"Embedded {len(embedded)} PGC clarifications in document"
+            )
+
     def _derive_constraint_domain(self, constraint_id: str) -> str:
         """Derive semantic domain from constraint ID.
 
@@ -1842,6 +1880,9 @@ class PlanExecutor:
 
             # ADR-042: Promote PGC invariants into document structure
             self._promote_pgc_invariants_to_document(doc_content, state)
+
+            # Embed PGC clarifications (questions + answers) for traceability
+            self._embed_pgc_clarifications(doc_content, state)
 
             # Create the document record
             document = Document(

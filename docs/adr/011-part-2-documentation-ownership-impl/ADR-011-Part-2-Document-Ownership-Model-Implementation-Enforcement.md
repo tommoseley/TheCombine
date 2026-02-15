@@ -1,12 +1,12 @@
-# ADR-011-Part-2 â€” Document Ownership Model (Implementation & Enforcement)
+# ADR-011-Part-2 — Document Ownership Model (Implementation & Enforcement)
 
 **Status:** Accepted (v1.0)  
-**Extends:** ADR-011 â€” Document Ownership Model  
+**Extends:** ADR-011 — Document Ownership Model  
 **Related ADRs:**
-- ADR-009 â€” Audit & Governance
-- ADR-010 â€” LLM Execution Logging
-- ADR-011 â€” Document Ownership Model (Conceptual)
-- ADR-027 â€” Workflow Definition & Governance
+- ADR-009 — Audit & Governance
+- ADR-010 — LLM Execution Logging
+- ADR-011 — Document Ownership Model (Conceptual)
+- ADR-027 — Workflow Definition & Governance
 
 ---
 
@@ -35,7 +35,7 @@ Each document MAY be owned by at most one parent document.
 Ownership is persisted using a self-referential foreign key:
 
 ```
-documents.parent_document_id â†’ documents.id
+documents.parent_document_id → documents.id
 ```
 
 **Properties:**
@@ -159,10 +159,10 @@ This section governs generation/derivation dependencies, not UI display.
 
 ### 4.1 Dependency Rules (Generation / Derivation)
 
-- Child â†’ Parent dependency: permitted
-- Child â†’ Ancestor dependency: permitted
-- Parent â†’ Child dependency: forbidden by default
-- Sibling â†’ Sibling dependency: forbidden by default
+- Child → Parent dependency: permitted
+- Child → Ancestor dependency: permitted
+- Parent → Child dependency: forbidden by default
+- Sibling → Sibling dependency: forbidden by default
 - Cross-branch dependency: forbidden by default
 
 ### 4.2 Non-Dependency Usage (UI / Navigation)
@@ -208,9 +208,9 @@ The ownership model MUST support:
 - UI traversal of ownership hierarchies
 
 **Examples:**
-- Epic Backlog â†’ Epics
-- Epic â†’ Story Backlog
-- Story Backlog â†’ Stories
+- Epic Backlog → Epics
+- Epic → Story Backlog
+- Story Backlog → Stories
 
 These queries MUST rely on `parent_document_id`, not inference.
 

@@ -1,17 +1,17 @@
-# ADR-039 â€” Document Interaction Workflow Model
+# ADR-039 — Document Interaction Workflow Model
 
 **Status:** Accepted
 **Date:** 2026-01-16
 **Decision Type:** Architectural / Structural
 
 **Related ADRs:**
-- ADR-012 â€” Interaction Model
-- ADR-014 â€” Quality Assurance Modes
-- ADR-025 â€” Intake Gate
-- ADR-035 â€” Durable LLM Threaded Queue
-- ADR-036 â€” Document Lifecycle & Staleness
-- ADR-037 â€” Concierge-Constrained Workflow Routing
-- ADR-038 â€” Workflow Plan Schema
+- ADR-012 — Interaction Model
+- ADR-014 — Quality Assurance Modes
+- ADR-025 — Intake Gate
+- ADR-035 — Durable LLM Threaded Queue
+- ADR-036 — Document Lifecycle & Staleness
+- ADR-037 — Concierge-Constrained Workflow Routing
+- ADR-038 — Workflow Plan Schema
 
 ---
 
@@ -29,7 +29,7 @@ Creating or refining a document is not a single action. It typically involves:
 
 Historically, these interactions were modeled implicitly inside project workflows or step implementations, causing:
 
-- repetition of the same question â†’ generation â†’ QA loop
+- repetition of the same question → generation → QA loop
 - leakage of document concerns into project workflows
 - inconsistent QA and remediation behavior
 - difficulty enforcing gates such as ADR-025 (Intake)
@@ -77,7 +77,7 @@ Document Interaction Workflows are **nested execution units**, distinct from pro
 
 ### In Scope
 - Document-scoped workflows
-- Multi-call execution (questioning â†’ generation â†’ QA â†’ remediation)
+- Multi-call execution (questioning → generation → QA → remediation)
 - Document terminal outcomes
 - Relationship between document workflows and project workflows
 - Concierge participation within document workflows
@@ -103,11 +103,11 @@ A Document Interaction Workflow:
 - MUST eventually reach a terminal outcome
 
 ### Typical Node Types
-- `concierge` â€” clarification and questioning
-- `task` â€” document generation or revision
-- `qa` â€” document validation
-- `gate` â€” consent or readiness checks
-- `end` â€” terminal state
+- `concierge` — clarification and questioning
+- `task` — document generation or revision
+- `qa` — document validation
+- `gate` — consent or readiness checks
+- `end` — terminal state
 
 ---
 
@@ -115,11 +115,11 @@ A Document Interaction Workflow:
 
 While not mandated, most document workflows follow this pattern:
 
-1. **Clarification** â€” Concierge-led questioning (ADR-012)
-2. **Generation** â€” LLM-based document creation
-3. **Quality Assurance** â€” QA per ADR-014
-4. **Remediation** â€” Rework based on QA or user feedback
-5. **Stabilization** â€” Document accepted as valid and usable
+1. **Clarification** — Concierge-led questioning (ADR-012)
+2. **Generation** — LLM-based document creation
+3. **Quality Assurance** — QA per ADR-014
+4. **Remediation** — Rework based on QA or user feedback
+5. **Stabilization** — Document accepted as valid and usable
 
 These phases may repeat internally but are opaque to the project workflow.
 

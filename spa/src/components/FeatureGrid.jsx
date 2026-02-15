@@ -17,13 +17,14 @@ export default function FeatureGrid({ features, epicName, nodeWidth, onClose, on
 
     return (
         <div
-            className="absolute top-0 border border-indigo-500/50 rounded-lg shadow-2xl tray-slide"
+            className="absolute top-0 border border-indigo-500/50 rounded-lg shadow-2xl tray-slide nowheel nopan nodrag"
             style={{
                 left: nodeWidth + TRAY.GAP,
                 width: gridWidth,
                 boxShadow: '0 0 30px rgba(0,0,0,0.5)',
                 zIndex: 1000,
-                background: 'var(--bg-sidecar)'
+                background: 'var(--bg-sidecar)',
+                userSelect: 'text',
             }}
             onMouseDown={stopPropagation}
             onPointerDown={stopPropagation}

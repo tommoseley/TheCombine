@@ -2,7 +2,6 @@ import { Handle, Position } from 'reactflow';
 import StationDots from './StationDots';
 import QuestionTray from './QuestionTray';
 import FeatureGrid from './FeatureGrid';
-import DocumentViewer from './DocumentViewer';
 
 /**
  * Unified Artifact State Model
@@ -180,7 +179,7 @@ export default function DocumentNode({ data }) {
                                 style={{ backgroundColor: 'var(--state-stabilized-bg)', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    data.onExpand?.(data.id, 'document');
+                                    data.onViewFullDocument?.(data.id);
                                 }}
                             >
                                 View Document
@@ -267,17 +266,7 @@ export default function DocumentNode({ data }) {
                 />
             )}
 
-            {isExpanded && expandType === 'document' && isL1 && isStabilized && (
-                <DocumentViewer
-                    document={data}
-                    projectId={data.projectId}
-                    projectCode={data.projectCode}
-                    nodeWidth={data.width}
-                    onClose={() => data.onCollapse?.()}
-                    onZoomComplete={() => data.onZoomToNode?.(data.id)}
-                    onViewFull={(docId) => data.onViewFullDocument?.(docId)}
-                />
-            )}
+            
 
             <Handle
                 type="source"

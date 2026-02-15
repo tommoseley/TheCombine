@@ -177,6 +177,10 @@ export const api = {
     getDocumentRenderModel: (projectId, docTypeId) =>
         request(`/projects/${projectId}/documents/${docTypeId}/render-model`),
 
+    // PGC context (questions, rationale, answers)
+    getDocumentPgc: (projectId, docTypeId) =>
+        request(`/projects/${projectId}/documents/${docTypeId}/pgc`),
+
     // Concierge Intake
     startIntake: () =>
         request('/intake/start', { method: 'POST' }),

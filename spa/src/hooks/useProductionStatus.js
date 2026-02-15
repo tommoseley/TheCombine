@@ -14,6 +14,7 @@ export function useProductionStatus(projectId) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [connected, setConnected] = useState(false);
+    const [notification, setNotification] = useState(null);
 
     const eventSourceRef = useRef(null);
     const reconnectTimeoutRef = useRef(null);
@@ -263,14 +264,35 @@ export function useProductionStatus(projectId) {
     // This allows optimistic updates in the component to persist until real data arrives
     const startProduction = useCallback(async (documentType = null) => {
         try {
+            setNotification(null);
             await api.startProduction(projectId, documentType);
             setLineState('active');
             // Don't fetch immediately - SSE will provide updates as production progresses
         } catch (err) {
             console.error('Failed to start production:', err);
+            // Show user-friendly notification
+            const message = err.data?.message || err.message || 'Failed to start production';
+            setNotification({ type: 'error', message });
+            // Reset track state immediately - SSE events may have set stations
+            // during the failed execution, creating a stale in_production state
+            if (documentType) {
+                setData(prev => prev.map(item =>
+                    item.id === documentType
+                        ? { ...item, state: 'ready_for_production', stations: null }
+                        : item
+                ));
+            }
+            setLineState('idle');
+            // Also fetch full status for accuracy
+            fetchStatus();
             throw err;
         }
-    }, [projectId]);
+    }, [projectId, fetchStatus]);
+
+    // Dismiss notification
+    const dismissNotification = useCallback(() => {
+        setNotification(null);
+    }, []);
 
     // Initial fetch and SSE connection
     useEffect(() => {
@@ -286,6 +308,8 @@ export function useProductionStatus(projectId) {
         loading,
         error,
         connected,
+        notification,
+        dismissNotification,
         refresh: fetchStatus,
         resolveInterrupt,
         startProduction,

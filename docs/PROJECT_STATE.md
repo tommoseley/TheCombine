@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-13
-**Updated By:** Claude (WorkflowBlockV2: React Flow graph diagrams for architecture workflows)
+**Last Updated:** 2026-02-15
+**Updated By:** Claude (Technical Architecture Viewer enhancements)
 
 ## Current Focus
 
@@ -17,7 +17,7 @@ All work statements delivered:
 **DRAFT:** ADR-048 -- Intake POW and Workflow Routing
 
 Defines front-door architecture:
-- `intake_and_route` POW with DCW → route → validate → spawn steps
+- `intake_and_route` POW with DCW -> route -> validate -> spawn steps
 - Complete-and-handoff spawn model with lineage tracking
 - `routing_decision.v1` schema with candidates and QA checks
 
@@ -77,7 +77,7 @@ Event-driven station display system for production floor UI.
 
 ### UI Features
 - Station dots with even spacing (flex-1 distribution)
-- Progress line: green (complete) → amber (to active) → gray (pending)
+- Progress line: green (complete) -> amber (to active) -> gray (pending)
 - Current step name displayed below stations
 - Pulsing animation on active station needing input
 ## WS-047 Status (ADR-047 execution_state: complete)
@@ -117,11 +117,11 @@ Step-based workflows for cross-document orchestration:
 - **Building Blocks tray highlighting** (2026-02-07): Selected items show left border accent
 - **Orchestration workflow display** (2026-02-07): Both POWs (intake_and_route, software_product_development) visible in left rail
 - **Auto-assign workflow** (2026-02-08): Projects auto-assign `software_product_development` on creation
-- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe → Confirm → Done
+- **Streamlined Concierge UX** (2026-02-08): Simplified flow to Describe -> Confirm -> Done
 - **Externalized intro content** (2026-02-08): Concierge intro loaded from YAML (`/content/concierge-intro.yaml`)
 - **SSE interrupt fix** (2026-02-11): SSE events now emit correctly after interrupt resolution
 - **Station abbreviations** (2026-02-11): Station dots use PGC/ASM/DRAFT/QA/REM/DONE labels; hidden on stabilized docs
-- **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue → amber → cyan → emerald)
+- **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue -> amber -> cyan -> emerald)
 - **WorkflowBlockV2** (2026-02-13): React Flow graph diagrams for architecture workflows; V1 steps auto-converted to linear node chains; supports branching, gates, error paths, retry loops, parallel rails
 
 ---
@@ -198,76 +198,41 @@ python -m pytest tests/ -k "plan_executor" -v
 
 ## Handoff Notes
 
-### Recent Work (2026-02-13, Session 2)
-- **WorkflowBlockV2 (Phase 1)**: V2 schema + React Flow renderer + V1 auto-conversion
-- 3 new SPA files: `archWorkflowConfig.js`, `ArchWorkflowNode.jsx`, `WorkflowBlockV2.jsx`
-- V1 block registry entry remapped to V2 renderer (existing documents render as React Flow graphs)
-- Phase 2 pending: LLM task prompt update to generate graph-aware workflows with nodes/edges
+### Recent Work (2026-02-15)
+- **WS-WORKFLOW-STUDIO-001 Complete**: Technical Architecture viewer with tabbed interface
+- **6 tabs**: Overview, Components, Workflows, Data Models, APIs, Quality Attributes
+- **Workflow nodes**: Now show component/output fields (fixed V1->V2 property spread)
+- **Direct document view**: "View Document" skips sidecar, goes straight to full modal
+- **PGC clarifications**: Section added to Overview tab
 
-### Recent Fixes (2026-02-12, Session 2)
-- **Project-wide encoding cleanup**: Stripped BOM from 336+ files, normalized CRLF to LF, repaired mojibake (latin-1 and CP1252 variants)
-- Fixed corrupted `●` status indicators in Floor.jsx (displayed as `Ã¢â€"Â`)
-- Fixed CP1252 mojibake arrows in PROJECT_STATE.md, ADR-039, ADR-037, ADR-INVENTORY, and 4 work statements
+### Active Investigation: Document Rendering Issues
+The Technical Architecture viewer tabs (Data Models, APIs, Quality) may not display for all projects. Tracking:
 
-### Previous Fixes (2026-02-12, Session 1)
-- **WS-STATION-DATA-001 complete**: Event-driven station display with stations_declared, station_changed, internal_step events
-- Added internal_step event emission for PGC phases (pass_a/entry/merge) from workflow definition internals
-- Fixed station progress line colors (green → amber → gray)
-- Fixed scroll behavior in all sidecars/panels (onWheel stopPropagation)
-- Added spinner to Concierge confirmation button during submission
-- Fixed "Answer Questions" button persisting after PGC completion (only check active stations)
-- Removed hardcoded phase emissions in favor of data-driven events from workflow internals
+1. **Section ID mismatches**: Docdef uses singular forms (`data_model`, `interfaces`) while LLM output may use plural (`data_models`, `api_interfaces`). Viewer now matches both variants.
 
-### Previous Fixes (2026-02-11)
-- Fixed SSE event emission after interrupt resolution (`get_interrupt()` moved before `resolve()`)
-- Station dots now abbreviation-only; hidden on stabilized documents
-- All state colors moved to CSS variables with new luminance/chroma palette
-- Added missing `--state-blocked-*` and `--state-ready-*` CSS variables
-- Fixed blueprint theme stabilized color (was white, now emerald)
+2. **RenderModel generation**: Need to verify that sections are correctly extracted from document content during rendermodel generation. The tabs only appear if `renderModel.sections` contains matching section_ids.
 
-### Previous Fixes (2026-02-09)
-- Migrated workflow loading from `seed/workflows/` to `combine-config/workflows/` (commit `19ad038`)
-- WorkflowRegistry now supports versioned structure (`{id}/releases/{version}/definition.json`)
-- Extended `workflow.v1.json` schema to allow v2 fields (pow_class, derived_from, source_version, tags)
-- Fixed naming inconsistency in software_product_development (`implementation_plan_primary`)
-- Updated 16 files (8 production, 8 test) to use combine-config paths and snake_case IDs
-- All 1955 tests pass (from 25 failures)
+3. **PGC field names**: The PGC context API returns clarifications with potentially different field names (`question` vs `text`, `answer` vs `user_answer`). Need to verify field mapping in PgcClarificationItem component.
 
-### Previous Fixes (2026-02-08)
-- Fixed conversation message ordering (messages now build top-to-bottom, not bottom-to-top)
-- Fixed `/start` endpoint to return full `IntakeStateResponse` for consistent UI rendering
-- Added duplicate prevention when `pending_prompt` matches last assistant message
-- Added `require_auth` dependency to all intake endpoints
-- Fixed user fields on project creation (`created_by`, `owner_id`, `organization_id` now populated)
-- Auto-assign `software_product_development` workflow on project creation
-- Streamlined Concierge phases: Describe → Confirm → Done (removed Review/Generate)
-- Renamed "Project Type" to "Intent Classification" in confirmation form
-- Added "Confirmation requested" notice to entry form
-- Externalized Concierge intro content to `/content/concierge-intro.yaml`
-- Fixed `useConciergeIntake` hook to use `updateFromState` on start
+**Next steps to debug:**
+- Check browser Network tab for rendermodel response structure
+- Verify document JSON has data_models/api_interfaces/quality_attributes at expected paths
+- Check docdef source_pointer values match actual document structure
 
-### Earlier Fixes (2026-02-07)
-- Fixed prompt ref parsing (`prompt:task:intake_gate:1.0.0` now resolves correctly)
-- Fixed LLM service call signature in Gate Profile executor
-- Fixed `db_session` not passed to PlanExecutor (document persistence now works)
-- Fixed `intake_gate_phase` not copied to context_state on qualified outcome (UI now advances)
-- Added ConciergeEntryForm rendering in ConciergeIntakeSidecar for operator confirmation
-- ADR-010 instrumentation verified: prompts, messages, and JSON envelopes all logged
+### Previous Work (2026-02-13)
+- **WorkflowBlockV2**: React Flow graph diagrams for architecture workflows
+- V1 steps auto-converted to linear node chains
+- Supports branching, gates, error paths, retry loops
 
 ### Next Work
-- Wire intake_and_route POW to actually execute (currently definition only)
-- Integrate SpawnerHandler with ExecutionService to create actual child POW executions
-- Add lineage fields to WorkflowExecution model (spawned_from_execution_id, spawned_by_operation_id)
+- Debug rendermodel generation for Technical Architecture sections
+- Wire intake_and_route POW to actually execute
 - UX: Collapsed receipt view for completed Intake POW
 
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- Consider removing `seed/workflows/` after verifying PromptAssemblyService migration
-- **Remove deprecated HTMX admin section** (`app/web/routes/admin/`) -- Old admin pages (admin_routes.py, composer_routes.py, dashboard.py, documents.py, pages.py, partials.py) are superseded by React SPA AdminWorkbench; remove after confirming no active usage
+- **Remove deprecated HTMX admin section** (`app/web/routes/admin/`)
 
 ### Known Issues
-- None (seed/workflows sync issue resolved 2026-02-09)
-
-### Design Decisions Deferred
-- **Optional template tokens** (YAGNI): Allow `$$TOKEN?` syntax for optional tokens
+- Technical Architecture tabs (Data Models, APIs, Quality) not appearing for some projects - under investigation

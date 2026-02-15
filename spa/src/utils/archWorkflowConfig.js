@@ -5,68 +5,68 @@
 
 export const ARCH_WORKFLOW_NODE_CONFIG = {
     action: {
-        color: '#3b82f6',
-        bgColor: 'rgba(59, 130, 246, 0.12)',
-        borderColor: 'rgba(59, 130, 246, 0.4)',
+        color: '#1d4ed8',          // Darker blue for text
+        bgColor: '#eff6ff',        // Solid light blue background
+        borderColor: '#3b82f6',
         label: 'Action',
     },
     gate: {
-        color: '#f59e0b',
-        bgColor: 'rgba(245, 158, 11, 0.12)',
-        borderColor: 'rgba(245, 158, 11, 0.4)',
+        color: '#b45309',          // Darker amber for text
+        bgColor: '#fef3c7',        // Solid light amber background
+        borderColor: '#f59e0b',
         label: 'Gate',
     },
     escalation: {
-        color: '#ef4444',
-        bgColor: 'rgba(239, 68, 68, 0.12)',
-        borderColor: 'rgba(239, 68, 68, 0.4)',
+        color: '#b91c1c',          // Darker red for text
+        bgColor: '#fee2e2',        // Solid light red background
+        borderColor: '#ef4444',
         label: 'Escalation',
     },
     parallel_fork: {
-        color: '#8b5cf6',
-        bgColor: 'rgba(139, 92, 246, 0.12)',
-        borderColor: 'rgba(139, 92, 246, 0.4)',
+        color: '#6d28d9',          // Darker purple for text
+        bgColor: '#ede9fe',        // Solid light purple background
+        borderColor: '#8b5cf6',
         label: 'Fork',
     },
     parallel_join: {
-        color: '#8b5cf6',
-        bgColor: 'rgba(139, 92, 246, 0.12)',
-        borderColor: 'rgba(139, 92, 246, 0.4)',
+        color: '#6d28d9',
+        bgColor: '#ede9fe',
+        borderColor: '#8b5cf6',
         label: 'Join',
     },
     start: {
-        color: '#10b981',
-        bgColor: 'rgba(16, 185, 129, 0.12)',
-        borderColor: 'rgba(16, 185, 129, 0.4)',
+        color: '#047857',          // Darker green for text
+        bgColor: '#d1fae5',        // Solid light green background
+        borderColor: '#10b981',
         label: 'Start',
     },
     end: {
-        color: '#6b7280',
-        bgColor: 'rgba(107, 114, 128, 0.12)',
-        borderColor: 'rgba(107, 114, 128, 0.4)',
+        color: '#374151',          // Darker gray for text
+        bgColor: '#f3f4f6',        // Solid light gray background
+        borderColor: '#6b7280',
         label: 'End',
     },
 };
 
 export const ARCH_WORKFLOW_EDGE_CONFIG = {
     normal: {
-        stroke: '#94a3b8',
-        strokeWidth: 1.5,
+        stroke: '#64748b',
+        strokeWidth: 2,
     },
     error: {
         stroke: '#ef4444',
-        strokeWidth: 1.5,
+        strokeWidth: 2,
         strokeDasharray: '6,3',
     },
     retry: {
         stroke: '#f97316',
-        strokeWidth: 1.5,
+        strokeWidth: 2,
         strokeDasharray: '6,3',
         animated: true,
     },
     parallel: {
         stroke: '#8b5cf6',
-        strokeWidth: 1.5,
+        strokeWidth: 2,
     },
 };
 

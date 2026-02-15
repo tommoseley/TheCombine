@@ -71,6 +71,7 @@ def merge_clarifications(
         clarification = {
             "id": question_id,
             "text": question.get("text", ""),
+            "why_it_matters": question.get("why_it_matters"),
             "priority": question.get("priority", "could"),
             "answer_type": question.get("answer_type", "free_text"),
             "constraint_kind": question.get("constraint_kind", "selection"),

@@ -138,9 +138,9 @@ If staleness is detected:
 
 ### B. Separation Invariants
 
-- **Executors perform work, not control** â€” they produce outcomes, not routing decisions
-- **Router performs control, not work** â€” it selects edges, not generates content
-- **Plans define legality, not behavior** â€” they constrain what is possible, not what happens
+- **Executors perform work, not control** — they produce outcomes, not routing decisions
+- **Router performs control, not work** — it selects edges, not generates content
+- **Plans define legality, not behavior** — they constrain what is possible, not what happens
 
 This separation is non-negotiable. Violations are architectural defects.
 
@@ -261,7 +261,7 @@ The Concierge asks questions; it does not decide what happens next.
 **Deliverables:**
 - `app/domain/workflow/edge_router.py` - Edge evaluation and routing
 - `app/domain/workflow/document_workflow_state.py` - Node-based state
-- `app/domain/workflow/outcome_mapper.py` - Gate â†’ terminal mapping
+- `app/domain/workflow/outcome_mapper.py` - Gate → terminal mapping
 - Unit tests for routing logic
 
 **EdgeRouter Logic:**
@@ -304,7 +304,7 @@ class DocumentWorkflowState:
 **OutcomeMapper Purity Constraints:**
 
 OutcomeMapper is a **pure function**:
-- Given `(gate_outcome)` â†’ returns fixed `terminal_outcome`
+- Given `(gate_outcome)` → returns fixed `terminal_outcome`
 - No LLM calls
 - No heuristics
 - No "best guess" inference
@@ -427,14 +427,14 @@ Phase 5 (API) wraps PlanExecutor; it does not define it.
 
 **Endpoints:**
 ```
-GET  /api/v1/workflow-plans                     â†’ List available plans
-GET  /api/v1/workflow-plans/{plan_id}           â†’ Get plan definition
+GET  /api/v1/workflow-plans                     → List available plans
+GET  /api/v1/workflow-plans/{plan_id}           → Get plan definition
 
-POST /api/v1/document-workflows                 â†’ Start document workflow
-GET  /api/v1/document-workflows/{id}            â†’ Get execution state
-POST /api/v1/document-workflows/{id}/submit     â†’ Submit user input
-POST /api/v1/document-workflows/{id}/escalate   â†’ Choose escalation option
-GET  /api/v1/document-workflows/{id}/progress   â†’ SSE stream
+POST /api/v1/document-workflows                 → Start document workflow
+GET  /api/v1/document-workflows/{id}            → Get execution state
+POST /api/v1/document-workflows/{id}/submit     → Submit user input
+POST /api/v1/document-workflows/{id}/escalate   → Choose escalation option
+GET  /api/v1/document-workflows/{id}/progress   → SSE stream
 ```
 
 **Acceptance Criteria:**
@@ -456,7 +456,7 @@ GET  /api/v1/document-workflows/{id}/progress   â†’ SSE stream
 
 ### Integration Tests
 - Full concierge_intake workflow execution
-- Thread lifecycle (create â†’ work items â†’ close)
+- Thread lifecycle (create → work items → close)
 - Circuit breaker trip and escalation
 - Pause/resume at consent gate
 - QA remediation loop

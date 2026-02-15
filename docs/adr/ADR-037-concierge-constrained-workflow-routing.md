@@ -285,7 +285,7 @@ The engine SHALL require user selection when ANY of:
 - Auto-qualification MUST be logged with full signal values
 - User override of recommendations MUST be logged
 - The Andon cord (manual override) is always available
-- QA validates structure, not truth â€” gate decisions are driven by document contract signals
+- QA validates structure, not truth — gate decisions are driven by document contract signals
 
 ### Audit Requirements
 
