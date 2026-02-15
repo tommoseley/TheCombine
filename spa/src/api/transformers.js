@@ -122,10 +122,10 @@ function transformTrack(track, interrupts = []) {
     // Find matching interrupt for this track
     const interrupt = interrupts.find(i => i.document_type === track.document_type);
 
-    // Build stations array for in_production or awaiting_operator documents
-    // Stabilized documents hide stations (handled in DocumentNode.jsx)
+    // Build stations array whenever the API provides them
+    // Backend sends stations for produced (all complete) and in_production/awaiting_operator tracks
     let stations = null;
-    if (state === 'in_production' || needsInput) {
+    if (track.stations && track.stations.length > 0) {
         stations = buildStations(track.stations, track.state, track.station);
     }
 

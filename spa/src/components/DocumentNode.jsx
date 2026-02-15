@@ -87,8 +87,8 @@ export default function DocumentNode({ data }) {
     const isInProgress = artifactState === 'in_progress';
     const isBlocked = artifactState === 'blocked';
 
-    // Show stations only for in-progress documents; stabilized documents don't need them
-    const showStations = isInProgress && data.stations;
+    // Show stations whenever they exist (produced shows all complete, in-progress shows progress)
+    const showStations = data.stations?.length > 0;
     const stateClass = isInProgress ? 'node-active' : '';
     const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';

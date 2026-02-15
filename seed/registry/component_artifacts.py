@@ -845,6 +845,85 @@ EPIC_BACKLOG_VIEW_DOCDEF = IMPLEMENTATION_PLAN_PRIMARY_VIEW_DOCDEF
 
 
 # =============================================================================
+# ADR-034: Implementation Plan (Final) View DocDef
+# =============================================================================
+
+IMPLEMENTATION_PLAN_VIEW_DOCDEF = {
+    "document_def_id": "docdef:ImplementationPlanView:1.0.0",
+    "document_schema_id": None,
+    "prompt_header": {
+        "role": "You are producing a Final Implementation Plan.",
+        "constraints": [
+            "Show plan summary and key constraints first.",
+            "Epics are committed, architecture-informed work packages.",
+            "Include candidate reconciliation for audit traceability.",
+            "Risk summary aggregates across all epics.",
+        ]
+    },
+    "sections": [
+        # Plan Summary
+        {
+            "section_id": "plan_summary",
+            "title": "Plan Summary",
+            "order": 10,
+            "component_id": "component:SummaryBlockV1:1.0.0",
+            "shape": "single",
+            "source_pointer": "/plan_summary",
+            "viewer_tab": "overview",
+        },
+        # Key Constraints
+        {
+            "section_id": "key_constraints",
+            "title": "Key Constraints",
+            "order": 20,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/plan_summary/key_constraints",
+            "viewer_tab": "overview",
+            "sidecar_max_items": 5,
+        },
+        # Cross-Cutting Concerns
+        {
+            "section_id": "cross_cutting_concerns",
+            "title": "Cross-Cutting Concerns",
+            "order": 30,
+            "component_id": "component:StringListBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/cross_cutting_concerns",
+            "viewer_tab": "overview",
+        },
+        # Committed Epics
+        {
+            "section_id": "epics",
+            "title": "Committed Epics",
+            "order": 40,
+            "component_id": "component:EpicSummaryBlockV1:1.0.0",
+            "shape": "container",
+            "repeat_over": "/epics",
+            "source_pointer": "/",
+            "exclude_fields": ["risks", "open_questions", "architecture_notes", "source_candidate_ids", "transformation_notes"],
+            "context": {
+                "epic_id": "/epic_id",
+                "epic_name": "/name"
+            },
+            "viewer_tab": "details",
+        },
+        # Risk Summary
+        {
+            "section_id": "risk_summary",
+            "title": "Risk Summary",
+            "order": 50,
+            "component_id": "component:RisksBlockV1:1.0.0",
+            "shape": "container",
+            "source_pointer": "/risk_summary",
+            "viewer_tab": "details",
+        },
+    ],
+    "status": "accepted"
+}
+
+
+# =============================================================================
 # ADR-034: Epic Architecture View DocDef
 # =============================================================================
 
@@ -1678,6 +1757,7 @@ INITIAL_DOCUMENT_DEFINITIONS: List[Dict[str, Any]] = [
     EPIC_SUMMARY_VIEW_DOCDEF,
     EPIC_DETAIL_VIEW_DOCDEF,
     IMPLEMENTATION_PLAN_PRIMARY_VIEW_DOCDEF,
+    IMPLEMENTATION_PLAN_VIEW_DOCDEF,
     EPIC_BACKLOG_VIEW_DOCDEF,  # Backward compatibility alias
     EPIC_ARCHITECTURE_VIEW_DOCDEF,
     ARCHITECTURAL_SUMMARY_VIEW_DOCDEF,

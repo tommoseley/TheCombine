@@ -63,7 +63,7 @@ export const buildGraph = (data, expandedId, callbacks) => {
 
         const width = 280;
         let height = 95;
-        if (item.state === 'active' && item.stations) height += 35;
+        if (item.stations?.length > 0) height += 35;
 
         const isExpanded = expandedId === item.id;
 
