@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PipelineRun",
+  "description": "Metadata record for a Backlog Compilation Pipeline run. Stores replay hashes, per-stage results, and timing.",
+  "type": "object",
+  "required": ["run_id", "intent_id", "status", "stages", "replay_metadata"],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique pipeline run identifier."
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "IntentPacket document UUID."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed"],
+      "description": "Pipeline outcome."
+    },
+    "stage_reached": {
+      "type": "string",
+      "description": "Last stage attempted or completed."
+    },
+    "stages": {
+      "type": "object",
+      "description": "Per-stage timing and outcome.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "started_at": { "type": ["string", "null"] },
+          "completed_at": { "type": ["string", "null"] },
+          "execution_id": { "type": ["string", "null"] },
+          "document_id": { "type": ["string", "null"] },
+          "error": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "replay_metadata": {
+      "type": "object",
+      "required": ["intent_hash", "generator_version"],
+      "properties": {
+        "intent_hash": {
+          "type": "string",
+          "description": "SHA-256 of IntentPacket content."
+        },
+        "backlog_hash": {
+          "type": ["string", "null"],
+          "description": "SHA-256 of structural backlog fields."
+        },
+        "plan_hash": {
+          "type": ["string", "null"],
+          "description": "SHA-256 of ordered_backlog_ids + waves."
+        },
+        "prompt_version": {
+          "type": "string"
+        },
+        "model_version": {
+          "type": ["string", "null"]
+        },
+        "generator_version": {
+          "type": "string"
+        }
+      }
+    },
+    "errors": {
+      "type": ["object", "null"],
+      "description": "Structured errors if pipeline failed."
+    }
+  },
+  "additionalProperties": false
+}

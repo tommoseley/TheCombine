@@ -1,0 +1,26 @@
+doc_type_id: pipeline_run
+display_name: Pipeline Run
+version: 1.0.0
+
+description: >
+  Metadata record for a Backlog Compilation Pipeline run.
+  Stores replay hashes, per-stage results, and timing.
+  Used for determinism verification.
+
+authority_level: descriptive
+creation_mode: constructed
+production_mode: construct
+scope: project
+
+required_inputs: []
+optional_inputs: []
+
+schema_ref: "schema:pipeline_run:1.0.0"
+
+artifacts:
+  schema: schemas/output.schema.json
+
+ui:
+  icon: activity
+  category: observability
+  display_order: 10
