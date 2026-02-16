@@ -930,6 +930,7 @@ async def get_document_render_model(
                 "count": len(child_docs),
                 "items": [
                     {
+                        "instance_id": cd.instance_id,
                         "epic_id": cd.content.get("epic_id", "") if isinstance(cd.content, dict) else "",
                         "name": cd.content.get("name", cd.title) if isinstance(cd.content, dict) else cd.title,
                         "title": cd.title,

@@ -2,10 +2,11 @@ import { useEffect } from 'react';
 
 /**
  * WorkflowAuditDrawer - Modal drawer showing raw workflow definition JSON.
- * 
+ *
  * Per WS-WORKFLOW-STUDIO-001 Phase 3
+ * Per WS-INSTANCE-ID-001 Phase 4 - optional spawnedDocuments prop
  */
-export default function WorkflowAuditDrawer({ workflow, onClose }) {
+export default function WorkflowAuditDrawer({ workflow, onClose, spawnedDocuments }) {
     // Close on Escape
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -78,6 +79,7 @@ export default function WorkflowAuditDrawer({ workflow, onClose }) {
                                         <tr style={{ background: '#f1f5f9' }}>
                                             <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>ID</th>
                                             <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Type</th>
+                                            <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Station</th>
                                             <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Label</th>
                                             <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Actor</th>
                                         </tr>
@@ -90,6 +92,16 @@ export default function WorkflowAuditDrawer({ workflow, onClose }) {
                                                 </td>
                                                 <td className="px-3 py-2">
                                                     <TypeBadge type={node.type || 'action'} />
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {node.station ? (
+                                                        <span
+                                                            className="px-1.5 py-0.5 text-xs font-medium rounded"
+                                                            style={{ background: '#f0fdf4', color: '#166534' }}
+                                                        >
+                                                            {node.station.label}
+                                                        </span>
+                                                    ) : '-'}
                                                 </td>
                                                 <td className="px-3 py-2" style={{ color: '#1e293b' }}>
                                                     {node.label || node.action || '-'}
@@ -136,6 +148,44 @@ export default function WorkflowAuditDrawer({ workflow, onClose }) {
                                                 </td>
                                                 <td className="px-3 py-2" style={{ color: '#64748b' }}>
                                                     {edge.label || '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Spawned Documents (WS-INSTANCE-ID-001) */}
+                    {spawnedDocuments && spawnedDocuments.length > 0 && (
+                        <div className="mb-4">
+                            <h4 className="text-sm font-semibold mb-2" style={{ color: '#475569' }}>
+                                Spawned Documents
+                            </h4>
+                            <div
+                                className="rounded border overflow-hidden"
+                                style={{ borderColor: '#e2e8f0' }}
+                            >
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr style={{ background: '#f1f5f9' }}>
+                                            <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Idempotency Key</th>
+                                            <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Type</th>
+                                            <th className="px-3 py-2 text-left font-medium" style={{ color: '#64748b' }}>Title</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {spawnedDocuments.map((doc, i) => (
+                                            <tr key={doc.instance_id || i} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                                <td className="px-3 py-2 font-mono text-xs" style={{ color: '#6366f1' }}>
+                                                    {doc.instance_id || '-'}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <TypeBadge type={doc.doc_type_id || 'epic'} />
+                                                </td>
+                                                <td className="px-3 py-2" style={{ color: '#1e293b' }}>
+                                                    {doc.title || doc.name || '-'}
                                                 </td>
                                             </tr>
                                         ))}

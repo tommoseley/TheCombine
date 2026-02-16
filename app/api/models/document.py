@@ -71,7 +71,15 @@ class Document(Base):
         index=True,
         doc="Parent document ID for ownership hierarchy (ADR-011-Part-2)"
     )
-    
+
+    # Stable domain identifier for multi-instance doc types (WS-INSTANCE-ID-001)
+    # e.g., epic_id='backend_api_foundation'. NULL for single-instance types.
+    instance_id: Mapped[Optional[str]] = Column(
+        String(200),
+        nullable=True,
+        doc="Stable domain identifier for multi-instance doc types (e.g., epic_id). NULL for single-instance types."
+    )
+
     # =========================================================================
     # TYPE - What kind of document is this?
     # =========================================================================

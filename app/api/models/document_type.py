@@ -87,9 +87,25 @@ class DocumentType(Base):
     )
     
     # =========================================================================
+    # CARDINALITY (WS-INSTANCE-ID-001)
+    # =========================================================================
+
+    # 'single' = one latest per space, 'multi' = multiple instances per space
+    cardinality = Column(
+        String(20), nullable=False, default="single",
+        doc="'single' = one latest per space, 'multi' = multiple instances per space"
+    )
+
+    # Content field name used as instance_id for multi-instance types (e.g., 'epic_id')
+    instance_key = Column(
+        String(100), nullable=True,
+        doc="Content field name used as instance_id for multi-instance types (e.g., 'epic_id')"
+    )
+
+    # =========================================================================
     # SCOPE & DISPLAY
     # =========================================================================
-    
+
     # Scope - where does this document appear?
     # 'project' = one per project, 'epic' = one per epic, 'story' = one per story
     scope = Column(String(50), nullable=False, default="project")
@@ -162,6 +178,8 @@ class DocumentType(Base):
             "gating_rules": self.gating_rules,
             "acceptance_required": self.acceptance_required,
             "accepted_by_role": self.accepted_by_role,
+            "cardinality": self.cardinality,
+            "instance_key": self.instance_key,
             "scope": self.scope,
             "display_order": self.display_order,
             "view_docdef": self.view_docdef,

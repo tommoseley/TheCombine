@@ -25,6 +25,7 @@ class FakeDocument:
         self.is_latest = is_latest
         self.lifecycle_state = lifecycle_state
         self.doc_type_id = "epic"
+        self.instance_id = epic_id
 
     def update_revision_hash(self):
         pass

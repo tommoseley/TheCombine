@@ -2014,7 +2014,7 @@ class PlanExecutor:
                 if lineage:
                     lineage["parent_execution_id"] = execution_id
 
-        # Load existing children for idempotency check
+        # Load existing children for idempotency check (keyed by instance_id)
         existing_result = await self._db_session.execute(
             select(Document).where(
                 Document.parent_document_id == parent_id,
@@ -2023,9 +2023,9 @@ class PlanExecutor:
             )
         )
         existing_children = {
-            doc.content.get("epic_id", ""): doc
+            doc.instance_id: doc
             for doc in existing_result.scalars().all()
-            if isinstance(doc.content, dict)
+            if doc.instance_id
         }
 
         created_count = 0
@@ -2034,6 +2034,12 @@ class PlanExecutor:
 
         for spec in child_specs:
             identifier = spec.get("identifier", "")
+            if not identifier:
+                logger.error(
+                    f"Child spec for {spec.get('doc_type_id')} missing identifier - "
+                    f"skipping (would violate multi-instance uniqueness)"
+                )
+                continue
             spawned_ids.add(identifier)
 
             try:
@@ -2059,11 +2065,12 @@ class PlanExecutor:
                         status="draft",
                         created_by=None,
                         parent_document_id=parent_id,
+                        instance_id=identifier,
                     )
                     child_doc.update_revision_hash()
                     self._db_session.add(child_doc)
                     created_count += 1
-                    logger.debug(f"Created child: {identifier}")
+                    logger.debug(f"Created child: {identifier} (instance_id={identifier})")
             except Exception as e:
                 logger.error(
                     f"Failed to upsert child document "
