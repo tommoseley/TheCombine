@@ -31,6 +31,7 @@ from app.domain.handlers.feature_handler import FeatureHandler
 from app.domain.handlers.intent_packet_handler import IntentPacketHandler
 from app.domain.handlers.backlog_item_handler import BacklogItemHandler
 from app.domain.handlers.execution_plan_handler import ExecutionPlanHandler
+from app.domain.handlers.plan_explanation_handler import PlanExplanationHandler
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     "backlog_item": BacklogItemHandler(),
     # WS-BCP-002: ExecutionPlan (mechanically derived)
     "execution_plan": ExecutionPlanHandler(),
+    # WS-BCP-003: Plan Explanation (LLM explains, never computes)
+    "plan_explanation": PlanExplanationHandler(),
 }
 
 

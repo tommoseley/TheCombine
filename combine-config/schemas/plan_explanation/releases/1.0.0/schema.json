@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlanExplanation",
+  "description": "Human-readable explanation of a mechanically derived execution plan.",
+  "type": "object",
+  "required": ["backlog_hash", "explanation", "wave_summaries"],
+  "properties": {
+    "backlog_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "The backlog_hash of the ExecutionPlan being explained."
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "1-2 paragraph natural language explanation of the ordering rationale."
+    },
+    "wave_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["wave_number", "summary"],
+        "properties": {
+          "wave_number": { "type": "integer", "minimum": 1 },
+          "summary": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "description": "Per-wave one-line summary explaining what the wave delivers and why it's safe to parallelize."
+    }
+  },
+  "additionalProperties": false
+}

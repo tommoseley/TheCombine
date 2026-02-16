@@ -1,0 +1,240 @@
+{
+  "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
+  "schema_version": "workflow.v2",
+  "workflow_id": "plan_explanation",
+  "revision": "dcwrev_2026_02_16_b",
+  "effective_date": "2026-02-16",
+  "version": "1.0.0",
+  "name": "Plan Explanation Generator",
+  "description": "Generates a human-readable explanation of a mechanically derived execution plan. QA-only pattern: the LLM explains, it never computes or reorders.",
+  "workflow_type": "dcw",
+  "scope_type": "document",
+  "document_type": "plan_explanation",
+  "thread_ownership": {
+    "owns_thread": false,
+    "thread_purpose": null
+  },
+  "entry_node_ids": [
+    "generation"
+  ],
+  "nodes": [
+    {
+      "node_id": "generation",
+      "type": "task",
+      "name": "Explanation Generation",
+      "description": "Generate human-readable explanation of execution plan ordering",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:plan_explanation:1.0.0",
+        "OUTPUT_SCHEMA": "schema:plan_explanation:1.0.0"
+      },
+      "produces": "plan_explanation",
+      "_position": {
+        "x": 50,
+        "y": 40
+      },
+      "station": {
+        "id": "draft",
+        "label": "DRAFT",
+        "order": 1
+      }
+    },
+    {
+      "node_id": "qa_gate",
+      "type": "gate",
+      "name": "Quality Gate",
+      "description": "Structural QA: schema validity, backlog_hash match, wave_summaries count. Does NOT evaluate prose quality.",
+      "gate_kind": "qa",
+      "internals": {
+        "evaluate": {
+          "internal_type": "LLM",
+          "name": "QA Evaluation",
+          "description": "Evaluate explanation against structural quality criteria",
+          "task_ref": "prompt:task:qa_semantic_compliance:1.1.0",
+          "includes": {
+            "ROLE_PROMPT": "prompt:role:quality_assurance:1.0.0"
+          },
+          "qa_mode": "semantic"
+        }
+      },
+      "remediation": {
+        "enabled": true,
+        "max_attempts": 2,
+        "feedback_to": "remediation"
+      },
+      "_position": {
+        "x": 450,
+        "y": 150
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "remediation",
+      "type": "task",
+      "name": "Explanation Remediation",
+      "description": "Rework explanation based on QA feedback",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:plan_explanation:1.0.0",
+        "OUTPUT_SCHEMA": "schema:plan_explanation:1.0.0"
+      },
+      "produces": "plan_explanation",
+      "inputs": [
+        {
+          "from": "qa_gate",
+          "field": "feedback"
+        }
+      ],
+      "_position": {
+        "x": 480,
+        "y": 450
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "end_stabilized",
+      "type": "end",
+      "name": "Explanation Stabilized",
+      "description": "Explanation is structurally valid and ready for display",
+      "terminal_outcome": "stabilized",
+      "_position": {
+        "x": 40,
+        "y": 420
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    },
+    {
+      "node_id": "end_blocked",
+      "type": "end",
+      "name": "Explanation Blocked",
+      "description": "Generation failed - circuit breaker or unrecoverable error",
+      "terminal_outcome": "blocked",
+      "_position": {
+        "x": 190,
+        "y": 610
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "generation_to_qa",
+      "from_node_id": "generation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Explanation generated, evaluate structure"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Generation failed"
+    },
+    {
+      "edge_id": "qa_pass",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_stabilized",
+      "outcome": "pass",
+      "label": "QA passed - explanation structurally valid"
+    },
+    {
+      "edge_id": "qa_fail_remediate",
+      "from_node_id": "qa_gate",
+      "to_node_id": "remediation",
+      "outcome": "fail",
+      "label": "QA failed, attempt remediation",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "qa_circuit_breaker",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_blocked",
+      "outcome": "fail",
+      "label": "Circuit breaker - max remediation attempts",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "remediation_to_qa",
+      "from_node_id": "remediation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Remediation complete, re-evaluate"
+    },
+    {
+      "edge_id": "remediation_failed",
+      "from_node_id": "remediation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Remediation failed"
+    }
+  ],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
+  "governance": {
+    "adr_references": [
+      "ADR-010",
+      "ADR-040",
+      "ADR-045",
+      "ADR-049"
+    ],
+    "design_principles": [
+      "LLMs generate. Machines order. LLMs explain.",
+      "Explanation is read-only — never reorders or modifies the plan",
+      "QA gate checks structure, not prose quality",
+      "Stored separately from ExecutionPlan"
+    ],
+    "circuit_breaker": {
+      "max_retries": 2,
+      "applies_to": [
+        "qa_gate",
+        "remediation"
+      ],
+      "on_trip": "end_blocked"
+    }
+  },
+  "metadata": {
+    "created_date": "2026-02-16",
+    "work_statement": "WS-BCP-003",
+    "changelog": [
+      "v1.0.0: Initial DCW for Plan Explanation Generator"
+    ]
+  },
+  "requires_inputs": [
+    "execution_plan"
+  ]
+}

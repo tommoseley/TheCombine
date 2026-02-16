@@ -1,0 +1,4 @@
+task_id: plan_explanation
+version: 1.0.0
+description: Explain the rationale behind a mechanically derived execution plan
+document_type: plan_explanation

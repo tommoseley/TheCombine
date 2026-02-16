@@ -1,0 +1,30 @@
+doc_type_id: plan_explanation
+display_name: Plan Explanation
+version: 1.0.0
+
+description: >
+  LLM-generated explanation of a mechanically derived execution plan.
+  Explains why the ordering makes sense — never computes or reorders.
+  Stored separately from ExecutionPlan.
+
+authority_level: descriptive
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+
+required_inputs:
+  - execution_plan
+optional_inputs: []
+
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:plan_explanation:1.0.0"
+
+artifacts:
+  task_prompt: prompts/task.prompt.txt
+  schema: schemas/output.schema.json
+
+ui:
+  icon: message-square
+  category: planning
+  display_order: 4
