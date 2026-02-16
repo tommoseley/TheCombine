@@ -109,6 +109,8 @@ export function transformProductionStatus(apiStatus, interrupts = []) {
                 .map(child => ({
                     ...child,
                     level: 2,
+                    docTypeId: child.docTypeId,
+                    instanceId: child.instanceId,
                 }));
         }
         documents.push(doc);
@@ -161,6 +163,8 @@ function transformTrack(track, interrupts = []) {
 
     return {
         id: track.identifier || track.document_type,
+        docTypeId: track.document_type,
+        instanceId: track.instance_id || null,
         name: track.document_name || formatDocTypeName(track.document_type),
         desc: track.description || '',
         state,

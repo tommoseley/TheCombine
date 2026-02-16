@@ -175,16 +175,22 @@ export const api = {
         request(`/document-workflows/executions/${executionId}/pgc-answers`),
 
     // Documents
-    getDocument: (projectId, docTypeId) =>
-        request(`/projects/${projectId}/documents/${docTypeId}`),
+    getDocument: (projectId, docTypeId, instanceId) => {
+        const qs = instanceId ? `?instance_id=${encodeURIComponent(instanceId)}` : '';
+        return request(`/projects/${projectId}/documents/${docTypeId}${qs}`);
+    },
 
     // RenderModel (data-driven document display)
-    getDocumentRenderModel: (projectId, docTypeId) =>
-        request(`/projects/${projectId}/documents/${docTypeId}/render-model`),
+    getDocumentRenderModel: (projectId, docTypeId, instanceId) => {
+        const qs = instanceId ? `?instance_id=${encodeURIComponent(instanceId)}` : '';
+        return request(`/projects/${projectId}/documents/${docTypeId}/render-model${qs}`);
+    },
 
     // PGC context (questions, rationale, answers)
-    getDocumentPgc: (projectId, docTypeId) =>
-        request(`/projects/${projectId}/documents/${docTypeId}/pgc`),
+    getDocumentPgc: (projectId, docTypeId, instanceId) => {
+        const qs = instanceId ? `?instance_id=${encodeURIComponent(instanceId)}` : '';
+        return request(`/projects/${projectId}/documents/${docTypeId}/pgc${qs}`);
+    },
 
     // Concierge Intake
     startIntake: () =>

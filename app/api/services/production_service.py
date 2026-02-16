@@ -475,6 +475,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 "blocked_by": [],
                 "identifier": child_doc.content.get("epic_id", ""),
                 "sequence": child_doc.content.get("sequence"),
+                "instance_id": child_doc.instance_id,
             }
             tracks.append(child_track)
 

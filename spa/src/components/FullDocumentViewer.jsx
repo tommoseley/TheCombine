@@ -10,7 +10,7 @@ import TechnicalArchitectureViewer from './viewers/TechnicalArchitectureViewer';
  * RenderModelViewer component. Falls back to raw JSON display
  * if RenderModel is not available.
  */
-export default function FullDocumentViewer({ projectId, projectCode, docTypeId, onClose }) {
+export default function FullDocumentViewer({ projectId, projectCode, docTypeId, instanceId, onClose }) {
     const [renderModel, setRenderModel] = useState(null);
     const [rawContent, setRawContent] = useState(null);
     const [docMetadata, setDocMetadata] = useState({});
@@ -26,13 +26,13 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 setError(null);
 
                 // Fetch PGC context in parallel (non-blocking)
-                api.getDocumentPgc(projectId, docTypeId)
+                api.getDocumentPgc(projectId, docTypeId, instanceId)
                     .then(pgc => { if (pgc?.has_pgc) setPgcContext(pgc); })
                     .catch(() => {}); // PGC is optional
 
                 // Try to fetch RenderModel first (data-driven display)
                 try {
-                    const rm = await api.getDocumentRenderModel(projectId, docTypeId);
+                    const rm = await api.getDocumentRenderModel(projectId, docTypeId, instanceId);
                     // Always preserve metadata and title from render model response
                     if (rm?.metadata) setDocMetadata(rm.metadata);
                     if (rm?.title) setDocTitle(rm.title);
@@ -53,7 +53,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 }
 
                 // Fall back to raw document content
-                const doc = await api.getDocument(projectId, docTypeId);
+                const doc = await api.getDocument(projectId, docTypeId, instanceId);
                 setRenderModel(null);
                 setRawContent(doc?.content || null);
             } catch (err) {
@@ -64,7 +64,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
             }
         }
         fetchDocument();
-    }, [projectId, docTypeId]);
+    }, [projectId, docTypeId, instanceId]);
 
     // Close on Escape key
     useEffect(() => {

@@ -173,13 +173,17 @@ export default function DocumentNode({ data }) {
 
                     {/* Action buttons */}
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                        {isL1 && isStabilized && (
+                        {isStabilized && (
                             <button
                                 className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
                                 style={{ backgroundColor: 'var(--state-stabilized-bg)', color: 'white' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    data.onViewFullDocument?.(data.id);
+                                    data.onViewFullDocument?.(
+                                        data.instanceId
+                                            ? { docTypeId: data.docTypeId, instanceId: data.instanceId }
+                                            : data.id
+                                    );
                                 }}
                             >
                                 View Document

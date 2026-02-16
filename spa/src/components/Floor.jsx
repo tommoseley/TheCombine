@@ -184,8 +184,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             setExpandType(null);
             setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 300 }), 50);
         },
-        onViewFullDocument: (docId) => {
-            setFullViewerDocId(docId);
+        onViewFullDocument: (docIdOrObj) => {
+            setFullViewerDocId(docIdOrObj);
         },
         onStartProduction: async (docTypeId) => {
             console.log('Starting production for:', docTypeId);
@@ -611,7 +611,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 <FullDocumentViewer
                     projectId={projectId}
                     projectCode={projectCode}
-                    docTypeId={fullViewerDocId}
+                    docTypeId={typeof fullViewerDocId === 'object' ? fullViewerDocId.docTypeId : fullViewerDocId}
+                    instanceId={typeof fullViewerDocId === 'object' ? fullViewerDocId.instanceId : undefined}
                     onClose={() => setFullViewerDocId(null)}
                 />
             )}

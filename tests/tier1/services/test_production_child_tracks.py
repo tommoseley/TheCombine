@@ -8,7 +8,7 @@ from uuid import uuid4
 class FakeDocument:
     """Minimal Document stub for production service tests."""
 
-    def __init__(self, doc_type_id, title="", content=None, parent_id=None, status="draft"):
+    def __init__(self, doc_type_id, title="", content=None, parent_id=None, status="draft", instance_id=None):
         self.id = uuid4()
         self.doc_type_id = doc_type_id
         self.title = title
@@ -18,6 +18,7 @@ class FakeDocument:
         self.is_latest = True
         self.space_type = "project"
         self.space_id = uuid4()
+        self.instance_id = instance_id
 
 
 class FakeScalarResult:

@@ -652,11 +652,14 @@ async def get_project_interrupts(
 async def get_project_document(
     project_id: str,
     doc_type_id: str,
+    instance_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """Get document content for a project.
 
     Returns the full document content as JSON for the SPA viewer.
+    When instance_id is provided, filters to that specific instance
+    (needed for multi-instance doc types like epics).
     """
     # Try UUID first
     try:
@@ -677,13 +680,16 @@ async def get_project_document(
         )
 
     # Get the latest document of this type
-    doc_result = await db.execute(
+    query = (
         select(Document)
         .where(Document.space_type == "project")
         .where(Document.space_id == project.id)
         .where(Document.doc_type_id == doc_type_id)
         .where(Document.is_latest == True)
     )
+    if instance_id:
+        query = query.where(Document.instance_id == instance_id)
+    doc_result = await db.execute(query)
     document = doc_result.scalar_one_or_none()
 
     if not document:
@@ -712,6 +718,7 @@ async def get_project_document(
 async def get_document_render_model(
     project_id: str,
     doc_type_id: str,
+    instance_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """Get RenderModel for a document.
@@ -723,6 +730,9 @@ async def get_document_render_model(
     - sections: Ordered list of sections with blocks
     - metadata: Document metadata and schema info
     - title/subtitle: Display information
+
+    When instance_id is provided, filters to that specific instance
+    (needed for multi-instance doc types like epics).
     """
     # Get project
     try:
@@ -743,13 +753,16 @@ async def get_document_render_model(
         )
 
     # Get the document
-    doc_result = await db.execute(
+    doc_query = (
         select(Document)
         .where(Document.space_type == "project")
         .where(Document.space_id == project.id)
         .where(Document.doc_type_id == doc_type_id)
         .where(Document.is_latest == True)
     )
+    if instance_id:
+        doc_query = doc_query.where(Document.instance_id == instance_id)
+    doc_result = await db.execute(doc_query)
     document = doc_result.scalar_one_or_none()
 
     if not document:
