@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-15
-**Updated By:** Claude (Technical Architecture Viewer enhancements)
+**Last Updated:** 2026-02-13
+**Updated By:** Claude (IPF schema v2 + document headers)
 
 ## Current Focus
 
@@ -99,11 +99,31 @@ Graph-based workflows (ADR-039) for single document production:
 - `concierge_intake` v1.4.0 -- Gate Profile with LLM classification + Entry confirmation
 - `project_discovery` v1.8.0
 - `technical_architecture` v1.0.0
+- `implementation_plan_primary` v1.0.0 -- PGC + generation + QA; requires project_discovery
+- `implementation_plan` v1.0.0 -- QA-only; requires primary_implementation_plan + technical_architecture
 
 ### Project Orchestration Workflows (POWs)
 Step-based workflows for cross-document orchestration:
 - `intake_and_route` v1.0.0 -- Front-door POW (ADR-048)
 - `software_product_development` v1.0.0
+
+---
+
+## IPF Schema v2 (Implementation Plan Final)
+
+Schema upgraded with candidate reconciliation for IPP-to-IPF traceability.
+
+### Key Structures
+- `candidate_reconciliation[]` -- Audit-friendly mapping of every IPP candidate to its outcome (kept/split/merged/dropped)
+- `source_candidate_ids[]` + `transformation` on each Epic -- Reverse linkage from committed Epic to IPP candidates
+- `meta` block -- Provenance metadata matching IPP/PD pattern
+- EC- pattern enforcement on all candidate ID references
+- `additionalProperties: false` at all levels
+
+### Files
+- Canonical schema: `combine-config/schemas/implementation_plan/releases/1.0.0/schema.json`
+- Task prompt: `combine-config/prompts/tasks/implementation_plan/releases/1.0.0/task.prompt.txt`
+- Active release: `implementation_plan: "1.0.0"` in tasks section
 
 ---
 
@@ -123,6 +143,9 @@ Step-based workflows for cross-document orchestration:
 - **Station abbreviations** (2026-02-11): Station dots use PGC/ASM/DRAFT/QA/REM/DONE labels; hidden on stabilized docs
 - **State color scheme** (2026-02-11): All state colors via CSS variables; new luminance/chroma palette (steel blue -> amber -> cyan -> emerald)
 - **WorkflowBlockV2** (2026-02-13): React Flow graph diagrams for architecture workflows; V1 steps auto-converted to linear node chains; supports branching, gates, error paths, retry loops, parallel rails
+- **Document headers** (2026-02-13): All full document views show project badge (links to admin execution), doc type, lifecycle state, version, title, generation date
+- **Project Discovery visualization** (2026-02-13): stakeholder_questions, early_decision_points, and risks sections now render
+- **Execution admin links** (2026-02-13): Project badge links to correct execution (3-step lookup preferring completed executions)
 
 ---
 
@@ -135,12 +158,19 @@ combine-config/
 |   +-- software_product_development/releases/1.0.0/...    # Main delivery POW
 |   +-- concierge_intake/releases/1.4.0/...                # Gate Profile DCW
 |   +-- project_discovery/releases/1.8.0/...
+|   +-- implementation_plan_primary/releases/1.0.0/...     # IPP DCW (PGC + gen + QA)
+|   +-- implementation_plan/releases/1.0.0/...             # IPF DCW (QA-only)
 +-- schemas/
+|   +-- implementation_plan/releases/1.0.0/schema.json     # IPF v2 with reconciliation
+|   +-- primary_implementation_plan/releases/1.0.0/...     # IPP with epic_candidates
 |   +-- routing_decision/releases/1.0.0/schema.json        # ADR-048
 |   +-- spawn_receipt/releases/1.0.0/schema.json           # ADR-048 lineage
 |   +-- route_confirmation/releases/1.0.0/schema.json      # ADR-048 entry
 |   +-- intake_classification/releases/1.0.0/...
 |   +-- intake_confirmation/releases/1.0.0/...
++-- prompts/tasks/
+|   +-- implementation_plan/releases/1.0.0/...             # IPF task prompt (governance)
+|   +-- primary_implementation_plan/releases/1.0.0/...     # IPP task prompt
 +-- mechanical_ops/
 |   +-- intake_route/releases/1.0.0/operation.yaml         # Router operation
 |   +-- validate_routing_decision/releases/1.0.0/...       # Validator operation
@@ -177,6 +207,7 @@ All previous decisions plus:
 21. **Routing as mechanical operation** -- Route selection is config-driven via RouterHandler; no LLM for routing decisions
 22. **Lineage tracking** -- Spawned POW stores `spawned_from_execution_id`, `spawned_by_operation_id`; project maintains `executions[]` array
 23. **Mechanical confidence (pending)** -- Derive `requires_confirmation` from ambiguous intent, multiple candidates, missing fields; no LLM self-confidence
+24. **IPF candidate reconciliation** -- Bidirectional traceability between IPP epic candidates and committed Epics; every candidate must be explicitly accounted for
 
 ---
 
@@ -191,41 +222,29 @@ python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 cd spa && npm run build
 
 # Run tests
-python -m pytest tests/ -k "plan_executor" -v
+python -m pytest tests/ -x -q
 ```
 
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-02-15)
-- **WS-WORKFLOW-STUDIO-001 Complete**: Technical Architecture viewer with tabbed interface
-- **6 tabs**: Overview, Components, Workflows, Data Models, APIs, Quality Attributes
-- **Workflow nodes**: Now show component/output fields (fixed V1->V2 property spread)
-- **Direct document view**: "View Document" skips sidecar, goes straight to full modal
-- **PGC clarifications**: Section added to Overview tab
+### Recent Work (2026-02-13, Session 3)
+- **IPF schema v2**: Added `candidate_reconciliation[]`, `source_candidate_ids[]` + `transformation` on epics, `meta` block, EC- pattern enforcement
+- **IPF task prompt rewritten**: 10 traceability rules, 5 referential consistency constraints, explicit failure conditions
+- **Standalone task prompt created**: `prompt:task:implementation_plan:1.0.0` URN now resolves at runtime
+- **Document headers**: All document views show project badge, doc type, lifecycle state, version, dates
+- **Project Discovery gaps filled**: stakeholder_questions, early_decision_points, risks now visualized
+- **Execution admin links**: Project badge links to correct execution with 3-step lookup
 
-### Active Investigation: Document Rendering Issues
-The Technical Architecture viewer tabs (Data Models, APIs, Quality) may not display for all projects. Tracking:
-
-1. **Section ID mismatches**: Docdef uses singular forms (`data_model`, `interfaces`) while LLM output may use plural (`data_models`, `api_interfaces`). Viewer now matches both variants.
-
-2. **RenderModel generation**: Need to verify that sections are correctly extracted from document content during rendermodel generation. The tabs only appear if `renderModel.sections` contains matching section_ids.
-
-3. **PGC field names**: The PGC context API returns clarifications with potentially different field names (`question` vs `text`, `answer` vs `user_answer`). Need to verify field mapping in PgcClarificationItem component.
-
-**Next steps to debug:**
-- Check browser Network tab for rendermodel response structure
-- Verify document JSON has data_models/api_interfaces/quality_attributes at expected paths
-- Check docdef source_pointer values match actual document structure
-
-### Previous Work (2026-02-13)
+### Previous Work (2026-02-13, Sessions 1-2)
 - **WorkflowBlockV2**: React Flow graph diagrams for architecture workflows
-- V1 steps auto-converted to linear node chains
-- Supports branching, gates, error paths, retry loops
+- **WS-WORKFLOW-STUDIO-001**: Technical Architecture viewer with 6 tabs
+- **Implementation Plan Primary DCW**: Full PGC + generation + QA workflow
 
 ### Next Work
-- Debug rendermodel generation for Technical Architecture sections
+- SPA block renderer for `candidate_reconciliation` section
+- First live IPF execution to validate prompt/schema against real LLM output
 - Wire intake_and_route POW to actually execute
 - UX: Collapsed receipt view for completed Intake POW
 
@@ -233,6 +252,9 @@ The Technical Architecture viewer tabs (Data Models, APIs, Quality) may not disp
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
 - **Remove deprecated HTMX admin section** (`app/web/routes/admin/`)
+- Sync IPP task prompt field names with IPP schema field names (epic_id->candidate_id, title->name)
 
 ### Known Issues
-- Technical Architecture tabs (Data Models, APIs, Quality) not appearing for some projects - under investigation
+- Two copies of IPF schema must be kept in sync (`schemas/` and `document_types/`)
+- IPP task prompt field names don't match IPP schema (prompt says epic_id/title/description, schema uses candidate_id/name/intent)
+- `ImplementationPlanHandler.get_child_documents()` doesn't propagate `source_candidate_ids` or `transformation` to Epic children
