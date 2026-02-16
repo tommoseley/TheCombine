@@ -82,6 +82,9 @@ class ImplementationPlanHandler(BaseDocumentHandler):
 
         Each epic in the plan becomes a separate Epic document
         that can be managed through its lifecycle.
+
+        Lineage metadata is included for audit traceability.
+        The caller (plan_executor) injects execution_id into lineage.
         """
         epics = data.get("epics", [])
         children = []
@@ -95,7 +98,7 @@ class ImplementationPlanHandler(BaseDocumentHandler):
                 "epic_id": epic_id,
                 "name": epic_name,
                 "intent": epic.get("intent", ""),
-                "lifecycle_state": "draft",  # All epics start as draft
+                "lifecycle_state": "draft",
                 "design_status": epic.get("design_required", "not_needed"),
                 "sequence": epic.get("sequence"),
                 "mvp_phase": epic.get("mvp_phase", "mvp"),
@@ -105,7 +108,15 @@ class ImplementationPlanHandler(BaseDocumentHandler):
                 "risks": epic.get("risks", []),
                 "open_questions": epic.get("open_questions", []),
                 "architecture_notes": epic.get("architecture_notes", []),
-                "features": [],  # Features will be added later
+                "features": [],
+                # Lineage: traceability back to parent IPF
+                "_lineage": {
+                    "parent_document_type": "implementation_plan",
+                    "parent_execution_id": None,  # Injected by plan_executor
+                    "source_candidate_ids": epic.get("source_candidate_ids", []),
+                    "transformation": epic.get("transformation", "kept"),
+                    "transformation_notes": epic.get("transformation_notes", ""),
+                },
             }
 
             children.append({

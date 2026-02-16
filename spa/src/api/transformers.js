@@ -93,7 +93,10 @@ export function transformProductionStatus(apiStatus, interrupts = []) {
             if (!childDocsByType[docType]) {
                 childDocsByType[docType] = [];
             }
-            childDocsByType[docType].push(doc);
+            childDocsByType[docType].push({
+                ...doc,
+                sequence: track.sequence,
+            });
         }
     }
 
@@ -101,10 +104,12 @@ export function transformProductionStatus(apiStatus, interrupts = []) {
     for (const doc of projectDocs) {
         // If this document can own children, attach them
         if (doc.childDocType && childDocsByType[doc.childDocType]) {
-            doc.children = childDocsByType[doc.childDocType].map(child => ({
-                ...child,
-                level: 2,
-            }));
+            doc.children = childDocsByType[doc.childDocType]
+                .sort((a, b) => (a.sequence ?? 999) - (b.sequence ?? 999))
+                .map(child => ({
+                    ...child,
+                    level: 2,
+                }));
         }
         documents.push(doc);
     }
@@ -155,7 +160,7 @@ function transformTrack(track, interrupts = []) {
     }
 
     return {
-        id: track.document_type,
+        id: track.identifier || track.document_type,
         name: track.document_name || formatDocTypeName(track.document_type),
         desc: track.description || '',
         state,

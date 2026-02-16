@@ -26,6 +26,7 @@ Thread Ownership (WS-ADR-025 Phase 3):
 - Threads can be resumed when workflow is interrupted
 """
 
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -1942,7 +1943,8 @@ class PlanExecutor:
 
             # Spawn child documents if the handler defines them
             await self._spawn_child_documents(
-                state, doc_content, document.id, document.title
+                state, doc_content, document.id, document.title,
+                execution_id=state.execution_id,
             )
 
         except Exception as e:
@@ -1956,16 +1958,22 @@ class PlanExecutor:
         doc_content: Dict[str, Any],
         parent_id: "UUID",
         parent_title: str,
+        execution_id: str = None,
     ) -> None:
         """Spawn child documents using the handler's get_child_documents().
 
-        For example, implementation_plan creates Epic child documents.
+        Idempotent: if a child with the same (parent_id, doc_type_id, identifier)
+        already exists, it is updated rather than duplicated.
+
+        Drift-aware: children from a previous run that are no longer in the
+        current spec are marked stale (superseded), not deleted.
 
         Args:
             state: The completed workflow state
             doc_content: The parent document content
             parent_id: UUID of the parent document
             parent_title: Title of the parent document
+            execution_id: Execution ID to inject into lineage metadata
         """
         from app.domain.handlers.registry import handler_exists, get_handler
         from app.api.models.document import Document
@@ -1975,41 +1983,137 @@ class PlanExecutor:
             return
 
         handler = get_handler(state.document_type)
-        child_specs = handler.get_child_documents(doc_content, parent_title or "")
+
+        # Unwrap raw envelope if present — LLM output is often stored as
+        # {"raw": true, "content": "```json\n{...}\n```"} and the handler
+        # expects the parsed JSON structure
+        unwrapped = doc_content
+        if isinstance(doc_content, dict) and doc_content.get("raw") and "content" in doc_content:
+            raw_str = doc_content["content"]
+            if isinstance(raw_str, str):
+                cleaned = raw_str.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                    if cleaned.endswith("```"):
+                        cleaned = cleaned[:-3].strip()
+                try:
+                    unwrapped = json.loads(cleaned)
+                    logger.debug("Unwrapped raw envelope for child document extraction")
+                except json.JSONDecodeError:
+                    logger.warning("Failed to unwrap raw content for child extraction")
+
+        child_specs = handler.get_child_documents(unwrapped, parent_title or "")
 
         if not child_specs:
             return
 
+        # Inject execution_id into lineage metadata
+        if execution_id:
+            for spec in child_specs:
+                lineage = spec["content"].get("_lineage")
+                if lineage:
+                    lineage["parent_execution_id"] = execution_id
+
+        # Load existing children for idempotency check
+        existing_result = await self._db_session.execute(
+            select(Document).where(
+                Document.parent_document_id == parent_id,
+                Document.doc_type_id.in_([s["doc_type_id"] for s in child_specs]),
+                Document.is_latest == True,
+            )
+        )
+        existing_children = {
+            doc.content.get("epic_id", ""): doc
+            for doc in existing_result.scalars().all()
+            if isinstance(doc.content, dict)
+        }
+
         created_count = 0
+        updated_count = 0
+        spawned_ids = set()
+
         for spec in child_specs:
+            identifier = spec.get("identifier", "")
+            spawned_ids.add(identifier)
+
             try:
-                child_doc = Document(
-                    space_type="project",
-                    space_id=UUID(state.project_id),
-                    doc_type_id=spec["doc_type_id"],
-                    title=spec["title"],
-                    content=spec["content"],
-                    version=1,
-                    is_latest=True,
-                    status="draft",
-                    created_by=None,
-                    parent_document_id=parent_id,
-                )
-                child_doc.update_revision_hash()
-                self._db_session.add(child_doc)
-                created_count += 1
+                existing = existing_children.get(identifier)
+                if existing:
+                    # Update existing child document
+                    existing.content = spec["content"]
+                    existing.title = spec["title"]
+                    existing.version += 1
+                    existing.update_revision_hash()
+                    updated_count += 1
+                    logger.debug(f"Updated existing child: {identifier}")
+                else:
+                    # Create new child document
+                    child_doc = Document(
+                        space_type="project",
+                        space_id=UUID(state.project_id),
+                        doc_type_id=spec["doc_type_id"],
+                        title=spec["title"],
+                        content=spec["content"],
+                        version=1,
+                        is_latest=True,
+                        status="draft",
+                        created_by=None,
+                        parent_document_id=parent_id,
+                    )
+                    child_doc.update_revision_hash()
+                    self._db_session.add(child_doc)
+                    created_count += 1
+                    logger.debug(f"Created child: {identifier}")
             except Exception as e:
                 logger.error(
-                    f"Failed to create child document "
-                    f"{spec.get('doc_type_id')}/{spec.get('identifier')}: {e}"
+                    f"Failed to upsert child document "
+                    f"{spec.get('doc_type_id')}/{identifier}: {e}"
                 )
 
-        if created_count > 0:
+        # Drift: supersede children that are no longer in the spec
+        superseded_count = 0
+        for child_id, child_doc in existing_children.items():
+            if child_id not in spawned_ids:
+                child_doc.is_latest = False
+                if hasattr(child_doc, 'mark_stale'):
+                    child_doc.mark_stale()
+                else:
+                    child_doc.lifecycle_state = "stale"
+                superseded_count += 1
+                logger.info(f"Superseded child: {child_id} (no longer in parent)")
+
+        if created_count > 0 or updated_count > 0 or superseded_count > 0:
             await self._db_session.commit()
             logger.info(
-                f"Spawned {created_count} child documents from "
-                f"{state.document_type} (parent={parent_id})"
+                f"Spawned children from {state.document_type} (parent={parent_id}): "
+                f"created={created_count}, updated={updated_count}, "
+                f"superseded={superseded_count}"
             )
+
+            # Emit SSE event so the production floor updates live
+            created_ids = [
+                s.get("identifier", "")
+                for s in child_specs
+                if s.get("identifier", "") not in existing_children
+            ]
+            updated_ids = [
+                s.get("identifier", "")
+                for s in child_specs
+                if s.get("identifier", "") in existing_children
+            ]
+            superseded_ids = [
+                cid for cid in existing_children if cid not in spawned_ids
+            ]
+            try:
+                await publish_event(state.project_id, "children_updated", {
+                    "parent_document_type": state.document_type,
+                    "child_doc_type": "epic",
+                    "created": created_ids,
+                    "updated": updated_ids,
+                    "superseded": superseded_ids,
+                })
+            except Exception as e:
+                logger.warning(f"Failed to publish children_updated event: {e}")
 
     # =========================================================================
     # WS-STATION-DATA-001 Phase 2: Station Event Emission

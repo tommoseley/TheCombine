@@ -127,6 +127,18 @@ export function useProductionStatus(projectId) {
             }
         });
 
+        // WS-EPIC-SPAWN-001 Phase 2: Handle children_updated event
+        // Refresh floor when child documents are spawned/updated/superseded
+        eventSource.addEventListener('children_updated', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Children updated:', data);
+                fetchStatus();
+            } catch (err) {
+                console.error('Failed to parse children_updated:', err);
+            }
+        });
+
         // WS-STATION-DATA-001 Phase 3: Handle stations_declared event
         // Apply station list directly without refetching
         eventSource.addEventListener('stations_declared', (event) => {

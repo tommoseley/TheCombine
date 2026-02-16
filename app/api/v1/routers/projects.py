@@ -918,6 +918,27 @@ async def get_document_render_model(
         meta = result_dict.setdefault("metadata", {})
         meta.update(doc_meta)
 
+        # Query spawned child documents for this document
+        child_result = await db.execute(
+            select(Document)
+            .where(Document.parent_document_id == document.id)
+            .where(Document.is_latest == True)
+        )
+        child_docs = child_result.scalars().all()
+        if child_docs:
+            meta["spawned_children"] = {
+                "count": len(child_docs),
+                "items": [
+                    {
+                        "epic_id": cd.content.get("epic_id", "") if isinstance(cd.content, dict) else "",
+                        "name": cd.content.get("name", cd.title) if isinstance(cd.content, dict) else cd.title,
+                        "title": cd.title,
+                        "doc_type_id": cd.doc_type_id,
+                    }
+                    for cd in child_docs
+                ],
+            }
+
         return result_dict
 
     except DocDefNotFoundError as e:

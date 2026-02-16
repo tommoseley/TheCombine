@@ -441,6 +441,43 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
 
         tracks.append(track)
 
+    # Query spawned child documents for tracks with child_doc_type
+    # These are data snapshots (e.g., epics spawned from implementation_plan)
+    # that appear as L2 children on the production floor
+    for track in tracks:
+        child_doc_type = track.get("child_doc_type")
+        if not child_doc_type:
+            continue
+
+        parent_doc = documents.get(track["document_type"])
+        if not parent_doc:
+            continue
+
+        child_result = await db.execute(
+            select(Document).where(
+                Document.parent_document_id == parent_doc.id,
+                Document.doc_type_id == child_doc_type,
+                Document.is_latest == True,
+            )
+        )
+        child_docs = child_result.scalars().all()
+
+        for child_doc in child_docs:
+            child_name = child_doc.title or child_doc.content.get("name", child_doc.doc_type_id)
+            child_track = {
+                "document_type": child_doc.doc_type_id,
+                "document_name": child_name,
+                "description": child_doc.content.get("intent", ""),
+                "scope": child_doc.doc_type_id,  # Non-"project" so transformer groups as child
+                "state": ProductionState.PRODUCED.value,
+                "stations": [],
+                "elapsed_ms": None,
+                "blocked_by": [],
+                "identifier": child_doc.content.get("epic_id", ""),
+                "sequence": child_doc.content.get("sequence"),
+            }
+            tracks.append(child_track)
+
     return tracks
 
 
