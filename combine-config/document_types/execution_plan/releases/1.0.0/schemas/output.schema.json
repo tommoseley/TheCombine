@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutionPlan",
+  "description": "Deterministically derived execution plan. Never LLM-authored. Single per backlog_hash.",
+  "type": "object",
+  "required": ["backlog_hash", "ordered_backlog_ids", "waves", "generator_version"],
+  "properties": {
+    "backlog_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of structural backlog fields. Identity key."
+    },
+    "intent_id": {
+      "type": "string",
+      "description": "Reference to the source IntentPacket. Metadata, not identity."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Reference to the workflow run that produced the backlog. Metadata, not identity."
+    },
+    "ordered_backlog_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[EFS]\\d{3}$" },
+      "minItems": 1,
+      "description": "Flattened total order. Authoritative."
+    },
+    "waves": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "string", "pattern": "^[EFS]\\d{3}$" },
+        "minItems": 1
+      },
+      "minItems": 1,
+      "description": "Kahn-style tiers. Derived view, required but non-authoritative."
+    },
+    "generator_version": {
+      "type": "string",
+      "description": "Version of the ordering engine that produced this plan."
+    }
+  },
+  "additionalProperties": false
+}

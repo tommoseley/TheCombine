@@ -1,0 +1,27 @@
+doc_type_id: execution_plan
+display_name: Execution Plan
+version: 1.0.0
+
+description: >
+  Deterministically derived execution plan for a validated backlog.
+  Produced mechanically by topological sort + wave grouping.
+  Never LLM-authored. Single per backlog_hash.
+
+authority_level: constructive
+creation_mode: constructed
+production_mode: construct
+scope: project
+
+required_inputs:
+  - backlog_item
+optional_inputs: []
+
+schema_ref: "schema:execution_plan:1.0.0"
+
+artifacts:
+  schema: schemas/output.schema.json
+
+ui:
+  icon: route
+  category: planning
+  display_order: 3

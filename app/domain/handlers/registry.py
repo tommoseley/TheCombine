@@ -30,6 +30,7 @@ from app.domain.handlers.epic_handler import EpicHandler
 from app.domain.handlers.feature_handler import FeatureHandler
 from app.domain.handlers.intent_packet_handler import IntentPacketHandler
 from app.domain.handlers.backlog_item_handler import BacklogItemHandler
+from app.domain.handlers.execution_plan_handler import ExecutionPlanHandler
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     # WS-BCP-001: Backlog Compilation Pipeline
     "intent_packet": IntentPacketHandler(),
     "backlog_item": BacklogItemHandler(),
+    # WS-BCP-002: ExecutionPlan (mechanically derived)
+    "execution_plan": ExecutionPlanHandler(),
 }
 
 
