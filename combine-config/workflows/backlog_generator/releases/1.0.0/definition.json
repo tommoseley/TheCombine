@@ -1,0 +1,241 @@
+{
+  "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
+  "schema_version": "workflow.v2",
+  "workflow_id": "backlog_generator",
+  "revision": "dcwrev_2026_02_16_a",
+  "effective_date": "2026-02-16",
+  "version": "1.0.0",
+  "name": "Backlog Generator",
+  "description": "Generates a structured backlog (EPICs/FEATUREs/STORYs) from an IntentPacket. QA-only pattern per DQ-2: QA gate enforces structural invariants, graph layer owns dependency/hierarchy validation.",
+  "workflow_type": "dcw",
+  "scope_type": "document",
+  "document_type": "backlog_item",
+  "thread_ownership": {
+    "owns_thread": false,
+    "thread_purpose": null
+  },
+  "entry_node_ids": [
+    "generation"
+  ],
+  "nodes": [
+    {
+      "node_id": "generation",
+      "type": "task",
+      "name": "Backlog Generation",
+      "description": "Generate structured backlog from IntentPacket",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:backlog_generator:1.0.0",
+        "OUTPUT_SCHEMA": "schema:backlog_item:1.0.0"
+      },
+      "produces": "backlog_item",
+      "_position": {
+        "x": 50,
+        "y": 40
+      },
+      "station": {
+        "id": "draft",
+        "label": "DRAFT",
+        "order": 1
+      }
+    },
+    {
+      "node_id": "qa_gate",
+      "type": "gate",
+      "name": "Quality Gate",
+      "description": "Structural QA: schema validity, ID format, parent_id presence, integer priorities. Does NOT validate dependency existence or hierarchy levels (graph layer owns those).",
+      "gate_kind": "qa",
+      "internals": {
+        "evaluate": {
+          "internal_type": "LLM",
+          "name": "QA Evaluation",
+          "description": "Evaluate backlog against structural quality criteria",
+          "task_ref": "prompt:task:qa_semantic_compliance:1.1.0",
+          "includes": {
+            "ROLE_PROMPT": "prompt:role:quality_assurance:1.0.0"
+          },
+          "qa_mode": "semantic"
+        }
+      },
+      "remediation": {
+        "enabled": true,
+        "max_attempts": 2,
+        "feedback_to": "remediation"
+      },
+      "_position": {
+        "x": 450,
+        "y": 150
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "remediation",
+      "type": "task",
+      "name": "Backlog Remediation",
+      "description": "Rework backlog based on QA feedback",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:backlog_generator:1.0.0",
+        "OUTPUT_SCHEMA": "schema:backlog_item:1.0.0"
+      },
+      "produces": "backlog_item",
+      "inputs": [
+        {
+          "from": "qa_gate",
+          "field": "feedback"
+        }
+      ],
+      "_position": {
+        "x": 480,
+        "y": 450
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "end_stabilized",
+      "type": "end",
+      "name": "Backlog Stabilized",
+      "description": "Backlog is structurally valid and ready for graph validation",
+      "terminal_outcome": "stabilized",
+      "_position": {
+        "x": 40,
+        "y": 420
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    },
+    {
+      "node_id": "end_blocked",
+      "type": "end",
+      "name": "Backlog Blocked",
+      "description": "Generation failed - circuit breaker or unrecoverable error",
+      "terminal_outcome": "blocked",
+      "_position": {
+        "x": 190,
+        "y": 610
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "generation_to_qa",
+      "from_node_id": "generation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Backlog generated, evaluate structure"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Generation failed"
+    },
+    {
+      "edge_id": "qa_pass",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_stabilized",
+      "outcome": "pass",
+      "label": "QA passed - backlog structurally valid"
+    },
+    {
+      "edge_id": "qa_fail_remediate",
+      "from_node_id": "qa_gate",
+      "to_node_id": "remediation",
+      "outcome": "fail",
+      "label": "QA failed, attempt remediation",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "qa_circuit_breaker",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_blocked",
+      "outcome": "fail",
+      "label": "Circuit breaker - max remediation attempts",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "remediation_to_qa",
+      "from_node_id": "remediation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Remediation complete, re-evaluate"
+    },
+    {
+      "edge_id": "remediation_failed",
+      "from_node_id": "remediation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Remediation failed"
+    }
+  ],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
+  "governance": {
+    "adr_references": [
+      "ADR-010",
+      "ADR-040",
+      "ADR-045",
+      "ADR-049"
+    ],
+    "design_principles": [
+      "No Black Boxes - all gates explicitly composed (ADR-049)",
+      "QA-only pattern - narrow structural validation only",
+      "QA gate does NOT validate dependency existence, hierarchy levels, or cycles",
+      "Graph validator is the single authority for graph correctness (DQ-2)",
+      "LLMs generate. Machines order."
+    ],
+    "circuit_breaker": {
+      "max_retries": 2,
+      "applies_to": [
+        "qa_gate",
+        "remediation"
+      ],
+      "on_trip": "end_blocked"
+    }
+  },
+  "metadata": {
+    "created_date": "2026-02-16",
+    "work_statement": "WS-BCP-001",
+    "changelog": [
+      "v1.0.0: Initial DCW for Backlog Compilation Pipeline Phase 3"
+    ]
+  },
+  "requires_inputs": [
+    "intent_packet"
+  ]
+}

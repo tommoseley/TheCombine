@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BacklogItem",
+  "description": "Unified backlog item with level discriminator. One schema for EPIC, FEATURE, and STORY.",
+  "type": "object",
+  "required": ["id", "level", "title", "description", "priority_score", "depends_on"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[EFS]\\d{3}$",
+      "description": "Level-prefixed ID: E### for EPIC, F### for FEATURE, S### for STORY."
+    },
+    "level": {
+      "type": "string",
+      "enum": ["EPIC", "FEATURE", "STORY"]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "priority_score": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Priority as integer. Higher = more important. Used for intra-tier ordering."
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[EFS]\\d{3}$"
+      },
+      "description": "IDs this item depends on. Empty array if no dependencies."
+    },
+    "parent_id": {
+      "type": ["string", "null"],
+      "description": "Parent item ID. Null for EPICs. Required for FEATURE (must ref EPIC) and STORY (must ref FEATURE)."
+    }
+  },
+  "additionalProperties": false,
+  "if": {
+    "properties": { "level": { "const": "EPIC" } }
+  },
+  "then": {
+    "properties": { "parent_id": { "const": null } }
+  },
+  "else": {
+    "required": ["parent_id"],
+    "properties": {
+      "parent_id": {
+        "type": "string",
+        "pattern": "^[EFS]\\d{3}$"
+      }
+    }
+  }
+}

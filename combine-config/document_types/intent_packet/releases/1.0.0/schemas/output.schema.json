@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IntentPacket",
+  "description": "Raw user intent normalized for pipeline input. Immutable once persisted.",
+  "type": "object",
+  "required": ["raw_intent"],
+  "properties": {
+    "raw_intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The raw intent text as provided by the user. Never LLM-normalized."
+    },
+    "constraints": {
+      "type": ["string", "null"],
+      "description": "Known constraints on the work (technical, timeline, resource, etc.)."
+    },
+    "success_criteria": {
+      "type": ["string", "null"],
+      "description": "What success looks like for this intent."
+    },
+    "context": {
+      "type": ["string", "null"],
+      "description": "Additional context (project background, domain notes, etc.)."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    }
+  },
+  "additionalProperties": false
+}

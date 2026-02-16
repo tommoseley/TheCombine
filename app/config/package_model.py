@@ -26,6 +26,7 @@ class CreationMode(str, Enum):
     LLM_GENERATED = "llm_generated"
     CONSTRUCTED = "constructed"
     EXTRACTED = "extracted"
+    MANUAL = "manual"
 
 
 class ProductionMode(str, Enum):
@@ -33,6 +34,7 @@ class ProductionMode(str, Enum):
     GENERATE = "generate"
     AUTHORIZE = "authorize"
     CONSTRUCT = "construct"
+    INTAKE = "intake"
 
 
 class Scope(str, Enum):

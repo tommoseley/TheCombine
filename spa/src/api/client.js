@@ -232,6 +232,16 @@ export const api = {
 
     completeWorkflowInstance: (projectId) =>
         request(`/projects/${projectId}/workflow/complete`, { method: 'POST' }),
+
+    // Intent Intake (WS-BCP-001)
+    createIntent: (projectId, data) =>
+        request('/intents', {
+            method: 'POST',
+            body: JSON.stringify({ project_id: projectId, ...data }),
+        }),
+
+    getIntent: (intentId) =>
+        request(`/intents/${intentId}`),
 };
 
 /**

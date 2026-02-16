@@ -1,0 +1,37 @@
+# Document Type Package Manifest
+# Schema: ../../../schemas/registry/package.schema.json
+
+doc_type_id: intent_packet
+display_name: Intent Packet
+version: 1.0.0
+
+description: >
+  Raw user intent persisted as an immutable input to the Backlog Compilation Pipeline.
+  Created by mechanical intake (no LLM involvement). Never modified after creation.
+
+# Classification (per ADR-044)
+authority_level: descriptive
+creation_mode: manual
+production_mode: intake
+scope: project
+
+# Dependencies
+required_inputs: []
+optional_inputs: []
+
+# No LLM involvement - mechanical intake only
+role_prompt_ref: null
+template_ref: null
+schema_ref: "schema:intent_packet:1.0.0"
+
+# Packaged artifacts (relative paths)
+artifacts:
+  task_prompt: null
+  qa_prompt: null
+  pgc_context: null
+  schema: schemas/output.schema.json
+
+ui:
+  icon: lightbulb
+  category: planning
+  display_order: 1

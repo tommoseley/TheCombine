@@ -8,7 +8,9 @@
     "technical_architecture": "1.0.0",
     "implementation_plan": "1.0.0",
     "epic": "1.0.0",
-    "feature": "1.0.0"
+    "feature": "1.0.0",
+    "intent_packet": "1.0.0",
+    "backlog_item": "1.0.0"
   },
   "roles": {
     "technical_architect": "1.0.0",
@@ -32,6 +34,8 @@
     "implementation_plan": "1.0.0",
     "epic": "1.0.0",
     "feature": "1.0.0",
+    "intent_packet": "1.0.0",
+    "backlog_item": "1.0.0",
     "clarification_questions": "1.0.0",
     "intake_classification": "1.0.0",
     "intake_confirmation": "1.0.0",
@@ -46,7 +50,8 @@
     "software_product_development": "1.0.0",
     "technical_architecture": "2.0.0",
     "implementation_plan": "1.0.0",
-    "implementation_plan_primary": "1.0.0"
+    "implementation_plan_primary": "1.0.0",
+    "backlog_generator": "1.0.0"
   },
   "tasks": {
     "task_prompt_auditor": "1.0.0",
@@ -73,7 +78,8 @@
     "strategy_review_v1": "1.0.0",
     "epic_architecture": "1.0.0",
     "primary_implementation_plan": "1.0.0",
-    "implementation_plan": "1.0.0"
+    "implementation_plan": "1.0.0",
+    "backlog_generator": "1.0.0"
   },
   "pgc": {
     "project_discovery.v1": "1.0.0",

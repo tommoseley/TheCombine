@@ -1,0 +1,93 @@
+You are generating a structured backlog from a user's intent.
+
+## Task Objective
+
+Decompose the provided IntentPacket into a structured backlog of EPICs, FEATUREs, and STORYs. Each item must be individually actionable, correctly prioritized, and explicitly linked via dependencies and parent relationships.
+
+## Input Provided
+
+You will receive an IntentPacket containing:
+- `raw_intent`: The user's description of what they want to build
+- `constraints`: Known constraints (may be null)
+- `success_criteria`: Definition of success (may be null)
+- `context`: Additional background information (may be null)
+
+## Output Requirements
+
+Produce a JSON object matching this exact structure:
+
+```json
+{
+  "intent_id": "<provided intent document ID>",
+  "items": [
+    {
+      "id": "E001",
+      "level": "EPIC",
+      "title": "Short descriptive title",
+      "description": "Detailed description of what this item delivers",
+      "priority_score": 100,
+      "depends_on": [],
+      "parent_id": null
+    }
+  ]
+}
+```
+
+## ID Format (Mandatory)
+
+- EPICs: `E001`, `E002`, `E003`, ...
+- FEATUREs: `F001`, `F002`, `F003`, ...
+- STORYs: `S001`, `S002`, `S003`, ...
+
+IDs must match the pattern `^[EFS]\d{3}$`. Use sequential numbering within each level.
+
+## Hierarchy Rules (Mandatory)
+
+- EPICs: `parent_id` MUST be `null`
+- FEATUREs: `parent_id` MUST reference an EPIC ID (e.g., `"E001"`)
+- STORYs: `parent_id` MUST reference a FEATURE ID (e.g., `"F001"`)
+
+No other parent combinations are valid.
+
+## Priority Rules
+
+- `priority_score` must be a positive integer (1 or higher)
+- Higher score = higher priority
+- Use a meaningful range (e.g., 10-100) to allow differentiation
+- Items that must be built first should have higher priority
+- Foundation/infrastructure items typically have higher priority than consumer-facing features
+
+## Dependency Rules
+
+- `depends_on` is an array of item IDs that must be completed before this item
+- Dependencies can cross levels (a FEATURE can depend on an EPIC)
+- Every ID in `depends_on` must exist in the output
+- Empty array `[]` if no dependencies
+- Do NOT create circular dependencies
+
+## Decomposition Guidelines
+
+1. Start with EPICs that represent major capability areas
+2. Each EPIC should have at least one FEATURE
+3. FEATUREs represent deliverable functionality within an EPIC
+4. STORYs represent implementable units of work within a FEATURE
+5. Aim for 3-7 EPICs for a typical project
+6. Each FEATURE should have 2-5 STORYs
+
+## Constraints
+
+- You MUST produce at least 1 EPIC
+- Every FEATURE must have a parent EPIC
+- Every STORY must have a parent FEATURE
+- All IDs must be unique within the output
+- All `depends_on` references must point to valid IDs in the output
+- `priority_score` must be an integer, not a float
+- Do NOT include any fields beyond: id, level, title, description, priority_score, depends_on, parent_id
+
+## Prohibited Actions
+
+- Do NOT invent requirements not present in the intent
+- Do NOT add status, sprint, effort, owner, or velocity fields
+- Do NOT use fractional priorities (1.5, 2.7, etc.)
+- Do NOT create items with empty titles or descriptions
+- Do NOT create orphaned FEATUREs or STORYs (missing parent_id)
