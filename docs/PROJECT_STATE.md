@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-13
-**Updated By:** Claude (IPF schema v2 + document headers)
+**Last Updated:** 2026-02-16
+**Updated By:** Claude (L2 document viewing on production floor)
 
 ## Current Focus
 
@@ -146,6 +146,7 @@ Schema upgraded with candidate reconciliation for IPP-to-IPF traceability.
 - **Document headers** (2026-02-13): All full document views show project badge (links to admin execution), doc type, lifecycle state, version, title, generation date
 - **Project Discovery visualization** (2026-02-13): stakeholder_questions, early_decision_points, and risks sections now render
 - **Execution admin links** (2026-02-13): Project badge links to correct execution (3-step lookup preferring completed executions)
+- **L2 document viewing** (2026-02-16): Epic nodes on production floor now show "View Document" button; opens FullDocumentViewer with instance_id disambiguation
 
 ---
 
@@ -229,7 +230,12 @@ python -m pytest tests/ -x -q
 
 ## Handoff Notes
 
-### Recent Work (2026-02-13, Session 3)
+### Recent Work (2026-02-16)
+- **L2 document viewing**: Epic nodes on production floor now viewable via "View Document" button
+- Backend `instance_id` query param on document endpoints for multi-instance disambiguation
+- SPA carries `docTypeId`/`instanceId` through transformer -> nodes -> Floor -> FullDocumentViewer -> API client
+
+### Previous Work (2026-02-13, Session 3)
 - **IPF schema v2**: Added `candidate_reconciliation[]`, `source_candidate_ids[]` + `transformation` on epics, `meta` block, EC- pattern enforcement
 - **IPF task prompt rewritten**: 10 traceability rules, 5 referential consistency constraints, explicit failure conditions
 - **Standalone task prompt created**: `prompt:task:implementation_plan:1.0.0` URN now resolves at runtime
@@ -243,6 +249,8 @@ python -m pytest tests/ -x -q
 - **Implementation Plan Primary DCW**: Full PGC + generation + QA workflow
 
 ### Next Work
+- Epic render_model support (currently falls back to raw JSON in FullDocumentViewer)
+- Epic "Expand" affordance (fan out into features/stories)
 - SPA block renderer for `candidate_reconciliation` section
 - First live IPF execution to validate prompt/schema against real LLM output
 - Wire intake_and_route POW to actually execute

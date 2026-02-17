@@ -1,13 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BacklogItemList",
-  "description": "Output of the Backlog Generator DCW. A list of BacklogItems for a single intent.",
+  "description": "Output of a backlog generation DCW. A list of BacklogItems scoped to a single parent (intent for epics, epic for features, feature for stories).",
   "type": "object",
-  "required": ["intent_id", "items"],
+  "required": ["schema_version", "source_id", "items"],
   "properties": {
-    "intent_id": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "source_id": {
       "type": "string",
-      "description": "Reference to the source IntentPacket document ID."
+      "description": "Reference to the source document: intent_id for epic generation, epic_id for feature generation, feature_id for story generation."
+    },
+    "source_type": {
+      "type": "string",
+      "enum": ["intent", "epic", "feature", "story"],
+      "description": "What kind of source produced this list."
     },
     "items": {
       "type": "array",

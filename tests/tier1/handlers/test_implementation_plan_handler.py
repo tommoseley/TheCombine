@@ -125,3 +125,75 @@ class TestTransform:
         assert result["later_count"] == 0
         assert result["design_required_count"] == 0
         assert result["design_recommended_count"] == 1
+
+    def test_derives_risk_summary_from_epic_risks(self, handler, plan_data):
+        """risk_summary is mechanically projected from per-epic risks."""
+        result = handler.transform(plan_data)
+        rs = result["risk_summary"]
+        assert len(rs) == 1  # Only storage_foundation has a risk
+        assert rs[0]["risk"] == "Quota limits"
+        assert rs[0]["affected_epics"] == ["storage_foundation"]
+        assert rs[0]["overall_impact"] == "medium"
+        assert rs[0]["mitigation_strategy"] == "Monitor"
+
+    def test_risk_summary_empty_when_no_risks(self, handler):
+        data = {
+            "epics": [
+                {"epic_id": "a", "mvp_phase": "mvp", "risks": []},
+                {"epic_id": "b", "mvp_phase": "mvp", "risks": []},
+            ]
+        }
+        result = handler.transform(data)
+        assert result["risk_summary"] == []
+
+    def test_risk_summary_multiple_epics_multiple_risks(self, handler):
+        data = {
+            "epics": [
+                {
+                    "epic_id": "auth",
+                    "mvp_phase": "mvp",
+                    "risks": [
+                        {"risk": "Token expiry", "impact": "high", "mitigation": "Refresh flow"},
+                        {"risk": "Brute force", "impact": "medium", "mitigation": "Rate limit"},
+                    ],
+                },
+                {
+                    "epic_id": "storage",
+                    "mvp_phase": "mvp",
+                    "risks": [
+                        {"risk": "Data loss", "impact": "high", "mitigation": "Backups"},
+                    ],
+                },
+            ]
+        }
+        result = handler.transform(data)
+        rs = result["risk_summary"]
+        assert len(rs) == 3
+        # Order follows epic order, then risk order within epic
+        assert rs[0]["risk"] == "Token expiry"
+        assert rs[0]["affected_epics"] == ["auth"]
+        assert rs[0]["overall_impact"] == "high"
+        assert rs[1]["risk"] == "Brute force"
+        assert rs[1]["affected_epics"] == ["auth"]
+        assert rs[2]["risk"] == "Data loss"
+        assert rs[2]["affected_epics"] == ["storage"]
+
+    def test_risk_summary_overwrites_llm_generated(self, handler):
+        """If LLM produced risk_summary, transform() overwrites it."""
+        data = {
+            "epics": [
+                {
+                    "epic_id": "x",
+                    "mvp_phase": "mvp",
+                    "risks": [{"risk": "Real risk", "impact": "low", "mitigation": "Handle it"}],
+                },
+            ],
+            "risk_summary": [
+                {"risk": "LLM hallucinated this", "affected_epics": ["x"],
+                 "overall_impact": "critical", "mitigation_strategy": "Panic"},
+            ],
+        }
+        result = handler.transform(data)
+        rs = result["risk_summary"]
+        assert len(rs) == 1
+        assert rs[0]["risk"] == "Real risk"  # Mechanical, not LLM

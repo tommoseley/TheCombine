@@ -36,6 +36,9 @@ class ImplementationPlanHandler(BaseDocumentHandler):
         - epic_count
         - mvp_count / later_count
         - design_required_count
+
+        Derives mechanical aggregations:
+        - risk_summary: projected from per-epic risks (overwrites any LLM-generated version)
         """
         epics = data.get("epics", [])
 
@@ -54,7 +57,28 @@ class ImplementationPlanHandler(BaseDocumentHandler):
         data["design_required_count"] = design_required
         data["design_recommended_count"] = design_recommended
 
+        # Derive risk_summary mechanically from per-epic risks.
+        # Each per-epic risk becomes a risk_summary_item with that epic as
+        # the sole affected_epic. Cross-cutting grouping (merging risks that
+        # span multiple epics) is a human review concern, not a mechanical one.
+        data["risk_summary"] = self._derive_risk_summary(epics)
+
         return data
+
+    @staticmethod
+    def _derive_risk_summary(epics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Project per-epic risks into plan-level risk_summary items."""
+        summary = []
+        for epic in epics:
+            epic_id = epic.get("epic_id", "")
+            for risk in epic.get("risks", []):
+                summary.append({
+                    "risk": risk.get("risk", ""),
+                    "affected_epics": [epic_id],
+                    "overall_impact": risk.get("impact", "medium"),
+                    "mitigation_strategy": risk.get("mitigation", ""),
+                })
+        return summary
 
     def render(self, data: Dict[str, Any]) -> str:
         """

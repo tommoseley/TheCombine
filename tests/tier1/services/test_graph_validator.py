@@ -28,22 +28,25 @@ from app.domain.services.graph_validator import (
 
 def epic(id, depends_on=None, priority=50):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "EPIC", "title": f"Epic {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": None,
     }
 
 def feature(id, parent_id, depends_on=None, priority=30):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "FEATURE", "title": f"Feature {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": parent_id,
     }
 
 def story(id, parent_id, depends_on=None, priority=10):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "STORY", "title": f"Story {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": parent_id,
     }
 
@@ -142,7 +145,7 @@ class TestValidateHierarchy:
     def test_epic_with_parent_id(self):
         items = [
             {"id": "E001", "level": "EPIC", "title": "Bad Epic",
-             "description": "x", "priority_score": 50,
+             "summary": "x", "priority_score": 50,
              "depends_on": [], "parent_id": "E002"},
             epic("E002"),
         ]
@@ -156,7 +159,7 @@ class TestValidateHierarchy:
         items = [
             epic("E001"),
             {"id": "F001", "level": "FEATURE", "title": "Orphan",
-             "description": "x", "priority_score": 30,
+             "summary": "x", "priority_score": 30,
              "depends_on": [], "parent_id": None},
         ]
         result = validate_hierarchy(items)
@@ -170,7 +173,7 @@ class TestValidateHierarchy:
             epic("E001"),
             feature("F001", "E001"),
             {"id": "S001", "level": "STORY", "title": "Orphan Story",
-             "description": "x", "priority_score": 10,
+             "summary": "x", "priority_score": 10,
              "depends_on": [], "parent_id": None},
         ]
         result = validate_hierarchy(items)
@@ -250,10 +253,10 @@ class TestValidateHierarchy:
         """A→B→A via parent_id."""
         items = [
             {"id": "F001", "level": "FEATURE", "title": "F1",
-             "description": "x", "priority_score": 30,
+             "summary": "x", "priority_score": 30,
              "depends_on": [], "parent_id": "F002"},
             {"id": "F002", "level": "FEATURE", "title": "F2",
-             "description": "x", "priority_score": 30,
+             "summary": "x", "priority_score": 30,
              "depends_on": [], "parent_id": "F001"},
         ]
         result = validate_hierarchy(items)
@@ -266,7 +269,7 @@ class TestValidateHierarchy:
         items = [
             epic("E001"),
             {"id": "F001", "level": "FEATURE", "title": "Orphan",
-             "description": "x", "priority_score": 30,
+             "summary": "x", "priority_score": 30,
              "depends_on": [], "parent_id": None},
             feature("F002", "E999"),  # Missing parent
         ]

@@ -18,16 +18,57 @@ Produce a JSON object matching this exact structure:
 
 ```json
 {
-  "intent_id": "<provided intent document ID>",
+  "schema_version": "1.0.0",
+  "source_id": "<provided intent document ID>",
+  "source_type": "intent",
   "items": [
     {
+      "schema_version": "1.0.0",
       "id": "E001",
       "level": "EPIC",
       "title": "Short descriptive title",
-      "description": "Detailed description of what this item delivers",
+      "summary": "One-sentence summary of what this item delivers",
       "priority_score": 100,
       "depends_on": [],
-      "parent_id": null
+      "parent_id": null,
+      "details": {
+        "scope": ["What this epic covers"],
+        "out_of_scope": ["What this epic does NOT cover"],
+        "success_signals": ["Observable indicators of value delivery"],
+        "major_risks": ["Key risks at epic scope"]
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "F001",
+      "level": "FEATURE",
+      "title": "Feature title",
+      "summary": "Brief feature summary",
+      "priority_score": 80,
+      "depends_on": ["E001"],
+      "parent_id": "E001",
+      "details": {
+        "user_value": "Why this feature matters to the user",
+        "primary_flows": ["Main user/system flows this feature enables"],
+        "acceptance_criteria_outline": ["High-level acceptance criteria"],
+        "data_touched": ["Data entities this feature reads/writes"],
+        "nfr_notes": ["Non-functional requirement hints"]
+      }
+    },
+    {
+      "schema_version": "1.0.0",
+      "id": "S001",
+      "level": "STORY",
+      "title": "Story title",
+      "summary": "Brief story summary",
+      "priority_score": 60,
+      "depends_on": ["F001"],
+      "parent_id": "F001",
+      "details": {
+        "acceptance_criteria": ["Given/When/Then acceptance criteria"],
+        "test_notes": ["Testing guidance"],
+        "edge_cases": ["Known edge cases to handle"]
+      }
     }
   ]
 }
@@ -47,7 +88,7 @@ IDs must match the pattern `^[EFS]\d{3}$`. Use sequential numbering within each 
 - FEATUREs: `parent_id` MUST reference an EPIC ID (e.g., `"E001"`)
 - STORYs: `parent_id` MUST reference a FEATURE ID (e.g., `"F001"`)
 
-No other parent combinations are valid.
+No other parent combinations are valid. STORY directly under EPIC is NOT allowed.
 
 ## Priority Rules
 
@@ -64,6 +105,14 @@ No other parent combinations are valid.
 - Every ID in `depends_on` must exist in the output
 - Empty array `[]` if no dependencies
 - Do NOT create circular dependencies
+
+## Details Fields (Mandatory per Level)
+
+Each level has a specific `details` shape. Populate all fields for each item:
+
+- **EPIC details**: `scope`, `out_of_scope`, `success_signals`, `major_risks`. Optional: `interfaces`.
+- **FEATURE details**: `user_value`, `primary_flows`, `acceptance_criteria_outline`, `data_touched`, `nfr_notes`.
+- **STORY details**: `acceptance_criteria` (Given/When/Then format), `test_notes`, `edge_cases`.
 
 ## Decomposition Guidelines
 
@@ -82,12 +131,14 @@ No other parent combinations are valid.
 - All IDs must be unique within the output
 - All `depends_on` references must point to valid IDs in the output
 - `priority_score` must be an integer, not a float
-- Do NOT include any fields beyond: id, level, title, description, priority_score, depends_on, parent_id
+- `schema_version` must be `"1.0.0"` on every item
+- Do NOT include any fields beyond those defined in the schema
 
 ## Prohibited Actions
 
 - Do NOT invent requirements not present in the intent
 - Do NOT add status, sprint, effort, owner, or velocity fields
 - Do NOT use fractional priorities (1.5, 2.7, etc.)
-- Do NOT create items with empty titles or descriptions
+- Do NOT create items with empty titles or summaries
 - Do NOT create orphaned FEATUREs or STORYs (missing parent_id)
+- Do NOT place STORYs directly under EPICs (must go through FEATURE)

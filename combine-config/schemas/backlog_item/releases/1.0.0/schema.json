@@ -1,59 +1,253 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BacklogItem",
-  "description": "Unified backlog item with level discriminator. One schema for EPIC, FEATURE, and STORY.",
+  "description": "Unified backlog item with level discriminator and level-specific details. Base fields are compiler-owned and hash-included. Human fields, details, and lineage are hash-excluded.\n\nHash Boundary Invariant: backlog_hash is computed exclusively from base fields (id, level, parent_id, sorted(depends_on), priority_score). Editing title, summary, or details does NOT invalidate the execution plan. Only structural changes produce a new plan.",
   "type": "object",
-  "required": ["id", "level", "title", "description", "priority_score", "depends_on"],
+  "required": ["schema_version", "id", "level", "title", "priority_score", "depends_on", "parent_id"],
   "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "description": "Schema version for this BacklogItem."
+    },
+
+    "_comment_base": {
+      "const": "--- BASE FIELDS (compiler-owned, hash-included) ---"
+    },
+
     "id": {
       "type": "string",
-      "pattern": "^[EFS]\\d{3}$",
-      "description": "Level-prefixed ID: E### for EPIC, F### for FEATURE, S### for STORY."
+      "pattern": "^[EFST]\\d{3}$",
+      "description": "Level-prefixed ID: E### for EPIC, F### for FEATURE, S### for STORY, T### for TASK. Unique within project scope."
     },
     "level": {
       "type": "string",
-      "enum": ["EPIC", "FEATURE", "STORY"]
+      "enum": ["EPIC", "FEATURE", "STORY", "TASK"],
+      "description": "Hierarchy level. Determines parent_id rules and details shape."
     },
-    "title": {
-      "type": "string",
-      "minLength": 1
-    },
-    "description": {
-      "type": "string",
-      "minLength": 1
+    "parent_id": {
+      "type": ["string", "null"],
+      "description": "Parent item ID. Null for EPICs. Required for FEATURE (must ref EPIC), STORY (must ref FEATURE), TASK (must ref STORY). Graph validator enforces existence; schema enforces level-correct prefix."
     },
     "priority_score": {
       "type": "integer",
       "minimum": 1,
-      "description": "Priority as integer. Higher = more important. Used for intra-tier ordering."
+      "description": "Integer priority. Higher = more important. Used for intra-tier ordering. Integer-only to avoid canonicalization drift across serializers."
     },
     "depends_on": {
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[EFS]\\d{3}$"
+        "pattern": "^[EFST]\\d{3}$"
       },
-      "description": "IDs this item depends on. Empty array if no dependencies."
+      "uniqueItems": true,
+      "description": "IDs this item depends on. Empty array if no dependencies. Must not include self. Cycles prohibited. Graph validator enforces existence and acyclicity."
     },
-    "parent_id": {
+
+    "_comment_human": {
+      "const": "--- HUMAN FIELDS (display, hash-excluded) ---"
+    },
+
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display title. Hash-excluded."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short summary for display. Keep brief; rich content goes in details. Hash-excluded."
+    },
+
+    "_comment_details": {
+      "const": "--- DETAILS (level-specific, schema-validated, hash-excluded) ---"
+    },
+
+    "details": {
+      "type": "object",
+      "description": "Level-specific details payload. Validated per level via allOf/if/then. Hash-excluded. The compiler ignores this entirely."
+    },
+
+    "_comment_lineage": {
+      "const": "--- LINEAGE (governance, hash-excluded) ---"
+    },
+
+    "created_by_run_id": {
       "type": ["string", "null"],
-      "description": "Parent item ID. Null for EPICs. Required for FEATURE (must ref EPIC) and STORY (must ref FEATURE)."
+      "description": "The DCW run that created this item. Set on first materialization."
+    },
+    "parent_execution_id": {
+      "type": ["string", "null"],
+      "description": "The orchestrating POW execution ID."
+    },
+    "source_refs": {
+      "type": "object",
+      "description": "Provenance references: intent_id, pgc_id, architecture_id, parent chain.",
+      "properties": {
+        "intent_id": { "type": "string" },
+        "pgc_id": { "type": ["string", "null"] },
+        "architecture_id": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "transformation": {
+      "type": "string",
+      "enum": ["constructed", "kept", "added", "dropped"],
+      "description": "How this instance came to exist. 'constructed' on first creation. Updated by SetReconciler on re-runs."
+    },
+    "inherited_flags": {
+      "type": "object",
+      "description": "Flags propagated from POW execution (e.g., skip_architecture_warning).",
+      "additionalProperties": { "type": "boolean" }
     }
   },
   "additionalProperties": false,
-  "if": {
-    "properties": { "level": { "const": "EPIC" } }
-  },
-  "then": {
-    "properties": { "parent_id": { "const": null } }
-  },
-  "else": {
-    "required": ["parent_id"],
-    "properties": {
-      "parent_id": {
-        "type": "string",
-        "pattern": "^[EFS]\\d{3}$"
+
+  "allOf": [
+    {
+      "if": { "properties": { "level": { "const": "EPIC" } } },
+      "then": {
+        "properties": {
+          "parent_id": { "const": null },
+          "details": { "$ref": "#/$defs/EpicDetails" }
+        }
       }
+    },
+    {
+      "if": { "properties": { "level": { "const": "FEATURE" } } },
+      "then": {
+        "required": ["parent_id"],
+        "properties": {
+          "parent_id": { "type": "string", "pattern": "^E\\d{3}$" },
+          "details": { "$ref": "#/$defs/FeatureDetails" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "level": { "const": "STORY" } } },
+      "then": {
+        "required": ["parent_id"],
+        "properties": {
+          "parent_id": { "type": "string", "pattern": "^F\\d{3}$" },
+          "details": { "$ref": "#/$defs/StoryDetails" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "level": { "const": "TASK" } } },
+      "then": {
+        "required": ["parent_id"],
+        "properties": {
+          "parent_id": { "type": "string", "pattern": "^S\\d{3}$" },
+          "details": { "$ref": "#/$defs/TaskDetails" }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "EpicDetails": {
+      "type": "object",
+      "description": "Epic-level details: big scope, boundaries, risk surface.",
+      "properties": {
+        "scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What this epic covers."
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Explicit exclusions."
+        },
+        "success_signals": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Observable indicators that the epic delivered value."
+        },
+        "major_risks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Key risks at epic scope."
+        },
+        "interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "External system or epic interfaces. Optional."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "FeatureDetails": {
+      "type": "object",
+      "description": "Feature-level details: user value, flows, NFR hints.",
+      "properties": {
+        "user_value": {
+          "type": "string",
+          "description": "Why this feature matters to the user."
+        },
+        "primary_flows": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Main user/system flows this feature enables."
+        },
+        "acceptance_criteria_outline": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "High-level acceptance criteria (refined at story level)."
+        },
+        "data_touched": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Data entities or stores this feature reads/writes."
+        },
+        "nfr_notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Non-functional requirement hints (performance, security, audit, etc.)."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "StoryDetails": {
+      "type": "object",
+      "description": "Story-level details: acceptance criteria, test guidance, edge cases.",
+      "properties": {
+        "acceptance_criteria": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Given/When/Then acceptance criteria."
+        },
+        "test_notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Testing guidance and approach notes."
+        },
+        "edge_cases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Known edge cases to handle."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "TaskDetails": {
+      "type": "object",
+      "description": "Task-level details: implementation checklist.",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Implementation steps."
+        },
+        "definition_of_done": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Completion criteria for this task."
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

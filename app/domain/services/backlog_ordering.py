@@ -143,8 +143,8 @@ def compute_backlog_hash(items: list[dict]) -> str:
     3. Serialize as canonical JSON (sorted keys, no whitespace)
     4. SHA-256 the serialized string
 
-    Included: id, level, priority_score, depends_on, parent_id
-    Excluded: title, description (prose, don't affect ordering)
+    Included (base fields): id, level, priority_score, depends_on, parent_id
+    Excluded (hash boundary invariant): title, summary, details, lineage fields
     """
     sorted_items = sorted(items, key=lambda x: x["id"])
 

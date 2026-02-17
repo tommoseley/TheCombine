@@ -23,22 +23,25 @@ from app.domain.services.backlog_ordering import (
 
 def epic(id, depends_on=None, priority=50):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "EPIC", "title": f"Epic {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": None,
     }
 
 def feature(id, parent_id, depends_on=None, priority=30):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "FEATURE", "title": f"Feature {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": parent_id,
     }
 
 def story(id, parent_id, depends_on=None, priority=10):
     return {
+        "schema_version": "1.0.0",
         "id": id, "level": "STORY", "title": f"Story {id}",
-        "description": f"Description for {id}", "priority_score": priority,
+        "summary": f"Summary for {id}", "priority_score": priority,
         "depends_on": depends_on or [], "parent_id": parent_id,
     }
 
@@ -262,12 +265,22 @@ class TestComputeBacklogHash:
 
         assert compute_backlog_hash(items1) == compute_backlog_hash(items2)
 
-    def test_changing_description_same_hash(self):
+    def test_changing_summary_same_hash(self):
         items1 = [epic("E001", priority=50)]
-        items1[0]["description"] = "Original description"
+        items1[0]["summary"] = "Original summary"
 
         items2 = [epic("E001", priority=50)]
-        items2[0]["description"] = "Totally rewritten description"
+        items2[0]["summary"] = "Totally rewritten summary"
+
+        assert compute_backlog_hash(items1) == compute_backlog_hash(items2)
+
+    def test_changing_details_same_hash(self):
+        """Details are hash-excluded per the hash boundary invariant."""
+        items1 = [epic("E001", priority=50)]
+        items1[0]["details"] = {"scope": ["auth", "data"]}
+
+        items2 = [epic("E001", priority=50)]
+        items2[0]["details"] = {"scope": ["completely", "different"]}
 
         assert compute_backlog_hash(items1) == compute_backlog_hash(items2)
 

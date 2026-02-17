@@ -35,18 +35,21 @@ def make_intent_content():
 def make_backlog_items():
     return [
         {
+            "schema_version": "1.0.0",
             "id": "E001", "level": "EPIC", "title": "Core Platform",
-            "description": "Foundation", "priority_score": 100,
+            "summary": "Foundation", "priority_score": 100,
             "depends_on": [], "parent_id": None,
         },
         {
+            "schema_version": "1.0.0",
             "id": "F001", "level": "FEATURE", "title": "Task CRUD",
-            "description": "Basic operations", "priority_score": 80,
+            "summary": "Basic operations", "priority_score": 80,
             "depends_on": ["E001"], "parent_id": "E001",
         },
         {
+            "schema_version": "1.0.0",
             "id": "S001", "level": "STORY", "title": "Create task",
-            "description": "As a user...", "priority_score": 60,
+            "summary": "As a user...", "priority_score": 60,
             "depends_on": ["F001"], "parent_id": "F001",
         },
     ]
@@ -189,8 +192,9 @@ class TestBacklogPipelineService:
         # Backlog with invalid dependency (X999 doesn't exist)
         bad_items = [
             {
+                "schema_version": "1.0.0",
                 "id": "E001", "level": "EPIC", "title": "Epic",
-                "description": "x", "priority_score": 100,
+                "summary": "x", "priority_score": 100,
                 "depends_on": ["X999"], "parent_id": None,
             },
         ]
@@ -338,13 +342,15 @@ class TestBacklogPipelineService:
         # STORY parented to EPIC (invalid — should be FEATURE)
         bad_items = [
             {
+                "schema_version": "1.0.0",
                 "id": "E001", "level": "EPIC", "title": "Epic",
-                "description": "x", "priority_score": 100,
+                "summary": "x", "priority_score": 100,
                 "depends_on": [], "parent_id": None,
             },
             {
+                "schema_version": "1.0.0",
                 "id": "S001", "level": "STORY", "title": "Story",
-                "description": "x", "priority_score": 50,
+                "summary": "x", "priority_score": 50,
                 "depends_on": [], "parent_id": "E001",
             },
         ]

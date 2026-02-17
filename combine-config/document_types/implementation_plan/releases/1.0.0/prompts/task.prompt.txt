@@ -96,9 +96,9 @@ The plan_summary must include:
 ## Additional Sections
 
 * cross_cutting_concerns - concerns spanning multiple Epics
-* risk_summary - aggregated risks with affected_epics[], overall_impact, mitigation_strategy
 * meta - provenance block (schema_version: "1.0", artifact_id, created_at, source: "combine_generated")
 
+Do NOT generate risk_summary. It is mechanically derived from per-epic risks by the system.
 System will overwrite meta.created_at and meta.artifact_id with system values.
 
 ## Output Rules
