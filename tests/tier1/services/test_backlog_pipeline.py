@@ -307,6 +307,25 @@ class TestBacklogPipelineService:
         assert len(meta["plan_hash"]) == 64
 
     @pytest.mark.asyncio
+    async def test_source_hash_in_metadata(self):
+        """Pipeline run includes source_hash and source_id for staleness detection."""
+        service = make_service(
+            intent_content=make_intent_content(),
+            backlog_content=make_backlog_content(),
+        )
+        result = await service.run(
+            project_id="00000000-0000-0000-0000-000000000001",
+            intent_id="00000000-0000-0000-0000-000000000099",
+            skip_explanation=True,
+        )
+        meta = result.metadata
+        assert "source_hash" in meta
+        assert "source_id" in meta
+        # For initial pipeline, source_hash == intent_hash
+        assert meta["source_hash"] == meta["intent_hash"]
+        assert meta["source_id"] == "00000000-0000-0000-0000-000000000099"
+
+    @pytest.mark.asyncio
     async def test_pipeline_run_document_persisted(self):
         """Pipeline persists a pipeline_run document."""
         service = make_service(

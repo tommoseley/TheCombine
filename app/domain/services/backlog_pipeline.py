@@ -314,6 +314,8 @@ class BacklogPipelineService:
         # ---------------------------------------------------------------
         replay_metadata = {
             "intent_hash": intent_hash,
+            "source_hash": intent_hash,  # Generalized: parent structural hash for staleness detection
+            "source_id": intent_id,      # What this run generated from
             "backlog_hash": b_hash,
             "plan_hash": plan_hash,
             "prompt_version": "1.0.0",

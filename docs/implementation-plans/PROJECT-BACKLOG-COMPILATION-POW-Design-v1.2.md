@@ -1,11 +1,24 @@
-# ProjectBacklogCompilationPOW Design v1.2
+# ProjectBacklogCompilationPOW Design v1.3
 
 | | |
 |---|---|
 | **Status** | Draft |
 | **Created** | 2026-02-16 |
-| **Supersedes** | Conversational v1.0, v1.1 |
+| **Updated** | 2026-02-16 |
+| **Supersedes** | Conversational v1.0, v1.1; v1.2 monolithic pipeline phases |
 | **Foundation** | BACKLOG-COMPILATION-PIPELINE-Implementation-Plan.md (WS-BCP-001--004 delivered) |
+
+---
+
+> **v1.3 Supersession Note**
+>
+> v1.2 described Phases 2/3 as steps in a monolithic pipeline that ran end-to-end.
+> v1.3 replaces that model with **discrete UI-triggered fan-out POWs**. Each expansion
+> (Epic→Features, Feature→Stories) is a separate POW run triggered from the UI.
+> The operator sees intermediate results, reviews them, then decides when to expand further.
+>
+> Coverage audit moved from pipeline Phase 2.5 into the **IPF DCW** (pre-acceptance).
+> Plan compilation changed from automatic to **operator-triggered with smart nudges**.
 
 ---
 
@@ -28,6 +41,7 @@ Take an `intent_packet` (+ PGC answers) and produce:
 3. **Waves computed once (single source of truth) after all edges exist.**
 4. **Construct-then-refine:** initial materialization is `constructed`; refinement is explicit DCW per Epic/Feature (stories/tasks on-demand).
 5. **Parent hierarchy is not dependency.** `parent_id` never implies `depends_on`.
+6. **Planning richness, execution leanness.** IPF artifacts may contain redundancy for human readability. BacklogItem execution artifacts must not.
 
 ---
 
@@ -61,6 +75,31 @@ This invariant MUST be documented in the `backlog_item` schema and enforced by t
 
 ---
 
+## Execution Model: Progressive Expansion
+
+Unlike v1.2's monolithic pipeline, v1.3 uses **discrete, operator-initiated expansion steps**:
+
+```
+Initial Compile (POW)
+  → Epic backlog_items (validated, ordered)
+
+"Generate Features" button (per epic)
+  → EpicFeatureFanoutPOW
+  → Feature backlog_items under that epic (validated)
+
+"Generate Stories" button (per epic or per feature)
+  → FeatureStoryFanoutPOW
+  → Story backlog_items under features (validated)
+
+"Compile Plan" button (global)
+  → Mechanical validation + ordering + hashing
+  → ExecutionPlan artifact
+```
+
+Each step is a separate POW run. The operator sees intermediate results, reviews, and decides when to proceed. This aligns with how The Combine works: POWs are triggered, they produce documents, documents get reviewed.
+
+---
+
 ## Top-Level POW
 
 **POW:** `ProjectBacklogCompilationPOW`
@@ -73,6 +112,7 @@ This invariant MUST be documented in the `backlog_item` schema and enforced by t
 | `pgc_merge_ref` | Yes | Or answers artifact |
 | `architecture_ref` | Policy-gated | See Phase 0 |
 | `method_profile` | Yes | e.g., `software_product`, `non_software_plan` |
+| `mode` | Yes | `epics_only` or `full_backlog` |
 
 ### Outputs
 
@@ -81,30 +121,15 @@ This invariant MUST be documented in the `backlog_item` schema and enforced by t
 | `backlog_registry_ref` | Index of all instances created |
 | `execution_plan_ref` | Derived; keyed by `backlog_hash` |
 | `plan_explanation_ref` | Optional DCW |
-| `phase_status_ref` | Partial-completion ledger |
-| `coverage_audit_ref` | Post-Phase-2 |
 
-### Concurrency Controls
+### Modes
 
-| Parameter | Scope |
-|-----------|-------|
-| `max_parallel_phase2_epics` | Per execution |
-| `max_parallel_phase3_features` | Per execution |
+| Mode | Behavior |
+|------|----------|
+| `epics_only` | Generate EPIC backlog_items only. Validate. Stop. Lightweight initial compile. |
+| `full_backlog` | Generate EPICs + FEATUREs + STORYs in one run (existing v1.2 behavior, retained for backward compatibility) |
 
-### Partial Completion Policy (v1)
-
-Phases continue when independent branches fail.
-
-Phase outputs include:
-
-```
-completed[], failed[], skipped[]
-```
-
-Rules:
-- If failure rate exceeds threshold (e.g., >25% branches), **halt phase** to prevent runaway cost.
-- Epics/Features with failures are marked `INCOMPLETE` (UI-visible) until retried.
-- Retry targets the specific failed branch, not the entire phase.
+`epics_only` is recommended for progressive expansion. The operator inspects epic boundaries before committing to feature decomposition.
 
 ---
 
@@ -121,7 +146,6 @@ If `method_profile == software_product`:
   - Stamp warning **once on the POW execution** (not on every child artifact)
   - Child artifacts inherit the warning through `parent_execution_id` lineage
   - UI surfaces the warning from the POW level; child views reference inherited flags
-  - Auto-enable Coverage Audit
   - Optionally reduce generation caps
 
 ---
@@ -158,134 +182,117 @@ Each epic instance: `origin=construct`, `created_by_run_id=...`, `parent_executi
 
 ### Note
 
-**NO wave computation here.** Ordering is Phase 5 only.
+**NO wave computation here.** Ordering is Compile Plan only.
+
+If `mode == epics_only`, the pipeline stops here after validation.
 
 ---
 
-## Phase 2 -- Generate Features per Epic (fan-out, parallel)
+## Discrete Fan-Out: Feature Generation
 
 **POW:** `EpicFeatureFanoutPOW`
 
-For each Epic E (rate-limited by `max_parallel_phase2_epics`):
+**Trigger:** UI button "Generate Features" on an Epic node
 
-**DCW:** `FeatureSetGeneratorDCW`
+**Scope:** Single epic per invocation
 
 ### Inputs
 
-- `epic_id`
-- Inherited: intent + PGC + architecture summary
-- Global registry summary: IDs/titles for all epics + already-generated features across all epics (to avoid duplication)
+- Epic `backlog_item` (execution form: id, level, title, summary, details)
+- IPF epic context (planning form: full scope, risks, architecture_notes)
+- Intent summary
+- Architecture summary
+- **Sibling Epic Boundary Summary:** `{epic_id, title, 1-line scope}` for all other epics
 
-### Known Property: Registry Asymmetry
+### Sibling Context Purpose
 
-When epics run in parallel, early-finishing epics' features are visible to later-finishing epics, but not vice versa. The registry is asymmetric based on completion order. This is acceptable -- the Coverage Audit (Phase 2.5) catches gaps and overlaps afterward. Do not attempt to "fix" this with a two-pass approach.
+The boundary summary helps the LLM avoid generating features that belong in sibling epics. It is context for coherence, not a deduplication mechanism.
+
+Prompt instruction: *"Do not generate features that belong in sibling epics. If uncertain about placement, set `boundary_uncertain: true` in FeatureDetails."*
 
 ### Produces
 
 - `backlog_item` instances: `level=FEATURE`, `parent_id=epic_id`
-- `feature_set_ref` for Epic E
+- Each item includes `details.boundary_uncertain` flag when placement is ambiguous
 
 ### Allowed Dependencies (v1)
 
-- Feature -> feature within same epic (recommended)
-- Feature -> feature in other epic **only if** parent epic `depends_on` that epic (otherwise emit warning)
+- Feature → feature within same epic (recommended)
+- Feature → feature in other epic **only if** parent epic `depends_on` that epic (otherwise emit warning)
 
 ### Post-step Mechanical Validation
 
 - Schema validate (base + `FeatureDetails`)
 - Hierarchy validate (FEATURE `parent_id` must reference an EPIC)
-- Dependency validate + cycle detect (within feature set scope; cross-refs allowed if exist)
+- Dependency validate + cycle detect
 
-### Re-run Semantics (Set Reconciliation)
+### Re-run Semantics
 
-If re-running Feature generation for Epic E:
-1. Produce candidate feature set
-2. Run SetReconciler (see Shared Primitives) against existing features under Epic E
-3. Emit reconciliation report + lineage
+Clicking "Generate Features" when features already exist triggers **Regenerate Features** using SetReconciler:
 
----
+- Matching IDs → `kept` (update details allowed, preserve lineage)
+- New IDs → `added`
+- Missing IDs → `dropped`
+- No fuzzy matching
 
-## Phase 2.5 -- Coverage Audit (lightweight, global)
+**UI shows reconciliation summary before applying drops.** Operator confirms or cancels.
 
-**Step:** `FeatureCoverageAudit`
+### Staleness
 
-### Purpose
+The pipeline_run record stores `source_hash` = epic's structural hash at generation time.
 
-Catch gaps between parallel branches (auth, logging, data boundaries, etc.) without full harmonization.
-
-### Inputs
-
-- Intent + constraints + architecture (if present)
-- Epic list + feature titles (and optional 1-liners); NOT full bodies
-
-### Outputs
-
-`coverage_audit_ref`:
-
-```
-suspected_gaps[]
-suspected_overlaps[]
-platform_concerns_missing[]    (if software_product)
-recommendations[]              (non-binding)
-```
-
-### Implementation (v1)
-
-Mechanical checklist + optional single LLM referee call (configurable).
-
-### Operator Checkpoint
-
-After the Coverage Audit completes, the pipeline **pauses** before Phase 3.
-
-UI displays: "Coverage audit complete. N recommendations. **Continue** / **Review**"
-
-The operator can:
-- **Continue** -- proceed to Phase 3 immediately
-- **Review** -- inspect gaps/overlaps, optionally add features or re-run Phase 2 for specific epics, then continue
-
-A `--headless` override flag auto-continues (for CI/batch runs).
+Staleness rule: `current_epic.structural_hash != run_record.source_hash` → feature set = **STALE**
 
 ---
 
-## Phase 3 -- Generate Stories per Feature (fan-out, parallel)
+## Discrete Fan-Out: Story Generation
 
 **POW:** `FeatureStoryFanoutPOW`
 
-For each Feature F (rate-limited by `max_parallel_phase3_features`):
+**Trigger:** UI button "Generate Stories" (per epic fans out over all features; per feature generates for one)
 
-**DCW:** `StorySetGeneratorDCW`
+**Scope:** One or more features under a single epic
 
 ### Inputs
 
-- `feature_id`
-- Inherited: intent + PGC + architecture summary
-- Parent chain summaries (epic + feature)
+- Feature `backlog_item`(s)
+- Parent epic summary
+- Intent summary
+- Architecture summary
 - Sibling story titles (if re-run) to reduce churn
-- **`coverage_audit_summary`** -- injected from Phase 2.5 output (non-binding awareness context; the LLM can use or ignore)
 
 ### Produces
 
 - `backlog_item` instances: `level=STORY`, `parent_id=feature_id`
-- `story_set_ref` for Feature F
 
-### Allowed Dependencies (v1 recommended)
+### Story Dependency Scope Policy
 
-- Story -> story within same feature only
-- Cross-feature story deps: **disallowed**; if model suggests, emit `needs_cross_feature_dep[]` warnings for future work
+| Scope | Allowed | Notes |
+|-------|---------|-------|
+| Within same feature | Yes | Normal case |
+| Cross-feature, within same epic | Yes | e.g., auth story depends on user-model story in sibling feature |
+| Cross-epic | No (v1) | If detected, emit `needs_cross_epic_dep_warning[]` (non-binding) |
+
+This gives the LLM enough room to express real dependencies (auth/model/setup patterns) without opening the global graph.
 
 ### Post-step Mechanical Validation
 
 - Schema validate (base + `StoryDetails`)
 - Hierarchy validate (STORY `parent_id` must reference a FEATURE)
-- Dependency validate + cycle detect (within feature's stories)
+- Dependency validate + cycle detect (within epic scope)
+- Cross-epic dependency warning emission (non-binding)
 
-### Re-run Semantics (Set Reconciliation)
+### Re-run Semantics
 
-Same reconciliation step as Phase 2, scoped to stories under Feature F.
+Same reconciliation as Feature fan-out, scoped to stories under the target feature(s). UI shows reconciliation summary before applying drops.
+
+### Staleness
+
+`source_hash` = feature's structural hash at generation time. Same rule as feature staleness.
 
 ---
 
-## Phase 4 -- Tasks (on-demand)
+## Tasks (on-demand)
 
 **DCW:** `TaskSetGeneratorDCW` (triggered, not automatic)
 
@@ -308,9 +315,19 @@ Either:
 
 ---
 
-## Phase 5 -- Compile Plan (global, mechanical SSoT)
+## Compile Plan (operator-triggered, mechanical)
 
 **Mechanical Service:** `BacklogPlanCompiler`
+
+### Trigger
+
+**Do not auto-compile after every fan-out run.** Instead:
+
+- After a fan-out completes, UI shows: *"Backlog changed. Compile plan?"* with one-click action
+- Global "Compile Plan" button at project level always available
+- `--auto-compile` flag for headless/CI mode
+
+Auto-compiling after every small change creates unnecessary plan churn in the audit trail.
 
 ### Inputs
 
@@ -336,20 +353,54 @@ Either:
 
 ---
 
-## Phase 6 -- Explain Plan (optional, read-only DCW)
+## Explain Plan (optional, read-only DCW)
 
 **DCW:** `ExecutionPlanExplanationDCW`
 
 ### Inputs
 
 - Execution plan + backlog titles + key dependency highlights
-- Coverage audit summary (optional, from Phase 2.5)
 
 ### Output
 
 - Explanation artifact
 
 **Strictly read-only over mechanical outputs. NEVER modifies plan or backlog items.**
+
+---
+
+## Coverage Audit (IPF DCW, pre-acceptance)
+
+> **Moved from v1.2 Phase 2.5 into the IPF DCW.**
+>
+> Epic quality is a planning problem, not a compilation problem. The audit belongs
+> inside the IPF DCW, before acceptance, before compilation starts.
+
+**Pass within IPF DCW:** `EpicCoverageAuditPass`
+
+### Inputs
+
+- Intent + constraints + architecture (if present)
+- Generated epics (scope, out_of_scope, risks, dependencies)
+
+### Outputs
+
+```
+status: "SUFFICIENT" | "GAPS_DETECTED"
+coverage_gaps[]           -- missing capabilities, severity
+overlaps[]                -- epic pairs with ambiguous boundaries
+cross_cutting_concerns_missing[]
+architectural_misalignment[]
+refinement_recommendations[]  -- ADD_EPIC, MERGE_EPICS, SPLIT_EPIC, CLARIFY_BOUNDARY
+```
+
+### Implementation
+
+Second LLM pass within the IPF DCW (Strategy B: generate → audit). Separates generation from evaluation.
+
+### Integration
+
+Audit results inform the IPF acceptance decision. The IPF already requires `acceptance_required: true` with stakeholder/technical_lead signoff. Audit findings surface during that review.
 
 ---
 
@@ -363,7 +414,7 @@ Used when regenerating Feature sets or Story sets against an existing set.
 
 ### Inputs
 
-- Existing set under a parent (Epic -> Features or Feature -> Stories)
+- Existing set under a parent (Epic → Features or Feature → Stories)
 - Candidate set produced by DCW
 
 ### Match Strategy (v1)
@@ -386,11 +437,54 @@ added[]         -- candidate item not in existing set
 
 Lineage records for each item transformation (`kept`, `dropped`, `added`).
 
+### UI Confirmation
+
+**Default: show reconciliation summary before applying drops.** Operator confirms or cancels.
+
+This prevents accidental data loss when regeneration produces a different ID set. The operator sees exactly what will be added/dropped and can cancel if the changes look wrong.
+
 ### v1 Policy
 
 - Prefer `keep` when ID matches (update details, preserve lineage)
 - Never silently overwrite without reporting
 - No `replaced` category -- items either match by ID (`kept`) or don't (separate `added`/`dropped`)
+
+---
+
+## Staleness Mechanism
+
+### Principle
+
+Staleness is deterministic, keyed off structural hash changes at the parent level. No vibes.
+
+### Mechanism
+
+Each fan-out pipeline_run record stores:
+
+| Field | Value |
+|-------|-------|
+| `source_id` | The parent item ID (epic_id or feature_id) |
+| `source_hash` | The parent item's structural hash at generation time |
+
+### Detection Rule
+
+```
+current_parent.structural_hash != run_record.source_hash → child set = STALE
+```
+
+Applies transitively: if an epic's hash changes, its features are stale. If a feature's hash changes, its stories are stale.
+
+### UI State Machine
+
+Expansion state for each parent node, derived from existence of backlog_items + staleness:
+
+| State | Meaning |
+|-------|---------|
+| `missing` | No children generated yet |
+| `generating` | Fan-out POW currently running |
+| `ready` | Children exist and source_hash matches |
+| `stale` | Children exist but parent structural hash changed |
+| `failed` | Last fan-out run failed |
 
 ---
 
@@ -425,35 +519,78 @@ Refinement runs update the same instance through DCW lifecycle, preserving:
 
 ## UI Mapping
 
-| Surface | Content |
-|---------|---------|
-| Floor | Intake/discovery/plan/architecture + EPIC nodes (features optional later) |
-| Epic document view | Feature list (expandable); each row shows wave + dependencies + status |
-| Feature expansion | Story list |
-| Story detail | Tasks (on-demand generation) |
+| Surface | Content | Actions |
+|---------|---------|---------|
+| Floor | Intake/discovery/plan/architecture + EPIC nodes | View Document |
+| Epic node | Shows F count, S count, expansion state | Generate Features, View Document |
+| Epic document view | Feature list (expandable); wave + dependencies + status | Generate Stories (per epic) |
+| Feature row | Story list | Generate Stories (per feature) |
+| Story detail | Tasks (on-demand) | Generate Tasks |
+| Project level | Global backlog state | Compile Plan |
 
 Each list row can display wave/global index using ExecutionPlan projection.
+
+### Post-Expansion Nudge
+
+After any fan-out completes: *"Backlog changed. Compile plan?"* — one-click action, not auto-triggered.
+
+---
+
+## What Does NOT Change
+
+These remain stable across expansion:
+
+- BacklogItem schema (v1.0.0)
+- Hash boundary rules
+- Ordering algorithm (Kahn + priority)
+- IntentSanityGate
+- IPF acceptance logic
+- Graph validator core (dependency, hierarchy, cycle detection)
 
 ---
 
 ## Explicitly Deferred
 
-- Cross-feature story dependencies + harmonizer
+- Cross-epic story dependencies + harmonizer
 - Automatic feedback loops (operator triggers re-runs manually)
 - Capacity/sprint planning
 - Multi-user collaboration
 - Backlog editing UI
 - Autonomous story execution
+- Two-pass registry synchronization for parallel fan-outs
 
 ---
 
-## Delta from v1.1
+## WS-BCP-005 Scope
+
+**WS-BCP-005 — Progressive Expansion Workflows**
+
+| Deliverable | Notes |
+|-------------|-------|
+| `EpicFeatureFanoutPOW` | POW + DCW configuration |
+| `FeatureStoryFanoutPOW` | POW + DCW configuration |
+| Staleness detection | `source_hash` on pipeline_run, UI state derivation |
+| Reconciliation with UI confirmation | SetReconciler + confirmation modal |
+| UI buttons | Generate Features, Generate Stories, Compile Plan |
+| Expansion state + counts | F count, S count, state badge on epic/feature nodes |
+| Plan compile nudge banner | Post-expansion suggestion, not auto-trigger |
+| This document updated | v1.2 monolithic phases superseded |
+
+No compiler changes. No schema changes (beyond `boundary_uncertain` already added).
+
+---
+
+## Delta from v1.2
 
 | # | Change | Rationale |
 |---|--------|-----------|
-| 1 | Explicit hash boundary invariant (`details` excluded; structural-only changes affect plan) | Prevents confusion when prose edits don't trigger replan |
-| 2 | Operator checkpoint between Coverage Audit and story generation (+ `--headless` override) | Gives operator a chance to act on gaps before 100+ story DCWs fire |
-| 3 | Reconciliation uses ID-only matching; non-matching IDs become add/drop (no title similarity) | Fuzzy matching creates false "replaced" entries; clean add/drop is safer |
-| 4 | Coverage audit summary injected into Phase 3 context | Story generators aware of identified gaps without binding constraint |
-| 5 | Skip-architecture warning stamped once at POW; child views reference inherited flags | Prevents noise at scale (warning on every artifact) |
-| 6 | Registry asymmetry in Phase 2 documented as known property | Prevents future attempts to "fix" with unnecessary two-pass approach |
+| 1 | Phases 2/3 replaced by discrete UI-triggered fan-out POWs | Monolithic pipeline hides intermediate state; discrete POWs align with The Combine's document-review model |
+| 2 | Coverage audit moved from pipeline Phase 2.5 into IPF DCW | Epic quality is a planning problem; audit belongs pre-acceptance, not mid-compilation |
+| 3 | Story dependency scope expanded: within-epic cross-feature allowed (v1) | Enables realistic dependencies (auth/model/setup) without opening global graph |
+| 4 | `boundary_uncertain` flag added to FeatureDetails | Generator signals ambiguous epic boundary placement for operator review |
+| 5 | Staleness mechanism: `source_hash` on pipeline_run records | Deterministic staleness detection keyed off parent structural hash changes |
+| 6 | Reconciliation UI confirmation before applying drops | Prevents accidental data loss on regeneration |
+| 7 | Plan compilation changed to operator-triggered with nudge | Auto-compile creates plan churn; nudge banner preserves operator control |
+| 8 | Sibling Epic Boundary Summary as feature generator input | Coherence context without pretending to solve deduplication mechanically |
+| 9 | `epics_only` mode for initial compile | Reduces blast radius; operator inspects epic boundaries before feature expansion |
+| 10 | `risk_summary` in IPF derived mechanically by handler | Deterministic aggregation from per-epic risks; LLM no longer self-aggregates |

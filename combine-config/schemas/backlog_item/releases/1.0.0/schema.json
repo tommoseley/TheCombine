@@ -204,6 +204,10 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Non-functional requirement hints (performance, security, audit, etc.)."
+        },
+        "boundary_uncertain": {
+          "type": "boolean",
+          "description": "Set true by generator when this feature may belong in a sibling epic. Signals operator to review epic boundary placement."
         }
       },
       "additionalProperties": false
