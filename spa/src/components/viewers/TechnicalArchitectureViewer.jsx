@@ -125,7 +125,7 @@ export default function TechnicalArchitectureViewer({
     ], [components, workflows, categorized]);
 
     const metadata = renderModel?.metadata || {};
-    const adminUrl = executionId ? `/admin/executions/${executionId}` : '/admin/executions';
+    const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
 
     const displayTitle = (() => {
         const t = renderModel?.title || 'Document';

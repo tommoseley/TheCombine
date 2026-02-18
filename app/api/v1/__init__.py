@@ -7,6 +7,7 @@ from app.api.v1.routers import (
     executions_router,
     websocket_router,
     document_workflows_router,
+    telemetry_router,
     admin_workbench_router,
     admin_git_router,
     admin_validation_router,
@@ -38,6 +39,7 @@ api_router.include_router(interrupts_router)
 api_router.include_router(intake_router)
 api_router.include_router(intents_router)  # WS-BCP-001: Intent Intake
 api_router.include_router(backlog_pipeline_router)  # WS-BCP-004: Pipeline Integration
+api_router.include_router(telemetry_router)  # WS-ADMIN-RECONCILE-001: Cost tracking
 api_router.include_router(admin_workbench_router)  # ADR-044: Admin Workbench
 api_router.include_router(admin_git_router)  # ADR-044 Addendum A: Git UX
 api_router.include_router(admin_validation_router)  # ADR-044 WS-044-08: Governance Guardrails

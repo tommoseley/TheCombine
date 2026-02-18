@@ -53,6 +53,32 @@ async def learn():
     return RedirectResponse(url="/")
 
 
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_panel():
+    """
+    Admin Panel - serves SPA which handles client-side routing.
+    Auth check is done by SPA (redirects to Lobby if not authenticated).
+    """
+    if SPA_INDEX.exists():
+        return FileResponse(SPA_INDEX, media_type="text/html")
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
+
+
+@router.get("/admin/executions/{execution_id}", response_class=HTMLResponse)
+async def admin_execution_detail(execution_id: str):
+    """
+    Admin execution detail - serves SPA which handles client-side routing.
+    The SPA parses the execution ID from the URL path.
+    """
+    if SPA_INDEX.exists():
+        return FileResponse(SPA_INDEX, media_type="text/html")
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/")
+
+
 @router.get("/admin/workbench", response_class=HTMLResponse)
 async def admin_workbench():
     """

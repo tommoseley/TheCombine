@@ -8,6 +8,7 @@ import UserSidecar from './components/UserSidecar';
 import Lobby from './components/Lobby';
 import LearnPage from './components/LearnPage';
 import AdminWorkbench from './components/admin/AdminWorkbench';
+import AdminPanel from './components/admin/AdminPanel';
 import { useProjects, useTheme, useAuth, AuthProvider } from './hooks';
 import { api } from './api/client';
 
@@ -340,6 +341,14 @@ function AppWithAuth() {
         return (
             <div className={`h-screen theme-${theme}`}>
                 <AdminWorkbench />
+            </div>
+        );
+    }
+
+    if (path === '/admin' || path.startsWith('/admin/executions')) {
+        return (
+            <div className={`h-screen theme-${theme}`}>
+                <AdminPanel />
             </div>
         );
     }

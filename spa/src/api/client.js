@@ -148,6 +148,25 @@ export const api = {
             body: JSON.stringify(data),
         }),
 
+    // Executions (admin monitoring)
+    getExecutions: () =>
+        request('/executions'),
+
+    getExecution: (executionId) =>
+        request(`/executions/${executionId}`),
+
+    getExecutionTranscript: (executionId) =>
+        request(`/executions/${executionId}/transcript`),
+
+    getExecutionQACoverage: (executionId) =>
+        request(`/executions/${executionId}/qa-coverage`),
+
+    getDocumentWorkflowExecutions: () =>
+        request('/document-workflows/executions'),
+
+    getDocumentWorkflowExecution: (executionId) =>
+        request(`/document-workflows/executions/${executionId}`),
+
     // Document workflows
     startWorkflow: (projectId, documentType, initialContext = null) =>
         request('/document-workflows/start', {

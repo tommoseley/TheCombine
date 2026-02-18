@@ -91,7 +91,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
     // Use docMetadata (persisted from render model response) which survives fallback paths
     const metadata = renderModel?.metadata || docMetadata;
     const executionId = metadata.execution_id;
-    const adminUrl = executionId ? `/admin/executions/${executionId}` : '/admin/executions';
+    const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
 
     // Route Technical Architecture documents to specialized viewer
     const isTechnicalArchitecture = docTypeId === 'technical_architecture';
