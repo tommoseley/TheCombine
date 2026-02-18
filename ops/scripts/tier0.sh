@@ -177,10 +177,12 @@ if ! command -v ruff &>/dev/null; then
         OVERALL_EXIT=1
     fi
 else
-    # "No worse than baseline": lint only changed/new Python files.
+    # "No worse than baseline": lint only changed/new Python files that exist.
+    # Deleted files appear in git diff but cannot be linted.
     lint_targets=$(echo "$ALL_CHANGED" \
         | grep '\.py$' \
         | grep -E '^(app|tests)/' \
+        | while read -r f; do [[ -f "$f" ]] && echo "$f"; done \
         | sort -u || true)
 
     if [[ -n "$lint_targets" ]]; then

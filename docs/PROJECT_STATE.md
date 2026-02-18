@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-16
-**Updated By:** Claude (BacklogItem v1 schema, progressive expansion model v1.3)
+**Last Updated:** 2026-02-18
+**Updated By:** Claude (ADR-050 protocol prove-out, HTMX admin removal)
 
 ## Current Focus
 
@@ -283,7 +283,26 @@ python -m pytest tests/ -x -q
 
 ---
 
+## ADR-050 Verification Status
+
+| WS | Title | Status |
+|---|---|---|
+| WS-ADR-050-001 | Tier 0 Verification Harness | Complete |
+| WS-ADR-050-002 | Protocol Prove-Out (HTMX admin removal) | Complete |
+
+Tier 0 harness: `ops/scripts/tier0.sh`
+Mode B debt: typecheck (mypy not installed)
+
+---
+
 ## Handoff Notes
+
+### Recent Work (2026-02-18)
+- **WS-ADR-050-001**: Tier 0 verification harness implemented and hardened (pytest, ruff lint, mypy type check, SPA build, scope validation)
+- **WS-ADR-050-002**: Full ADR-050 protocol prove-out — removed deprecated HTMX admin section (40 files deleted, 8,099 lines removed)
+- **Intent-first testing**: 10 Tier 1 tests written before implementation, all pass after
+- **Tier 0 hardening**: Mode B enforcement, CI guard, machine-readable JSON, frontend auto-detection, deleted file handling
+- **main.py lint cleanup**: Removed unused imports (`RedirectResponse`, `Jinja2Templates`, `auth`), added `# noqa: E402` for `load_dotenv()` pattern
 
 ### Recent Work (2026-02-16, Session 2)
 - **BacklogItem v1 schema**: Level-specific details, TASK level, lineage, hash boundary invariant, boundary_uncertain flag
@@ -322,7 +341,7 @@ python -m pytest tests/ -x -q
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files (Windows metadata)
-- **Remove deprecated HTMX admin section** (`app/web/routes/admin/`)
+- ~~Remove deprecated HTMX admin section~~ (Complete — WS-ADR-050-002)
 - Sync IPP task prompt field names with IPP schema field names (epic_id->candidate_id, title->name)
 
 ### Verification Debt (ADR-050 Mode B)

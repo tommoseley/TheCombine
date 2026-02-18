@@ -6,47 +6,44 @@ The Combine: AI-driven pipeline automation system.
 
 from dotenv import load_dotenv
 import os
-load_dotenv()
+load_dotenv()  # noqa: E402 — must run before any app imports read env vars
 
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import FileResponse
-from datetime import datetime
-from contextlib import asynccontextmanager
-import logging
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from datetime import datetime  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+import logging  # noqa: E402
 
 
-from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware  # noqa: E402
 
-from app.core.config import settings
-from app.core.database import init_database
+from app.core.config import settings  # noqa: E402
+from app.core.database import init_database  # noqa: E402
 
 # Import API dependencies
-from app.core.dependencies import set_startup_time
+from app.core.dependencies import set_startup_time  # noqa: E402
 
 # Import routers
-from app.api.routers import health, auth
-from app.web import routes as web_routes
-from app.api.routers.documents import router as document_router
-from app.api.routers.document_status_router import router as document_status_router
-from app.web.routes.admin.admin_routes import router as admin_router
+from app.api.routers import health  # noqa: E402
+from app.web import routes as web_routes  # noqa: E402
+from app.api.routers.documents import router as document_router  # noqa: E402
+from app.api.routers.document_status_router import router as document_status_router  # noqa: E402
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Admin replay endpoint behind feature flag
-from app.core.config import ENABLE_DEBUG_ROUTES
-from app.auth.routes import router as auth_router
-from app.api.routers.protected import router as protected_router
-from app.api.routers.accounts import router as accounts_router
-from app.api.routers.commands import router as commands_router  # WS-STORY-BACKLOG-COMMANDS
-from app.api.routers.config_routes import router as config_router
+from app.core.config import ENABLE_DEBUG_ROUTES  # noqa: E402
+from app.auth.routes import router as auth_router  # noqa: E402
+from app.api.routers.protected import router as protected_router  # noqa: E402
+from app.api.routers.accounts import router as accounts_router  # noqa: E402
+from app.api.routers.commands import router as commands_router  # noqa: E402  # WS-STORY-BACKLOG-COMMANDS
+from app.api.routers.config_routes import router as config_router  # noqa: E402
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
-from app.api.v1 import api_router as v1_router
-from app.web.routes.admin import pages_router, dashboard_router, partials_router, documents_router, composer_router
-from app.web.routes.production import router as production_router  # ADR-043: Production Line
+from app.api.v1 import api_router as v1_router  # noqa: E402
+from app.web.routes.admin.composer_routes import router as composer_router  # noqa: E402
+from app.web.routes.production import router as production_router  # noqa: E402  # ADR-043: Production Line
 # Import middleware
-from app.api.middleware import (
+from app.api.middleware import (  # noqa: E402
     error_handling,
     request_id,
     body_size,
@@ -149,11 +146,10 @@ app = FastAPI(
 
 # Mount static files from app/web directory
 app.mount("/web", StaticFiles(directory="app/web"), name="web")
-app.mount("/static", StaticFiles(directory="app/web/static/admin"), name="static")
 
 # Mount SPA static assets (Vite build output)
 # Only mount if the spa/dist directory exists (after npm run build)
-import pathlib
+import pathlib  # noqa: E402
 SPA_DIST_PATH = pathlib.Path("spa/dist")
 SPA_ENABLED = SPA_DIST_PATH.exists()
 if SPA_ENABLED:
@@ -240,7 +236,6 @@ app.include_router(web_routes.router)
 
 # Other routes - ALL at root level now
 app.include_router(document_status_router, prefix="/api")
-app.include_router(admin_router)  # Admin now at /admin (not /ui/admin)
 
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Admin replay endpoint behind feature flag
 if ENABLE_DEBUG_ROUTES:
@@ -257,10 +252,6 @@ app.include_router(config_router)  # System config API
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions
-app.include_router(dashboard_router)  # /dashboard, /dashboard/costs - must be before pages_router
-app.include_router(documents_router)  # /admin/documents UI pages
-app.include_router(pages_router)  # /workflows, /executions UI pages
-app.include_router(partials_router)  # HTMX partials
 app.include_router(composer_router)  # ADR-034: Composer preview endpoints
 app.include_router(production_router)  # ADR-043: Production Line UI
 

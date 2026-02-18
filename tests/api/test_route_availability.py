@@ -97,50 +97,22 @@ class TestDocumentAPIRoutes:
 
 class TestWorkflowRoutes:
     """Workflow routes must be available (Phase 8-10)."""
-    
+
     def test_workflows_api_list(self, client):
         """GET /api/v1/workflows returns workflow list."""
         response = client.get("/api/v1/workflows")
         # Should return 200 with list, not 404
         assert response.status_code != 404, "Workflow API route not wired up"
-    
-    def test_workflows_ui_page(self, client):
-        """GET /workflows returns workflows UI page."""
-        response = client.get("/admin/workflows")
-        # Should return 200 (HTML page), not 404
-        assert response.status_code != 404, "Workflows UI page not wired up"
 
 
 class TestExecutionRoutes:
     """Execution routes must be available (Phase 8-10)."""
-    
+
     def test_executions_api_list(self, client):
         """GET /api/v1/executions returns execution list."""
         response = client.get("/api/v1/executions")
         # Should return 200 with list, not 404
         assert response.status_code != 404, "Executions API route not wired up"
-    
-    def test_executions_ui_page(self, client):
-        """GET /executions returns executions UI page."""
-        response = client.get("/admin/executions")
-        # Should return 200 (HTML page), not 404
-        assert response.status_code != 404, "Executions UI page not wired up"
-
-
-class TestDashboardRoutes:
-    """Dashboard routes must be available (Phase 8-10)."""
-    
-    def test_dashboard_index(self, client):
-        """GET /dashboard returns dashboard index."""
-        response = client.get("/admin/dashboard")
-        assert response.status_code == 200
-        assert "Cost Dashboard" in response.text
-    
-    def test_costs_dashboard(self, client):
-        """GET /dashboard/costs returns cost dashboard."""
-        response = client.get("/admin/dashboard/costs")
-        # Should return 200 (HTML page), not 404
-        assert response.status_code != 404, "Cost dashboard route not wired up"
 
 
 class TestAuthRoutes:
