@@ -507,6 +507,11 @@ python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 # Run tests
 python -m pytest tests/ -v
 
+# Tier 0 verification (ADR-050) — mandatory baseline for all work
+ops/scripts/tier0.sh --allow-missing typecheck  # pytest + lint (Mode B: mypy not installed)
+ops/scripts/tier0.sh --frontend                 # force SPA build (auto-detects spa/ changes)
+ops/scripts/tier0.sh --scope app/ tests/        # also validate file scope
+
 # Regenerate seed manifest
 # (script TBD - currently manual)
 ```

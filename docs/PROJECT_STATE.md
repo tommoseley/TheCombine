@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-16
-**Updated By:** Claude (L2 document viewing on production floor)
+**Updated By:** Claude (BacklogItem v1 schema, progressive expansion model v1.3)
 
 ## Current Focus
 
@@ -119,11 +119,66 @@ Schema upgraded with candidate reconciliation for IPP-to-IPF traceability.
 - `meta` block -- Provenance metadata matching IPP/PD pattern
 - EC- pattern enforcement on all candidate ID references
 - `additionalProperties: false` at all levels
+- `risk_summary` mechanically derived from per-epic risks in handler `transform()` (LLM no longer generates it)
 
 ### Files
 - Canonical schema: `combine-config/schemas/implementation_plan/releases/1.0.0/schema.json`
 - Task prompt: `combine-config/prompts/tasks/implementation_plan/releases/1.0.0/task.prompt.txt`
 - Active release: `implementation_plan: "1.0.0"` in tasks section
+
+---
+
+## BacklogItem v1 Schema
+
+Unified backlog item with level discriminator and level-specific details.
+
+### Key Structures
+- Base fields (compiler-owned, hash-included): `id`, `level`, `parent_id`, `depends_on[]`, `priority_score`
+- Human fields (hash-excluded): `title`, `summary`
+- Level-specific `details` via allOf/if/then: `EpicDetails`, `FeatureDetails`, `StoryDetails`, `TaskDetails`
+- Lineage fields (hash-excluded): `created_by_run_id`, `parent_execution_id`, `source_refs`, `transformation`, `inherited_flags`
+- ID pattern: `^[EFST]\d{3}$` (E=Epic, F=Feature, S=Story, T=Task)
+- Parent_id pattern enforcement per level (FEATURE→Epic, STORY→Feature, TASK→Story)
+- `boundary_uncertain` flag on FeatureDetails for ambiguous epic boundary placement
+
+### Hash Boundary Invariant
+`backlog_hash` computed exclusively from base fields. Editing title, summary, details, or lineage does NOT invalidate execution plan.
+
+### Files
+- Canonical schema: `combine-config/schemas/backlog_item/releases/1.0.0/schema.json`
+- List schema: `combine-config/schemas/backlog_item/releases/1.0.0/list.schema.json`
+- Output schema: `combine-config/document_types/backlog_item/releases/1.0.0/schemas/output.schema.json`
+- Task prompt: `combine-config/prompts/tasks/backlog_generator/releases/1.0.0/task.prompt.txt`
+
+---
+
+## Backlog Compilation Pipeline (BCP)
+
+### Delivered (WS-BCP-001 through WS-BCP-004)
+- Graph validation: dependency, hierarchy, cycle detection
+- Deterministic ordering: topological sort with priority tiebreak, wave computation
+- Backlog hash: structural hash from base fields only
+- Execution plan derivation
+- Pipeline orchestration: load intent → generate → validate → derive → explain → persist
+- Pipeline run metadata with replay hashes (intent_hash, backlog_hash, plan_hash, source_hash)
+
+### Design: Progressive Expansion Model (v1.3)
+Design doc: `docs/implementation-plans/PROJECT-BACKLOG-COMPILATION-POW-Design-v1.2.md` (content is v1.3)
+
+Replaces v1.2 monolithic pipeline phases with discrete UI-triggered fan-out POWs:
+- `EpicFeatureFanoutPOW` -- UI button per epic, sibling boundary summary as context
+- `FeatureStoryFanoutPOW` -- UI button per epic or feature
+- Plan compilation: operator-triggered with nudge banner
+- Coverage audit: moved into IPF DCW pre-acceptance
+- Staleness: `source_hash` on pipeline_run records, deterministic detection
+- Reconciliation: ID-only match, UI confirmation before applying drops
+
+### Pending (WS-BCP-005)
+- EpicFeatureFanoutPOW and FeatureStoryFanoutPOW implementation
+- UI buttons: Generate Features, Generate Stories, Compile Plan
+- Staleness detection + expansion state badges
+- Reconciliation with UI confirmation modal
+- Plan compile nudge banner
 
 ---
 
@@ -230,7 +285,14 @@ python -m pytest tests/ -x -q
 
 ## Handoff Notes
 
-### Recent Work (2026-02-16)
+### Recent Work (2026-02-16, Session 2)
+- **BacklogItem v1 schema**: Level-specific details, TASK level, lineage, hash boundary invariant, boundary_uncertain flag
+- **Mechanical risk_summary**: IPF handler derives risk_summary from per-epic risks; LLM no longer self-aggregates
+- **Progressive expansion model (v1.3)**: Monolithic pipeline phases replaced by discrete fan-out POWs
+- **source_hash staleness**: Pipeline run records include source_hash for deterministic staleness detection
+- **Design decisions locked**: Story dep scope, reconciliation UI, compile trigger, sibling boundary summary
+
+### Previous Work (2026-02-16, Session 1)
 - **L2 document viewing**: Epic nodes on production floor now viewable via "View Document" button
 - Backend `instance_id` query param on document endpoints for multi-instance disambiguation
 - SPA carries `docTypeId`/`instanceId` through transformer -> nodes -> Floor -> FullDocumentViewer -> API client
@@ -249,8 +311,9 @@ python -m pytest tests/ -x -q
 - **Implementation Plan Primary DCW**: Full PGC + generation + QA workflow
 
 ### Next Work
+- **WS-BCP-005**: Progressive Expansion Workflows (EpicFeatureFanoutPOW, FeatureStoryFanoutPOW, UI buttons, staleness, reconciliation)
+- Coverage audit pass within IPF DCW (pre-acceptance)
 - Epic render_model support (currently falls back to raw JSON in FullDocumentViewer)
-- Epic "Expand" affordance (fan out into features/stories)
 - SPA block renderer for `candidate_reconciliation` section
 - First live IPF execution to validate prompt/schema against real LLM output
 - Wire intake_and_route POW to actually execute
@@ -262,7 +325,13 @@ python -m pytest tests/ -x -q
 - **Remove deprecated HTMX admin section** (`app/web/routes/admin/`)
 - Sync IPP task prompt field names with IPP schema field names (epic_id->candidate_id, title->name)
 
+### Verification Debt (ADR-050 Mode B)
+- **Type check (mypy)**: Not installed. Tier 0 FAILS without `--allow-missing typecheck`. Mechanization plan: install and configure mypy, remove --allow-missing flag.
+
 ### Known Issues
+- Two copies of BacklogItem schema must be kept in sync (`schemas/` and `document_types/`)
+- Two copies of IPF task prompt must be kept in sync (`prompts/tasks/` and `document_types/`)
 - Two copies of IPF schema must be kept in sync (`schemas/` and `document_types/`)
 - IPP task prompt field names don't match IPP schema (prompt says epic_id/title/description, schema uses candidate_id/name/intent)
-- `ImplementationPlanHandler.get_child_documents()` doesn't propagate `source_candidate_ids` or `transformation` to Epic children
+- Design doc file named `v1.2.md` but content is v1.3 (rename on next touch)
+- BacklogItem ID pattern `^[EFST]\d{3}$` limits to 999 items per level (future migration tax)
