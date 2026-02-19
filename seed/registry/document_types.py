@@ -151,9 +151,9 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "view_docdef": "ImplementationPlanPrimaryView",
         "description": (
             "Preliminary implementation plan produced before technical architecture. "
-            "Contains epic candidates that inform architectural decisions. "
-            "Epic candidates are not yet commitments - they become Epics after "
-            "architecture review in the full Implementation Plan."
+            "Contains Work Package candidates that inform architectural decisions. "
+            "WP candidates are not yet commitments - they become Work Packages "
+            "after architecture review via IPF reconciliation."
         ),
         "category": "planning",
         "icon": "map",
@@ -167,7 +167,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "display_order": 25,  # Before architecture_spec (20 -> 25 -> 30)
         "schema_definition": {
             "type": "object",
-            "required": ["epic_candidates"],
+            "required": ["work_package_candidates"],
             "properties": {
                 "epic_set_summary": {
                     "type": "object",
@@ -178,20 +178,28 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
                         "out_of_scope": {"type": "array", "items": {"type": "string"}},
                     }
                 },
-                "epic_candidates": {
+                "work_package_candidates": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["name", "intent"],
+                        "required": [
+                            "candidate_id",
+                            "title",
+                            "rationale",
+                            "scope_in",
+                            "scope_out",
+                            "dependencies",
+                            "definition_of_done",
+                        ],
                         "properties": {
                             "candidate_id": {"type": "string"},
-                            "name": {"type": "string"},
-                            "intent": {"type": "string"},
-                            "in_scope": {"type": "array", "items": {"type": "string"}},
-                            "out_of_scope": {"type": "array", "items": {"type": "string"}},
-                            "mvp_phase": {"type": "string"},
-                            "open_questions": {"type": "array"},
-                            "notes_for_architecture": {"type": "array", "items": {"type": "string"}},
+                            "title": {"type": "string"},
+                            "rationale": {"type": "string"},
+                            "scope_in": {"type": "array", "items": {"type": "string"}},
+                            "scope_out": {"type": "array", "items": {"type": "string"}},
+                            "dependencies": {"type": "array", "items": {"type": "string"}},
+                            "definition_of_done": {"type": "array", "items": {"type": "string"}},
+                            "governance_notes": {"type": "array", "items": {"type": "string"}},
                         }
                     }
                 },

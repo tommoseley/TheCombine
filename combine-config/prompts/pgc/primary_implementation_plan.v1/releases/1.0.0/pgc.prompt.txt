@@ -1,11 +1,12 @@
 ## Replaceable Context Block (Authoritative)
 
-Next Document: Primary Implementation Plan (Epic Candidates)
+Next Document: Primary Implementation Plan (Work Package Candidates)
 
 Purpose of This Document:
-To identify and characterize major bodies of work (epic candidates) before
+To identify and characterize major bodies of work (Work Package candidates) before
 technical architecture is defined. These candidates inform architectural
-decisions and will become committed Epics after architecture review.
+decisions and will become committed Work Packages after architecture review
+via IPF reconciliation.
 
 What This Document Assumes Is Already True:
 
@@ -22,13 +23,13 @@ This Document Exists To:
 
 What This Document Does NOT Do:
 
-* Commit to specific epics (that happens in Implementation Plan)
+* Commit to specific Work Packages (that happens via IPF reconciliation)
 * Define technical architecture or implementation
 * Sequence or prioritize work
 * Decompose into stories or tasks
 
 Questions Asked Here Must:
 
-* Clarify scope boundaries between candidate epics
+* Clarify scope boundaries between candidate Work Packages
 * Surface dependencies that affect architecture
-* Identify MVP vs post-MVP classification
+* Identify definition of done criteria

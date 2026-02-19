@@ -7,9 +7,9 @@ version: 1.0.0
 
 description: >
   Preliminary implementation plan produced before technical architecture.
-  Contains epic candidates that inform architectural decisions.
-  Epic candidates are not yet commitments - they become Epics after
-  architecture review in the full Implementation Plan.
+  Contains Work Package candidates that inform architectural decisions.
+  WP candidates are not yet commitments - they become Work Packages
+  after architecture review via IPF reconciliation.
 
 # Classification (per ADR-044)
 authority_level: prescriptive

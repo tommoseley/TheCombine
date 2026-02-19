@@ -8,9 +8,9 @@ Task Objective
 
 Produce a Primary Implementation Plan that translates discovery and architectural understanding into an executable planning structure.
 
-The output must define notional epics and their logical sequencing, sufficient to guide downstream refinement without implying commitment, estimation, or execution readiness.
+The output must define Work Package candidates and their logical sequencing, sufficient to guide downstream refinement without implying commitment, estimation, or execution readiness.
 
-This task exists to establish structure, scope boundaries, dependencies, and decision gates — not to create a delivery backlog.
+This task exists to establish structure, scope boundaries, dependencies, and definition of done — not to create a delivery backlog.
 
 Inputs Provided
 
@@ -26,22 +26,25 @@ You may be given one or more of the following (only if explicitly supplied):
 Scope & Constraints
 
 You MUST:
-* Identify notional epics that collectively cover the intended scope
-* Ensure each epic represents a distinct body of work or capability
-* Define logical dependencies between epics where necessary
-* Identify decision gates or prerequisite validations that affect progression
+* Identify Work Package candidates that collectively cover the intended scope
+* Ensure each WP candidate represents a distinct body of work or capability
+* Define logical dependencies between WP candidates where necessary
+* Define measurable definition of done for each WP candidate
 * Surface unknowns, risks, or ambiguities explicitly
 * Make all assumptions explicit when required to define scope
+* Note applicable governance references (ADRs, policies) where relevant
 
 You MUST NOT:
 
-* Decompose epics into features, stories, tasks, or implementation detail
+* Decompose WP candidates into features, stories, tasks, or implementation detail
 * Assign estimates, timelines, priorities, or ownership
 * Imply delivery commitment or execution readiness
 * Introduce solution design beyond what is already stated in inputs
 * Invent process, workflow, or governance structures not provided
-* Output Form
-* Return a structured Primary Implementation Plan.
+
+Output Form
+
+Return a structured Primary Implementation Plan.
 
 The plan must include:
 
@@ -50,25 +53,22 @@ The plan must include:
 * planning_assumptions (explicit assumptions made during planning)
 * known_unknowns (gaps that block downstream certainty)
 
-2. Notional Epics
+2. Work Package Candidates
 
-Each epic must include only:
-* epic_id (stable, deterministic identifier)
+Each WP candidate must include only:
+* candidate_id (stable identifier, e.g., WPC-001)
 * title
-* description
-* in_scope
-* out_of_scope
-* assumptions (if any)
-* dependencies
-* explicit dependencies (if known)
-* or "unknown" if unresolved
-* decision_gates
-* conditions that must be satisfied before refinement or execution
+* rationale (why this Work Package is needed)
+* scope_in (what it covers)
+* scope_out (explicit exclusions)
+* dependencies (references to other candidate_ids, or empty)
+* definition_of_done (measurable completion criteria)
+* governance_notes (applicable ADRs, policies — optional)
 * No additional fields are permitted.
 
 Governance & Audit Constraints
 
-* All epics must be traceable to provided inputs
+* All WP candidates must be traceable to provided inputs
 * No implicit decisions or silent interpretations
 * Any uncertainty must be explicitly stated
 * Output must be fully loggable and replayable per ADR-010
@@ -77,7 +77,7 @@ Governance & Audit Constraints
 Determinism & Replay Readiness
 
 Given identical inputs, the task should:
-* Produce equivalent epics with equivalent scope and intent
+* Produce equivalent WP candidates with equivalent scope and intent
 * Preserve semantic meaning across runs
 * Avoid stylistic variance that alters interpretation
 * Contain no references to time, prior executions, or external state
@@ -85,9 +85,9 @@ Given identical inputs, the task should:
 If ambiguity prevents deterministic output, it must be explicitly recorded in:
 
 * planning_assumptions
-* or the epic’s assumptions / decision_gates
+* or the WP candidate's governance_notes
 
-Failure Conditions (Automatic ❌ Reject)
+Failure Conditions (Automatic Reject)
 
 This task fails if:
 * Role identity or authority is restated or altered
@@ -96,6 +96,7 @@ This task fails if:
 * Output depends on unstated context or prior runs
 * Execution workflow or delivery process is invented
 * Commitment is implied
+* Epic candidates appear (output must use Work Package candidates only)
 
 Certification Notes
 
