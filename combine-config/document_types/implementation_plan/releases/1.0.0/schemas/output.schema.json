@@ -3,9 +3,9 @@
   "$id": "https://thecombine.dev/schemas/implementation_plan_final.v2.json",
   "type": "object",
   "title": "Implementation Plan (Final)",
-  "description": "Final implementation plan with committed Epics refined from Primary Implementation Plan epic candidates, informed by Technical Architecture.",
+  "description": "Final implementation plan with committed Work Packages reconciled from WP candidates, informed by Technical Architecture.",
   "additionalProperties": false,
-  "required": ["meta", "plan_summary", "epics", "candidate_reconciliation"],
+  "required": ["meta", "plan_summary", "work_packages", "candidate_reconciliation"],
   "properties": {
     "meta": {
       "type": "object",
@@ -61,146 +61,140 @@
         "sequencing_rationale": {
           "type": "string",
           "minLength": 1,
-          "description": "Why Epics are ordered this way"
+          "description": "Why Work Packages are ordered this way"
         }
       }
     },
 
-    "epics": {
+    "work_packages": {
       "type": "array",
-      "description": "Committed Epics for implementation",
+      "description": "Committed Work Packages for implementation",
       "minItems": 1,
-      "items": { "$ref": "#/definitions/epic" }
+      "items": { "$ref": "#/definitions/work_package" }
     },
 
     "candidate_reconciliation": {
       "type": "array",
-      "description": "Audit-friendly mapping of each Primary Implementation Plan epic candidate to its final outcome in this plan.",
+      "description": "Audit-friendly mapping of each IPP WP candidate to its final outcome in this plan.",
       "minItems": 0,
       "items": { "$ref": "#/definitions/candidate_reconciliation_item" }
     },
 
     "cross_cutting_concerns": {
       "type": "array",
-      "description": "Concerns spanning multiple Epics",
+      "description": "Concerns spanning multiple Work Packages",
       "minItems": 0,
       "items": { "type": "string", "minLength": 1 }
     },
 
     "risk_summary": {
       "type": "array",
-      "description": "Aggregated risk summary across epics",
+      "description": "Aggregated risk summary across Work Packages",
       "minItems": 0,
       "items": { "$ref": "#/definitions/risk_summary_item" }
     }
   },
 
   "definitions": {
-    "epic": {
+    "work_package": {
       "type": "object",
-      "description": "A committed Epic suitable for spawning an Epic child document.",
+      "description": "A committed Work Package suitable for spawning a WP child document.",
       "additionalProperties": false,
       "required": [
-        "epic_id",
-        "name",
-        "intent",
-        "sequence",
-        "mvp_phase",
+        "wp_id",
+        "title",
+        "rationale",
+        "scope_in",
+        "scope_out",
+        "dependencies",
+        "definition_of_done",
+        "governance_pins",
         "transformation",
         "source_candidate_ids"
       ],
       "properties": {
-        "epic_id": {
+        "wp_id": {
           "type": "string",
           "description": "Unique identifier (snake_case). Prefer stability across revisions when meaning is preserved.",
           "pattern": "^[a-z][a-z0-9_]*$"
         },
-        "name": {
+        "title": {
           "type": "string",
           "minLength": 1,
-          "description": "Human-readable Epic name"
+          "description": "Human-readable Work Package title"
         },
-        "intent": {
+        "rationale": {
           "type": "string",
           "minLength": 1,
-          "description": "What this Epic accomplishes"
+          "description": "Why this Work Package is needed"
         },
-        "sequence": {
-          "type": "integer",
-          "description": "Execution order (1-based)",
-          "minimum": 1
-        },
-        "mvp_phase": {
-          "type": "string",
-          "description": "MVP or later phase",
-          "enum": ["mvp", "later"]
-        },
-        "design_required": {
-          "type": "string",
-          "description": "Design phase requirement level",
-          "enum": ["not_needed", "recommended", "required"]
-        },
-
-        "source_candidate_ids": {
-          "type": "array",
-          "description": "Primary Implementation Plan epic candidate IDs that this committed Epic was derived from. Empty only if transformation='added'.",
-          "items": {
-            "type": "string",
-            "pattern": "^EC-\\d{1,4}$",
-            "description": "Must match IPP candidate_id format (e.g., EC-1, EC-12)."
-          }
-        },
-        "transformation": {
-          "type": "string",
-          "description": "How this committed Epic relates to IPP epic candidates.",
-          "enum": ["kept", "split", "merged", "added"]
-        },
-        "transformation_notes": {
-          "type": "string",
-          "description": "Short justification for the transformation (why it was split/merged/added, or what changed materially).",
-          "minLength": 0,
-          "maxLength": 600
-        },
-
-        "in_scope": {
+        "scope_in": {
           "type": "array",
           "description": "What is explicitly in scope",
           "minItems": 0,
           "items": { "type": "string", "minLength": 1 }
         },
-        "out_of_scope": {
+        "scope_out": {
           "type": "array",
           "description": "What is explicitly excluded",
           "minItems": 0,
           "items": { "type": "string", "minLength": 1 }
         },
-
         "dependencies": {
           "type": "array",
-          "description": "Epic IDs this depends on",
+          "description": "WP IDs this depends on",
           "minItems": 0,
-          "items": { "$ref": "#/definitions/epic_dependency" }
+          "items": { "$ref": "#/definitions/wp_dependency" }
         },
-
-        "risks": {
+        "definition_of_done": {
           "type": "array",
-          "description": "Epic-specific risks",
-          "minItems": 0,
-          "items": { "$ref": "#/definitions/epic_risk" }
-        },
-
-        "open_questions": {
-          "type": "array",
-          "description": "Unresolved questions",
-          "minItems": 0,
-          "items": { "$ref": "#/definitions/open_question" }
-        },
-
-        "architecture_notes": {
-          "type": "array",
-          "description": "Notes from Technical Architecture that materially shaped this Epic (constraints, dependencies, major decisions).",
-          "minItems": 0,
+          "description": "Measurable completion criteria",
+          "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
+        },
+        "governance_pins": {
+          "type": "object",
+          "description": "Governance references pinned at reconciliation time",
+          "additionalProperties": false,
+          "required": ["ta_version_id"],
+          "properties": {
+            "ta_version_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Technical Architecture version that informed this WP"
+            },
+            "adr_refs": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "ADR IDs that apply to this WP"
+            },
+            "policy_refs": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Policy IDs that apply to this WP"
+            }
+          }
+        },
+
+        "source_candidate_ids": {
+          "type": "array",
+          "description": "IPP WP candidate IDs that this committed WP was derived from. Empty only if transformation='added'.",
+          "items": {
+            "type": "string",
+            "pattern": "^WPC-\\d{1,4}$",
+            "description": "Must match IPP candidate_id format (e.g., WPC-001)."
+          }
+        },
+        "transformation": {
+          "type": "string",
+          "description": "How this committed WP relates to IPP WP candidates.",
+          "enum": ["kept", "split", "merged", "added"]
+        },
+        "transformation_notes": {
+          "type": "string",
+          "description": "Short justification for the transformation.",
+          "minLength": 0,
+          "maxLength": 600
         }
       },
       "allOf": [
@@ -221,14 +215,14 @@
       ]
     },
 
-    "epic_dependency": {
+    "wp_dependency": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["epic_id", "dependency_type"],
+      "required": ["wp_id", "dependency_type"],
       "properties": {
-        "epic_id": {
+        "wp_id": {
           "type": "string",
-          "description": "Dependent epic_id",
+          "description": "Dependent wp_id",
           "pattern": "^[a-z][a-z0-9_]*$"
         },
         "dependency_type": {
@@ -243,57 +237,30 @@
       }
     },
 
-    "epic_risk": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["risk", "impact", "mitigation"],
-      "properties": {
-        "risk": { "type": "string", "minLength": 1 },
-        "impact": { "type": "string", "enum": ["low", "medium", "high"] },
-        "mitigation": { "type": "string", "minLength": 1 }
-      }
-    },
-
-    "open_question": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["question", "blocking"],
-      "properties": {
-        "question": { "type": "string", "minLength": 1 },
-        "blocking": { "type": "boolean" },
-        "default_assumption": {
-          "type": "string",
-          "description": "If unanswered, what assumption (if any) allows progress without silently inventing requirements.",
-          "minLength": 0,
-          "maxLength": 300
-        }
-      }
-    },
-
     "candidate_reconciliation_item": {
       "type": "object",
-      "description": "How a single IPP epic candidate was treated in this final plan.",
+      "description": "How a single IPP WP candidate was treated in this final plan.",
       "additionalProperties": false,
-      "required": ["candidate_id", "outcome", "resulting_epic_ids", "notes"],
+      "required": ["candidate_id", "outcome", "resulting_wp_ids", "notes"],
       "properties": {
         "candidate_id": {
           "type": "string",
-          "pattern": "^EC-\\d{1,4}$",
-          "description": "Epic candidate identifier from Primary Implementation Plan (must match IPP candidate_id format)."
+          "pattern": "^WPC-\\d{1,4}$",
+          "description": "WP candidate identifier from Primary Implementation Plan."
         },
         "outcome": {
           "type": "string",
           "enum": ["kept", "split", "merged", "dropped"],
           "description": "Disposition of the candidate in the final plan"
         },
-        "resulting_epic_ids": {
+        "resulting_wp_ids": {
           "type": "array",
-          "description": "Committed epic_id values that result from this candidate. Empty only when outcome='dropped'.",
+          "description": "Committed wp_id values that result from this candidate. Empty only when outcome='dropped'.",
           "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
         },
         "notes": {
           "type": "string",
-          "description": "Short rationale, ideally referencing architecture constraints/decisions or explicit scope changes.",
+          "description": "Short rationale for the reconciliation decision.",
           "minLength": 0,
           "maxLength": 600
         }
@@ -306,7 +273,7 @@
           },
           "then": {
             "properties": {
-              "resulting_epic_ids": {
+              "resulting_wp_ids": {
                 "type": "array",
                 "maxItems": 0
               }
@@ -320,7 +287,7 @@
           },
           "then": {
             "properties": {
-              "resulting_epic_ids": { "type": "array", "minItems": 1 }
+              "resulting_wp_ids": { "type": "array", "minItems": 1 }
             }
           }
         }
@@ -330,10 +297,10 @@
     "risk_summary_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["risk", "affected_epics", "overall_impact", "mitigation_strategy"],
+      "required": ["risk", "affected_wps", "overall_impact", "mitigation_strategy"],
       "properties": {
         "risk": { "type": "string", "minLength": 1 },
-        "affected_epics": {
+        "affected_wps": {
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }

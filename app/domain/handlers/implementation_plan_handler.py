@@ -2,7 +2,7 @@
 Implementation Plan Document Handler
 
 Handles the final implementation plan produced after technical architecture.
-When this document is created, it spawns individual Epic documents.
+When this document is created, it spawns individual Work Package documents.
 """
 
 from typing import Dict, Any, List
@@ -16,8 +16,9 @@ class ImplementationPlanHandler(BaseDocumentHandler):
     """
     Handler for implementation_plan document type.
 
-    Processes PM output containing committed epics with sequencing,
-    dependencies, and design requirements. Creates Epic child documents.
+    Processes PM output containing committed Work Packages reconciled from
+    WP candidates, with governance pinning, dependencies, and traceability.
+    Creates Work Package child documents.
     """
 
     @property
@@ -33,68 +34,25 @@ class ImplementationPlanHandler(BaseDocumentHandler):
         Transform/enrich the implementation plan data.
 
         Adds computed fields for UI display:
-        - epic_count
-        - mvp_count / later_count
-        - design_required_count
-
-        Derives mechanical aggregations:
-        - risk_summary: projected from per-epic risks (overwrites any LLM-generated version)
+        - wp_count
         """
-        epics = data.get("epics", [])
-
-        # Count by phase
-        mvp_count = sum(1 for e in epics if e.get("mvp_phase") == "mvp")
-        later_count = sum(1 for e in epics if e.get("mvp_phase") == "later")
-
-        # Count design requirements
-        design_required = sum(1 for e in epics if e.get("design_required") == "required")
-        design_recommended = sum(1 for e in epics if e.get("design_required") == "recommended")
-
-        # Add computed fields
-        data["epic_count"] = len(epics)
-        data["mvp_count"] = mvp_count
-        data["later_count"] = later_count
-        data["design_required_count"] = design_required
-        data["design_recommended_count"] = design_recommended
-
-        # Derive risk_summary mechanically from per-epic risks.
-        # Each per-epic risk becomes a risk_summary_item with that epic as
-        # the sole affected_epic. Cross-cutting grouping (merging risks that
-        # span multiple epics) is a human review concern, not a mechanical one.
-        data["risk_summary"] = self._derive_risk_summary(epics)
-
+        work_packages = data.get("work_packages", [])
+        data["wp_count"] = len(work_packages)
         return data
-
-    @staticmethod
-    def _derive_risk_summary(epics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Project per-epic risks into plan-level risk_summary items."""
-        summary = []
-        for epic in epics:
-            epic_id = epic.get("epic_id", "")
-            for risk in epic.get("risks", []):
-                summary.append({
-                    "risk": risk.get("risk", ""),
-                    "affected_epics": [epic_id],
-                    "overall_impact": risk.get("impact", "medium"),
-                    "mitigation_strategy": risk.get("mitigation", ""),
-                })
-        return summary
 
     def render(self, data: Dict[str, Any]) -> str:
         """
         Render full view HTML.
         """
-        epic_count = data.get("epic_count", len(data.get("epics", [])))
-        mvp_count = data.get("mvp_count", 0)
-        return f"Implementation Plan: {epic_count} epics ({mvp_count} MVP)"
+        wp_count = data.get("wp_count", len(data.get("work_packages", [])))
+        return f"Implementation Plan: {wp_count} Work Packages"
 
     def render_summary(self, data: Dict[str, Any]) -> str:
         """
         Render compact summary for cards/lists.
         """
-        epic_count = data.get("epic_count", len(data.get("epics", [])))
-        mvp_count = data.get("mvp_count", 0)
-        return f"{epic_count} epics ({mvp_count} MVP)"
+        wp_count = data.get("wp_count", len(data.get("work_packages", [])))
+        return f"{wp_count} Work Packages"
 
     def get_child_documents(
         self,
@@ -102,55 +60,51 @@ class ImplementationPlanHandler(BaseDocumentHandler):
         parent_title: str
     ) -> List[Dict[str, Any]]:
         """
-        Extract Epic documents from the implementation plan.
+        Extract Work Package documents from the implementation plan.
 
-        Each epic in the plan becomes a separate Epic document
+        Each WP in the plan becomes a separate Work Package document
         that can be managed through its lifecycle.
 
         Lineage metadata is included for audit traceability.
         The caller (plan_executor) injects execution_id into lineage.
         """
-        epics = data.get("epics", [])
+        work_packages = data.get("work_packages", [])
         children = []
 
-        for epic in epics:
-            epic_id = epic.get("epic_id", "")
-            epic_name = epic.get("name", "Untitled Epic")
+        for wp in work_packages:
+            wp_id = wp.get("wp_id", "")
+            wp_title = wp.get("title", "Untitled Work Package")
 
-            # Build the Epic document content
-            epic_content = {
-                "epic_id": epic_id,
-                "name": epic_name,
-                "intent": epic.get("intent", ""),
-                "lifecycle_state": "draft",
-                "design_status": epic.get("design_required", "not_needed"),
-                "sequence": epic.get("sequence"),
-                "mvp_phase": epic.get("mvp_phase", "mvp"),
-                "in_scope": epic.get("in_scope", []),
-                "out_of_scope": epic.get("out_of_scope", []),
-                "dependencies": epic.get("dependencies", []),
-                "risks": epic.get("risks", []),
-                "open_questions": epic.get("open_questions", []),
-                "architecture_notes": epic.get("architecture_notes", []),
-                "features": [],
+            # Build the WP document content
+            wp_content = {
+                "wp_id": wp_id,
+                "title": wp_title,
+                "rationale": wp.get("rationale", ""),
+                "scope_in": wp.get("scope_in", []),
+                "scope_out": wp.get("scope_out", []),
+                "dependencies": wp.get("dependencies", []),
+                "definition_of_done": wp.get("definition_of_done", []),
+                "state": "PLANNED",
+                "ws_child_refs": [],
+                "governance_pins": wp.get("governance_pins", {}),
                 # Lineage: traceability back to parent IPF
                 "_lineage": {
                     "parent_document_type": "implementation_plan",
                     "parent_execution_id": None,  # Injected by plan_executor
-                    "source_candidate_ids": epic.get("source_candidate_ids", []),
-                    "transformation": epic.get("transformation", "kept"),
-                    "transformation_notes": epic.get("transformation_notes", ""),
+                    "source_candidate_ids": wp.get("source_candidate_ids", []),
+                    "transformation": wp.get("transformation", "kept"),
+                    "transformation_notes": wp.get("transformation_notes", ""),
                 },
             }
 
             children.append({
-                "doc_type_id": "epic",
-                "title": f"Epic: {epic_name}",
-                "content": epic_content,
-                "identifier": epic_id,
+                "doc_type_id": "work_package",
+                "title": f"WP: {wp_title}",
+                "content": wp_content,
+                "identifier": wp_id,
             })
 
-        logger.info(f"Extracted {len(children)} epic documents from implementation_plan")
+        logger.info(f"Extracted {len(children)} work package documents from implementation_plan")
         return children
 
 

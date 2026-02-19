@@ -1,4 +1,4 @@
-"""Tests for ImplementationPlanHandler child document extraction."""
+"""Tests for ImplementationPlanHandler child document extraction and transform."""
 
 import pytest
 from app.domain.handlers.implementation_plan_handler import ImplementationPlanHandler
@@ -11,7 +11,7 @@ def handler():
 
 @pytest.fixture
 def plan_data():
-    """Minimal IPF content with 2 epics."""
+    """Minimal IPF content with 2 Work Packages."""
     return {
         "plan_summary": {
             "overall_intent": "Build the app",
@@ -19,42 +19,43 @@ def plan_data():
             "key_constraints": ["On-prem only"],
             "sequencing_rationale": "Foundation first",
         },
-        "epics": [
+        "work_packages": [
             {
-                "epic_id": "storage_foundation",
-                "name": "Storage Foundation",
-                "intent": "Implement local storage",
-                "sequence": 1,
-                "mvp_phase": "mvp",
-                "design_required": "not_needed",
-                "transformation": "kept",
-                "source_candidate_ids": ["EC-1"],
-                "transformation_notes": "Preserved from IPP",
-                "in_scope": ["Storage API"],
-                "out_of_scope": ["Cloud sync"],
+                "wp_id": "wp_storage_foundation",
+                "title": "Storage Foundation",
+                "rationale": "Implement local storage",
+                "scope_in": ["Storage API"],
+                "scope_out": ["Cloud sync"],
                 "dependencies": [],
-                "risks": [{"risk": "Quota limits", "impact": "medium", "mitigation": "Monitor"}],
-                "open_questions": [],
-                "architecture_notes": ["Must support IndexedDB"],
+                "definition_of_done": ["Storage API functional"],
+                "governance_pins": {
+                    "ta_version_id": "ta-v1.0",
+                    "adr_refs": [],
+                    "policy_refs": [],
+                },
+                "transformation": "kept",
+                "source_candidate_ids": ["WPC-001"],
+                "transformation_notes": "Preserved from IPP",
             },
             {
-                "epic_id": "data_models",
-                "name": "Data Models",
-                "intent": "Core data structures",
-                "sequence": 2,
-                "mvp_phase": "mvp",
-                "design_required": "recommended",
+                "wp_id": "wp_data_models",
+                "title": "Data Models",
+                "rationale": "Core data structures",
+                "scope_in": ["ChildProfile", "LearningSession"],
+                "scope_out": ["Advanced analytics"],
+                "dependencies": [{"wp_id": "wp_storage_foundation", "dependency_type": "must_complete_first"}],
+                "definition_of_done": ["Models validated"],
+                "governance_pins": {
+                    "ta_version_id": "ta-v1.0",
+                    "adr_refs": ["ADR-045"],
+                    "policy_refs": [],
+                },
                 "transformation": "merged",
-                "source_candidate_ids": ["EC-2", "EC-3"],
+                "source_candidate_ids": ["WPC-002", "WPC-003"],
                 "transformation_notes": "Merged models and validation",
-                "in_scope": ["ChildProfile", "LearningSession"],
-                "out_of_scope": ["Advanced analytics"],
-                "dependencies": [{"epic_id": "storage_foundation", "dependency_type": "must_complete_first"}],
-                "risks": [],
-                "open_questions": [{"question": "Schema version?", "blocking": False}],
-                "architecture_notes": [],
             },
         ],
+        "candidate_reconciliation": [],
     }
 
 
@@ -63,137 +64,66 @@ class TestGetChildDocuments:
         children = handler.get_child_documents(plan_data, "Test Plan")
         assert len(children) == 2
 
-    def test_child_doc_type_is_epic(self, handler, plan_data):
+    def test_child_doc_type_is_work_package(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
-        assert all(c["doc_type_id"] == "epic" for c in children)
+        assert all(c["doc_type_id"] == "work_package" for c in children)
 
-    def test_child_identifier_matches_epic_id(self, handler, plan_data):
+    def test_child_identifier_matches_wp_id(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
         ids = [c["identifier"] for c in children]
-        assert ids == ["storage_foundation", "data_models"]
+        assert ids == ["wp_storage_foundation", "wp_data_models"]
 
-    def test_child_title_includes_epic_name(self, handler, plan_data):
+    def test_child_title_includes_wp_name(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
-        assert children[0]["title"] == "Epic: Storage Foundation"
-        assert children[1]["title"] == "Epic: Data Models"
+        assert children[0]["title"] == "WP: Storage Foundation"
+        assert children[1]["title"] == "WP: Data Models"
 
     def test_child_content_has_all_fields(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
         content = children[0]["content"]
-        assert content["epic_id"] == "storage_foundation"
-        assert content["name"] == "Storage Foundation"
-        assert content["intent"] == "Implement local storage"
-        assert content["sequence"] == 1
-        assert content["mvp_phase"] == "mvp"
-        assert content["in_scope"] == ["Storage API"]
-        assert content["out_of_scope"] == ["Cloud sync"]
+        assert content["wp_id"] == "wp_storage_foundation"
+        assert content["title"] == "Storage Foundation"
+        assert content["rationale"] == "Implement local storage"
+        assert content["scope_in"] == ["Storage API"]
+        assert content["scope_out"] == ["Cloud sync"]
         assert content["dependencies"] == []
-        assert len(content["risks"]) == 1
-        assert content["architecture_notes"] == ["Must support IndexedDB"]
+        assert content["definition_of_done"] == ["Storage API functional"]
+        assert content["state"] == "PLANNED"
+        assert content["ws_child_refs"] == []
+        assert content["governance_pins"]["ta_version_id"] == "ta-v1.0"
 
     def test_child_content_has_lineage(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
         lineage = children[0]["content"]["_lineage"]
         assert lineage["parent_document_type"] == "implementation_plan"
         assert lineage["parent_execution_id"] is None  # Injected by caller
-        assert lineage["source_candidate_ids"] == ["EC-1"]
+        assert lineage["source_candidate_ids"] == ["WPC-001"]
         assert lineage["transformation"] == "kept"
         assert lineage["transformation_notes"] == "Preserved from IPP"
 
-    def test_merged_epic_lineage_has_multiple_sources(self, handler, plan_data):
+    def test_merged_wp_lineage_has_multiple_sources(self, handler, plan_data):
         children = handler.get_child_documents(plan_data, "Test Plan")
         lineage = children[1]["content"]["_lineage"]
-        assert lineage["source_candidate_ids"] == ["EC-2", "EC-3"]
+        assert lineage["source_candidate_ids"] == ["WPC-002", "WPC-003"]
         assert lineage["transformation"] == "merged"
 
-    def test_empty_epics_returns_empty(self, handler):
-        data = {"plan_summary": {}, "epics": []}
+    def test_empty_work_packages_returns_empty(self, handler):
+        data = {"plan_summary": {}, "work_packages": []}
         children = handler.get_child_documents(data, "Test Plan")
         assert children == []
 
-    def test_missing_epics_key_returns_empty(self, handler):
+    def test_missing_work_packages_key_returns_empty(self, handler):
         data = {"plan_summary": {}}
         children = handler.get_child_documents(data, "Test Plan")
         assert children == []
 
 
 class TestTransform:
-    def test_adds_computed_fields(self, handler, plan_data):
+    def test_adds_wp_count(self, handler, plan_data):
         result = handler.transform(plan_data)
-        assert result["epic_count"] == 2
-        assert result["mvp_count"] == 2
-        assert result["later_count"] == 0
-        assert result["design_required_count"] == 0
-        assert result["design_recommended_count"] == 1
+        assert result["wp_count"] == 2
 
-    def test_derives_risk_summary_from_epic_risks(self, handler, plan_data):
-        """risk_summary is mechanically projected from per-epic risks."""
-        result = handler.transform(plan_data)
-        rs = result["risk_summary"]
-        assert len(rs) == 1  # Only storage_foundation has a risk
-        assert rs[0]["risk"] == "Quota limits"
-        assert rs[0]["affected_epics"] == ["storage_foundation"]
-        assert rs[0]["overall_impact"] == "medium"
-        assert rs[0]["mitigation_strategy"] == "Monitor"
-
-    def test_risk_summary_empty_when_no_risks(self, handler):
-        data = {
-            "epics": [
-                {"epic_id": "a", "mvp_phase": "mvp", "risks": []},
-                {"epic_id": "b", "mvp_phase": "mvp", "risks": []},
-            ]
-        }
+    def test_empty_work_packages_gives_zero_count(self, handler):
+        data = {"work_packages": []}
         result = handler.transform(data)
-        assert result["risk_summary"] == []
-
-    def test_risk_summary_multiple_epics_multiple_risks(self, handler):
-        data = {
-            "epics": [
-                {
-                    "epic_id": "auth",
-                    "mvp_phase": "mvp",
-                    "risks": [
-                        {"risk": "Token expiry", "impact": "high", "mitigation": "Refresh flow"},
-                        {"risk": "Brute force", "impact": "medium", "mitigation": "Rate limit"},
-                    ],
-                },
-                {
-                    "epic_id": "storage",
-                    "mvp_phase": "mvp",
-                    "risks": [
-                        {"risk": "Data loss", "impact": "high", "mitigation": "Backups"},
-                    ],
-                },
-            ]
-        }
-        result = handler.transform(data)
-        rs = result["risk_summary"]
-        assert len(rs) == 3
-        # Order follows epic order, then risk order within epic
-        assert rs[0]["risk"] == "Token expiry"
-        assert rs[0]["affected_epics"] == ["auth"]
-        assert rs[0]["overall_impact"] == "high"
-        assert rs[1]["risk"] == "Brute force"
-        assert rs[1]["affected_epics"] == ["auth"]
-        assert rs[2]["risk"] == "Data loss"
-        assert rs[2]["affected_epics"] == ["storage"]
-
-    def test_risk_summary_overwrites_llm_generated(self, handler):
-        """If LLM produced risk_summary, transform() overwrites it."""
-        data = {
-            "epics": [
-                {
-                    "epic_id": "x",
-                    "mvp_phase": "mvp",
-                    "risks": [{"risk": "Real risk", "impact": "low", "mitigation": "Handle it"}],
-                },
-            ],
-            "risk_summary": [
-                {"risk": "LLM hallucinated this", "affected_epics": ["x"],
-                 "overall_impact": "critical", "mitigation_strategy": "Panic"},
-            ],
-        }
-        result = handler.transform(data)
-        rs = result["risk_summary"]
-        assert len(rs) == 1
-        assert rs[0]["risk"] == "Real risk"  # Mechanical, not LLM
+        assert result["wp_count"] == 0

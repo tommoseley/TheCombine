@@ -8,82 +8,83 @@ Do not modify role identity, authority, or internal reasoning structures.
 
 ## Task Objective
 
-Produce the Final Implementation Plan by refining Primary Implementation Plan epic
-candidates into committed Epics, informed by Technical Architecture decisions and
-constraints.
+Produce the Final Implementation Plan by reconciling Primary Implementation Plan
+WP candidates into committed Work Packages, informed by Technical Architecture
+decisions and constraints.
 
-This document is the authoritative plan that spawns Epic child documents for execution.
-Every committed Epic in this plan will become a governed artifact.
+This document is the authoritative plan that spawns Work Package child documents for execution.
+Every committed Work Package in this plan will become a governed artifact with governance pinning.
 
 ## Inputs Provided
 
 You will receive exactly two input documents:
 
-* Primary Implementation Plan - contains epic_candidates[] with candidate_ids (EC-1, EC-2, etc.)
+* Primary Implementation Plan - contains work_package_candidates[] with candidate_ids (WPC-001, WPC-002, etc.)
 * Technical Architecture - contains architecture decisions, constraints, and component definitions
 
 These are the ONLY sources of requirements. No other context may be assumed.
 
-## Candidate-to-Epic Traceability (Non-Negotiable)
+## Candidate-to-WP Traceability (Non-Negotiable)
 
 This is the governance core of this document. The IPF must explicitly account for every
-IPP epic candidate. No candidate may silently disappear or be silently invented.
+IPP WP candidate. No candidate may silently disappear or be silently invented.
 
 ### Rules
 
 1. Every IPP candidate_id MUST appear exactly once in candidate_reconciliation[].
 2. Every candidate_reconciliation entry MUST have an outcome: kept, split, merged, or dropped.
-3. If outcome is kept, split, or merged: resulting_epic_ids[] MUST contain at least one valid epic_id.
-4. If outcome is dropped: resulting_epic_ids[] MUST be empty. notes MUST explain why.
-5. Every committed Epic MUST have source_candidate_ids[] referencing the IPP candidates it derives from.
-6. Every committed Epic MUST have a transformation value: kept, split, merged, or added.
+3. If outcome is kept, split, or merged: resulting_wp_ids[] MUST contain at least one valid wp_id.
+4. If outcome is dropped: resulting_wp_ids[] MUST be empty. notes MUST explain why.
+5. Every committed WP MUST have source_candidate_ids[] referencing the IPP candidates it derives from.
+6. Every committed WP MUST have a transformation value: kept, split, merged, or added.
 7. If transformation is "added": source_candidate_ids[] MUST be empty. transformation_notes MUST justify the addition with specific architecture constraints or scope changes.
-8. If transformation is "kept": source_candidate_ids[] has exactly one entry. The Epic preserves the candidate's intent (scope refinement is permitted, not intent change).
-9. If transformation is "split": source_candidate_ids[] has exactly one entry. Multiple Epics share the same source.
+8. If transformation is "kept": source_candidate_ids[] has exactly one entry. The WP preserves the candidate's intent (scope refinement is permitted, not intent change).
+9. If transformation is "split": source_candidate_ids[] has exactly one entry. Multiple WPs share the same source.
 10. If transformation is "merged": source_candidate_ids[] has two or more entries.
 
 ### Referential Consistency
 
 * The set of all candidate_ids in candidate_reconciliation[] must equal the set of all candidate_ids from the IPP input.
-* The set of all resulting_epic_ids across candidate_reconciliation[] must be a subset of epic_ids in epics[].
-* The set of all source_candidate_ids across epics[] must be a subset of candidate_ids from the IPP input.
-* No orphan epics (every epic with transformation != "added" must appear in at least one reconciliation entry).
+* The set of all resulting_wp_ids across candidate_reconciliation[] must be a subset of wp_ids in work_packages[].
+* The set of all source_candidate_ids across work_packages[] must be a subset of candidate_ids from the IPP input.
+* No orphan WPs (every WP with transformation != "added" must appear in at least one reconciliation entry).
 * No orphan candidates (every IPP candidate must have a reconciliation entry).
 
 ## Scope Rules
 
 You MUST:
-* Start from IPP epic candidates as the baseline - these are the scope foundation
-* Use Technical Architecture to inform sequencing, dependencies, and design requirements
+* Start from IPP WP candidates as the baseline - these are the scope foundation
+* Use Technical Architecture to inform dependencies and governance pinning
 * Preserve candidate intent unless architecture review forces splitting, merging, or dropping
 * Document every transformation with rationale in transformation_notes and reconciliation notes
 * Reference specific architecture decisions or constraints when justifying changes
+* Pin governance references (ta_version_id, applicable ADR and policy refs) on each WP
 
 You MUST NOT:
-* Invent new Epics unless Technical Architecture reveals a gap that no existing candidate covers
+* Invent new WPs unless Technical Architecture reveals a gap that no existing candidate covers
 * Silently drop, rename, or restructure candidates without reconciliation entries
-* Decompose Epics into features, stories, tasks, or implementation detail
+* Decompose WPs into features, stories, tasks, or implementation detail
 * Assign estimates, timelines, or ownership
 * Imply delivery commitment beyond scope definition
 * Introduce solution design beyond what the Technical Architecture provides
 
-## Epic Requirements
+## Work Package Requirements
 
-Each committed Epic must include:
-* epic_id - unique, snake_case (e.g., "user_authentication")
-* name - human-readable
-* intent - what this Epic accomplishes
-* sequence - execution order (1-based, consecutive)
-* mvp_phase - "mvp" or "later" (no "undecided" - the architecture phase resolved this)
+Each committed Work Package must include:
+* wp_id - unique, snake_case (e.g., "document_registry")
+* title - human-readable
+* rationale - why this WP is needed
+* scope_in - explicit scope items
+* scope_out - explicit exclusions
+* dependencies - references to other wp_ids with dependency_type and notes
+* definition_of_done - measurable completion criteria
+* governance_pins - governance references:
+  * ta_version_id - Technical Architecture version (required, non-empty)
+  * adr_refs - applicable ADR IDs (may be empty)
+  * policy_refs - applicable policy IDs (may be empty)
 * transformation - how it relates to IPP candidates (kept, split, merged, added)
-* source_candidate_ids - IPP candidate IDs it derives from (EC-1 format)
-* design_required - "not_needed", "recommended", or "required"
-* in_scope - explicit scope items
-* out_of_scope - explicit exclusions
-* dependencies - references to other epic_ids with dependency_type and notes
-* risks - epic-specific risks with impact level and mitigation
-* open_questions - unresolved questions with blocking flag and default_assumption
-* architecture_notes - specific Technical Architecture decisions that shaped this Epic
+* source_candidate_ids - IPP candidate IDs it derives from (WPC-001 format)
+* transformation_notes - justification for the transformation
 
 ## Plan Summary
 
@@ -91,14 +92,13 @@ The plan_summary must include:
 * overall_intent - what this plan aims to achieve
 * mvp_definition - what constitutes MVP
 * key_constraints - constraints shaping the plan
-* sequencing_rationale - why Epics are ordered this way
+* sequencing_rationale - why Work Packages are ordered this way
 
 ## Additional Sections
 
-* cross_cutting_concerns - concerns spanning multiple Epics
+* cross_cutting_concerns - concerns spanning multiple Work Packages
 * meta - provenance block (schema_version: "1.0", artifact_id, created_at, source: "combine_generated")
 
-Do NOT generate risk_summary. It is mechanically derived from per-epic risks by the system.
 System will overwrite meta.created_at and meta.artifact_id with system values.
 
 ## Output Rules
@@ -112,19 +112,20 @@ System will overwrite meta.created_at and meta.artifact_id with system values.
 
 ## Governance & Audit Constraints
 
-* All Epics must be traceable to IPP candidates via source_candidate_ids
+* All WPs must be traceable to IPP candidates via source_candidate_ids
 * All IPP candidates must be accounted for via candidate_reconciliation
+* All WPs must have governance_pins with ta_version_id populated
 * No implicit decisions or silent interpretations
-* Any uncertainty must be explicitly stated in open_questions
+* Any uncertainty must be explicitly stated
 * Output must be fully loggable and replayable per ADR-010
 * No bypassing of audit, QA, or traceability mechanisms per ADR-009
 
 ## Determinism & Replay Readiness
 
 Given identical inputs, the task should:
-* Produce equivalent Epics with equivalent scope and intent
+* Produce equivalent WPs with equivalent scope and intent
 * Preserve semantic meaning across runs
-* Maintain stable epic_ids when candidate meaning is preserved
+* Maintain stable wp_ids when candidate meaning is preserved
 * Avoid stylistic variance that alters interpretation
 * Contain no references to time, prior executions, or external state
 
@@ -134,22 +135,23 @@ Given identical inputs, the task should:
 2. All required fields present at every level
 3. meta block present with schema_version "1.0"
 4. Every IPP candidate_id appears in candidate_reconciliation[]
-5. Every reconciliation entry has valid resulting_epic_ids (or empty if dropped)
-6. Every Epic has source_candidate_ids and transformation
-7. Referential consistency: reconciliation epic_ids exist in epics[]
-8. Epic IDs are unique and snake_case
-9. Sequence numbers are consecutive starting at 1
-10. Dependencies reference valid Epic IDs only
-11. MVP phase assigned for all Epics (no "undecided")
-12. No additional properties at any level
+5. Every reconciliation entry has valid resulting_wp_ids (or empty if dropped)
+6. Every WP has source_candidate_ids and transformation
+7. Referential consistency: reconciliation wp_ids exist in work_packages[]
+8. WP IDs are unique and snake_case
+9. Dependencies reference valid WP IDs only
+10. governance_pins.ta_version_id is populated on every WP
+11. No additional properties at any level
 
 ## Failure Conditions (Automatic Reject)
 
 This task fails if:
 * Any IPP candidate is missing from candidate_reconciliation
-* Any Epic with transformation != "added" has empty source_candidate_ids
-* Orphan references exist (epic_ids or candidate_ids that don't resolve)
+* Any WP with transformation != "added" has empty source_candidate_ids
+* Any WP has empty or missing governance_pins.ta_version_id
+* Orphan references exist (wp_ids or candidate_ids that don't resolve)
 * Role identity or authority is restated or altered
 * Stories, tasks, features, or implementation detail appear
 * Estimation, scheduling, or ownership is introduced
 * Output depends on unstated context or prior runs
+* Epic candidates or Epics appear (output must use Work Package candidates only)

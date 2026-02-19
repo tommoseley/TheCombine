@@ -6,8 +6,8 @@ display_name: "Implementation Plan"
 version: "1.0.0"
 description: >
   Final implementation plan produced after technical architecture review.
-  Defines committed Epics with sequencing, dependencies, and design requirements.
-  Creating this document spawns individual Epic documents.
+  Reconciles WP candidates into committed Work Packages with governance
+  pinning. Creating this document spawns individual Work Package documents.
 
 # Classification
 authority_level: prescriptive  # Prescriptive - defines what will be built
@@ -21,7 +21,7 @@ required_inputs:
   - technical_architecture
 optional_inputs: []
 creates_children:
-  - epic
+  - work_package
 parent_doc_type: null
 
 # Shared artifact references
@@ -46,7 +46,7 @@ tests:
 gating_rules:
   lifecycle_states: []
   design_status: []
-  acceptance_required: true  # Requires acceptance before spawning epics
+  acceptance_required: true  # Requires acceptance before spawning WPs
   accepted_by:
     - stakeholder
     - technical_lead

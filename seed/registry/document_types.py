@@ -215,8 +215,8 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "view_docdef": "ImplementationPlanView",
         "description": (
             "Final implementation plan produced after technical architecture review. "
-            "Defines committed Epics with sequencing, dependencies, and design requirements. "
-            "Creating this document spawns individual Epic documents."
+            "Reconciles WP candidates into committed Work Packages with governance "
+            "pinning. Creating this document spawns individual Work Package documents."
         ),
         "category": "planning",
         "icon": "git-branch",
@@ -228,10 +228,10 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "gating_rules": {},
         "scope": "project",
         "display_order": 35,
-        "creates_children": ["epic"],  # This plan creates Epic documents
+        "creates_children": ["work_package"],
         "schema_definition": {
             "type": "object",
-            "required": ["plan_summary", "epics"],
+            "required": ["plan_summary", "work_packages", "candidate_reconciliation"],
             "properties": {
                 "plan_summary": {
                     "type": "object",
@@ -242,24 +242,52 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
                         "sequencing_rationale": {"type": "string"},
                     }
                 },
-                "epics": {
+                "work_packages": {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "required": ["epic_id", "name", "intent"],
+                        "required": [
+                            "wp_id",
+                            "title",
+                            "rationale",
+                            "scope_in",
+                            "scope_out",
+                            "dependencies",
+                            "definition_of_done",
+                            "governance_pins",
+                        ],
                         "properties": {
-                            "epic_id": {"type": "string"},
-                            "name": {"type": "string"},
-                            "intent": {"type": "string"},
-                            "sequence": {"type": "integer"},
-                            "mvp_phase": {"type": "string", "enum": ["mvp", "later"]},
-                            "design_required": {"type": "string", "enum": ["not_needed", "recommended", "required"]},
-                            "in_scope": {"type": "array", "items": {"type": "string"}},
-                            "out_of_scope": {"type": "array", "items": {"type": "string"}},
+                            "wp_id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "rationale": {"type": "string"},
+                            "scope_in": {"type": "array", "items": {"type": "string"}},
+                            "scope_out": {"type": "array", "items": {"type": "string"}},
                             "dependencies": {"type": "array"},
-                            "risks": {"type": "array"},
-                            "open_questions": {"type": "array"},
-                            "architecture_notes": {"type": "array", "items": {"type": "string"}},
+                            "definition_of_done": {"type": "array", "items": {"type": "string"}},
+                            "governance_pins": {
+                                "type": "object",
+                                "properties": {
+                                    "ta_version_id": {"type": "string"},
+                                    "adr_refs": {"type": "array", "items": {"type": "string"}},
+                                    "policy_refs": {"type": "array", "items": {"type": "string"}},
+                                },
+                            },
+                            "transformation": {"type": "string", "enum": ["kept", "split", "merged", "added"]},
+                            "source_candidate_ids": {"type": "array", "items": {"type": "string"}},
+                            "transformation_notes": {"type": "string"},
+                        }
+                    }
+                },
+                "candidate_reconciliation": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["candidate_id", "outcome", "resulting_wp_ids", "notes"],
+                        "properties": {
+                            "candidate_id": {"type": "string"},
+                            "outcome": {"type": "string", "enum": ["kept", "split", "merged", "dropped"]},
+                            "resulting_wp_ids": {"type": "array", "items": {"type": "string"}},
+                            "notes": {"type": "string"},
                         }
                     }
                 },
