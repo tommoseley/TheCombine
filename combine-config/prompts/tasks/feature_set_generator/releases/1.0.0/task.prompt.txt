@@ -1,0 +1,132 @@
+You are generating a set of FEATURE-level backlog items for a single Epic.
+
+## Task Objective
+
+Decompose the provided Epic into a set of FEATUREs. Each feature must be individually deliverable, correctly prioritized, and explicitly linked via dependencies and parent relationships. All features share the same parent Epic.
+
+## Input Provided
+
+You will receive:
+
+1. **Target Epic** (the epic being decomposed):
+   - `id`: The epic's ID (e.g., "E001")
+   - `title`: Epic title
+   - `summary`: Epic summary
+   - `details`: EpicDetails (scope, out_of_scope, success_signals, major_risks)
+
+2. **Sibling Epic Boundary Summary** (context for coherence):
+   - Array of `{epic_id, title, scope_summary}` for all other epics in the project
+   - Use this to avoid generating features that belong in sibling epics
+
+3. **Intent Summary**: The original user intent for the project
+
+4. **Architecture Summary** (if available): Technical architecture context
+
+## Output Requirements
+
+Produce a JSON object matching this exact structure:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "source_id": "<epic_id>",
+  "source_type": "epic",
+  "items": [
+    {
+      "schema_version": "1.0.0",
+      "id": "F001",
+      "level": "FEATURE",
+      "title": "Feature title",
+      "summary": "Brief feature summary",
+      "priority_score": 80,
+      "depends_on": [],
+      "parent_id": "<epic_id>",
+      "details": {
+        "user_value": "Why this feature matters to the user",
+        "primary_flows": ["Main user/system flows this feature enables"],
+        "acceptance_criteria_outline": ["High-level acceptance criteria"],
+        "data_touched": ["Data entities this feature reads/writes"],
+        "nfr_notes": ["Non-functional requirement hints"],
+        "boundary_uncertain": false
+      }
+    }
+  ]
+}
+```
+
+## ID Format (Mandatory)
+
+- FEATUREs: `F001`, `F002`, `F003`, ...
+- IDs must match the pattern `^F\d{3}$`
+- Use sequential numbering starting from F001
+
+## Hierarchy Rules (Mandatory)
+
+- Every FEATURE `parent_id` MUST be set to the target Epic's ID
+- All items in the output MUST have `level: "FEATURE"`
+- Do NOT produce EPIC, STORY, or TASK items
+
+## Priority Rules
+
+- `priority_score` must be a positive integer (1 or higher)
+- Higher score = higher priority
+- Use a meaningful range (e.g., 10-100) to allow differentiation
+- Foundation/infrastructure features should have higher priority
+- Features that enable other features should have higher priority
+
+## Dependency Rules
+
+- `depends_on` is an array of feature IDs that must be completed before this feature
+- Dependencies SHOULD be within the same epic (within this output set)
+- Dependencies MAY reference features in other epics ONLY if the parent epic depends on that epic
+- Every ID in `depends_on` must exist in the output (unless cross-epic)
+- Empty array `[]` if no dependencies
+- Do NOT create circular dependencies
+
+## Details Fields (Mandatory)
+
+Every FEATURE must include a `details` object with these fields:
+
+- **`user_value`** (string): Why this feature matters to the user. One sentence.
+- **`primary_flows`** (array of strings): Main user/system flows this feature enables.
+- **`acceptance_criteria_outline`** (array of strings): High-level acceptance criteria (refined at story level).
+- **`data_touched`** (array of strings): Data entities or stores this feature reads/writes.
+- **`nfr_notes`** (array of strings): Non-functional requirement hints (performance, security, audit, etc.).
+- **`boundary_uncertain`** (boolean): Set `true` when this feature may belong in a sibling epic. Default `false`.
+
+## Boundary Placement
+
+Do NOT generate features that belong in sibling epics. Use the Sibling Epic Boundary Summary to understand what other epics cover.
+
+If you are uncertain whether a feature belongs in this epic or a sibling:
+- Include the feature in this epic's output
+- Set `boundary_uncertain: true` in its details
+- The operator will review and reassign if needed
+
+## Decomposition Guidelines
+
+1. Each feature should represent a coherent, deliverable unit of functionality
+2. Aim for 3-8 features per epic
+3. Features should be roughly equivalent in scope (no mega-features alongside trivial ones)
+4. Consider the epic's scope and out_of_scope to stay within boundaries
+5. Features should collectively cover the epic's scope without significant gaps
+
+## Constraints
+
+- You MUST produce at least 1 FEATURE
+- Every FEATURE must have `parent_id` set to the target epic's ID
+- All IDs must be unique within the output
+- All `depends_on` references within this set must point to valid IDs in the output
+- `priority_score` must be an integer, not a float
+- `schema_version` must be `"1.0.0"` on every item
+- Do NOT include any fields beyond those defined in the schema
+
+## Prohibited Actions
+
+- Do NOT generate EPIC, STORY, or TASK items
+- Do NOT generate features outside the target epic's scope
+- Do NOT invent requirements not present in the epic or intent
+- Do NOT add status, sprint, effort, owner, or velocity fields
+- Do NOT use fractional priorities (1.5, 2.7, etc.)
+- Do NOT create features with empty titles or summaries
+- Do NOT silently ignore sibling epic boundaries

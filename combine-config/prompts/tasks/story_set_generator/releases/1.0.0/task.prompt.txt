@@ -1,0 +1,135 @@
+You are generating a set of STORY-level backlog items for one or more Features under a single Epic.
+
+## Task Objective
+
+Decompose the provided Feature(s) into a set of STORYs. Each story must be an implementable unit of work, correctly prioritized, and explicitly linked via dependencies and parent relationships.
+
+## Input Provided
+
+You will receive:
+
+1. **Target Feature(s)** (the features being decomposed):
+   - `id`: The feature's ID (e.g., "F001")
+   - `title`: Feature title
+   - `summary`: Feature summary
+   - `parent_id`: The parent epic ID
+   - `details`: FeatureDetails (user_value, primary_flows, acceptance_criteria_outline, data_touched, nfr_notes)
+
+2. **Parent Epic Summary**: Title and summary of the parent epic for context
+
+3. **Intent Summary**: The original user intent for the project
+
+4. **Architecture Summary** (if available): Technical architecture context
+
+5. **Existing Sibling Story Titles** (on re-runs): Titles of stories already generated under these features, to reduce unnecessary churn
+
+## Output Requirements
+
+Produce a JSON object matching this exact structure:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "source_id": "<feature_id or epic_id>",
+  "source_type": "feature",
+  "items": [
+    {
+      "schema_version": "1.0.0",
+      "id": "S001",
+      "level": "STORY",
+      "title": "Story title",
+      "summary": "Brief story summary",
+      "priority_score": 60,
+      "depends_on": [],
+      "parent_id": "<feature_id>",
+      "details": {
+        "acceptance_criteria": ["Given X, When Y, Then Z"],
+        "test_notes": ["Testing guidance and approach"],
+        "edge_cases": ["Known edge cases to handle"]
+      }
+    }
+  ]
+}
+```
+
+## ID Format (Mandatory)
+
+- STORYs: `S001`, `S002`, `S003`, ...
+- IDs must match the pattern `^S\d{3}$`
+- Use sequential numbering starting from S001
+
+## Hierarchy Rules (Mandatory)
+
+- Every STORY `parent_id` MUST reference one of the target Feature IDs
+- All items in the output MUST have `level: "STORY"`
+- Do NOT produce EPIC, FEATURE, or TASK items
+
+## Priority Rules
+
+- `priority_score` must be a positive integer (1 or higher)
+- Higher score = higher priority
+- Use a meaningful range (e.g., 10-100) to allow differentiation
+- Setup/foundation stories should have higher priority
+- Stories that unblock other stories should have higher priority
+
+## Dependency Rules
+
+### Within Same Feature
+- Normal case. Story depends on sibling story under the same feature.
+
+### Cross-Feature, Within Same Epic
+- Allowed. For example, an auth story may depend on a user-model story in a sibling feature.
+- The referenced story ID must exist in the output.
+
+### Cross-Epic
+- NOT allowed in v1. If you believe a story genuinely requires work from another epic, do NOT add it to `depends_on`. Instead, note it in the story's summary (e.g., "Requires user model from E002").
+
+### General Rules
+- `depends_on` is an array of story IDs
+- Every ID in `depends_on` must exist in the output
+- Empty array `[]` if no dependencies
+- Do NOT create circular dependencies
+
+## Details Fields (Mandatory)
+
+Every STORY must include a `details` object with these fields:
+
+- **`acceptance_criteria`** (array of strings): Given/When/Then acceptance criteria. At least 1 criterion per story.
+- **`test_notes`** (array of strings): Testing guidance and approach notes. Include test types (unit, integration, e2e) where relevant.
+- **`edge_cases`** (array of strings): Known edge cases to handle. Empty array if none identified.
+
+## Decomposition Guidelines
+
+1. Each story should be implementable in a single development cycle
+2. Aim for 2-5 stories per feature
+3. Stories should be roughly equivalent in scope
+4. Use the feature's `acceptance_criteria_outline` as a starting point, then decompose further
+5. Consider the feature's `primary_flows` when identifying stories
+6. Stories should collectively cover the feature's scope
+
+## Re-run Guidance
+
+If existing sibling story titles are provided:
+- Prefer generating stories with the same IDs and similar scope to reduce churn
+- New stories that don't map to existing ones should use new IDs
+- Do NOT artificially constrain output to match previous titles if the feature scope has changed
+
+## Constraints
+
+- You MUST produce at least 1 STORY per target feature
+- Every STORY must have `parent_id` set to a valid target feature ID
+- All IDs must be unique within the output
+- All `depends_on` references must point to valid IDs in the output
+- `priority_score` must be an integer, not a float
+- `schema_version` must be `"1.0.0"` on every item
+- Do NOT include any fields beyond those defined in the schema
+
+## Prohibited Actions
+
+- Do NOT generate EPIC, FEATURE, or TASK items
+- Do NOT generate stories outside the scope of the target feature(s)
+- Do NOT invent requirements not present in the feature or intent
+- Do NOT add status, sprint, effort, owner, or velocity fields
+- Do NOT use fractional priorities (1.5, 2.7, etc.)
+- Do NOT create stories with empty titles or summaries
+- Do NOT add cross-epic dependencies to `depends_on`

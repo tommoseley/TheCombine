@@ -1,0 +1,124 @@
+{
+  "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
+  "schema_version": "workflow.v2",
+  "workflow_id": "story_set_generator",
+  "revision": "dcwrev_2026_02_16_a",
+  "effective_date": "2026-02-16",
+  "version": "1.0.0",
+  "name": "Story Set Generator",
+  "description": "Generates STORY-level backlog items for Features under a single Epic. Minimal DCW graph per DD-BCP-005-01: generation only, no QA remediation loop in v1. Post-DCW mechanical validation (schema, hierarchy, dependency) handled by the fan-out POW.",
+  "workflow_type": "dcw",
+  "scope_type": "document",
+  "document_type": "backlog_item",
+  "thread_ownership": {
+    "owns_thread": false,
+    "thread_purpose": null
+  },
+  "entry_node_ids": [
+    "generation"
+  ],
+  "nodes": [
+    {
+      "node_id": "generation",
+      "type": "task",
+      "name": "Story Set Generation",
+      "description": "Generate STORY-level backlog items from Feature(s) under a single Epic",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:story_set_generator:1.0.0",
+        "OUTPUT_SCHEMA": "schema:backlog_item:1.0.0"
+      },
+      "produces": "backlog_item",
+      "_position": {
+        "x": 50,
+        "y": 40
+      },
+      "station": {
+        "id": "draft",
+        "label": "DRAFT",
+        "order": 1
+      }
+    },
+    {
+      "node_id": "end_stabilized",
+      "type": "end",
+      "name": "Story Set Generated",
+      "description": "Story set generated successfully. Ready for mechanical validation.",
+      "terminal_outcome": "stabilized",
+      "_position": {
+        "x": 50,
+        "y": 300
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "end_blocked",
+      "type": "end",
+      "name": "Story Generation Failed",
+      "description": "Generation failed - LLM error or unrecoverable failure",
+      "terminal_outcome": "blocked",
+      "_position": {
+        "x": 350,
+        "y": 300
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 2
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "generation_success",
+      "from_node_id": "generation",
+      "to_node_id": "end_stabilized",
+      "outcome": "success",
+      "label": "Story set generated"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Generation failed"
+    }
+  ],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
+  "governance": {
+    "adr_references": [
+      "ADR-010",
+      "ADR-040",
+      "ADR-045",
+      "ADR-049"
+    ],
+    "design_principles": [
+      "DD-BCP-005-01: Fan-out executes through PlanExecutor/DCW",
+      "Minimal graph in v1 — generation only, no QA loop",
+      "Post-DCW mechanical validation by fan-out POW",
+      "Story dependency scope: within-epic cross-feature allowed, cross-epic disallowed",
+      "LLMs generate. Machines validate."
+    ]
+  },
+  "metadata": {
+    "created_date": "2026-02-16",
+    "work_statement": "WS-BCP-005",
+    "changelog": [
+      "v1.0.0: Initial DCW for FeatureStoryFanoutPOW (WS-BCP-005)"
+    ]
+  },
+  "requires_inputs": [
+    "feature_backlog_items",
+    "parent_epic_summary",
+    "intent_summary"
+  ]
+}
