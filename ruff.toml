@@ -1,0 +1,7 @@
+# Ruff linter configuration for The Combine
+# See: https://docs.astral.sh/ruff/settings/
+
+[lint]
+# E712: SQLAlchemy requires `column == True` for filter expressions.
+# Ruff suggests `column is True` which breaks SQLAlchemy queries.
+ignore = ["E712"]

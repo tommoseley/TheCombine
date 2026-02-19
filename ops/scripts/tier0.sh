@@ -126,10 +126,15 @@ if [[ "${CI:-}" == "true" ]]; then
     changed_files=$(git diff --name-only "$DIFF_BASE"...HEAD 2>/dev/null || true)
     new_untracked=""
 else
-    # Local dev: uncommitted changes + untracked files
+    # Local dev: uncommitted + staged + committed-since-main + untracked
+    # Uncommitted and staged capture work-in-progress.
+    # Committed-since-main captures work done on the branch but already committed
+    # (e.g., SPA changes committed in a prior WS that still need frontend build).
     changed_files=$(git diff --name-only HEAD 2>/dev/null || true)
     changed_staged=$(git diff --name-only --cached 2>/dev/null || true)
-    changed_files=$(echo -e "${changed_files}\n${changed_staged}" || true)
+    LOCAL_DIFF_BASE=$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD)
+    changed_on_branch=$(git diff --name-only "${LOCAL_DIFF_BASE}"...HEAD 2>/dev/null || true)
+    changed_files=$(echo -e "${changed_files}\n${changed_staged}\n${changed_on_branch}" || true)
     new_untracked=$(git ls-files --others --exclude-standard 2>/dev/null || true)
 fi
 
@@ -309,12 +314,15 @@ echo ""
 echo "========================================="
 echo "          TIER 0 SUMMARY"
 echo "========================================="
+SKIP_COUNT=0
 for check in pytest lint typecheck frontend scope; do
     status="${RESULTS[$check]}"
     if [[ "$status" == "SKIP" ]]; then
         printf "  %-12s SKIPPED\n" "$check"
+        ((SKIP_COUNT++))
     elif [[ "$status" == "SKIP_B" ]]; then
         printf "  %-12s SKIP (Mode B)\n" "$check"
+        ((SKIP_COUNT++))
     elif [[ "$status" -eq 0 ]]; then
         printf "  %-12s PASS\n" "$check"
     else
@@ -327,10 +335,12 @@ if [[ ${#MODE_B_CHECKS[@]} -gt 0 ]]; then
     echo "B-MODE ACTIVE: ${MODE_B_CHECKS[*]}"
 fi
 
-if [[ $OVERALL_EXIT -eq 0 ]]; then
-    echo "TIER 0: ALL CHECKS PASSED"
-else
+if [[ $OVERALL_EXIT -ne 0 ]]; then
     echo "TIER 0: FAILED"
+elif [[ $SKIP_COUNT -gt 0 ]]; then
+    echo "TIER 0: PASSED WITH SKIPS ($SKIP_COUNT skipped)"
+else
+    echo "TIER 0: ALL CHECKS PASSED"
 fi
 
 # ---------------------------------------------------------------------------
@@ -372,8 +382,13 @@ for f in $ALL_CHANGED; do
     json_files+="\"${f}\""
 done
 
-overall_label="PASS"
-[[ $OVERALL_EXIT -ne 0 ]] && overall_label="FAIL"
+if [[ $OVERALL_EXIT -ne 0 ]]; then
+    overall_label="FAIL"
+elif [[ $SKIP_COUNT -gt 0 ]]; then
+    overall_label="PASS_WITH_SKIPS"
+else
+    overall_label="PASS"
+fi
 
 echo ""
 echo "--- TIER0_JSON ---"

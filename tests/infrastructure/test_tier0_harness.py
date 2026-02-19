@@ -274,7 +274,7 @@ class TestMachineReadableOutput:
         )
 
         # Core fields
-        assert data["overall"] in ("PASS", "FAIL")
+        assert data["overall"] in ("PASS", "PASS_WITH_SKIPS", "FAIL")
         assert isinstance(data["exit_code"], int)
         assert isinstance(data["mode_b"], list)
         assert isinstance(data["changed_files"], list)
@@ -300,6 +300,44 @@ class TestMachineReadableOutput:
         )
         assert data["overall"] == "FAIL"
         assert data["exit_code"] != 0
+
+
+# ---------------------------------------------------------------------------
+# Criterion 7: SKIP is not PASS — summary distinguishes them
+# ---------------------------------------------------------------------------
+class TestCriterion7SkipIsNotPass:
+    """When checks are skipped, harness must NOT say ALL CHECKS PASSED."""
+
+    def test_mode_b_skip_produces_passed_with_skips(self):
+        """Mode B typecheck skip -> PASSED WITH SKIPS, not ALL CHECKS PASSED."""
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        data = extract_json(result.stdout)
+
+        if data and data["checks"]["typecheck"] == "PASS":
+            pytest.skip("mypy is installed — no skip to test")
+
+        assert "ALL CHECKS PASSED" not in result.stdout, (
+            "Harness must not say ALL CHECKS PASSED when checks were skipped"
+        )
+        assert "PASSED WITH SKIPS" in result.stdout, (
+            "Harness must say PASSED WITH SKIPS when checks were skipped"
+        )
+        assert data is not None
+        assert data["overall"] == "PASS_WITH_SKIPS", (
+            "JSON overall must be PASS_WITH_SKIPS when checks skipped"
+        )
+
+    def test_all_checks_passed_requires_zero_skips(self):
+        """ALL CHECKS PASSED should only appear when every check actually ran."""
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        data = extract_json(result.stdout)
+
+        if data and data["overall"] == "PASS":
+            # Genuine full pass — ALL CHECKS PASSED is correct
+            assert "ALL CHECKS PASSED" in result.stdout
+        else:
+            # Something was skipped or failed — must not say ALL CHECKS PASSED
+            assert "ALL CHECKS PASSED" not in result.stdout
 
 
 # ---------------------------------------------------------------------------

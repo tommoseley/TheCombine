@@ -42,7 +42,7 @@ from app.api.models.workflow_instance import WorkflowInstance
 from app.api.models.pgc_answer import PGCAnswer
 from app.api.models.workflow_execution import WorkflowExecution
 from app.api.services.admin_workbench_service import get_admin_workbench_service
-from app.api.services.workflow_instance_service import WorkflowInstanceService, DriftSummary
+from app.api.services.workflow_instance_service import WorkflowInstanceService
 
 logger = logging.getLogger(__name__)
 

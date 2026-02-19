@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 from app.domain.services.backlog_pipeline import (
     BacklogPipelineService,
-    PipelineResult,
     compute_intent_hash,
     compute_plan_hash,
 )
@@ -332,7 +331,7 @@ class TestBacklogPipelineService:
             intent_content=make_intent_content(),
             backlog_content=make_backlog_content(),
         )
-        result = await service.run(
+        await service.run(
             project_id="00000000-0000-0000-0000-000000000001",
             intent_id="00000000-0000-0000-0000-000000000099",
             skip_explanation=True,

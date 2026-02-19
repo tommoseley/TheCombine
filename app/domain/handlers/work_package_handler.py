@@ -7,7 +7,7 @@ the Epic/Feature ontology. Created by IPF reconciliation, not LLM-generated.
 
 from typing import Dict, Any, Tuple, List, Optional
 from app.domain.handlers.base_handler import BaseDocumentHandler
-from app.domain.services.work_package_state import WP_STATES, validate_wp_transition
+from app.domain.services.work_package_state import WP_STATES
 import logging
 
 logger = logging.getLogger(__name__)

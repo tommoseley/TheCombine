@@ -11,8 +11,6 @@ WS-BCP-002: Tasks 6, 7.
 
 import hashlib
 import json
-from collections import deque
-from typing import Optional
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-19
-**Updated By:** Claude (WS-ONTOLOGY-001 session)
+**Updated By:** Claude (WS-ONTOLOGY-007 session close)
 
 ## Current Focus
 
@@ -10,32 +10,32 @@
 - First factory cycle proven: HTMX admin removal under Mode A with intent-first testing
 - Mode B enforcement, JSON output, CI guards implemented
 
-**ACCEPTED:** ADR-051 -- Work Package as Runtime Primitive
-- Decision recorded; implementation deferred until WS volume demands it
+**COMPLETE:** ADR-051 -- Work Package as Runtime Primitive
+- Decision recorded and fully implemented via WS-ONTOLOGY-001 through WS-ONTOLOGY-007
 - IP > WP > WS hierarchy replaces Epics/Features/Stories
 
-**DRAFT:** ADR-052 -- Document Pipeline Integration for WP/WS
-- Defines schema/prompt changes for IPP/IPF, new artifact types, Production Floor updates
-- Accept on merge
+**COMPLETE:** ADR-052 -- Document Pipeline Integration for WP/WS
+- All implementation work statements executed (WS-ONTOLOGY-001 through WS-ONTOLOGY-007)
+- Schema/prompt changes for IPP/IPF, new artifact types, Production Floor updates all done
 
 **COMPLETE:** WS-ONTOLOGY-001 -- Register work_package as first-class document type
-- Handler, state machine, seed entry, registry registration, 20 Tier 1 tests
-- Commit `76d216a`, pushed to `workbench/ws-e583fd0642f5`
+**COMPLETE:** WS-ONTOLOGY-002 -- Register work_statement with parent WP enforcement
+**COMPLETE:** WS-ONTOLOGY-003 -- Project Logbook with transactional WS acceptance
+**COMPLETE:** WS-ONTOLOGY-004 -- Replace IPP epic_candidates with work_package_candidates
+**COMPLETE:** WS-ONTOLOGY-005 -- Update IPF to reconcile and commit Work Packages
+**COMPLETE:** WS-ONTOLOGY-006 -- Remove Epic/Feature document type pipeline entirely
+**COMPLETE:** WS-ONTOLOGY-007 -- Production Floor UI renders WP/WS hierarchy
 
 **COMPLETE:** WS-ADMIN-RECONCILE-001 -- Restore admin operational visibility as SPA views
 **COMPLETE:** WS-ADMIN-EXEC-UI-001 -- Admin Executions list UX improvements
 
 ---
 
-## ADR-050 Acceptance Criteria Status
+## Test Suite
 
-| # | Criterion | Status |
-|---|-----------|--------|
-| 1 | Tier 0 runnable as single command | Complete |
-| 2 | At least one WS executed under Mode A with intent-first testing | Complete (HTMX removal) |
-| 3 | Mode B tracking exists | Partial (visible in harness output, no metrics logging yet) |
-| 4 | POL-WS-001 references ADR-050 | Pending |
-| 5 | Test-First Rule documented in AI.md | Pending |
+- **2225 tests** passing as of WS-ONTOLOGY-007 completion
+- Tier 1 tests cover all ontology work statements (6 criteria groups each)
+- Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
 
 ---
 
@@ -44,6 +44,7 @@
 | Item | Reason | Mechanization Plan |
 |------|--------|--------------------|
 | mypy type checking | Not installed | Install mypy, configure for app/, add to Tier 0 harness |
+| SPA component tests (WS-007) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
 | ExecutionList tests (WS-ADMIN-EXEC-UI-001) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
 
 ---
@@ -58,12 +59,6 @@
 - **Cost dashboard** with daily breakdown, period selector, summary cards (WS-ADMIN-RECONCILE-001)
 - **Deep links**: `/admin/executions/{id}` and `/admin?execution={id}` both supported
 - **Dual execution API**: Handles both workflow and document-workflow (exec- prefixed) execution IDs
-
-### Components
-- `spa/src/components/admin/AdminPanel.jsx` -- Tab layout, deep-link parsing
-- `spa/src/components/admin/ExecutionList.jsx` -- Unified execution browser
-- `spa/src/components/admin/ExecutionDetail.jsx` -- Detail with transcript content
-- `spa/src/components/admin/CostDashboard.jsx` -- Daily cost breakdown
 
 ---
 
@@ -106,40 +101,50 @@ Event-driven station display system for production floor UI. All phases complete
 **Location:** `spa/` directory
 
 ### Features Complete
-- All previous features through 2026-02-16
-- **HTMX admin removal** (2026-02-18): Deprecated HTMX admin routes, templates, and static assets removed
-- **Admin Panel restored** (2026-02-18): Execution monitoring, cost dashboard, transcript inspection as SPA views
-- **Admin Executions UX** (2026-02-18): Sortable columns, doc-type filter, search, project code resolution
+- All previous features through 2026-02-18
+- **Production Floor WP/WS** (2026-02-19): DocumentNode renders Work Packages with metadata (ws_done/ws_total, Mode B count, dependency count), WSChildList replaces FeatureGrid for WS children, all Epic references removed
 
 ---
 
 ## Architecture
 
-Same as previous state. Key additions:
-
 ```
-spa/src/components/admin/
-+-- AdminPanel.jsx             # Tab layout, deep-link parsing
-+-- ExecutionList.jsx          # Unified execution browser with sort/filter/search
-+-- ExecutionDetail.jsx        # Detail with transcript content rendering
-+-- CostDashboard.jsx          # Daily cost breakdown
+app/domain/handlers/
++-- work_package_handler.py        # WP document handler
++-- work_statement_handler.py      # WS document handler with parent WP enforcement
++-- project_logbook_handler.py     # Logbook handler (governance)
 
-tests/infrastructure/
-+-- test_tier0_harness.py      # 11 tests for Tier 0 harness
-+-- test_htmx_admin_removal.py # 10 intent-first tests for HTMX removal
-+-- test_admin_reconciliation.py # 17 tests for admin restoration
-+-- test_admin_exec_ui.py      # 13 tests for executions UX (Mode B debt)
+app/domain/services/
++-- work_package_state.py          # WP state machine (PLANNED->READY->IN_PROGRESS->AWAITING_GATE->DONE)
++-- work_statement_state.py        # WS state machine (DRAFT->READY->IN_PROGRESS->ACCEPTED/REJECTED/BLOCKED)
++-- work_statement_registration.py # WS-to-WP registration + rollup
++-- logbook_service.py             # Logbook CRUD + transactional WS acceptance orchestration
+
+spa/src/components/
++-- DocumentNode.jsx               # Unified L1/L2 node (WP metadata display)
++-- WSChildList.jsx                # WS children sidecar tray
++-- Floor.jsx                      # Production floor layout
+
+tests/tier1/handlers/
++-- test_work_package_handler.py   # 20 tests (WS-001)
++-- test_work_statement_handler.py # 21 tests (WS-002)
++-- test_project_logbook_handler.py # 24 tests (WS-003)
++-- test_ipp_wp_candidates.py      # 15 tests (WS-004)
++-- test_ipf_wp_reconcile.py       # 17 tests (WS-005)
++-- test_epic_feature_removal.py   # 21 tests (WS-006)
++-- test_production_floor_wp_ws.py # 17 tests (WS-007)
 ```
 
 ---
 
 ## Key Technical Decisions
 
-All previous decisions (1-29) plus:
+All previous decisions (1-32) plus:
 
-30. **Admin Panel as SPA views** -- Execution monitoring, cost dashboard, transcript inspection rebuilt as React components backed by existing API endpoints (not restored from HTMX)
-31. **Dual execution API strategy** -- ExecutionDetail tries both /api/v1/executions/{id} and /api/v1/document-workflows/executions/{id} to handle both old-style and exec-prefixed IDs
-32. **Project code resolution** -- ExecutionList calls api.getProjects() on mount to build UUID-to-project-code lookup map (no new API endpoints)
+33. **WP/WS ontology replaces Epic/Feature** -- Full pipeline migration: handlers, state machines, seed entries, IPP/IPF schemas, Production Floor UI (WS-ONTOLOGY-001 through 007)
+34. **Logbook atomicity via deepcopy** -- Transactional WS acceptance works on deep copies; originals unchanged on failure (WS-ONTOLOGY-003)
+35. **Lazy logbook creation** -- Logbook created on first WS acceptance, not project bootstrap (WS-ONTOLOGY-003)
+36. **BCP pipeline retains epic/feature hierarchy** -- fanout_service and schema_artifacts use these as backlog level names (not document types); intentionally preserved during WS-ONTOLOGY-006
 
 ---
 
@@ -171,28 +176,20 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 ## Handoff Notes
 
 ### Recent Work (2026-02-19)
-- **WS-ONTOLOGY-001** complete -- work_package document type: state machine, handler, seed entry, 20 tests (6 criteria)
-
-### Previous Work (2026-02-18/19)
-- **WS-ADMIN-RECONCILE-001** complete -- Admin Panel, ExecutionDetail, CostDashboard, telemetry router mounted, dead links fixed
-- **WS-ADMIN-EXEC-UI-001** complete -- Full execution IDs, project code column, sortable headers, doc-type filter, search
-
-### Previous Work (2026-02-18)
-- ADR-050, 051, 052 written
-- Tier 0 harness built
-- HTMX admin removal executed under ADR-050 protocol
+- **WS-ONTOLOGY-001 through 007** all complete — full ontology migration from Epic/Feature to WP/WS
+- All commits on branch `workbench/ws-e583fd0642f5`, pushed to remote
+- 2225 tests passing, SPA builds clean
 
 ### Next Work
-- WS-ONTOLOGY-002 through WS-ONTOLOGY-007 (remaining ontology work statements)
+- Merge `workbench/ws-e583fd0642f5` to main (7 ontology commits + prior docs commit)
+- Mark ADR-051 and ADR-052 execution_state as complete
 - Add Test-First Rule to AI.md (ADR-050 acceptance criterion 5)
 - Add ADR-050 reference to POL-WS-001 (ADR-050 acceptance criterion 4)
-- Project Logbook design (productized PROJECT_STATE.md for Combine-managed projects)
+- Establish React test harness to retire Mode B debt on SPA tests
+- Project Logbook as productized PROJECT_STATE.md for Combine-managed projects
 - WS as Combine document type (enables factory to author its own work)
-- ADR-052 implementation when ready (IPP/IPF schema migration, WP/WS artifact types)
-- Establish React test harness to retire Mode B debt on ExecutionList tests
 
 ### Open Threads
-- Project Logbook -- productized equivalent of PROJECT_STATE.md
 - TA emitting ADR candidates -- future work pinned in ADR-052
 - MCP connector -- read-only document query layer as first step toward Claude Code integration
 - "Send to Combine" clipboard prompt -- not yet authored
@@ -207,3 +204,4 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 ### Known Issues
 - Two copies of IPF schema must be kept in sync
 - IPP task prompt field names don't match IPP schema
+- BCP pipeline still uses "epic"/"feature" as hierarchy level names (intentional, separate from document types)

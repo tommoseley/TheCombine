@@ -17,8 +17,6 @@ from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
 from app.domain.handlers.project_logbook_handler import ProjectLogbookHandler
 from app.domain.services.logbook_service import (
     create_empty_logbook,
-    create_logbook_entry,
-    append_logbook_entry,
     execute_ws_acceptance,
     LogbookAppendError,
 )

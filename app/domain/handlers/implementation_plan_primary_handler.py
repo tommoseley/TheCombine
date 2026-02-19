@@ -8,7 +8,7 @@ WP candidates are not yet commitments - they become Work Packages
 after architecture review via IPF reconciliation.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 from app.domain.handlers.base_handler import BaseDocumentHandler
 import logging
 

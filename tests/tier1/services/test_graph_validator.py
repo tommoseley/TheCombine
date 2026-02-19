@@ -8,17 +8,12 @@ and the composite validate_backlog.
 WS-BCP-002.
 """
 
-import pytest
 
 from app.domain.services.graph_validator import (
     validate_dependencies,
     validate_hierarchy,
     detect_dependency_cycles,
     validate_backlog,
-    DependencyResult,
-    HierarchyResult,
-    CycleResult,
-    BacklogValidationResult,
 )
 
 

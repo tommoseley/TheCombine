@@ -30,7 +30,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from app.domain.workflow.plan_models import Node, NodeType, WorkflowPlan
 from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
@@ -39,7 +39,6 @@ from app.domain.workflow.document_workflow_state import (
     DocumentWorkflowStatus,
 )
 from app.domain.workflow.edge_router import EdgeRouter
-from app.domain.workflow.outcome_mapper import OutcomeMapper
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
     NodeExecutor,
@@ -1956,7 +1955,7 @@ class PlanExecutor:
         self,
         state: DocumentWorkflowState,
         doc_content: Dict[str, Any],
-        parent_id: "UUID",
+        parent_id: "UUID",  # noqa: F821
         parent_title: str,
         execution_id: str = None,
     ) -> None:

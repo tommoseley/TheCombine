@@ -7,10 +7,9 @@ See WS-ADR-034-DOCUMENT-VIEWER for migration details.
 Removal scheduled for future WS.
 """
 
-import warnings
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -19,14 +18,9 @@ from app.core.database import get_db
 from app.core.config import USE_LEGACY_TEMPLATES
 from ..shared import templates
 from app.api.services import project_service
-from app.api.services.document_status_service import document_status_service
-from app.api.services.role_prompt_service import RolePromptService
-from app.api.services.document_service import DocumentService
 from app.api.models import Document
 from app.api.models.project import Project
 from app.api.models.document_type import DocumentType
-
-from app.web.template_helpers import create_preloaded_fragment_renderer
 
 # ADR-034: New viewer imports
 from app.api.services.document_definition_service import DocumentDefinitionService

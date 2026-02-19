@@ -20,17 +20,12 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.domain.services.graph_validator import (
     validate_backlog,
-    BacklogValidationResult,
-    DependencyError,
-    HierarchyError,
-    CycleTrace,
 )
 from app.domain.services.backlog_ordering import (
-    compute_backlog_hash,
     derive_execution_plan,
 )
 

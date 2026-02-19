@@ -18,8 +18,6 @@ from app.domain.handlers.registry import HANDLERS
 from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
 from app.domain.handlers.work_statement_handler import WorkStatementHandler
 from app.domain.services.work_statement_state import (
-    WS_STATES,
-    WS_VALID_TRANSITIONS,
     validate_ws_transition,
     InvalidWSTransitionError,
 )

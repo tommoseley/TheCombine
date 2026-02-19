@@ -13,7 +13,7 @@ import json
 
 from sqlalchemy import (
     Column, String, Integer, Boolean, Text, DateTime, Enum,
-    ForeignKey, Index, CheckConstraint, UniqueConstraint
+    ForeignKey, Index
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB, TSVECTOR
 from sqlalchemy.orm import relationship, Mapped
@@ -272,15 +272,15 @@ class Document(Base):
     # =========================================================================
     
     # Relations where this document is the source (from_document)
-    outgoing_relations: Mapped[List["DocumentRelation"]] = relationship(
+    outgoing_relations: Mapped[List["DocumentRelation"]] = relationship(  # noqa: F821
         "DocumentRelation",
         foreign_keys="DocumentRelation.from_document_id",
         back_populates="from_document",
         # Note: No cascade delete per ADR-011-Part-2 - delete with children forbidden
     )
-    
+
     # Relations where this document is the target (to_document)
-    incoming_relations: Mapped[List["DocumentRelation"]] = relationship(
+    incoming_relations: Mapped[List["DocumentRelation"]] = relationship(  # noqa: F821
         "DocumentRelation",
         foreign_keys="DocumentRelation.to_document_id",
         back_populates="to_document",
@@ -362,22 +362,22 @@ class Document(Base):
         return len(self.children) > 0
     
     @property
-    def requires(self) -> List["DocumentRelation"]:
+    def requires(self) -> List["DocumentRelation"]:  # noqa: F821
         """Get documents this document requires."""
         return [r for r in self.outgoing_relations if r.relation_type == "requires"]
-    
+
     @property
-    def derived_from(self) -> List["DocumentRelation"]:
+    def derived_from(self) -> List["DocumentRelation"]:  # noqa: F821
         """Get documents this document was derived from."""
         return [r for r in self.outgoing_relations if r.relation_type == "derived_from"]
-    
+
     @property
-    def required_by(self) -> List["DocumentRelation"]:
+    def required_by(self) -> List["DocumentRelation"]:  # noqa: F821
         """Get documents that require this document."""
         return [r for r in self.incoming_relations if r.relation_type == "requires"]
-    
+
     @property
-    def derivatives(self) -> List["DocumentRelation"]:
+    def derivatives(self) -> List["DocumentRelation"]:  # noqa: F821
         """Get documents derived from this document."""
         return [r for r in self.incoming_relations if r.relation_type == "derived_from"]
     

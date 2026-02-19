@@ -1,7 +1,7 @@
 """Tests for child document tracks in production service."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 

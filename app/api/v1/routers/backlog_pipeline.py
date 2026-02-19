@@ -9,7 +9,6 @@ WS-BCP-004.
 
 import logging
 from typing import Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -88,8 +87,6 @@ async def run_pipeline(
         )
 
         await db.commit()
-
-        status_code = 200 if result.status == "completed" else 422
 
         return RunPipelineResponse(
             status=result.status,

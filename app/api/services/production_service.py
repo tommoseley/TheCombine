@@ -166,7 +166,6 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
                 master = json.load(f)
 
             doc_types_def = master.get("document_types", {})
-            entity_types_def = master.get("entity_types", {})
             steps = master.get("steps", [])
 
             # Build document types in step order (respecting dependencies)
@@ -206,7 +205,6 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
                         child_doc_type = None
                         if may_own:
                             for entity_type in may_own:
-                                entity_def = entity_types_def.get(entity_type, {})
                                 # The child documents have the entity type as their doc_type_id
                                 child_doc_type = entity_type
                                 break
