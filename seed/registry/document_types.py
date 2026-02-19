@@ -358,6 +358,83 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         },
         "schema_version": "1.0",
     },
+    # -------------------------------------------------------------------------
+    # WORK PACKAGE (WS-ONTOLOGY-001)
+    # -------------------------------------------------------------------------
+    {
+        "doc_type_id": "work_package",
+        "name": "Work Package",
+        "view_docdef": "WorkPackageView",
+        "description": (
+            "Unit of planned work replacing the Epic/Feature ontology. "
+            "Created by IPF reconciliation. Tracks state, dependencies, "
+            "governance pins, and child Work Statement references."
+        ),
+        "category": "planning",
+        "icon": "package",
+        "builder_role": None,  # Not LLM-generated — created by IPF reconciliation
+        "builder_task": None,
+        "handler_id": "work_package",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "project",
+        "cardinality": "multi",
+        "instance_key": "wp_id",
+        "display_order": 38,
+        "schema_definition": {
+            "type": "object",
+            "required": [
+                "wp_id",
+                "title",
+                "rationale",
+                "scope_in",
+                "scope_out",
+                "dependencies",
+                "definition_of_done",
+                "state",
+                "ws_child_refs",
+                "governance_pins",
+            ],
+            "properties": {
+                "wp_id": {"type": "string"},
+                "title": {"type": "string"},
+                "rationale": {"type": "string"},
+                "scope_in": {"type": "array", "items": {"type": "string"}},
+                "scope_out": {"type": "array", "items": {"type": "string"}},
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "wp_id": {"type": "string"},
+                            "dependency_type": {"type": "string"},
+                        },
+                    },
+                },
+                "definition_of_done": {"type": "array", "items": {"type": "string"}},
+                "state": {
+                    "type": "string",
+                    "enum": ["PLANNED", "READY", "IN_PROGRESS", "AWAITING_GATE", "DONE"],
+                },
+                "ws_child_refs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "governance_pins": {
+                    "type": "object",
+                    "properties": {
+                        "adr_refs": {"type": "array", "items": {"type": "string"}},
+                        "policy_refs": {"type": "array", "items": {"type": "string"}},
+                    },
+                },
+            },
+        },
+        "schema_version": "1.0",
+    },
+    # -------------------------------------------------------------------------
+    # LEGACY
+    # -------------------------------------------------------------------------
     {
         "doc_type_id": "story_backlog",
         "name": "Story Backlog (Legacy)",
