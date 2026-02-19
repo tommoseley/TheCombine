@@ -433,6 +433,90 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "schema_version": "1.0",
     },
     # -------------------------------------------------------------------------
+    # WORK STATEMENT (WS-ONTOLOGY-002)
+    # -------------------------------------------------------------------------
+    {
+        "doc_type_id": "work_statement",
+        "name": "Work Statement",
+        "view_docdef": "WorkStatementView",
+        "description": (
+            "Unit of authorized execution within a Work Package. "
+            "Defines objective, scope, procedure, verification criteria, "
+            "and prohibited actions. Has its own lifecycle state machine."
+        ),
+        "category": "planning",
+        "icon": "file-check",
+        "builder_role": None,  # Not LLM-generated
+        "builder_task": None,
+        "handler_id": "work_statement",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "project",
+        "cardinality": "multi",
+        "instance_key": "ws_id",
+        "parent_doc_type": "work_package",
+        "display_order": 39,
+        "schema_definition": {
+            "type": "object",
+            "required": [
+                "ws_id",
+                "parent_wp_id",
+                "title",
+                "objective",
+                "scope_in",
+                "scope_out",
+                "procedure",
+                "verification_criteria",
+                "prohibited_actions",
+                "state",
+                "governance_pins",
+            ],
+            "properties": {
+                "ws_id": {"type": "string"},
+                "parent_wp_id": {"type": "string"},
+                "title": {"type": "string"},
+                "objective": {"type": "string"},
+                "scope_in": {"type": "array", "items": {"type": "string"}},
+                "scope_out": {"type": "array", "items": {"type": "string"}},
+                "procedure": {"type": "array", "items": {"type": "string"}},
+                "verification_criteria": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "prohibited_actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "state": {
+                    "type": "string",
+                    "enum": [
+                        "DRAFT",
+                        "READY",
+                        "IN_PROGRESS",
+                        "ACCEPTED",
+                        "REJECTED",
+                        "BLOCKED",
+                    ],
+                },
+                "governance_pins": {
+                    "type": "object",
+                    "properties": {
+                        "adr_refs": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "policy_refs": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        },
+        "schema_version": "1.0",
+    },
+    # -------------------------------------------------------------------------
     # LEGACY
     # -------------------------------------------------------------------------
     {
