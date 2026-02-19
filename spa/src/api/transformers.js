@@ -174,6 +174,12 @@ function transformTrack(track, interrupts = []) {
         questions,
         interruptId: interrupt?.id,
         blockedBy: track.blocked_by || [],
+        // WP metadata (passed through from API if available)
+        ws_done: track.ws_done ?? track.metadata?.ws_done ?? 0,
+        ws_total: track.ws_total ?? track.metadata?.ws_total ?? 0,
+        mode_b_count: track.mode_b_count ?? track.metadata?.mode_b_count ?? 0,
+        dependencies: track.dependencies || [],
+        workStatements: track.work_statements || track.metadata?.work_statements || [],
     };
 }
 

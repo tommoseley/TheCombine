@@ -26,11 +26,11 @@
     --text-dim: #94a3b8;
 
     --header-bg-doc: rgba(16, 185, 129, 0.08);
-    --header-bg-epic: rgba(99, 102, 241, 0.08);
+    --header-bg-wp: rgba(99, 102, 241, 0.08);
     --header-border-doc: rgba(16, 185, 129, 0.25);
-    --header-border-epic: rgba(99, 102, 241, 0.25);
+    --header-border-wp: rgba(99, 102, 241, 0.25);
     --header-text-doc: #059669;
-    --header-text-epic: #4f46e5;
+    --header-text-wp: #4f46e5;
 
     --state-stabilized-bg: #10b981;
     --state-stabilized-text: #059669;
@@ -87,11 +87,11 @@
     --text-dim: #94a3b8;
 
     --header-bg-doc: rgba(16, 185, 129, 0.15);
-    --header-bg-epic: rgba(245, 158, 11, 0.15);
+    --header-bg-wp: rgba(245, 158, 11, 0.15);
     --header-border-doc: rgba(16, 185, 129, 0.4);
-    --header-border-epic: rgba(245, 158, 11, 0.4);
+    --header-border-wp: rgba(245, 158, 11, 0.4);
     --header-text-doc: #34d399;
-    --header-text-epic: #fbbf24;
+    --header-text-wp: #fbbf24;
 
     --state-stabilized-bg: #10b981;
     --state-stabilized-text: #6ee7b7;
@@ -148,11 +148,11 @@
     --text-dim: #7cb8e0;
 
     --header-bg-doc: rgba(255, 255, 255, 0.1);
-    --header-bg-epic: rgba(255, 255, 255, 0.1);
+    --header-bg-wp: rgba(255, 255, 255, 0.1);
     --header-border-doc: rgba(255, 255, 255, 0.3);
-    --header-border-epic: rgba(255, 255, 255, 0.3);
+    --header-border-wp: rgba(255, 255, 255, 0.3);
     --header-text-doc: #ffffff;
-    --header-text-epic: #ffffff;
+    --header-text-wp: #ffffff;
 
     --state-stabilized-bg: #10b981;
     --state-stabilized-text: #6ee7b7;
@@ -237,9 +237,9 @@ body {
     background: var(--header-bg-doc);
     border-color: var(--header-border-doc);
 }
-.subway-node-header-epic {
-    background: var(--header-bg-epic);
-    border-color: var(--header-border-epic);
+.subway-node-header-wp {
+    background: var(--header-bg-wp);
+    border-color: var(--header-border-wp);
 }
 .subway-panel {
     background: var(--bg-panel);

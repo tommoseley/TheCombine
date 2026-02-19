@@ -12,7 +12,7 @@ import DocumentNode from './DocumentNode';
 import WaypointNode from './WaypointNode';
 import FullDocumentViewer from './FullDocumentViewer';
 import ProjectWorkflow from './ProjectWorkflow';
-import { buildGraph, getLayoutedElements, addEpicsToLayout } from '../utils/layout';
+import { buildGraph, getLayoutedElements, addChildrenToLayout } from '../utils/layout';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
 import { api } from '../api/client';
@@ -257,9 +257,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         if (data.length === 0) return { layoutNodes: [], layoutEdges: [] };
 
         const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes, edges, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
+        const { nodes, edges, parentId, childNodes } = buildGraph(data, expandedId, callbacksWithType);
         const dagreResult = getLayoutedElements(nodes, edges, currentPositionsRef.current);
-        const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
+        const { nodes: allNodes, edges: allEdges } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, callbacksWithType);
         const nodesWithType = allNodes.map(n => ({ ...n, data: { ...n.data, expandType: n.id === expandedId ? expandType : null } }));
         return { layoutNodes: nodesWithType, layoutEdges: allEdges };
     }, [data, expandedId, expandType, callbacks, theme, onZoomToNode, projectId, projectCode]);
@@ -271,9 +271,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         if (data.length === 0) return;
 
         const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes: n, edges: e, epicBacklogId, epicChildren } = buildGraph(data, expandedId, callbacksWithType);
+        const { nodes: n, edges: e, parentId, childNodes } = buildGraph(data, expandedId, callbacksWithType);
         const dagreResult = getLayoutedElements(n, e, currentPositionsRef.current);
-        const { nodes: allNodes, edges: allEdges } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, callbacksWithType);
+        const { nodes: allNodes, edges: allEdges } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, callbacksWithType);
         const nodesWithType = allNodes.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
         setNodes(nodesWithType);
         setEdges(allEdges);
@@ -298,9 +298,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         );
         // Rebuild layout without saved positions
         const cbs = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes: n, edges: e, epicBacklogId, epicChildren } = buildGraph(data, expandedId, cbs);
+        const { nodes: n, edges: e, parentId, childNodes } = buildGraph(data, expandedId, cbs);
         const dagreResult = getLayoutedElements(n, e, null);
-        const { nodes: allN, edges: allE } = addEpicsToLayout(dagreResult, epicBacklogId, epicChildren, expandedId, cbs);
+        const { nodes: allN, edges: allE } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, cbs);
         const nodesWithType = allN.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
         setNodes(nodesWithType);
         setEdges(allE);

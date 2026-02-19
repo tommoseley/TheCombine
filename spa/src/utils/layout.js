@@ -54,8 +54,8 @@ export const buildGraph = (data, expandedId, callbacks) => {
     let nodes = [];
     let edges = [];
     let prevId = null;
-    let epicBacklogId = null;
-    let epicChildren = [];
+    let parentId = null;
+    let childNodes = [];
     const theme = callbacks.theme || 'industrial';
 
     data.forEach((item, idx) => {
@@ -89,54 +89,54 @@ export const buildGraph = (data, expandedId, callbacks) => {
         }
 
         if (item.children?.length > 0) {
-            epicBacklogId = item.id;
-            epicChildren = item.children;
+            parentId = item.id;
+            childNodes = item.children;
         }
 
         prevId = item.id;
     });
 
-    return { nodes, edges, epicBacklogId, epicChildren };
+    return { nodes, edges, parentId, childNodes };
 };
 
 /**
- * Add L2 epic nodes to the layout with manifold routing
+ * Add L2 child nodes (Work Packages) to the layout with manifold routing
  */
-export const addEpicsToLayout = (layoutResult, epicBacklogId, epicChildren, expandedId, callbacks) => {
+export const addChildrenToLayout = (layoutResult, parentId, childNodes, expandedId, callbacks) => {
     const { nodes, edges } = layoutResult;
-    if (!epicBacklogId || !epicChildren.length) return { nodes, edges };
+    if (!parentId || !childNodes.length) return { nodes, edges };
 
-    const backlogNode = nodes.find(n => n.id === epicBacklogId);
-    if (!backlogNode) return { nodes, edges };
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode) return { nodes, edges };
 
-    const backlogX = backlogNode.position.x;
-    const backlogY = backlogNode.position.y + (backlogNode.data.height || 95);
-    const backlogState = backlogNode.data.state;
+    const parentX = parentNode.position.x;
+    const parentY = parentNode.position.y + (parentNode.data.height || 95);
+    const parentState = parentNode.data.state;
     const theme = callbacks.theme || 'industrial';
-    const edgeColor = getEdgeColor(backlogState, theme);
-    const isAnimated = backlogState === 'active';
+    const edgeColor = getEdgeColor(parentState, theme);
+    const isAnimated = parentState === 'active';
 
-    const ROW_HEIGHT = GRID.EPIC_HEIGHT + GRID.EPIC_GAP_Y;
-    const numRows = Math.ceil(epicChildren.length / GRID.EPICS_PER_ROW);
+    const ROW_HEIGHT = GRID.WP_HEIGHT + GRID.WP_GAP_Y;
+    const numRows = Math.ceil(childNodes.length / GRID.WPS_PER_ROW);
 
-    // Spine X position (15% from left of backlog node)
-    const SPINE_X = backlogX + 280 * 0.15;
+    // Spine X position (15% from left of parent node)
+    const SPINE_X = parentX + 280 * 0.15;
     const JUNCTION_OFFSET_Y = 50;
 
-    // Group epics by row
-    const epicsByRow = {};
-    epicChildren.forEach((epic, idx) => {
-        const row = Math.floor(idx / GRID.EPICS_PER_ROW);
-        if (!epicsByRow[row]) epicsByRow[row] = [];
-        epicsByRow[row].push({ epic, idx });
+    // Group children by row
+    const childrenByRow = {};
+    childNodes.forEach((child, idx) => {
+        const row = Math.floor(idx / GRID.WPS_PER_ROW);
+        if (!childrenByRow[row]) childrenByRow[row] = [];
+        childrenByRow[row].push({ child, idx });
     });
 
     // Create junction waypoints and edges for each row
     for (let row = 0; row < numRows; row++) {
-        const rowEpics = epicsByRow[row] || [];
-        if (rowEpics.length === 0) continue;
+        const rowChildren = childrenByRow[row] || [];
+        if (rowChildren.length === 0) continue;
 
-        const rowY = backlogY + GRID.EPIC_OFFSET_Y + row * ROW_HEIGHT;
+        const rowY = parentY + GRID.WP_OFFSET_Y + row * ROW_HEIGHT;
         const junctionId = `junction-row-${row}`;
 
         // Add invisible junction waypoint
@@ -149,11 +149,11 @@ export const addEpicsToLayout = (layoutResult, epicBacklogId, epicChildren, expa
             selectable: false
         });
 
-        // Edge from backlog (row 0) or previous junction to this junction
+        // Edge from parent (row 0) or previous junction to this junction
         if (row === 0) {
             edges.push({
                 id: `e-spine-drop-${row}`,
-                source: epicBacklogId,
+                source: parentId,
                 target: junctionId,
                 type: 'straight',
                 animated: isAnimated,
@@ -170,17 +170,17 @@ export const addEpicsToLayout = (layoutResult, epicBacklogId, epicChildren, expa
             });
         }
 
-        // Add epic nodes and edges from junction to each epic
-        rowEpics.forEach(({ epic, idx }) => {
-            const col = idx % GRID.EPICS_PER_ROW;
-            const x = backlogX + GRID.EPIC_OFFSET_X + col * (GRID.EPIC_WIDTH + GRID.EPIC_GAP_X);
+        // Add child nodes and edges from junction
+        rowChildren.forEach(({ child, idx }) => {
+            const col = idx % GRID.WPS_PER_ROW;
+            const x = parentX + GRID.WP_OFFSET_X + col * (GRID.WP_WIDTH + GRID.WP_GAP_X);
             const y = rowY;
-            const isExpanded = expandedId === epic.id;
+            const isExpanded = expandedId === child.id;
 
             nodes.push({
-                id: epic.id,
+                id: child.id,
                 type: 'documentNode',
-                data: { ...epic, width: GRID.EPIC_WIDTH, height: GRID.EPIC_HEIGHT, isExpanded, ...callbacks },
+                data: { ...child, width: GRID.WP_WIDTH, height: GRID.WP_HEIGHT, isExpanded, ...callbacks },
                 draggable: false,
                 connectable: false,
                 position: { x, y },
@@ -189,11 +189,11 @@ export const addEpicsToLayout = (layoutResult, epicBacklogId, epicChildren, expa
                 zIndex: isExpanded ? 1000 : 0
             });
 
-            // Edge from junction to epic (manifold branch)
+            // Edge from junction to child (manifold branch)
             edges.push({
-                id: `e-branch-${epic.id}`,
+                id: `e-branch-${child.id}`,
                 source: junctionId,
-                target: epic.id,
+                target: child.id,
                 type: 'smoothstep',
                 pathOptions: { borderRadius: 20 },
                 animated: isAnimated,

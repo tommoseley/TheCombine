@@ -64,13 +64,13 @@ export const getEdgeColor = (state, theme) => {
 
 // Layout grid constants
 export const GRID = {
-    EPICS_PER_ROW: 3,
-    EPIC_WIDTH: 220,
-    EPIC_HEIGHT: 70,
-    EPIC_GAP_X: 50,
-    EPIC_GAP_Y: 100,
-    EPIC_OFFSET_X: 80,
-    EPIC_OFFSET_Y: 80
+    WPS_PER_ROW: 3,
+    WP_WIDTH: 220,
+    WP_HEIGHT: 85,
+    WP_GAP_X: 50,
+    WP_GAP_Y: 100,
+    WP_OFFSET_X: 80,
+    WP_OFFSET_Y: 80
 };
 
 // Sidecar tray constants

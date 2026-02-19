@@ -1,7 +1,7 @@
 import { Handle, Position } from 'reactflow';
 import StationDots from './StationDots';
 import QuestionTray from './QuestionTray';
-import FeatureGrid from './FeatureGrid';
+import WSChildList from './WSChildList';
 
 /**
  * Unified Artifact State Model
@@ -75,7 +75,7 @@ export default function DocumentNode({ data }) {
     const isExpanded = data.isExpanded;
     const expandType = data.expandType;
     const hasQuestions = data.questions?.length > 0;
-    const hasFeatures = data.features?.length > 0;
+    const hasWorkStatements = data.workStatements?.length > 0;
     const needsInput = data.stations?.some(s => s.state === 'active' && s.needs_input);
 
     // Map raw state to unified artifact state
@@ -90,8 +90,8 @@ export default function DocumentNode({ data }) {
     // Show stations whenever they exist (produced shows all complete, in-progress shows progress)
     const showStations = data.stations?.length > 0;
     const stateClass = isInProgress ? 'node-active' : '';
-    const levelLabel = isL1 ? 'DOCUMENT' : 'EPIC';
-    const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-epic';
+    const levelLabel = isL1 ? 'DOCUMENT' : 'WORK PACKAGE';
+    const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-wp';
 
     // Colors from artifact state
     const colors = ARTIFACT_COLORS[artifactState];
@@ -103,6 +103,12 @@ export default function DocumentNode({ data }) {
 
     // Display name for state
     const displayState = ARTIFACT_DISPLAY[artifactState];
+
+    // WP-specific metadata (L2 nodes)
+    const wsDone = data.ws_done ?? 0;
+    const wsTotal = data.ws_total ?? 0;
+    const modeBCount = data.mode_b_count ?? 0;
+    const depCount = data.dependencies?.length ?? data.dep_count ?? 0;
 
     return (
         <div className="relative">
@@ -122,7 +128,7 @@ export default function DocumentNode({ data }) {
                     <div className="flex items-center gap-2">
                         <span
                             className="text-[8px] font-bold uppercase tracking-wider"
-                            style={{ color: isL1 ? 'var(--header-text-doc)' : 'var(--header-text-epic)' }}
+                            style={{ color: isL1 ? 'var(--header-text-doc)' : 'var(--header-text-wp, var(--header-text-doc))' }}
                         >
                             {levelLabel}
                         </span>
@@ -168,6 +174,37 @@ export default function DocumentNode({ data }) {
                             )}
                         </div>
                     </div>
+
+                    {/* WP metadata badges (L2 only) */}
+                    {!isL1 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                            {/* Progress: ws_done / ws_total */}
+                            <span
+                                className="text-[8px] px-1.5 py-0.5 rounded"
+                                style={{ background: 'var(--bg-badge, rgba(100,116,139,0.15))', color: 'var(--text-muted)' }}
+                            >
+                                {wsDone}/{wsTotal} WS
+                            </span>
+                            {/* Dependency count */}
+                            {depCount > 0 && (
+                                <span
+                                    className="text-[8px] px-1.5 py-0.5 rounded"
+                                    style={{ background: 'rgba(234,179,8,0.15)', color: '#a16207' }}
+                                >
+                                    {depCount} dep{depCount !== 1 ? 's' : ''}
+                                </span>
+                            )}
+                            {/* Mode B count */}
+                            {modeBCount > 0 && (
+                                <span
+                                    className="text-[8px] px-1.5 py-0.5 rounded"
+                                    style={{ background: 'rgba(245,158,11,0.15)', color: '#b45309' }}
+                                >
+                                    {modeBCount} Mode B
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     {showStations && <StationDots stations={data.stations} />}
 
@@ -216,22 +253,22 @@ export default function DocumentNode({ data }) {
                             </button>
                         )}
 
-                        {!isL1 && hasFeatures && (
-                            isExpanded && expandType === 'features' ? (
-                                <span className="text-[9px] text-indigo-400">
-                                    {data.features.length} features expanded
+                        {!isL1 && hasWorkStatements && (
+                            isExpanded && expandType === 'workStatements' ? (
+                                <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                                    {data.workStatements.length} work statements expanded
                                 </span>
                             ) : (
                                 <button
                                     className="subway-button px-2 py-1 rounded text-[9px] transition-colors flex items-center gap-1"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        data.onExpand?.(data.id, 'features');
+                                        data.onExpand?.(data.id, 'workStatements');
                                     }}
                                 >
-                                    <span className="text-indigo-400">{data.features.length}</span>
-                                    <span>features</span>
-                                    <span className="text-indigo-400">&#9654;</span>
+                                    <span style={{ color: 'var(--state-active-text, #f59e0b)' }}>{data.workStatements.length}</span>
+                                    <span>work statements</span>
+                                    <span style={{ color: 'var(--state-active-text, #f59e0b)' }}>&#9654;</span>
                                 </button>
                             )
                         )}
@@ -260,17 +297,17 @@ export default function DocumentNode({ data }) {
                 />
             )}
 
-            {isExpanded && expandType === 'features' && hasFeatures && (
-                <FeatureGrid
-                    features={data.features}
-                    epicName={data.name}
+            {isExpanded && expandType === 'workStatements' && hasWorkStatements && (
+                <WSChildList
+                    workStatements={data.workStatements}
+                    wpName={data.name}
                     nodeWidth={data.width}
                     onClose={() => data.onCollapse?.()}
                     onZoomComplete={() => data.onZoomToNode?.(data.id)}
                 />
             )}
 
-            
+
 
             <Handle
                 type="source"

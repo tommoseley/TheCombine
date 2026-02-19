@@ -10,7 +10,6 @@ import OpenQuestionBlock from './OpenQuestionBlock';
 import OpenQuestionsBlock from './OpenQuestionsBlock';
 import RisksBlock from './RisksBlock';
 import SummaryBlock from './SummaryBlock';
-import EpicSummaryBlock from './EpicSummaryBlock';
 import StorySummaryBlock from './StorySummaryBlock';
 import ArchComponentBlock from './ArchComponentBlock';
 import WorkflowBlock from './WorkflowBlock';
@@ -57,9 +56,7 @@ const BLOCK_REGISTRY = {
 
     // Summary blocks
     'schema:SummaryBlockV1': SummaryBlock,
-    'schema:EpicSummaryBlockV1': EpicSummaryBlock,
     'schema:StorySummaryBlockV1': StorySummaryBlock,
-    'schema:EpicStoriesCardBlockV1': EpicSummaryBlock, // Similar treatment
     'schema:StoriesBlockV1': StringListBlock, // List of stories
 
     // Discovery blocks
@@ -96,7 +93,6 @@ export {
     OpenQuestionsBlock,
     RisksBlock,
     SummaryBlock,
-    EpicSummaryBlock,
     StorySummaryBlock,
     ArchComponentBlock,
     WorkflowBlock,
