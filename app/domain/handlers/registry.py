@@ -35,6 +35,7 @@ from app.domain.handlers.plan_explanation_handler import PlanExplanationHandler
 from app.domain.handlers.pipeline_run_handler import PipelineRunHandler
 from app.domain.handlers.work_package_handler import WorkPackageHandler
 from app.domain.handlers.work_statement_handler import WorkStatementHandler
+from app.domain.handlers.project_logbook_handler import ProjectLogbookHandler
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     "work_package": WorkPackageHandler(),
     # WS-ONTOLOGY-002: Work Statement
     "work_statement": WorkStatementHandler(),
+    # WS-ONTOLOGY-003: Project Logbook
+    "project_logbook": ProjectLogbookHandler(),
 }
 
 

@@ -517,6 +517,64 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "schema_version": "1.0",
     },
     # -------------------------------------------------------------------------
+    # PROJECT LOGBOOK (WS-ONTOLOGY-003)
+    # -------------------------------------------------------------------------
+    {
+        "doc_type_id": "project_logbook",
+        "name": "Project Logbook",
+        "view_docdef": "ProjectLogbookView",
+        "description": (
+            "Append-only audit trail of Work Statement acceptances. "
+            "Created lazily on first WS acceptance. Tracks mode-B rate "
+            "and verification debt across the project."
+        ),
+        "category": "governance",
+        "icon": "book-open",
+        "builder_role": None,  # Not LLM-generated — created by acceptance orchestration
+        "builder_task": None,
+        "handler_id": "project_logbook",
+        "required_inputs": [],
+        "optional_inputs": [],
+        "gating_rules": {},
+        "scope": "project",
+        "display_order": 40,
+        "schema_definition": {
+            "type": "object",
+            "required": [
+                "schema_version",
+                "project_id",
+                "mode_b_rate",
+                "verification_debt_open",
+                "entries",
+            ],
+            "properties": {
+                "schema_version": {"type": "string"},
+                "project_id": {"type": "string"},
+                "mode_b_rate": {"type": "number"},
+                "verification_debt_open": {"type": "integer"},
+                "program_ref": {"type": "string"},
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "timestamp": {"type": "string"},
+                            "ws_id": {"type": "string"},
+                            "parent_wp_id": {"type": "string"},
+                            "result": {"type": "string"},
+                            "mode_b_list": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "tier0_json": {"type": "object"},
+                        },
+                    },
+                },
+            },
+        },
+        "schema_version": "1.0",
+    },
+    # -------------------------------------------------------------------------
     # LEGACY
     # -------------------------------------------------------------------------
     {
@@ -536,7 +594,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         "optional_inputs": ["technical_architecture"],
         "gating_rules": {},
         "scope": "epic",  # One per epic
-        "display_order": 40,
+        "display_order": 50,
         "schema_definition": {
             "type": "object",
             "required": ["stories"],
