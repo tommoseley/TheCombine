@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-19
-**Updated By:** Claude (WS-ADMIN-RECONCILE-001 / WS-ADMIN-EXEC-UI-001 session)
+**Updated By:** Claude (WS-ONTOLOGY-001 session)
 
 ## Current Focus
 
@@ -17,6 +17,10 @@
 **DRAFT:** ADR-052 -- Document Pipeline Integration for WP/WS
 - Defines schema/prompt changes for IPP/IPF, new artifact types, Production Floor updates
 - Accept on merge
+
+**COMPLETE:** WS-ONTOLOGY-001 -- Register work_package as first-class document type
+- Handler, state machine, seed entry, registry registration, 20 Tier 1 tests
+- Commit `76d216a`, pushed to `workbench/ws-e583fd0642f5`
 
 **COMPLETE:** WS-ADMIN-RECONCILE-001 -- Restore admin operational visibility as SPA views
 **COMPLETE:** WS-ADMIN-EXEC-UI-001 -- Admin Executions list UX improvements
@@ -166,10 +170,12 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 
 ## Handoff Notes
 
-### Recent Work (2026-02-18/19)
+### Recent Work (2026-02-19)
+- **WS-ONTOLOGY-001** complete -- work_package document type: state machine, handler, seed entry, 20 tests (6 criteria)
+
+### Previous Work (2026-02-18/19)
 - **WS-ADMIN-RECONCILE-001** complete -- Admin Panel, ExecutionDetail, CostDashboard, telemetry router mounted, dead links fixed
 - **WS-ADMIN-EXEC-UI-001** complete -- Full execution IDs, project code column, sortable headers, doc-type filter, search
-- **Bug fixes** -- /admin/executions/{id} deep link routing, exec- prefixed ID resolution, transcript crash and content rendering
 
 ### Previous Work (2026-02-18)
 - ADR-050, 051, 052 written
@@ -177,6 +183,7 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - HTMX admin removal executed under ADR-050 protocol
 
 ### Next Work
+- WS-ONTOLOGY-002 through WS-ONTOLOGY-007 (remaining ontology work statements)
 - Add Test-First Rule to AI.md (ADR-050 acceptance criterion 5)
 - Add ADR-050 reference to POL-WS-001 (ADR-050 acceptance criterion 4)
 - Project Logbook design (productized PROJECT_STATE.md for Combine-managed projects)
