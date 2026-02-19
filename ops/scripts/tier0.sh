@@ -11,13 +11,19 @@
 #   ops/scripts/tier0.sh --allow-missing typecheck     # Mode B: accept missing mypy
 #   ops/scripts/tier0.sh --frontend                    # force SPA build
 #   ops/scripts/tier0.sh --scope app/ tests/           # validate file scope
+#   ops/scripts/tier0.sh --ws --scope ops/ tests/      # WS mode: scope mandatory
+#
+# WS mode (WS-TIER0-SCOPE-001):
+#   Activated by --ws flag or COMBINE_WS_ID env var.
+#   When WS mode is active, --scope is MANDATORY (hard fail without it).
+#   Scope result is always PASS or FAIL (never SKIPPED) in WS mode.
 #
 # Checks:
 #   1. Backend tests  (pytest)
 #   2. Backend lint   (ruff)   — changed/new files only
 #   3. Backend types  (mypy)   — FAILS if missing, unless --allow-missing typecheck
 #   4. Frontend build (vite)   — auto-runs when spa/ files changed, or --frontend
-#   5. Scope validation        — only with --scope
+#   5. Scope validation        — mandatory in WS mode, opt-in otherwise
 #
 # Mode B:
 #   --allow-missing <check>  declares a Mode B exception for a missing tool.
@@ -48,6 +54,7 @@ START_EPOCH_MS=$(date +%s%3N 2>/dev/null || echo $(($(date +%s) * 1000)))
 # Parse arguments
 # ---------------------------------------------------------------------------
 FRONTEND_FORCED=false
+WS_FLAG=false
 SCOPE_PATHS=()
 ALLOWED_MISSING=()
 
@@ -55,6 +62,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --frontend)
             FRONTEND_FORCED=true
+            shift
+            ;;
+        --ws)
+            WS_FLAG=true
             shift
             ;;
         --scope)
@@ -75,11 +86,42 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "ERROR: Unknown argument: $1" >&2
-            echo "Usage: tier0.sh [--frontend] [--scope path1 ...] [--allow-missing check ...]" >&2
+            echo "Usage: tier0.sh [--ws] [--frontend] [--scope path1 ...] [--allow-missing check ...]" >&2
             exit 2
             ;;
     esac
 done
+
+# ---------------------------------------------------------------------------
+# WS mode detection (WS-TIER0-SCOPE-001)
+# ---------------------------------------------------------------------------
+# WS mode is active if --ws flag is set OR COMBINE_WS_ID env var is set.
+WS_MODE=false
+if [[ "$WS_FLAG" == "true" ]]; then
+    WS_MODE=true
+elif [[ -n "${COMBINE_WS_ID:-}" ]]; then
+    WS_MODE=true
+fi
+
+# In WS mode, --scope is mandatory (hard fail).
+# Exception: CI with ALLOW_SCOPE_SKIP_IN_CI=1 bypasses this requirement.
+if [[ "$WS_MODE" == "true" && ${#SCOPE_PATHS[@]} -eq 0 ]]; then
+    if [[ "${CI:-}" == "true" && "${ALLOW_SCOPE_SKIP_IN_CI:-}" == "1" ]]; then
+        echo "WARNING: WS mode scope requirement bypassed via ALLOW_SCOPE_SKIP_IN_CI=1"
+    else
+        echo "FAIL: WS mode requires --scope." >&2
+        echo "When running Tier 0 in WS mode (--ws or COMBINE_WS_ID), you MUST" >&2
+        echo "provide --scope with the path prefixes from the Work Statement's" >&2
+        echo "allowed_paths[] field." >&2
+        echo "" >&2
+        echo "Example: ops/scripts/tier0.sh --ws --scope ops/scripts/ tests/infrastructure/" >&2
+        exit 1
+    fi
+fi
+
+# Normalize scope prefixes: ensure consistent trailing / for directory prefixes
+# (a prefix without / matches as a string prefix, which is the desired behavior
+# for both file and directory paths).
 
 # ---------------------------------------------------------------------------
 # CI guard: reject --allow-missing in CI unless explicitly permitted
@@ -93,6 +135,9 @@ if [[ "${CI:-}" == "true" && ${#ALLOWED_MISSING[@]} -gt 0 ]]; then
     fi
     echo "WARNING: Mode B allowed in CI via ALLOW_MODE_B_IN_CI=1 (checks: ${ALLOWED_MISSING[*]})"
 fi
+
+
+# (CI guard for WS mode scope is handled above in the WS mode scope check)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -110,9 +155,15 @@ is_allowed_missing() {
 # ---------------------------------------------------------------------------
 # Collect changed files (used by lint, frontend detection, scope)
 # ---------------------------------------------------------------------------
+# Test seam: TIER0_CHANGED_FILES_OVERRIDE overrides changed file detection.
+# This is used by harness tests to control which files appear as "changed"
+# without depending on real git state. Not for production use.
+if [[ -n "${TIER0_CHANGED_FILES_OVERRIDE:-}" ]]; then
+    changed_files="$TIER0_CHANGED_FILES_OVERRIDE"
+    new_untracked=""
 # In CI with a known base branch, diff against merge-base for accurate
 # branch-level change detection. Locally, diff against HEAD for uncommitted.
-if [[ "${CI:-}" == "true" ]]; then
+elif [[ "${CI:-}" == "true" ]]; then
     # GitHub Actions: GITHUB_BASE_REF for PRs, fall back to origin/main
     # Custom override: TIER0_DIFF_BASE
     if [[ -n "${TIER0_DIFF_BASE:-}" ]]; then
@@ -274,10 +325,14 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Check 5: Scope validation (conditional)
+# Check 5: Scope validation (conditional; mandatory in WS mode)
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== CHECK 5: Scope Validation ==="
+if [[ "$WS_MODE" == "true" ]]; then
+    echo "(WS mode: scope enforcement mandatory)"
+fi
+
 if [[ ${#SCOPE_PATHS[@]} -gt 0 ]]; then
     scope_violations=""
     for f in $ALL_CHANGED; do
@@ -294,7 +349,7 @@ if [[ ${#SCOPE_PATHS[@]} -gt 0 ]]; then
     done
 
     if [[ -n "$scope_violations" ]]; then
-        echo "$scope_violations"
+        echo "$scope_violations" >&2
         RESULTS[scope]=1
         echo "FAIL: scope validation"
         OVERALL_EXIT=1
@@ -390,8 +445,22 @@ else
     overall_label="PASS"
 fi
 
+# WS mode fields
+if [[ "$WS_MODE" == "true" ]]; then
+    json_ws_mode="true"
+else
+    json_ws_mode="false"
+fi
+
+# Declared scope paths array
+json_scope_paths=""
+for sp in "${SCOPE_PATHS[@]+"${SCOPE_PATHS[@]}"}"; do
+    [[ -n "$json_scope_paths" ]] && json_scope_paths+=","
+    json_scope_paths+="\"${sp}\""
+done
+
 echo ""
 echo "--- TIER0_JSON ---"
-echo "{\"schema_version\":1,\"overall\":\"${overall_label}\",\"exit_code\":${OVERALL_EXIT},\"started_at\":\"${STARTED_AT}\",\"duration_ms\":${DURATION_MS},\"checks\":{${json_checks}},\"mode_b\":[${json_mode_b}],\"changed_files\":[${json_files}]}"
+echo "{\"schema_version\":1,\"overall\":\"${overall_label}\",\"exit_code\":${OVERALL_EXIT},\"started_at\":\"${STARTED_AT}\",\"duration_ms\":${DURATION_MS},\"ws_mode\":${json_ws_mode},\"declared_scope_paths\":[${json_scope_paths}],\"checks\":{${json_checks}},\"mode_b\":[${json_mode_b}],\"changed_files\":[${json_files}]}"
 
 exit $OVERALL_EXIT

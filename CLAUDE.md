@@ -508,9 +508,14 @@ python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 python -m pytest tests/ -v
 
 # Tier 0 verification (ADR-050) — mandatory baseline for all work
-ops/scripts/tier0.sh --allow-missing typecheck  # pytest + lint (Mode B: mypy not installed)
+ops/scripts/tier0.sh                            # pytest + lint + typecheck
 ops/scripts/tier0.sh --frontend                 # force SPA build (auto-detects spa/ changes)
 ops/scripts/tier0.sh --scope app/ tests/        # also validate file scope
+
+# Tier 0 in WS mode (WS-TIER0-SCOPE-001) — mandatory for Work Statement execution
+# After completing a WS, run with --ws and --scope from the WS's allowed_paths[]:
+ops/scripts/tier0.sh --ws --scope ops/scripts/ tests/infrastructure/ docs/policies/ CLAUDE.md
+# If Tier 0 is run in WS mode without --scope, it will FAIL by design.
 
 # Regenerate seed manifest
 # (script TBD - currently manual)

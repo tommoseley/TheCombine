@@ -78,6 +78,21 @@ What work is being executed and why
 ### Governing References
 ADRs, policies, schemas, and standards that control the work
 
+### Verification Mode
+`A` (all criteria verified) or `B` (declared exceptions)
+
+### Allowed Paths
+A list of file-path prefixes that define the containment boundary for this Work Statement. These prefixes are passed to Tier 0 as `--scope` arguments during WS execution (see Section 6).
+
+Example:
+```
+## Allowed Paths
+- ops/scripts/
+- tests/infrastructure/
+- docs/policies/
+- CLAUDE.md
+```
+
 ### Scope
 Explicit statement of what is included and excluded
 
@@ -133,6 +148,16 @@ If a step cannot be completed as written:
 
 1. **STOP**
 2. Escalate for revision or clarification
+
+### Tier 0 Verification in WS Mode
+
+When executing a Work Statement, Tier 0 **MUST** be invoked in WS mode with `--scope` prefixes derived from the Work Statement's `allowed_paths[]` field:
+
+```bash
+ops/scripts/tier0.sh --ws --scope <each allowed_paths prefix>
+```
+
+If Tier 0 is run in WS mode without `--scope`, it will **FAIL by design**. This prevents "false green" runs where scope was never validated.
 
 ### AI-Specific Rules
 

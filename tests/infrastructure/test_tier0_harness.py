@@ -292,8 +292,15 @@ class TestMachineReadableOutput:
 
     def test_json_emitted_on_failure(self):
         """JSON must be emitted even when harness fails (for downstream parsing)."""
-        # Run without --allow-missing; mypy missing will cause failure
-        result = run_harness()
+        # Trigger a guaranteed scope failure using the test seam
+        result = run_harness(
+            "--ws",
+            "--scope", "nonexistent/",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "app/main.py",
+            },
+        )
         data = extract_json(result.stdout)
         assert data is not None, (
             "JSON must be emitted even on FAIL — downstream tools need it"
@@ -370,4 +377,236 @@ class TestCIGuard:
         )
         assert "Mode B allowed in CI" in result.stdout, (
             "Must acknowledge Mode B CI override in output"
+        )
+
+
+# ==========================================================================
+# WS-TIER0-SCOPE-001: Work Statement mode scope enforcement
+#
+# Criteria 1-7 from WS-TIER0-SCOPE-001. These tests must all FAIL before
+# implementation and PASS after.
+#
+# Test seam: TIER0_CHANGED_FILES_OVERRIDE env var controls which files
+# appear as "changed" without depending on real git state.
+# ==========================================================================
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 1: --ws flag without --scope must fail
+# ---------------------------------------------------------------------------
+class TestWSCriterion1FlagRequiresScope:
+    """Invoke tier0 with --ws and no --scope -> exit non-zero, stderr has
+    actionable error instructing how to pass scope."""
+
+    def test_ws_flag_without_scope_fails(self):
+        result = run_harness("--ws", *ALLOW_MISSING_TYPECHECK)
+        assert result.returncode != 0, (
+            "WS mode (--ws) without --scope must return non-zero"
+        )
+
+    def test_ws_flag_without_scope_has_actionable_error(self):
+        result = run_harness("--ws", *ALLOW_MISSING_TYPECHECK)
+        combined = result.stdout + result.stderr
+        assert "--scope" in combined, (
+            "Error message must mention --scope so the user knows how to fix it"
+        )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 2: COMBINE_WS_ID env var without --scope must fail
+# ---------------------------------------------------------------------------
+class TestWSCriterion2EnvVarRequiresScope:
+    """Invoke tier0 with COMBINE_WS_ID=WS-123 and no --scope -> fail."""
+
+    def test_ws_env_var_without_scope_fails(self):
+        result = run_harness(
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={"COMBINE_WS_ID": "WS-TIER0-SCOPE-001"},
+        )
+        assert result.returncode != 0, (
+            "WS mode (COMBINE_WS_ID) without --scope must return non-zero"
+        )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 3: WS mode scope PASS
+# ---------------------------------------------------------------------------
+class TestWSCriterion3ScopePass:
+    """With scope paths covering the changed-file set, tier0 returns success
+    and JSON shows checks.scope=PASS."""
+
+    def test_ws_mode_scope_pass(self):
+        # Use test seam to control changed files
+        result = run_harness(
+            "--ws",
+            "--scope", "ops/scripts/", "tests/infrastructure/",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\ntests/infrastructure/test_tier0_harness.py",
+            },
+        )
+        assert result.returncode == 0, (
+            f"WS mode with scope covering all changed files must return zero.\n"
+            f"stdout: {result.stdout[-500:]}\nstderr: {result.stderr[-500:]}"
+        )
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert data["checks"]["scope"] == "PASS", (
+            "checks.scope must be PASS when all changed files are in scope"
+        )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 4: WS mode scope FAIL
+# ---------------------------------------------------------------------------
+class TestWSCriterion4ScopeFail:
+    """With at least one changed file outside scope, tier0 fails and JSON
+    shows checks.scope=FAIL, stderr lists out-of-scope files."""
+
+    def test_ws_mode_scope_fail(self):
+        result = run_harness(
+            "--ws",
+            "--scope", "ops/scripts/",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\napp/main.py",
+            },
+        )
+        assert result.returncode != 0, (
+            "WS mode with out-of-scope files must return non-zero"
+        )
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert data["checks"]["scope"] == "FAIL", (
+            "checks.scope must be FAIL when files are out of scope"
+        )
+
+    def test_ws_mode_scope_fail_lists_files(self):
+        result = run_harness(
+            "--ws",
+            "--scope", "ops/scripts/",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\napp/main.py",
+            },
+        )
+        combined = result.stdout + result.stderr
+        assert "app/main.py" in combined, (
+            "Out-of-scope files must be listed in output"
+        )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 5: Non-WS mode scope remains SKIPPED
+# ---------------------------------------------------------------------------
+class TestWSCriterion5NonWSModeSkipped:
+    """Run tier0 without --ws and without scopes -> does not fail due to scope;
+    JSON includes ws_mode=false and checks.scope=SKIPPED."""
+
+    def test_non_ws_mode_scope_skipped(self):
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert data.get("ws_mode") is False, (
+            "ws_mode must be false when not in WS mode"
+        )
+        assert data["checks"]["scope"] in ("SKIP", "SKIPPED"), (
+            "checks.scope must be SKIP or SKIPPED when not in WS mode"
+        )
+
+    def test_non_ws_mode_does_not_fail_on_scope(self):
+        """Non-WS mode must not fail due to missing scope."""
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        # If it fails, it should not be because of scope
+        if result.returncode != 0:
+            data = extract_json(result.stdout)
+            assert data is None or data["checks"]["scope"] != "FAIL", (
+                "Non-WS mode must not fail due to scope"
+            )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 6: JSON contract (ws_mode, declared_scope_paths, checks.scope)
+# ---------------------------------------------------------------------------
+class TestWSCriterion6JSONContract:
+    """JSON output includes ws_mode (boolean), declared_scope_paths (array),
+    and checks.scope (PASS/FAIL/SKIPPED) in all modes."""
+
+    def test_json_has_ws_fields_in_non_ws_mode(self):
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert "ws_mode" in data, "JSON must include ws_mode in non-WS mode"
+        assert isinstance(data["ws_mode"], bool), "ws_mode must be boolean"
+        assert "declared_scope_paths" in data, (
+            "JSON must include declared_scope_paths in non-WS mode"
+        )
+        assert isinstance(data["declared_scope_paths"], list), (
+            "declared_scope_paths must be an array"
+        )
+
+    def test_json_has_ws_fields_in_ws_mode(self):
+        result = run_harness(
+            "--ws",
+            "--scope", "ops/scripts/", "tests/",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh",
+            },
+        )
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert data["ws_mode"] is True, "ws_mode must be true in WS mode"
+        assert data["declared_scope_paths"] == ["ops/scripts/", "tests/"], (
+            "declared_scope_paths must match --scope arguments"
+        )
+        assert data["checks"]["scope"] in ("PASS", "FAIL"), (
+            "checks.scope must be PASS or FAIL (never SKIPPED) in WS mode"
+        )
+
+    def test_scope_check_values_valid(self):
+        """checks.scope must be PASS, FAIL, or SKIP/SKIPPED."""
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        data = extract_json(result.stdout)
+        assert data is not None
+        assert data["checks"]["scope"] in ("PASS", "FAIL", "SKIP", "SKIPPED"), (
+            f"checks.scope has unexpected value: {data['checks']['scope']}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# WS Criterion 7: CI guard for WS mode scope
+# ---------------------------------------------------------------------------
+class TestWSCriterion7CIGuard:
+    """If CI=true and WS mode is active, scope is mandatory with no override
+    unless ALLOW_SCOPE_SKIP_IN_CI=1."""
+
+    def test_ci_ws_mode_requires_scope(self):
+        result = run_harness(
+            "--ws",
+            env_override={
+                "CI": "true",
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh",
+            },
+        )
+        assert result.returncode != 0, (
+            "CI + WS mode without --scope must fail"
+        )
+
+    def test_ci_ws_mode_scope_override(self):
+        """ALLOW_SCOPE_SKIP_IN_CI=1 bypasses the CI scope requirement."""
+        result = run_harness(
+            "--ws",
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "CI": "true",
+                "ALLOW_MODE_B_IN_CI": "1",
+                "ALLOW_SCOPE_SKIP_IN_CI": "1",
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh",
+            },
+        )
+        # Should not exit immediately due to WS scope guard
+        # (It may still fail for other reasons, but not from "WS mode requires --scope")
+        assert "WS mode requires --scope" not in result.stderr, (
+            "ALLOW_SCOPE_SKIP_IN_CI=1 must bypass the WS scope requirement"
         )
