@@ -26,8 +26,6 @@ from app.api.models import Document
 from app.api.models.project import Project
 from app.api.models.document_type import DocumentType
 
-# ADR-030: BFF imports
-from app.web.bff import get_epic_backlog_vm
 from app.web.template_helpers import create_preloaded_fragment_renderer
 
 # ADR-034: New viewer imports
@@ -157,12 +155,6 @@ DOCUMENT_CONFIG = {
         "icon": "compass",
         "template": "public/pages/partials/_project_discovery_content.html",
         # NOTE: view_docdef removed - intake format uses different schema than ProjectDiscovery docdef
-    },
-    "epic_backlog": {
-        "title": "Epic Backlog",
-        "icon": "layers",
-        "template": "public/pages/partials/_epic_backlog_content.html",
-        "view_docdef": "EpicBacklogView",  # ADR-034: New viewer docdef
     },
     "technical_architecture": {
         "title": "Technical Architecture",
@@ -415,62 +407,6 @@ async def get_document(
             # Continue to legacy path for now - in future, return error template
         else:
             logger.info(f"Falling back to legacy templates for {doc_type_id} (USE_LEGACY_TEMPLATES=True)")
-    
-    # ADR-030: BFF handling for epic_backlog (legacy path)
-    if doc_type_id == "epic_backlog":
-        # Check if epic_backlog exists
-        if not document:
-            # Check dependencies before showing build option
-            missing_deps = await _check_missing_dependencies(db, proj_uuid, doc_type)
-            
-            logger.info(f"Epic backlog not found, missing deps: {missing_deps}")
-            
-            context = {
-                "request": request,
-                "project": project,
-                "doc_type_id": doc_type_id,
-                "doc_type_name": doc_type_name,
-                "doc_type_icon": doc_type_icon,
-                "doc_type_description": doc_type_description,
-                "is_blocked": len(missing_deps) > 0,
-                "missing_dependencies": missing_deps,
-            }
-            partial_template = "public/pages/partials/_document_not_found.html"
-            
-            if is_htmx:
-                return templates.TemplateResponse(partial_template, context)
-            else:
-                context["content_template"] = partial_template
-                return templates.TemplateResponse("public/pages/document_page.html", context)
-        
-        # Epic backlog exists - use BFF view
-        vm = await get_epic_backlog_vm(
-            db=db,
-            project_id=proj_uuid,
-            project_name=project["name"],
-            base_url="",
-        )
-        
-        # ADR-033: Fragment rendering is a web channel concern
-        # Preload fragment templates while in async context
-        fragment_renderer = await create_preloaded_fragment_renderer(
-            db, 
-            type_ids=['OpenQuestionV1']
-        )
-        
-        context = {
-            "request": request,
-            "project": project,
-            "vm": vm,
-            "fragment_renderer": fragment_renderer,
-        }
-        partial_template = "public/pages/partials/_epic_backlog_content.html"
-        
-        if is_htmx:
-            return templates.TemplateResponse(partial_template, context)
-        else:
-            context["content_template"] = partial_template
-            return templates.TemplateResponse("public/pages/document_page.html", context)
     
     # Build context for other document types
     context = {
