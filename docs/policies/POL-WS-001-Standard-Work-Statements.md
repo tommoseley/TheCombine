@@ -141,6 +141,19 @@ If a contributor believes an action is permitted due to omission:
 
 ## 6. Execution Rules
 
+### Do No Harm Audit (Mandatory Pre-Execution)
+
+Before executing any Work Statement, the executor **MUST** verify that the WS's assumptions about the codebase match reality.
+
+1. Identify assumptions the WS makes about existing code, schemas, APIs, configuration, or infrastructure
+2. Check each assumption against the actual codebase state
+3. If any assumption is materially wrong, **STOP** and report mismatches before touching anything
+4. Do not execute a WS whose assumptions do not match the terrain
+
+This audit prevents executing well-structured Work Statements against a codebase that has diverged from what the WS author believed existed. A correct procedure applied to a wrong assumption produces wrong output.
+
+### General Rules
+
 - Work Statements are executed **exactly as written**
 - Steps must not be skipped, reordered, merged, optimized, or reinterpreted
 

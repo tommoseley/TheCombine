@@ -59,10 +59,11 @@ Per POL-ADR-EXEC-001, AI agents MUST:
 
 Per POL-WS-001, AI agents MUST:
 
-1. **Follow Work Statements exactly**: Execute steps in order; do not skip, reorder, or merge
-2. **Stop on ambiguity**: If a step is unclear, STOP and escalate rather than infer
-3. **Respect prohibited actions**: Each Work Statement defines what is NOT permitted
-4. **Verify before proceeding**: Complete verification for each step before moving to the next
+1. **Do No Harm audit first**: Before executing any WS, verify its assumptions about the codebase match reality. If assumptions are materially wrong, STOP and report mismatches before touching anything.
+2. **Follow Work Statements exactly**: Execute steps in order; do not skip, reorder, or merge
+3. **Stop on ambiguity**: If a step is unclear, STOP and escalate rather than infer
+4. **Respect prohibited actions**: Each Work Statement defines what is NOT permitted
+5. **Verify before proceeding**: Complete verification for each step before moving to the next
 
 ---
 
