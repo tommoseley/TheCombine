@@ -83,17 +83,26 @@ class LLMError:
     message: str
     retryable: bool = False
     status_code: Optional[int] = None
-    
+    request_id: Optional[str] = None
+    retry_after_seconds: Optional[float] = None
+
     @classmethod
-    def rate_limit(cls, message: str) -> "LLMError":
+    def rate_limit(
+        cls,
+        message: str,
+        request_id: Optional[str] = None,
+        retry_after_seconds: Optional[float] = None,
+    ) -> "LLMError":
         """Create a rate limit error."""
         return cls(
             error_type="rate_limit",
             message=message,
             retryable=True,
             status_code=429,
+            request_id=request_id,
+            retry_after_seconds=retry_after_seconds,
         )
-    
+
     @classmethod
     def timeout(cls, message: str) -> "LLMError":
         """Create a timeout error."""
@@ -102,21 +111,57 @@ class LLMError:
             message=message,
             retryable=True,
         )
-    
+
     @classmethod
-    def api_error(cls, message: str, status_code: int) -> "LLMError":
+    def api_error(
+        cls,
+        message: str,
+        status_code: int,
+        request_id: Optional[str] = None,
+        retry_after_seconds: Optional[float] = None,
+    ) -> "LLMError":
         """Create an API error."""
         return cls(
             error_type="api_error",
             message=message,
             retryable=status_code >= 500,
             status_code=status_code,
+            request_id=request_id,
+            retry_after_seconds=retry_after_seconds,
         )
 
 
 class LLMException(Exception):
     """Exception wrapping LLM errors."""
-    
+
     def __init__(self, error: LLMError):
         self.error = error
         super().__init__(error.message)
+
+
+class LLMOperationalError(LLMException):
+    """Raised when all retries are exhausted for a retryable LLM error.
+
+    Carries structured fields for honest error reporting to callers.
+    """
+
+    def __init__(
+        self,
+        provider: str,
+        status_code: int,
+        request_id: Optional[str],
+        message: str,
+        attempts: int,
+    ):
+        self.provider = provider
+        self.status_code = status_code
+        self.request_id = request_id
+        self.attempts = attempts
+        error = LLMError(
+            error_type="operational_error",
+            message=message,
+            retryable=True,
+            status_code=status_code,
+            request_id=request_id,
+        )
+        super().__init__(error)

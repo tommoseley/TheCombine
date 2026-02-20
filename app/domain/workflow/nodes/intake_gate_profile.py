@@ -18,6 +18,7 @@ from app.domain.workflow.nodes.base import (
     NodeExecutor,
     NodeResult,
 )
+from app.llm.models import LLMOperationalError
 
 if TYPE_CHECKING:
     from app.api.services.mechanical_ops_service import MechanicalOpsService
@@ -108,9 +109,28 @@ class IntakeGateProfileExecutor(NodeExecutor):
         # --- Pass A: LLM Classification ---
         pass_a = internals.get("pass_a", {})
         if pass_a.get("internal_type") == "LLM":
-            classification = await self._execute_llm_classification(
-                node_id, pass_a, user_input, context, state_snapshot
-            )
+            try:
+                classification = await self._execute_llm_classification(
+                    node_id, pass_a, user_input, context, state_snapshot
+                )
+            except LLMOperationalError as e:
+                # Honest error handling: do NOT fall back to regex classification
+                from datetime import datetime, timezone
+                error_payload = {
+                    "status": "OPERATIONAL_ERROR",
+                    "retryable": True,
+                    "provider": e.provider,
+                    "http_status": e.status_code,
+                    "request_id": e.request_id,
+                    "message": e.error.message,
+                    "first_seen_at": datetime.now(timezone.utc).isoformat(),
+                }
+                return NodeResult.needs_user_input(
+                    prompt="The AI provider is temporarily unavailable. Please try again.",
+                    node_id=node_id,
+                    reason="operational_error",
+                    intake_operational_error=error_payload,
+                )
             if classification is None:
                 return NodeResult.failed("LLM classification failed")
         else:
@@ -287,6 +307,8 @@ class IntakeGateProfileExecutor(NodeExecutor):
             classification = json.loads(json_str)
             return classification
 
+        except LLMOperationalError:
+            raise  # Let caller handle honestly
         except Exception as e:
             logger.error(f"Gate {node_id}: LLM classification failed: {e}")
             return self._extract_classification_fallback(user_input)

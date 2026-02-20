@@ -50,6 +50,7 @@ class MockLLMProvider(BaseLLMProvider):
         self._output_tokens = output_tokens
         self._calls: List[MockCall] = []
         self._error_on_next: Optional[LLMError] = None
+        self._error_sequence: List[LLMError] = []
     
     @property
     def provider_name(self) -> str:
@@ -72,6 +73,14 @@ class MockLLMProvider(BaseLLMProvider):
     def set_error_on_next(self, error: LLMError) -> None:
         """Configure an error to be raised on the next call."""
         self._error_on_next = error
+
+    def set_error_sequence(self, errors: List[LLMError]) -> None:
+        """Configure a sequence of errors to be raised on successive calls.
+
+        Errors are popped from the front of the list on each call.
+        Once the sequence is exhausted, calls proceed normally.
+        """
+        self._error_sequence = list(errors)
     
     def set_response(self, trigger: str, response: str) -> None:
         """Set a response for prompts containing the trigger string."""
@@ -99,7 +108,11 @@ class MockLLMProvider(BaseLLMProvider):
             system_prompt=system_prompt,
         ))
         
-        # Check for configured error
+        # Check for error sequence first, then single error
+        if self._error_sequence:
+            error = self._error_sequence.pop(0)
+            raise LLMException(error)
+
         if self._error_on_next:
             error = self._error_on_next
             self._error_on_next = None

@@ -151,9 +151,18 @@ class LoggingLLMService:
         if self._logger:
             try:
                 effective_prompt = self._build_effective_prompt(messages, system_prompt)
+                # project_id from workflow context is a string like 'intake-f9237d92569a'
+                # but llm_run.project_id is a UUID FK — only pass valid UUIDs
+                safe_project_id = None
+                if project_id:
+                    try:
+                        safe_project_id = UUID(str(project_id)) if not isinstance(project_id, UUID) else project_id
+                    except ValueError:
+                        pass  # Non-UUID project_id (e.g. document ID) — skip
+
                 run_id = await self._logger.start_run(
                     correlation_id=correlation_id if isinstance(correlation_id, UUID) else UUID(str(correlation_id)),
-                    project_id=project_id,
+                    project_id=safe_project_id,
                     artifact_type=artifact_type,
                     role=kwargs.get("role", "workflow_executor"),
                     model_provider="anthropic",
@@ -179,12 +188,14 @@ class LoggingLLMService:
 
         # Execute LLM call
         try:
-            response = await self._provider.complete(
+            response = await self._provider.complete_with_retry(
                 messages=message_objects,
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 system_prompt=system_prompt,
+                max_retries=3,
+                base_delay=0.5,
             )
 
             # Log success

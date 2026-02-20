@@ -99,17 +99,43 @@ class AnthropicProvider(BaseLLMProvider):
         except httpx.TimeoutException as e:
             raise LLMException(LLMError.timeout(f"Request timed out: {e}"))
         except httpx.RequestError as e:
-            raise LLMException(LLMError.api_error(f"Request failed: {e}", 0))
-        
+            # Transport errors (connection reset, DNS) are retryable
+            error = LLMError(
+                error_type="transport_error",
+                message=f"Request failed: {e}",
+                retryable=True,
+                status_code=0,
+            )
+            raise LLMException(error)
+
         latency_ms = (time.perf_counter() - start_time) * 1000
-        
+
+        # Extract response headers for retry/error reporting
+        request_id = response.headers.get("request-id")
+        retry_after_raw = response.headers.get("retry-after")
+        retry_after_seconds = float(retry_after_raw) if retry_after_raw else None
+        x_should_retry = response.headers.get("x-should-retry")
+
         if response.status_code == 429:
-            raise LLMException(LLMError.rate_limit("Rate limit exceeded"))
-        
+            raise LLMException(LLMError.rate_limit(
+                "Rate limit exceeded",
+                request_id=request_id,
+                retry_after_seconds=retry_after_seconds,
+            ))
+
         if response.status_code >= 400:
             error_body = response.json() if response.content else {}
             error_msg = error_body.get("error", {}).get("message", response.text)
-            raise LLMException(LLMError.api_error(error_msg, response.status_code))
+            error = LLMError.api_error(
+                error_msg,
+                response.status_code,
+                request_id=request_id,
+                retry_after_seconds=retry_after_seconds,
+            )
+            # Respect x-should-retry header (overrides default retryable logic)
+            if x_should_retry is not None:
+                error.retryable = x_should_retry.lower() == "true"
+            raise LLMException(error)
         
         data = response.json()
         

@@ -860,7 +860,8 @@ class PlanExecutor:
             # This includes intake_gate_phase, intake_classification, etc.
             gate_profile_keys = [
                 "intake_gate_phase", "intake_classification", "extracted",
-                "entry_op_ref", "user_input"
+                "entry_op_ref", "user_input",
+                "intake_operational_error", "reason",
             ]
             gate_metadata = {}
             for key in gate_profile_keys:

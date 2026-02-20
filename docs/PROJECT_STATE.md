@@ -1,9 +1,16 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-19
-**Updated By:** Claude (WS-ONTOLOGY-007 session close)
+**Last Updated:** 2026-02-20
+**Updated By:** Claude (AWS DEV database session close)
 
 ## Current Focus
+
+**COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
+- Automatic retry with exponential backoff (0.5s/2s/8s) on transient API errors (529, 5xx)
+- `LLMOperationalError` raised on exhaustion with structured fields (provider, status_code, request_id, attempts)
+- Intake gate returns honest `operational_error` outcome instead of silent regex fallback
+- UI error panel with "temporarily unavailable" message and Retry button
+- Fixed transport error retryability bug in AnthropicProvider
 
 **COMPLETE:** ADR-050 -- Work Statement Verification Constitution (execution_state: complete)
 - Tier 0 harness operational (ops/scripts/tier0.sh) with 11 tests
@@ -18,22 +25,20 @@
 - All implementation work statements executed (WS-ONTOLOGY-001 through WS-ONTOLOGY-007)
 - Schema/prompt changes for IPP/IPF, new artifact types, Production Floor updates all done
 
-**COMPLETE:** WS-ONTOLOGY-001 -- Register work_package as first-class document type
-**COMPLETE:** WS-ONTOLOGY-002 -- Register work_statement with parent WP enforcement
-**COMPLETE:** WS-ONTOLOGY-003 -- Project Logbook with transactional WS acceptance
-**COMPLETE:** WS-ONTOLOGY-004 -- Replace IPP epic_candidates with work_package_candidates
-**COMPLETE:** WS-ONTOLOGY-005 -- Update IPF to reconcile and commit Work Packages
-**COMPLETE:** WS-ONTOLOGY-006 -- Remove Epic/Feature document type pipeline entirely
-**COMPLETE:** WS-ONTOLOGY-007 -- Production Floor UI renders WP/WS hierarchy
+**COMPLETE:** WS-ONTOLOGY-001 through WS-ONTOLOGY-007
+**COMPLETE:** WS-ADMIN-RECONCILE-001, WS-ADMIN-EXEC-UI-001
 
-**COMPLETE:** WS-ADMIN-RECONCILE-001 -- Restore admin operational visibility as SPA views
-**COMPLETE:** WS-ADMIN-EXEC-UI-001 -- Admin Executions list UX improvements
+**COMPLETE:** WP-AWS-DB-001 -- Remote DEV/TEST database infrastructure
+- DEV and TEST databases on AWS RDS (combine-devtest instance, Postgres 18.1)
+- Credentials in AWS Secrets Manager, retrieved at runtime via ops/scripts/db_connect.sh
+- Local dev now points at AWS DEV database (no local PostgreSQL needed)
 
 ---
 
 ## Test Suite
 
-- **2225 tests** passing as of WS-ONTOLOGY-007 completion
+- **2271 tests** passing as of 2026-02-20 (14 new from WS-OPS-001)
+- Tier 0 harness passes clean (lint, tests, frontend build)
 - Tier 1 tests cover all ontology work statements (6 criteria groups each)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
 
@@ -43,9 +48,32 @@
 
 | Item | Reason | Mechanization Plan |
 |------|--------|--------------------|
-| mypy type checking | Not installed | Install mypy, configure for app/, add to Tier 0 harness |
+| mypy type checking | Added to requirements.txt, not yet configured | Configure for app/, add to Tier 0 harness |
 | SPA component tests (WS-007) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
 | ExecutionList tests (WS-ADMIN-EXEC-UI-001) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
+
+---
+
+## Database Configuration
+
+**Local dev** now uses AWS DEV database. The `.env` file no longer contains DATABASE_URL.
+
+```bash
+# Run app against AWS DEV
+export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
+export ENVIRONMENT=dev_aws
+python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run tests against AWS DEV
+export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
+python -m pytest tests/ -x -q
+```
+
+**AWS DEV database:**
+- 34 tables created from current ORM models
+- 14 document types seeded (9 core + 5 BCP)
+- Prompts are file-based from combine-config/ (no DB seeding needed)
+- role_prompts/role_tasks tables are legacy (not used at runtime)
 
 ---
 
@@ -75,12 +103,6 @@
 
 ---
 
-## WS-STATION-DATA-001 Status (Complete)
-
-Event-driven station display system for production floor UI. All phases complete.
-
----
-
 ## Workflow Architecture
 
 ### Document Creation Workflows (DCWs)
@@ -101,7 +123,7 @@ Event-driven station display system for production floor UI. All phases complete
 **Location:** `spa/` directory
 
 ### Features Complete
-- All previous features through 2026-02-18
+- All previous features through 2026-02-19
 - **Production Floor WP/WS** (2026-02-19): DocumentNode renders Work Packages with metadata (ws_done/ws_total, Mode B count, dependency count), WSChildList replaces FeatureGrid for WS children, all Epic references removed
 
 ---
@@ -139,26 +161,28 @@ tests/tier1/handlers/
 
 ## Key Technical Decisions
 
-All previous decisions (1-32) plus:
+All previous decisions (1-36) plus:
 
-33. **WP/WS ontology replaces Epic/Feature** -- Full pipeline migration: handlers, state machines, seed entries, IPP/IPF schemas, Production Floor UI (WS-ONTOLOGY-001 through 007)
-34. **Logbook atomicity via deepcopy** -- Transactional WS acceptance works on deep copies; originals unchanged on failure (WS-ONTOLOGY-003)
-35. **Lazy logbook creation** -- Logbook created on first WS acceptance, not project bootstrap (WS-ONTOLOGY-003)
-36. **BCP pipeline retains epic/feature hierarchy** -- fanout_service and schema_artifacts use these as backlog level names (not document types); intentionally preserved during WS-ONTOLOGY-006
+37. **AWS DEV database as local dev target** -- Local .env no longer contains DATABASE_URL; credentials fetched from Secrets Manager at runtime via db_connect.sh
+38. **ORM-based schema bootstrap for fresh databases** -- init_db.py's schema.sql approach doesn't work on RDS; use Base.metadata.create_all() with all models imported instead
+39. **Seed data uses column filtering** -- seed_document_types() filters dict keys to valid ORM columns, allowing seed data to carry metadata (creates_children, parent_doc_type) without breaking ORM construction
 
 ---
 
 ## Quick Commands
 
 ```bash
-# Run backend
+# Run backend (AWS DEV)
 cd ~/dev/TheCombine && source venv/bin/activate
+export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
+export ENVIRONMENT=dev_aws
 python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 
 # Build SPA for production
 cd spa && npm run build
 
 # Run tests
+export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
 python -m pytest tests/ -x -q
 
 # Run Tier 0 verification harness
@@ -175,19 +199,25 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 
 ## Handoff Notes
 
-### Recent Work (2026-02-19)
-- **WS-ONTOLOGY-001 through 007** all complete — full ontology migration from Epic/Feature to WP/WS
-- All commits on branch `workbench/ws-e583fd0642f5`, pushed to remote
-- 2225 tests passing, SPA builds clean
+### Recent Work (2026-02-20)
+- **WS-OPS-001:** Transient LLM error recovery — retry with backoff, honest gate outcomes, UI retry button
+- Connected local dev to AWS DEV database (WP-AWS-DB-001 follow-up)
+- Fixed ORM index bug in llm_logging.py (func.text → text in partial index WHERE clauses)
+- Fixed seed_document_types() — column filtering, non-null builder_role/task for system types
+- Resolved long-standing tier0 harness test failure (lint errors + ai.md tracking)
+- 2271 tests passing
 
 ### Next Work
 - Merge `workbench/ws-e583fd0642f5` to main (7 ontology commits + prior docs commit)
+- Merge `workbench/ws-6b30ced080f1` to main (AWS DB + lint fixes)
 - Mark ADR-051 and ADR-052 execution_state as complete
 - Add Test-First Rule to AI.md (ADR-050 acceptance criterion 5)
 - Add ADR-050 reference to POL-WS-001 (ADR-050 acceptance criterion 4)
 - Establish React test harness to retire Mode B debt on SPA tests
 - Project Logbook as productized PROJECT_STATE.md for Combine-managed projects
 - WS as Combine document type (enables factory to author its own work)
+- Fix init_db.py to use ORM-based creation on RDS (instead of stale schema.sql)
+- Fix db_reset.sh to handle RDS permission model (can't DROP SCHEMA public)
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
@@ -199,9 +229,12 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - Delete unused `spa/src/components/LoginPage.jsx`
 - Remove Zone.Identifier files
 - Sync IPP task prompt field names with IPP schema
-- Install mypy and resolve Verification Debt
+- Configure mypy and resolve Verification Debt
 
 ### Known Issues
 - Two copies of IPF schema must be kept in sync
 - IPP task prompt field names don't match IPP schema
 - BCP pipeline still uses "epic"/"feature" as hierarchy level names (intentional, separate from document types)
+- init_db.py schema.sql doesn't work on RDS (workaround: ORM-based creation)
+- db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
+- Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)

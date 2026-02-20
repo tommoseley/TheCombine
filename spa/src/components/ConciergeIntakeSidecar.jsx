@@ -27,8 +27,10 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
         submitting,
         intakeClassification,
         intakeGatePhase,
+        operationalError,
         startIntake,
         submitMessage,
+        retryLastMessage,
         reset,
     } = useConciergeIntake();
 
@@ -115,6 +117,48 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
             return (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="w-8 h-8 border-2 border-t-violet-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
+                </div>
+            );
+        }
+
+        // Operational error: show error panel with retry (WS-OPS-001)
+        if (operationalError) {
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <svg
+                            className="w-6 h-6 text-amber-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                        >
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p
+                            className="text-sm font-medium mb-1"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
+                            The AI provider is temporarily unavailable.
+                        </p>
+                        <p
+                            className="text-xs"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
+                            This is usually resolved within a few moments.
+                        </p>
+                    </div>
+                    <button
+                        onClick={retryLastMessage}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-violet-500/20 hover:bg-violet-500/30"
+                        style={{ color: 'var(--text-primary)' }}
+                    >
+                        Retry
+                    </button>
                 </div>
             );
         }

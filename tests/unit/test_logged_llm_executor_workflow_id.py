@@ -24,8 +24,15 @@ class MockLLMResponse:
 
 class MockLLMProvider:
     """Mock LLM provider."""
+    @property
+    def provider_name(self):
+        return "mock"
+
     async def complete(self, **kwargs):
         return MockLLMResponse()
+
+    async def complete_with_retry(self, **kwargs):
+        return await self.complete(**kwargs)
 
 
 class MockLogger:

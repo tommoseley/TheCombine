@@ -7,6 +7,7 @@ from app.llm.models import (
     LLMRequest,
     LLMError,
     LLMException,
+    LLMOperationalError,
 )
 from app.llm.providers.base import LLMProvider, BaseLLMProvider
 from app.llm.providers.anthropic import AnthropicProvider
@@ -53,6 +54,7 @@ __all__ = [
     "LLMRequest",
     "LLMError",
     "LLMException",
+    "LLMOperationalError",
     # Providers
     "LLMProvider",
     "BaseLLMProvider",

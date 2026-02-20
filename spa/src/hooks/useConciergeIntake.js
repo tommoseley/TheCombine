@@ -29,8 +29,11 @@ export function useConciergeIntake() {
     // Gate Profile fields (ADR-047)
     const [intakeClassification, setIntakeClassification] = useState(null);
     const [intakeGatePhase, setIntakeGatePhase] = useState(null);
+    // Operational error (WS-OPS-001)
+    const [operationalError, setOperationalError] = useState(null);
 
     const sseRef = useRef(null);
+    const lastMessageRef = useRef(null);
     const mountedRef = useRef(true);
 
     // Cleanup on unmount
@@ -63,6 +66,8 @@ export function useConciergeIntake() {
         // Gate Profile fields (ADR-047)
         setIntakeClassification(state.intake_classification);
         setIntakeGatePhase(state.intake_gate_phase);
+        // Operational error (WS-OPS-001)
+        setOperationalError(state.operational_error || null);
     }, []);
 
     /**
@@ -95,7 +100,9 @@ export function useConciergeIntake() {
         if (!executionId || !content.trim()) return;
 
         setError(null);
+        setOperationalError(null);
         setSubmitting(true);
+        lastMessageRef.current = content;
 
         // Optimistically add user message
         const userMessage = { role: 'user', content };
@@ -117,6 +124,15 @@ export function useConciergeIntake() {
             }
         }
     }, [executionId, updateFromState]);
+
+    /**
+     * Retry the last submitted message (after operational error)
+     */
+    const retryLastMessage = useCallback(async () => {
+        if (!lastMessageRef.current) return;
+        setOperationalError(null);
+        await submitMessage(lastMessageRef.current);
+    }, [submitMessage]);
 
     /**
      * Update an interpretation field
@@ -264,6 +280,8 @@ export function useConciergeIntake() {
         setError(null);
         setLoading(false);
         setSubmitting(false);
+        setOperationalError(null);
+        lastMessageRef.current = null;
     }, []);
 
     return {
@@ -285,12 +303,15 @@ export function useConciergeIntake() {
         // Gate Profile fields (ADR-047)
         intakeClassification,
         intakeGatePhase,
+        // Operational error (WS-OPS-001)
+        operationalError,
 
         // Actions
         startIntake,
         submitMessage,
         updateField,
         lockAndGenerate,
+        retryLastMessage,
         reset,
     };
 }

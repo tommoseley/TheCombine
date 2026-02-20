@@ -76,6 +76,8 @@ class IntakeStateResponse(BaseModel):
     # Gate Profile fields (ADR-047)
     intake_classification: Optional[Dict[str, Any]] = None
     intake_gate_phase: Optional[str] = None
+    # Operational error (WS-OPS-001)
+    operational_error: Optional[Dict[str, Any]] = None
 
 
 class StartIntakeResponse(BaseModel):
@@ -222,6 +224,8 @@ def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> In
         # Gate Profile fields (ADR-047)
         intake_classification=state.context_state.get("intake_classification"),
         intake_gate_phase=state.context_state.get("intake_gate_phase"),
+        # Operational error (WS-OPS-001)
+        operational_error=state.context_state.get("intake_operational_error"),
     )
 
 

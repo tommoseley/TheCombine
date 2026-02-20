@@ -71,11 +71,15 @@ class BaseLLMProvider(ABC):
         temperature: float = 0.7,
         system_prompt: Optional[str] = None,
         max_retries: int = 3,
-        base_delay: float = 1.0,
+        base_delay: float = 0.5,
     ) -> LLMResponse:
         """
         Complete with exponential backoff retry.
-        
+
+        Backoff schedule (default): 0.5s, 2s, 8s (base * 4^attempt).
+        Respects retry_after_seconds from provider errors when present.
+        Adds jitter (up to 25% of sleep time) to avoid thundering herd.
+
         Args:
             messages: Conversation messages
             model: Model identifier
@@ -83,20 +87,22 @@ class BaseLLMProvider(ABC):
             temperature: Sampling temperature
             system_prompt: Optional system prompt
             max_retries: Maximum retry attempts
-            base_delay: Base delay between retries (doubles each attempt)
-            
+            base_delay: Base delay between retries
+
         Returns:
             LLMResponse with content and metadata
-            
+
         Raises:
-            LLMException: After all retries exhausted
+            LLMOperationalError: After all retries exhausted on retryable errors
+            LLMException: On non-retryable errors (immediate, no retry)
         """
         import asyncio
-        from app.llm.models import LLMException
-        
+        import random
+        from app.llm.models import LLMException, LLMOperationalError
+
         last_error = None
         delay = base_delay
-        
+
         for attempt in range(max_retries + 1):
             try:
                 return await self.complete(
@@ -109,9 +115,27 @@ class BaseLLMProvider(ABC):
             except LLMException as e:
                 last_error = e
                 if not e.error.retryable or attempt == max_retries:
-                    raise
-                
-                await asyncio.sleep(delay)
-                delay *= 2  # Exponential backoff
-        
-        raise last_error
+                    break
+
+                # Use retry_after_seconds from provider if available
+                sleep_time = e.error.retry_after_seconds if e.error.retry_after_seconds else delay
+                # Add jitter (up to 25% of sleep time)
+                sleep_time += random.uniform(0, 0.25 * sleep_time)
+                await asyncio.sleep(sleep_time)
+                delay *= 4  # Exponential backoff: 0.5 → 2 → 8
+
+        # If we broke out due to non-retryable error, raise it directly
+        if last_error and not last_error.error.retryable:
+            raise last_error
+
+        # All retries exhausted on retryable error → structured operational error
+        if last_error:
+            raise LLMOperationalError(
+                provider=self.provider_name,
+                status_code=last_error.error.status_code or 0,
+                request_id=last_error.error.request_id,
+                message=last_error.error.message,
+                attempts=max_retries + 1,
+            )
+
+        raise last_error  # Should not reach here
