@@ -46,3 +46,6 @@ recycle/
 aws-scp-server/
 # Generated task definitions with secrets
 task-*.json
+
+# Claude.AI project knowledge bootstrap (managed outside git)
+ai.md
