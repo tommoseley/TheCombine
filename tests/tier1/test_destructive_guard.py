@@ -7,8 +7,6 @@ Uses a small test harness that sources the guard and calls it.
 import os
 import subprocess
 
-import pytest
-
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 GUARD_SCRIPT = os.path.join(REPO_ROOT, "ops", "scripts", "db_destructive_guard.sh")
 

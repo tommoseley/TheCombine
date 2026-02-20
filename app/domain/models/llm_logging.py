@@ -12,7 +12,6 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import (
-    String,
     Column, String, Integer, Text, DateTime, Boolean,
     ForeignKey, Index, CheckConstraint, DECIMAL, text
 )

@@ -8,7 +8,6 @@ All tests must fail before implementation and pass after.
 """
 
 import os
-import importlib
 from unittest.mock import patch
 
 import pytest

@@ -69,7 +69,7 @@ async def init_database():
     This is mainly for development/testing.
     """
     # Import all ORM models so they're registered with Base
-    from app.auth.db_models import (
+    from app.auth.db_models import (  # noqa: F401
         UserORM, UserOAuthIdentityORM, UserSessionORM,
         PersonalAccessTokenORM, AuthAuditLogORM, LinkIntentNonceORM
     )
