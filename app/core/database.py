@@ -2,23 +2,22 @@
 Database configuration and session management.
 
 Provides async database sessions and metadata for ORM models.
-"""
-from dotenv import load_dotenv
-load_dotenv()
 
-import os
+DATABASE_URL is read from app.core.config (single resolution path).
+Do not read DATABASE_URL independently from os.getenv here — config.py
+is the authority (WS-AWS-DB-003 Phase 0 reconciliation).
+"""
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 import logging
 
+from app.core.config import DATABASE_URL
+
 logger = logging.getLogger(__name__)
 
 # Create declarative base for ORM models
 Base = declarative_base()
-
-# Get database URL from environment
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://localhost/combine')
 
 # Convert to async URL if needed
 if DATABASE_URL.startswith('postgresql://'):

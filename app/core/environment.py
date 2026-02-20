@@ -17,6 +17,8 @@ class EnvironmentType(str, Enum):
     STAGING = "staging"
     PRODUCTION = "production"
     TEST = "test"
+    DEV_AWS = "dev_aws"
+    TEST_AWS = "test_aws"
 
 
 # Required environment variables by environment
@@ -75,17 +77,21 @@ class Environment:
         3. Default to development
         """
         env_str = os.getenv("ENVIRONMENT", "").lower()
-        
+
         if env_str:
             try:
                 return EnvironmentType(env_str)
             except ValueError:
-                pass
-        
+                valid = ", ".join(e.value for e in EnvironmentType)
+                raise ValueError(
+                    f"Invalid ENVIRONMENT value: '{env_str}'. "
+                    f"Must be one of: {valid}"
+                )
+
         # Detect test environment
         if "pytest" in os.environ.get("_", "") or "pytest" in __import__("sys").modules:
             return EnvironmentType.TEST
-        
+
         return EnvironmentType.DEVELOPMENT
     
     @classmethod

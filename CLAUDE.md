@@ -524,4 +524,79 @@ ops/scripts/tier0.sh --ws --scope ops/scripts/ tests/infrastructure/ docs/polici
 
 ---
 
-_Last reviewed: 2026-01-16_
+## Remote DEV/TEST Databases (WP-AWS-DB-001)
+
+DEV and TEST databases run on AWS RDS (`combine-devtest` instance, Postgres 18.1).
+Credentials are in AWS Secrets Manager — never hardcoded.
+
+### Connect to DEV
+
+```bash
+# Print DATABASE_URL for DEV (retrieves creds from Secrets Manager)
+ops/scripts/db_connect.sh dev
+
+# Verify connectivity
+ops/scripts/db_connect.sh dev --check
+
+# Open interactive psql session
+ops/scripts/db_connect.sh dev --psql
+
+# Run app against DEV
+export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
+export ENVIRONMENT=dev_aws
+python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Connect to TEST
+
+```bash
+# Same commands, replace 'dev' with 'test'
+ops/scripts/db_connect.sh test
+ops/scripts/db_connect.sh test --check
+ops/scripts/db_connect.sh test --psql
+
+# Run app against TEST
+export DATABASE_URL=$(ops/scripts/db_connect.sh test)
+export ENVIRONMENT=test_aws
+python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Migrate
+
+```bash
+ops/scripts/db_migrate.sh dev          # Migrate DEV (bootstraps if empty)
+ops/scripts/db_migrate.sh test         # Migrate TEST
+ops/scripts/db_migrate.sh dev --seed   # Migrate + seed DEV
+```
+
+### Destructive Actions (Guardrails)
+
+All destructive operations require `CONFIRM_ENV=<target>` to prevent accidents:
+
+```bash
+# Reset DEV database (drops all tables, re-bootstraps)
+CONFIRM_ENV=dev ops/scripts/db_reset.sh dev
+
+# Reset TEST database
+CONFIRM_ENV=test ops/scripts/db_reset.sh test
+
+# Wrong confirmation → blocked
+CONFIRM_ENV=test ops/scripts/db_reset.sh dev   # ERROR: mismatch
+ops/scripts/db_reset.sh dev                     # ERROR: CONFIRM_ENV required
+```
+
+In CI, destructive actions are blocked unless `ALLOW_DESTRUCTIVE_IN_CI=1` is set.
+
+### Connection Recovery
+
+If database connections fail:
+
+1. **Check your IP**: `curl -s https://checkip.amazonaws.com` — if it changed, update the security group
+2. **Check RDS status**: `aws rds describe-db-instances --db-instance-identifier combine-devtest --query 'DBInstances[0].DBInstanceStatus'`
+3. **Check credentials**: `aws secretsmanager get-secret-value --secret-id the-combine/db-dev --query SecretString --output text` — verify the secret exists and has a DATABASE_URL
+4. **Check security group**: `aws ec2 describe-security-groups --group-ids sg-0edb6a93c034f7e38 --query 'SecurityGroups[0].IpPermissions'` — verify your IP is in the ingress rules
+5. **Update IP in security group**: Remove old rule, add new one with current IP
+
+---
+
+_Last reviewed: 2026-02-19_
