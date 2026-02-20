@@ -311,8 +311,8 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         ),
         "category": "planning",
         "icon": "package",
-        "builder_role": None,  # Not LLM-generated — created by IPF reconciliation
-        "builder_task": None,
+        "builder_role": "system",  # Not LLM-generated — created by IPF reconciliation
+        "builder_task": "reconciliation",
         "handler_id": "work_package",
         "required_inputs": [],
         "optional_inputs": [],
@@ -385,8 +385,8 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         ),
         "category": "planning",
         "icon": "file-check",
-        "builder_role": None,  # Not LLM-generated
-        "builder_task": None,
+        "builder_role": "system",  # Not LLM-generated
+        "builder_task": "authoring",
         "handler_id": "work_statement",
         "required_inputs": [],
         "optional_inputs": [],
@@ -469,8 +469,8 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
         ),
         "category": "governance",
         "icon": "book-open",
-        "builder_role": None,  # Not LLM-generated — created by acceptance orchestration
-        "builder_task": None,
+        "builder_role": "system",  # Not LLM-generated — created by acceptance orchestration
+        "builder_task": "acceptance",
         "handler_id": "project_logbook",
         "required_inputs": [],
         "optional_inputs": [],
@@ -575,20 +575,24 @@ async def seed_document_types(db: AsyncSession) -> int:
     """
     created_count = 0
     
+    # Get valid column names from the ORM model
+    valid_columns = {c.key for c in DocumentType.__table__.columns}
+
     for doc_data in INITIAL_DOCUMENT_TYPES:
         doc_type_id = doc_data["doc_type_id"]
-        
+
         # Check if already exists
         query = select(DocumentType).where(DocumentType.doc_type_id == doc_type_id)
         result = await db.execute(query)
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             logger.info(f"Document type '{doc_type_id}' already exists, skipping")
             continue
-        
-        # Create new document type
-        doc_type = DocumentType(**doc_data)
+
+        # Filter to valid ORM columns only (seed data may have metadata keys)
+        filtered = {k: v for k, v in doc_data.items() if k in valid_columns}
+        doc_type = DocumentType(**filtered)
         db.add(doc_type)
         created_count += 1
         logger.info(f"Created document type: {doc_type_id}")

@@ -14,7 +14,7 @@ from uuid import UUID
 from sqlalchemy import (
     String,
     Column, String, Integer, Text, DateTime, Boolean,
-    ForeignKey, Index, CheckConstraint, DECIMAL
+    ForeignKey, Index, CheckConstraint, DECIMAL, text
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped
@@ -276,11 +276,11 @@ class LLMRun(Base):
     
     __table_args__ = (
         Index("idx_llm_run_correlation", "correlation_id"),
-        Index("idx_llm_run_project_time", "project_id", func.text("started_at DESC"),
-              postgresql_where=func.text("project_id IS NOT NULL")),
-        Index("idx_llm_run_role_time", "role", func.text("started_at DESC")),
+        Index("idx_llm_run_project_time", "project_id", text("started_at DESC"),
+              postgresql_where=text("project_id IS NOT NULL")),
+        Index("idx_llm_run_role_time", "role", text("started_at DESC")),
         Index("idx_llm_run_status", "status"),
-        Index("idx_llm_run_started", func.text("started_at DESC")),
+        Index("idx_llm_run_started", text("started_at DESC")),
         {"comment": "LLM execution records (ADR-010)"}
     )
 
