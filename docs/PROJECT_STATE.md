@@ -1,9 +1,14 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-02-20
-**Updated By:** Claude (AWS DEV database session close)
+**Updated By:** Claude (WS-OPS-001, WS-SDP-001, WS-SDP-002 session)
 
 ## Current Focus
+
+**COMPLETE:** ADR-053 / WS-SDP-001 / WS-SDP-002 -- Planning Before Architecture
+- POW reordered: Discovery -> IPP -> IPF -> TA -> WPs (ADR-053 canonical order)
+- IPF inputs updated (Discovery + IPP), TA inputs updated (Discovery + IPP + IPF)
+- SPA audit confirmed no UI changes needed (no TA-before-IPF assumptions)
 
 **COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
 - Automatic retry with exponential backoff (0.5s/2s/8s) on transient API errors (529, 5xx)
@@ -37,7 +42,7 @@
 
 ## Test Suite
 
-- **2271 tests** passing as of 2026-02-20 (14 new from WS-OPS-001)
+- **2274 tests** passing as of 2026-02-20 (14 from WS-OPS-001, 3 from WS-SDP-001, 3 from WS-SDP-002)
 - Tier 0 harness passes clean (lint, tests, frontend build)
 - Tier 1 tests cover all ontology work statements (6 criteria groups each)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -200,6 +205,7 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 ## Handoff Notes
 
 ### Recent Work (2026-02-20)
+- **ADR-053 / WS-SDP-001 / WS-SDP-002:** Planning Before Architecture — POW reordered, UI confirmed clean
 - **WS-OPS-001:** Transient LLM error recovery — retry with backoff, honest gate outcomes, UI retry button
 - Connected local dev to AWS DEV database (WP-AWS-DB-001 follow-up)
 - Fixed ORM index bug in llm_logging.py (func.text → text in partial index WHERE clauses)

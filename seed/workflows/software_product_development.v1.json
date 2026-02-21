@@ -92,17 +92,6 @@
       ]
     },
     {
-      "step_id": "technical_architecture",
-      "role": "Technical Architect 1.0",
-      "task_prompt": "Technical Architecture v1.0",
-      "produces": "technical_architecture",
-      "scope": "project",
-      "inputs": [
-        { "doc_type": "project_discovery", "scope": "project" },
-        { "doc_type": "implementation_plan_primary", "scope": "project" }
-      ]
-    },
-    {
       "step_id": "implementation_plan",
       "role": "Project Manager 1.0",
       "task_prompt": "Implementation Plan v1.0",
@@ -110,8 +99,20 @@
       "scope": "project",
       "creates_entities": "epic",
       "inputs": [
+        { "doc_type": "project_discovery", "scope": "project" },
+        { "doc_type": "implementation_plan_primary", "scope": "project" }
+      ]
+    },
+    {
+      "step_id": "technical_architecture",
+      "role": "Technical Architect 1.0",
+      "task_prompt": "Technical Architecture v1.0",
+      "produces": "technical_architecture",
+      "scope": "project",
+      "inputs": [
+        { "doc_type": "project_discovery", "scope": "project" },
         { "doc_type": "implementation_plan_primary", "scope": "project" },
-        { "doc_type": "technical_architecture", "scope": "project" }
+        { "doc_type": "implementation_plan", "scope": "project" }
       ]
     },
     {
