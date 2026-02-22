@@ -27,40 +27,83 @@ export default function TechnicalArchitectureViewer({
     const [activeTab, setActiveTab] = useState(null);
 
     // Build section-to-tab mapping from rendering config + information architecture
-    const { tabDefs, tabSections } = useMemo(() => {
+    const { tabDefs, tabSections, isRawContentMode } = useMemo(() => {
         const detail_html = renderModel?.rendering_config?.detail_html;
         const ia = renderModel?.information_architecture;
+        const sections = renderModel?.sections || [];
+        const rawContent = renderModel?.raw_content;
 
         if (!detail_html?.tabs || !ia?.sections) {
             // Fallback: show all sections in a single overview tab
             return {
                 tabDefs: [{ id: 'overview', label: 'Overview', sections: [] }],
-                tabSections: { overview: renderModel?.sections || [] },
+                tabSections: { overview: sections },
+                isRawContentMode: false,
             };
         }
 
-        // Build map: IA section id -> set of bound schema fields
-        const sectionBinds = {};
+        // Build map: IA section id -> { binds: [...], label }
+        const sectionMeta = {};
         ia.sections.forEach(s => {
-            sectionBinds[s.id] = new Set(s.binds || []);
+            sectionMeta[s.id] = { binds: s.binds || [], label: s.label || s.id };
         });
 
-        // Build map: schema field name -> tab id
+        // Detect raw content mode: sections empty but raw_content + IA config exist
+        // Only enter raw content mode if rawContent has at least one IA-bound field
+        if (sections.length === 0 && rawContent && typeof rawContent === 'object') {
+            // Collect all bound field names across all IA sections
+            const allBinds = new Set();
+            ia.sections.forEach(s => (s.binds || []).forEach(b => allBinds.add(b)));
+            const hasIAFields = [...allBinds].some(b => rawContent[b] !== undefined && rawContent[b] !== null);
+
+            if (hasIAFields) {
+                // Raw content mode: build tabSections as arrays of {fieldName, label, data}
+                const grouped = {};
+                detail_html.tabs.forEach(tab => {
+                    const fields = [];
+                    (tab.sections || []).forEach(sectionId => {
+                        const meta = sectionMeta[sectionId];
+                        if (!meta) return;
+                        meta.binds.forEach(fieldName => {
+                            const data = rawContent[fieldName];
+                            if (data !== undefined && data !== null) {
+                                fields.push({ fieldName, label: meta.label, data });
+                            }
+                        });
+                    });
+                    grouped[tab.id] = fields;
+                });
+                return { tabDefs: detail_html.tabs, tabSections: grouped, isRawContentMode: true };
+            }
+
+            // No IA-bound fields — extract fallback text from envelope or show raw content
+            const fallbackText = rawContent.raw === true && typeof rawContent.content === 'string'
+                ? rawContent.content
+                : null;
+            if (fallbackText) {
+                const firstTab = detail_html.tabs[0]?.id || 'overview';
+                const grouped = {};
+                detail_html.tabs.forEach(tab => { grouped[tab.id] = []; });
+                grouped[firstTab] = [{ fieldName: '_fallback', label: 'Content', data: fallbackText }];
+                return { tabDefs: detail_html.tabs, tabSections: grouped, isRawContentMode: true };
+            }
+        }
+
+        // Standard mode: route render model sections to tabs via field binds
         const fieldToTab = {};
         detail_html.tabs.forEach(tab => {
             (tab.sections || []).forEach(sectionId => {
-                const binds = sectionBinds[sectionId];
-                if (binds) {
-                    binds.forEach(field => { fieldToTab[field] = tab.id; });
+                const meta = sectionMeta[sectionId];
+                if (meta) {
+                    meta.binds.forEach(field => { fieldToTab[field] = tab.id; });
                 }
             });
         });
 
-        // Route each render model section to its tab
         const grouped = {};
         detail_html.tabs.forEach(tab => { grouped[tab.id] = []; });
 
-        (renderModel?.sections || []).forEach(section => {
+        sections.forEach(section => {
             const sid = section.section_id;
             const tabId = fieldToTab[sid] || 'overview';
             if (grouped[tabId]) {
@@ -70,14 +113,30 @@ export default function TechnicalArchitectureViewer({
             }
         });
 
-        return { tabDefs: detail_html.tabs, tabSections: grouped };
+        return { tabDefs: detail_html.tabs, tabSections: grouped, isRawContentMode: false };
     }, [renderModel]);
 
     // Default to first tab
     const effectiveTab = activeTab || (tabDefs.length > 0 ? tabDefs[0].id : 'overview');
 
-    // Extract workflow data from blocks for WorkflowStudioPanel
+    // Extract workflow data for WorkflowStudioPanel
     const workflows = useMemo(() => {
+        if (isRawContentMode) {
+            // In raw content mode, tabSections.workflows is an array of {fieldName, label, data}
+            const wfFields = tabSections.workflows || [];
+            const wfField = wfFields.find(f => f.fieldName === 'workflows');
+            const items = wfField?.data;
+            if (!Array.isArray(items) || !items.length) return [];
+            return items.map((item, idx) => ({
+                id: item.id || `wf-${idx}`,
+                name: item.name || `Workflow ${idx + 1}`,
+                description: item.description,
+                trigger: item.trigger,
+                nodeCount: item.nodes?.length || item.steps?.length || 0,
+                rawItem: item,
+            }));
+        }
+        // Standard mode: extract from blocks
         const wfSections = tabSections.workflows || [];
         if (!wfSections.length) return [];
         const wfSection = wfSections[0];
@@ -90,10 +149,30 @@ export default function TechnicalArchitectureViewer({
             nodeCount: block.data?.nodes?.length || block.data?.steps?.length || 0,
             block,
         }));
-    }, [tabSections.workflows]);
+    }, [tabSections.workflows, isRawContentMode]);
 
-    // Extract component data from blocks for ComponentsStudioPanel
+    // Extract component data for ComponentsStudioPanel
     const components = useMemo(() => {
+        if (isRawContentMode) {
+            // In raw content mode, tabSections.components is an array of {fieldName, label, data}
+            const compFields = tabSections.components || [];
+            const compField = compFields.find(f => f.fieldName === 'components');
+            const items = compField?.data;
+            if (!Array.isArray(items) || !items.length) return [];
+            return items.map((item, idx) => ({
+                id: item.id || `comp-${idx}`,
+                name: item.name || `Component ${idx + 1}`,
+                purpose: item.purpose,
+                layer: item.layer,
+                mvpPhase: item.mvp_phase,
+                technology: item.technology || (Array.isArray(item.technology_choices) ? item.technology_choices.join(', ') : null),
+                interfaces: item.interfaces || [],
+                dependencies: item.dependencies || item.depends_on_components || [],
+                responsibilities: item.responsibilities || [],
+                rawItem: item,
+            }));
+        }
+        // Standard mode: extract from blocks
         const compSections = tabSections.components || [];
         if (!compSections.length) return [];
         const compSection = compSections[0];
@@ -113,25 +192,38 @@ export default function TechnicalArchitectureViewer({
                 block,
             };
         });
-    }, [tabSections.components]);
+    }, [tabSections.components, isRawContentMode]);
 
     // Build tab list with counts and disabled state
     const tabs = useMemo(() => {
         return tabDefs.map(tab => {
-            const sections = tabSections[tab.id] || [];
-            const blockCount = sections[0]?.blocks?.length || null;
+            const tabData = tabSections[tab.id] || [];
             const isSpecial = tab.id === 'workflows' || tab.id === 'components';
             const specialCount = tab.id === 'workflows' ? workflows.length
                 : tab.id === 'components' ? components.length
                 : null;
+
+            if (isRawContentMode) {
+                // In raw content mode, tabData is array of {fieldName, label, data}
+                const hasContent = isSpecial ? (specialCount > 0) : tabData.length > 0;
+                return {
+                    id: tab.id,
+                    label: tab.label,
+                    count: isSpecial ? (specialCount || null) : (tabData.length || null),
+                    disabled: !hasContent,
+                };
+            }
+
+            // Standard mode
+            const blockCount = tabData[0]?.blocks?.length || null;
             return {
                 id: tab.id,
                 label: tab.label,
                 count: isSpecial ? (specialCount || null) : blockCount,
-                disabled: tab.id !== 'overview' && !sections.length,
+                disabled: tab.id !== 'overview' && !tabData.length,
             };
         });
-    }, [tabDefs, tabSections, workflows, components]);
+    }, [tabDefs, tabSections, workflows, components, isRawContentMode]);
 
     const metadata = renderModel?.metadata || {};
     const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
@@ -286,6 +378,8 @@ export default function TechnicalArchitectureViewer({
                     <WorkflowStudioPanel workflows={workflows} />
                 ) : effectiveTab === 'components' && components.length > 0 ? (
                     <ComponentsStudioPanel components={components} />
+                ) : isRawContentMode ? (
+                    <RawContentTabContent fields={tabSections[effectiveTab] || []} />
                 ) : (
                     <SectionTabContent
                         renderModel={buildTabRenderModel(effectiveTab)}
@@ -317,4 +411,165 @@ function SectionTabContent({ renderModel, sections }) {
             )}
         </div>
     );
+}
+
+/** Raw content tab - renders fields pulled from raw_content via IA binds */
+function RawContentTabContent({ fields }) {
+    if (!fields || fields.length === 0) {
+        return (
+            <div className="h-full overflow-y-auto p-6" onWheel={(e) => e.stopPropagation()}>
+                <div className="text-center py-12 text-gray-500">
+                    No content available for this tab
+                </div>
+            </div>
+        );
+    }
+    return (
+        <div className="h-full overflow-y-auto p-6 space-y-6" onWheel={(e) => e.stopPropagation()}>
+            {fields.map((field, i) => (
+                <div key={field.fieldName || i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                    <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1f2937' }}>
+                            {field.label || formatFieldLabel(field.fieldName)}
+                        </h3>
+                        {Array.isArray(field.data) && (
+                            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>
+                                {field.data.length}
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ padding: 16 }}>
+                        <RawFieldRenderer data={field.data} fieldName={field.fieldName} />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** Dispatches rendering by data type: strings, arrays, objects, fallback JSON */
+function RawFieldRenderer({ data, fieldName }) {
+    if (data === null || data === undefined) {
+        return <span style={{ color: '#9ca3af', fontSize: 13 }}>No data</span>;
+    }
+    if (typeof data === 'string') {
+        return <p style={{ fontSize: 14, color: '#1f2937', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{data}</p>;
+    }
+    if (Array.isArray(data)) {
+        if (data.length === 0) {
+            return <span style={{ color: '#9ca3af', fontSize: 13 }}>Empty list</span>;
+        }
+        return (
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} className="space-y-2">
+                {data.map((item, i) => (
+                    <li key={typeof item === 'object' ? (item?.id || i) : i} className="flex items-start gap-2" style={{ fontSize: 14, color: '#374151' }}>
+                        <span style={{ color: '#6b7280', marginTop: 2, flexShrink: 0, fontSize: 12 }}>{'\u2022'}</span>
+                        <div style={{ flex: 1 }}>
+                            {typeof item === 'string' ? (
+                                <span>{item}</span>
+                            ) : typeof item === 'object' && item !== null ? (
+                                <RawStructuredItem item={item} />
+                            ) : (
+                                <span>{String(item)}</span>
+                            )}
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+    if (typeof data === 'object') {
+        return (
+            <div className="space-y-3">
+                {Object.entries(data).map(([k, v]) => (
+                    <div key={k} style={{ borderLeft: '3px solid #e2e8f0', paddingLeft: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                            {formatFieldLabel(k)}
+                        </div>
+                        <div style={{ fontSize: 14, color: '#1f2937' }}>
+                            {typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    // Fallback
+    return (
+        <pre style={{ margin: 0, fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+            {JSON.stringify(data, null, 2)}
+        </pre>
+    );
+}
+
+/** Smart field extraction for structured items (array-of-objects) */
+function RawStructuredItem({ item }) {
+    // Detect primary text field
+    const textKeys = ['constraint', 'assumption', 'guardrail', 'recommendation', 'description',
+                      'question', 'text', 'statement', 'name', 'title', 'problem_understanding',
+                      'architectural_intent', 'proposed_system_shape'];
+    const textKey = textKeys.find(k => item[k] && typeof item[k] === 'string');
+    const text = textKey ? item[textKey] : null;
+
+    // Badge-worthy metadata
+    const id = item.id;
+    const confidence = item.confidence;
+    const likelihood = item.likelihood;
+    const constraintType = item.constraint_type;
+
+    // Secondary fields
+    const why = item.why_it_matters || item.why_early;
+    const impact = item.impact_on_planning || item.impact_if_unresolved || item.impact;
+    const mitigation = item.mitigation_direction;
+    const recommendation = item.recommendation_direction;
+    const validation = item.validation_approach;
+
+    if (!text) {
+        // No recognizable primary field: show all as inline key-value pairs
+        return (
+            <span style={{ fontSize: 13, color: '#374151' }}>
+                {Object.entries(item).map(([k, v], i) => (
+                    <span key={k}>
+                        {i > 0 && ' \u00B7 '}
+                        <span style={{ fontWeight: 500 }}>{formatFieldLabel(k)}:</span>{' '}
+                        {typeof v === 'string' ? v : JSON.stringify(v)}
+                    </span>
+                ))}
+            </span>
+        );
+    }
+
+    return (
+        <div>
+            <div className="flex items-center gap-2 flex-wrap">
+                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{id}</span>}
+                <span style={{ fontWeight: 500 }}>{text}</span>
+                {constraintType && (
+                    <span style={{ fontSize: 11, padding: '1px 6px', background: '#f3f4f6', borderRadius: 4, color: '#6b7280' }}>{constraintType}</span>
+                )}
+                {confidence && (
+                    <span style={{
+                        fontSize: 11, padding: '1px 6px', borderRadius: 4, fontWeight: 600,
+                        background: confidence === 'high' ? '#dcfce7' : confidence === 'medium' ? '#fef3c7' : '#fee2e2',
+                        color: confidence === 'high' ? '#166534' : confidence === 'medium' ? '#92400e' : '#991b1b',
+                    }}>{confidence}</span>
+                )}
+                {likelihood && (
+                    <span style={{ fontSize: 11, padding: '1px 6px', background: '#fee2e2', borderRadius: 4, color: '#991b1b' }}>
+                        {likelihood}{item.impact ? `/${item.impact}` : ''}
+                    </span>
+                )}
+            </div>
+            {validation && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Validation: {validation}</p>}
+            {why && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Why: {why}</p>}
+            {impact && typeof impact === 'string' && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Impact: {impact}</p>}
+            {mitigation && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Mitigation: {mitigation}</p>}
+            {recommendation && <p style={{ fontSize: 12, color: '#059669', margin: '2px 0 0' }}>Recommendation: {recommendation}</p>}
+        </div>
+    );
+}
+
+/** Convert snake_case field name to Title Case label */
+function formatFieldLabel(key) {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }

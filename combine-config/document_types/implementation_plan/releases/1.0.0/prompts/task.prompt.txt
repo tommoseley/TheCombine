@@ -9,18 +9,21 @@ Do not modify role identity, authority, or internal reasoning structures.
 ## Task Objective
 
 Produce the Final Implementation Plan by reconciling Primary Implementation Plan
-WP candidates into committed Work Packages, informed by Technical Architecture
-decisions and constraints.
+WP candidates into committed Work Packages.
 
 This document is the authoritative plan that spawns Work Package child documents for execution.
 Every committed Work Package in this plan will become a governed artifact with governance pinning.
 
+Note: Technical Architecture is produced AFTER this document (ADR-053). TA decisions
+will inform downstream Work Statements, not this plan.
+
 ## Inputs Provided
 
-You will receive exactly two input documents:
+You will receive the following input document:
 
 * Primary Implementation Plan - contains work_package_candidates[] with candidate_ids (WPC-001, WPC-002, etc.)
-* Technical Architecture - contains architecture decisions, constraints, and component definitions
+
+Project Discovery context may also be available for background understanding.
 
 These are the ONLY sources of requirements. No other context may be assumed.
 
@@ -54,19 +57,18 @@ IPP WP candidate. No candidate may silently disappear or be silently invented.
 
 You MUST:
 * Start from IPP WP candidates as the baseline - these are the scope foundation
-* Use Technical Architecture to inform dependencies and governance pinning
-* Preserve candidate intent unless architecture review forces splitting, merging, or dropping
+* Preserve candidate intent unless planning analysis forces splitting, merging, or dropping
 * Document every transformation with rationale in transformation_notes and reconciliation notes
-* Reference specific architecture decisions or constraints when justifying changes
-* Pin governance references (ta_version_id, applicable ADR and policy refs) on each WP
+* Reference specific planning decisions or constraints when justifying changes
+* Include governance_pins on each WP (ta_version_id may be "pending_ta" since TA runs later)
 
 You MUST NOT:
-* Invent new WPs unless Technical Architecture reveals a gap that no existing candidate covers
+* Invent new WPs unless planning analysis reveals a gap that no existing candidate covers
 * Silently drop, rename, or restructure candidates without reconciliation entries
 * Decompose WPs into features, stories, tasks, or implementation detail
 * Assign estimates, timelines, or ownership
 * Imply delivery commitment beyond scope definition
-* Introduce solution design beyond what the Technical Architecture provides
+* Introduce solution design (architecture decisions come later in the TA phase)
 
 ## Work Package Requirements
 
@@ -79,7 +81,7 @@ Each committed Work Package must include:
 * dependencies - references to other wp_ids with dependency_type and notes
 * definition_of_done - measurable completion criteria
 * governance_pins - governance references:
-  * ta_version_id - Technical Architecture version (required, non-empty)
+  * ta_version_id - Technical Architecture version (use "pending_ta" if TA not yet produced)
   * adr_refs - applicable ADR IDs (may be empty)
   * policy_refs - applicable policy IDs (may be empty)
 * transformation - how it relates to IPP candidates (kept, split, merged, added)
@@ -114,7 +116,7 @@ System will overwrite meta.created_at and meta.artifact_id with system values.
 
 * All WPs must be traceable to IPP candidates via source_candidate_ids
 * All IPP candidates must be accounted for via candidate_reconciliation
-* All WPs must have governance_pins with ta_version_id populated
+* All WPs must have governance_pins (ta_version_id may be "pending_ta")
 * No implicit decisions or silent interpretations
 * Any uncertainty must be explicitly stated
 * Output must be fully loggable and replayable per ADR-010
@@ -140,7 +142,7 @@ Given identical inputs, the task should:
 7. Referential consistency: reconciliation wp_ids exist in work_packages[]
 8. WP IDs are unique and snake_case
 9. Dependencies reference valid WP IDs only
-10. governance_pins.ta_version_id is populated on every WP
+10. governance_pins present on every WP (ta_version_id may be "pending_ta")
 11. No additional properties at any level
 
 ## Failure Conditions (Automatic Reject)
@@ -148,7 +150,7 @@ Given identical inputs, the task should:
 This task fails if:
 * Any IPP candidate is missing from candidate_reconciliation
 * Any WP with transformation != "added" has empty source_candidate_ids
-* Any WP has empty or missing governance_pins.ta_version_id
+* Any WP has missing governance_pins
 * Orphan references exist (wp_ids or candidate_ids that don't resolve)
 * Role identity or authority is restated or altered
 * Stories, tasks, features, or implementation detail appear

@@ -37,12 +37,19 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                     if (rm?.metadata) setDocMetadata(rm.metadata);
                     if (rm?.title) setDocTitle(rm.title);
 
+                    // Route 1: IA config present → config-driven viewer (ADR-054)
+                    if (rm?.rendering_config?.detail_html) {
+                        setRenderModel(rm);
+                        setRawContent(null);
+                        return;
+                    }
+                    // Route 2: Populated sections → legacy DocDef path
                     if (rm && rm.sections && rm.sections.length > 0) {
                         setRenderModel(rm);
                         setRawContent(null);
                         return;
                     }
-                    // If RenderModel has fallback flag, use raw content
+                    // Route 3: Raw content fallback
                     if (rm?.metadata?.fallback && rm.raw_content) {
                         setRenderModel(null);
                         setRawContent(rm.raw_content);

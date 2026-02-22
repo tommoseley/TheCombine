@@ -835,21 +835,13 @@ async def get_document_render_model(
             meta["execution_id"] = exec_id
         return meta
 
-    if not view_docdef:
-        # No view_docdef configured - return raw content wrapped in basic structure
-        meta = await _build_doc_metadata()
-        meta["fallback"] = True
-        meta["reason"] = "no_view_docdef"
-        return {
-            "render_model_version": "1.0",
-            "schema_id": "schema:RenderModelV1",
-            "document_id": str(document.id),
-            "document_type": doc_type_id,
-            "title": document.title or doc_type_id,
-            "sections": [],
-            "metadata": meta,
-            "raw_content": document.content,
-        }
+    # Helper: inject IA config from package.yaml (ADR-054) into any response dict
+    def _inject_ia_config(response_dict: Dict[str, Any]) -> None:
+        if _package:
+            if _package.rendering:
+                response_dict["rendering_config"] = _package.rendering
+            if _package.information_architecture:
+                response_dict["information_architecture"] = _package.information_architecture
 
     # Unwrap document content if stored in raw envelope format
     # Some documents are stored as {"raw": true, "content": "```json\n{...}\n```"}
@@ -873,6 +865,24 @@ async def get_document_render_model(
                     document_data = repaired
                 else:
                     logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
+
+    if not view_docdef:
+        # No view_docdef configured - return raw content wrapped in basic structure
+        meta = await _build_doc_metadata()
+        meta["fallback"] = True
+        meta["reason"] = "no_view_docdef"
+        result = {
+            "render_model_version": "1.0",
+            "schema_id": "schema:RenderModelV1",
+            "document_id": str(document.id),
+            "document_type": doc_type_id,
+            "title": document.title or doc_type_id,
+            "sections": [],
+            "metadata": meta,
+            "raw_content": document_data,
+        }
+        _inject_ia_config(result)
+        return result
 
     # Normalize LLM output keys to match docdef source pointers
     # LLM may produce alternate key names; docdef uses canonical forms
@@ -939,11 +949,7 @@ async def get_document_render_model(
         result_dict = render_model.to_dict()
 
         # Inject rendering config from package.yaml (ADR-054)
-        if _package:
-            if _package.rendering:
-                result_dict["rendering_config"] = _package.rendering
-            if _package.information_architecture:
-                result_dict["information_architecture"] = _package.information_architecture
+        _inject_ia_config(result_dict)
 
         # Inject document metadata for header display
         doc_meta = await _build_doc_metadata()
@@ -976,21 +982,23 @@ async def get_document_render_model(
 
     except DocDefNotFoundError as e:
         logger.warning(f"DocDef not found for {doc_type_id}: {e}")
-        # Return fallback with raw content
+        # Return fallback with raw content (unwrapped) and IA config
         meta = await _build_doc_metadata()
         meta["fallback"] = True
         meta["reason"] = "docdef_not_found"
         meta["view_docdef"] = view_docdef
-        return {
+        result = {
             "render_model_version": "1.0",
             "schema_id": "schema:RenderModelV1",
             "document_id": str(document.id),
             "document_type": doc_type_id,
-            "title": document.title or doc_type_id,
+            "title": display_title or doc_type_id,
             "sections": [],
             "metadata": meta,
-            "raw_content": document.content,
+            "raw_content": document_data,
         }
+        _inject_ia_config(result)
+        return result
     except Exception as e:
         logger.error(f"Failed to build RenderModel for {doc_type_id}: {e}")
         raise HTTPException(

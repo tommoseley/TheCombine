@@ -242,6 +242,6 @@
   },
   "requires_inputs": [
     "primary_implementation_plan",
-    "technical_architecture"
+    "project_discovery"
   ]
 }

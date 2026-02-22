@@ -275,6 +275,40 @@ class TestSPARenderer:
             "from the API response. Tabs are still hardcoded."
         )
 
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_all_tab_sections_resolve_to_binds(self, doc_type):
+        """Every section ID referenced by a tab must resolve to an IA section with at least one bind.
+
+        This validates the IA config is sufficient for raw-content rendering
+        (no DocDef needed) — every tab section has bindings that can pull
+        fields directly from raw_content.
+        """
+        pkg = _load_package(doc_type)
+
+        ia = pkg.get("information_architecture")
+        assert ia is not None, f"{doc_type}: information_architecture section missing"
+
+        rendering = pkg.get("rendering")
+        assert rendering is not None, f"{doc_type}: rendering section missing"
+
+        detail_html = rendering.get("detail_html")
+        assert detail_html is not None, f"{doc_type}: rendering.detail_html missing"
+
+        # Build lookup: section id -> list of binds
+        section_binds = {s["id"]: s.get("binds", []) for s in ia["sections"]}
+
+        for tab in detail_html.get("tabs", []):
+            for section_id in tab.get("sections", []):
+                assert section_id in section_binds, (
+                    f"{doc_type}: Tab '{tab['id']}' references section '{section_id}' "
+                    f"which is not declared in information_architecture"
+                )
+                binds = section_binds[section_id]
+                assert len(binds) > 0, (
+                    f"{doc_type}: Tab '{tab['id']}' section '{section_id}' "
+                    f"has no binds — cannot render from raw content"
+                )
+
     def test_no_hardcoded_doc_type_routing(self):
         """FullDocumentViewer does not hardcode doc type routing for tabbed rendering."""
         content = self.SPA_FULL.read_text()
