@@ -184,6 +184,28 @@ class ProjectOrchestrator:
 
         return dep_graph
 
+    async def _resolve_project_uuid(self, project_id: str) -> Optional[UUID]:
+        """Resolve a project_id (UUID string or business ID) to a UUID.
+
+        Args:
+            project_id: Project ID as UUID string or business identifier
+
+        Returns:
+            UUID if resolved, None if project not found
+        """
+        from app.api.models.project import Project
+
+        try:
+            return UUID(project_id)
+        except ValueError:
+            result = await self.db.execute(
+                select(Project).where(Project.project_id == project_id)
+            )
+            project = result.scalar_one_or_none()
+            if not project:
+                return None
+            return project.id
+
     async def _get_stabilized_documents(self, project_id: str) -> Set[str]:
         """Get set of document types that are already stabilized.
 
@@ -193,19 +215,9 @@ class ProjectOrchestrator:
         Returns:
             Set of stabilized document type IDs
         """
-        # Resolve project UUID
-        from app.api.models.project import Project
-
-        try:
-            project_uuid = UUID(project_id)
-        except ValueError:
-            result = await self.db.execute(
-                select(Project).where(Project.project_id == project_id)
-            )
-            project = result.scalar_one_or_none()
-            if not project:
-                return set()
-            project_uuid = project.id
+        project_uuid = await self._resolve_project_uuid(project_id)
+        if not project_uuid:
+            return set()
 
         # Query stabilized documents
         result = await self.db.execute(
@@ -334,11 +346,39 @@ class ProjectOrchestrator:
             return
 
         try:
+            # Load required input documents
+            registry = get_plan_registry()
+            plan = registry.get_by_document_type(document_type)
+
+            input_documents = {}
+            if plan and plan.requires_inputs:
+                project_uuid = await self._resolve_project_uuid(project_id)
+                if project_uuid:
+                    for required_type in plan.requires_inputs:
+                        result = await self.db.execute(
+                            select(Document)
+                            .where(Document.space_type == "project")
+                            .where(Document.space_id == project_uuid)
+                            .where(Document.doc_type_id == required_type)
+                            .where(Document.is_latest == True)
+                        )
+                        doc = result.scalar_one_or_none()
+                        if doc:
+                            input_documents[required_type] = doc.content
+                            logger.info(f"Loaded required input: {required_type} (doc {doc.id})")
+                        else:
+                            logger.warning(
+                                f"Required input document '{required_type}' not found "
+                                f"for project {project_id}"
+                            )
+
+            initial_context = {"input_documents": input_documents}
+
             # Create executor
             executors = await create_llm_executors(self.db)
             executor = PlanExecutor(
                 persistence=PgStatePersistence(self.db),
-                plan_registry=get_plan_registry(),
+                plan_registry=registry,
                 executors=executors,
                 db_session=self.db,
             )
@@ -347,7 +387,7 @@ class ProjectOrchestrator:
             state = await executor.start_execution(
                 project_id=project_id,
                 document_type=document_type,
-                initial_context={},
+                initial_context=initial_context,
             )
 
             # Update track state

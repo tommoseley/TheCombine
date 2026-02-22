@@ -6,7 +6,6 @@ C3: Retry-after respected — provider-specified delay is honored
 C4: Structured error on exhaustion — LLMOperationalError raised with fields
 """
 
-import asyncio
 import time
 
 import pytest

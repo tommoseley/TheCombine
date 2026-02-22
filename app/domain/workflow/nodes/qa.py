@@ -14,7 +14,6 @@ import logging
 import os
 import re
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
 import jsonschema
@@ -577,12 +576,13 @@ class QANodeExecutor(NodeExecutor):
         Returns:
             Formatted message content for LLM
         """
-        # Load policy prompt
-        policy_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "prompts" / "tasks" / "qa_semantic_compliance_v1.1.txt"
+        # Load policy prompt via PackageLoader (combine-config canonical source)
         try:
-            policy_prompt = policy_path.read_text()
-        except FileNotFoundError:
-            logger.error(f"Semantic QA policy prompt not found at {policy_path}")
+            from app.config.package_loader import get_package_loader
+            task = get_package_loader().get_task("qa_semantic_compliance", "1.1.0")
+            policy_prompt = task.content
+        except Exception:
+            logger.error("Semantic QA policy prompt not found via PackageLoader")
             policy_prompt = "# Semantic QA Policy\nEvaluate constraints for compliance."
 
         parts = [policy_prompt]
@@ -654,16 +654,18 @@ class QANodeExecutor(NodeExecutor):
             logger.error(f"Semantic QA response is not valid JSON: {e}")
             raise ValueError(f"Invalid JSON response: {e}")
 
-        # Load and validate against schema
-        schema_path = Path(__file__).parent.parent.parent.parent.parent / "seed" / "schemas" / "qa_semantic_compliance_output.v1.json"
+        # Load and validate against schema via PackageLoader (combine-config)
         try:
-            schema = json.loads(schema_path.read_text())
-            jsonschema.validate(instance=report, schema=schema)
-        except FileNotFoundError:
-            logger.warning(f"Schema not found at {schema_path}, skipping validation")
+            from app.config.package_loader import get_package_loader
+            schema_obj = get_package_loader().get_schema(
+                "qa_semantic_compliance_output", "1.0.0"
+            )
+            jsonschema.validate(instance=report, schema=schema_obj.content)
         except jsonschema.ValidationError as e:
             logger.error(f"Semantic QA response failed schema validation: {e.message}")
             raise ValueError(f"Schema validation failed: {e.message}")
+        except Exception as e:
+            logger.warning(f"Schema not found via PackageLoader, skipping validation: {e}")
 
         # Validate contract rules
         self._validate_semantic_qa_contract(

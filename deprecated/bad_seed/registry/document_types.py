@@ -91,7 +91,7 @@ INITIAL_DOCUMENT_TYPES: List[Dict[str, Any]] = [
     {
         "doc_type_id": "technical_architecture",
         "name": "Technical Architecture",
-        "view_docdef": "TechnicalArchitectureView",
+        "view_docdef": "ArchitecturalSummaryView",
         "description": (
             "Comprehensive technical architecture including components, "
             "interfaces, data models, workflows, and quality attributes. "

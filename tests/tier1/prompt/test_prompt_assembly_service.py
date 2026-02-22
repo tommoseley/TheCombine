@@ -1,38 +1,99 @@
-"""Tests for PromptAssemblyService."""
+"""Tests for PromptAssemblyService.
 
+Uses combine-config as the canonical source for prompts and schemas.
+Workflow definitions are test-owned fixtures (written to tmp_path)
+since the PromptAssemblyService's flat-file workflow loading doesn't
+match combine-config's hierarchical release structure.
+"""
+
+import json
 import pytest
-from pathlib import Path
 
 from app.domain.services.prompt_assembly_service import (
     PromptAssemblyService,
-    WorkflowNode,
 )
 from app.domain.prompt.errors import PromptAssemblyError
+
+
+@pytest.fixture
+def _workflow_dir(tmp_path):
+    """Create test workflow files in tmp_path using combine-config references."""
+    workflow_dir = tmp_path / "workflows"
+    workflow_dir.mkdir()
+
+    # project_discovery workflow with nodes that use combine-config paths/URNs
+    pd_workflow = {
+        "workflow_id": "project_discovery",
+        "version": "1.0.0",
+        "nodes": [
+            {
+                "node_id": "pgc",
+                "type": "pgc",
+                "task_ref": "tasks/Clarification Questions Generator v1.1",
+                "includes": {
+                    "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
+                    "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0",
+                },
+            },
+            {
+                "node_id": "generation",
+                "type": "task",
+                "task_ref": "prompt:template:document_generator:1.0.0",
+                "includes": {
+                    "ROLE_PROMPT": "prompt:role:technical_architect:1.0.0",
+                    "TASK_PROMPT": "prompt:task:project_discovery:1.4.0",
+                    "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0",
+                },
+                "produces": "project_discovery",
+            },
+        ],
+    }
+    (workflow_dir / "project_discovery.v1.json").write_text(
+        json.dumps(pd_workflow)
+    )
+
+    # concierge_intake workflow (minimal, for list_workflows test)
+    ci_workflow = {
+        "workflow_id": "concierge_intake",
+        "version": "1.0.0",
+        "nodes": [
+            {
+                "node_id": "entry",
+                "type": "task",
+                "task_ref": "prompt:task:concierge_intent_reflection:1.0.0",
+                "includes": {},
+            },
+        ],
+    }
+    (workflow_dir / "concierge_intake.v1.json").write_text(
+        json.dumps(ci_workflow)
+    )
+
+    return workflow_dir
+
+
+@pytest.fixture
+def service(_workflow_dir):
+    """Create service with combine-config prompts and test workflow dir."""
+    return PromptAssemblyService(
+        workflow_root=_workflow_dir,
+    )
 
 
 class TestPromptAssemblyService:
     """Tests for PromptAssemblyService.
 
-    Note: PromptAssemblyService uses PackageLoader for task prompts.
-    Tests use existing seed paths for includes that still exist there.
+    Uses combine-config as canonical source via PackageLoader.
+    Workflow definitions are test-owned fixtures.
     """
-
-    @pytest.fixture
-    def service(self):
-        """Create service with test paths."""
-        return PromptAssemblyService(
-            template_root=Path("seed/prompts"),
-            workflow_root=Path("seed/workflows"),
-        )
 
     def test_assemble_direct(self, service):
         """Direct assembly with task_ref and includes."""
-        # Use v1.1 which is the version that exists
         result = service.assemble(
             task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
-                "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
-                "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
+                "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
+                "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0",
             },
             correlation_id="550e8400-e29b-41d4-a716-446655440001",
         )
@@ -97,16 +158,16 @@ class TestPromptAssemblyService:
         result1 = service.assemble(
             task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
-                "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
-                "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
+                "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
+                "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0",
             },
         )
 
         result2 = service.assemble(
             task_ref="tasks/Clarification Questions Generator v1.1",
             includes={
-                "PGC_CONTEXT": "seed/prompts/pgc-contexts/project_discovery.v1.txt",
-                "OUTPUT_SCHEMA": "seed/schemas/clarification_question_set.v2.json",
+                "PGC_CONTEXT": "combine-config/prompts/pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt",
+                "OUTPUT_SCHEMA": "schema:project_discovery:1.4.0",
             },
         )
 

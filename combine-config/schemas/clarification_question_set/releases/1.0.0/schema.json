@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thecombine.dev/schemas/clarification_question_set.v2.json",
+  "title": "ClarificationQuestionSetV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "correlation_id",
+    "question_set_kind",
+    "artifact_scope",
+    "questions",
+    "qa"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "clarification_question_set.v2"
+    },
+    "mode": {
+      "type": "string",
+      "const": "questions_only",
+      "description": "Hard gate: prevents declarative output drift. This payload must contain questions only (enforced by qa)."
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "step_id": {
+      "type": ["string", "null"],
+      "description": "Optional workflow step identifier (if available)."
+    },
+    "document_type": {
+      "type": ["string", "null"],
+      "description": "Optional. The document type this question set is intended to unlock (e.g., pm_discovery_doc, architecture_doc)."
+    },
+    "question_set_kind": {
+      "type": "string",
+      "enum": [
+        "discovery",
+        "epic_backlog",
+        "story_backlog",
+        "architecture",
+        "qa_remediation",
+        "constraint_resolution",
+        "scope_clarification",
+        "technical_feasibility",
+        "other"
+      ],
+      "description": "Categorizes the purpose of this question set without forking schemas."
+    },
+    "artifact_scope": {
+      "type": "string",
+      "enum": ["project", "epic", "story", "document", "unknown"]
+    },
+    "must_answer_before_proceeding_ids": {
+      "type": ["array", "null"],
+      "description": "Question IDs that MUST be answered before the orchestrator may proceed. Subset of questions[].id values.",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z0-9_\\-]{3,64}$"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "why_it_matters", "priority", "answer_type", "required"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_\\-]{3,64}$",
+            "description": "Stable-ish local id (e.g., TARGET_USERS, EPIC_SCOPE, DB_PROVIDER)."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 300,
+            "pattern": "^.*\\?$",
+            "description": "Must end with a question mark."
+          },
+          "why_it_matters": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240,
+            "description": "Short rationale for why this question is needed, intended for UI display. Must not be prescriptive or a leading answer."
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["must", "should", "could"]
+          },
+          "constraint_kind": {
+            "type": "string",
+            "enum": ["selection", "exclusion", "requirement", "preference"],
+            "default": "selection",
+            "description": "Schema-level hint for binding derivation per ADR-042. selection=user picks from options (binding if must-priority), exclusion=user explicitly excludes (always binding if resolved), requirement=hard requirement (always binding if resolved), preference=informational only (never binding)."
+          },
+          "answer_type": {
+            "type": "string",
+            "enum": [
+              "free_text",
+              "single_choice",
+              "multi_choice",
+              "yes_no",
+              "number",
+              "date",
+              "uuid",
+              "json_object"
+            ]
+          },
+          "choices": {
+            "type": ["array", "null"],
+            "description": "Required when answer_type is single_choice or multi_choice.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "label"],
+              "properties": {
+                "value": { "type": "string", "minLength": 1, "maxLength": 80 },
+                "label": { "type": "string", "minLength": 1, "maxLength": 120 }
+              }
+            }
+          },
+          "default": {
+            "type": ["string", "number", "boolean", "object", "null"],
+            "description": "Optional. A non-leading default value for UI convenience. Should generally be null unless the user has already implied a value."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "blocking": {
+            "type": "boolean",
+            "default": true,
+            "description": "If true and unanswered, the worker must not proceed."
+          },
+          "resolution": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["resolved", "resolution_kind"],
+            "description": "Optional closure state to prevent repetition and support replay. If absent, the orchestrator treats the question as unresolved.",
+            "properties": {
+              "resolved": {
+                "type": "boolean",
+                "description": "True if this question is considered closed for the current question session."
+              },
+              "resolution_kind": {
+                "type": "string",
+                "enum": ["answered", "explicit_none", "deferred", "not_applicable"],
+                "description": "How the question was closed."
+              },
+              "answer_summary": {
+                "type": ["string", "null"],
+                "minLength": 0,
+                "maxLength": 240,
+                "description": "Optional short summary of the user's answer (or the explicit-none/deferred rationale)."
+              }
+            }
+          },
+          "references": {
+            "type": ["array", "null"],
+            "description": "Optional pointers to input artifacts that triggered the question.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "ref"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["schema", "context_doc", "user_prompt", "system_prompt", "other"]
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "answer_type": { "enum": ["single_choice", "multi_choice"] }
+              },
+              "required": ["answer_type"]
+            },
+            "then": {
+              "required": ["choices"],
+              "properties": { "choices": { "type": "array", "minItems": 1 } }
+            },
+            "else": {
+              "properties": { "choices": { "type": ["null"] } }
+            }
+          }
+        ]
+      }
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "non_question_line_count",
+        "declarative_sentence_count",
+        "answer_leadin_count",
+        "all_questions_end_with_qmark"
+      ],
+      "properties": {
+        "non_question_line_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "declarative_sentence_count": {
+          "type": "integer",
+          "const": 0
+        },
+        "answer_leadin_count": {
+          "type": "integer",
+          "const": 0,
+          "description": "Count of prohibited lead-ins like 'Given that', 'We should', 'This means'."
+        },
+        "all_questions_end_with_qmark": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    }
+  }
+}

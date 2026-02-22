@@ -785,6 +785,18 @@ async def get_document_render_model(
 
     view_docdef = doc_type.view_docdef if doc_type else None
 
+    # Load package for view_docdef fallback and rendering config (ADR-054)
+    _package = None
+    try:
+        from app.config.package_loader import get_package_loader
+        _package = get_package_loader().get_document_type(doc_type_id)
+    except Exception:
+        pass  # combine-config lookup is best-effort
+
+    # Fall back to combine-config package.yaml if DB has no view_docdef
+    if not view_docdef and _package:
+        view_docdef = _package.view_docdef
+
     # Helper: build common metadata dict for all response paths
     async def _build_doc_metadata() -> Dict[str, Any]:
         meta: Dict[str, Any] = {
@@ -925,6 +937,13 @@ async def get_document_render_model(
         )
 
         result_dict = render_model.to_dict()
+
+        # Inject rendering config from package.yaml (ADR-054)
+        if _package:
+            if _package.rendering:
+                result_dict["rendering_config"] = _package.rendering
+            if _package.information_architecture:
+                result_dict["information_architecture"] = _package.information_architecture
 
         # Inject document metadata for header display
         doc_meta = await _build_doc_metadata()

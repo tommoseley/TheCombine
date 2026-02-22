@@ -15,10 +15,12 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
+# Rendering
+view_docdef: ImplementationPlanView
+
 # Dependencies
 required_inputs:
   - primary_implementation_plan
-  - technical_architecture
 optional_inputs: []
 creates_children:
   - work_package

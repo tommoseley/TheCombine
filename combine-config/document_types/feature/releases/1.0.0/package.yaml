@@ -13,14 +13,14 @@ description: >
 authority_level: elaborative   # Elaborative - expands on Epic intent
 creation_mode: llm_generated
 production_mode: generate
-scope: epic                    # Scoped to Epic
+scope: work_package             # Scoped to Work Package
 
 # Dependencies
-required_inputs: []            # Requires Epic context (implicit via scope)
+required_inputs: []            # Requires Work Package context (implicit via scope)
 optional_inputs:
   - technical_architecture
 creates_children: []
-parent_doc_type: epic
+parent_doc_type: work_package
 
 # Shared artifact references
 role_prompt_ref: "prompt:role:business_analyst:1.0.0"

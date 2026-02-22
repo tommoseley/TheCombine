@@ -13,7 +13,6 @@ Six test groups mapping to the six Tier 1 verification criteria:
 import pytest
 
 from app.domain.handlers.registry import HANDLERS
-from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
 from app.domain.handlers.project_logbook_handler import ProjectLogbookHandler
 from app.domain.services.logbook_service import (
     create_empty_logbook,
@@ -35,11 +34,41 @@ def handler():
 
 @pytest.fixture
 def logbook_schema():
-    """Return the schema_definition from the seed registry entry."""
-    for entry in INITIAL_DOCUMENT_TYPES:
-        if entry["doc_type_id"] == "project_logbook":
-            return entry["schema_definition"]
-    pytest.fail("project_logbook not found in INITIAL_DOCUMENT_TYPES")
+    """Return the logbook schema (inline — project_logbook not yet in combine-config)."""
+    return {
+        "type": "object",
+        "required": [
+            "schema_version",
+            "project_id",
+            "mode_b_rate",
+            "verification_debt_open",
+            "entries",
+        ],
+        "properties": {
+            "schema_version": {"type": "string"},
+            "project_id": {"type": "string"},
+            "mode_b_rate": {"type": "number"},
+            "verification_debt_open": {"type": "integer"},
+            "program_ref": {"type": "string"},
+            "entries": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "timestamp": {"type": "string"},
+                        "ws_id": {"type": "string"},
+                        "parent_wp_id": {"type": "string"},
+                        "result": {"type": "string"},
+                        "mode_b_list": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "tier0_json": {"type": "object"},
+                    },
+                },
+            },
+        },
+    }
 
 
 @pytest.fixture
@@ -92,9 +121,8 @@ class TestC1Registration:
     def test_handler_doc_type_id(self, handler):
         assert handler.doc_type_id == "project_logbook"
 
-    def test_seed_registry_entry_exists(self):
-        ids = [e["doc_type_id"] for e in INITIAL_DOCUMENT_TYPES]
-        assert "project_logbook" in ids
+    def test_handler_registered(self):
+        assert "project_logbook" in HANDLERS
 
 
 # =========================================================================

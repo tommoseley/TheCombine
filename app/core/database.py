@@ -68,11 +68,54 @@ async def init_database():
     Note: In production, use Alembic migrations instead.
     This is mainly for development/testing.
     """
-    # Import all ORM models so they're registered with Base
+    # Import ALL ORM models so they're registered with Base.
+    # Every model that inherits from Base must be imported here,
+    # otherwise Base.metadata.create_all() won't know about its table.
+
+    # Auth models
     from app.auth.db_models import (  # noqa: F401
         UserORM, UserOAuthIdentityORM, UserSessionORM,
         PersonalAccessTokenORM, AuthAuditLogORM, LinkIntentNonceORM
     )
+
+    # Core domain models
+    from app.api.models.project import Project  # noqa: F401
+    from app.api.models.document import Document  # noqa: F401
+    from app.api.models.document_type import DocumentType  # noqa: F401
+    from app.api.models.document_relation import DocumentRelation  # noqa: F401
+    from app.api.models.document_definition import DocumentDefinition  # noqa: F401
+    from app.api.models.file import File  # noqa: F401
+
+    # Workflow models
+    from app.api.models.workflow_instance import (  # noqa: F401
+        WorkflowInstance, WorkflowInstanceHistory
+    )
+    from app.api.models.workflow_execution import WorkflowExecution  # noqa: F401
+    from app.api.models.pgc_answer import PGCAnswer  # noqa: F401
+    from app.api.models.governance_outcome import GovernanceOutcome  # noqa: F401
+
+    # LLM logging models (canonical location: domain/models)
+    from app.domain.models.llm_logging import (  # noqa: F401
+        LLMContent, LLMRun, LLMRunInputRef,
+        LLMRunOutputRef, LLMRunError, LLMRunToolCall
+    )
+    from app.api.models.llm_thread import (  # noqa: F401
+        LLMThreadModel, LLMWorkItemModel, LLMLedgerEntryModel
+    )
+
+    # Artifact models
+    from app.api.models.component_artifact import ComponentArtifact  # noqa: F401
+    from app.api.models.fragment_artifact import (  # noqa: F401
+        FragmentArtifact, FragmentBinding
+    )
+    from app.api.models.schema_artifact import SchemaArtifact  # noqa: F401
+
+    # Configuration models
+    from app.api.models.role import Role  # noqa: F401
+    from app.api.models.role_prompt import RolePrompt  # noqa: F401
+    from app.api.models.role_task import RoleTask  # noqa: F401
+    from app.api.models.system_config import SystemConfig  # noqa: F401
+    from app.api.models.project_audit import ProjectAudit  # noqa: F401
     
     async with engine.begin() as conn:
         # Create all tables (idempotent)

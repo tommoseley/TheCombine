@@ -1,31 +1,7 @@
 """Pydantic schemas for pipeline artifacts."""
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
-
-
-class Story(BaseModel):
-    """User story within an epic."""
-
-    id: str = Field(pattern=r"^STORY-\d+$")
-    title: str = Field(max_length=100)
-    user_story: str
-    acceptance_criteria: List[str]
-    estimate_hours: int = Field(gt=0, le=40)
-    priority: str = Field(pattern=r"^(critical|high|medium|low)$")
-
-
-class EpicSpec(BaseModel):
-    """PM phase output schema."""
-
-    epic_id: str
-    title: str = Field(max_length=100)
-    goal: str = Field(max_length=500)
-    success_criteria: List[str] = Field(min_length=1)
-    stories: List[Story] = Field(min_length=1)
-    out_of_scope: List[str] = []
-    risks: List[str] = []
-    total_estimate_hours: int = Field(gt=0)
 
 
 class MethodSpec(BaseModel):
@@ -64,7 +40,6 @@ class ADR(BaseModel):
 class ArchitectureSpec(BaseModel):
     """Architect phase output schema."""
 
-    epic_id: str
     components: List[ComponentSpec]
     adrs: List[ADR]
     test_strategy: dict

@@ -16,6 +16,9 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
+# Rendering
+view_docdef: ProjectDiscovery
+
 # Dependencies
 required_inputs: []  # First document in workflow - no dependencies
 optional_inputs: []

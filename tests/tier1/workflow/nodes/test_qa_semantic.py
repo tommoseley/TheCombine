@@ -5,9 +5,23 @@ Per WS-SEMANTIC-QA-001.
 
 import json
 import logging
+import os
+import sys
+import types
+
 import pytest
 
-from app.domain.workflow.nodes.qa import QANodeExecutor
+# Stub the workflow package to avoid circular import through __init__.py
+# (pre-existing circular: workflow.__init__ -> plan_executor -> api routers -> plan_executor)
+if "app.domain.workflow" not in sys.modules:
+    _stub = types.ModuleType("app.domain.workflow")
+    _stub.__path__ = [os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "..", "app", "domain", "workflow"
+    )]
+    _stub.__package__ = "app.domain.workflow"
+    sys.modules["app.domain.workflow"] = _stub
+
+from app.domain.workflow.nodes.qa import QANodeExecutor  # noqa: E402
 
 
 class TestParseSemanticQAResponse:
@@ -377,22 +391,8 @@ class TestBuildSemanticQAContext:
     def executor(self):
         return QANodeExecutor()
 
-    def test_builds_context_with_all_inputs(self, executor, tmp_path, monkeypatch):
+    def test_builds_context_with_all_inputs(self, executor):
         """Context should include all inputs properly formatted."""
-        # Mock the policy prompt file
-        policy_path = tmp_path / "seed" / "prompts" / "tasks"
-        policy_path.mkdir(parents=True)
-        (policy_path / "qa_semantic_compliance_v1.1.txt").write_text("# Test Policy")
-
-        # Monkeypatch Path to use our temp path
-        import app.domain.workflow.nodes.qa as qa_module
-        original_path = qa_module.Path
-
-        def mock_path_init(*args, **kwargs):
-            if args and "qa_semantic_compliance_v1.1.txt" in str(args[0]):
-                return policy_path / "qa_semantic_compliance_v1.1.txt"
-            return original_path(*args, **kwargs)
-
         # Build context
         pgc_questions = [
             {"id": "Q1", "text": "Platform?", "priority": "must"},

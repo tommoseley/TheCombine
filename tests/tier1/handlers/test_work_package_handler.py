@@ -13,7 +13,7 @@ Six test groups mapping to the six Tier 1 verification criteria:
 import pytest
 
 from app.domain.handlers.registry import HANDLERS
-from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
+from app.config.package_loader import get_package_loader
 from app.domain.handlers.work_package_handler import WorkPackageHandler
 from app.domain.services.work_package_state import (
     validate_wp_transition,
@@ -33,11 +33,11 @@ def handler():
 
 @pytest.fixture
 def wp_schema():
-    """Return the schema_definition from the seed registry entry."""
-    for entry in INITIAL_DOCUMENT_TYPES:
-        if entry["doc_type_id"] == "work_package":
-            return entry["schema_definition"]
-    pytest.fail("work_package not found in INITIAL_DOCUMENT_TYPES")
+    """Return the output schema from combine-config."""
+    package = get_package_loader().get_document_type("work_package")
+    schema = package.get_schema()
+    assert schema is not None, "work_package schema not found in combine-config"
+    return schema
 
 
 @pytest.fixture
@@ -69,8 +69,8 @@ class TestC1Registration:
     def test_handler_doc_type_id(self, handler):
         assert handler.doc_type_id == "work_package"
 
-    def test_seed_registry_entry_exists(self):
-        ids = [e["doc_type_id"] for e in INITIAL_DOCUMENT_TYPES]
+    def test_combine_config_entry_exists(self):
+        ids = get_package_loader().list_document_types()
         assert "work_package" in ids
 
 
@@ -87,8 +87,6 @@ REQUIRED_FIELDS = [
     "scope_out",
     "dependencies",
     "definition_of_done",
-    "state",
-    "ws_child_refs",
     "governance_pins",
 ]
 

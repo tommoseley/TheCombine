@@ -50,26 +50,26 @@ class TestOpsScripts:
 
 
 class TestSchemaFiles:
-    """Tests for JSON schema files."""
-    
-    SCHEMAS_DIR = Path("seed/schemas/strategy")
+    """Tests for JSON schema files in combine-config."""
+
+    SCHEMAS_DIR = Path("combine-config/schemas")
     REQUIRED_SCHEMAS = [
-        "project-discovery.json",
-        "requirements-doc.json",
-        "architecture-doc.json",
-        "strategy-review.json",
+        "project_discovery/releases/1.4.0/schema.json",
+        "technical_architecture/releases/1.0.0/schema.json",
+        "workflow/releases/1.0.0/schema.json",
+        "clarification_question_set/releases/1.0.0/schema.json",
     ]
-    
+
     def test_schemas_directory_exists(self):
         """Schemas directory exists."""
-        assert self.SCHEMAS_DIR.exists(), "seed/schemas/strategy/ not found"
-    
+        assert self.SCHEMAS_DIR.exists(), "combine-config/schemas/ not found"
+
     def test_required_schemas_exist(self):
         """All required schema files exist."""
-        for filename in self.REQUIRED_SCHEMAS:
-            path = self.SCHEMAS_DIR / filename
-            assert path.exists(), f"Missing schema: {filename}"
-    
+        for filepath in self.REQUIRED_SCHEMAS:
+            path = self.SCHEMAS_DIR / filepath
+            assert path.exists(), f"Missing schema: {filepath}"
+
     @pytest.mark.parametrize("schema_file", REQUIRED_SCHEMAS)
     def test_schemas_are_valid_json(self, schema_file):
         """Schema files are valid JSON."""
@@ -77,7 +77,7 @@ class TestSchemaFiles:
         with open(path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         assert isinstance(data, dict)
-    
+
     @pytest.mark.parametrize("schema_file", REQUIRED_SCHEMAS)
     def test_schemas_have_type(self, schema_file):
         """Schema files have type definition."""
@@ -88,33 +88,33 @@ class TestSchemaFiles:
 
 
 class TestPromptFiles:
-    """Tests for task prompt files."""
-    
-    PROMPTS_DIR = Path("seed/prompts/tasks")
+    """Tests for task prompt files in combine-config."""
+
+    PROMPTS_DIR = Path("combine-config/prompts/tasks")
     REQUIRED_PROMPTS = [
-        "strategy-discovery-v1.txt",
-        "strategy-requirements-v1.txt",
-        "strategy-architecture-v1.txt",
-        "strategy-review-v1.txt",
+        "strategy_discovery_v1/releases/1.0.0/task.prompt.txt",
+        "strategy_requirements_v1/releases/1.0.0/task.prompt.txt",
+        "strategy_architecture_v1/releases/1.0.0/task.prompt.txt",
+        "strategy_review_v1/releases/1.0.0/task.prompt.txt",
     ]
-    
+
     def test_prompts_directory_exists(self):
         """Prompts directory exists."""
-        assert self.PROMPTS_DIR.exists(), "seed/prompts/tasks/ not found"
-    
+        assert self.PROMPTS_DIR.exists(), "combine-config/prompts/tasks/ not found"
+
     def test_required_prompts_exist(self):
         """All required prompt files exist."""
-        for filename in self.REQUIRED_PROMPTS:
-            path = self.PROMPTS_DIR / filename
-            assert path.exists(), f"Missing prompt: {filename}"
-    
+        for filepath in self.REQUIRED_PROMPTS:
+            path = self.PROMPTS_DIR / filepath
+            assert path.exists(), f"Missing prompt: {filepath}"
+
     @pytest.mark.parametrize("prompt_file", REQUIRED_PROMPTS)
     def test_prompts_not_empty(self, prompt_file):
         """Prompt files are not empty."""
         path = self.PROMPTS_DIR / prompt_file
         content = path.read_text(encoding="utf-8-sig")
         assert len(content.strip()) > 100, f"Prompt too short: {prompt_file}"
-    
+
     @pytest.mark.parametrize("prompt_file", REQUIRED_PROMPTS)
     def test_prompts_have_instructions(self, prompt_file):
         """Prompt files contain instructions."""

@@ -21,7 +21,7 @@ const PGC_GATE_KINDS = [
     { value: 'discovery', label: 'Discovery Gate', produces: 'pgc_clarifications.discovery' },
     { value: 'plan', label: 'Plan Gate', produces: 'pgc_clarifications.plan' },
     { value: 'architecture', label: 'Architecture Gate', produces: 'pgc_clarifications.architecture' },
-    { value: 'epic', label: 'Epic Gate', produces: 'pgc_clarifications.epic' },
+    { value: 'work_package', label: 'Work Package Gate', produces: 'pgc_clarifications.work_package' },
     { value: 'remediation', label: 'Remediation Gate', produces: 'pgc_clarifications.remediation' },
     { value: 'compliance', label: 'Compliance Gate', produces: 'pgc_clarifications.compliance' },
 ];

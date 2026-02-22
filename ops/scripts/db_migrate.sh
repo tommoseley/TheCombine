@@ -168,17 +168,9 @@ if [[ "$DO_SEED" == "true" ]]; then
         exit 1
     fi
 
-    # Run seed scripts (idempotent)
-    if [[ -f "$REPO_ROOT/ops/db/seed_data.py" ]]; then
-        python "$REPO_ROOT/ops/db/seed_data.py" 2>&1
-        echo "  seed_data.py complete"
-    fi
-
-    if [[ -f "$REPO_ROOT/ops/db/seed_acceptance_config.py" ]]; then
-        python "$REPO_ROOT/ops/db/seed_acceptance_config.py" 2>&1
-        echo "  seed_acceptance_config.py complete"
-    fi
-
+    # Seed scripts removed per WS-DCW-005 (combine-config is now the canonical source).
+    # Future seed logic should use combine-config loaders.
+    echo "  No seed scripts to run (seed data managed via combine-config)"
     echo "  Seeding complete"
 fi
 

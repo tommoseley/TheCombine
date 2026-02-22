@@ -11,7 +11,6 @@ LLM-generated) document types for the Backlog Compilation Pipeline.
 """
 
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20260216_003"

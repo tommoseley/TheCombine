@@ -11,7 +11,7 @@ Validates workflow definitions before execution. Enforces:
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 import jsonschema
 
@@ -44,14 +44,14 @@ class WorkflowValidator:
     ):
         """
         Initialize validator with schema and manifest paths.
-        
+
         Args:
             schema_path: Path to workflow.v1.json schema.
-                        Defaults to seed/schemas/workflow.v1.json
+                        Defaults to combine-config/schemas/workflow/releases/1.0.0/schema.json
             manifest_path: Path to seed manifest.
                           Defaults to seed/manifest.json
         """
-        self.schema_path = schema_path or Path("seed/schemas/workflow.v1.json")
+        self.schema_path = schema_path or Path("combine-config/schemas/workflow/releases/1.0.0/schema.json")
         self.manifest_path = manifest_path or Path("seed/manifest.json")
         self._schema: Optional[dict] = None
         self._manifest: Optional[dict] = None
@@ -143,7 +143,7 @@ class WorkflowValidator:
                 is_workflow_plan = True
         
         if is_workflow_plan:
-            plan_schema_path = Path("seed/schemas/workflow-plan.v1.json")
+            plan_schema_path = Path("combine-config/schemas/workflow_plan/releases/1.0.0/schema.json")
             if plan_schema_path.exists():
                 with open(plan_schema_path, "r", encoding="utf-8-sig") as f:
                     return json.load(f)

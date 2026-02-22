@@ -1,10 +1,10 @@
 {
   "schema_version": "workflow.v2",
   "workflow_id": "software_product_development",
-  "revision": "wfrev_2026_02_04_a",
-  "effective_date": "2026-02-04",
+  "revision": "wfrev_2026_02_21_a",
+  "effective_date": "2026-02-21",
   "name": "Software Product Development",
-  "description": "End-to-end workflow for software product creation from discovery through implementation",
+  "description": "End-to-end workflow for software product creation from discovery through implementation. Uses WP/WS ontology per ADR-051/052.",
   "pow_class": "reference",
   "derived_from": null,
   "source_version": null,
@@ -15,11 +15,11 @@
     "project": {
       "parent": null
     },
-    "epic": {
+    "work_package": {
       "parent": "project"
     },
-    "feature": {
-      "parent": "epic"
+    "work_statement": {
+      "parent": "work_package"
     }
   },
   "document_types": {
@@ -34,7 +34,7 @@
       "scope": "project",
       "may_own": [],
       "acceptance_required": false,
-      "description": "Preliminary plan with epic candidates that inform architecture"
+      "description": "Preliminary plan with WP candidates that inform architecture"
     },
     "technical_architecture": {
       "name": "Technical Architecture",
@@ -49,46 +49,46 @@
       "name": "Implementation Plan",
       "scope": "project",
       "may_own": [
-        "epic"
+        "work_package"
       ],
-      "collection_field": "epics",
+      "collection_field": "work_packages",
       "acceptance_required": true,
       "accepted_by": [
         "pm"
       ],
-      "description": "Final plan that creates committed Epic documents"
+      "description": "Final plan that creates committed Work Package documents"
     },
-    "epic": {
-      "name": "Epic",
+    "work_package": {
+      "name": "Work Package",
       "scope": "project",
       "may_own": [
-        "feature"
+        "work_statement"
       ],
       "acceptance_required": false,
-      "description": "Unit of planning with lifecycle gates"
+      "description": "Unit of planned work with scope, governance pins, and completion criteria"
     },
-    "feature": {
-      "name": "Feature",
-      "scope": "epic",
+    "work_statement": {
+      "name": "Work Statement",
+      "scope": "work_package",
       "may_own": [],
       "acceptance_required": true,
       "accepted_by": [
         "pm",
-        "ba"
+        "technical_lead"
       ],
-      "description": "Unit of production intent with nested stories"
+      "description": "Unit of authorized execution with procedure, verification criteria, and allowed paths"
     }
   },
   "entity_types": {
-    "epic": {
-      "name": "Epic",
+    "work_package": {
+      "name": "Work Package",
       "parent_doc_type": "implementation_plan",
-      "creates_scope": "epic"
+      "creates_scope": "work_package"
     },
-    "feature": {
-      "name": "Feature",
-      "parent_doc_type": "epic",
-      "creates_scope": "feature"
+    "work_statement": {
+      "name": "Work Statement",
+      "parent_doc_type": "work_package",
+      "creates_scope": "work_statement"
     }
   },
   "steps": [
@@ -119,7 +119,7 @@
       "task_prompt": "Implementation Plan v1.0",
       "produces": "implementation_plan",
       "scope": "project",
-      "creates_entities": "epic",
+      "creates_entities": "work_package",
       "inputs": [
         {
           "doc_type": "project_discovery",
@@ -153,24 +153,24 @@
       ]
     },
     {
-      "step_id": "per_epic",
+      "step_id": "per_work_package",
       "iterate_over": {
         "doc_type": "implementation_plan",
-        "collection_field": "epics",
-        "entity_type": "epic"
+        "collection_field": "work_packages",
+        "entity_type": "work_package"
       },
-      "scope": "epic",
+      "scope": "work_package",
       "steps": [
         {
-          "step_id": "feature_decomposition",
-          "role": "Business Analyst 1.0",
-          "task_prompt": "Feature Decomposition v1.0",
-          "produces": "feature",
-          "scope": "epic",
+          "step_id": "work_statement_decomposition",
+          "role": "Project Manager 1.0",
+          "task_prompt": "Work Statement v1.0",
+          "produces": "work_statement",
+          "scope": "work_package",
           "inputs": [
             {
-              "entity_type": "epic",
-              "scope": "epic",
+              "entity_type": "work_package",
+              "scope": "work_package",
               "context": true
             },
             {

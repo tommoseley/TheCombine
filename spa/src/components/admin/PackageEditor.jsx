@@ -239,8 +239,8 @@ export default function PackageEditor({
                                 }}
                             >
                                 <option value="project">Project</option>
-                                <option value="epic">Epic</option>
-                                <option value="feature">Feature</option>
+                                <option value="work_package">Work Package</option>
+                                <option value="work_statement">Work Statement</option>
                             </select>
                         </Field>
                     </Section>

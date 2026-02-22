@@ -17,6 +17,9 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
+# Rendering
+view_docdef: ImplementationPlanPrimaryView
+
 # Dependencies
 required_inputs:
   - project_discovery

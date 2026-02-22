@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-20
-**Updated By:** Claude (WS-OPS-001, WS-SDP-001, WS-SDP-002 session)
+**Last Updated:** 2026-02-21
+**Updated By:** Claude (ADR-053 combine-config fix session)
 
 ## Current Focus
 
@@ -42,7 +42,7 @@
 
 ## Test Suite
 
-- **2274 tests** passing as of 2026-02-20 (14 from WS-OPS-001, 3 from WS-SDP-001, 3 from WS-SDP-002)
+- **2277 tests** passing as of 2026-02-21 (14 from WS-OPS-001, 6 from WS-SDP-001, 3 from WS-SDP-002)
 - Tier 0 harness passes clean (lint, tests, frontend build)
 - Tier 1 tests cover all ontology work statements (6 criteria groups each)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -204,6 +204,11 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 
 ## Handoff Notes
 
+### Recent Work (2026-02-21)
+- Fixed ADR-053 POW reorder: runtime definition in `combine-config/` was still TA-before-IPF; now corrected
+- Parametrized `test_sdp_pow_order.py` to verify both seed and combine-config files (6 tests)
+- Pushed fix to `workbench/ws-bb53d5bb1f83`
+
 ### Recent Work (2026-02-20)
 - **ADR-053 / WS-SDP-001 / WS-SDP-002:** Planning Before Architecture — POW reordered, UI confirmed clean
 - **WS-OPS-001:** Transient LLM error recovery — retry with backoff, honest gate outcomes, UI retry button
@@ -214,6 +219,7 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - 2271 tests passing
 
 ### Next Work
+- Merge `workbench/ws-bb53d5bb1f83` to main (ADR-053 combine-config fix)
 - Merge `workbench/ws-e583fd0642f5` to main (7 ontology commits + prior docs commit)
 - Merge `workbench/ws-6b30ced080f1` to main (AWS DB + lint fixes)
 - Mark ADR-051 and ADR-052 execution_state as complete
@@ -244,3 +250,4 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - init_db.py schema.sql doesn't work on RDS (workaround: ORM-based creation)
 - db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
 - Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)
+

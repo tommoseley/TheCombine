@@ -4,23 +4,16 @@ import WorkflowStudioPanel from './WorkflowStudioPanel';
 import ComponentsStudioPanel from './ComponentsStudioPanel';
 
 /**
- * TechnicalArchitectureViewer - Tabbed document viewer for Technical Architecture documents.
+ * TechnicalArchitectureViewer - Config-driven tabbed document viewer.
  *
- * Tabs:
- * - Overview: Summary, key decisions, constraints, assumptions, etc.
- * - Components: System components with vertical rail navigation
- * - Workflows: Full Workflow Studio with React Flow diagrams
- * - Data Models: Entity definitions with fields tables and relationships
- * - APIs: Interface definitions with endpoint details
- * - Quality: Quality attributes by category
+ * Reads tab structure from renderModel.rendering_config.detail_html (ADR-054)
+ * and routes render model sections to tabs using information_architecture binds.
+ *
+ * Specialized renderers:
+ * - WorkflowStudioPanel for 'workflows' tab (React Flow diagrams)
+ * - ComponentsStudioPanel for 'components' tab (rail navigation)
+ * - SectionTabContent (RenderModelViewer) for all other tabs
  */
-
-// Section IDs that route to each tab
-const DATA_MODEL_IDS = new Set(['data_model', 'data_models']);
-const INTERFACE_IDS = new Set(['interfaces', 'api_interfaces']);
-const QUALITY_IDS = new Set(['quality_attributes']);
-const WORKFLOW_IDS = new Set(['workflows']);
-const COMPONENT_IDS = new Set(['components']);
 
 export default function TechnicalArchitectureViewer({
     renderModel,
@@ -30,36 +23,63 @@ export default function TechnicalArchitectureViewer({
     executionId,
     onClose
 }) {
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(null);
 
-    // Categorize sections into tabs
-    const categorized = useMemo(() => {
-        const result = {
-            workflows: [],
-            components: [],
-            dataModels: [],
-            interfaces: [],
-            quality: [],
-            overview: [],
-        };
-        if (!renderModel?.sections) return result;
+    // Build section-to-tab mapping from rendering config + information architecture
+    const { tabDefs, tabSections } = useMemo(() => {
+        const detail_html = renderModel?.rendering_config?.detail_html;
+        const ia = renderModel?.information_architecture;
 
-        renderModel.sections.forEach(section => {
-            const sid = section.section_id;
-            if (WORKFLOW_IDS.has(sid)) result.workflows.push(section);
-            else if (COMPONENT_IDS.has(sid)) result.components.push(section);
-            else if (DATA_MODEL_IDS.has(sid)) result.dataModels.push(section);
-            else if (INTERFACE_IDS.has(sid)) result.interfaces.push(section);
-            else if (QUALITY_IDS.has(sid)) result.quality.push(section);
-            else result.overview.push(section);
+        if (!detail_html?.tabs || !ia?.sections) {
+            // Fallback: show all sections in a single overview tab
+            return {
+                tabDefs: [{ id: 'overview', label: 'Overview', sections: [] }],
+                tabSections: { overview: renderModel?.sections || [] },
+            };
+        }
+
+        // Build map: IA section id -> set of bound schema fields
+        const sectionBinds = {};
+        ia.sections.forEach(s => {
+            sectionBinds[s.id] = new Set(s.binds || []);
         });
-        return result;
-    }, [renderModel?.sections]);
 
-    // Extract workflow data from blocks
+        // Build map: schema field name -> tab id
+        const fieldToTab = {};
+        detail_html.tabs.forEach(tab => {
+            (tab.sections || []).forEach(sectionId => {
+                const binds = sectionBinds[sectionId];
+                if (binds) {
+                    binds.forEach(field => { fieldToTab[field] = tab.id; });
+                }
+            });
+        });
+
+        // Route each render model section to its tab
+        const grouped = {};
+        detail_html.tabs.forEach(tab => { grouped[tab.id] = []; });
+
+        (renderModel?.sections || []).forEach(section => {
+            const sid = section.section_id;
+            const tabId = fieldToTab[sid] || 'overview';
+            if (grouped[tabId]) {
+                grouped[tabId].push(section);
+            } else if (grouped.overview) {
+                grouped.overview.push(section);
+            }
+        });
+
+        return { tabDefs: detail_html.tabs, tabSections: grouped };
+    }, [renderModel]);
+
+    // Default to first tab
+    const effectiveTab = activeTab || (tabDefs.length > 0 ? tabDefs[0].id : 'overview');
+
+    // Extract workflow data from blocks for WorkflowStudioPanel
     const workflows = useMemo(() => {
-        if (!categorized.workflows.length) return [];
-        const wfSection = categorized.workflows[0];
+        const wfSections = tabSections.workflows || [];
+        if (!wfSections.length) return [];
+        const wfSection = wfSections[0];
         if (!wfSection?.blocks) return [];
         return wfSection.blocks.map((block, idx) => ({
             id: block.block_id || `wf-${idx}`,
@@ -69,12 +89,13 @@ export default function TechnicalArchitectureViewer({
             nodeCount: block.data?.nodes?.length || block.data?.steps?.length || 0,
             block,
         }));
-    }, [categorized.workflows]);
+    }, [tabSections.workflows]);
 
-    // Extract component data from blocks
+    // Extract component data from blocks for ComponentsStudioPanel
     const components = useMemo(() => {
-        if (!categorized.components.length) return [];
-        const compSection = categorized.components[0];
+        const compSections = tabSections.components || [];
+        if (!compSections.length) return [];
+        const compSection = compSections[0];
         if (!compSection?.blocks) return [];
         return compSection.blocks.map((block, idx) => {
             const data = block.data || {};
@@ -91,38 +112,25 @@ export default function TechnicalArchitectureViewer({
                 block,
             };
         });
-    }, [categorized.components]);
+    }, [tabSections.components]);
 
-    // Build filtered renderModels for RenderModelViewer-based tabs
-    const overviewRenderModel = useMemo(() => {
-        if (!renderModel) return null;
-        return { ...renderModel, sections: categorized.overview };
-    }, [renderModel, categorized.overview]);
-
-    const dataModelRenderModel = useMemo(() => {
-        if (!renderModel) return null;
-        return { ...renderModel, sections: categorized.dataModels };
-    }, [renderModel, categorized.dataModels]);
-
-    const interfaceRenderModel = useMemo(() => {
-        if (!renderModel) return null;
-        return { ...renderModel, sections: categorized.interfaces };
-    }, [renderModel, categorized.interfaces]);
-
-    const qualityRenderModel = useMemo(() => {
-        if (!renderModel) return null;
-        return { ...renderModel, sections: categorized.quality };
-    }, [renderModel, categorized.quality]);
-
-    // Tab definitions with counts and disabled state
-    const tabs = useMemo(() => [
-        { id: 'overview', label: 'Overview', count: null, disabled: false },
-        { id: 'components', label: 'Components', count: components.length || null, disabled: !components.length },
-        { id: 'workflows', label: 'Workflows', count: workflows.length || null, disabled: !workflows.length },
-        { id: 'dataModels', label: 'Data Models', count: categorized.dataModels[0]?.blocks?.length || null, disabled: !categorized.dataModels.length },
-        { id: 'interfaces', label: 'APIs', count: categorized.interfaces[0]?.blocks?.length || null, disabled: !categorized.interfaces.length },
-        { id: 'quality', label: 'Quality', count: categorized.quality[0]?.blocks?.length || null, disabled: !categorized.quality.length },
-    ], [components, workflows, categorized]);
+    // Build tab list with counts and disabled state
+    const tabs = useMemo(() => {
+        return tabDefs.map(tab => {
+            const sections = tabSections[tab.id] || [];
+            const blockCount = sections[0]?.blocks?.length || null;
+            const isSpecial = tab.id === 'workflows' || tab.id === 'components';
+            const specialCount = tab.id === 'workflows' ? workflows.length
+                : tab.id === 'components' ? components.length
+                : null;
+            return {
+                id: tab.id,
+                label: tab.label,
+                count: isSpecial ? (specialCount || null) : blockCount,
+                disabled: tab.id !== 'overview' && !sections.length,
+            };
+        });
+    }, [tabDefs, tabSections, workflows, components]);
 
     const metadata = renderModel?.metadata || {};
     const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
@@ -147,6 +155,13 @@ export default function TechnicalArchitectureViewer({
     const generatedDate = formatDate(metadata.created_at);
     const updatedDate = formatDate(metadata.updated_at);
     const lifecycleState = metadata.lifecycle_state;
+
+    // Build filtered renderModel for a given tab
+    const buildTabRenderModel = (tabId) => {
+        if (!renderModel) return null;
+        const sections = tabSections[tabId] || [];
+        return { ...renderModel, sections };
+    };
 
     return (
         <div className="flex flex-col h-full" style={{ background: '#ffffff' }}>
@@ -223,7 +238,7 @@ export default function TechnicalArchitectureViewer({
                 }}
             >
                 {tabs.map(tab => {
-                    const isActive = activeTab === tab.id;
+                    const isActive = effectiveTab === tab.id;
                     return (
                         <button
                             key={tab.id}
@@ -262,22 +277,19 @@ export default function TechnicalArchitectureViewer({
 
             {/* Tab content - key forces remount so sections start expanded */}
             <div
-                key={activeTab}
+                key={effectiveTab}
                 className="flex-1 overflow-hidden"
                 style={{ minHeight: 0 }}
             >
-                {activeTab === 'workflows' && workflows.length > 0 ? (
+                {effectiveTab === 'workflows' && workflows.length > 0 ? (
                     <WorkflowStudioPanel workflows={workflows} />
-                ) : activeTab === 'components' && components.length > 0 ? (
+                ) : effectiveTab === 'components' && components.length > 0 ? (
                     <ComponentsStudioPanel components={components} />
-                ) : activeTab === 'dataModels' ? (
-                    <SectionTabContent renderModel={dataModelRenderModel} sections={categorized.dataModels} />
-                ) : activeTab === 'interfaces' ? (
-                    <SectionTabContent renderModel={interfaceRenderModel} sections={categorized.interfaces} />
-                ) : activeTab === 'quality' ? (
-                    <SectionTabContent renderModel={qualityRenderModel} sections={categorized.quality} />
                 ) : (
-                    <SectionTabContent renderModel={overviewRenderModel} sections={categorized.overview} />
+                    <SectionTabContent
+                        renderModel={buildTabRenderModel(effectiveTab)}
+                        sections={tabSections[effectiveTab] || []}
+                    />
                 )}
             </div>
         </div>

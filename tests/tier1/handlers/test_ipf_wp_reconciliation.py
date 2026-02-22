@@ -12,7 +12,7 @@ Six test groups mapping to the six Mode A Tier 1 verification criteria:
 
 import pytest
 
-from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
+from app.config.package_loader import get_package_loader
 from app.domain.handlers.implementation_plan_handler import (
     ImplementationPlanHandler,
 )
@@ -29,18 +29,17 @@ def handler():
 
 
 @pytest.fixture
-def ipf_seed_entry():
-    """Return the full seed entry for implementation_plan."""
-    for entry in INITIAL_DOCUMENT_TYPES:
-        if entry["doc_type_id"] == "implementation_plan":
-            return entry
-    pytest.fail("implementation_plan not found in INITIAL_DOCUMENT_TYPES")
+def ipf_package():
+    """Return the combine-config package for implementation_plan."""
+    return get_package_loader().get_document_type("implementation_plan")
 
 
 @pytest.fixture
-def ipf_schema(ipf_seed_entry):
-    """Return the schema_definition from the seed registry entry."""
-    return ipf_seed_entry["schema_definition"]
+def ipf_schema(ipf_package):
+    """Return the output schema from combine-config."""
+    schema = ipf_package.get_schema()
+    assert schema is not None, "implementation_plan schema not found in combine-config"
+    return schema
 
 
 @pytest.fixture
@@ -55,6 +54,12 @@ def ipf_data():
     - WPC-005 dropped
     """
     return {
+        "meta": {
+            "schema_version": "1.0",
+            "artifact_id": "test-ipf-001",
+            "created_at": "2026-01-01T00:00:00Z",
+            "source": "human",
+        },
         "plan_summary": {
             "overall_intent": "Build The Combine document pipeline",
             "mvp_definition": "Core document types processable end-to-end",
@@ -177,9 +182,9 @@ def ipf_data():
 
 
 class TestC1AcceptsWPCandidates:
-    def test_required_inputs_include_ipp(self, ipf_seed_entry):
-        """IPF requires implementation_plan_primary (which now emits WP candidates)."""
-        assert "implementation_plan_primary" in ipf_seed_entry["required_inputs"]
+    def test_required_inputs_include_ipp(self, ipf_package):
+        """IPF requires primary_implementation_plan (which now emits WP candidates)."""
+        assert "primary_implementation_plan" in ipf_package.required_inputs
 
     def test_schema_has_work_packages_property(self, ipf_schema):
         assert "work_packages" in ipf_schema["properties"]
@@ -332,7 +337,13 @@ class TestC5GovernancePinning:
             assert isinstance(pins["adr_refs"], list)
 
     def test_schema_defines_governance_pins_on_wp(self, ipf_schema):
-        wp_props = ipf_schema["properties"]["work_packages"]["items"]["properties"]
+        # work_packages items use $ref — resolve via definitions
+        wp_ref = ipf_schema["properties"]["work_packages"]["items"]
+        if "$ref" in wp_ref:
+            ref_name = wp_ref["$ref"].split("/")[-1]
+            wp_props = ipf_schema["definitions"][ref_name]["properties"]
+        else:
+            wp_props = wp_ref["properties"]
         assert "governance_pins" in wp_props
 
 

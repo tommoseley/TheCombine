@@ -15,7 +15,7 @@ Eight test groups mapping to the eight Tier 1 verification criteria:
 import pytest
 
 from app.domain.handlers.registry import HANDLERS
-from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
+from app.config.package_loader import get_package_loader
 from app.domain.handlers.work_statement_handler import WorkStatementHandler
 from app.domain.services.work_statement_state import (
     validate_ws_transition,
@@ -42,11 +42,11 @@ def handler():
 
 @pytest.fixture
 def ws_schema():
-    """Return the schema_definition from the seed registry entry."""
-    for entry in INITIAL_DOCUMENT_TYPES:
-        if entry["doc_type_id"] == "work_statement":
-            return entry["schema_definition"]
-    pytest.fail("work_statement not found in INITIAL_DOCUMENT_TYPES")
+    """Return the output schema from combine-config."""
+    package = get_package_loader().get_document_type("work_statement")
+    schema = package.get_schema()
+    assert schema is not None, "work_statement schema not found in combine-config"
+    return schema
 
 
 @pytest.fixture
@@ -96,8 +96,8 @@ class TestC1Registration:
     def test_handler_doc_type_id(self, handler):
         assert handler.doc_type_id == "work_statement"
 
-    def test_seed_registry_entry_exists(self):
-        ids = [e["doc_type_id"] for e in INITIAL_DOCUMENT_TYPES]
+    def test_combine_config_entry_exists(self):
+        ids = get_package_loader().list_document_types()
         assert "work_statement" in ids
 
 

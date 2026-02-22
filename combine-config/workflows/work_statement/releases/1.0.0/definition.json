@@ -1,0 +1,245 @@
+{
+  "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
+  "schema_version": "workflow.v2",
+  "workflow_id": "work_statement",
+  "revision": "dcwrev_2026_02_21_b",
+  "effective_date": "2026-02-21",
+  "version": "1.0.0",
+  "name": "Work Statement",
+  "description": "Work Statement document creation with QA gate. Decomposes a Work Package into authorized execution units using TA constraints. Follows ADR-049 No Black Boxes principle.",
+  "workflow_type": "dcw",
+  "scope_type": "document",
+  "document_type": "work_statement",
+  "thread_ownership": {
+    "owns_thread": false,
+    "thread_purpose": null
+  },
+  "entry_node_ids": [
+    "generation"
+  ],
+  "nodes": [
+    {
+      "node_id": "generation",
+      "type": "task",
+      "name": "Document Generation",
+      "description": "Generate Work Statement documents by decomposing a committed Work Package",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:work_statement:1.0.0",
+        "OUTPUT_SCHEMA": "schema:work_statement:1.0.0"
+      },
+      "produces": "work_statement",
+      "_position": {
+        "x": 50,
+        "y": 40
+      },
+      "station": {
+        "id": "draft",
+        "label": "DRAFT",
+        "order": 1
+      }
+    },
+    {
+      "node_id": "qa_gate",
+      "type": "gate",
+      "name": "Quality Gate",
+      "description": "Semantic QA evaluation with remediation loop",
+      "gate_kind": "qa",
+      "internals": {
+        "evaluate": {
+          "internal_type": "LLM",
+          "name": "QA Evaluation",
+          "description": "Evaluate Work Statement against quality criteria",
+          "task_ref": "prompt:task:qa_semantic_compliance:1.1.0",
+          "includes": {
+            "ROLE_PROMPT": "prompt:role:quality_assurance:1.0.0"
+          },
+          "qa_mode": "semantic"
+        }
+      },
+      "remediation": {
+        "enabled": true,
+        "max_attempts": 2,
+        "feedback_to": "remediation"
+      },
+      "_position": {
+        "x": 450,
+        "y": 148
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "remediation",
+      "type": "task",
+      "name": "Document Remediation",
+      "description": "Rework Work Statement based on QA feedback",
+      "internal_type": "LLM",
+      "task_ref": "prompt:template:document_generator:1.0.0",
+      "includes": {
+        "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+        "TASK_PROMPT": "prompt:task:work_statement:1.0.0",
+        "OUTPUT_SCHEMA": "schema:work_statement:1.0.0"
+      },
+      "produces": "work_statement",
+      "inputs": [
+        {
+          "from": "qa_gate",
+          "field": "feedback"
+        }
+      ],
+      "_position": {
+        "x": 481,
+        "y": 449
+      },
+      "station": {
+        "id": "qa",
+        "label": "QA",
+        "order": 2
+      }
+    },
+    {
+      "node_id": "end_stabilized",
+      "type": "end",
+      "name": "Document Stabilized",
+      "description": "Work Statement document is complete and governed",
+      "terminal_outcome": "stabilized",
+      "_position": {
+        "x": 40,
+        "y": 420
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    },
+    {
+      "node_id": "end_blocked",
+      "type": "end",
+      "name": "Document Blocked",
+      "description": "Generation failed - circuit breaker or unrecoverable error",
+      "terminal_outcome": "blocked",
+      "_position": {
+        "x": 190,
+        "y": 610
+      },
+      "station": {
+        "id": "done",
+        "label": "DONE",
+        "order": 3
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "generation_to_qa",
+      "from_node_id": "generation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Document generated, evaluate quality"
+    },
+    {
+      "edge_id": "generation_failed",
+      "from_node_id": "generation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Generation failed"
+    },
+    {
+      "edge_id": "qa_pass",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_stabilized",
+      "outcome": "pass",
+      "label": "QA passed - document stabilized"
+    },
+    {
+      "edge_id": "qa_fail_remediate",
+      "from_node_id": "qa_gate",
+      "to_node_id": "remediation",
+      "outcome": "fail",
+      "label": "QA failed, attempt remediation",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "lt",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "qa_circuit_breaker",
+      "from_node_id": "qa_gate",
+      "to_node_id": "end_blocked",
+      "outcome": "fail",
+      "label": "Circuit breaker - max remediation attempts",
+      "conditions": [
+        {
+          "type": "retry_count",
+          "operator": "gte",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "edge_id": "remediation_to_qa",
+      "from_node_id": "remediation",
+      "to_node_id": "qa_gate",
+      "outcome": "success",
+      "label": "Remediation complete, re-evaluate"
+    },
+    {
+      "edge_id": "remediation_failed",
+      "from_node_id": "remediation",
+      "to_node_id": "end_blocked",
+      "outcome": "failed",
+      "label": "Remediation failed"
+    }
+  ],
+  "terminal_outcomes": [
+    "stabilized",
+    "blocked"
+  ],
+  "governance": {
+    "adr_references": [
+      "ADR-045",
+      "ADR-049",
+      "ADR-051",
+      "ADR-052"
+    ],
+    "design_principles": [
+      "No Black Boxes - all gates explicitly composed (ADR-049)",
+      "QA-only pattern - WP and TA provide committed context",
+      "QA Gate: evaluate (LLM) with remediation loop",
+      "Uses work_package and technical_architecture as inputs"
+    ],
+    "circuit_breaker": {
+      "max_retries": 2,
+      "applies_to": [
+        "qa_gate",
+        "remediation"
+      ],
+      "on_trip": "end_blocked"
+    }
+  },
+  "metadata": {
+    "created_date": "2026-02-21",
+    "work_statement": "WS-DCW-002",
+    "changelog": [
+      "v1.0.0: Initial DCW created per WS-DCW-002 (WP-DCW-001)",
+      "- QA-only pattern (no PGC gate - WP and TA provide committed context)",
+      "- QA gate with explicit evaluate internal (LLM)",
+      "- Generation and remediation nodes marked with internal_type: LLM",
+      "- Station metadata (DRAFT/QA/DONE) per production floor conventions"
+    ]
+  },
+  "requires_inputs": [
+    "work_package",
+    "technical_architecture"
+  ]
+}

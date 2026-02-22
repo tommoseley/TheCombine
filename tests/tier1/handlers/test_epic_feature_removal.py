@@ -3,7 +3,7 @@
 These tests verify all 6 Tier 1 criteria:
   C1 - Epic doc type rejected (not in HANDLERS registry)
   C2 - Feature doc type rejected (not in HANDLERS registry)
-  C3 - No Epic schemas in seed (not in INITIAL_DOCUMENT_TYPES)
+  C3 - No Epic/Feature doc types registered in HANDLERS
   C4 - No Epic references in IPP/IPF handler code
   C5 - No Epic-specific API endpoints
   C6 - Regression guard (no epic type registrations in app/ or seed/)
@@ -18,7 +18,7 @@ import pytest
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[3]
 APP_DIR = PROJECT_ROOT / "app"
-SEED_DIR = PROJECT_ROOT / "seed"
+CC_DIR = PROJECT_ROOT / "combine-config"
 HANDLERS_DIR = APP_DIR / "domain" / "handlers"
 
 
@@ -72,26 +72,17 @@ class TestC2FeatureDocTypeRejected:
 # C3 — No Epic schemas in seed
 # ===================================================================
 
-class TestC3NoEpicSchemasInSeed:
-    """No epic or feature entries in INITIAL_DOCUMENT_TYPES."""
+class TestC3NoEpicSchemasInHandlers:
+    """No epic or feature doc types registered in HANDLERS."""
 
-    def test_no_epic_in_initial_document_types(self):
-        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
-        epic_ids = [
-            d["doc_type_id"]
-            for d in INITIAL_DOCUMENT_TYPES
-            if d["doc_type_id"] in ("epic", "epic_backlog")
-        ]
-        assert epic_ids == [], f"Epic doc types still in seed: {epic_ids}"
+    def test_no_epic_in_handlers(self):
+        from app.domain.handlers.registry import HANDLERS
+        epic_ids = [k for k in HANDLERS if k in ("epic", "epic_backlog")]
+        assert epic_ids == [], f"Epic doc types still in HANDLERS: {epic_ids}"
 
-    def test_no_feature_in_initial_document_types(self):
-        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
-        feature_ids = [
-            d["doc_type_id"]
-            for d in INITIAL_DOCUMENT_TYPES
-            if d["doc_type_id"] == "feature"
-        ]
-        assert feature_ids == [], f"Feature doc type still in seed: {feature_ids}"
+    def test_no_feature_in_handlers(self):
+        from app.domain.handlers.registry import HANDLERS
+        assert "feature" not in HANDLERS, "Feature doc type still in HANDLERS"
 
 
 # ===================================================================
@@ -115,27 +106,17 @@ class TestC4NoEpicRefsInIPPIPF:
         assert "feature" not in src.lower(), "IPF handler still references feature"
 
     def test_ipp_handler_no_creates_children_epic(self):
-        """IPP seed entry should not declare creates_children with epic."""
-        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
-        ipp = next(
-            (d for d in INITIAL_DOCUMENT_TYPES if d["doc_type_id"] == "implementation_plan_primary"),
-            None,
-        )
-        assert ipp is not None, "IPP not found in seed"
-        children = ipp.get("creates_children", [])
-        assert "epic" not in children, "IPP still creates epic children"
+        """IPP combine-config should not declare creates_children with epic."""
+        from app.config.package_loader import get_package_loader
+        ipp = get_package_loader().get_document_type("primary_implementation_plan")
+        assert "epic" not in ipp.creates_children, "IPP still creates epic children"
 
     def test_ipf_handler_no_creates_children_epic(self):
-        """IPF seed entry should declare creates_children with work_package only."""
-        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
-        ipf = next(
-            (d for d in INITIAL_DOCUMENT_TYPES if d["doc_type_id"] == "implementation_plan"),
-            None,
-        )
-        assert ipf is not None, "IPF not found in seed"
-        children = ipf.get("creates_children", [])
-        assert "epic" not in children, "IPF still creates epic children"
-        assert "feature" not in children, "IPF still creates feature children"
+        """IPF combine-config should declare creates_children with work_package only."""
+        from app.config.package_loader import get_package_loader
+        ipf = get_package_loader().get_document_type("implementation_plan")
+        assert "epic" not in ipf.creates_children, "IPF still creates epic children"
+        assert "feature" not in ipf.creates_children, "IPF still creates feature children"
 
 
 # ===================================================================
@@ -195,13 +176,11 @@ class TestC6RegressionGuard:
         handler_entries = re.findall(r'^\s*["\'](?:epic|feature|epic_backlog)["\']\s*:', registry_text, re.MULTILINE)
         assert handler_entries == [], f"HANDLERS dict still has epic entries: {handler_entries}"
 
-    def test_no_epic_in_seed_doc_types(self):
-        """Seed INITIAL_DOCUMENT_TYPES has no epic/feature doc_type_id."""
-        seed_text = (SEED_DIR / "registry" / "document_types.py").read_text()
-        import re
-        # Match doc_type_id declarations for epic or feature
-        matches = re.findall(r'"doc_type_id":\s*"(?:epic|feature)"', seed_text)
-        assert matches == [], f"Seed still has epic/feature doc types: {matches}"
+    def test_no_epic_handler_in_combine_config(self):
+        """combine-config has no epic or feature doc types with handlers."""
+        from app.domain.handlers.registry import HANDLERS
+        for dt in ("epic", "feature", "epic_backlog"):
+            assert dt not in HANDLERS, f"Handler still registered for {dt}"
 
     def test_no_epic_handler_imports(self):
         """No imports of EpicHandler, FeatureHandler, or EpicBacklogHandler in registry."""

@@ -10,8 +10,6 @@ This is the API layer that enables UI testing of the workflow engine.
 """
 
 import logging
-import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,8 +23,7 @@ from app.domain.workflow.plan_executor import (
     PlanExecutorError,
 )
 from app.domain.workflow.pg_state_persistence import PgStatePersistence
-from app.domain.workflow.plan_registry import PlanRegistry, get_plan_registry
-from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
+from app.domain.workflow.plan_registry import get_plan_registry
 from app.domain.workflow.nodes.mock_executors import create_mock_executors
 from app.domain.workflow.nodes.llm_executors import create_llm_executors
 from app.api.models.document import Document
@@ -36,29 +33,29 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/document-workflows", tags=["document-workflows"])
 
-# Load seed workflows at module initialization
-_seed_workflows_loaded = False
+# Initialize plan registry at module load
+_plan_registry_loaded = False
 
 
-def _load_seed_workflows():
-    """Ensure seed workflow plans are loaded.
-    
-    The global registry auto-loads from seed/workflows/ on first access,
+def _init_plan_registry():
+    """Ensure workflow plan registry is initialized.
+
+    The global registry auto-loads from combine-config/workflows/ on first access,
     so this just ensures it's initialized and logs the result.
     """
-    global _seed_workflows_loaded
-    if _seed_workflows_loaded:
+    global _plan_registry_loaded
+    if _plan_registry_loaded:
         return
 
-    # get_plan_registry() auto-loads all workflows from seed/workflows/
+    # get_plan_registry() auto-loads all workflows from combine-config/workflows/
     registry = get_plan_registry()
-    
-    _seed_workflows_loaded = True
+
+    _plan_registry_loaded = True
     logger.info(f"Plan registry initialized with {len(registry.list_plans())} workflow plans")
 
 
-# Load seed workflows when module is imported
-_load_seed_workflows()
+# Initialize plan registry when module is imported
+_init_plan_registry()
 
 
 async def get_executor(db: AsyncSession = Depends(get_db)) -> PlanExecutor:

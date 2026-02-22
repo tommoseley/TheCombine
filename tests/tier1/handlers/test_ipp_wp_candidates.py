@@ -11,7 +11,7 @@ Five test groups mapping to the five Mode A Tier 1 verification criteria:
 
 import pytest
 
-from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
+from app.config.package_loader import get_package_loader
 from app.domain.handlers.implementation_plan_primary_handler import (
     ImplementationPlanPrimaryHandler,
 )
@@ -28,24 +28,29 @@ def handler():
 
 
 @pytest.fixture
-def ipp_seed_entry():
-    """Return the full seed entry for implementation_plan_primary."""
-    for entry in INITIAL_DOCUMENT_TYPES:
-        if entry["doc_type_id"] == "implementation_plan_primary":
-            return entry
-    pytest.fail("implementation_plan_primary not found in INITIAL_DOCUMENT_TYPES")
+def ipp_package():
+    """Return the combine-config package for primary_implementation_plan."""
+    return get_package_loader().get_document_type("primary_implementation_plan")
 
 
 @pytest.fixture
-def ipp_schema(ipp_seed_entry):
-    """Return the schema_definition from the seed registry entry."""
-    return ipp_seed_entry["schema_definition"]
+def ipp_schema(ipp_package):
+    """Return the output schema from combine-config."""
+    schema = ipp_package.get_schema()
+    assert schema is not None, "primary_implementation_plan schema not found in combine-config"
+    return schema
 
 
 @pytest.fixture
 def valid_ipp_content():
     """Minimal well-formed IPP output with WP candidates."""
     return {
+        "meta": {
+            "schema_version": "1.0",
+            "artifact_id": "test-ipp-001",
+            "created_at": "2026-01-01T00:00:00Z",
+            "source": "human",
+        },
         "epic_set_summary": {
             "overall_intent": "Deliver a document-centric AI system",
             "mvp_definition": "Core pipeline operational",
@@ -92,6 +97,12 @@ def golden_trace_output():
     The content is not semantically validated — only structural completeness.
     """
     return {
+        "meta": {
+            "schema_version": "1.0",
+            "artifact_id": "test-ipp-golden-001",
+            "created_at": "2026-01-01T00:00:00Z",
+            "source": "human",
+        },
         "epic_set_summary": {
             "overall_intent": "Build The Combine document pipeline with WP-based ontology",
             "mvp_definition": "Core document types registered and processable",

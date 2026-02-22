@@ -336,10 +336,10 @@ class GateNodeExecutor(NodeExecutor):
             parts = urn.split(":")
             if len(parts) >= 3:
                 _, name, version = parts[:3]
-                # Map schema names to actual files
+                # Map schema names to actual files in combine-config
                 # v2 workflow uses clarification_questions but actual schema is clarification_question_set
                 if name == "clarification_questions":
-                    return "seed/schemas/clarification_question_set.v2.json"
+                    return "combine-config/schemas/clarification_question_set/releases/1.0.0/schema.json"
                 # Default: pass through for assembler to handle
                 return urn
             return urn
@@ -354,19 +354,16 @@ class GateNodeExecutor(NodeExecutor):
 
         _, prompt_type, name, version = parts[:4]
 
-        # Map prompt types to file paths
+        # Map prompt types to file paths via combine-config
         if prompt_type == "pgc":
-            # pgc contexts: prompt:pgc:project_discovery.v1:1.0.0 -> seed/prompts/pgc-contexts/project_discovery.v1.txt
-            return f"seed/prompts/pgc-contexts/{name}.txt"
+            # pgc contexts: prompt:pgc:project_discovery.v1:1.0.0
+            return f"combine-config/prompts/pgc/{name}/releases/{version}/pgc.prompt.txt"
         elif prompt_type == "role":
-            # roles: prompt:role:technical_architect:1.0.0 -> seed/prompts/roles/Technical Architect 1.0.txt
-            name_formatted = name.replace("_", " ").title()
-            return f"seed/prompts/roles/{name_formatted} {version.replace('.0.0', '.0')}.txt"
+            # roles: prompt:role:technical_architect:1.0.0
+            return f"combine-config/prompts/roles/{name}/releases/{version}/role.prompt.txt"
         elif prompt_type == "task":
-            # tasks: prompt:task:project_discovery:1.4.0 -> seed/prompts/tasks/Project Discovery v1.4.txt
-            name_formatted = name.replace("_", " ").title()
-            version_short = version.rsplit(".", 1)[0] if version.count(".") > 1 else version
-            return f"seed/prompts/tasks/{name_formatted} v{version_short}.txt"
+            # tasks: prompt:task:project_discovery:1.4.0
+            return f"combine-config/prompts/tasks/{name}/releases/{version}/task.prompt.txt"
         elif prompt_type == "template":
             # templates: prompt:template:pgc_clarifier:1.0.0 -> tasks/Clarification Questions Generator v1.1
             if "pgc_clarifier" in name:

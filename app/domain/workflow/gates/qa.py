@@ -11,7 +11,6 @@ Intelligence creep is prohibited.
 """
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,21 +34,21 @@ class QAGate:
                 print(f"{finding.severity}: {finding.message}")
     """
     
-    # Mapping of document types to their schemas
+    # Mapping of document types to their schema names (for PackageLoader lookup)
     # For MVP, most doc types don't have strict schemas yet
     DOC_TYPE_SCHEMAS: Dict[str, str] = {
-        "clarification_questions": "clarification_question_set.v2.json",
-        "intake_gate_result": "intake_gate_result.v1.json",
+        "clarification_questions": "clarification_question_set",
+        "intake_gate_result": "intake_gate_result",
     }
     
     def __init__(self, schemas_dir: Optional[Path] = None):
         """Initialize gate.
-        
+
         Args:
             schemas_dir: Directory containing JSON schemas.
-                        Defaults to seed/schemas
+                        Defaults to combine-config/schemas
         """
-        self._schemas_dir = schemas_dir or Path("seed/schemas")
+        self._schemas_dir = schemas_dir or Path("combine-config/schemas")
         self._schema_cache: Dict[str, Dict] = {}
     
     def check(
@@ -157,23 +156,23 @@ class QAGate:
         # Check cache
         if doc_type in self._schema_cache:
             return self._schema_cache[doc_type]
-        
-        # Look up schema file
-        schema_file = self.DOC_TYPE_SCHEMAS.get(doc_type)
-        if not schema_file:
+
+        # Look up schema name
+        schema_name = self.DOC_TYPE_SCHEMAS.get(doc_type)
+        if not schema_name:
             return None
-        
-        schema_path = self._schemas_dir / schema_file
-        if not schema_path.exists():
-            return None
-        
+
+        # Try PackageLoader first (combine-config)
         try:
-            with open(schema_path, "r", encoding="utf-8-sig") as f:
-                schema = json.load(f)
-            self._schema_cache[doc_type] = schema
-            return schema
-        except (json.JSONDecodeError, IOError):
-            return None
+            from app.config.package_loader import get_package_loader
+            schema_obj = get_package_loader().get_schema(schema_name)
+            if schema_obj and schema_obj.content:
+                self._schema_cache[doc_type] = schema_obj.content
+                return schema_obj.content
+        except Exception:
+            pass
+
+        return None
     
     def _validate_against_schema(
         self, 

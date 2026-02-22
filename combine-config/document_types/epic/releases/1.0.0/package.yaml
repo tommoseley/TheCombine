@@ -19,7 +19,7 @@ scope: project
 required_inputs: []  # Created by implementation_plan handler
 optional_inputs: []
 creates_children:
-  - feature
+  - work_statement
 parent_doc_type: implementation_plan
 
 # Shared artifact references (none - constructed document)

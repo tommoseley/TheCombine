@@ -11,8 +11,6 @@ C9: Retry works — sidecar has "Retry" button; useConciergeIntake.js exposes re
 
 import os
 
-import pytest
-
 
 SPA_SRC = os.path.join(os.path.dirname(__file__), "..", "..", "spa", "src")
 APP_SRC = os.path.join(os.path.dirname(__file__), "..", "..", "app")

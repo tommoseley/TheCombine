@@ -7,7 +7,6 @@ and passes it to the LLM execution logger.
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
 from dataclasses import dataclass
 
 from app.domain.workflow.nodes.llm_executors import LoggingLLMService

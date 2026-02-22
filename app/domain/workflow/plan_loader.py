@@ -43,7 +43,7 @@ class PlanLoader:
 
     Usage:
         loader = PlanLoader()
-        plan = loader.load(Path("seed/workflows/concierge_intake.v1.json"))
+        plan = loader.load(Path("combine-config/workflows/concierge_intake/releases/1.0.0/definition.json"))
     """
 
     def __init__(self, validator: Optional[PlanValidator] = None):
@@ -105,7 +105,7 @@ class PlanLoader:
         """Load all workflow plans from a directory.
 
         Supports two structures:
-        1. Flat: directory/*.json (legacy seed/workflows/)
+        1. Flat: directory/*.json (legacy flat structure)
         2. Versioned: directory/{workflow_id}/releases/{version}/definition.json
            Uses _active/active_releases.json for version resolution.
 

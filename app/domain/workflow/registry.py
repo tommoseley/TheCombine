@@ -27,7 +27,7 @@ class WorkflowRegistry:
     Provides lookup by workflow_id.
 
     Supports two structures:
-    1. Flat: directory/*.json (legacy seed/workflows/)
+    1. Flat: directory/*.json (legacy flat structure)
     2. Versioned: directory/{workflow_id}/releases/{version}/definition.json
        Uses _active/active_releases.json for version resolution.
 

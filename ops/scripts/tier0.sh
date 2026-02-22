@@ -204,7 +204,7 @@ OVERALL_EXIT=0
 # ---------------------------------------------------------------------------
 echo "=== CHECK 1: Backend Tests (pytest) ==="
 # Ignore harness meta-tests to avoid recursive invocation
-python -m pytest tests/ -x -q \
+python3 -m pytest tests/ -x -q \
     --ignore=tests/infrastructure/test_tier0_harness.py \
     2>&1
 RESULTS[pytest]=$?

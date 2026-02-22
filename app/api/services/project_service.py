@@ -2,10 +2,9 @@
 Project service for web UI - Document-centric version.
 """
 
-from sqlalchemy import select, func, or_, distinct
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
-from uuid import UUID
 
 # Import existing models
 from app.api.models import Project, Document, DocumentRelation
@@ -57,7 +56,7 @@ class ProjectService:
                 func.count(Document.id).label("epic_count")
             )
             .where(Document.space_type == 'project')
-            .where(Document.doc_type_id == 'epic')
+            .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
             .group_by(Document.space_id)
             .subquery()
@@ -120,7 +119,7 @@ class ProjectService:
             select(func.count(Document.id))
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
-            .where(Document.doc_type_id == 'epic')
+            .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
         )
         epic_count_result = await db.execute(epic_count_query)
@@ -148,7 +147,7 @@ class ProjectService:
             select(Document)
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
-            .where(Document.doc_type_id == 'epic')
+            .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
             .order_by(Document.created_at)
         )
@@ -199,7 +198,7 @@ class ProjectService:
             select(func.count(Document.id))
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
-            .where(Document.doc_type_id == 'epic')
+            .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
         )
         epic_count_result = await db.execute(epic_count_query)

@@ -11,7 +11,6 @@ Backlog Compilation Pipeline. Mechanically derived, never LLM-authored.
 """
 
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20260216_004"

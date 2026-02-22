@@ -15,6 +15,9 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
+# Rendering
+view_docdef: ConciergeIntakeView
+
 # Dependencies
 required_inputs: []  # No dependencies - this is the entry point
 optional_inputs: []

@@ -6,7 +6,7 @@ instead of hardcoded DOCUMENT_CONFIG.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -133,29 +133,6 @@ class TestViewDocdefResolutionPriority:
         view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
         
         assert view_docdef is None
-
-
-class TestSeedDataIncludesViewDocdef:
-    """Tests that seed data has view_docdef for all document types."""
-    
-    def test_all_seed_types_have_view_docdef(self):
-        """Verify all seed document types include view_docdef."""
-        from seed.registry.document_types import INITIAL_DOCUMENT_TYPES
-        
-        expected_mappings = {
-            "project_discovery": "ProjectDiscovery",
-            "architecture_spec": "ArchitecturalSummaryView",
-            "epic_backlog": "EpicBacklogView",
-            "story_backlog": "StoryBacklogView",
-        }
-        
-        for doc_type in INITIAL_DOCUMENT_TYPES:
-            doc_type_id = doc_type["doc_type_id"]
-            assert "view_docdef" in doc_type, f"Missing view_docdef for {doc_type_id}"
-            
-            if doc_type_id in expected_mappings:
-                assert doc_type["view_docdef"] == expected_mappings[doc_type_id], \
-                    f"Wrong view_docdef for {doc_type_id}"
 
 
 class TestDocumentTypeModelIncludesViewDocdef:

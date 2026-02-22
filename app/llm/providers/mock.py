@@ -2,7 +2,7 @@
 
 import time
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional
 
 from app.llm.models import Message, LLMResponse, LLMError, LLMException
 from app.llm.providers.base import BaseLLMProvider

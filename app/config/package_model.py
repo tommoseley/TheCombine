@@ -40,8 +40,8 @@ class ProductionMode(str, Enum):
 class Scope(str, Enum):
     """Document scope level."""
     PROJECT = "project"
-    EPIC = "epic"
-    FEATURE = "feature"
+    WORK_PACKAGE = "work_package"
+    WORK_STATEMENT = "work_statement"
 
 
 @dataclass
@@ -124,6 +124,11 @@ class DocumentTypePackage:
     # Gating
     gating_rules: GatingRules = field(default_factory=GatingRules)
 
+    # Rendering
+    view_docdef: Optional[str] = None
+    information_architecture: Optional[Dict[str, Any]] = field(default=None, repr=False)
+    rendering: Optional[Dict[str, Any]] = field(default=None, repr=False)
+
     # UI
     ui: PackageUI = field(default_factory=PackageUI)
 
@@ -203,6 +208,9 @@ class DocumentTypePackage:
             qa_template_ref=data.get("qa_template_ref"),
             pgc_template_ref=data.get("pgc_template_ref"),
             schema_ref=data.get("schema_ref"),
+            view_docdef=data.get("view_docdef"),
+            information_architecture=data.get("information_architecture"),
+            rendering=data.get("rendering"),
             artifacts=artifacts,
             tests=tests,
             gating_rules=gating_rules,

@@ -1,6 +1,5 @@
 """Tests for QA gate."""
 
-import json
 import pytest
 import uuid
 
@@ -13,10 +12,8 @@ class TestQAGate:
     
     @pytest.fixture
     def gate(self):
-        """Create a gate instance with explicit schema path."""
-        from pathlib import Path
-        # Use path relative to repo root
-        return QAGate(schemas_dir=Path("seed/schemas"))
+        """Create a gate instance using default combine-config schemas."""
+        return QAGate()
     
     def test_check_valid_dict_passes(self, gate):
         """Valid dict passes structural checks."""
@@ -111,7 +108,7 @@ class TestQAGate:
         result = gate.check(valid_clarification, doc_type="clarification_questions")
         
         assert result.passed is True
-        assert result.schema_used == "clarification_question_set.v2.json"
+        assert result.schema_used == "clarification_question_set"
     
     def test_check_schema_violation_fails(self, gate):
         """Schema violation produces error."""

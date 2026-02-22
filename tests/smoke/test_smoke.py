@@ -30,8 +30,6 @@ class TestApplicationSmoke:
         from app.llm import (
             MockLLMProvider,
             PromptBuilder,
-            OutputParser,
-            TelemetryService,
         )
         assert MockLLMProvider is not None
         assert PromptBuilder is not None
@@ -40,7 +38,6 @@ class TestApplicationSmoke:
         """Persistence module imports."""
         from app.persistence import (
             InMemoryDocumentRepository,
-            InMemoryExecutionRepository,
         )
         assert InMemoryDocumentRepository is not None
     
@@ -49,7 +46,6 @@ class TestApplicationSmoke:
         from app.observability import (
             MetricsCollector,
             HealthChecker,
-            configure_logging,
         )
         assert MetricsCollector is not None
         assert HealthChecker is not None
@@ -71,21 +67,24 @@ class TestConfigurationSmoke:
         assert Path("docker-compose.yml").exists()
 
 
-class TestSeedDataSmoke:
-    """Smoke tests for seed data."""
-    
+class TestCombineConfigSmoke:
+    """Smoke tests for combine-config data."""
+
     def test_workflows_directory_exists(self):
         """Workflows directory exists."""
-        assert Path("seed/workflows").exists()
-    
-    
+        assert Path("combine-config/workflows").exists()
+
     def test_schemas_directory_exists(self):
         """Schemas directory exists."""
-        assert Path("seed/schemas/strategy").exists()
-    
+        assert Path("combine-config/schemas").exists()
+
     def test_prompts_directory_exists(self):
         """Prompts directory exists."""
-        assert Path("seed/prompts/tasks").exists()
+        assert Path("combine-config/prompts/tasks").exists()
+
+    def test_active_releases_exists(self):
+        """Active releases config exists."""
+        assert Path("combine-config/_active/active_releases.json").exists()
 
 
 class TestHealthEndpointSmoke:

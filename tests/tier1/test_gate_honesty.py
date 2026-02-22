@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.llm.models import LLMError, LLMOperationalError
+from app.llm.models import LLMOperationalError
 
 # Stub the workflow package to avoid circular import through __init__.py
 # (pre-existing circular: workflow.__init__ -> plan_executor -> api routers -> plan_executor)
@@ -74,7 +74,7 @@ class TestNoFalseClassification:
         internals = {"pass_a": {"internal_type": "LLM", "task_ref": "prompt:task:intake_gate:1.0.0"}}
 
         with caplog.at_level(logging.INFO):
-            result = await executor._execute_initial_phase(
+            await executor._execute_initial_phase(
                 node_id="gate_1",
                 internals=internals,
                 context=_make_context(),

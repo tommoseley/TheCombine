@@ -15,10 +15,14 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
+# Rendering
+view_docdef: ArchitecturalSummaryView
+
 # Dependencies
 required_inputs:
   - project_discovery
   - primary_implementation_plan
+  - implementation_plan
 optional_inputs: []
 creates_children: []
 parent_doc_type: null
@@ -47,6 +51,94 @@ gating_rules:
   design_status: []
   acceptance_required: false
   accepted_by: []
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: overview.summary
+      label: Architecture Summary
+      binds:
+        - architecture_summary
+
+    - id: overview.risks
+      label: Risks
+      binds:
+        - risks
+
+    - id: overview.open_questions
+      label: Open Questions
+      binds:
+        - open_questions
+
+    - id: overview.mvp_scope
+      label: MVP Scope
+      binds:
+        - mvp_scope
+
+    - id: components
+      label: Components
+      binds:
+        - components
+
+    - id: workflows
+      label: Workflows
+      binds:
+        - workflows
+
+    - id: data_models
+      label: Data Models
+      binds:
+        - data_models
+
+    - id: api_interfaces
+      label: API Interfaces
+      binds:
+        - api_interfaces
+
+    - id: quality_attributes
+      label: Quality Attributes
+      binds:
+        - quality_attributes
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview.summary
+          - overview.risks
+          - overview.open_questions
+          - overview.mvp_scope
+
+      - id: components
+        label: Components
+        sections:
+          - components
+
+      - id: workflows
+        label: Workflows
+        sections:
+          - workflows
+
+      - id: data_models
+        label: Data Models
+        sections:
+          - data_models
+
+      - id: interfaces
+        label: APIs
+        sections:
+          - api_interfaces
+
+      - id: quality
+        label: Quality
+        sections:
+          - quality_attributes
 
 # UI configuration
 ui:

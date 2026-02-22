@@ -5,8 +5,6 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional
-from pydantic import Field
 from dotenv import load_dotenv
 # Detect if running in pytest
 _IN_PYTEST = "pytest" in sys.modules
@@ -59,19 +57,51 @@ GUIDES_DIR = DOCUMENT_DIR / "guides"
 # Tests root (if exists)
 TESTS_ROOT = PROJECT_ROOT / "tests"
 
-# --- DATABASE CONFIGURATION (NEW) ---
+# --- DATABASE CONFIGURATION ---
 # Load .env file
 load_dotenv()
 
-# Get DATABASE_URL from environment (PostgreSQL)
-DATABASE_URL = os.getenv("DATABASE_URL")
+# AWS environment -> Secrets Manager secret name mapping
+_AWS_DB_SECRETS = {
+    "dev_aws": "the-combine/db-dev",
+    "test_aws": "the-combine/db-test",
+}
 
-if not DATABASE_URL:
+
+def _resolve_database_url() -> str:
+    """Resolve DATABASE_URL from environment or AWS Secrets Manager.
+
+    Resolution order:
+    1. DATABASE_URL in environment (explicit override always wins)
+    2. ENVIRONMENT is dev_aws/test_aws -> fetch from Secrets Manager
+    3. Raise with instructions
+    """
+    url = os.getenv("DATABASE_URL")
+    if url:
+        return url
+
+    env = os.getenv("ENVIRONMENT", "").lower()
+    secret_name = _AWS_DB_SECRETS.get(env)
+    if secret_name:
+        from app.core.aws import get_secret
+        secret = get_secret(secret_name)
+        url = secret.get("DATABASE_URL")
+        if not url:
+            raise ValueError(
+                f"Secret '{secret_name}' does not contain a DATABASE_URL field."
+            )
+        return url
+
     raise ValueError(
         "DATABASE_URL not found in environment!\n"
-        "Add to your .env file:\n"
-        "DATABASE_URL=postgresql://combine_user:password@localhost:5432/combine"
+        "Either:\n"
+        "  - Set DATABASE_URL directly in .env or environment\n"
+        "  - Set ENVIRONMENT=dev_aws or ENVIRONMENT=test_aws to resolve from "
+        "AWS Secrets Manager"
     )
+
+
+DATABASE_URL = _resolve_database_url()
 
 # Optional settings
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))

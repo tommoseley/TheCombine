@@ -69,12 +69,12 @@ class ClarificationGate:
     
     def __init__(self, schema_path: Optional[Path] = None):
         """Initialize gate.
-        
+
         Args:
-            schema_path: Path to clarification_question_set.v2.json schema.
-                        Defaults to seed/schemas/clarification_question_set.v2.json
+            schema_path: Path to clarification_question_set schema.
+                        Defaults to combine-config/schemas/clarification_question_set/releases/1.0.0/schema.json
         """
-        self._schema_path = schema_path or Path("seed/schemas/clarification_question_set.v2.json")
+        self._schema_path = schema_path or Path("combine-config/schemas/clarification_question_set/releases/1.0.0/schema.json")
         self._schema: Optional[Dict] = None
     
     @property
