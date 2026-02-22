@@ -3,9 +3,10 @@
 Tests validate alignment between:
 - Schema Contract (output.schema.json)
 - Information Architecture Contract (package.yaml information_architecture)
-- Rendering targets (package.yaml rendering.detail_html)
+- Rendering targets (package.yaml rendering.detail_html, rendering.pdf)
 
-All tests must FAIL before WS-IA-001 implementation and PASS after.
+WS-IA-001: TA golden contract tests (C1-C8)
+WS-IA-002: Extended to PD, IPP, IPF (parametrized C1-C5) + SPA generic rendering (C6-C7)
 """
 
 import json
@@ -15,6 +16,19 @@ import pytest
 import yaml
 
 COMBINE_CONFIG = Path("combine-config/document_types")
+
+# System envelope fields excluded from IA coverage checks.
+# These are metadata containers (schema_version, artifact_id, timestamps),
+# not renderable content sections.
+SYSTEM_FIELDS = {"meta"}
+
+# All Tier-1 document types that must have governed IA
+TIER1_DOC_TYPES = [
+    "technical_architecture",
+    "project_discovery",
+    "primary_implementation_plan",
+    "implementation_plan",
+]
 
 
 def _load_package(doc_type: str) -> dict:
@@ -51,42 +65,42 @@ def _get_schema_top_level_fields(schema: dict) -> set:
 
 
 def _get_schema_required_fields(schema: dict) -> set:
-    """Get required field names from a JSON schema."""
-    return set(schema.get("required", []))
+    """Get required field names from a JSON schema, excluding system envelope fields."""
+    return set(schema.get("required", [])) - SYSTEM_FIELDS
 
 
-# --- Criteria 1-4: Golden Contract Tests ---
+# --- Criteria 1-5: Golden Contract Tests (parametrized across all Tier-1 types) ---
 
 
 class TestGoldenContracts:
-    """Validate IA <-> Schema <-> Rendering alignment for TA."""
+    """Validate IA <-> Schema <-> Rendering alignment for all Tier-1 types."""
 
-    DOC_TYPE = "technical_architecture"
-
-    def test_c1_binds_exist_in_schema(self):
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_c1_binds_exist_in_schema(self, doc_type):
         """C1: Every binds path in IA sections resolves to a valid schema field."""
-        pkg = _load_package(self.DOC_TYPE)
-        schema = _load_schema(self.DOC_TYPE)
+        pkg = _load_package(doc_type)
+        schema = _load_schema(doc_type)
 
         ia = pkg.get("information_architecture")
-        assert ia is not None, "information_architecture section missing from package.yaml"
+        assert ia is not None, f"{doc_type}: information_architecture section missing from package.yaml"
 
         schema_fields = _get_schema_top_level_fields(schema)
 
         for section in ia["sections"]:
             for bind in section.get("binds", []):
                 assert bind in schema_fields, (
-                    f"Section '{section['id']}' binds '{bind}' which is not a "
+                    f"{doc_type}: Section '{section['id']}' binds '{bind}' which is not a "
                     f"schema property. Valid: {sorted(schema_fields)}"
                 )
 
-    def test_c2_required_fields_covered(self):
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_c2_required_fields_covered(self, doc_type):
         """C2: Every schema-required field appears in at least one IA section's binds."""
-        pkg = _load_package(self.DOC_TYPE)
-        schema = _load_schema(self.DOC_TYPE)
+        pkg = _load_package(doc_type)
+        schema = _load_schema(doc_type)
 
         ia = pkg.get("information_architecture")
-        assert ia is not None, "information_architecture section missing from package.yaml"
+        assert ia is not None, f"{doc_type}: information_architecture section missing from package.yaml"
 
         all_binds = set()
         for section in ia["sections"]:
@@ -96,42 +110,44 @@ class TestGoldenContracts:
 
         for field in required:
             assert field in all_binds, (
-                f"Schema-required field '{field}' is not bound by any IA section. "
+                f"{doc_type}: Schema-required field '{field}' is not bound by any IA section. "
                 f"Bound fields: {sorted(all_binds)}"
             )
 
-    def test_c3_html_sections_valid(self):
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_c3_html_sections_valid(self, doc_type):
         """C3: Every section in rendering.detail_html tabs exists in IA sections."""
-        pkg = _load_package(self.DOC_TYPE)
+        pkg = _load_package(doc_type)
 
         ia = pkg.get("information_architecture")
-        assert ia is not None, "information_architecture section missing from package.yaml"
+        assert ia is not None, f"{doc_type}: information_architecture section missing from package.yaml"
 
         rendering = pkg.get("rendering")
-        assert rendering is not None, "rendering section missing from package.yaml"
+        assert rendering is not None, f"{doc_type}: rendering section missing from package.yaml"
 
         detail_html = rendering.get("detail_html")
-        assert detail_html is not None, "rendering.detail_html missing from package.yaml"
+        assert detail_html is not None, f"{doc_type}: rendering.detail_html missing from package.yaml"
 
         declared_ids = {s["id"] for s in ia["sections"]}
 
         for tab in detail_html.get("tabs", []):
             for section_id in tab.get("sections", []):
                 assert section_id in declared_ids, (
-                    f"Tab '{tab['id']}' references section '{section_id}' "
+                    f"{doc_type}: Tab '{tab['id']}' references section '{section_id}' "
                     f"which is not declared in information_architecture. "
                     f"Declared: {sorted(declared_ids)}"
                 )
 
-    def test_c4_no_orphaned_sections(self):
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_c4_no_orphaned_sections(self, doc_type):
         """C4: No IA section is unreferenced by any rendering target."""
-        pkg = _load_package(self.DOC_TYPE)
+        pkg = _load_package(doc_type)
 
         ia = pkg.get("information_architecture")
-        assert ia is not None, "information_architecture section missing from package.yaml"
+        assert ia is not None, f"{doc_type}: information_architecture section missing from package.yaml"
 
         rendering = pkg.get("rendering")
-        assert rendering is not None, "rendering section missing from package.yaml"
+        assert rendering is not None, f"{doc_type}: rendering section missing from package.yaml"
 
         declared_ids = {s["id"] for s in ia["sections"]}
 
@@ -146,18 +162,44 @@ class TestGoldenContracts:
 
         orphaned = declared_ids - referenced
         assert not orphaned, (
-            f"IA sections not referenced by any rendering target: {sorted(orphaned)}"
+            f"{doc_type}: IA sections not referenced by any rendering target: {sorted(orphaned)}"
         )
 
+    @pytest.mark.parametrize("doc_type", TIER1_DOC_TYPES)
+    def test_c5_pdf_linear_order_valid(self, doc_type):
+        """C5: Every entry in rendering.pdf.linear_order references a declared section ID."""
+        pkg = _load_package(doc_type)
 
-# --- Criteria 5-6: TA-Specific Tests ---
+        ia = pkg.get("information_architecture")
+        assert ia is not None, f"{doc_type}: information_architecture section missing from package.yaml"
+
+        rendering = pkg.get("rendering")
+        assert rendering is not None, f"{doc_type}: rendering section missing from package.yaml"
+
+        pdf = rendering.get("pdf")
+        assert pdf is not None, f"{doc_type}: rendering.pdf missing from package.yaml"
+
+        linear_order = pdf.get("linear_order")
+        assert linear_order is not None, f"{doc_type}: rendering.pdf.linear_order missing"
+
+        declared_ids = {s["id"] for s in ia["sections"]}
+
+        for section_id in linear_order:
+            assert section_id in declared_ids, (
+                f"{doc_type}: pdf.linear_order references '{section_id}' "
+                f"which is not declared in information_architecture. "
+                f"Declared: {sorted(declared_ids)}"
+            )
+
+
+# --- TA-Specific Tests (from WS-IA-001) ---
 
 
 class TestTASpecific:
     """TA-specific rendering assertions."""
 
-    def test_c5_ta_has_content_tabs(self):
-        """C5: detail_html defines tabs for workflows, components, data_models, interfaces."""
+    def test_ta_has_content_tabs(self):
+        """TA detail_html defines tabs for workflows, components, data_models, interfaces."""
         pkg = _load_package("technical_architecture")
 
         rendering = pkg.get("rendering")
@@ -172,8 +214,8 @@ class TestTASpecific:
         missing = required_tabs - tab_ids
         assert not missing, f"TA missing required tabs: {sorted(missing)}"
 
-    def test_c6_ta_tabs_have_sections(self):
-        """C6: Each TA content tab references at least one section."""
+    def test_ta_tabs_have_sections(self):
+        """Each TA content tab references at least one section."""
         pkg = _load_package("technical_architecture")
 
         rendering = pkg.get("rendering", {})
@@ -186,7 +228,7 @@ class TestTASpecific:
             )
 
 
-# --- Criteria 7-8: SPA Renderer Tests (grep-based, Mode B) ---
+# --- SPA Renderer Tests (grep-based, Mode B) ---
 
 
 class TestSPARenderer:
@@ -195,11 +237,10 @@ class TestSPARenderer:
     SPA_VIEWER = Path("spa/src/components/viewers/TechnicalArchitectureViewer.jsx")
     SPA_FULL = Path("spa/src/components/FullDocumentViewer.jsx")
 
-    def test_c7_no_hardcoded_section_routing(self):
-        """C7: SPA does not contain hardcoded section-to-tab mapping constants."""
+    def test_no_hardcoded_section_routing(self):
+        """SPA does not contain hardcoded section-to-tab mapping constants."""
         content = self.SPA_VIEWER.read_text()
 
-        # These hardcoded constants should be removed after config-driven rendering
         hardcoded_markers = [
             "DATA_MODEL_IDS",
             "INTERFACE_IDS",
@@ -215,13 +256,12 @@ class TestSPARenderer:
             f"These should be replaced with config-driven tab rendering."
         )
 
-    def test_c8_viewer_reads_rendering_config(self):
-        """C8: SPA viewer reads tab structure from rendering config."""
+    def test_viewer_reads_rendering_config(self):
+        """SPA viewer reads tab structure from rendering config."""
         viewer_content = self.SPA_VIEWER.read_text() if self.SPA_VIEWER.exists() else ""
         full_content = self.SPA_FULL.read_text()
         combined = viewer_content + full_content
 
-        # After implementation, the SPA must reference rendering config from the API
         config_markers = [
             "detail_html",
             "rendering_config",
@@ -233,4 +273,23 @@ class TestSPARenderer:
             "Neither TechnicalArchitectureViewer nor FullDocumentViewer "
             "reads rendering config (detail_html/rendering_config/information_architecture) "
             "from the API response. Tabs are still hardcoded."
+        )
+
+    def test_no_hardcoded_doc_type_routing(self):
+        """FullDocumentViewer does not hardcode doc type routing for tabbed rendering."""
+        content = self.SPA_FULL.read_text()
+
+        # After config-driven refactor, FullDocumentViewer should not check
+        # specific doc type IDs to decide whether to render tabs.
+        hardcoded_type_checks = [
+            "isTechnicalArchitecture",
+            "'technical_architecture'",
+            '"technical_architecture"',
+        ]
+
+        found = [m for m in hardcoded_type_checks if m in content]
+        assert not found, (
+            f"FullDocumentViewer.jsx still contains hardcoded doc type routing: {found}. "
+            f"Tabbed rendering should be driven by rendering_config presence, "
+            f"not doc type checks."
         )

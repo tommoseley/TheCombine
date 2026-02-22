@@ -21,6 +21,7 @@ export default function TechnicalArchitectureViewer({
     projectCode,
     docTypeId,
     executionId,
+    docTypeName,
     onClose
 }) {
     const [activeTab, setActiveTab] = useState(null);
@@ -200,7 +201,7 @@ export default function TechnicalArchitectureViewer({
                         fontWeight: 600,
                         borderRadius: 4,
                     }}>
-                        Technical Architecture
+                        {docTypeName || docTypeId?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Document'}
                     </span>
                     {lifecycleState && (
                         <span style={{

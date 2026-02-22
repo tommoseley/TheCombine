@@ -93,10 +93,10 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
     const executionId = metadata.execution_id;
     const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
 
-    // Route Technical Architecture documents to specialized viewer
-    const isTechnicalArchitecture = docTypeId === 'technical_architecture';
+    // Route to config-driven tabbed viewer when rendering_config is present (ADR-054)
+    const hasRenderingConfig = renderModel?.rendering_config?.detail_html;
 
-    if (isTechnicalArchitecture && renderModel) {
+    if (hasRenderingConfig && renderModel) {
         return (
             <div
                 className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -123,6 +123,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                         projectCode={projectCode}
                         docTypeId={docTypeId}
                         executionId={executionId}
+                        docTypeName={metadata.document_type_name}
                         pgcContext={pgcContext}
                         onClose={onClose}
                     />

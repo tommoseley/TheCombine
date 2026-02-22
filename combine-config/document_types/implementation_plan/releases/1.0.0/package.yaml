@@ -53,6 +53,71 @@ gating_rules:
     - stakeholder
     - technical_lead
 
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: overview
+      label: Plan Summary
+      binds:
+        - plan_summary
+
+    - id: work_packages
+      label: Work Packages
+      binds:
+        - work_packages
+
+    - id: reconciliation
+      label: Candidate Reconciliation
+      binds:
+        - candidate_reconciliation
+
+    - id: risks
+      label: Risk Summary
+      binds:
+        - risk_summary
+
+    - id: concerns
+      label: Cross-Cutting Concerns
+      binds:
+        - cross_cutting_concerns
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview
+
+      - id: work_packages
+        label: Work Packages
+        sections:
+          - work_packages
+
+      - id: reconciliation
+        label: Reconciliation
+        sections:
+          - reconciliation
+
+      - id: risks_concerns
+        label: Risks & Concerns
+        sections:
+          - risks
+          - concerns
+
+  pdf:
+    linear_order:
+      - overview
+      - work_packages
+      - reconciliation
+      - risks
+      - concerns
+    toc: true
+
 # UI configuration
 ui:
   icon: git-branch

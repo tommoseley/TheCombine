@@ -140,6 +140,19 @@ rendering:
         sections:
           - quality_attributes
 
+  pdf:
+    linear_order:
+      - overview.summary
+      - overview.risks
+      - overview.open_questions
+      - overview.mvp_scope
+      - components
+      - workflows
+      - data_models
+      - api_interfaces
+      - quality_attributes
+    toc: true
+
 # UI configuration
 ui:
   icon: landmark

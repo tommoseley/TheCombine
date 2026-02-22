@@ -46,6 +46,106 @@ tests:
   fixtures: []
   golden_traces: []
 
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: overview.summary
+      label: Preliminary Summary
+      binds:
+        - preliminary_summary
+
+    - id: overview.project_name
+      label: Project Name
+      binds:
+        - project_name
+
+    - id: discovery.unknowns
+      label: Unknowns
+      binds:
+        - unknowns
+
+    - id: discovery.assumptions
+      label: Assumptions
+      binds:
+        - assumptions
+
+    - id: discovery.constraints
+      label: Known Constraints
+      binds:
+        - known_constraints
+
+    - id: risks
+      label: Risks
+      binds:
+        - risks
+
+    - id: risks.guardrails
+      label: MVP Guardrails
+      binds:
+        - mvp_guardrails
+
+    - id: decisions
+      label: Early Decision Points
+      binds:
+        - early_decision_points
+
+    - id: stakeholders.questions
+      label: Stakeholder Questions
+      binds:
+        - stakeholder_questions
+
+    - id: stakeholders.recommendations
+      label: Recommendations for PM
+      binds:
+        - recommendations_for_pm
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview.summary
+          - overview.project_name
+
+      - id: discovery
+        label: Discovery
+        sections:
+          - discovery.unknowns
+          - discovery.assumptions
+          - discovery.constraints
+
+      - id: risks_tab
+        label: Risks
+        sections:
+          - risks
+          - risks.guardrails
+
+      - id: decisions_tab
+        label: Decisions
+        sections:
+          - decisions
+          - stakeholders.questions
+          - stakeholders.recommendations
+
+  pdf:
+    linear_order:
+      - overview.project_name
+      - overview.summary
+      - discovery.unknowns
+      - discovery.assumptions
+      - discovery.constraints
+      - risks
+      - risks.guardrails
+      - decisions
+      - stakeholders.questions
+      - stakeholders.recommendations
+    toc: true
+
 # UI configuration
 ui:
   icon: search

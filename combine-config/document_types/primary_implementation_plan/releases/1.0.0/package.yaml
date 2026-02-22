@@ -46,6 +46,64 @@ tests:
   fixtures: []
   golden_traces: []
 
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: overview
+      label: Plan Summary
+      binds:
+        - epic_set_summary
+
+    - id: candidates
+      label: Work Package Candidates
+      binds:
+        - work_package_candidates
+
+    - id: risks
+      label: Risks Overview
+      binds:
+        - risks_overview
+
+    - id: recommendations
+      label: Architecture Recommendations
+      binds:
+        - recommendations_for_architecture
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview
+
+      - id: candidates
+        label: WP Candidates
+        sections:
+          - candidates
+
+      - id: risks
+        label: Risks
+        sections:
+          - risks
+
+      - id: recommendations
+        label: Recommendations
+        sections:
+          - recommendations
+
+  pdf:
+    linear_order:
+      - overview
+      - candidates
+      - risks
+      - recommendations
+    toc: true
+
 # UI configuration
 ui:
   icon: map
