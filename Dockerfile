@@ -36,9 +36,9 @@ FROM base AS production
 COPY --from=builder /app/deps /app/deps
 ENV PYTHONPATH=/app/deps
 
-# Copy application code
+# Copy application code and configuration
 COPY app/ /app/app/
-COPY seed/workflows/ /app/seed/workflows/
+COPY combine-config/ /app/combine-config/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
