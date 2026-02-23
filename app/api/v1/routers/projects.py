@@ -948,6 +948,10 @@ async def get_document_render_model(
 
         result_dict = render_model.to_dict()
 
+        # Always include raw_content so SPA can use IA-driven rendering
+        # even when DocDef sections are incomplete (e.g. workflows)
+        result_dict["raw_content"] = document_data
+
         # Inject rendering config from package.yaml (ADR-054)
         _inject_ia_config(result_dict)
 

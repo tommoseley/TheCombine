@@ -48,9 +48,10 @@ export default function TechnicalArchitectureViewer({
             sectionMeta[s.id] = { binds: s.binds || [], label: s.label || s.id };
         });
 
-        // Detect raw content mode: sections empty but raw_content + IA config exist
-        // Only enter raw content mode if rawContent has at least one IA-bound field
-        if (sections.length === 0 && rawContent && typeof rawContent === 'object') {
+        // Prefer IA-driven raw content mode when raw_content + IA config are available.
+        // This bypasses the DocDef layer (WS-SDP-003) — DocDef sections may be incomplete
+        // (e.g. missing workflows) but raw_content has the full document data.
+        if (rawContent && typeof rawContent === 'object') {
             // Collect all bound field names across all IA sections
             const allBinds = new Set();
             ia.sections.forEach(s => (s.binds || []).forEach(b => allBinds.add(b)));

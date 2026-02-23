@@ -78,7 +78,7 @@ class LoggingLLMService:
     """
 
     DEFAULT_MODEL = "sonnet"
-    DEFAULT_MAX_TOKENS = 16384
+    DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.7
 
     def __init__(
