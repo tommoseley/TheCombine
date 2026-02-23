@@ -103,6 +103,9 @@ async def init_database():
         LLMThreadModel, LLMWorkItemModel, LLMLedgerEntryModel
     )
 
+    # WS execution metrics models
+    from app.domain.models.ws_metrics import WSExecution, WSBugFix  # noqa: F401
+
     # Artifact models
     from app.api.models.component_artifact import ComponentArtifact  # noqa: F401
     from app.api.models.fragment_artifact import (  # noqa: F401

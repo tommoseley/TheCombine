@@ -1,5 +1,6 @@
 """WS execution metrics API endpoints (WS-METRICS-001)."""
 
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -7,9 +8,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.repositories.in_memory_ws_metrics_repository import (
-    InMemoryWSMetricsRepository,
+from app.core.database import get_db
+from app.domain.repositories.postgres_ws_metrics_repository import (
+    PostgresWSMetricsRepository,
 )
 from app.domain.services.ws_metrics_service import (
     WSMetricsService,
@@ -17,36 +20,15 @@ from app.domain.services.ws_metrics_service import (
     InvalidPhaseNameError,
 )
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
 
-# Module-level store for dependency injection
-_metrics_repo: Optional[InMemoryWSMetricsRepository] = None
-_metrics_service: Optional[WSMetricsService] = None
-
-
-def get_metrics_service() -> WSMetricsService:
-    """Get metrics service instance."""
-    global _metrics_repo, _metrics_service
-    if _metrics_service is None:
-        _metrics_repo = InMemoryWSMetricsRepository()
-        _metrics_service = WSMetricsService(_metrics_repo)
-    return _metrics_service
-
-
-def set_metrics_service(service: WSMetricsService, repo: InMemoryWSMetricsRepository) -> None:
-    """Set metrics service (for testing/configuration)."""
-    global _metrics_service, _metrics_repo
-    _metrics_service = service
-    _metrics_repo = repo
-
-
-def reset_metrics_service() -> None:
-    """Reset to default service (for testing)."""
-    global _metrics_repo, _metrics_service
-    _metrics_repo = None
-    _metrics_service = None
+async def get_metrics_service(db: AsyncSession = Depends(get_db)) -> WSMetricsService:
+    """Get metrics service backed by PostgreSQL."""
+    repo = PostgresWSMetricsRepository(db)
+    return WSMetricsService(repo)
 
 
 # =============================================================================

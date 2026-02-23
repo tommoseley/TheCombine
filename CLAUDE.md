@@ -324,6 +324,153 @@ This rule is **non-negotiable** and applies to all runtime defects, including:
 
 ---
 
+
+## Autonomous Bug Fixing
+
+When a runtime error or incorrect behavior is encountered during WS execution:
+
+- **Do not stop and ask for instructions.** Fix it.
+- Follow the Bug-First Testing Rule (see above) autonomously — the same reproduce-first sequence applies.
+- **Report what you fixed, not what you found.** Include the test name and root cause.
+
+Escalate only when:
+
+- The bug cannot be reproduced in a test
+- The fix would require changes outside the WS `allowed_paths`
+- The fix would violate a WS prohibition
+- The root cause is ambiguous and multiple fixes are plausible
+
+If the fix is non-trivial (architectural impact, touches multiple modules), write a remediation WS (see WS-DCW-003-RS001 for the pattern) and present it for acceptance before executing.
+
+---
+
+## Subagent Usage
+
+Use subagents to parallelize work and keep the main context window clean.
+
+### Parallel WS Execution
+
+When a Work Package defines multiple independent Work Statements:
+
+- Read the WP dependency chain to determine what can parallelize
+- If two WSs have no dependency relationship AND non-overlapping `allowed_paths`, they are safe to run in parallel
+- Spawn one subagent per independent WS
+- **Mandatory:** Use `isolation: "worktree"` for parallel WS subagents to prevent git conflicts and silent overwrites
+
+**Subagent responsibilities:**
+- Run Do No Harm audit for its WS
+- Execute all phases (failing tests -> implement -> verify)
+- Report results (pass/fail, tests written, files changed, issues found)
+- Do NOT modify files outside its WS `allowed_paths`
+
+**Main agent responsibilities:**
+- Determine parallelism from WP dependency chain
+- Spawn subagents for independent WSs
+- Wait for completion before spawning dependent WSs
+- Run Tier 0 after all WSs complete
+- Aggregate and report results
+
+### Other Subagent Uses
+
+Also use subagents for:
+
+- **Research tasks**: Reading multiple files to assess impact before a Do No Harm audit
+- **Parallel grep/audit**: Searching across different directory trees simultaneously
+- **Test isolation**: Running different test suites in parallel
+- **Impact analysis**: Assessing what a proposed change would affect
+
+One task per subagent. Keep them focused.
+
+---
+
+## Metrics Reporting
+
+The factory measures its own production line. Claude Code MUST report execution metrics at phase boundaries during WS execution.
+
+### What to Report
+
+**At WS start:**
+- WS ID, start timestamp, parent WP ID
+
+**At each phase boundary (tests written / implement / verify):**
+- Phase name, duration, pass/fail
+- Tests written count (for test phases)
+- Files modified count (for implement phases)
+
+**At WS completion:**
+- Total duration (wall clock)
+- Tests written, tests passing
+- Bugs found and fixed autonomously (with test names)
+- Files created / modified / deleted
+- Rework cycles (how many times verification bounced back to implementation)
+- LLM calls made, tokens consumed (input/output)
+
+**On autonomous bug fix:**
+- Bug description (one line)
+- Root cause (one line)
+- Test name
+- Fix summary
+
+### How to Report
+
+POST metrics to the developer metrics endpoints when available:
+
+```
+POST /api/v1/metrics/ws-execution
+POST /api/v1/metrics/bug-fix
+```
+
+If endpoints are not yet available, append metrics to the session log in a structured format:
+
+```
+## Execution Metrics - WS-DCW-001
+- Duration: 23m 14s
+- Tests written: 8
+- Tests passing: 8/8
+- Bugs fixed: 1 (empty initial_context in project_orchestrator)
+- Files modified: 3
+- Rework cycles: 0
+- LLM calls: 12
+- Tokens: 45,200 in / 18,400 out
+```
+
+### Why This Matters
+
+These metrics feed:
+- Quality dashboards for the operator
+- Cost analysis per document type
+- Continuous improvement (which WSs take longest, which have most rework)
+- Customer-facing evidence that the factory works
+
+---
+
+## Planning Discipline
+
+### Plan Before Executing
+
+For any non-trivial task (3+ steps or architectural decisions):
+
+- Enter plan mode before writing code
+- Write the plan as a WS or remediation WS if one does not already exist
+- Get acceptance before executing
+
+If something goes wrong during execution, **STOP and re-plan**. Do not push through a failing approach. Re-planning means escalating to Tom, not silently changing strategy.
+
+### Simplicity First
+
+- Make every change as simple as possible
+- Find root causes, not symptoms
+- No temporary fixes. No "we'll clean this up later" without a tech debt entry.
+- Changes should only touch what is necessary
+- If a fix feels hacky, pause and find the elegant solution
+
+### Verification Before Done
+
+- Never mark a task complete without proving it works
+- Run tests, check logs, demonstrate correctness
+- The question is not "does this look right?" but "does Tier 0 pass?"
+
+---
 ## Governing ADRs (Active)
 
 | ADR | Status | Summary |
@@ -600,3 +747,4 @@ If database connections fail:
 ---
 
 _Last reviewed: 2026-02-19_
+
