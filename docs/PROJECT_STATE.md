@@ -1,9 +1,36 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-21
-**Updated By:** Claude (ADR-053 combine-config fix session)
+**Last Updated:** 2026-02-23
+**Updated By:** Claude (Secret detection + Metrics session)
 
 ## Current Focus
+
+**COMPLETE:** WS-METRICS-001 -- Developer Execution Metrics Collection and Storage
+- Database schema (ws_executions, ws_bug_fixes) via Alembic migration
+- PostgreSQL repository, service layer, API router (POST/GET endpoints)
+- Dashboard, cost-summary, and scoreboard aggregation endpoints
+- Idempotent phase updates, status/phase-name enum enforcement
+- 30 verification tests covering all 15 criteria
+
+**COMPLETE:** WS-PGC-SEC-002 -- Dual Gate Secret Ingress Control
+- Canonical detector module (`app/core/secret_detector.py`) with entropy + char distribution + known patterns
+- HTTP ingress middleware (Gate 1) — scans POST/PUT/PATCH before persistence, returns 422 on detection
+- Orchestrator governance gate (Gate 2) — HARD_STOP on secret detection at PGC/stabilization/render/replay
+- PGC injection clauses (Tier-0, non-removable)
+- Content-type-aware scanning (JSON, form-encoded, multipart skip)
+- 39 verification tests covering all 13 criteria
+
+**COMPLETE:** WS-PGC-SEC-002-A -- Secret Detector Calibration Spike
+- Empirically determined thresholds: length=20, entropy=3.0, char_class_adjustment=0.85
+- TPR=100%, FPR=0.00% on 5,500 prose + 675 secret corpus
+- 24 verification tests
+
+**COMPLETE:** WS-SDP-003 -- IA-Driven Tab Rendering + IPF Input Alignment
+- Backend injects IA config (rendering_config, information_architecture) on all render-model API paths
+- SPA routes to tabbed viewer when rendering_config present, renders from raw_content via IA binds
+- IPF DCW inputs aligned with ADR-053: removed TA dependency, added project_discovery
+- IPF task prompt, schemas, package.yaml all updated for IPP-only input baseline
+- 34 IA tests + 5 IPF alignment tests passing
 
 **COMPLETE:** ADR-053 / WS-SDP-001 / WS-SDP-002 -- Planning Before Architecture
 - POW reordered: Discovery -> IPP -> IPF -> TA -> WPs (ADR-053 canonical order)
@@ -11,38 +38,18 @@
 - SPA audit confirmed no UI changes needed (no TA-before-IPF assumptions)
 
 **COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
-- Automatic retry with exponential backoff (0.5s/2s/8s) on transient API errors (529, 5xx)
-- `LLMOperationalError` raised on exhaustion with structured fields (provider, status_code, request_id, attempts)
-- Intake gate returns honest `operational_error` outcome instead of silent regex fallback
-- UI error panel with "temporarily unavailable" message and Retry button
-- Fixed transport error retryability bug in AnthropicProvider
-
 **COMPLETE:** ADR-050 -- Work Statement Verification Constitution (execution_state: complete)
-- Tier 0 harness operational (ops/scripts/tier0.sh) with 11 tests
-- First factory cycle proven: HTMX admin removal under Mode A with intent-first testing
-- Mode B enforcement, JSON output, CI guards implemented
-
 **COMPLETE:** ADR-051 -- Work Package as Runtime Primitive
-- Decision recorded and fully implemented via WS-ONTOLOGY-001 through WS-ONTOLOGY-007
-- IP > WP > WS hierarchy replaces Epics/Features/Stories
-
 **COMPLETE:** ADR-052 -- Document Pipeline Integration for WP/WS
-- All implementation work statements executed (WS-ONTOLOGY-001 through WS-ONTOLOGY-007)
-- Schema/prompt changes for IPP/IPF, new artifact types, Production Floor updates all done
-
 **COMPLETE:** WS-ONTOLOGY-001 through WS-ONTOLOGY-007
 **COMPLETE:** WS-ADMIN-RECONCILE-001, WS-ADMIN-EXEC-UI-001
-
 **COMPLETE:** WP-AWS-DB-001 -- Remote DEV/TEST database infrastructure
-- DEV and TEST databases on AWS RDS (combine-devtest instance, Postgres 18.1)
-- Credentials in AWS Secrets Manager, retrieved at runtime via ops/scripts/db_connect.sh
-- Local dev now points at AWS DEV database (no local PostgreSQL needed)
 
 ---
 
 ## Test Suite
 
-- **2277 tests** passing as of 2026-02-21 (14 from WS-OPS-001, 6 from WS-SDP-001, 3 from WS-SDP-002)
+- **2476 tests** passing as of 2026-02-23 (prev 2286 + 24 calibration + 39 dual gate + 30 metrics + 97 other)
 - Tier 0 harness passes clean (lint, tests, frontend build)
 - Tier 1 tests cover all ontology work statements (6 criteria groups each)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -75,7 +82,7 @@ python -m pytest tests/ -x -q
 ```
 
 **AWS DEV database:**
-- 34 tables created from current ORM models
+- 34 tables created from current ORM models (+ 2 pending: ws_executions, ws_bug_fixes via migration 20260223_001)
 - 14 document types seeded (9 core + 5 BCP)
 - Prompts are file-based from combine-config/ (no DB seeding needed)
 - role_prompts/role_tasks tables are legacy (not used at runtime)
@@ -146,6 +153,14 @@ app/domain/services/
 +-- work_statement_state.py        # WS state machine (DRAFT->READY->IN_PROGRESS->ACCEPTED/REJECTED/BLOCKED)
 +-- work_statement_registration.py # WS-to-WP registration + rollup
 +-- logbook_service.py             # Logbook CRUD + transactional WS acceptance orchestration
++-- ws_metrics_service.py          # WS execution metrics (dashboard, scoreboard, cost summary)
++-- secret_governance.py           # Orchestrator Tier-0 secret detection gate
+
+app/core/
++-- secret_detector.py             # Canonical secret detector (entropy + char distribution + patterns)
+
+app/api/middleware/
++-- secret_ingress.py              # HTTP ingress secret detection (Gate 1)
 
 spa/src/components/
 +-- DocumentNode.jsx               # Unified L1/L2 node (WP metadata display)
@@ -160,17 +175,23 @@ tests/tier1/handlers/
 +-- test_ipf_wp_reconcile.py       # 17 tests (WS-005)
 +-- test_epic_feature_removal.py   # 21 tests (WS-006)
 +-- test_production_floor_wp_ws.py # 17 tests (WS-007)
+
+tests/tier1/
++-- test_secret_detector_calibration.py # 24 tests (WS-PGC-SEC-002-A)
++-- test_secret_dual_gate.py            # 39 tests (WS-PGC-SEC-002)
++-- test_ws_metrics.py                  # 30 tests (WS-METRICS-001)
 ```
 
 ---
 
 ## Key Technical Decisions
 
-All previous decisions (1-36) plus:
+All previous decisions (1-39) plus:
 
-37. **AWS DEV database as local dev target** -- Local .env no longer contains DATABASE_URL; credentials fetched from Secrets Manager at runtime via db_connect.sh
-38. **ORM-based schema bootstrap for fresh databases** -- init_db.py's schema.sql approach doesn't work on RDS; use Base.metadata.create_all() with all models imported instead
-39. **Seed data uses column filtering** -- seed_document_types() filters dict keys to valid ORM columns, allowing seed data to carry metadata (creates_children, parent_doc_type) without breaking ORM construction
+40. **Dual gate secret detection** -- Canonical detector invoked at HTTP ingress (middleware, pre-persistence) and orchestrator Tier-0 boundary (pre-stabilization, pre-render, replay). Both gates use same detector.
+41. **Multi-factor secret detection** -- Pure entropy insufficient for hex strings; added character distribution analysis (char_class_count with mixed-charset adjustment) and context-aware exclusions (labeled hex, git refs, URLs, benign base64)
+42. **Content-type-aware ingress scanning** -- Form-encoded bodies URL-decoded before scanning to avoid false positives from `+` signs; multipart/form-data skipped (binary content)
+43. **Metrics persistence via PostgreSQL** -- WS execution metrics stored in PostgreSQL (not in-memory) via `PostgresWSMetricsRepository` with async session dependency injection
 
 ---
 
@@ -204,27 +225,25 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 
 ## Handoff Notes
 
-### Recent Work (2026-02-21)
-- Fixed ADR-053 POW reorder: runtime definition in `combine-config/` was still TA-before-IPF; now corrected
-- Parametrized `test_sdp_pow_order.py` to verify both seed and combine-config files (6 tests)
-- Pushed fix to `workbench/ws-bb53d5bb1f83`
+### Recent Work (2026-02-23)
+- Merged 26 local + 20 remote workbench branches to main (all were subsets of one superset)
+- GOV-SEC-T0-002 accepted, WS-PGC-SEC-002-A executed (calibration spike), WS-PGC-SEC-002 executed (dual gate)
+- WS-METRICS-001 executed (execution metrics with PostgreSQL persistence)
+- CLAUDE.md governance additions: Autonomous Bug Fixing, Subagent Usage, Metrics Reporting, Planning Discipline
+- `.gitignore` updated with negation patterns for governance secret artifacts
+- 2476 tests passing (190 new tests this session)
 
-### Recent Work (2026-02-20)
-- **ADR-053 / WS-SDP-001 / WS-SDP-002:** Planning Before Architecture — POW reordered, UI confirmed clean
-- **WS-OPS-001:** Transient LLM error recovery — retry with backoff, honest gate outcomes, UI retry button
-- Connected local dev to AWS DEV database (WP-AWS-DB-001 follow-up)
-- Fixed ORM index bug in llm_logging.py (func.text → text in partial index WHERE clauses)
-- Fixed seed_document_types() — column filtering, non-null builder_role/task for system types
-- Resolved long-standing tier0 harness test failure (lint errors + ai.md tracking)
-- 2271 tests passing
+### Recent Work (2026-02-22)
+- Bypassed DocDef layer: IA config injected on all render-model API paths, SPA renders tabs from raw_content via IA binds
+- WS-SDP-003: IPF DCW inputs aligned with ADR-053 (removed TA, added project_discovery)
+- IPF task prompt, schemas, and package.yaml updated for IPP-only baseline
+- TechnicalArchitectureViewer gains raw content mode with envelope fallback
+- 9 new tests (4 IA config + 5 IPF alignment)
 
 ### Next Work
-- Merge `workbench/ws-bb53d5bb1f83` to main (ADR-053 combine-config fix)
-- Merge `workbench/ws-e583fd0642f5` to main (7 ontology commits + prior docs commit)
-- Merge `workbench/ws-6b30ced080f1` to main (AWS DB + lint fixes)
-- Mark ADR-051 and ADR-052 execution_state as complete
-- Add Test-First Rule to AI.md (ADR-050 acceptance criterion 5)
-- Add ADR-050 reference to POL-WS-001 (ADR-050 acceptance criterion 4)
+- Apply Alembic migration `20260223_001` to DEV/TEST RDS databases
+- Integrate Claude Code metrics reporting during WS execution (POST to `/api/v1/metrics/ws-execution`)
+- Re-run IPF generation against corrected inputs (TA dependency removed)
 - Establish React test harness to retire Mode B debt on SPA tests
 - Project Logbook as productized PROJECT_STATE.md for Combine-managed projects
 - WS as Combine document type (enables factory to author its own work)
@@ -236,6 +255,7 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - MCP connector -- read-only document query layer as first step toward Claude Code integration
 - "Send to Combine" clipboard prompt -- not yet authored
 - Multi-LLM Sow tool -- explored, existing tools sufficient for now
+- Metrics API has no authentication -- acceptable for internal dev, needs auth before production
 
 ### Cleanup Tasks
 - Delete unused `spa/src/components/LoginPage.jsx`
@@ -250,4 +270,5 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - init_db.py schema.sql doesn't work on RDS (workaround: ORM-based creation)
 - db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
 - Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)
+- `.gitignore` `*secret*` pattern requires explicit negation for every new file with "secret" in name
 
