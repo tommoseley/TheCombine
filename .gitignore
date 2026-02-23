@@ -29,6 +29,12 @@ seed.py
 
 # Secrets and sensitive data
 *secret*
+!combine-config/governance/secrets/
+!combine-config/governance/secrets/**
+!**/test_secret_detector*
+!**/calibrate_secret_detector*
+!docs/policies/*ecret*
+!docs/work-statements/*SEC*
 *credentials*
 *.tfvars
 *.tfstate
