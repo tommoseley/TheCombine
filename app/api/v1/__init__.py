@@ -22,6 +22,7 @@ from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.intake import router as intake_router
 from app.api.v1.routers.intents import router as intents_router
 from app.api.v1.routers.backlog_pipeline import router as backlog_pipeline_router
+from app.api.v1.routers.metrics import router as metrics_router
 
 
 # Create main v1 router
@@ -46,6 +47,7 @@ api_router.include_router(admin_validation_router)  # ADR-044 WS-044-08: Governa
 api_router.include_router(admin_releases_router)  # ADR-044 WS-044-07: Release & Rollback Management
 api_router.include_router(admin_preview_router)  # ADR-044 WS-044-06: Preview & Dry-Run Engine
 api_router.include_router(admin_workspaces_router)  # ADR-044 WS-044-03: Prompt Editor Workspaces
+api_router.include_router(metrics_router)  # WS-METRICS-001: Execution Metrics
 
 
 __all__ = ["api_router"]
