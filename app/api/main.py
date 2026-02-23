@@ -47,7 +47,8 @@ from app.api.middleware import (  # noqa: E402
     error_handling,
     request_id,
     body_size,
-    logging as log_middleware
+    logging as log_middleware,
+    secret_ingress,
 )
 
 # Configure logging
@@ -189,10 +190,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Custom middleware
+# Custom middleware (last added = first executed)
 app.add_middleware(log_middleware.LoggingMiddleware)
 app.add_middleware(request_id.RequestIDMiddleware)
 app.add_middleware(body_size.BodySizeMiddleware)
+app.add_middleware(secret_ingress.SecretIngressMiddleware)  # GOV-SEC-T0-002: Gate 1
 app.add_middleware(error_handling.ErrorHandlingMiddleware)
 
 # Add SessionMiddleware to your FastAPI app

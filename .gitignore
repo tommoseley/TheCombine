@@ -32,7 +32,12 @@ seed.py
 !combine-config/governance/secrets/
 !combine-config/governance/secrets/**
 !**/test_secret_detector*
+!**/test_secret_dual_gate*
 !**/calibrate_secret_detector*
+!**/secret_detector*
+!**/secret_ingress*
+!**/secret_governance*
+!combine-config/governance/tier0/*secret*
 !docs/policies/*ecret*
 !docs/work-statements/*SEC*
 *credentials*

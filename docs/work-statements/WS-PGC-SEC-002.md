@@ -1,6 +1,6 @@
 # WS-PGC-SEC-002: Dual Gate Secret Ingress Control
 
-## Status: Draft
+## Status: Complete
 
 ## Governing References
 
@@ -212,16 +212,16 @@ Write tests asserting criteria 1-13. Verify all fail.
 
 ## Verification Checklist
 
-- [ ] All Tier 1 tests fail before implementation
-- [ ] Canonical detector built and versioned
-- [ ] HTTP middleware rejects secrets before persistence
-- [ ] Orchestrator HARD_STOP on secret detection
-- [ ] PGC injection mechanism operational
-- [ ] Redacted logging -- no secret values in any log
-- [ ] Audit metadata recorded on every scan
-- [ ] Clause files authored in combine-config
-- [ ] All Tier 1 tests pass after implementation
-- [ ] Tier 0 returns zero
+- [x] All Tier 1 tests fail before implementation
+- [x] Canonical detector built and versioned
+- [x] HTTP middleware rejects secrets before persistence
+- [x] Orchestrator HARD_STOP on secret detection
+- [x] PGC injection mechanism operational
+- [x] Redacted logging -- no secret values in any log
+- [x] Audit metadata recorded on every scan
+- [x] Clause files authored in combine-config
+- [x] All Tier 1 tests pass after implementation
+- [x] Tier 0 returns zero
 
 ---
 
