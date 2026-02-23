@@ -34,7 +34,8 @@ FROM base AS production
 
 # Copy dependencies from builder
 COPY --from=builder /app/deps /app/deps
-ENV PYTHONPATH=/app/deps
+ENV PYTHONPATH=/app/deps \
+    USE_WORKFLOW_ENGINE_LLM=true
 
 # Copy application code and configuration
 COPY app/ /app/app/
