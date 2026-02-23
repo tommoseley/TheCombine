@@ -37,9 +37,10 @@ COPY --from=builder /app/deps /app/deps
 ENV PYTHONPATH=/app/deps \
     USE_WORKFLOW_ENGINE_LLM=true
 
-# Copy application code and configuration
+# Copy application code, configuration, and SPA build
 COPY app/ /app/app/
 COPY combine-config/ /app/combine-config/
+COPY spa/dist/ /app/spa/dist/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
