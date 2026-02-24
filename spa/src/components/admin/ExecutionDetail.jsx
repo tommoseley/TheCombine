@@ -260,7 +260,7 @@ function TranscriptSection({ transcript }) {
 }
 
 function TranscriptBlock({ label, content, size, parseStatus, validationStatus }) {
-    const [expanded, setExpanded] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
     const hasContent = content && content.length > 0;
     const isLong = hasContent && content.length > 500;
 
@@ -296,11 +296,11 @@ function TranscriptBlock({ label, content, size, parseStatus, validationStatus }
                 )}
                 {isLong && (
                     <button
-                        onClick={() => setExpanded(!expanded)}
+                        onClick={() => setCollapsed(!collapsed)}
                         className="ml-auto text-xs hover:opacity-80"
                         style={{ color: 'var(--accent-primary)' }}
                     >
-                        {expanded ? 'Collapse' : 'Expand'}
+                        {collapsed ? 'Expand' : 'Collapse'}
                     </button>
                 )}
             </div>
@@ -311,8 +311,8 @@ function TranscriptBlock({ label, content, size, parseStatus, validationStatus }
                         color: 'var(--text-primary)',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
-                        maxHeight: expanded ? 'none' : '200px',
-                        overflow: expanded ? 'visible' : 'hidden',
+                        maxHeight: collapsed ? '200px' : 'none',
+                        overflow: collapsed ? 'hidden' : 'visible',
                         borderTop: '1px solid var(--border-panel)',
                     }}
                 >
