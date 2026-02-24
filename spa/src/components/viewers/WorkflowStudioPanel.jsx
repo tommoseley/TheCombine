@@ -76,8 +76,9 @@ export default function WorkflowStudioPanel({ workflows }) {
     const selectedWorkflow = workflows.find(w => w.id === selectedId);
 
     const rfData = useMemo(() => {
-        if (!selectedWorkflow?.block?.data) return null;
-        const data = selectedWorkflow.block.data;
+        // Support both DocDef mode (block.data) and raw content mode (rawItem)
+        const data = selectedWorkflow?.block?.data || selectedWorkflow?.rawItem;
+        if (!data) return null;
         const hasNodes = Array.isArray(data.nodes) && data.nodes.length > 0;
         const hasSteps = Array.isArray(data.steps) && data.steps.length > 0;
         let graphNodes, graphEdges;

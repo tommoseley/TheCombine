@@ -16,7 +16,8 @@ export default function WorkflowAuditDrawer({ workflow, onClose, spawnedDocument
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onClose]);
 
-    const rawData = workflow?.block?.data || {};
+    // Support both DocDef mode (block.data) and raw content mode (rawItem)
+    const rawData = workflow?.block?.data || workflow?.rawItem || {};
 
     return (
         <div
