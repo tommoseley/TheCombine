@@ -1,9 +1,24 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-23
-**Updated By:** Claude (Secret detection + Metrics session)
+**Last Updated:** 2026-02-24
+**Updated By:** Claude (Skills decomposition + IPP rename session)
 
 ## Current Focus
+
+**COMPLETE:** WS-SKILLS-001 -- Decompose CLAUDE.md into Claude Code Skills
+- 10 skills created in `.claude/skills/` with YAML frontmatter
+- CLAUDE.md slimmed from 27,178 to 13,754 chars (49% reduction)
+- Skills catalog in `.claude/skills/README.md`
+- 117 verification tests covering all 16 criteria
+- All governance content preserved (no content loss, no duplication)
+
+**COMPLETE:** IPP Naming Standardization
+- Renamed `implementation_plan_primary` to `primary_implementation_plan` everywhere
+- Handler, registry, workflow definitions, active_releases, tests all updated
+- DEV database document_types table migrated (FK constraint workaround: INSERT clone → UPDATE children → DELETE old)
+
+**COMPLETE:** Admin Transcript Viewer Fix
+- TranscriptBlock defaults to expanded (was truncated at 200px / ~10 lines)
 
 **COMPLETE:** WS-METRICS-001 -- Developer Execution Metrics Collection and Storage
 - Database schema (ws_executions, ws_bug_fixes) via Alembic migration
@@ -26,17 +41,7 @@
 - 24 verification tests
 
 **COMPLETE:** WS-SDP-003 -- IA-Driven Tab Rendering + IPF Input Alignment
-- Backend injects IA config (rendering_config, information_architecture) on all render-model API paths
-- SPA routes to tabbed viewer when rendering_config present, renders from raw_content via IA binds
-- IPF DCW inputs aligned with ADR-053: removed TA dependency, added project_discovery
-- IPF task prompt, schemas, package.yaml all updated for IPP-only input baseline
-- 34 IA tests + 5 IPF alignment tests passing
-
 **COMPLETE:** ADR-053 / WS-SDP-001 / WS-SDP-002 -- Planning Before Architecture
-- POW reordered: Discovery -> IPP -> IPF -> TA -> WPs (ADR-053 canonical order)
-- IPF inputs updated (Discovery + IPP), TA inputs updated (Discovery + IPP + IPF)
-- SPA audit confirmed no UI changes needed (no TA-before-IPF assumptions)
-
 **COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
 **COMPLETE:** ADR-050 -- Work Statement Verification Constitution (execution_state: complete)
 **COMPLETE:** ADR-051 -- Work Package as Runtime Primitive
@@ -49,7 +54,7 @@
 
 ## Test Suite
 
-- **2476 tests** passing as of 2026-02-23 (prev 2286 + 24 calibration + 39 dual gate + 30 metrics + 97 other)
+- **2640 tests** passing as of 2026-02-24 (prev 2476 + 117 skills + 47 other)
 - Tier 0 harness passes clean (lint, tests, frontend build)
 - Tier 1 tests cover all ontology work statements (6 criteria groups each)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -84,6 +89,7 @@ python -m pytest tests/ -x -q
 **AWS DEV database:**
 - 34 tables created from current ORM models (+ 2 pending: ws_executions, ws_bug_fixes via migration 20260223_001)
 - 14 document types seeded (9 core + 5 BCP)
+- `primary_implementation_plan` doc type renamed in document_types table (2026-02-24)
 - Prompts are file-based from combine-config/ (no DB seeding needed)
 - role_prompts/role_tasks tables are legacy (not used at runtime)
 
@@ -95,7 +101,7 @@ python -m pytest tests/ -x -q
 
 ### Features Complete
 - **Execution list** with full ID display, project code column, sortable headers, doc-type filter, search (WS-ADMIN-EXEC-UI-001)
-- **Execution detail** with overview, transcript (expandable input/output content), QA coverage (WS-ADMIN-RECONCILE-001)
+- **Execution detail** with overview, transcript (full content by default, collapsible), QA coverage (WS-ADMIN-RECONCILE-001)
 - **Cost dashboard** with daily breakdown, period selector, summary cards (WS-ADMIN-RECONCILE-001)
 - **Deep links**: `/admin/executions/{id}` and `/admin?execution={id}` both supported
 - **Dual execution API**: Handles both workflow and document-workflow (exec- prefixed) execution IDs
@@ -167,6 +173,8 @@ spa/src/components/
 +-- WSChildList.jsx                # WS children sidecar tray
 +-- Floor.jsx                      # Production floor layout
 
+.claude/skills/                    # 10 Claude Code Skills (on-demand operational knowledge)
+
 tests/tier1/handlers/
 +-- test_work_package_handler.py   # 20 tests (WS-001)
 +-- test_work_statement_handler.py # 21 tests (WS-002)
@@ -180,18 +188,17 @@ tests/tier1/
 +-- test_secret_detector_calibration.py # 24 tests (WS-PGC-SEC-002-A)
 +-- test_secret_dual_gate.py            # 39 tests (WS-PGC-SEC-002)
 +-- test_ws_metrics.py                  # 30 tests (WS-METRICS-001)
++-- test_skills_decomposition.py        # 117 tests (WS-SKILLS-001)
 ```
 
 ---
 
 ## Key Technical Decisions
 
-All previous decisions (1-39) plus:
+All previous decisions (1-43) plus:
 
-40. **Dual gate secret detection** -- Canonical detector invoked at HTTP ingress (middleware, pre-persistence) and orchestrator Tier-0 boundary (pre-stabilization, pre-render, replay). Both gates use same detector.
-41. **Multi-factor secret detection** -- Pure entropy insufficient for hex strings; added character distribution analysis (char_class_count with mixed-charset adjustment) and context-aware exclusions (labeled hex, git refs, URLs, benign base64)
-42. **Content-type-aware ingress scanning** -- Form-encoded bodies URL-decoded before scanning to avoid false positives from `+` signs; multipart/form-data skipped (binary content)
-43. **Metrics persistence via PostgreSQL** -- WS execution metrics stored in PostgreSQL (not in-memory) via `PostgresWSMetricsRepository` with async session dependency injection
+44. **Skills decomposition** -- CLAUDE.md operational procedures moved to 10 on-demand Claude Code Skills in `.claude/skills/`. CLAUDE.md retains always-on identity, constraints, structure. Skills load when trigger context matches.
+45. **Doc type naming standardization** -- `primary_implementation_plan` is the canonical name everywhere (config dir, handler, registry, DB, workflow definitions). No aliases or redirects.
 
 ---
 
@@ -225,6 +232,14 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 
 ## Handoff Notes
 
+### Recent Work (2026-02-24)
+- WS-SKILLS-001 executed: 10 skills, CLAUDE.md slimmed 49%, 117 tests
+- IPP naming standardized: implementation_plan_primary → primary_implementation_plan
+- DEV DB document_types table migrated (FK workaround: INSERT clone → UPDATE refs → DELETE old)
+- Admin transcript viewer defaults to expanded
+- 2640 tests passing (164 new tests this session)
+- 4 commits pushed to origin/main
+
 ### Recent Work (2026-02-23)
 - Merged 26 local + 20 remote workbench branches to main (all were subsets of one superset)
 - GOV-SEC-T0-002 accepted, WS-PGC-SEC-002-A executed (calibration spike), WS-PGC-SEC-002 executed (dual gate)
@@ -233,15 +248,9 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - `.gitignore` updated with negation patterns for governance secret artifacts
 - 2476 tests passing (190 new tests this session)
 
-### Recent Work (2026-02-22)
-- Bypassed DocDef layer: IA config injected on all render-model API paths, SPA renders tabs from raw_content via IA binds
-- WS-SDP-003: IPF DCW inputs aligned with ADR-053 (removed TA, added project_discovery)
-- IPF task prompt, schemas, and package.yaml updated for IPP-only baseline
-- TechnicalArchitectureViewer gains raw content mode with envelope fallback
-- 9 new tests (4 IA config + 5 IPF alignment)
-
 ### Next Work
 - Apply Alembic migration `20260223_001` to DEV/TEST RDS databases
+- Migrate TEST DB document_types table (primary_implementation_plan rename)
 - Integrate Claude Code metrics reporting during WS execution (POST to `/api/v1/metrics/ws-execution`)
 - Re-run IPF generation against corrected inputs (TA dependency removed)
 - Establish React test harness to retire Mode B debt on SPA tests
@@ -271,4 +280,4 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
 - Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)
 - `.gitignore` `*secret*` pattern requires explicit negation for every new file with "secret" in name
-
+- TEST DB still has old doc type name `implementation_plan_primary` (DEV migrated, TEST not yet)
