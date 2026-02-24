@@ -138,6 +138,66 @@ When `render_as: table`, a `columns` array is required:
 - `table` requires a `columns` definition.
 - If `render_as` is omitted, the renderer MUST treat the field as `paragraph` (safe default, never raw JSON).
 
+
+### 2a. IA Coverage Levels
+
+IA coverage is classified into three levels. Tier-1 document types require Level 2.
+
+**Level 0 -- Pointer Only**
+
+Section binds to a schema path with no ``render_as`` declaration. The renderer must guess structure.
+
+- Forbidden for Tier-1 document types.
+- Acceptable only for draft or experimental types.
+
+**Level 1 -- Render Type Declared**
+
+Every bind includes ``render_as`` from the pinned vocabulary, but complex types (objects, arrays of objects) do not enumerate their internal fields.
+
+- Forbidden for Tier-1 document types.
+- Acceptable for Tier-2 document types where rapid iteration is more important than rendering stability.
+
+**Level 2 -- Fully Specified**
+
+For any bind whose schema type is ``object`` or ``array of objects``, the IA MUST declare the internal field mapping required to render deterministically:
+
+- ``table`` requires ``columns`` with field paths and headers
+- ``card-list`` requires ``card`` with ``title`` and ``fields`` (each field with ``path`` and ``render_as``)
+- ``nested-object`` requires ``fields`` with explicit enumeration of sub-fields and their ``render_as`` types
+
+**Required for all Tier-1 document types.** No field in a Tier-1 document may render by inference.
+
+### 2b. No-Guessing Rule (Mandatory for Tier-1)
+
+The ``render_as: paragraph`` default applies ONLY to scalar string fields.
+
+For complex types (schema type ``object`` or ``array``):
+
+- ``render_as`` MUST be explicitly declared
+- ``render_as: paragraph`` on a complex type is INVALID (test failure)
+- Missing ``render_as`` on a complex type is INVALID (test failure)
+
+Enforcement is mechanical via golden contract tests:
+
+1. For every IA bind, look up the schema type at ``path``
+2. If type is ``object`` or ``array``:
+   - ``render_as`` MUST be present
+   - ``render_as: paragraph`` MUST NOT be used
+3. If ``render_as: table`` -> ``columns`` MUST exist
+4. If ``render_as: card-list`` -> ``card.title`` and ``card.fields[*]`` MUST exist, each field MUST have ``path`` and ``render_as``
+5. If ``render_as: nested-object`` -> ``fields`` MUST exist with explicit sub-field enumeration
+
+### 2c. IA Coverage Report
+
+Golden contract tests SHALL generate a coverage report artifact per document type:
+
+- Document type name and version
+- Total binds count
+- Binds at Level 2 count
+- Coverage percentage
+- List of violations (paths missing ``render_as``, complex types without field enumeration, etc.)
+
+This report is the mechanical proof of UX rendering stability.
 ### 3. Rendering Targets (Two Only)
 
 The Combine SHALL support two rendering targets:
@@ -263,4 +323,5 @@ ADR-054 establishes governed Information Architecture for document types, with t
 
 Documents are not only structured data -- they are structured decisions.
 That structure must be versioned and enforced.
+
 
