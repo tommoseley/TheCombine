@@ -48,28 +48,67 @@ tests:
 
 # Information Architecture (ADR-054)
 information_architecture:
-  version: 1
+  version: 2
 
   sections:
     - id: overview
       label: Plan Summary
       binds:
-        - epic_set_summary
+        - path: epic_set_summary
+          render_as: nested-object
+          fields:
+            - path: overall_intent
+              render_as: paragraph
+            - path: mvp_definition
+              render_as: paragraph
+            - path: key_constraints
+              render_as: list
+            - path: out_of_scope
+              render_as: list
 
     - id: candidates
       label: Work Package Candidates
       binds:
-        - work_package_candidates
+        - path: work_package_candidates
+          render_as: card-list
+          card:
+            title: title
+            fields:
+              - path: candidate_id
+                render_as: paragraph
+              - path: rationale
+                render_as: paragraph
+              - path: scope_in
+                render_as: list
+              - path: scope_out
+                render_as: list
+              - path: dependencies
+                render_as: list
+              - path: definition_of_done
+                render_as: list
+              - path: governance_notes
+                render_as: list
 
     - id: risks
       label: Risks Overview
       binds:
-        - risks_overview
+        - path: risks_overview
+          render_as: table
+          columns:
+            - field: risk_id
+              label: ID
+            - field: description
+              label: Risk
+            - field: affected_candidates
+              label: Affected Candidates
+            - field: mitigation_direction
+              label: Mitigation
 
     - id: recommendations
       label: Architecture Recommendations
       binds:
-        - recommendations_for_architecture
+        - path: recommendations_for_architecture
+          render_as: list
 
 # Rendering targets (ADR-054)
 rendering:

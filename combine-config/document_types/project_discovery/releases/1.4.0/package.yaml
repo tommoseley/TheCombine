@@ -48,58 +48,143 @@ tests:
 
 # Information Architecture (ADR-054)
 information_architecture:
-  version: 1
+  version: 2
 
   sections:
     - id: overview.summary
       label: Preliminary Summary
       binds:
-        - preliminary_summary
+        - path: preliminary_summary
+          render_as: nested-object
+          fields:
+            - path: problem_understanding
+              render_as: paragraph
+            - path: architectural_intent
+              render_as: paragraph
+            - path: proposed_system_shape
+              render_as: paragraph
 
     - id: overview.project_name
       label: Project Name
       binds:
-        - project_name
+        - path: project_name
+          render_as: paragraph
 
     - id: discovery.unknowns
       label: Unknowns
       binds:
-        - unknowns
+        - path: unknowns
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: question
+              label: Question
+            - field: why_it_matters
+              label: Why It Matters
+            - field: impact_if_unresolved
+              label: Impact If Unresolved
 
     - id: discovery.assumptions
       label: Assumptions
       binds:
-        - assumptions
+        - path: assumptions
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: assumption
+              label: Assumption
+            - field: confidence
+              label: Confidence
+            - field: validation_approach
+              label: Validation
 
     - id: discovery.constraints
       label: Known Constraints
       binds:
-        - known_constraints
+        - path: known_constraints
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: constraint
+              label: Constraint
+            - field: constraint_type
+              label: Type
 
     - id: risks
       label: Risks
       binds:
-        - risks
+        - path: risks
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: description
+              label: Risk
+            - field: likelihood
+              label: Likelihood
+            - field: impact
+              label: Impact
+            - field: impact_on_planning
+              label: Planning Impact
+            - field: mitigation_direction
+              label: Mitigation
 
     - id: risks.guardrails
       label: MVP Guardrails
       binds:
-        - mvp_guardrails
+        - path: mvp_guardrails
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: guardrail
+              label: Guardrail
 
     - id: decisions
       label: Early Decision Points
       binds:
-        - early_decision_points
+        - path: early_decision_points
+          render_as: card-list
+          card:
+            title: decision_area
+            fields:
+              - path: id
+                render_as: paragraph
+              - path: why_early
+                render_as: paragraph
+              - path: options
+                render_as: list
+              - path: recommendation_direction
+                render_as: paragraph
 
     - id: stakeholders.questions
       label: Stakeholder Questions
       binds:
-        - stakeholder_questions
+        - path: stakeholder_questions
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: question
+              label: Question
+            - field: directed_to
+              label: Directed To
+            - field: blocking
+              label: Blocking
 
     - id: stakeholders.recommendations
       label: Recommendations for PM
       binds:
-        - recommendations_for_pm
+        - path: recommendations_for_pm
+          render_as: table
+          columns:
+            - field: id
+              label: ID
+            - field: recommendation
+              label: Recommendation
 
 # Rendering targets (ADR-054)
 rendering:

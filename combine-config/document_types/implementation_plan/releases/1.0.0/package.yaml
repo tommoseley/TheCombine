@@ -56,33 +56,95 @@ gating_rules:
 
 # Information Architecture (ADR-054)
 information_architecture:
-  version: 1
+  version: 2
 
   sections:
     - id: overview
       label: Plan Summary
       binds:
-        - plan_summary
+        - path: plan_summary
+          render_as: nested-object
+          fields:
+            - path: overall_intent
+              render_as: paragraph
+            - path: mvp_definition
+              render_as: paragraph
+            - path: key_constraints
+              render_as: list
+            - path: sequencing_rationale
+              render_as: paragraph
 
     - id: work_packages
       label: Work Packages
       binds:
-        - work_packages
+        - path: work_packages
+          render_as: card-list
+          card:
+            title: title
+            fields:
+              - path: wp_id
+                render_as: paragraph
+              - path: rationale
+                render_as: paragraph
+              - path: scope_in
+                render_as: list
+              - path: scope_out
+                render_as: list
+              - path: dependencies
+                render_as: table
+                columns:
+                  - field: wp_id
+                    label: Depends On
+                  - field: dependency_type
+                    label: Type
+                  - field: notes
+                    label: Notes
+              - path: definition_of_done
+                render_as: list
+              - path: governance_pins
+                render_as: key-value-pairs
+              - path: source_candidate_ids
+                render_as: list
+              - path: transformation
+                render_as: paragraph
+              - path: transformation_notes
+                render_as: paragraph
 
     - id: reconciliation
       label: Candidate Reconciliation
       binds:
-        - candidate_reconciliation
+        - path: candidate_reconciliation
+          render_as: table
+          columns:
+            - field: candidate_id
+              label: Candidate
+            - field: outcome
+              label: Outcome
+            - field: resulting_wp_ids
+              label: Resulting WPs
+            - field: notes
+              label: Notes
 
     - id: risks
       label: Risk Summary
       binds:
-        - risk_summary
+        - path: risk_summary
+          render_as: table
+          columns:
+            - field: risk
+              label: Risk
+            - field: affected_wps
+              label: Affected WPs
+            - field: overall_impact
+              label: Impact
+            - field: mitigation_strategy
+              label: Mitigation
 
     - id: concerns
       label: Cross-Cutting Concerns
       binds:
-        - cross_cutting_concerns
+        - path: cross_cutting_concerns
+          render_as: list
 
 # Rendering targets (ADR-054)
 rendering:

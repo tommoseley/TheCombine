@@ -351,7 +351,7 @@ class TestSPARenderer:
 # --- Level 2 Block Rendering Contract Tests (WS-IA-003) ---
 
 # Document types that have Level 2 IA (object binds with render_as)
-LEVEL2_DOC_TYPES = ["technical_architecture"]
+LEVEL2_DOC_TYPES = TIER1_DOC_TYPES
 
 
 def _get_schema_type_at_path(schema: dict, path: str) -> str | None:
