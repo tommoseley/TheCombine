@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ImplementationPlanPrimaryHandler(BaseDocumentHandler):
     """
-    Handler for implementation_plan_primary document type.
+    Handler for primary_implementation_plan document type.
 
     Processes PM output containing Work Package candidates with preliminary
     scope, summary information, and recommendations for architecture.
@@ -25,11 +25,11 @@ class ImplementationPlanPrimaryHandler(BaseDocumentHandler):
 
     @property
     def doc_type_id(self) -> str:
-        return "implementation_plan_primary"
+        return "primary_implementation_plan"
 
     @property
     def schema_path(self) -> str:
-        return "schemas/implementation_plan_primary_v1.json"
+        return "schemas/primary_implementation_plan_v1.json"
 
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

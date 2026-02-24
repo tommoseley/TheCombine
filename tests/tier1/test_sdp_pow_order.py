@@ -35,9 +35,9 @@ class TestADR053CanonicalOrder:
     """Verify POW step order matches ADR-053 in combine-config runtime file."""
 
     def test_ipp_precedes_ta(self):
-        """C1: implementation_plan_primary precedes technical_architecture."""
+        """C1: primary_implementation_plan precedes technical_architecture."""
         steps = _load_pow_runtime()["steps"]
-        ipp_idx = _step_index(steps, "implementation_plan_primary")
+        ipp_idx = _step_index(steps, "primary_implementation_plan")
         ta_idx = _step_index(steps, "technical_architecture")
         assert ipp_idx < ta_idx, (
             f"IPP (index {ipp_idx}) must precede TA (index {ta_idx})"

@@ -1,7 +1,7 @@
 {
   "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
   "schema_version": "workflow.v2",
-  "workflow_id": "implementation_plan_primary",
+  "workflow_id": "primary_implementation_plan",
   "revision": "dcwrev_2026_02_13_a",
   "effective_date": "2026-02-13",
   "version": "1.0.0",
@@ -9,7 +9,7 @@
   "description": "Primary implementation plan document creation with PGC clarification gate and QA gate. Follows ADR-049 No Black Boxes principle.",
   "workflow_type": "dcw",
   "scope_type": "document",
-  "document_type": "implementation_plan_primary",
+  "document_type": "primary_implementation_plan",
   "thread_ownership": {
     "owns_thread": false,
     "thread_purpose": null
@@ -24,7 +24,7 @@
       "name": "Clarification Gate",
       "description": "Pre-generation clarification to surface scope boundaries and epic candidate unknowns",
       "gate_kind": "pgc",
-      "produces": "pgc_clarifications.implementation_plan_primary",
+      "produces": "pgc_clarifications.primary_implementation_plan",
       "internals": {
         "pass_a": {
           "internal_type": "LLM",
@@ -73,7 +73,7 @@
         "TASK_PROMPT": "prompt:task:primary_implementation_plan:1.0.0",
         "OUTPUT_SCHEMA": "schema:primary_implementation_plan:1.0.0"
       },
-      "produces": "implementation_plan_primary",
+      "produces": "primary_implementation_plan",
       "inputs": [
         {
           "from": "pgc_gate",
@@ -135,7 +135,7 @@
         "TASK_PROMPT": "prompt:task:primary_implementation_plan:1.0.0",
         "OUTPUT_SCHEMA": "schema:primary_implementation_plan:1.0.0"
       },
-      "produces": "implementation_plan_primary",
+      "produces": "primary_implementation_plan",
       "inputs": [
         {
           "from": "qa_gate",

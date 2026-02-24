@@ -121,7 +121,7 @@ python -m pytest tests/ -x -q
 - `concierge_intake` v1.4.0
 - `project_discovery` v1.8.0
 - `technical_architecture` v1.0.0
-- `implementation_plan_primary` v1.0.0
+- `primary_implementation_plan` v1.0.0
 - `implementation_plan` v1.0.0
 
 ### Project Orchestration Workflows (POWs)

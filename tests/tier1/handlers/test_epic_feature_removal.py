@@ -93,8 +93,8 @@ class TestC4NoEpicRefsInIPPIPF:
     """IPP and IPF handlers contain no epic/feature doc type references."""
 
     def test_ipp_handler_no_epic_refs(self):
-        from app.domain.handlers import implementation_plan_primary_handler
-        src = inspect.getsource(implementation_plan_primary_handler)
+        from app.domain.handlers import primary_implementation_plan_handler
+        src = inspect.getsource(primary_implementation_plan_handler)
         # Check for epic as doc type concept — not as substring of other words
         assert "epic_candidates" not in src, "IPP handler still references epic_candidates"
         assert '"epic"' not in src, "IPP handler still references 'epic' doc type"

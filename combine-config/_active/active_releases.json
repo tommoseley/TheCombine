@@ -64,7 +64,7 @@
     "software_product_development": "1.0.0",
     "technical_architecture": "2.0.0",
     "implementation_plan": "1.0.0",
-    "implementation_plan_primary": "1.0.0",
+    "primary_implementation_plan": "1.0.0",
     "work_package": "1.0.0",
     "work_statement": "1.0.0",
     "backlog_generator": "1.0.0",

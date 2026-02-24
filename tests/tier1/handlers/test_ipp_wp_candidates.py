@@ -12,7 +12,7 @@ Five test groups mapping to the five Mode A Tier 1 verification criteria:
 import pytest
 
 from app.config.package_loader import get_package_loader
-from app.domain.handlers.implementation_plan_primary_handler import (
+from app.domain.handlers.primary_implementation_plan_handler import (
     ImplementationPlanPrimaryHandler,
 )
 
