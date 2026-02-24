@@ -1,21 +1,26 @@
 import { useState, useMemo } from 'react';
 import RenderModelViewer from '../RenderModelViewer';
-import WorkflowStudioPanel from './WorkflowStudioPanel';
-import ComponentsStudioPanel from './ComponentsStudioPanel';
+import IABlockRenderer from '../blocks/IABlockRenderer';
 
 /**
- * TechnicalArchitectureViewer - Config-driven tabbed document viewer.
+ * ConfigDrivenDocViewer - Config-driven tabbed document viewer.
  *
  * Reads tab structure from renderModel.rendering_config.detail_html (ADR-054)
  * and routes render model sections to tabs using information_architecture binds.
  *
- * Specialized renderers:
- * - WorkflowStudioPanel for 'workflows' tab (React Flow diagrams)
- * - ComponentsStudioPanel for 'components' tab (rail navigation)
- * - SectionTabContent (RenderModelViewer) for all other tabs
+ * Level 2 IA binds (with render_as) are dispatched to IABlockRenderer.
+ * Level 1 IA binds (plain strings) fall back to RawFieldRenderer.
+ *
+ * WS-IA-003: Replaces TechnicalArchitectureViewer. Studio panels removed.
  */
 
-export default function TechnicalArchitectureViewer({
+/** Normalize a bind: string -> {path: str}, object passes through. */
+function normalizeBind(bind) {
+    if (typeof bind === 'string') return { path: bind };
+    return bind;
+}
+
+export default function ConfigDrivenDocViewer({
     renderModel,
     projectId,
     projectCode,
@@ -42,33 +47,43 @@ export default function TechnicalArchitectureViewer({
             };
         }
 
-        // Build map: IA section id -> { binds: [...], label }
+        // Build map: IA section id -> { binds: [...normalized...], label }
         const sectionMeta = {};
         ia.sections.forEach(s => {
-            sectionMeta[s.id] = { binds: s.binds || [], label: s.label || s.id };
+            sectionMeta[s.id] = {
+                binds: (s.binds || []).map(normalizeBind),
+                label: s.label || s.id,
+            };
         });
 
         // Prefer IA-driven raw content mode when raw_content + IA config are available.
-        // This bypasses the DocDef layer (WS-SDP-003) — DocDef sections may be incomplete
-        // (e.g. missing workflows) but raw_content has the full document data.
         if (rawContent && typeof rawContent === 'object') {
-            // Collect all bound field names across all IA sections
-            const allBinds = new Set();
-            ia.sections.forEach(s => (s.binds || []).forEach(b => allBinds.add(b)));
-            const hasIAFields = [...allBinds].some(b => rawContent[b] !== undefined && rawContent[b] !== null);
+            // Collect all bound field paths across all IA sections
+            const allBindPaths = new Set();
+            Object.values(sectionMeta).forEach(meta =>
+                meta.binds.forEach(b => allBindPaths.add(b.path))
+            );
+            const hasIAFields = [...allBindPaths].some(
+                p => rawContent[p] !== undefined && rawContent[p] !== null
+            );
 
             if (hasIAFields) {
-                // Raw content mode: build tabSections as arrays of {fieldName, label, data}
+                // Raw content mode: build tabSections as arrays of {fieldName, label, data, bind}
                 const grouped = {};
                 detail_html.tabs.forEach(tab => {
                     const fields = [];
                     (tab.sections || []).forEach(sectionId => {
                         const meta = sectionMeta[sectionId];
                         if (!meta) return;
-                        meta.binds.forEach(fieldName => {
-                            const data = rawContent[fieldName];
+                        meta.binds.forEach(bind => {
+                            const data = rawContent[bind.path];
                             if (data !== undefined && data !== null) {
-                                fields.push({ fieldName, label: meta.label, data });
+                                fields.push({
+                                    fieldName: bind.path,
+                                    label: meta.label,
+                                    data,
+                                    bind,
+                                });
                             }
                         });
                     });
@@ -85,7 +100,7 @@ export default function TechnicalArchitectureViewer({
                 const firstTab = detail_html.tabs[0]?.id || 'overview';
                 const grouped = {};
                 detail_html.tabs.forEach(tab => { grouped[tab.id] = []; });
-                grouped[firstTab] = [{ fieldName: '_fallback', label: 'Content', data: fallbackText }];
+                grouped[firstTab] = [{ fieldName: '_fallback', label: 'Content', data: fallbackText, bind: { path: '_fallback' } }];
                 return { tabDefs: detail_html.tabs, tabSections: grouped, isRawContentMode: true };
             }
         }
@@ -96,7 +111,7 @@ export default function TechnicalArchitectureViewer({
             (tab.sections || []).forEach(sectionId => {
                 const meta = sectionMeta[sectionId];
                 if (meta) {
-                    meta.binds.forEach(field => { fieldToTab[field] = tab.id; });
+                    meta.binds.forEach(bind => { fieldToTab[bind.path] = tab.id; });
                 }
             });
         });
@@ -120,98 +135,17 @@ export default function TechnicalArchitectureViewer({
     // Default to first tab
     const effectiveTab = activeTab || (tabDefs.length > 0 ? tabDefs[0].id : 'overview');
 
-    // Extract workflow data for WorkflowStudioPanel
-    const workflows = useMemo(() => {
-        if (isRawContentMode) {
-            // In raw content mode, tabSections.workflows is an array of {fieldName, label, data}
-            const wfFields = tabSections.workflows || [];
-            const wfField = wfFields.find(f => f.fieldName === 'workflows');
-            const items = wfField?.data;
-            if (!Array.isArray(items) || !items.length) return [];
-            return items.map((item, idx) => ({
-                id: item.id || `wf-${idx}`,
-                name: item.name || `Workflow ${idx + 1}`,
-                description: item.description,
-                trigger: item.trigger,
-                nodeCount: item.nodes?.length || item.steps?.length || 0,
-                rawItem: item,
-            }));
-        }
-        // Standard mode: extract from blocks
-        const wfSections = tabSections.workflows || [];
-        if (!wfSections.length) return [];
-        const wfSection = wfSections[0];
-        if (!wfSection?.blocks) return [];
-        return wfSection.blocks.map((block, idx) => ({
-            id: block.block_id || `wf-${idx}`,
-            name: block.data?.name || `Workflow ${idx + 1}`,
-            description: block.data?.description,
-            trigger: block.data?.trigger,
-            nodeCount: block.data?.nodes?.length || block.data?.steps?.length || 0,
-            block,
-        }));
-    }, [tabSections.workflows, isRawContentMode]);
-
-    // Extract component data for ComponentsStudioPanel
-    const components = useMemo(() => {
-        if (isRawContentMode) {
-            // In raw content mode, tabSections.components is an array of {fieldName, label, data}
-            const compFields = tabSections.components || [];
-            const compField = compFields.find(f => f.fieldName === 'components');
-            const items = compField?.data;
-            if (!Array.isArray(items) || !items.length) return [];
-            return items.map((item, idx) => ({
-                id: item.id || `comp-${idx}`,
-                name: item.name || `Component ${idx + 1}`,
-                purpose: item.purpose,
-                layer: item.layer,
-                mvpPhase: item.mvp_phase,
-                technology: item.technology || (Array.isArray(item.technology_choices) ? item.technology_choices.join(', ') : null),
-                interfaces: item.interfaces || [],
-                dependencies: item.dependencies || item.depends_on_components || [],
-                responsibilities: item.responsibilities || [],
-                rawItem: item,
-            }));
-        }
-        // Standard mode: extract from blocks
-        const compSections = tabSections.components || [];
-        if (!compSections.length) return [];
-        const compSection = compSections[0];
-        if (!compSection?.blocks) return [];
-        return compSection.blocks.map((block, idx) => {
-            const data = block.data || {};
-            return {
-                id: block.block_id || `comp-${idx}`,
-                name: data.name || `Component ${idx + 1}`,
-                purpose: data.purpose,
-                layer: data.layer,
-                mvpPhase: data.mvp_phase,
-                technology: data.technology || (Array.isArray(data.technology_choices) ? data.technology_choices.join(', ') : null),
-                interfaces: data.interfaces || [],
-                dependencies: data.dependencies || data.depends_on_components || [],
-                responsibilities: data.responsibilities || [],
-                block,
-            };
-        });
-    }, [tabSections.components, isRawContentMode]);
-
     // Build tab list with counts and disabled state
     const tabs = useMemo(() => {
         return tabDefs.map(tab => {
             const tabData = tabSections[tab.id] || [];
-            const isSpecial = tab.id === 'workflows' || tab.id === 'components';
-            const specialCount = tab.id === 'workflows' ? workflows.length
-                : tab.id === 'components' ? components.length
-                : null;
 
             if (isRawContentMode) {
-                // In raw content mode, tabData is array of {fieldName, label, data}
-                const hasContent = isSpecial ? (specialCount > 0) : tabData.length > 0;
                 return {
                     id: tab.id,
                     label: tab.label,
-                    count: isSpecial ? (specialCount || null) : (tabData.length || null),
-                    disabled: !hasContent,
+                    count: tabData.length || null,
+                    disabled: tabData.length === 0,
                 };
             }
 
@@ -220,11 +154,11 @@ export default function TechnicalArchitectureViewer({
             return {
                 id: tab.id,
                 label: tab.label,
-                count: isSpecial ? (specialCount || null) : blockCount,
+                count: blockCount,
                 disabled: tab.id !== 'overview' && !tabData.length,
             };
         });
-    }, [tabDefs, tabSections, workflows, components, isRawContentMode]);
+    }, [tabDefs, tabSections, isRawContentMode]);
 
     const metadata = renderModel?.metadata || {};
     const adminUrl = executionId ? `/admin?execution=${executionId}` : '/admin';
@@ -375,11 +309,7 @@ export default function TechnicalArchitectureViewer({
                 className="flex-1 overflow-hidden"
                 style={{ minHeight: 0 }}
             >
-                {effectiveTab === 'workflows' && workflows.length > 0 ? (
-                    <WorkflowStudioPanel workflows={workflows} />
-                ) : effectiveTab === 'components' && components.length > 0 ? (
-                    <ComponentsStudioPanel components={components} />
-                ) : isRawContentMode ? (
+                {isRawContentMode ? (
                     <RawContentTabContent fields={tabSections[effectiveTab] || []} />
                 ) : (
                     <SectionTabContent
@@ -414,7 +344,10 @@ function SectionTabContent({ renderModel, sections }) {
     );
 }
 
-/** Raw content tab - renders fields pulled from raw_content via IA binds */
+/** Raw content tab - renders fields pulled from raw_content via IA binds.
+ *  Level 2 binds (with render_as) dispatch to IABlockRenderer.
+ *  Level 1 binds (no render_as) fall back to RawFieldRenderer.
+ */
 function RawContentTabContent({ fields }) {
     if (!fields || fields.length === 0) {
         return (
@@ -440,7 +373,11 @@ function RawContentTabContent({ fields }) {
                         )}
                     </div>
                     <div style={{ padding: 16 }}>
-                        <RawFieldRenderer data={field.data} fieldName={field.fieldName} />
+                        {field.bind?.render_as ? (
+                            <IABlockRenderer bind={field.bind} data={field.data} label={field.label} />
+                        ) : (
+                            <RawFieldRenderer data={field.data} fieldName={field.fieldName} />
+                        )}
                     </div>
                 </div>
             ))}
@@ -448,7 +385,9 @@ function RawContentTabContent({ fields }) {
     );
 }
 
-/** Dispatches rendering by data type: strings, arrays, objects, fallback JSON */
+/** Dispatches rendering by data type: strings, arrays, objects, fallback JSON.
+ *  Used for Level 1 binds (no render_as declared).
+ */
 function RawFieldRenderer({ data, fieldName }) {
     if (data === null || data === undefined) {
         return <span style={{ color: '#9ca3af', fontSize: 13 }}>No data</span>;

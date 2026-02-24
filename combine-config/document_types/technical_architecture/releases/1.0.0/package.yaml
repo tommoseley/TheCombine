@@ -54,53 +54,160 @@ gating_rules:
 
 # Information Architecture (ADR-054)
 information_architecture:
-  version: 1
+  version: 2
 
   sections:
     - id: overview.summary
       label: Architecture Summary
       binds:
-        - architecture_summary
+        - path: architecture_summary
+          render_as: nested-object
+          fields:
+            - path: title
+              render_as: paragraph
+            - path: style
+              render_as: paragraph
+            - path: key_decisions
+              render_as: list
 
     - id: overview.risks
       label: Risks
       binds:
-        - risks
+        - path: risks
+          render_as: table
+          columns:
+            - field: risk
+              label: Risk
+            - field: impact
+              label: Impact
+            - field: mitigation
+              label: Mitigation
+            - field: status
+              label: Status
 
     - id: overview.open_questions
       label: Open Questions
       binds:
-        - open_questions
+        - path: open_questions
+          render_as: table
+          columns:
+            - field: question
+              label: Question
+            - field: impact
+              label: Impact
+            - field: default_assumption
+              label: Default Assumption
 
     - id: overview.mvp_scope
       label: MVP Scope
       binds:
-        - mvp_scope
+        - path: mvp_scope
+          render_as: nested-object
+          fields:
+            - path: included
+              render_as: list
+            - path: deferred
+              render_as: list
 
     - id: components
       label: Components
       binds:
-        - components
+        - path: components
+          render_as: card-list
+          card:
+            title: name
+            fields:
+              - path: purpose
+                render_as: paragraph
+              - path: technology
+                render_as: paragraph
+              - path: interfaces
+                render_as: list
+              - path: dependencies
+                render_as: list
 
     - id: workflows
       label: Workflows
       binds:
-        - workflows
+        - path: workflows
+          render_as: card-list
+          card:
+            title: name
+            fields:
+              - path: trigger
+                render_as: paragraph
+              - path: steps
+                render_as: table
+                columns:
+                  - field: step
+                    label: "#"
+                  - field: action
+                    label: Action
+                  - field: component
+                    label: Component
+                  - field: output
+                    label: Output
 
     - id: data_models
       label: Data Models
       binds:
-        - data_models
+        - path: data_models
+          render_as: card-list
+          card:
+            title: entity_name
+            fields:
+              - path: description
+                render_as: paragraph
+              - path: fields
+                render_as: table
+                columns:
+                  - field: name
+                    label: Field
+                  - field: type
+                    label: Type
+                  - field: required
+                    label: Required
+                  - field: description
+                    label: Description
+              - path: relationships
+                render_as: list
 
     - id: api_interfaces
       label: API Interfaces
       binds:
-        - api_interfaces
+        - path: api_interfaces
+          render_as: card-list
+          card:
+            title: name
+            fields:
+              - path: type
+                render_as: paragraph
+              - path: endpoints
+                render_as: table
+                columns:
+                  - field: method
+                    label: Method
+                  - field: path
+                    label: Path
+                  - field: description
+                    label: Description
 
     - id: quality_attributes
       label: Quality Attributes
       binds:
-        - quality_attributes
+        - path: quality_attributes
+          render_as: nested-object
+          fields:
+            - path: performance
+              render_as: list
+            - path: security
+              render_as: list
+            - path: scalability
+              render_as: list
+            - path: maintainability
+              render_as: list
+            - path: observability
+              render_as: list
 
 # Rendering targets (ADR-054)
 rendering:

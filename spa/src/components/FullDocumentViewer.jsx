@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import RenderModelViewer from './RenderModelViewer';
-import TechnicalArchitectureViewer from './viewers/TechnicalArchitectureViewer';
+import ConfigDrivenDocViewer from './viewers/ConfigDrivenDocViewer';
 
 /**
  * Full-screen document viewer modal - Data-Driven
@@ -124,14 +124,13 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                     </button>
-                    <TechnicalArchitectureViewer
+                    <ConfigDrivenDocViewer
                         renderModel={renderModel}
                         projectId={projectId}
                         projectCode={projectCode}
                         docTypeId={docTypeId}
                         executionId={executionId}
                         docTypeName={metadata.document_type_name}
-                        pgcContext={pgcContext}
                         onClose={onClose}
                     />
                 </div>
