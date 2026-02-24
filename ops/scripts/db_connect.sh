@@ -29,6 +29,7 @@ set -euo pipefail
 declare -A SECRET_NAMES=(
     [dev]="the-combine/db-dev"
     [test]="the-combine/db-test"
+    [prod]="the-combine/db-prod"
 )
 REGION="us-east-1"
 

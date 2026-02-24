@@ -132,13 +132,22 @@ jobs:
             --query 'taskDefinition' \
             > task-definition.json
           
+          # Use secret ARN for prod database (injected as DATABASE_URL from JSON key)
+          DB_SECRET_ARN="${{ vars.DB_PROD_SECRET_ARN }}"
+
           # Remove fields that can't be re-registered AND ensure secrets are set
-          cat task-definition.json | jq --arg secret_arn "$ANTHROPIC_SECRET_ARN" '
+          cat task-definition.json | jq \
+            --arg anthropic_arn "$ANTHROPIC_SECRET_ARN" \
+            --arg db_arn "$DB_SECRET_ARN" '
             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-            .containerDefinitions[0].secrets = [{"name": "ANTHROPIC_API_KEY", "valueFrom": $secret_arn}]
+            .containerDefinitions[0].secrets = [
+              {"name": "ANTHROPIC_API_KEY", "valueFrom": $anthropic_arn},
+              {"name": "DATABASE_URL", "valueFrom": ($db_arn + ":DATABASE_URL::")}
+            ] |
+            .containerDefinitions[0].environment |= map(select(.name != "DATABASE_URL"))
           ' > cleaned-task-definition.json
           mv cleaned-task-definition.json task-definition.json
-          
+
           echo "Task definition prepared with secrets"
       
       - name: Update task definition with new image

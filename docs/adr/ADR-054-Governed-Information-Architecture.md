@@ -44,42 +44,99 @@ Every document type release SHALL align three contracts:
 
 A document release is valid only if these are aligned.
 
-### 2. Canonical Section Model (Minimal)
+### 2. Canonical Section Model with Block Rendering
 
 Each document type release SHALL define canonical sections in:
 
 `combine-config/document_types/<doc_type>/releases/<version>/package.yaml`
 
-Structure:
+Sections declare not only which schema fields they bind to, but how each field renders. Without render type declarations, renderers must guess at structure, producing raw JSON dumps or flat text for complex nested objects.
+
+#### Section Structure
 
 ```yaml
 information_architecture:
   version: 1
 
   sections:
-    - id: overview.summary
-      label: Summary
+    - id: plan.summary
+      label: Plan Summary
       binds:
-        - summary
-
-    - id: scope.in
-      label: Scope In
-      binds:
-        - scope_in
-
-    - id: scope.out
-      label: Scope Out
-      binds:
-        - scope_out
+        - path: plan_summary.overall_intent
+          render_as: paragraph
+          label: Overall Intent
+        - path: plan_summary.mvp_definition
+          render_as: paragraph
+          label: MVP Definition
+        - path: plan_summary.key_constraints
+          render_as: list
+          label: Key Constraints
+        - path: plan_summary.sequencing_rationale
+          render_as: paragraph
+          label: Sequencing Rationale
 ```
 
-Rules:
+#### Complex Object Example (Card List)
+
+```yaml
+    - id: architecture.workflows
+      label: Workflows
+      binds:
+        - path: workflows
+          render_as: card-list
+          card:
+            title: name
+            fields:
+              - path: description
+                render_as: paragraph
+              - path: triggers
+                render_as: list
+              - path: steps
+                render_as: ordered-list
+              - path: outputs
+                render_as: list
+```
+
+#### Pinned render_as Vocabulary
+
+The following render types are the complete set for v1. Renderers MUST support all of them. No ad-hoc types may be introduced without an ADR amendment.
+
+| render_as | Description | Typical schema type |
+|-----------|-------------|---------------------|
+| `paragraph` | Plain text block | string |
+| `list` | Unordered bullet list | array of strings |
+| `ordered-list` | Numbered list | array of strings |
+| `table` | Rows and columns (requires column definitions) | array of objects |
+| `key-value-pairs` | Label: value layout | object with scalar values |
+| `card-list` | Array of objects, each as a card with sub-fields | array of objects |
+| `nested-object` | Object with named properties as labeled sub-sections | object |
+
+#### Table Column Definitions
+
+When `render_as: table`, a `columns` array is required:
+
+```yaml
+        - path: dependencies
+          render_as: table
+          columns:
+            - field: name
+              label: Dependency
+            - field: version
+              label: Version
+            - field: purpose
+              label: Purpose
+```
+
+#### Rules
 
 - `id` is stable and versioned.
-- `binds` must reference valid schema paths.
-- Sections define semantic units of meaning.
-- Sections are target-agnostic.
-- No DSL for density, importance, or mobile behavior is introduced at this stage.
+- `path` in binds MUST reference a valid schema path (dot-notation for nested fields).
+- `render_as` MUST be one of the pinned vocabulary values.
+- `label` on a bind is the rendered heading or field label.
+- Sections are target-agnostic -- render types apply to both HTML and PDF.
+- `card-list` requires a `card` definition with `title` and `fields`.
+- `table` requires a `columns` definition.
+- If `render_as` is omitted, the renderer MUST treat the field as `paragraph` (safe default, never raw JSON).
 
 ### 3. Rendering Targets (Two Only)
 
@@ -206,3 +263,4 @@ ADR-054 establishes governed Information Architecture for document types, with t
 
 Documents are not only structured data -- they are structured decisions.
 That structure must be versioned and enforced.
+
