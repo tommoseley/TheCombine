@@ -1,5 +1,5 @@
 """
-Implementation Plan (Primary) Document Handler
+Preliminary Implementation Plan Document Handler
 
 Handles the preliminary implementation plan produced before technical architecture.
 Contains Work Package candidates that inform architectural decisions.
@@ -37,11 +37,26 @@ class ImplementationPlanPrimaryHandler(BaseDocumentHandler):
 
         Adds computed fields for UI display:
         - candidate_count
+        - associated_risks on each WP candidate (reverse index from risks_overview)
         """
         candidates = data.get("work_package_candidates", [])
 
         # Add computed fields
         data["candidate_count"] = len(candidates)
+
+        # Build reverse mapping: candidate_id -> ["RSK-001: description", ...]
+        candidate_risks: Dict[str, list] = {}
+        for risk in data.get("risks_overview", []):
+            risk_id = risk.get("risk_id", "")
+            description = risk.get("description", "")
+            label = f"{risk_id}: {description}" if description else risk_id
+            for cid in risk.get("affected_candidates", []):
+                candidate_risks.setdefault(cid, []).append(label)
+
+        # Inject associated_risks into each candidate
+        for candidate in candidates:
+            cid = candidate.get("candidate_id", "")
+            candidate["associated_risks"] = candidate_risks.get(cid, [])
 
         return data
 
@@ -50,7 +65,7 @@ class ImplementationPlanPrimaryHandler(BaseDocumentHandler):
         Render full view HTML.
         """
         candidate_count = data.get("candidate_count", len(data.get("work_package_candidates", [])))
-        return f"Implementation Plan (Primary): {candidate_count} WP candidates"
+        return f"Preliminary Implementation Plan: {candidate_count} WP candidates"
 
     def render_summary(self, data: Dict[str, Any]) -> str:
         """

@@ -141,10 +141,19 @@ export default function ConfigDrivenDocViewer({
             const tabData = tabSections[tab.id] || [];
 
             if (isRawContentMode) {
+                // Show actual item count: if tab has a single array field,
+                // show the length of that array (e.g., 5 WP candidates),
+                // not the number of IA binds (which is always 1 per section).
+                let count = null;
+                if (tabData.length === 1 && Array.isArray(tabData[0]?.data)) {
+                    count = tabData[0].data.length;
+                } else if (tabData.length > 1) {
+                    count = tabData.length;
+                }
                 return {
                     id: tab.id,
                     label: tab.label,
-                    count: tabData.length || null,
+                    count,
                     disabled: tabData.length === 0,
                 };
             }

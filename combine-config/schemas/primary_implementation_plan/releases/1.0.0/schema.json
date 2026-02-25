@@ -119,6 +119,11 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "References to ADRs, policies, or constraints that apply."
+          },
+          "associated_risks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Computed field: risk IDs from risks_overview that reference this candidate. Injected by handler transform(), not LLM-produced."
           }
         }
       }

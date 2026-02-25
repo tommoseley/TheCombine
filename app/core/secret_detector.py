@@ -75,15 +75,17 @@ _calibration = load_calibration()
 LENGTH_THRESHOLD: int = _calibration.get("length_threshold", 20)
 ENTROPY_THRESHOLD: float = _calibration.get("entropy_threshold", 3.0)
 CHAR_CLASS_ADJUSTMENT: float = _calibration.get("char_class_adjustment", 0.85)
+LOW_CLASS_ADJUSTMENT: float = _calibration.get("low_class_adjustment", 1.5)
 DETECTOR_VERSION: str = _calibration.get("detector_version", "v1")
 
 
 def reconfigure(calibration: dict) -> None:
     """Reconfigure thresholds (for testing)."""
-    global LENGTH_THRESHOLD, ENTROPY_THRESHOLD, CHAR_CLASS_ADJUSTMENT, DETECTOR_VERSION
+    global LENGTH_THRESHOLD, ENTROPY_THRESHOLD, CHAR_CLASS_ADJUSTMENT, LOW_CLASS_ADJUSTMENT, DETECTOR_VERSION
     LENGTH_THRESHOLD = calibration.get("length_threshold", LENGTH_THRESHOLD)
     ENTROPY_THRESHOLD = calibration.get("entropy_threshold", ENTROPY_THRESHOLD)
     CHAR_CLASS_ADJUSTMENT = calibration.get("char_class_adjustment", CHAR_CLASS_ADJUSTMENT)
+    LOW_CLASS_ADJUSTMENT = calibration.get("low_class_adjustment", LOW_CLASS_ADJUSTMENT)
     DETECTOR_VERSION = calibration.get("detector_version", DETECTOR_VERSION)
 
 
@@ -235,7 +237,8 @@ def scan_token(token: str, excluded: set[str] | None = None) -> ScanResult:
         if entropy >= adjusted:
             return ScanResult("SECRET_DETECTED", "HIGH_ENTROPY_MIXED", entropy, DETECTOR_VERSION)
     else:
-        if entropy >= ENTROPY_THRESHOLD:
+        adjusted = ENTROPY_THRESHOLD * LOW_CLASS_ADJUSTMENT
+        if entropy >= adjusted:
             return ScanResult("SECRET_DETECTED", "HIGH_ENTROPY", entropy, DETECTOR_VERSION)
 
     return ScanResult("CLEAN", None, entropy, DETECTOR_VERSION)

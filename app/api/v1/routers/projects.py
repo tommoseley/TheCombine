@@ -866,6 +866,16 @@ async def get_document_render_model(
                 else:
                     logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
 
+    # Apply handler transform at render time (computed fields like associated_risks)
+    if isinstance(document_data, dict):
+        try:
+            from app.domain.handlers.registry import handler_exists, get_handler
+            if handler_exists(doc_type_id):
+                _handler = get_handler(doc_type_id)
+                document_data = _handler.transform(document_data)
+        except Exception:
+            pass  # Handler transform is best-effort at render time
+
     if not view_docdef:
         # No view_docdef configured - return raw content wrapped in basic structure
         meta = await _build_doc_metadata()

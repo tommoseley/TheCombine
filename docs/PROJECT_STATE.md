@@ -87,7 +87,7 @@ python -m pytest tests/ -x -q
 ```
 
 **AWS DEV database:**
-- 34 tables created from current ORM models (+ 2 pending: ws_executions, ws_bug_fixes via migration 20260223_001)
+- 36 tables created from current ORM models (includes ws_executions, ws_bug_fixes)
 - 14 document types seeded (9 core + 5 BCP)
 - `primary_implementation_plan` doc type renamed in document_types table (2026-02-24)
 - Prompts are file-based from combine-config/ (no DB seeding needed)
@@ -249,8 +249,6 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - 2476 tests passing (190 new tests this session)
 
 ### Next Work
-- Apply Alembic migration `20260223_001` to DEV/TEST RDS databases
-- Migrate TEST DB document_types table (primary_implementation_plan rename)
 - Integrate Claude Code metrics reporting during WS execution (POST to `/api/v1/metrics/ws-execution`)
 - Re-run IPF generation against corrected inputs (TA dependency removed)
 - Establish React test harness to retire Mode B debt on SPA tests
@@ -280,4 +278,3 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
 - Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)
 - `.gitignore` `*secret*` pattern requires explicit negation for every new file with "secret" in name
-- TEST DB still has old doc type name `implementation_plan_primary` (DEV migrated, TEST not yet)

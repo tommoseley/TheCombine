@@ -494,3 +494,53 @@ class TestScanDictEdgeCases:
         }
         result = scan_dict(data)
         assert result.verdict == "CLEAN"
+
+
+# ---------------------------------------------------------------------------
+# Criterion 14: Low-class tokens with moderate entropy are not false positives
+# ---------------------------------------------------------------------------
+
+class TestLowClassTokenFalsePositive:
+    """Tokens with < 3 character classes and moderate entropy must not be
+    flagged as secrets. This reproduces a production false positive where
+    a PGC answer was rejected with HIGH_ENTROPY classification (entropy 3.382,
+    threshold 3.0) because the low-class branch had no adjustment."""
+
+    def test_long_hyphenated_compound_is_clean(self):
+        """Hyphenated technical compound (2 char classes, entropy > 3.0) is CLEAN."""
+        from app.core.secret_detector import scan_token, shannon_entropy, char_class_count
+        # Realistic PGC answer token: long hyphenated technical term
+        token = "authentication-middleware-configuration-service"
+        assert len(token) >= 20, "Token must exceed length threshold"
+        assert char_class_count(token) < 3, "Token must have < 3 char classes"
+        assert shannon_entropy(token) > 3.0, "Token must have entropy above base threshold"
+        result = scan_token(token)
+        assert result.verdict == "CLEAN", (
+            f"False positive: '{token}' classified as {result.classification} "
+            f"(entropy={result.entropy_score:.3f}) but should be CLEAN"
+        )
+
+    def test_long_lowercase_path_is_clean(self):
+        """Long lowercase path segment (1 char class, entropy > 3.0) is CLEAN."""
+        from app.core.secret_detector import scan_token, shannon_entropy, char_class_count
+        token = "microservicearchitecturepatterns"
+        assert len(token) >= 20
+        assert char_class_count(token) < 3
+        assert shannon_entropy(token) > 3.0
+        result = scan_token(token)
+        assert result.verdict == "CLEAN", (
+            f"False positive: '{token}' classified as {result.classification} "
+            f"(entropy={result.entropy_score:.3f}) but should be CLEAN"
+        )
+
+    def test_pgc_answer_with_technical_terms_is_clean(self):
+        """PGC answer containing long technical terms passes scan_text."""
+        text = (
+            "We use authentication-middleware-configuration for the service layer. "
+            "The microservicearchitecturepatterns guide our design decisions."
+        )
+        result = scan_text(text)
+        assert result.verdict == "CLEAN", (
+            f"PGC answer falsely detected as {result.classification} "
+            f"(entropy={result.entropy_score:.3f})"
+        )

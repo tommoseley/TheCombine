@@ -59,7 +59,7 @@ function ListRenderer({ data }) {
         <ul style={{ margin: 0, paddingLeft: 20 }}>
             {data.map((item, i) => (
                 <li key={i} style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>
-                    {typeof item === 'string' ? item : JSON.stringify(item)}
+                    {typeof item === 'string' ? item : <ObjectListItem item={item} />}
                 </li>
             ))}
         </ul>
@@ -74,10 +74,56 @@ function OrderedListRenderer({ data }) {
         <ol style={{ margin: 0, paddingLeft: 20 }}>
             {data.map((item, i) => (
                 <li key={i} style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>
-                    {typeof item === 'string' ? item : JSON.stringify(item)}
+                    {typeof item === 'string' ? item : <ObjectListItem item={item} />}
                 </li>
             ))}
         </ol>
+    );
+}
+
+/** Smart rendering for object items in lists.
+ *  Extracts primary text from known fields; shows remaining as metadata. */
+function ObjectListItem({ item }) {
+    if (typeof item !== 'object' || item === null) return String(item);
+    const textKeys = ['description', 'text', 'recommendation', 'name', 'title',
+                      'constraint', 'assumption', 'guardrail', 'statement', 'value'];
+    const textKey = textKeys.find(k => item[k] && typeof item[k] === 'string');
+    if (!textKey) {
+        // No recognizable primary field: render key-value pairs inline
+        return (
+            <span>
+                {Object.entries(item).map(([k, v], i) => (
+                    <span key={k}>
+                        {i > 0 && ' \u00B7 '}
+                        <span style={{ fontWeight: 500 }}>{formatFieldLabel(k)}:</span>{' '}
+                        {typeof v === 'string' ? v : JSON.stringify(v)}
+                    </span>
+                ))}
+            </span>
+        );
+    }
+    const text = item[textKey];
+    const id = item.id;
+    const remaining = Object.entries(item).filter(
+        ([k]) => k !== textKey && k !== 'id'
+    );
+    return (
+        <div>
+            <span>
+                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af', marginRight: 6 }}>{id}</span>}
+                {text}
+            </span>
+            {remaining.length > 0 && (
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                    {remaining.map(([k, v]) => (
+                        <span key={k} style={{ marginRight: 10 }}>
+                            <span style={{ fontWeight: 500 }}>{formatFieldLabel(k)}:</span>{' '}
+                            {typeof v === 'string' ? v : JSON.stringify(v)}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 

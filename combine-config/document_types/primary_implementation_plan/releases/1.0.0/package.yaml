@@ -2,7 +2,7 @@
 # Schema: ../../../schemas/registry/package.schema.json
 
 doc_type_id: primary_implementation_plan
-display_name: Implementation Plan (Primary)
+display_name: Preliminary Implementation Plan
 version: 1.0.0
 
 description: >
@@ -17,8 +17,8 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
-# Rendering
-view_docdef: ImplementationPlanPrimaryView
+# Rendering — IA-driven (ADR-054), no DocDef needed
+# view_docdef: ImplementationPlanPrimaryView  # TODO: create if legacy path needed
 
 # Dependencies
 required_inputs:
@@ -87,6 +87,8 @@ information_architecture:
               - path: definition_of_done
                 render_as: list
               - path: governance_notes
+                render_as: list
+              - path: associated_risks
                 render_as: list
 
     - id: risks

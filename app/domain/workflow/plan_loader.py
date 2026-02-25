@@ -128,10 +128,20 @@ class PlanLoader:
                 definition_path = directory / workflow_id / "releases" / version / "definition.json"
                 if definition_path.exists():
                     try:
-                        plan = self.load(definition_path)
+                        with open(definition_path, "r", encoding="utf-8-sig") as f:
+                            raw = json.load(f)
+
+                        # Skip non-plan workflows (e.g., steps-format POWs)
+                        if "nodes" not in raw or "edges" not in raw:
+                            logger.debug(
+                                f"Skipping {workflow_id} v{version}: not a plan-format workflow"
+                            )
+                            continue
+
+                        plan = self.load_dict(raw, source_path=str(definition_path))
                         plans.append(plan)
                         logger.debug(f"Loaded workflow {workflow_id} v{version}")
-                    except PlanLoadError as e:
+                    except (json.JSONDecodeError, PlanLoadError) as e:
                         logger.warning(f"Failed to load workflow {workflow_id}: {e}")
                 else:
                     logger.warning(f"Workflow definition not found: {definition_path}")
