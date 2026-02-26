@@ -1,315 +1,216 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://thecombine.dev/schemas/implementation_plan_final.v2.json",
+  "$id": "https://thecombine.dev/schemas/implementation_plan.v3.json",
   "type": "object",
-  "title": "Implementation Plan (Final)",
-  "description": "Final implementation plan with committed Work Packages reconciled from WP candidates, informed by Technical Architecture.",
+  "title": "Implementation Plan",
+  "description": "Single implementation plan (post-Discovery, pre-TA) containing high-level plan intent, constraints, cross-cutting concerns, and candidate Work Packages (WPC-###). No committed Work Packages are created here; governed WPs are created later in the Work Binder after TA.",
   "additionalProperties": false,
-  "required": ["meta", "plan_summary", "work_packages", "candidate_reconciliation"],
+  "required": [
+    "meta",
+    "plan_summary",
+    "work_package_candidates",
+    "cross_cutting_concerns",
+    "risk_summary"
+  ],
   "properties": {
     "meta": {
       "type": "object",
       "additionalProperties": false,
       "required": ["schema_version", "artifact_id", "created_at", "source"],
       "properties": {
-        "schema_version": { "type": "string", "const": "1.0" },
-        "artifact_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Unique identifier for this artifact."
-        },
-        "correlation_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Correlation identifier linking to workflow run."
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time",
-          "description": "ISO-8601 timestamp of artifact creation."
-        },
-        "source": {
-          "type": "string",
-          "enum": ["human", "combine_generated", "mixed"],
-          "description": "Provenance of the artifact content."
-        }
+        "schema_version": { "type": "string", "const": "3.0" },
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "correlation_id": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "source": { "type": "string", "enum": ["human", "combine_generated", "mixed"] }
       }
     },
 
     "plan_summary": {
       "type": "object",
-      "description": "High-level plan overview",
+      "description": "High-level plan overview. Must remain architecture-agnostic (no component IDs, no technology choices).",
       "additionalProperties": false,
       "required": ["overall_intent", "mvp_definition", "key_constraints", "sequencing_rationale"],
       "properties": {
-        "overall_intent": {
-          "type": "string",
-          "minLength": 1,
-          "description": "What this plan aims to achieve"
-        },
-        "mvp_definition": {
-          "type": "string",
-          "minLength": 1,
-          "description": "What constitutes MVP"
-        },
+        "overall_intent": { "type": "string", "minLength": 1 },
+        "mvp_definition": { "type": "string", "minLength": 1 },
         "key_constraints": {
           "type": "array",
-          "description": "Key constraints shaping the plan",
           "minItems": 0,
           "items": { "type": "string", "minLength": 1 }
         },
-        "sequencing_rationale": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Why Work Packages are ordered this way"
+        "sequencing_rationale": { "type": "string", "minLength": 1 },
+
+        "assumptions": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "out_of_scope": {
+          "type": "array",
+          "minItems": 0,
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     },
 
-    "work_packages": {
+    "work_package_candidates": {
       "type": "array",
-      "description": "Committed Work Packages for implementation",
+      "description": "Candidate Work Packages. Advisory only. These are later promoted and bound to TA in the Work Binder.",
       "minItems": 1,
-      "items": { "$ref": "#/definitions/work_package" }
-    },
-
-    "candidate_reconciliation": {
-      "type": "array",
-      "description": "Audit-friendly mapping of each IPP WP candidate to its final outcome in this plan.",
-      "minItems": 0,
-      "items": { "$ref": "#/definitions/candidate_reconciliation_item" }
+      "items": { "$ref": "#/definitions/work_package_candidate" }
     },
 
     "cross_cutting_concerns": {
       "type": "array",
-      "description": "Concerns spanning multiple Work Packages",
+      "description": "Concerns spanning multiple candidate Work Packages (e.g., security posture, audit, data retention, rollout strategy).",
       "minItems": 0,
       "items": { "type": "string", "minLength": 1 }
     },
 
     "risk_summary": {
       "type": "array",
-      "description": "Aggregated risk summary across Work Packages",
+      "description": "Aggregated risks across the plan. Candidate-level only; must not assume TA decisions.",
       "minItems": 0,
       "items": { "$ref": "#/definitions/risk_summary_item" }
+    },
+
+    "recommendations_for_architecture": {
+      "type": "array",
+      "description": "Architecture questions, areas of focus, or recommended investigation topics for the TA phase (not decisions).",
+      "minItems": 0,
+      "items": { "type": "string", "minLength": 1 }
+    },
+
+    "open_questions": {
+      "type": "array",
+      "description": "Questions that must be answered to reduce planning risk. Do not request secrets or credentials.",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/open_question" }
     }
   },
 
   "definitions": {
-    "work_package": {
+    "work_package_candidate": {
       "type": "object",
-      "description": "A committed Work Package suitable for spawning a WP child document.",
+      "description": "A candidate Work Package intended to become a governed WP later (after TA) via Work Binder promotion.",
       "additionalProperties": false,
       "required": [
-        "wp_id",
+        "candidate_id",
         "title",
         "rationale",
         "scope_in",
         "scope_out",
         "dependencies",
-        "definition_of_done",
-        "governance_pins",
-        "transformation",
-        "source_candidate_ids"
+        "definition_of_done"
       ],
       "properties": {
-        "wp_id": {
-          "type": "string",
-          "description": "Unique identifier (snake_case). Prefer stability across revisions when meaning is preserved.",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "title": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Human-readable Work Package title"
-        },
-        "rationale": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Why this Work Package is needed"
-        },
+        "candidate_id": { "type": "string", "pattern": "^WPC-[0-9]{3}$" },
+        "title": { "type": "string", "minLength": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+
         "scope_in": {
           "type": "array",
-          "description": "What is explicitly in scope",
           "minItems": 0,
           "items": { "type": "string", "minLength": 1 }
         },
         "scope_out": {
           "type": "array",
-          "description": "What is explicitly excluded",
           "minItems": 0,
           "items": { "type": "string", "minLength": 1 }
         },
+
         "dependencies": {
           "type": "array",
-          "description": "WP IDs this depends on",
+          "description": "Candidate dependencies only: references other WPC-### or an external prerequisite. No TA component IDs here.",
           "minItems": 0,
-          "items": { "$ref": "#/definitions/wp_dependency" }
+          "items": { "$ref": "#/definitions/candidate_dependency" }
         },
+
         "definition_of_done": {
           "type": "array",
-          "description": "Measurable completion criteria",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
         },
-        "governance_pins": {
-          "type": "object",
-          "description": "Governance references pinned at reconciliation time",
-          "additionalProperties": false,
-          "required": [],
-          "properties": {
-            "ta_version_id": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Technical Architecture version that informed this WP"
-            },
-            "adr_refs": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "ADR IDs that apply to this WP"
-            },
-            "policy_refs": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Policy IDs that apply to this WP"
-            }
-          }
+
+        "sequencing_hint": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional ordering hint. Not a commitment."
         },
 
-        "source_candidate_ids": {
-          "type": "array",
-          "description": "IPP WP candidate IDs that this committed WP was derived from. Empty only if transformation='added'.",
-          "items": {
-            "type": "string",
-            "pattern": "^WPC-\\d{1,4}$",
-            "description": "Must match IPP candidate_id format (e.g., WPC-001)."
-          }
-        },
-        "transformation": {
+        "notes_for_work_binder": {
           "type": "string",
-          "description": "How this committed WP relates to IPP WP candidates.",
-          "enum": ["kept", "split", "merged", "added"]
-        },
-        "transformation_notes": {
-          "type": "string",
-          "description": "Short justification for the transformation.",
           "minLength": 0,
-          "maxLength": 600
+          "maxLength": 1000,
+          "description": "Optional notes for later WP promotion/binding after TA."
         }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "transformation": { "const": "added" } },
-            "required": ["transformation"]
-          },
-          "then": {
-            "properties": {
-              "source_candidate_ids": {
-                "type": "array",
-                "maxItems": 0
-              }
-            }
-          }
-        }
-      ]
+      }
     },
 
-    "wp_dependency": {
+    "candidate_dependency": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["wp_id", "dependency_type"],
+      "required": ["dependency_type", "notes"],
       "properties": {
-        "wp_id": {
-          "type": "string",
-          "description": "Dependent wp_id",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
         "dependency_type": {
           "type": "string",
           "enum": ["must_complete_first", "can_start_after", "soft"]
+        },
+        "depends_on_candidate_id": {
+          "type": "string",
+          "pattern": "^WPC-[0-9]{3}$",
+          "description": "Dependency on another candidate WP."
+        },
+        "depends_on_external": {
+          "type": "string",
+          "minLength": 3,
+          "description": "External prerequisite dependency (e.g., 'SSO requirements clarified', 'Legal review complete')."
         },
         "notes": {
           "type": "string",
           "minLength": 0,
           "maxLength": 400
         }
-      }
-    },
-
-    "candidate_reconciliation_item": {
-      "type": "object",
-      "description": "How a single IPP WP candidate was treated in this final plan.",
-      "additionalProperties": false,
-      "required": ["candidate_id", "outcome", "resulting_wp_ids", "notes"],
-      "properties": {
-        "candidate_id": {
-          "type": "string",
-          "pattern": "^WPC-\\d{1,4}$",
-          "description": "WP candidate identifier from Primary Implementation Plan."
-        },
-        "outcome": {
-          "type": "string",
-          "enum": ["kept", "split", "merged", "dropped"],
-          "description": "Disposition of the candidate in the final plan"
-        },
-        "resulting_wp_ids": {
-          "type": "array",
-          "description": "Committed wp_id values that result from this candidate. Empty only when outcome='dropped'.",
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
-        },
-        "notes": {
-          "type": "string",
-          "description": "Short rationale for the reconciliation decision.",
-          "minLength": 0,
-          "maxLength": 600
-        }
       },
-      "allOf": [
-        {
-          "if": {
-            "properties": { "outcome": { "const": "dropped" } },
-            "required": ["outcome"]
-          },
-          "then": {
-            "properties": {
-              "resulting_wp_ids": {
-                "type": "array",
-                "maxItems": 0
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": { "outcome": { "enum": ["kept", "split", "merged"] } },
-            "required": ["outcome"]
-          },
-          "then": {
-            "properties": {
-              "resulting_wp_ids": { "type": "array", "minItems": 1 }
-            }
-          }
-        }
+      "oneOf": [
+        { "required": ["depends_on_candidate_id"] },
+        { "required": ["depends_on_external"] }
       ]
     },
 
     "risk_summary_item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["risk", "affected_wps", "overall_impact", "mitigation_strategy"],
+      "required": ["risk", "affected_candidates", "overall_impact", "mitigation_strategy"],
       "properties": {
         "risk": { "type": "string", "minLength": 1 },
-        "affected_wps": {
+        "affected_candidates": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+          "items": { "type": "string", "pattern": "^WPC-[0-9]{3}$" }
         },
         "overall_impact": {
           "type": "string",
           "enum": ["low", "medium", "high", "critical"]
         },
         "mitigation_strategy": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "why_it_matters", "who_needs_to_answer"],
+      "properties": {
+        "question": { "type": "string", "minLength": 1 },
+        "why_it_matters": { "type": "string", "minLength": 1 },
+        "who_needs_to_answer": { "type": "string", "minLength": 1 },
+        "desired_by": { "type": "string", "minLength": 0 },
+        "status": {
+          "type": "string",
+          "enum": ["open", "answered", "deferred"]
+        }
       }
     }
   }

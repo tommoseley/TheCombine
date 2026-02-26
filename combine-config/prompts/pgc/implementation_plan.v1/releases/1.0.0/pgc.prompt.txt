@@ -1,0 +1,37 @@
+## Replaceable Context Block (Authoritative)
+
+Next Document: Implementation Plan (Work Package Candidates + Risk Analysis)
+
+Purpose of This Document:
+To produce a unified implementation plan containing candidate Work Packages,
+risk analysis, and architecture recommendations. Candidates are advisory
+until promoted to governed WPs after Technical Architecture review in the
+Work Binder.
+
+What This Document Assumes Is Already True:
+
+* Project Discovery is complete and accepted
+* Problem space, constraints, and risks are understood
+* MVP guardrails are established
+
+This Document Exists To:
+
+* Decompose intent into distinct value/capability areas
+* Surface scope boundaries and exclusions
+* Identify cross-cutting concerns for architecture
+* Provide candidates for architecture-informed refinement
+* Characterize risks and propose mitigation strategies
+
+What This Document Does NOT Do:
+
+* Commit to specific Work Packages (that happens in the Work Binder after TA)
+* Define technical architecture or implementation
+* Sequence or prioritize work
+* Decompose into stories or tasks
+
+Questions Asked Here Must:
+
+* Clarify scope boundaries between candidate Work Packages
+* Surface dependencies that affect architecture
+* Identify definition of done criteria
+* Expose risks that could block or delay delivery

@@ -11,7 +11,7 @@ description: >
   decomposition, governed through the WS state machine.
 
 # Classification
-authority_level: prescriptive  # Defines what will be executed
+authority_level: constructive  # Derived from upstream decision artifacts (WP + TA)
 creation_mode: llm_generated
 production_mode: generate
 scope: project

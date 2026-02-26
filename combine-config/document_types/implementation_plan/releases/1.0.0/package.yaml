@@ -1,13 +1,13 @@
-# Implementation Plan (Final) Package
-# Version 1.0.0 - Initial release
+# Implementation Plan Package
+# Version 1.0.0 - Consolidated (WP-PIPELINE-001)
 
 doc_type_id: implementation_plan
 display_name: "Implementation Plan"
 version: "1.0.0"
 description: >
-  Final implementation plan produced after technical architecture review.
-  Reconciles WP candidates into committed Work Packages with governance
-  pinning. Creating this document spawns individual Work Package documents.
+  Unified implementation plan produced from project discovery. Contains
+  candidate Work Packages (advisory), risk analysis, and architecture
+  recommendations. Candidates are promoted to governed WPs after TA review.
 
 # Classification
 authority_level: prescriptive  # Prescriptive - defines what will be built
@@ -20,11 +20,9 @@ view_docdef: ImplementationPlanView
 
 # Dependencies
 required_inputs:
-  - primary_implementation_plan
   - project_discovery
 optional_inputs: []
-creates_children:
-  - work_package
+creates_children: []
 parent_doc_type: null
 
 # Shared artifact references
@@ -36,7 +34,7 @@ schema_ref: "schema:implementation_plan:1.0.0"
 artifacts:
   task_prompt: "prompts/task.prompt.txt"
   qa_prompt: null
-  pgc_context: null
+  pgc_context: "prompts/pgc_context.prompt.txt"
   questions_prompt: null
   schema: "schemas/output.schema.json"
 
@@ -73,16 +71,20 @@ information_architecture:
               render_as: list
             - path: sequencing_rationale
               render_as: paragraph
+            - path: assumptions
+              render_as: list
+            - path: out_of_scope
+              render_as: list
 
     - id: work_packages
-      label: Work Packages
+      label: Work Package Candidates
       binds:
-        - path: work_packages
+        - path: work_package_candidates
           render_as: card-list
           card:
             title: title
             fields:
-              - path: wp_id
+              - path: candidate_id
                 render_as: paragraph
               - path: rationale
                 render_as: paragraph
@@ -93,37 +95,18 @@ information_architecture:
               - path: dependencies
                 render_as: table
                 columns:
-                  - field: wp_id
+                  - field: depends_on_candidate_id
                     label: Depends On
+                  - field: depends_on_external
+                    label: External Dep
                   - field: dependency_type
                     label: Type
                   - field: notes
                     label: Notes
               - path: definition_of_done
                 render_as: list
-              - path: governance_pins
-                render_as: key-value-pairs
-              - path: source_candidate_ids
-                render_as: list
-              - path: transformation
+              - path: notes_for_work_binder
                 render_as: paragraph
-              - path: transformation_notes
-                render_as: paragraph
-
-    - id: reconciliation
-      label: Candidate Reconciliation
-      binds:
-        - path: candidate_reconciliation
-          render_as: table
-          columns:
-            - field: candidate_id
-              label: Candidate
-            - field: outcome
-              label: Outcome
-            - field: resulting_wp_ids
-              label: Resulting WPs
-            - field: notes
-              label: Notes
 
     - id: risks
       label: Risk Summary
@@ -133,8 +116,8 @@ information_architecture:
           columns:
             - field: risk
               label: Risk
-            - field: affected_wps
-              label: Affected WPs
+            - field: affected_candidates
+              label: Affected Candidates
             - field: overall_impact
               label: Impact
             - field: mitigation_strategy
@@ -145,6 +128,27 @@ information_architecture:
       binds:
         - path: cross_cutting_concerns
           render_as: list
+
+    - id: architecture_recs
+      label: Architecture Recommendations
+      binds:
+        - path: recommendations_for_architecture
+          render_as: list
+
+    - id: open_questions
+      label: Open Questions
+      binds:
+        - path: open_questions
+          render_as: table
+          columns:
+            - field: question
+              label: Question
+            - field: why_it_matters
+              label: Why It Matters
+            - field: who_needs_to_answer
+              label: Owner
+            - field: status
+              label: Status
 
 # Rendering targets (ADR-054)
 rendering:
@@ -157,14 +161,9 @@ rendering:
           - overview
 
       - id: work_packages
-        label: Work Packages
+        label: Candidates
         sections:
           - work_packages
-
-      - id: reconciliation
-        label: Reconciliation
-        sections:
-          - reconciliation
 
       - id: risks_concerns
         label: Risks & Concerns
@@ -172,13 +171,20 @@ rendering:
           - risks
           - concerns
 
+      - id: architecture
+        label: Architecture
+        sections:
+          - architecture_recs
+          - open_questions
+
   pdf:
     linear_order:
       - overview
       - work_packages
-      - reconciliation
       - risks
       - concerns
+      - architecture_recs
+      - open_questions
     toc: true
 
 # UI configuration

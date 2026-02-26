@@ -11,7 +11,7 @@ description: >
   through the WP state machine.
 
 # Classification
-authority_level: prescriptive  # Defines what will be built
+authority_level: constructive  # Derived from upstream decision artifacts (IP + TA)
 creation_mode: llm_generated
 production_mode: generate
 scope: project
@@ -21,6 +21,7 @@ instance_key: wp_id
 # Dependencies
 required_inputs:
   - implementation_plan
+  - technical_architecture
 optional_inputs: []
 creates_children:
   - work_statement

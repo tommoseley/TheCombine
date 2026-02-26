@@ -2,11 +2,11 @@
   "$schema": "https://thecombine.ai/schemas/workflow.v2.json",
   "schema_version": "workflow.v2",
   "workflow_id": "implementation_plan",
-  "revision": "dcwrev_2026_02_16_a",
-  "effective_date": "2026-02-09",
+  "revision": "dcwrev_2026_02_25_a",
+  "effective_date": "2026-02-25",
   "version": "1.0.0",
   "name": "Implementation Plan",
-  "description": "Implementation plan document creation with QA gate (no PGC - upstream inputs are sufficient). Follows ADR-049 No Black Boxes principle.",
+  "description": "Implementation plan document creation with PGC clarification gate and QA gate. Follows ADR-049 No Black Boxes principle.",
   "workflow_type": "dcw",
   "scope_type": "document",
   "document_type": "implementation_plan",
@@ -15,14 +15,57 @@
     "thread_purpose": null
   },
   "entry_node_ids": [
-    "generation"
+    "pgc_gate"
   ],
   "nodes": [
+    {
+      "node_id": "pgc_gate",
+      "type": "gate",
+      "name": "Clarification Gate",
+      "description": "Pre-generation clarification to surface unknowns before document generation",
+      "gate_kind": "pgc",
+      "produces": "pgc_clarifications.implementation_plan",
+      "internals": {
+        "pass_a": {
+          "internal_type": "LLM",
+          "name": "Question Generation",
+          "description": "Generate clarification questions based on discovery context",
+          "template_ref": "prompt:template:pgc_clarifier:1.0.0",
+          "includes": {
+            "ROLE_PROMPT": "prompt:role:project_manager:1.0.0",
+            "TASK_PROMPT": "prompt:task:implementation_plan:1.0.0",
+            "PGC_CONTEXT": "prompt:pgc:implementation_plan.v1:1.0.0"
+          },
+          "output_schema_ref": "schema:clarification_questions:1.0.0"
+        },
+        "entry": {
+          "internal_type": "UI",
+          "name": "Operator Answers",
+          "description": "Operator provides answers to clarification questions",
+          "op_ref": "mech:entry:pgc_operator_answers:1.0.0"
+        },
+        "merge": {
+          "internal_type": "MECH",
+          "name": "Merge Clarifications",
+          "description": "Combine questions and answers into bound clarifications",
+          "op_ref": "mech:merger:pgc_clarification_merge:1.0.0"
+        }
+      },
+      "_position": {
+        "x": 50,
+        "y": 40
+      },
+      "station": {
+        "id": "pgc",
+        "label": "PGC",
+        "order": 1
+      }
+    },
     {
       "node_id": "generation",
       "type": "task",
       "name": "Document Generation",
-      "description": "Generate Implementation Plan document using upstream artifacts",
+      "description": "Generate Implementation Plan document using clarified context",
       "internal_type": "LLM",
       "task_ref": "prompt:template:document_generator:1.0.0",
       "includes": {
@@ -31,14 +74,20 @@
         "OUTPUT_SCHEMA": "schema:implementation_plan:1.0.0"
       },
       "produces": "implementation_plan",
+      "inputs": [
+        {
+          "from": "pgc_gate",
+          "field": "clarifications"
+        }
+      ],
       "_position": {
         "x": 50,
-        "y": 40
+        "y": 230
       },
       "station": {
         "id": "draft",
         "label": "DRAFT",
-        "order": 1
+        "order": 2
       }
     },
     {
@@ -65,13 +114,13 @@
         "feedback_to": "remediation"
       },
       "_position": {
-        "x": 449.7297297297297,
-        "y": 148.10810810810813
+        "x": 50,
+        "y": 420
       },
       "station": {
         "id": "qa",
         "label": "QA",
-        "order": 2
+        "order": 3
       }
     },
     {
@@ -94,13 +143,13 @@
         }
       ],
       "_position": {
-        "x": 481.08108108108115,
-        "y": 449.18918918918916
+        "x": 450,
+        "y": 420
       },
       "station": {
         "id": "qa",
         "label": "QA",
-        "order": 2
+        "order": 3
       }
     },
     {
@@ -110,13 +159,13 @@
       "description": "Implementation Plan document is complete and governed",
       "terminal_outcome": "stabilized",
       "_position": {
-        "x": 40,
-        "y": 420
+        "x": 50,
+        "y": 610
       },
       "station": {
         "id": "done",
         "label": "DONE",
-        "order": 3
+        "order": 4
       }
     },
     {
@@ -126,17 +175,32 @@
       "description": "Generation failed - circuit breaker or unrecoverable error",
       "terminal_outcome": "blocked",
       "_position": {
-        "x": 190,
+        "x": 450,
         "y": 610
       },
       "station": {
         "id": "done",
         "label": "DONE",
-        "order": 3
+        "order": 4
       }
     }
   ],
   "edges": [
+    {
+      "edge_id": "pgc_to_generation",
+      "from_node_id": "pgc_gate",
+      "to_node_id": "generation",
+      "outcome": "qualified",
+      "label": "Clarification complete"
+    },
+    {
+      "edge_id": "pgc_needs_input",
+      "from_node_id": "pgc_gate",
+      "to_node_id": null,
+      "outcome": "needs_user_input",
+      "label": "Awaiting operator answers",
+      "non_advancing": true
+    },
     {
       "edge_id": "generation_to_qa",
       "from_node_id": "generation",
@@ -216,9 +280,10 @@
     ],
     "design_principles": [
       "No Black Boxes - all gates explicitly composed (ADR-049)",
-      "QA-only pattern - no PGC needed (upstream inputs sufficient)",
+      "Full pattern: PGC Gate (LLM -> UI -> MECH) -> Generation (LLM) -> QA Gate (LLM + remediation)",
+      "PGC Gate: question_generation (LLM) -> entry (UI) -> merge (MECH)",
       "QA Gate: evaluate (LLM) with remediation loop",
-      "Uses primary_implementation_plan and technical_architecture as inputs"
+      "Uses project_discovery as input (WS-PIPELINE-001: IPP collapsed into IP)"
     ],
     "circuit_breaker": {
       "max_retries": 2,
@@ -237,11 +302,11 @@
       "- QA-only pattern (no PGC gate - document type has pgc_context: null)",
       "- QA gate with explicit evaluate internal (LLM)",
       "- Generation and remediation nodes marked with internal_type: LLM",
-      "dcwrev_2026_02_16_a: Added station metadata (DRAFT/QA/DONE) per WS-INSTANCE-ID-001"
+      "dcwrev_2026_02_16_a: Added station metadata (DRAFT/QA/DONE) per WS-INSTANCE-ID-001",
+      "dcwrev_2026_02_25_a: Restored PGC gate - IP is a PGC document (was dropped during IPP collapse)"
     ]
   },
   "requires_inputs": [
-    "primary_implementation_plan",
     "project_discovery"
   ]
 }

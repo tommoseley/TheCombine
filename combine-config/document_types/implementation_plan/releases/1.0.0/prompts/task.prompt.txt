@@ -1,4 +1,4 @@
-# Task: Implementation Plan (Final)
+# Task: Implementation Plan
 
 Triggering Instruction
 
@@ -8,85 +8,48 @@ Do not modify role identity, authority, or internal reasoning structures.
 
 ## Task Objective
 
-Produce the Final Implementation Plan by reconciling Primary Implementation Plan
-WP candidates into committed Work Packages.
+Produce the Implementation Plan by decomposing Project Discovery findings into
+candidate Work Packages (WPC-###), cross-cutting concerns, risk analysis, and
+architecture recommendations.
 
-This document is the authoritative plan that spawns Work Package child documents for execution.
-Every committed Work Package in this plan will become a governed artifact with governance pinning.
-
-Note: Technical Architecture is produced AFTER this document (ADR-053). TA decisions
-will inform downstream Work Statements, not this plan.
+This document is produced BEFORE Technical Architecture. It contains advisory
+candidates only. Candidates are promoted to governed Work Packages later in the
+Work Binder after TA review. This document does NOT create committed WPs.
 
 ## Inputs Provided
 
 You will receive the following input document:
 
-* Primary Implementation Plan - contains work_package_candidates[] with candidate_ids (WPC-001, WPC-002, etc.)
-
-Project Discovery context may also be available for background understanding.
+* Project Discovery - contains problem space, constraints, risks, MVP guardrails, and candidate directions
 
 These are the ONLY sources of requirements. No other context may be assumed.
 
-## Candidate-to-WP Traceability (Non-Negotiable)
+## Candidate Work Packages (WPC-###)
 
-This is the governance core of this document. The IPF must explicitly account for every
-IPP WP candidate. No candidate may silently disappear or be silently invented.
+Each candidate Work Package represents a distinct body of work identified from
+discovery findings. Candidates are advisory and will be refined after Technical
+Architecture is produced.
 
-### Rules
+### Candidate Rules
 
-1. Every IPP candidate_id MUST appear exactly once in candidate_reconciliation[].
-2. Every candidate_reconciliation entry MUST have an outcome: kept, split, merged, or dropped.
-3. If outcome is kept, split, or merged: resulting_wp_ids[] MUST contain at least one valid wp_id.
-4. If outcome is dropped: resulting_wp_ids[] MUST be empty. notes MUST explain why.
-5. Every committed WP MUST have source_candidate_ids[] referencing the IPP candidates it derives from.
-6. Every committed WP MUST have a transformation value: kept, split, merged, or added.
-7. If transformation is "added": source_candidate_ids[] MUST be empty. transformation_notes MUST justify the addition with specific architecture constraints or scope changes.
-8. If transformation is "kept": source_candidate_ids[] has exactly one entry. The WP preserves the candidate's intent (scope refinement is permitted, not intent change).
-9. If transformation is "split": source_candidate_ids[] has exactly one entry. Multiple WPs share the same source.
-10. If transformation is "merged": source_candidate_ids[] has two or more entries.
+1. Each candidate MUST have a unique candidate_id in WPC-### format (e.g., WPC-001, WPC-002).
+2. Candidates must decompose intent into distinct value/capability areas.
+3. Candidates must have clear scope boundaries (scope_in and scope_out).
+4. Dependencies between candidates use depends_on_candidate_id (WPC-### references) or depends_on_external for external prerequisites.
+5. Each candidate must have measurable definition_of_done criteria.
+6. sequencing_hint is optional but recommended when ordering matters.
+7. notes_for_work_binder is optional - use to flag items the Work Binder should consider during promotion.
 
-### Referential Consistency
+### Candidate Requirements
 
-* The set of all candidate_ids in candidate_reconciliation[] must equal the set of all candidate_ids from the IPP input.
-* The set of all resulting_wp_ids across candidate_reconciliation[] must be a subset of wp_ids in work_packages[].
-* The set of all source_candidate_ids across work_packages[] must be a subset of candidate_ids from the IPP input.
-* No orphan WPs (every WP with transformation != "added" must appear in at least one reconciliation entry).
-* No orphan candidates (every IPP candidate must have a reconciliation entry).
-
-## Scope Rules
-
-You MUST:
-* Start from IPP WP candidates as the baseline - these are the scope foundation
-* Preserve candidate intent unless planning analysis forces splitting, merging, or dropping
-* Document every transformation with rationale in transformation_notes and reconciliation notes
-* Reference specific planning decisions or constraints when justifying changes
-* Include governance_pins on each WP (ta_version_id may be "pending_ta" since TA runs later)
-
-You MUST NOT:
-* Invent new WPs unless planning analysis reveals a gap that no existing candidate covers
-* Silently drop, rename, or restructure candidates without reconciliation entries
-* Decompose WPs into features, stories, tasks, or implementation detail
-* Assign estimates, timelines, or ownership
-* Imply delivery commitment beyond scope definition
-* Introduce solution design (architecture decisions come later in the TA phase)
-
-## Work Package Requirements
-
-Each committed Work Package must include:
-* wp_id - unique, snake_case (e.g., "document_registry")
+Each work_package_candidate must include:
+* candidate_id - unique WPC-### format (e.g., "WPC-001")
 * title - human-readable
-* rationale - why this WP is needed
-* scope_in - explicit scope items
-* scope_out - explicit exclusions
-* dependencies - references to other wp_ids with dependency_type and notes
+* rationale - why this candidate is needed
+* scope_in - what is explicitly in scope
+* scope_out - what is explicitly excluded
+* dependencies - references to other WPC-### candidates or external prerequisites
 * definition_of_done - measurable completion criteria
-* governance_pins - governance references:
-  * ta_version_id - Technical Architecture version (use "pending_ta" if TA not yet produced)
-  * adr_refs - applicable ADR IDs (may be empty)
-  * policy_refs - applicable policy IDs (may be empty)
-* transformation - how it relates to IPP candidates (kept, split, merged, added)
-* source_candidate_ids - IPP candidate IDs it derives from (WPC-001 format)
-* transformation_notes - justification for the transformation
 
 ## Plan Summary
 
@@ -94,19 +57,58 @@ The plan_summary must include:
 * overall_intent - what this plan aims to achieve
 * mvp_definition - what constitutes MVP
 * key_constraints - constraints shaping the plan
-* sequencing_rationale - why Work Packages are ordered this way
+* sequencing_rationale - why candidates are ordered this way
+
+Optional:
+* assumptions - planning assumptions
+* out_of_scope - items explicitly excluded from the entire plan
+
+The plan_summary must remain architecture-agnostic. No component IDs, no
+technology choices, no implementation detail.
+
+## Risk Summary
+
+Each risk_summary item must include:
+* risk - description of the risk
+* affected_candidates - WPC-### IDs affected
+* overall_impact - low, medium, high, or critical
+* mitigation_strategy - how to address it
+
+Risks must reference candidates by WPC-### ID, not by committed WP IDs
+(those do not exist yet).
 
 ## Additional Sections
 
-* cross_cutting_concerns - concerns spanning multiple Work Packages
-* meta - provenance block (schema_version: "1.0", artifact_id, created_at, source: "combine_generated")
+* cross_cutting_concerns - concerns spanning multiple candidates (e.g., security posture, audit, data retention, rollout strategy)
+* recommendations_for_architecture - questions, areas of focus, or investigation topics for the TA phase (not decisions)
+* open_questions - questions that must be answered to reduce planning risk
+* meta - provenance block (schema_version: "3.0", artifact_id, created_at, source: "combine_generated")
 
 System will overwrite meta.created_at and meta.artifact_id with system values.
+
+## Scope Rules
+
+You MUST:
+* Start from Project Discovery findings as the baseline
+* Decompose intent into distinct, non-overlapping candidate Work Packages
+* Surface scope boundaries and exclusions for each candidate
+* Identify cross-cutting concerns that span multiple candidates
+* Characterize risks at the candidate level
+* Provide recommendations for the Technical Architecture phase
+
+You MUST NOT:
+* Create committed Work Packages (that happens in the Work Binder after TA)
+* Define technical architecture or implementation decisions
+* Reference TA component IDs or technology choices (TA has not been produced yet)
+* Decompose candidates into features, stories, tasks, or implementation detail
+* Assign estimates, timelines, or ownership
+* Imply delivery commitment beyond scope definition
+* Include governance_pins or transformation fields (those are Work Binder concerns)
 
 ## Output Rules
 
 * Output valid JSON only
-* Follow the Implementation Plan schema exactly
+* Follow the Implementation Plan schema exactly (schema_version: "3.0")
 * All arrays must be present even if empty
 * Never output null
 * No commentary, markdown, or explanation outside JSON
@@ -114,20 +116,18 @@ System will overwrite meta.created_at and meta.artifact_id with system values.
 
 ## Governance & Audit Constraints
 
-* All WPs must be traceable to IPP candidates via source_candidate_ids
-* All IPP candidates must be accounted for via candidate_reconciliation
-* All WPs must have governance_pins (ta_version_id may be "pending_ta")
+* All candidates must be traceable to Discovery findings
 * No implicit decisions or silent interpretations
-* Any uncertainty must be explicitly stated
+* Any uncertainty must be explicitly stated (use open_questions)
 * Output must be fully loggable and replayable per ADR-010
 * No bypassing of audit, QA, or traceability mechanisms per ADR-009
 
 ## Determinism & Replay Readiness
 
 Given identical inputs, the task should:
-* Produce equivalent WPs with equivalent scope and intent
+* Produce equivalent candidates with equivalent scope and intent
 * Preserve semantic meaning across runs
-* Maintain stable wp_ids when candidate meaning is preserved
+* Maintain stable candidate_ids when discovery findings are unchanged
 * Avoid stylistic variance that alters interpretation
 * Contain no references to time, prior executions, or external state
 
@@ -135,23 +135,21 @@ Given identical inputs, the task should:
 
 1. JSON parses correctly
 2. All required fields present at every level
-3. meta block present with schema_version "1.0"
-4. Every IPP candidate_id appears in candidate_reconciliation[]
-5. Every reconciliation entry has valid resulting_wp_ids (or empty if dropped)
-6. Every WP has source_candidate_ids and transformation
-7. Referential consistency: reconciliation wp_ids exist in work_packages[]
-8. WP IDs are unique and snake_case
-9. Dependencies reference valid WP IDs only
-10. governance_pins present on every WP (ta_version_id may be "pending_ta")
-11. No additional properties at any level
+3. meta block present with schema_version "3.0"
+4. All candidate_ids are unique and match WPC-### format
+5. All dependency references resolve to valid WPC-### IDs or use depends_on_external
+6. risk_summary affected_candidates reference valid WPC-### IDs
+7. plan_summary is architecture-agnostic (no component IDs, no tech choices)
+8. No committed WP fields (no wp_id, no governance_pins, no transformation, no source_candidate_ids)
+9. No additional properties at any level
+10. cross_cutting_concerns and risk_summary arrays present
 
 ## Failure Conditions (Automatic Reject)
 
 This task fails if:
-* Any IPP candidate is missing from candidate_reconciliation
-* Any WP with transformation != "added" has empty source_candidate_ids
-* Any WP has missing governance_pins
-* Orphan references exist (wp_ids or candidate_ids that don't resolve)
+* Committed WP fields appear (wp_id, governance_pins, transformation, source_candidate_ids)
+* candidate_reconciliation appears (that is a Work Binder concern, not IP)
+* TA component IDs or technology decisions appear
 * Role identity or authority is restated or altered
 * Stories, tasks, features, or implementation detail appear
 * Estimation, scheduling, or ownership is introduced

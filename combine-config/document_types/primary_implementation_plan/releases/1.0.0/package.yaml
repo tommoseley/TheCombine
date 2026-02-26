@@ -4,12 +4,13 @@
 doc_type_id: primary_implementation_plan
 display_name: Preliminary Implementation Plan
 version: 1.0.0
+status: deprecated
 
 description: >
-  Preliminary implementation plan produced before technical architecture.
-  Contains Work Package candidates that inform architectural decisions.
-  WP candidates are not yet commitments - they become Work Packages
-  after architecture review via IPF reconciliation.
+  DEPRECATED: Collapsed into implementation_plan by WS-PIPELINE-001.
+  Previously the preliminary implementation plan produced before technical
+  architecture. Contained Work Package candidates that informed architectural
+  decisions. All functionality now in the unified implementation_plan type.
 
 # Classification (per ADR-044)
 authority_level: prescriptive
