@@ -1,7 +1,7 @@
 """Tests for PlanExecutor (ADR-039)."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from app.domain.workflow.plan_executor import (
     PlanExecutor,

@@ -5,8 +5,7 @@ Tests the StalenessService and DOCUMENT_TYPE_DEPENDENCIES graph.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from unittest.mock import MagicMock
 
 
 # =============================================================================
@@ -29,17 +28,11 @@ class TestDocumentTypeDependencies:
         assert "project_discovery" in DOCUMENT_TYPE_DEPENDENCIES
         assert len(DOCUMENT_TYPE_DEPENDENCIES["project_discovery"]) > 0
     
-    def test_epic_backlog_depends_on_project_discovery(self):
-        """Verify epic_backlog is a dependent of project_discovery."""
+    def test_technical_architecture_depends_on_project_discovery(self):
+        """Verify technical_architecture is a dependent of project_discovery."""
         from app.domain.services.staleness_service import DOCUMENT_TYPE_DEPENDENCIES
-        
-        assert "epic_backlog" in DOCUMENT_TYPE_DEPENDENCIES["project_discovery"]
-    
-    def test_story_backlog_depends_on_epic_backlog(self):
-        """Verify story_backlog is a dependent of epic_backlog."""
-        from app.domain.services.staleness_service import DOCUMENT_TYPE_DEPENDENCIES
-        
-        assert "story_backlog" in DOCUMENT_TYPE_DEPENDENCIES["epic_backlog"]
+
+        assert "technical_architecture" in DOCUMENT_TYPE_DEPENDENCIES["project_discovery"]
 
 
 # =============================================================================
@@ -66,12 +59,12 @@ class TestGetDownstreamTypes:
         
         assert result == []
     
-    def test_story_backlog_has_no_dependents(self):
-        """Verify story_backlog (leaf node) has no dependents."""
+    def test_leaf_type_has_no_dependents(self):
+        """Verify leaf node type has no dependents."""
         from app.domain.services.staleness_service import get_downstream_types
-        
-        result = get_downstream_types("story_backlog")
-        
+
+        result = get_downstream_types("technical_architecture")
+
         assert result == []
 
 
@@ -96,15 +89,15 @@ class TestStalenessServiceGetUpstreamDependencies:
     """Tests for get_upstream_dependencies method."""
     
     @pytest.mark.asyncio
-    async def test_epic_backlog_depends_on_project_discovery(self):
-        """Verify epic_backlog upstream includes project_discovery."""
+    async def test_technical_architecture_depends_on_project_discovery(self):
+        """Verify technical_architecture upstream includes project_discovery."""
         from app.domain.services.staleness_service import StalenessService
-        
+
         mock_db = MagicMock()
         service = StalenessService(mock_db)
-        
-        result = await service.get_upstream_dependencies("epic_backlog")
-        
+
+        result = await service.get_upstream_dependencies("technical_architecture")
+
         assert "project_discovery" in result
     
     @pytest.mark.asyncio

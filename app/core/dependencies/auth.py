@@ -88,7 +88,7 @@ async def require_api_key(
         )
 
     if api_key not in valid_keys:
-        logger.warning(f"Invalid API key attempted")
+        logger.warning("Invalid API key attempted")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={

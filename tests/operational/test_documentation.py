@@ -1,6 +1,5 @@
 """Tests for documentation completeness."""
 
-import pytest
 from pathlib import Path
 
 

@@ -1,11 +1,12 @@
 """
 Implementation Plan Document Handler
 
-Handles the final implementation plan produced after technical architecture.
-When this document is created, it spawns individual Work Package documents.
+Handles the unified implementation plan (merged from former IPP + IPF).
+Contains Work Package candidates with risk analysis and architecture recommendations.
+WP creation is now a separate manual step triggered from the Work Binder UI.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 from app.domain.handlers.base_handler import BaseDocumentHandler
 import logging
 
@@ -16,9 +17,9 @@ class ImplementationPlanHandler(BaseDocumentHandler):
     """
     Handler for implementation_plan document type.
 
-    Processes PM output containing committed Work Packages reconciled from
-    WP candidates, with governance pinning, dependencies, and traceability.
-    Creates Work Package child documents.
+    Processes PM output containing Work Package candidates with risk analysis
+    and architecture recommendations. Merged from former IPP + IPF handlers.
+    WP creation is now a separate manual step (execution_mode: manual).
     """
 
     @property
@@ -29,83 +30,60 @@ class ImplementationPlanHandler(BaseDocumentHandler):
     def schema_path(self) -> str:
         return "schemas/implementation_plan_v1.json"
 
+    def _get_candidates(self, data: Dict[str, Any]) -> list:
+        """Get WP candidates from data, supporting v3/v2/v1 field names."""
+        return (
+            data.get("work_package_candidates")
+            or data.get("candidate_work_packages")
+            or data.get("work_packages")
+            or []
+        )
+
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform/enrich the implementation plan data.
 
         Adds computed fields for UI display:
-        - wp_count
+        - wp_count (from work_package_candidates / candidate_work_packages / work_packages)
+        - associated_risks on each WP candidate (reverse index from risk_summary / risks_overview)
         """
-        work_packages = data.get("work_packages", [])
-        data["wp_count"] = len(work_packages)
+        candidates = self._get_candidates(data)
+        data["wp_count"] = len(candidates)
+
+        # Build reverse mapping: candidate_id -> ["RSK-001: description", ...]
+        # Support both v3 risk_summary and v2 risks_overview
+        candidate_risks: Dict[str, list] = {}
+        for risk in data.get("risks_overview", []):
+            risk_id = risk.get("risk_id", "")
+            description = risk.get("description", "")
+            label = f"{risk_id}: {description}" if description else risk_id
+            for cid in risk.get("affected_candidates", []):
+                candidate_risks.setdefault(cid, []).append(label)
+        for risk in data.get("risk_summary", []):
+            risk_text = risk.get("risk", "")
+            for cid in risk.get("affected_candidates", []):
+                candidate_risks.setdefault(cid, []).append(risk_text)
+
+        # Inject associated_risks into each candidate
+        for candidate in candidates:
+            cid = candidate.get("candidate_id", candidate.get("wp_id", ""))
+            candidate["associated_risks"] = candidate_risks.get(cid, [])
+
         return data
 
     def render(self, data: Dict[str, Any]) -> str:
         """
         Render full view HTML.
         """
-        wp_count = data.get("wp_count", len(data.get("work_packages", [])))
-        return f"Implementation Plan: {wp_count} Work Packages"
+        wp_count = data.get("wp_count", len(self._get_candidates(data)))
+        return f"Implementation Plan: {wp_count} WP candidates"
 
     def render_summary(self, data: Dict[str, Any]) -> str:
         """
         Render compact summary for cards/lists.
         """
-        wp_count = data.get("wp_count", len(data.get("work_packages", [])))
-        return f"{wp_count} Work Packages"
-
-    def get_child_documents(
-        self,
-        data: Dict[str, Any],
-        parent_title: str
-    ) -> List[Dict[str, Any]]:
-        """
-        Extract Work Package documents from the implementation plan.
-
-        Each WP in the plan becomes a separate Work Package document
-        that can be managed through its lifecycle.
-
-        Lineage metadata is included for audit traceability.
-        The caller (plan_executor) injects execution_id into lineage.
-        """
-        work_packages = data.get("work_packages", [])
-        children = []
-
-        for wp in work_packages:
-            wp_id = wp.get("wp_id", "")
-            wp_title = wp.get("title", "Untitled Work Package")
-
-            # Build the WP document content
-            wp_content = {
-                "wp_id": wp_id,
-                "title": wp_title,
-                "rationale": wp.get("rationale", ""),
-                "scope_in": wp.get("scope_in", []),
-                "scope_out": wp.get("scope_out", []),
-                "dependencies": wp.get("dependencies", []),
-                "definition_of_done": wp.get("definition_of_done", []),
-                "state": "PLANNED",
-                "ws_child_refs": [],
-                "governance_pins": wp.get("governance_pins", {}),
-                # Lineage: traceability back to parent IPF
-                "_lineage": {
-                    "parent_document_type": "implementation_plan",
-                    "parent_execution_id": None,  # Injected by plan_executor
-                    "source_candidate_ids": wp.get("source_candidate_ids", []),
-                    "transformation": wp.get("transformation", "kept"),
-                    "transformation_notes": wp.get("transformation_notes", ""),
-                },
-            }
-
-            children.append({
-                "doc_type_id": "work_package",
-                "title": f"WP: {wp_title}",
-                "content": wp_content,
-                "identifier": wp_id,
-            })
-
-        logger.info(f"Extracted {len(children)} work package documents from implementation_plan")
-        return children
+        wp_count = data.get("wp_count", len(self._get_candidates(data)))
+        return f"{wp_count} WP candidates"
 
 
 # Module-level instance for convenience

@@ -6,11 +6,10 @@ These are the database-layer models that map to actual PostgreSQL tables.
 
 Separate from app/auth/models.py (dataclasses) which are domain models.
 """
-from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, ForeignKey, Text, Index, UniqueConstraint,
-    Integer, TIMESTAMP
+    Column, String, Boolean, ForeignKey, Text, Index, UniqueConstraint,
+    TIMESTAMP
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB, INET
 from sqlalchemy.orm import relationship

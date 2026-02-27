@@ -6,7 +6,7 @@ Transforms iteration steps into concrete instances for execution.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
 import uuid
 
 from app.domain.workflow.models import Workflow, WorkflowStep
@@ -28,14 +28,14 @@ class IterationInstance:
 
 class IterationHandler:
     """Handle iterate_over blocks in workflow steps.
-    
+
     Given a step with:
         iterate_over:
-            doc_type: epic_backlog
-            collection_field: epics
-            entity_type: epic
-    
-    Expands to one IterationInstance per item in epic_backlog.epics[]
+            doc_type: source_document
+            collection_field: items
+            entity_type: work_package
+
+    Expands to one IterationInstance per item in source_document.items[]
     """
     
     def __init__(self, workflow: Workflow):

@@ -35,7 +35,7 @@
     },
     "scope_type": {
       "type": "string",
-      "enum": ["document", "project", "epic"],
+      "enum": ["document", "project", "work_package"],
       "description": "Scope level this workflow operates at"
     },
     "document_type": {

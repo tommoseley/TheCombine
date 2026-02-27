@@ -11,7 +11,7 @@ from typing import Protocol, Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # =============================================================================

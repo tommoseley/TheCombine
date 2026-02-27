@@ -23,7 +23,7 @@ export default function RisksBlock({ block }) {
                     style={{
                         fontSize: 12,
                         fontWeight: 600,
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         marginBottom: 8,
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',

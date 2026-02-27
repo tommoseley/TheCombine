@@ -8,11 +8,9 @@ Orchestrates the durable LLM execution lifecycle:
 - Status transitions
 """
 
-import hashlib
-import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +20,6 @@ from app.persistence import (
     LLMWorkItem,
     LLMLedgerEntry,
     ThreadStatus,
-    WorkItemStatus,
     LedgerEntryType,
     ErrorCode,
     ThreadRepository,

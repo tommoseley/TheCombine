@@ -36,39 +36,14 @@
     </div>
     {% endif %}
     
-    {% if results.epics %}
-    <div class="mb-4">
-        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Workflows</h4>
-        <div class="space-y-1">
-            {% for epic in results.epics %}
-            <a 
-                href="/epics/{{ epic.epic_uuid }}"
-                hx-get="/epics/{{ epic.epic_uuid }}"
-                hx-target="#main-content"
-                hx-push-url="true"
-                onclick="document.getElementById('search-results').classList.add('hidden')"
-                class="block px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="list-todo" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium text-gray-900 truncate">{{ epic.name }}</div>
-                        <div class="text-xs text-gray-500 truncate">in {{ epic.project_name }}</div>
-                    </div>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-    
-    {% if results.stories %}
+    {% if results.documents %}
     <div>
-        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Artifacts</h4>
+        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Documents</h4>
         <div class="space-y-1">
-            {% for story in results.stories %}
-            <a 
-                href="/stories/{{ story.story_uuid }}"
-                hx-get="/stories/{{ story.story_uuid }}"
+            {% for doc in results.documents %}
+            <a
+                href="/projects/{{ doc.project_uuid }}"
+                hx-get="/projects/{{ doc.project_uuid }}"
                 hx-target="#main-content"
                 hx-push-url="true"
                 onclick="document.getElementById('search-results').classList.add('hidden')"
@@ -76,8 +51,8 @@
                 <div class="flex items-center gap-2">
                     <i data-lucide="file-text" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium text-gray-900 truncate">{{ story.title }}</div>
-                        <div class="text-xs text-gray-500 truncate">{{ story.epic_name }} - {{ story.project_name }}</div>
+                        <div class="text-sm font-medium text-gray-900 truncate">{{ doc.title }}</div>
+                        <div class="text-xs text-gray-500 truncate">{{ doc.doc_type_id }}{% if doc.project_name %} - {{ doc.project_name }}{% endif %}</div>
                     </div>
                 </div>
             </a>

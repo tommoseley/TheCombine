@@ -34,7 +34,7 @@ export default function OpenQuestionBlock({ block }) {
                     style={{
                         fontSize: 10,
                         fontFamily: 'monospace',
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         background: '#e5e7eb',
                         padding: '2px 6px',
                         borderRadius: 4,
@@ -51,7 +51,7 @@ export default function OpenQuestionBlock({ block }) {
                             margin: 0,
                             fontSize: 14,
                             fontWeight: 500,
-                            color: '#111827',
+                            color: 'var(--text-primary)',
                             marginBottom: 6,
                         }}
                     >
@@ -64,7 +64,7 @@ export default function OpenQuestionBlock({ block }) {
                             style={{
                                 margin: 0,
                                 fontSize: 12,
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                                 fontStyle: 'italic',
                             }}
                         >
@@ -134,13 +134,13 @@ export default function OpenQuestionBlock({ block }) {
                     {/* Options if present */}
                     {options && options.length > 0 && (
                         <div style={{ marginTop: 8 }}>
-                            <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>Options: </span>
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>Options: </span>
                             {options.map((opt, i) => (
                                 <span
                                     key={i}
                                     style={{
                                         fontSize: 11,
-                                        color: '#374151',
+                                        color: 'var(--text-secondary)',
                                         marginLeft: i > 0 ? 8 : 4,
                                     }}
                                 >

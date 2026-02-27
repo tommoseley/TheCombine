@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.workflow.iteration import IterationHandler, IterationInstance
+from app.domain.workflow.iteration import IterationHandler
 from app.domain.workflow.context import WorkflowContext
 from app.domain.workflow.models import (
     Workflow, WorkflowStep, ScopeConfig, DocumentTypeConfig, 

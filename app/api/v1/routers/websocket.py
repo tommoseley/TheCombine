@@ -1,18 +1,14 @@
 """WebSocket endpoint for real-time execution updates."""
 
 import asyncio
-import json
-from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
 from app.api.v1.services.event_broadcaster import (
-    EventBroadcaster,
     ExecutionEvent,
     get_broadcaster,
 )
 from app.api.v1.services.execution_service import (
-    ExecutionService,
     ExecutionNotFoundError,
 )
 from app.api.v1.routers.executions import get_execution_service

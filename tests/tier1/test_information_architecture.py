@@ -27,7 +27,6 @@ SYSTEM_FIELDS = {"meta"}
 TIER1_DOC_TYPES = [
     "technical_architecture",
     "project_discovery",
-    "primary_implementation_plan",
     "implementation_plan",
 ]
 

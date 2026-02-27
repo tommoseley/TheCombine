@@ -7,7 +7,6 @@ Implements ADR-036 document lifecycle semantics.
 import pytest
 from unittest.mock import MagicMock
 from uuid import uuid4
-from datetime import datetime
 
 
 # =============================================================================

@@ -1,6 +1,5 @@
 """Tests for production state model (ADR-043)."""
 
-import pytest
 
 from app.domain.workflow.production_state import (
     ProductionState,

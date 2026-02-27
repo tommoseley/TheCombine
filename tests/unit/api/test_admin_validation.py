@@ -5,8 +5,6 @@ These tests verify the governance guardrails per ADR-044 WS-044-08.
 """
 
 import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -14,7 +12,6 @@ from app.api.main import app
 from app.api.services.config_validator import (
     ConfigValidator,
     ValidationReport,
-    ValidationResult,
     ValidationSeverity,
     reset_config_validator,
 )

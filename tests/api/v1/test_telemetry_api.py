@@ -2,7 +2,6 @@
 
 import pytest
 from uuid import uuid4
-from datetime import date
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -10,10 +9,6 @@ from fastapi.testclient import TestClient
 from app.api.v1.routers.telemetry import (
     router,
     reset_telemetry_service,
-)
-from app.llm import (
-    TelemetryService,
-    InMemoryTelemetryStore,
 )
 
 

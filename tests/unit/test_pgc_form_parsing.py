@@ -4,8 +4,6 @@ Regression test for the multi-select key extraction bug where
 answers[X][] was incorrectly parsed as X] instead of X.
 """
 
-import pytest
-from unittest.mock import MagicMock
 
 
 class MockFormData:

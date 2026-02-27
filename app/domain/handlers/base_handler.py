@@ -26,8 +26,6 @@ import html
 from app.domain.handlers.exceptions import (
     DocumentParseError,
     DocumentValidationError,
-    DocumentTransformError,
-    DocumentRenderError,
 )
 
 logger = logging.getLogger(__name__)
@@ -298,7 +296,7 @@ class BaseDocumentHandler(ABC):
             Document title
         """
         # Try common title field names
-        for field in ["title", "name", "project_name", "epic_title", "story_title"]:
+        for field in ["title", "name", "project_name", "story_title"]:
             if field in data and data[field]:
                 return str(data[field])
         
@@ -417,7 +415,7 @@ class BaseDocumentHandler(ABC):
         Default implementation returns empty list (no children).
 
         Override to extract child documents from parent content.
-        For example, ImplementationPlanHandler extracts Epic documents.
+        For example, ImplementationPlanHandler extracts child documents.
 
         Args:
             data: Parent document content

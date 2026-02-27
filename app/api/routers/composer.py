@@ -20,14 +20,11 @@ from app.api.services.component_registry_service import ComponentRegistryService
 from app.api.services.schema_registry_service import SchemaRegistryService
 from app.domain.services.prompt_assembler import (
     PromptAssembler,
-    AssembledPrompt,
     DocDefNotFoundError as PromptDocDefNotFoundError,
     ComponentNotFoundError as PromptComponentNotFoundError,
 )
 from app.domain.services.render_model_builder import (
     RenderModelBuilder,
-    RenderModel,
-    RenderBlock,
     DocDefNotFoundError as RenderDocDefNotFoundError,
     ComponentNotFoundError as RenderComponentNotFoundError,
 )

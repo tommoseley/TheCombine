@@ -8,7 +8,7 @@ spawn_receipt documenting the lineage relationship.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.api.services.mech_handlers.base import (
     MechHandler,

@@ -65,7 +65,7 @@ class PipelineMetricsResponse(BaseModel):
                 "pipeline_id": "pipe_123",
                 "status": "completed",
                 "current_phase": "commit",
-                "epic_description": "Add metrics dashboard",
+                "description": "Add metrics dashboard",
                 "total_cost_usd": 0.45,
                 "total_input_tokens": 12000,
                 "total_output_tokens": 3000,
@@ -87,7 +87,7 @@ class PipelineMetricsResponse(BaseModel):
     pipeline_id: str = Field(..., description="Pipeline identifier")
     status: str = Field(..., description="Pipeline status")
     current_phase: str = Field(..., description="Current phase name")
-    epic_description: Optional[str] = Field(None, description="Epic description if available")
+    description: Optional[str] = Field(None, description="Pipeline description if available")
     total_cost_usd: float = Field(..., description="Total cost for this pipeline")
     total_input_tokens: int = Field(..., description="Total input tokens")
     total_output_tokens: int = Field(..., description="Total output tokens")
@@ -100,7 +100,7 @@ class RecentPipelineResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "pipeline_id": "pipe_123",
-                "epic_description": "Add user authentication",
+                "description": "Add user authentication",
                 "status": "completed",
                 "total_cost_usd": 0.45,
                 "total_tokens": 15000,
@@ -110,7 +110,7 @@ class RecentPipelineResponse(BaseModel):
     )
     
     pipeline_id: str = Field(..., description="Pipeline identifier")
-    epic_description: Optional[str] = Field(None, description="Epic description if available")
+    description: Optional[str] = Field(None, description="Pipeline description if available")
     status: str = Field(..., description="Pipeline status")
     total_cost_usd: float = Field(..., description="Total cost for this pipeline")
     total_tokens: int = Field(..., description="Total tokens (input + output)")

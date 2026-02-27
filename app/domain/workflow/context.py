@@ -4,7 +4,7 @@ Implements the DocumentStore protocol from Phase 1, providing
 storage that respects scope hierarchy during workflow execution.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from app.domain.workflow.models import Workflow

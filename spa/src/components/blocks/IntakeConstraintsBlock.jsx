@@ -19,7 +19,7 @@ export default function IntakeConstraintsBlock({ block }) {
                         style={{
                             fontSize: 12,
                             fontWeight: 500,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             marginBottom: 8,
                             marginTop: 0,
                         }}
@@ -36,7 +36,7 @@ export default function IntakeConstraintsBlock({ block }) {
                                     gap: 8,
                                     marginBottom: 6,
                                     fontSize: 13,
-                                    color: '#374151',
+                                    color: 'var(--text-secondary)',
                                 }}
                             >
                                 <span style={{ color: '#f59e0b' }}>&#128274;</span>
@@ -52,7 +52,7 @@ export default function IntakeConstraintsBlock({ block }) {
                         style={{
                             fontSize: 12,
                             fontWeight: 500,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             marginBottom: 8,
                             marginTop: 0,
                         }}
@@ -69,7 +69,7 @@ export default function IntakeConstraintsBlock({ block }) {
                                     gap: 8,
                                     marginBottom: 6,
                                     fontSize: 13,
-                                    color: '#374151',
+                                    color: 'var(--text-secondary)',
                                 }}
                             >
                                 <span style={{ color: '#3b82f6' }}>&#128161;</span>

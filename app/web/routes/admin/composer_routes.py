@@ -23,15 +23,11 @@ from app.api.services.component_registry_service import ComponentRegistryService
 from app.api.services.schema_registry_service import SchemaRegistryService
 from app.domain.services.prompt_assembler import (
     PromptAssembler,
-    AssembledPrompt,
     DocDefNotFoundError as PromptDocDefNotFoundError,
     ComponentNotFoundError as PromptComponentNotFoundError,
 )
 from app.domain.services.render_model_builder import (
     RenderModelBuilder,
-    RenderModel,
-    RenderSection,
-    RenderBlock,
     DocDefNotFoundError as RenderDocDefNotFoundError,
     ComponentNotFoundError as RenderComponentNotFoundError,
 )
@@ -129,8 +125,8 @@ async def preview_prompt(
     Returns data-only JSON (no HTML).
     
     Args:
-        document_def_id: Document definition ID (e.g., docdef:EpicBacklog:1.0.0)
-        
+        document_def_id: Document definition ID (e.g., docdef:ImplementationPlan:1.0.0)
+
     Returns:
         AssembledPromptResponse with all prompt assembly results
     """
@@ -190,7 +186,7 @@ async def preview_render(
     Returns data-only JSON (no HTML).
     
     Args:
-        document_def_id: Document definition ID (e.g., docdef:EpicBacklog:1.0.0)
+        document_def_id: Document definition ID (e.g., docdef:ImplementationPlan:1.0.0)
         request: Request body with document_data
         
     Returns:

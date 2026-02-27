@@ -25,7 +25,7 @@ export default function StorySummaryBlock({ block }) {
                 padding: '10px 14px',
                 background: '#fafafa',
                 borderRadius: 6,
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--border-node)',
                 marginBottom: 8,
             }}
         >
@@ -51,7 +51,7 @@ export default function StorySummaryBlock({ block }) {
                             style={{
                                 fontSize: 13,
                                 fontWeight: 500,
-                                color: '#111827',
+                                color: 'var(--text-primary)',
                             }}
                         >
                             {title}
@@ -64,7 +64,7 @@ export default function StorySummaryBlock({ block }) {
                             style={{
                                 margin: 0,
                                 fontSize: 12,
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                                 lineHeight: 1.4,
                             }}
                         >

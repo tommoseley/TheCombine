@@ -8,7 +8,6 @@ Stage 5: Auth Middleware
 """
 from typing import Optional, Tuple
 from fastapi import Request, HTTPException, Depends, status
-from fastapi.responses import RedirectResponse
 from uuid import UUID
 import os
 import logging

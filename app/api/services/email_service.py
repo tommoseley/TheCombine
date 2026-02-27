@@ -160,7 +160,7 @@ class EmailService:
         print("=" * 80)
         print(f"To: {email}")
         print(f"From: {self.from_email}")
-        print(f"Subject: Your Workbench AI Login Link")
+        print("Subject: Your Workbench AI Login Link")
         print("-" * 80)
         print(body)
         print("=" * 80 + "\n")

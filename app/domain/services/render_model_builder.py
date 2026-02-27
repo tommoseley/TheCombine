@@ -225,7 +225,7 @@ class RenderModel:
     - schema_id: "schema:RenderModelV1"
     - schema_bundle_sha256: hash of schema bundle
     - document_id: stable identifier
-    - document_type: short name (e.g., "EpicDetailView")
+    - document_type: short name (e.g., "DocumentDetailView")
     - title: display title
     - sections: list of RenderSection (ordered)
     - metadata: section_count and other metadata
@@ -313,8 +313,8 @@ class RenderModelBuilder:
         - Empty sections are omitted in output
         
         Args:
-            document_def_id: Exact document definition ID (e.g., docdef:EpicDetailView:1.0.0)
-                            or short name (e.g., EpicDetailView)
+            document_def_id: Exact document definition ID (e.g., docdef:DocumentDetailView:1.0.0)
+                            or short name (e.g., DocumentDetailView)
             document_data: Document data to render
             document_id: Optional document ID (computed if not provided)
             title: Optional title override
@@ -417,7 +417,7 @@ class RenderModelBuilder:
         """
         # Extract key identifying fields from data
         params = {}
-        for key in ["id", "epic_id", "story_id", "project_id"]:
+        for key in ["id", "story_id", "project_id"]:
             if key in document_data:
                 params[key] = str(document_data[key])
         

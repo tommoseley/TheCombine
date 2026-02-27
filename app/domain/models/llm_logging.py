@@ -117,7 +117,7 @@ class LLMRun(Base):
     artifact_type: Mapped[Optional[str]] = Column(
         Text,
         nullable=True,
-        doc="Document type: discovery, epic, architecture, etc."
+        doc="Document type: discovery, architecture, implementation_plan, etc."
     )
     
     role: Mapped[str] = Column(
@@ -166,7 +166,7 @@ class LLMRun(Base):
     schema_id: Mapped[Optional[str]] = Column(
         String(100),
         nullable=True,
-        doc="Root schema identifier per ADR-031 (e.g., EpicBacklogV2)"
+        doc="Root schema identifier per ADR-031 (e.g., ImplementationPlanV1)"
     )
     
     schema_bundle_hash: Mapped[Optional[str]] = Column(

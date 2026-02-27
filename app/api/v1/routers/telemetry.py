@@ -1,12 +1,11 @@
 """Telemetry API endpoints for cost tracking and metrics."""
 
-from datetime import date, datetime
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from datetime import date
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.services.cost_service import get_cost_dashboard_data

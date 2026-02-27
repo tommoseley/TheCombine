@@ -13,7 +13,7 @@ export default function IntakeSummaryBlock({ block }) {
                     style={{
                         paddingLeft: 16,
                         borderLeft: '4px solid #8b5cf6',
-                        color: '#374151',
+                        color: 'var(--text-secondary)',
                         marginBottom: 16,
                         fontSize: 14,
                         lineHeight: 1.6,
@@ -27,7 +27,7 @@ export default function IntakeSummaryBlock({ block }) {
                     style={{
                         paddingLeft: 16,
                         borderLeft: '4px solid #d1d5db',
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         fontStyle: 'italic',
                         margin: 0,
                         fontSize: 13,

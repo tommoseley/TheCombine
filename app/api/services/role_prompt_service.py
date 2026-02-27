@@ -49,7 +49,7 @@ class RolePromptService:
         
         Args:
             role_name: Role identifier (pm, architect, ba, developer, qa)
-            task_name: Task identifier (preliminary, final, epic_creation, etc.)
+            task_name: Task identifier (preliminary, final, etc.)
             
         Returns:
             ComposedPrompt or None
@@ -88,7 +88,6 @@ class RolePromptService:
         task_name: str,
         pipeline_id: str = None,  # Legacy, ignored
         phase: str = None,  # Legacy, ignored
-        epic_context: Optional[str] = None,
         pipeline_state: Optional[Dict[str, Any]] = None,
         artifacts: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, str]:
@@ -97,10 +96,9 @@ class RolePromptService:
 
         Args:
             role_name: Role identifier (pm, architect, ba, developer, qa)
-            task_name: Task identifier (preliminary, final, epic_creation, etc.)
+            task_name: Task identifier (preliminary, final, etc.)
             pipeline_id: DEPRECATED - ignored
             phase: DEPRECATED - ignored
-            epic_context: Epic description (optional)
             pipeline_state: State data (optional)
             artifacts: Previous artifacts as dict (optional)
 
@@ -149,13 +147,6 @@ class RolePromptService:
             sections.append("```json")
             sections.append(json.dumps(composed.expected_schema, indent=2))
             sections.append("```")
-            sections.append("")
-
-        # Epic Context (optional)
-        if epic_context:
-            sections.append("# Epic Context")
-            sections.append("")
-            sections.append(epic_context)
             sections.append("")
 
         # Pipeline/Artifact State (optional)

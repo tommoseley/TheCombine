@@ -6,7 +6,6 @@ Verifies the full chain: context → node executor → LLM service → logger �
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock
 
 from app.domain.services.llm_execution_logger import LLMExecutionLogger
 from tests.helpers.spy_llm_log_repository import SpyLLMLogRepository

@@ -1,10 +1,9 @@
 """Tests for AuthContext usage in routes."""
 
-import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.auth.models import AuthContext, User, AuthProvider
+from app.auth.models import AuthContext, User
 
 
 class TestAuthContextAccess:

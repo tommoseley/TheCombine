@@ -1,6 +1,5 @@
 """Tests for PostgreSQL repository implementations."""
 
-import pytest
 from uuid import uuid4
 from datetime import datetime, timezone
 
@@ -11,7 +10,6 @@ from app.persistence.models import (
     ExecutionStatus,
 )
 from app.persistence.pg_repositories import (
-    _orm_to_stored_document,
     _stored_to_orm_document,
     _orm_to_stored_execution,
     _stored_to_orm_execution,
@@ -19,7 +17,6 @@ from app.persistence.pg_repositories import (
     PostgresExecutionRepository,
     create_repositories,
 )
-from app.api.models.document import Document
 
 
 class TestDocumentConversion:

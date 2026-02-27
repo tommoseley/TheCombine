@@ -10,21 +10,16 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from app.api.services.git_service import (
     GitService,
     GitServiceError,
-    GitConflictError,
     get_git_service,
 )
 from app.api.services.config_validator import (
     ConfigValidator,
-    ValidationReport,
-    ValidationResult,
-    ValidationSeverity,
 )
 from app.config.package_loader import (
     PackageLoader,

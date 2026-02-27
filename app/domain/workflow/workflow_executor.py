@@ -6,13 +6,13 @@ and state management for complete workflow execution.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from app.domain.workflow.context import WorkflowContext
 from app.domain.workflow.gates.acceptance import AcceptanceGate
-from app.domain.workflow.iteration import IterationHandler, IterationInstance
+from app.domain.workflow.iteration import IterationHandler
 from app.domain.workflow.models import Workflow, WorkflowStep
-from app.domain.workflow.step_executor import StepExecutor, ExecutionResult
+from app.domain.workflow.step_executor import StepExecutor
 from app.domain.workflow.step_state import StepState, StepStatus
 from app.domain.workflow.workflow_state import (
     WorkflowState, WorkflowStatus, IterationProgress, AcceptanceDecision

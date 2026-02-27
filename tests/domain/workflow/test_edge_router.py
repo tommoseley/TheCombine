@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.workflow.edge_router import EdgeRouter, EdgeRoutingError
+from app.domain.workflow.edge_router import EdgeRouter
 from app.domain.workflow.plan_models import (
     ConditionOperator,
     Edge,

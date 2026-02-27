@@ -5,13 +5,10 @@ Verifies that documents persist schema_bundle_sha256 at generation time
 and that schema resolution uses the persisted hash.
 """
 
-import pytest
 import hashlib
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 # =============================================================================

@@ -1,6 +1,5 @@
 """Tests for workflow definition."""
 
-import pytest
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,7 +7,6 @@ from tempfile import TemporaryDirectory
 from app.execution.workflow_definition import (
     StepDefinition,
     WorkflowDefinition,
-    WorkflowMetadata,
     WorkflowLoader,
 )
 

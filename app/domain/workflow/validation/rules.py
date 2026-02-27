@@ -264,7 +264,7 @@ def check_promotion_validity(
                     "governance_title": "Constraint Promotion Rules",
                     # Rationale and guidance
                     "severity_rationale": f"Non-binding {source_priority}-answer promoted without must-priority justification",
-                    "override_guidance": f"If intentional: change PGC question priority to 'must', or add explicit intake constraint",
+                    "override_guidance": "If intentional: change PGC question priority to 'must', or add explicit intake constraint",
                 },
             ))
         elif best_valid_match < 0.5:

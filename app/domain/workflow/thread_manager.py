@@ -19,12 +19,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
-    from app.domain.services.thread_execution_service import ThreadExecutionService
+    pass
 
 
 logger = logging.getLogger(__name__)

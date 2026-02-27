@@ -35,7 +35,7 @@ from app.core.config import ENABLE_DEBUG_ROUTES  # noqa: E402
 from app.auth.routes import router as auth_router  # noqa: E402
 from app.api.routers.protected import router as protected_router  # noqa: E402
 from app.api.routers.accounts import router as accounts_router  # noqa: E402
-from app.api.routers.commands import router as commands_router  # noqa: E402  # WS-STORY-BACKLOG-COMMANDS
+from app.api.routers.commands import router as commands_router  # noqa: E402
 from app.api.routers.config_routes import router as config_router  # noqa: E402
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
@@ -249,7 +249,7 @@ else:
 
 app.include_router(protected_router)
 app.include_router(accounts_router)
-app.include_router(commands_router)  # WS-STORY-BACKLOG-COMMANDS
+app.include_router(commands_router)
 app.include_router(config_router)  # System config API
 
 # Phase 8-10: Workflow execution engine routes

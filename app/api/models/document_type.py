@@ -33,7 +33,7 @@ class DocumentType(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Stable identifier - this is the public contract
-    # e.g., 'project_discovery', 'architecture_spec', 'epic_set'
+    # e.g., 'project_discovery', 'architecture_spec', 'implementation_plan'
     doc_type_id = Column(String(100), unique=True, nullable=False, index=True)
     
     # Human-readable metadata
@@ -50,7 +50,7 @@ class DocumentType(Base):
     # Builder configuration - which prompts produce this document
     # References to role_tasks table for the actual prompts
     builder_role = Column(String(50), nullable=False)  # 'architect', 'pm', 'ba'
-    builder_task = Column(String(100), nullable=False)  # 'discovery', 'epic_generation'
+    builder_task = Column(String(100), nullable=False)  # 'discovery', 'implementation_plan'
     
     # Alternative: direct prompt references (if not using role_tasks)
     system_prompt_id = Column(UUID(as_uuid=True), ForeignKey("role_tasks.id"), nullable=True)
@@ -96,10 +96,10 @@ class DocumentType(Base):
         doc="'single' = one latest per space, 'multi' = multiple instances per space"
     )
 
-    # Content field name used as instance_id for multi-instance types (e.g., 'epic_id')
+    # Content field name used as instance_id for multi-instance types (e.g., 'work_package_id')
     instance_key = Column(
         String(100), nullable=True,
-        doc="Content field name used as instance_id for multi-instance types (e.g., 'epic_id')"
+        doc="Content field name used as instance_id for multi-instance types (e.g., 'work_package_id')"
     )
 
     # =========================================================================
@@ -107,14 +107,14 @@ class DocumentType(Base):
     # =========================================================================
 
     # Scope - where does this document appear?
-    # 'project' = one per project, 'epic' = one per epic, 'story' = one per story
+    # 'project' = one per project, 'work_package' = one per work package
     scope = Column(String(50), nullable=False, default="project")
     
     # Display configuration
     display_order = Column(Integer, nullable=False, default=0)
     
     # ADR-034: Document definition ID for new viewer rendering
-    # Maps to document_definitions.document_def_id (e.g., 'EpicBacklogView')
+    # Maps to document_definitions.document_def_id (e.g., 'ImplementationPlanView')
     view_docdef = Column(String(100), nullable=True)
 
     # =========================================================================

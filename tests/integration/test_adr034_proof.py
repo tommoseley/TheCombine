@@ -5,11 +5,11 @@ Per WS-ADR-034-POC Phase 8.4: End-to-end integration tests.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from app.domain.services.prompt_assembler import PromptAssembler, AssembledPrompt
-from app.domain.services.render_model_builder import RenderModelBuilder, RenderModel
+from app.domain.services.prompt_assembler import PromptAssembler
+from app.domain.services.render_model_builder import RenderModelBuilder
 # WS-ADR-034-COMPONENT-PROMPT-UX-COMPLETENESS: FRAGMENT_ALIASES removed
 
 
@@ -444,155 +444,6 @@ class TestADR034ProofOfConcept:
         else:
             # If a block was produced, items should be empty
             assert result.blocks[0].data["items"] == [] or len(result.blocks[0].data.get("items", [])) == 0
-
-    # ==========================================================================
-    # WS-ADR-034-EXP3: Stories Container Tests (Second Container Type)
-    # ==========================================================================
-    
-    @pytest.fixture
-    def stories_block_component(self):
-        """Create StoriesBlockV1 container component fixture."""
-        comp = MagicMock()
-        comp.component_id = "component:StoriesBlockV1:1.0.0"
-        comp.schema_id = "schema:StoriesBlockV1"
-        comp.generation_guidance = {
-            "bullets": [
-                "This is a render-only container. Do not generate new stories here.",
-                "Render items in the order provided."
-            ]
-        }
-        comp.view_bindings = {
-            "web": {"fragment_id": "fragment:StoriesBlockV1:web:1.0.0"}
-        }
-        return comp
-    
-    @pytest.fixture
-    def story_backlog_docdef(self):
-        """Create story backlog test docdef."""
-        docdef = MagicMock()
-        docdef.document_def_id = "docdef:StoryBacklogTest:1.0.0"
-        docdef.prompt_header = {"role": "Test", "constraints": []}
-        docdef.sections = [{
-            "section_id": "epic_stories",
-            "title": "Stories",
-            "order": 10,
-            "component_id": "component:StoriesBlockV1:1.0.0",
-            "shape": "container",
-            "source_pointer": "/stories",
-            "repeat_over": "/epics",
-            "context": {"epic_id": "/id", "epic_title": "/title"}
-        }]
-        return docdef
-    
-    @pytest.fixture
-    def story_backlog_data(self):
-        """Fixture with 2 epics and 5 stories split across them."""
-        return {
-            "epics": [
-                {
-                    "id": "E-001",
-                    "title": "User Authentication",
-                    "stories": [
-                        {"id": "S-001", "epic_id": "E-001", "title": "Login form", "description": "Create login UI", "status": "done"},
-                        {"id": "S-002", "epic_id": "E-001", "title": "Password reset", "description": "Implement reset flow", "status": "in_progress"},
-                        {"id": "S-003", "epic_id": "E-001", "title": "Remember me", "description": "Add persistence option", "status": "draft"},
-                    ]
-                },
-                {
-                    "id": "E-002",
-                    "title": "Dashboard",
-                    "stories": [
-                        {"id": "S-004", "epic_id": "E-002", "title": "Metrics overview", "description": "Show key metrics", "status": "ready"},
-                        {"id": "S-005", "epic_id": "E-002", "title": "Activity feed", "description": "Recent activity stream", "status": "blocked"},
-                    ]
-                }
-            ]
-        }
-    
-    @pytest.mark.asyncio
-    async def test_exp3_stories_grouped_under_epics(
-        self, story_backlog_docdef, stories_block_component, story_backlog_data
-    ):
-        """EXP3: Stories are correctly grouped under epics via container block."""
-        mock_docdef_service = AsyncMock()
-        mock_docdef_service.get.return_value = story_backlog_docdef
-        
-        mock_component_service = AsyncMock()
-        mock_component_service.get.return_value = stories_block_component
-        
-        builder = RenderModelBuilder(
-            docdef_service=mock_docdef_service,
-            component_service=mock_component_service,
-        )
-        
-        result = await builder.build("docdef:StoryBacklogTest:1.0.0", story_backlog_data)
-        
-        # Should have exactly 2 container blocks (one per epic)
-        assert len(result.blocks) == 2
-        
-        # First block: Epic E-001 with 3 stories
-        block_1 = result.blocks[0]
-        assert block_1.type == "schema:StoriesBlockV1"
-        assert block_1.context["epic_id"] == "E-001"
-        assert block_1.context["epic_title"] == "User Authentication"
-        assert len(block_1.data["items"]) == 3
-        assert block_1.data["items"][0]["id"] == "S-001"
-        
-        # Second block: Epic E-002 with 2 stories
-        block_2 = result.blocks[1]
-        assert block_2.type == "schema:StoriesBlockV1"
-        assert block_2.context["epic_id"] == "E-002"
-        assert block_2.context["epic_title"] == "Dashboard"
-        assert len(block_2.data["items"]) == 2
-        assert block_2.data["items"][0]["id"] == "S-004"
-    
-    @pytest.mark.asyncio
-    async def test_exp3_second_container_type_same_machinery(
-        self, story_backlog_docdef, stories_block_component,
-        epic_backlog_v1_1_docdef, open_questions_block_component, sample_epic_data
-    ):
-        """EXP3: StoriesBlockV1 uses same machinery as OpenQuestionsBlockV1."""
-        mock_docdef_service = AsyncMock()
-        mock_component_service = AsyncMock()
-        
-        builder = RenderModelBuilder(
-            docdef_service=mock_docdef_service,
-            component_service=mock_component_service,
-        )
-        
-        # Test OpenQuestionsBlockV1
-        mock_docdef_service.get.return_value = epic_backlog_v1_1_docdef
-        mock_component_service.get.return_value = open_questions_block_component
-        
-        oq_result = await builder.build("docdef:EpicBacklog:1.1.0", sample_epic_data)
-        
-        # Test StoriesBlockV1
-        mock_docdef_service.get.return_value = story_backlog_docdef
-        mock_component_service.get.return_value = stories_block_component
-        
-        story_data = {
-            "epics": [{
-                "id": "E-001",
-                "title": "Test Epic",
-                "stories": [
-                    {"id": "S-001", "epic_id": "E-001", "title": "Story", "description": "Desc", "status": "draft"}
-                ]
-            }]
-        }
-        
-        story_result = await builder.build("docdef:StoryBacklogTest:1.0.0", story_data)
-        
-        # Both should produce container blocks with same structure
-        assert len(oq_result.blocks) >= 1
-        assert len(story_result.blocks) == 1
-        
-        # Both have items array
-        assert "items" in oq_result.blocks[0].data
-        assert "items" in story_result.blocks[0].data
-        
-        # Both have context
-        assert oq_result.blocks[0].context is not None
-        assert story_result.blocks[0].context is not None
 
     @pytest.mark.asyncio
     async def test_existing_fragment_rendering_unchanged(self):

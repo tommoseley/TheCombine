@@ -4,7 +4,6 @@ import pytest
 
 from app.domain.workflow.models import (
     DocumentTypeConfig,
-    EntityTypeConfig,
     InputReference,
     IterationConfig,
     ScopeConfig,

@@ -48,6 +48,17 @@ function getArtifactState(rawState) {
 }
 
 /**
+ * Default stations shown when a node has no production station data.
+ * Renders dormant in compact mode so every rail node is the same height.
+ */
+const DEFAULT_STATIONS = [
+    { id: 'pgc', label: 'PGC', state: 'queued' },
+    { id: 'draft', label: 'DRAFT', state: 'queued' },
+    { id: 'qa', label: 'QA', state: 'queued' },
+    { id: 'done', label: 'DONE', state: 'queued' },
+];
+
+/**
  * Display names for artifact states
  */
 const ARTIFACT_DISPLAY = {
@@ -58,11 +69,24 @@ const ARTIFACT_DISPLAY = {
 };
 
 /**
- * Format document type ID as human-readable name
- * e.g., "technical_architecture" -> "Technical Architecture"
+ * Governed display names for document types.
+ * These match the display_name field in combine-config package.yaml files.
+ * Only doc types that differ from naive title-casing need entries here.
+ */
+const DOC_TYPE_DISPLAY_NAMES = {
+    implementation_plan: 'Implementation Plan',
+    project_discovery: 'Project Discovery',
+    technical_architecture: 'Technical Architecture',
+    concierge_intake: 'Concierge Intake',
+};
+
+/**
+ * Format document type ID as human-readable name.
+ * Uses governed display names where available, falls back to title-casing.
  */
 function formatDocTypeName(docType) {
     if (!docType) return '';
+    if (DOC_TYPE_DISPLAY_NAMES[docType]) return DOC_TYPE_DISPLAY_NAMES[docType];
     return docType
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -82,15 +106,18 @@ export default function DocumentNode({ data }) {
     const rawState = data.state || 'ready_for_production';
     const artifactState = getArtifactState(rawState);
 
+    // Compact mode (rail view) — no buttons, no description, selected highlight
+    const isCompact = !!data.compact;
+    const isSelected = data.selectedNodeId === data.id;
+
     // Derived booleans for logic
     const isStabilized = artifactState === 'stabilized';
     const isInProgress = artifactState === 'in_progress';
     const isBlocked = artifactState === 'blocked';
 
-    // Show stations whenever they exist (produced shows all complete, in-progress shows progress)
-    const showStations = data.stations?.length > 0;
     const stateClass = isInProgress ? 'node-active' : '';
-    const levelLabel = isL1 ? 'DOCUMENT' : 'WORK PACKAGE';
+    const isWorkBinder = data.id === 'work_package';
+    const levelLabel = isWorkBinder ? 'WORK BINDER' : (isL1 ? 'DOCUMENT' : 'WORK PACKAGE');
     const headerClass = isL1 ? 'subway-node-header-doc' : 'subway-node-header-wp';
 
     // Colors from artifact state
@@ -121,7 +148,13 @@ export default function DocumentNode({ data }) {
 
             <div
                 className={`subway-node rounded-lg border ${stateClass} overflow-hidden`}
-                style={{ width: data.width, minHeight: data.height, borderColor }}
+                style={{
+                    width: data.width,
+                    minHeight: data.height,
+                    borderColor: isSelected ? 'var(--accent, #7c3aed)' : borderColor,
+                    borderWidth: isSelected ? 2 : 1,
+                    boxShadow: isSelected ? '0 0 0 2px var(--accent, rgba(124,58,237,0.3))' : undefined,
+                }}
             >
                 {/* Header */}
                 <div className={`${headerClass} border-b px-3 py-1.5 flex items-center justify-between`}>
@@ -136,7 +169,7 @@ export default function DocumentNode({ data }) {
                             className="text-[10px] font-medium"
                             style={{ color: 'var(--text-primary)' }}
                         >
-                            {data.name}
+                            {isWorkBinder ? 'Work Binder' : data.name}
                         </span>
                     </div>
                     {data.intent === 'optional' && (
@@ -164,10 +197,10 @@ export default function DocumentNode({ data }) {
                             >
                                 {displayState}
                             </span>
-                            {isL1 && data.desc && (
+                            {isL1 && data.desc && !isCompact && (
                                 <p
                                     className="text-[9px] mt-0.5 truncate"
-                                    style={{ color: 'var(--text-muted)' }}
+                                    style={{ color: 'var(--text-secondary)' }}
                                 >
                                     {data.desc}
                                 </p>
@@ -175,8 +208,8 @@ export default function DocumentNode({ data }) {
                         </div>
                     </div>
 
-                    {/* WP metadata badges (L2 only) */}
-                    {!isL1 && (
+                    {/* WP metadata badges (L2 only, hidden in compact mode) */}
+                    {!isL1 && !isCompact && (
                         <div className="mt-2 flex flex-wrap gap-1.5">
                             {/* Progress: ws_done / ws_total */}
                             <span
@@ -206,10 +239,21 @@ export default function DocumentNode({ data }) {
                         </div>
                     )}
 
-                    {showStations && <StationDots stations={data.stations} />}
+                    {/* Stations: compact mode shows for all document nodes (default dormant if no data).
+                        Work Binder is a container, not a producible document — no stations. */}
+                    {!isWorkBinder && (isCompact ? (
+                        <StationDots
+                            stations={data.stations?.length > 0 ? data.stations : DEFAULT_STATIONS}
+                            dormant={isBlocked || !(data.stations?.length > 0)}
+                        />
+                    ) : (
+                        data.stations?.length > 0 && (
+                            <StationDots stations={data.stations} dormant={isBlocked} />
+                        )
+                    ))}
 
-                    {/* Action buttons */}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    {/* Action buttons (hidden in compact rail mode) */}
+                    {!isCompact && <div className="mt-2 flex flex-wrap gap-1.5">
                         {isStabilized && (
                             <button
                                 className="px-2 py-1 rounded text-[9px] font-semibold hover:brightness-110 transition-all"
@@ -272,10 +316,10 @@ export default function DocumentNode({ data }) {
                                 </button>
                             )
                         )}
-                    </div>
+                    </div>}
 
-                    {/* Show what this node is waiting for */}
-                    {data.blockedBy?.length > 0 && (isBlocked || artifactState === 'ready') && (
+                    {/* Show what this node is waiting for (hidden in compact mode) */}
+                    {!isCompact && data.blockedBy?.length > 0 && (isBlocked || artifactState === 'ready') && (
                         <div
                             className="mt-2 pt-2 border-t text-[8px]"
                             style={{ borderColor: 'var(--border-node)', color: 'var(--text-muted)' }}
@@ -287,8 +331,8 @@ export default function DocumentNode({ data }) {
                 </div>
             </div>
 
-            {/* Sidecars */}
-            {isExpanded && expandType === 'questions' && hasQuestions && (
+            {/* Sidecars (hidden in compact rail mode) */}
+            {!isCompact && isExpanded && expandType === 'questions' && hasQuestions && (
                 <QuestionTray
                     questions={data.questions}
                     nodeWidth={data.width}
@@ -297,7 +341,7 @@ export default function DocumentNode({ data }) {
                 />
             )}
 
-            {isExpanded && expandType === 'workStatements' && hasWorkStatements && (
+            {!isCompact && isExpanded && expandType === 'workStatements' && hasWorkStatements && (
                 <WSChildList
                     workStatements={data.workStatements}
                     wpName={data.name}

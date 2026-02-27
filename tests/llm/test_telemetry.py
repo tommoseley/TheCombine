@@ -1,13 +1,12 @@
 """Tests for LLM telemetry service."""
 
 import pytest
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
 from app.llm.telemetry import (
     CostCalculator,
-    MODEL_PRICING,
     LLMCallRecord,
     CostSummary,
     InMemoryTelemetryStore,

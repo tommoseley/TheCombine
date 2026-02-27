@@ -7,7 +7,7 @@ import json
 import pytest
 from pathlib import Path
 
-from app.domain.workflow.types import ValidationErrorCode, ValidationResult
+from app.domain.workflow.types import ValidationErrorCode
 from app.domain.workflow.scope import ScopeHierarchy, ScopeHierarchyError
 from app.domain.workflow.validator import WorkflowValidator
 

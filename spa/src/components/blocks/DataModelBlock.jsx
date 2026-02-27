@@ -16,9 +16,9 @@ export default function DataModelBlock({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e293b' }}>
@@ -33,10 +33,10 @@ export default function DataModelBlock({ block }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                         <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                            <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Field</th>
-                            <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Type</th>
-                            <th style={{ textAlign: 'center', padding: '4px 8px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Required</th>
-                            <th style={{ textAlign: 'left', padding: '4px 8px', color: '#6b7280', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Notes</th>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Field</th>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Type</th>
+                            <th style={{ textAlign: 'center', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Required</th>
+                            <th style={{ textAlign: 'left', padding: '4px 8px', color: 'var(--text-muted)', fontWeight: 600, fontSize: 11, textTransform: 'uppercase' }}>Notes</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -51,7 +51,7 @@ export default function DataModelBlock({ block }) {
                                 <td style={{ padding: '4px 8px', textAlign: 'center' }}>
                                     {f.required ? 'Yes' : 'No'}
                                 </td>
-                                <td style={{ padding: '4px 8px', color: '#6b7280' }}>
+                                <td style={{ padding: '4px 8px', color: 'var(--text-muted)' }}>
                                     {Array.isArray(f.notes) ? f.notes.join('; ') : f.notes || f.description || ''}
                                 </td>
                             </tr>
@@ -61,12 +61,12 @@ export default function DataModelBlock({ block }) {
             )}
             {relationships.length > 0 && (
                 <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
                         Relationships
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                         {relationships.map((r, i) => (
-                            <li key={i} style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+                            <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                                 {typeof r === 'string' ? r : `${r.type || ''} ${r.target || ''} ${r.description || ''}`.trim()}
                             </li>
                         ))}

@@ -193,7 +193,7 @@ class PromptAssembler:
             # If a direct file path, convert to versioned path
             # e.g., "pgc/project_discovery.v1.txt" -> "pgc/project_discovery.v1/releases/1.0.0/pgc.prompt.txt"
             p = Path(new_path)
-            if p.suffix == ".txt" and not "releases" in str(p):
+            if p.suffix == ".txt" and "releases" not in str(p):
                 # Try to find the release directory
                 stem = p.stem
                 parent = p.parent

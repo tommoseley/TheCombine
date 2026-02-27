@@ -29,7 +29,6 @@ from app.auth.dependencies import get_optional_user
 from app.web.routes.shared import templates
 from app.domain.workflow.plan_executor import PlanExecutor
 from app.domain.workflow.pg_state_persistence import PgStatePersistence
-from app.api.models.project import Project
 from app.domain.workflow.plan_registry import get_plan_registry
 from app.domain.workflow.document_workflow_state import DocumentWorkflowStatus
 from app.domain.workflow.interpretation import calculate_confidence, get_missing_fields

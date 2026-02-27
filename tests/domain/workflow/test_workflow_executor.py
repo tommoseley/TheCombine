@@ -1,13 +1,12 @@
 """Tests for workflow executor."""
 
 import pytest
-from typing import Dict, Any
+from typing import Dict
 
-from app.domain.workflow.workflow_executor import WorkflowExecutor, WorkflowExecutionResult
+from app.domain.workflow.workflow_executor import WorkflowExecutor
 from app.domain.workflow.workflow_state import WorkflowState, WorkflowStatus, AcceptanceDecision
 from app.domain.workflow.context import WorkflowContext
-from app.domain.workflow.step_executor import StepExecutor, ExecutionResult
-from app.domain.workflow.step_state import StepState, StepStatus
+from app.domain.workflow.step_executor import StepExecutor
 from app.domain.workflow.gates.clarification import ClarificationGate
 from app.domain.workflow.gates.qa import QAGate
 from app.domain.workflow.models import (

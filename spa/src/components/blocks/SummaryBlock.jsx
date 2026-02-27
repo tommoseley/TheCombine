@@ -32,17 +32,17 @@ export default function SummaryBlock({ block }) {
     return (
         <div style={{ marginBottom: 12 }}>
             {data.title && (
-                <h3 style={{ fontSize: 16, fontWeight: 600, color: '#1f2937', marginBottom: 12 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>
                     {data.title}
                 </h3>
             )}
             {sections.map((section, i) => (
                 <div key={i} style={{ marginBottom: 16 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {section.title}
                     </h4>
-                    <div style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: 6, borderLeft: '3px solid #6366f1' }}>
-                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: '#374151', whiteSpace: 'pre-line' }}>
+                    <div style={{ padding: '12px 16px', background: 'var(--bg-panel)', borderRadius: 6, borderLeft: '3px solid #6366f1' }}>
+                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
                             {section.content}
                         </p>
                     </div>

@@ -1,11 +1,10 @@
 """PostgreSQL repository implementations."""
 
-import json
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_, or_, update, delete
+from sqlalchemy import select, and_, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.persistence.models import (
@@ -189,7 +188,7 @@ class PostgresDocumentRepository:
 # Execution ORM Model (inline - will be moved to models later if needed)
 # ============================================================================
 
-from sqlalchemy import Column, String, Integer, Boolean, Text, DateTime, Enum as SAEnum
+from sqlalchemy import Column, String, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.sql import func
 

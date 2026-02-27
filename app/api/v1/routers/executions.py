@@ -1,6 +1,5 @@
 """Execution management endpoints."""
 
-from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -37,7 +36,6 @@ from app.domain.workflow import (
     WorkflowNotFoundError,
     WorkflowStatus,
     StatePersistence,
-    InMemoryStatePersistence,
 )
 
 

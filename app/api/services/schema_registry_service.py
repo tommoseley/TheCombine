@@ -7,7 +7,6 @@ Provides CRUD operations and lifecycle management for schema artifacts.
 import hashlib
 import json
 from typing import List, Optional
-from uuid import UUID
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession

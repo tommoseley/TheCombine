@@ -12,7 +12,7 @@ import pytest
 from pathlib import Path
 from uuid import UUID
 
-from app.domain.prompt.assembler import PromptAssembler, AssembledPrompt
+from app.domain.prompt.assembler import PromptAssembler
 from app.domain.prompt.errors import (
     UnresolvedTokenError,
     IncludeNotFoundError,

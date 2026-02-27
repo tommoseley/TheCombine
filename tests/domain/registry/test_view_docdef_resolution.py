@@ -28,25 +28,25 @@ class TestViewDocdefFromDatabase:
         
         # Create mock DocumentType ORM object
         mock_doc_type = MagicMock(spec=DocumentType)
-        mock_doc_type.doc_type_id = "epic_backlog"
-        mock_doc_type.name = "Epic Backlog"
-        mock_doc_type.description = "Project epics"
+        mock_doc_type.doc_type_id = "implementation_plan"
+        mock_doc_type.name = "Implementation Plan"
+        mock_doc_type.description = "Project implementation plan"
         mock_doc_type.icon = "layers"
         mock_doc_type.required_inputs = []
         mock_doc_type.optional_inputs = []
-        mock_doc_type.view_docdef = "EpicBacklogView"
-        
+        mock_doc_type.view_docdef = "ImplementationPlanView"
+
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_doc_type
         db.execute.return_value = mock_result
-        
+
         # Act
-        doc_type = await _get_document_type(db, "epic_backlog")
-        
+        doc_type = await _get_document_type(db, "implementation_plan")
+
         # Assert
         assert doc_type is not None
-        assert doc_type["view_docdef"] == "EpicBacklogView"
-        assert doc_type["doc_type_id"] == "epic_backlog"
+        assert doc_type["view_docdef"] == "ImplementationPlanView"
+        assert doc_type["doc_type_id"] == "implementation_plan"
     
     @pytest.mark.asyncio
     async def test_get_document_type_null_view_docdef(self):

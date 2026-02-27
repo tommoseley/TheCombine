@@ -13,9 +13,9 @@ export default function QualityAttributeBlock({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e293b' }}>
@@ -27,18 +27,18 @@ export default function QualityAttributeBlock({ block }) {
                 </p>
             )}
             {data.rationale && (
-                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>
+                <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     {data.rationale}
                 </p>
             )}
             {criteria.length > 0 && (
                 <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>
                         Acceptance Criteria
                     </div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                         {criteria.map((c, i) => (
-                            <li key={i} style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{c}</li>
+                            <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{c}</li>
                         ))}
                     </ul>
                 </div>

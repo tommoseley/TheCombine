@@ -11,8 +11,6 @@ from app.domain.services.render_model_builder import (
     RenderModelBuilder,
     RenderBlock,
     RenderModel,
-    DocDefNotFoundError,
-    ComponentNotFoundError,
 )
 
 

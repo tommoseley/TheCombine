@@ -135,22 +135,22 @@ async def test_start_document_production_loads_input_documents(
 ):
     """_start_document_production must load required input documents from DB
     and pass them as initial_context['input_documents'] to start_execution."""
-    orch = _make_orchestrator(mock_db, project_uuid, "implementation_plan")
+    orch = _make_orchestrator(mock_db, project_uuid, "technical_architecture")
 
-    # Plan requires two input documents
-    plan = _mock_plan("implementation_plan", ["project_discovery", "primary_implementation_plan"])
+    # Plan requires two input documents (TA requires PD + IP)
+    plan = _mock_plan("technical_architecture", ["project_discovery", "implementation_plan"])
     mock_registry = MagicMock()
     mock_registry.get_by_document_type.return_value = plan
 
     # DB returns a document for each required input
     pd_doc = _mock_document("project_discovery", {"title": "PD content"})
-    ipp_doc = _mock_document("primary_implementation_plan", {"title": "IPP content"})
+    ip_doc = _mock_document("implementation_plan", {"title": "IP content"})
 
     pd_result = MagicMock()
     pd_result.scalar_one_or_none.return_value = pd_doc
-    ipp_result = MagicMock()
-    ipp_result.scalar_one_or_none.return_value = ipp_doc
-    mock_db.execute = AsyncMock(side_effect=[pd_result, ipp_result])
+    ip_result = MagicMock()
+    ip_result.scalar_one_or_none.return_value = ip_doc
+    mock_db.execute = AsyncMock(side_effect=[pd_result, ip_result])
 
     mock_executor_cls, mock_executor = _setup_executor_mock()
     mock_mods = _make_mock_modules(mock_executor_cls)
@@ -159,7 +159,7 @@ async def test_start_document_production_loads_input_documents(
         patch(f"{MODULE}.get_plan_registry", return_value=mock_registry),
         patch.dict(sys.modules, mock_mods),
     ):
-        await orch._start_document_production(str(project_uuid), "implementation_plan")
+        await orch._start_document_production(str(project_uuid), "technical_architecture")
 
     # Verify start_execution was called with input documents
     mock_executor.start_execution.assert_called_once()
@@ -168,7 +168,7 @@ async def test_start_document_production_loads_input_documents(
 
     assert "input_documents" in initial_context
     assert initial_context["input_documents"]["project_discovery"] == {"title": "PD content"}
-    assert initial_context["input_documents"]["primary_implementation_plan"] == {"title": "IPP content"}
+    assert initial_context["input_documents"]["implementation_plan"] == {"title": "IP content"}
 
 
 @pytest.mark.asyncio
@@ -177,13 +177,13 @@ async def test_start_document_production_warns_on_missing_input(
 ):
     """When a required input document is missing from DB, execution still starts
     and input_documents reflects the missing entry (key absent)."""
-    orch = _make_orchestrator(mock_db, project_uuid, "implementation_plan")
+    orch = _make_orchestrator(mock_db, project_uuid, "technical_architecture")
 
-    plan = _mock_plan("implementation_plan", ["project_discovery", "primary_implementation_plan"])
+    plan = _mock_plan("technical_architecture", ["project_discovery", "implementation_plan"])
     mock_registry = MagicMock()
     mock_registry.get_by_document_type.return_value = plan
 
-    # Only project_discovery exists; primary_implementation_plan is missing
+    # Only project_discovery exists; implementation_plan is missing
     pd_doc = _mock_document("project_discovery", {"title": "PD content"})
 
     pd_result = MagicMock()
@@ -199,7 +199,7 @@ async def test_start_document_production_warns_on_missing_input(
         patch(f"{MODULE}.get_plan_registry", return_value=mock_registry),
         patch.dict(sys.modules, mock_mods),
     ):
-        await orch._start_document_production(str(project_uuid), "implementation_plan")
+        await orch._start_document_production(str(project_uuid), "technical_architecture")
 
     # Execution must still start (no crash)
     mock_executor.start_execution.assert_called_once()
@@ -209,7 +209,7 @@ async def test_start_document_production_warns_on_missing_input(
     # Found input is present, missing input is absent
     assert "input_documents" in initial_context
     assert initial_context["input_documents"]["project_discovery"] == {"title": "PD content"}
-    assert "primary_implementation_plan" not in initial_context["input_documents"]
+    assert "implementation_plan" not in initial_context["input_documents"]
 
 
 @pytest.mark.asyncio

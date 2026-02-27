@@ -4,7 +4,7 @@ Tests the single-writer locking and confidence calculation logic.
 """
 
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.domain.workflow.interpretation import (
     REQUIRED_FIELDS,

@@ -5,7 +5,7 @@ Validates both schema structure and semantic integrity of workflow plans.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Set
 
 
 class PlanValidationErrorCode(str, Enum):
@@ -315,7 +315,7 @@ class PlanValidator:
                 errors.append(PlanValidationError(
                     code=PlanValidationErrorCode.NO_OUTBOUND_EDGES,
                     message=f"Non-end node '{node_id}' has no outbound edges",
-                    path=f"$.nodes",
+                    path="$.nodes",
                     context={"node_id": node_id},
                 ))
 

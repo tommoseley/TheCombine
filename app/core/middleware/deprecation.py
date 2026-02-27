@@ -7,7 +7,6 @@ Per HTTP RFC 7234: Warning: 299 - "message"
 
 import logging
 from typing import Callable, Dict, Optional
-from datetime import datetime
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -24,14 +23,6 @@ logger = logging.getLogger(__name__)
 
 DEPRECATED_ROUTES: Dict[str, Dict[str, str]] = {
     # View routes -> document routes
-    "/view/EpicBacklogView": {
-        "redirect_to": "/projects/{project_id}/documents/epic_backlog",
-        "message": "Use /projects/{project_id}/documents/epic_backlog instead",
-    },
-    "/view/StoryBacklogView": {
-        "redirect_to": "/projects/{project_id}/documents/story_backlog",
-        "message": "Use /projects/{project_id}/documents/story_backlog instead",
-    },
     "/view/ArchitecturalSummaryView": {
         "redirect_to": "/projects/{project_id}/documents/technical_architecture",
         "message": "Use /projects/{project_id}/documents/technical_architecture instead",

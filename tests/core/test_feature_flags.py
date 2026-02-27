@@ -4,7 +4,6 @@ Tests for Phase 6: Legacy Template Feature Flag (WS-DOCUMENT-SYSTEM-CLEANUP)
 Tests the USE_LEGACY_TEMPLATES feature flag behavior.
 """
 
-import pytest
 import os
 from unittest.mock import patch
 
@@ -21,8 +20,6 @@ class TestLegacyTemplateFeatureFlag:
         # Clear the env var if set
         with patch.dict(os.environ, {}, clear=True):
             # Re-import to get fresh config
-            import importlib
-            import app.core.config as config_module
             
             # The default should be False (new viewer preferred)
             # We test the logic, not the actual reload

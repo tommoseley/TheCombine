@@ -5,10 +5,10 @@ from typing import Callable, List, Optional
 
 from fastapi import HTTPException, Request, status
 
-from app.auth.models import User, AuthContext, PersonalAccessToken
+from app.auth.models import AuthContext
 from app.auth.permissions import Permission, has_permission
-from app.auth.services import SessionService, hash_token
-from app.auth.pat_service import PATService, hash_pat
+from app.auth.services import SessionService
+from app.auth.pat_service import PATService
 
 
 class AuthMiddleware:

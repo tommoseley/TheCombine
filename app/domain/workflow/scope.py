@@ -16,7 +16,7 @@ class ScopeHierarchy:
     """
     Scope relationship helper built from workflow's declared scopes.
     
-    Does NOT hardcode project/epic/story. Derives all relationships
+    Does NOT hardcode specific scope names. Derives all relationships
     from the workflow's scopes declaration.
     """
     
@@ -28,8 +28,7 @@ class ScopeHierarchy:
             scope_definitions: workflow["scopes"] dict, e.g.:
                 {
                     "project": {"parent": None},
-                    "epic": {"parent": "project"},
-                    "story": {"parent": "epic"}
+                    "work_package": {"parent": "project"}
                 }
         
         Raises:

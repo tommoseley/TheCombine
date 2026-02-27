@@ -15,8 +15,8 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 
-# Rendering
-view_docdef: ArchitecturalSummaryView
+# Rendering — IA-driven (ADR-054), no legacy docdef
+view_docdef: null
 
 # Dependencies
 required_inputs:

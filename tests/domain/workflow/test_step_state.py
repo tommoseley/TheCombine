@@ -1,6 +1,5 @@
 """Tests for step state model."""
 
-import pytest
 from datetime import datetime
 
 from app.domain.workflow.step_state import (

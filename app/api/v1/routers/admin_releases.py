@@ -16,12 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.api.services.release_service import (
     ReleaseService,
-    ReleaseInfo,
-    ReleaseState,
-    ReleaseHistoryEntry,
-    RollbackResult,
     ReleaseServiceError,
-    ImmutabilityViolationError,
     ValidationFailedError,
     get_release_service,
 )

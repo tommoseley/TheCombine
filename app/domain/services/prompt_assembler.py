@@ -13,7 +13,7 @@ Per D2:
 import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
 
 from app.api.services.document_definition_service import DocumentDefinitionService
@@ -252,7 +252,7 @@ class PromptAssembler:
             lines.append("")
         
         # Schema reference
-        lines.append(f"## Schema Bundle")
+        lines.append("## Schema Bundle")
         lines.append(f"SHA256: {assembled.bundle_sha256}")
         lines.append(f"Components: {', '.join(assembled.component_ids)}")
         

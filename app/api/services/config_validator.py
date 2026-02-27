@@ -5,19 +5,14 @@ Per ADR-044 WS-044-08, this service prevents known failure modes
 by validating configuration artifacts before they can be committed or activated.
 """
 
-import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import yaml
 
-from app.config.package_model import (
-    AuthorityLevel,
-    CreationMode,
-)
 from app.config.package_loader import (
     PackageLoader,
     get_package_loader,

@@ -7,7 +7,6 @@ Verifies methods called with correct payload shapes.
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.domain.services.llm_execution_logger import LLMExecutionLogger
 from tests.helpers.spy_llm_log_repository import SpyLLMLogRepository

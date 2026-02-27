@@ -4,16 +4,12 @@ Shared pytest fixtures for all tests.
 Provides database isolation and common test fixtures.
 """
 
-import os
 import pytest
-from pathlib import Path
-from datetime import datetime, timezone
-from typing import Generator
-from uuid import UUID, uuid4
+from uuid import uuid4
 from app.auth.models import User
 import pytest_asyncio
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import text
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 
@@ -65,13 +61,8 @@ async def async_test_engine():
     from app.core.database import Base
     
     # Import API models (core business entities)
-    from app.api.models import Project, Document, DocumentRelation, Role, RoleTask
     
     # Import Domain models (LLM execution logging)
-    from app.domain.models import (
-        LLMContent, LLMRun, LLMRunInputRef,
-        LLMRunOutputRef, LLMRunError, LLMRunToolCall
-    )
     
     # Create tables
     async with engine.begin() as conn:
@@ -91,7 +82,6 @@ async def async_db_session(async_test_engine):
     Use this for ADR-010 LLMExecutionLogger tests.
     """
     from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.orm import sessionmaker
     
     AsyncSessionLocal = sessionmaker(
         async_test_engine,

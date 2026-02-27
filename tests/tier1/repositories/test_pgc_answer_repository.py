@@ -6,7 +6,7 @@ These are tier1 tests using mocked database session.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository

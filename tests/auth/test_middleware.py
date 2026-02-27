@@ -1,12 +1,10 @@
 """Tests for authentication middleware."""
 
 import pytest
-import pytest_asyncio
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
 from app.auth.models import User, AuthContext, AuthProvider
 from app.auth.permissions import Permission

@@ -8,9 +8,7 @@ from typing import Optional
 
 from app.auth.models import User, AuthContext
 from app.auth.dependencies import (
-    get_current_user,
     require_auth,
-    get_optional_user,
     get_auth_context,
     get_optional_auth_context
 )

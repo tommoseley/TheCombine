@@ -5,13 +5,12 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.persistence import (
     DocumentRepository,
     InMemoryDocumentRepository,
     StoredDocument,
-    DocumentStatus,
 )
 
 

@@ -21,7 +21,6 @@ from app.api.v1.routers.dashboard import router as dashboard_router
 from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.intake import router as intake_router
 from app.api.v1.routers.intents import router as intents_router
-from app.api.v1.routers.backlog_pipeline import router as backlog_pipeline_router
 from app.api.v1.routers.metrics import router as metrics_router
 
 
@@ -39,7 +38,6 @@ api_router.include_router(dashboard_router)
 api_router.include_router(interrupts_router)
 api_router.include_router(intake_router)
 api_router.include_router(intents_router)  # WS-BCP-001: Intent Intake
-api_router.include_router(backlog_pipeline_router)  # WS-BCP-004: Pipeline Integration
 api_router.include_router(telemetry_router)  # WS-ADMIN-RECONCILE-001: Cost tracking
 api_router.include_router(admin_workbench_router)  # ADR-044: Admin Workbench
 api_router.include_router(admin_git_router)  # ADR-044 Addendum A: Git UX

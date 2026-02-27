@@ -1,7 +1,6 @@
 """WS execution metrics API endpoints (WS-METRICS-001)."""
 
 import logging
-from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID

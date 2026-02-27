@@ -16,9 +16,9 @@ export default function WorkflowBlock({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e293b' }}>
@@ -30,7 +30,7 @@ export default function WorkflowBlock({ block }) {
                 </p>
             )}
             {data.trigger && (
-                <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     Trigger: {data.trigger}
                 </p>
             )}
@@ -43,9 +43,9 @@ export default function WorkflowBlock({ block }) {
                                 display: 'flex',
                                 gap: 10,
                                 padding: '8px 10px',
-                                background: '#ffffff',
+                                background: 'var(--bg-canvas)',
                                 borderRadius: 6,
-                                border: '1px solid #e5e7eb',
+                                border: '1px solid var(--border-node)',
                             }}
                         >
                             <span
@@ -66,7 +66,7 @@ export default function WorkflowBlock({ block }) {
                                 {step.step || step.order || i + 1}
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ margin: 0, fontSize: 13, color: '#1f2937', lineHeight: 1.4 }}>
+                                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.4 }}>
                                     {step.action}
                                 </p>
                                 <div style={{ display: 'flex', gap: 12, marginTop: 3, flexWrap: 'wrap' }}>
@@ -81,12 +81,12 @@ export default function WorkflowBlock({ block }) {
                                         </span>
                                     )}
                                     {step.output && (
-                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                                             &rarr; {step.output}
                                         </span>
                                     )}
                                     {Array.isArray(step.outputs) && step.outputs.length > 0 && (
-                                        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                                        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                                             &rarr; {step.outputs.join(', ')}
                                         </span>
                                     )}

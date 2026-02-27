@@ -10,15 +10,13 @@ Per ADR-044 WS-044-07, this service handles:
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.api.services.git_service import (
     GitService,
-    GitServiceError,
     get_git_service,
 )
 from app.api.services.config_validator import (

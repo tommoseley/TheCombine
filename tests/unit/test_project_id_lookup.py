@@ -50,7 +50,7 @@ class TestProjectIdLookup:
         
         # UUID input should query projects.id, not projects.project_id
         assert f"projects.id = '{project_uuid_str}'" in where_clause or \
-               f"projects.id =" in where_clause, \
+               "projects.id =" in where_clause, \
             f"WHERE clause should use 'projects.id' for UUID input. Got: WHERE{where_clause}"
     
     @pytest.mark.asyncio

@@ -1,8 +1,8 @@
 """
 Work Package Document Handler
 
-Handles Work Package documents — units of planned work that replace
-the Epic/Feature ontology. Created by IPF reconciliation, not LLM-generated.
+Handles Work Package documents — units of planned work.
+Created by IPF reconciliation, not LLM-generated.
 """
 
 from typing import Dict, Any, Tuple, List, Optional

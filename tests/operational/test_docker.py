@@ -1,6 +1,5 @@
 """Operational tests for Docker configuration."""
 
-import pytest
 import yaml
 from pathlib import Path
 

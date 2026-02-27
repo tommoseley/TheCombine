@@ -37,13 +37,13 @@ export default function OpenQuestionsBlock({ block }) {
                     gap: 16,
                     marginBottom: 12,
                     padding: '8px 12px',
-                    background: '#f8fafc',
+                    background: 'var(--bg-panel)',
                     borderRadius: 6,
                     fontSize: 12,
                 }}
             >
-                <span style={{ color: '#6b7280' }}>
-                    <strong style={{ color: '#374151' }}>{totalCount}</strong> questions
+                <span style={{ color: 'var(--text-muted)' }}>
+                    <strong style={{ color: 'var(--text-secondary)' }}>{totalCount}</strong> questions
                 </span>
                 {blockingCount > 0 && (
                     <span style={{ color: '#dc2626' }}>

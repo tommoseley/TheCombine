@@ -4,7 +4,7 @@ Unit tests for ProjectAuditService (ORM version).
 
 import pytest
 from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit_service import audit_service

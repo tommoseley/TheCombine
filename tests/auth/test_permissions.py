@@ -1,6 +1,5 @@
 """Tests for permissions and role-based access control."""
 
-import pytest
 
 from app.auth.permissions import (
     Permission,

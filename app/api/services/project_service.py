@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List, Dict, Any
 
 # Import existing models
-from app.api.models import Project, Document, DocumentRelation
+from app.api.models import Project, Document
 from app.api.repositories import ProjectRepository
 
 
@@ -49,11 +49,11 @@ class ProjectService:
         Get projects with document counts for tree view.
         Supports pagination and search.
         """
-        # Build query - count epics (documents with doc_type_id='epic') per project
-        epic_subquery = (
+        # Build query - count work_package documents per project
+        wp_subquery = (
             select(
                 Document.space_id,
-                func.count(Document.id).label("epic_count")
+                func.count(Document.id).label("work_package_count")
             )
             .where(Document.space_type == 'project')
             .where(Document.doc_type_id == 'work_package')
@@ -61,7 +61,7 @@ class ProjectService:
             .group_by(Document.space_id)
             .subquery()
         )
-        
+
         query = (
             select(
                 Project.id,
@@ -70,9 +70,9 @@ class ProjectService:
                 Project.description,
                 Project.status,
                 Project.created_at,
-                func.coalesce(epic_subquery.c.epic_count, 0).label("epic_count")
+                func.coalesce(wp_subquery.c.work_package_count, 0).label("work_package_count")
             )
-            .outerjoin(epic_subquery, Project.id == epic_subquery.c.space_id)
+            .outerjoin(wp_subquery, Project.id == wp_subquery.c.space_id)
             .order_by(Project.created_at.desc())
         )
         
@@ -101,7 +101,7 @@ class ProjectService:
                 "description": row.description or "",
                 "status": row.status or "active",
                 "created_at": row.created_at.isoformat() if row.created_at else "",
-                "epic_count": row.epic_count or 0
+                "work_package_count": row.work_package_count or 0
             }
             for row in rows
         ]
@@ -114,36 +114,36 @@ class ProjectService:
         """Get basic project info for collapsed tree node."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Count epics (documents with doc_type_id='epic')
-        epic_count_query = (
+        # Count work_package documents
+        wp_count_query = (
             select(func.count(Document.id))
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
             .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
         )
-        epic_count_result = await db.execute(epic_count_query)
-        epic_count = epic_count_result.scalar()
-        
+        wp_count_result = await db.execute(wp_count_query)
+        wp_count = wp_count_result.scalar()
+
         return {
             "id": str(project.id),
             "project_id": project.project_id,
             "name": project.name or "Untitled Project",
             "description": project.description or "",
             "status": project.status or "active",
-            "epic_count": epic_count or 0
+            "work_package_count": wp_count or 0
         }
-    
-    async def get_project_with_epics(
+
+    async def get_project_with_work_packages(
         self,
         db: AsyncSession,
         project_id: str
     ) -> Dict[str, Any]:
-        """Get project with all epics for expanded tree node."""
+        """Get project with all work packages for expanded tree node."""
         project = await self._get_project_or_raise(db, project_id)
-        
-        # Get all epic documents for this project
-        epics_query = (
+
+        # Get all work_package documents for this project
+        wp_query = (
             select(Document)
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
@@ -151,38 +151,25 @@ class ProjectService:
             .where(Document.is_latest == True)
             .order_by(Document.created_at)
         )
-        epics_result = await db.execute(epics_query)
-        epic_docs = epics_result.scalars().all()
-        
-        # For each epic, count stories (derived_from relations)
-        epics = []
-        for epic in epic_docs:
-            story_count_query = (
-                select(func.count(Document.id))
-                .join(DocumentRelation, DocumentRelation.from_document_id == Document.id)
-                .where(DocumentRelation.to_document_id == epic.id)
-                .where(DocumentRelation.relation_type == 'derived_from')
-                .where(Document.doc_type_id == 'story')
-                .where(Document.is_latest == True)
-            )
-            story_count_result = await db.execute(story_count_query)
-            story_count = story_count_result.scalar() or 0
-            
-            epics.append({
-                "epic_uuid": str(epic.id),
-                "name": epic.title,
-                "description": epic.summary or "",
-                "status": epic.status,
-                "story_count": story_count
+        wp_result = await db.execute(wp_query)
+        wp_docs = wp_result.scalars().all()
+
+        work_packages = []
+        for wp in wp_docs:
+            work_packages.append({
+                "work_package_uuid": str(wp.id),
+                "name": wp.title,
+                "description": wp.summary or "",
+                "status": wp.status,
             })
-        
+
         return {
             "id": str(project.id),
             "project_id": project.project_id,
             "name": project.name or "Untitled Project",
             "description": project.description or "",
             "status": project.status or "active",
-            "epics": epics
+            "work_packages": work_packages
         }
     
     async def get_project_full(
@@ -193,16 +180,16 @@ class ProjectService:
         """Get complete project details for main content view."""
         project = await self._get_project_or_raise(db, project_id)
         
-        # Count epics
-        epic_count_query = (
+        # Count work packages
+        wp_count_query = (
             select(func.count(Document.id))
             .where(Document.space_type == 'project')
             .where(Document.space_id == project.id)
             .where(Document.doc_type_id == 'work_package')
             .where(Document.is_latest == True)
         )
-        epic_count_result = await db.execute(epic_count_query)
-        epic_count = epic_count_result.scalar() or 0
+        wp_count_result = await db.execute(wp_count_query)
+        wp_count = wp_count_result.scalar() or 0
         
         # Count total documents
         doc_count_query = (
@@ -235,7 +222,7 @@ class ProjectService:
             "status": project.status or "active",
             "created_at": project.created_at.isoformat() if project.created_at else "",
             "updated_at": project.updated_at.isoformat() if project.updated_at else "",
-            "epic_count": epic_count,
+            "work_package_count": wp_count,
             "document_count": total_documents,
             "has_architecture": has_architecture
         }

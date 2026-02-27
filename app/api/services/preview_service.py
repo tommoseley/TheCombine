@@ -8,8 +8,6 @@ Per ADR-044 WS-044-06, this service enables:
 - Validation that failures block promotion
 """
 
-import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime

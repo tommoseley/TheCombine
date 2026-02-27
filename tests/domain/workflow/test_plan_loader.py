@@ -3,7 +3,6 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import mock_open, patch
 
 from app.domain.workflow.plan_loader import PlanLoader, PlanLoadError
 from app.domain.workflow.plan_models import WorkflowPlan

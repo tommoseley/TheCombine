@@ -2,13 +2,11 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel
 
 from app.domain.workflow import (
     WorkflowRegistry,
-    WorkflowLoader,
     PromptLoader,
     FileStatePersistence,
     InMemoryStatePersistence,

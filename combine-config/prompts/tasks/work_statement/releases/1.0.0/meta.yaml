@@ -1,0 +1,3 @@
+name: "Work Statement Task"
+intent: "Generate a work statement document"
+tags: ["work_statement"]

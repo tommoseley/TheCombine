@@ -63,13 +63,13 @@ class OutcomeRecorder:
         # Validate gate outcome exists
         if not state.gate_outcome:
             raise OutcomeRecorderError(
-                f"Cannot record outcome: state has no gate_outcome"
+                "Cannot record outcome: state has no gate_outcome"
             )
 
         # Validate terminal outcome exists
         if not state.terminal_outcome:
             raise OutcomeRecorderError(
-                f"Cannot record outcome: state has no terminal_outcome"
+                "Cannot record outcome: state has no terminal_outcome"
             )
 
         # Verify outcome mapping is consistent

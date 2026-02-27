@@ -201,11 +201,11 @@ export default function ConfigDrivenDocViewer({
     };
 
     return (
-        <div className="flex flex-col h-full" style={{ background: '#ffffff' }}>
+        <div className="flex flex-col h-full" style={{ background: 'var(--bg-canvas)' }}>
             {/* Document header */}
             <div
                 className="px-5 py-3 border-b"
-                style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+                style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-panel)' }}
             >
                 <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
                     {projectCode && (
@@ -252,11 +252,11 @@ export default function ConfigDrivenDocViewer({
                         </span>
                     )}
                 </div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
                     {displayTitle}
                 </h2>
                 {generatedDate && (
-                    <div style={{ marginTop: 2, fontSize: 12, color: '#9ca3af' }}>
+                    <div style={{ marginTop: 2, fontSize: 12, color: 'var(--text-dim)' }}>
                         Generated {generatedDate}
                         {updatedDate && updatedDate !== generatedDate && (
                             <span> &middot; Updated {updatedDate}</span>
@@ -269,8 +269,8 @@ export default function ConfigDrivenDocViewer({
             <div
                 className="flex items-center gap-1 px-4 border-b"
                 style={{
-                    background: '#ffffff',
-                    borderColor: '#e2e8f0',
+                    background: 'var(--bg-canvas)',
+                    borderColor: 'var(--border-panel)',
                     minHeight: 40,
                 }}
             >
@@ -283,7 +283,7 @@ export default function ConfigDrivenDocViewer({
                             disabled={tab.disabled}
                             className="relative px-4 py-2 text-sm font-medium transition-colors"
                             style={{
-                                color: isActive ? '#4f46e5' : tab.disabled ? '#9ca3af' : '#64748b',
+                                color: isActive ? 'var(--action-primary)' : tab.disabled ? 'var(--text-dim)' : 'var(--text-muted)',
                                 background: 'transparent',
                                 border: 'none',
                                 cursor: tab.disabled ? 'not-allowed' : 'pointer',
@@ -294,8 +294,8 @@ export default function ConfigDrivenDocViewer({
                                 <span
                                     className="ml-1.5 px-1.5 py-0.5 text-xs rounded-full"
                                     style={{
-                                        background: isActive ? '#eef2ff' : '#f1f5f9',
-                                        color: isActive ? '#4f46e5' : '#64748b',
+                                        background: isActive ? 'var(--bg-selected)' : 'var(--bg-button)',
+                                        color: isActive ? 'var(--action-primary)' : 'var(--text-muted)',
                                     }}
                                 >
                                     {tab.count}
@@ -304,7 +304,7 @@ export default function ConfigDrivenDocViewer({
                             {isActive && (
                                 <div
                                     className="absolute bottom-0 left-0 right-0 h-0.5"
-                                    style={{ background: '#4f46e5' }}
+                                    style={{ background: 'var(--action-primary)' }}
                                 />
                             )}
                         </button>
@@ -370,13 +370,13 @@ function RawContentTabContent({ fields }) {
     return (
         <div className="h-full overflow-y-auto p-6 space-y-6" onWheel={(e) => e.stopPropagation()}>
             {fields.map((field, i) => (
-                <div key={field.fieldName || i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                    <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
-                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1f2937' }}>
+                <div key={field.fieldName || i} style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
+                    <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-node)' }}>
+                        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
                             {field.label || formatFieldLabel(field.fieldName)}
                         </h3>
                         {Array.isArray(field.data) && (
-                            <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>
+                            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-dim)' }}>
                                 {field.data.length}
                             </span>
                         )}
@@ -399,20 +399,20 @@ function RawContentTabContent({ fields }) {
  */
 function RawFieldRenderer({ data, fieldName }) {
     if (data === null || data === undefined) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>No data</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data</span>;
     }
     if (typeof data === 'string') {
-        return <p style={{ fontSize: 14, color: '#1f2937', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{data}</p>;
+        return <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{data}</p>;
     }
     if (Array.isArray(data)) {
         if (data.length === 0) {
-            return <span style={{ color: '#9ca3af', fontSize: 13 }}>Empty list</span>;
+            return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Empty list</span>;
         }
         return (
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} className="space-y-2">
                 {data.map((item, i) => (
-                    <li key={typeof item === 'object' ? (item?.id || i) : i} className="flex items-start gap-2" style={{ fontSize: 14, color: '#374151' }}>
-                        <span style={{ color: '#6b7280', marginTop: 2, flexShrink: 0, fontSize: 12 }}>{'\u2022'}</span>
+                    <li key={typeof item === 'object' ? (item?.id || i) : i} className="flex items-start gap-2" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)', marginTop: 2, flexShrink: 0, fontSize: 12 }}>{'\u2022'}</span>
                         <div style={{ flex: 1 }}>
                             {typeof item === 'string' ? (
                                 <span>{item}</span>
@@ -431,11 +431,11 @@ function RawFieldRenderer({ data, fieldName }) {
         return (
             <div className="space-y-3">
                 {Object.entries(data).map(([k, v]) => (
-                    <div key={k} style={{ borderLeft: '3px solid #e2e8f0', paddingLeft: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                    <div key={k} style={{ borderLeft: '3px solid var(--border-node)', paddingLeft: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
                             {formatFieldLabel(k)}
                         </div>
-                        <div style={{ fontSize: 14, color: '#1f2937' }}>
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
                             {typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
                         </div>
                     </div>
@@ -445,7 +445,7 @@ function RawFieldRenderer({ data, fieldName }) {
     }
     // Fallback
     return (
-        <pre style={{ margin: 0, fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+        <pre style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
             {JSON.stringify(data, null, 2)}
         </pre>
     );
@@ -476,7 +476,7 @@ function RawStructuredItem({ item }) {
     if (!text) {
         // No recognizable primary field: show all as inline key-value pairs
         return (
-            <span style={{ fontSize: 13, color: '#374151' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 {Object.entries(item).map(([k, v], i) => (
                     <span key={k}>
                         {i > 0 && ' \u00B7 '}
@@ -491,10 +491,10 @@ function RawStructuredItem({ item }) {
     return (
         <div>
             <div className="flex items-center gap-2 flex-wrap">
-                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{id}</span>}
+                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{id}</span>}
                 <span style={{ fontWeight: 500 }}>{text}</span>
                 {constraintType && (
-                    <span style={{ fontSize: 11, padding: '1px 6px', background: '#f3f4f6', borderRadius: 4, color: '#6b7280' }}>{constraintType}</span>
+                    <span style={{ fontSize: 11, padding: '1px 6px', background: 'var(--bg-button)', borderRadius: 4, color: 'var(--text-muted)' }}>{constraintType}</span>
                 )}
                 {confidence && (
                     <span style={{
@@ -509,10 +509,10 @@ function RawStructuredItem({ item }) {
                     </span>
                 )}
             </div>
-            {validation && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Validation: {validation}</p>}
-            {why && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Why: {why}</p>}
-            {impact && typeof impact === 'string' && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Impact: {impact}</p>}
-            {mitigation && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Mitigation: {mitigation}</p>}
+            {validation && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Validation: {validation}</p>}
+            {why && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Why: {why}</p>}
+            {impact && typeof impact === 'string' && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Impact: {impact}</p>}
+            {mitigation && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Mitigation: {mitigation}</p>}
             {recommendation && <p style={{ fontSize: 12, color: '#059669', margin: '2px 0 0' }}>Recommendation: {recommendation}</p>}
         </div>
     );

@@ -80,24 +80,39 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform architecture spec data.
-        
-        - Ensure arrays exist
+
+        - Migrate legacy field names to schema-canonical names
+        - Normalize quality_attributes (array -> object)
+        - Ensure required fields exist with correct types
         - Normalize summary structure
         """
-        # Ensure all array fields exist
-        array_fields = [
-            "components",
-            "data_model",
-            "interfaces", 
-            "workflows",
-            "quality_attributes",
-            "risks",
-        ]
-        
-        for field in array_fields:
+        # Legacy field name migration (handler used to create wrong names)
+        if "data_model" in data and "data_models" not in data:
+            data["data_models"] = data.pop("data_model")
+        if "interfaces" in data and "api_interfaces" not in data:
+            data["api_interfaces"] = data.pop("interfaces")
+
+        # Ensure all array fields exist with schema-canonical names
+        for field in [
+            "components", "data_models", "api_interfaces",
+            "workflows", "risks", "open_questions",
+        ]:
             if field not in data:
                 data[field] = []
-        
+
+        # Normalize quality_attributes: schema says object, LLM may produce array
+        qa = data.get("quality_attributes")
+        if isinstance(qa, list):
+            qa_obj = {}
+            for item in qa:
+                if isinstance(item, dict) and "name" in item:
+                    key = item["name"].lower().replace(" ", "_")
+                    qa_obj[key] = item.get("acceptance_criteria",
+                                           item.get("criteria", []))
+            data["quality_attributes"] = qa_obj
+        elif not isinstance(qa, dict):
+            data["quality_attributes"] = {}
+
         # Ensure architecture_summary is structured
         if "architecture_summary" not in data:
             data["architecture_summary"] = {}
@@ -106,7 +121,7 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
                 "title": "Architecture Overview",
                 "refined_description": data["architecture_summary"],
             }
-        
+
         return data
     
     # =========================================================================
@@ -153,12 +168,12 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
             html_parts.append(self._render_components(components))
         
         # Data Models
-        data_models = data.get("data_model", [])
+        data_models = data.get("data_models", [])
         if data_models:
             html_parts.append(self._render_data_models(data_models))
-        
+
         # Interfaces
-        interfaces = data.get("interfaces", [])
+        interfaces = data.get("api_interfaces", [])
         if interfaces:
             html_parts.append(self._render_interfaces(interfaces))
         
@@ -200,7 +215,7 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
         components = data.get("components", [])
         component_count = len(components)
         
-        interfaces = data.get("interfaces", [])
+        interfaces = data.get("api_interfaces", [])
         interface_count = len(interfaces)
         
         risks = data.get("risks", [])
@@ -516,7 +531,7 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
     
     def _render_quality_attributes(self, qa_list: List[Dict]) -> str:
         """Render quality attributes section."""
-        html = f'''
+        html = '''
         <div class="bg-white rounded-lg border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
                 <i data-lucide="target" class="w-5 h-5 text-gray-600"></i>
@@ -547,7 +562,7 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
     
     def _render_risks(self, risks: List[Dict]) -> str:
         """Render risks section."""
-        html = f'''
+        html = '''
         <div class="bg-white rounded-lg border border-gray-200">
             <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
                 <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>

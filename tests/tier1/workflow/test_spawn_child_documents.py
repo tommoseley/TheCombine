@@ -17,15 +17,15 @@ class FakeState:
 
 # Minimal Document stub
 class FakeDocument:
-    def __init__(self, epic_id, version=1, is_latest=True, lifecycle_state="complete"):
+    def __init__(self, wp_id, version=1, is_latest=True, lifecycle_state="complete"):
         self.id = uuid4()
-        self.content = {"epic_id": epic_id}
-        self.title = f"Epic: {epic_id}"
+        self.content = {"work_package_id": wp_id}
+        self.title = f"Work Package: {wp_id}"
         self.version = version
         self.is_latest = is_latest
         self.lifecycle_state = lifecycle_state
-        self.doc_type_id = "epic"
-        self.instance_id = epic_id
+        self.doc_type_id = "work_package"
+        self.instance_id = wp_id
 
     def update_revision_hash(self):
         pass
@@ -34,15 +34,15 @@ class FakeDocument:
         self.lifecycle_state = "stale"
 
 
-def _make_child_specs(epic_ids):
+def _make_child_specs(wp_ids):
     """Build child specs like the handler would produce."""
     return [
         {
-            "doc_type_id": "epic",
-            "title": f"Epic: {eid}",
+            "doc_type_id": "work_package",
+            "title": f"Work Package: {wid}",
             "content": {
-                "epic_id": eid,
-                "name": eid.replace("_", " ").title(),
+                "work_package_id": wid,
+                "name": wid.replace("_", " ").title(),
                 "_lineage": {
                     "parent_document_type": "implementation_plan",
                     "parent_execution_id": None,
@@ -51,9 +51,9 @@ def _make_child_specs(epic_ids):
                     "transformation_notes": "",
                 },
             },
-            "identifier": eid,
+            "identifier": wid,
         }
-        for eid in epic_ids
+        for wid in wp_ids
     ]
 
 
@@ -170,7 +170,7 @@ class TestSpawnChildDocuments:
         # Existing doc should be updated
         assert existing_doc.content["intent"] == "Updated intent"
         assert existing_doc.version == 2
-        assert existing_doc.title == "Epic: alpha"
+        assert existing_doc.title == "Work Package: alpha"
 
     @pytest.mark.asyncio
     async def test_supersedes_removed_children(self, executor):
@@ -301,7 +301,7 @@ class TestSpawnChildDocuments:
         assert call_args[0][1] == "children_updated"
         event_data = call_args[0][2]
         assert event_data["parent_document_type"] == "implementation_plan"
-        assert event_data["child_doc_type"] == "epic"
+        assert event_data["child_doc_type"] == "work_package"
         assert "gamma" in event_data["created"]
         assert "alpha" in event_data["updated"]
         assert event_data["superseded"] == []
@@ -340,8 +340,8 @@ class TestSpawnChildDocuments:
 
         # Content in raw envelope format (as stored by LLM handler)
         inner_content = {
-            "epics": [
-                {"epic_id": "alpha", "name": "Alpha Epic"}
+            "work_packages": [
+                {"work_package_id": "alpha", "name": "Alpha WP"}
             ]
         }
         raw_envelope = {
@@ -366,6 +366,6 @@ class TestSpawnChildDocuments:
         # Handler should have received the unwrapped content, not the envelope
         call_args = mock_handler.return_value.get_child_documents.call_args
         received_data = call_args[0][0]
-        assert "epics" in received_data
-        assert received_data["epics"][0]["epic_id"] == "alpha"
+        assert "work_packages" in received_data
+        assert received_data["work_packages"][0]["work_package_id"] == "alpha"
         assert "raw" not in received_data

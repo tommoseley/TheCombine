@@ -10,7 +10,7 @@ INVARIANTS (WS-INTAKE-ENGINE-001):
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from app.domain.workflow.plan_models import (
     ConditionOperator,

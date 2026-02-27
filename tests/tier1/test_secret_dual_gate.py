@@ -6,15 +6,12 @@ Tests are organized by criterion number.
 """
 
 import json
-import logging
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-from starlette.testclient import TestClient
 
 from app.core.secret_detector import (
-    ScanResult,
     scan_text,
     scan_dict,
     redact_for_logging,

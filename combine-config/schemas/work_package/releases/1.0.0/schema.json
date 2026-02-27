@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_package.v1.json",
+  "type": "object",
+  "title": "Work Package",
+  "description": "A governed unit of planned work produced from committed IPF output. Tracks scope, dependencies, governance pins, and completion criteria.",
+  "required": [
+    "wp_id",
+    "title",
+    "rationale",
+    "scope_in",
+    "scope_out",
+    "dependencies",
+    "definition_of_done",
+    "governance_pins"
+  ],
+  "properties": {
+    "wp_id": {
+      "type": "string",
+      "description": "Unique identifier (snake_case).",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable Work Package title."
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this Work Package is needed."
+    },
+    "scope_in": {
+      "type": "array",
+      "description": "What is explicitly in scope.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope_out": {
+      "type": "array",
+      "description": "What is explicitly excluded.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "WP IDs this depends on.",
+      "items": { "$ref": "#/definitions/wp_dependency" }
+    },
+    "definition_of_done": {
+      "type": "array",
+      "description": "Measurable completion criteria.",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "governance_pins": {
+      "type": "object",
+      "description": "Governance references pinned at reconciliation time.",
+      "required": ["ta_version_id"],
+      "properties": {
+        "ta_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Technical Architecture version that informed this WP."
+        },
+        "adr_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ADR IDs that apply to this WP."
+        },
+        "policy_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Policy IDs that apply to this WP."
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "description": "Lifecycle state (set by handler, not by LLM).",
+      "enum": ["PLANNED", "READY", "IN_PROGRESS", "AWAITING_GATE", "DONE"]
+    },
+    "ws_child_refs": {
+      "type": "array",
+      "description": "Work Statement child document references.",
+      "items": { "type": "string" }
+    },
+    "ws_total": {
+      "type": "integer",
+      "description": "Total Work Statements registered to this WP.",
+      "minimum": 0
+    },
+    "ws_done": {
+      "type": "integer",
+      "description": "Work Statements in ACCEPTED state.",
+      "minimum": 0
+    },
+    "mode_b_count": {
+      "type": "integer",
+      "description": "Work Statements using Mode B verification.",
+      "minimum": 0
+    },
+    "source_candidate_ids": {
+      "type": "array",
+      "description": "IPP WP candidate IDs this WP was derived from.",
+      "items": {
+        "type": "string",
+        "pattern": "^WPC-\\d{1,4}$"
+      }
+    },
+    "transformation": {
+      "type": "string",
+      "description": "How this WP relates to IPP WP candidates.",
+      "enum": ["kept", "split", "merged", "added"]
+    },
+    "transformation_notes": {
+      "type": "string",
+      "description": "Justification for the transformation."
+    },
+    "_lineage": {
+      "type": "object",
+      "description": "Lineage metadata injected by the handler.",
+      "properties": {
+        "parent_document_type": { "type": "string" },
+        "parent_execution_id": { "type": ["string", "null"] },
+        "source_candidate_ids": { "type": "array", "items": { "type": "string" } },
+        "transformation": { "type": "string" },
+        "transformation_notes": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "wp_dependency": {
+      "type": "object",
+      "required": ["wp_id", "dependency_type"],
+      "properties": {
+        "wp_id": {
+          "type": "string",
+          "description": "Dependent wp_id.",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "dependency_type": {
+          "type": "string",
+          "enum": ["must_complete_first", "can_start_after", "soft"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

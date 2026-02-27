@@ -143,7 +143,7 @@ class ProjectDiscoveryHandler(BaseDocumentHandler):
         html_parts = []
         
         # Header
-        html_parts.append(f'''
+        html_parts.append('''
         <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center">

@@ -10,7 +10,7 @@ This is Gate 1 of the dual-gate architecture.
 
 import json
 import logging
-from urllib.parse import parse_qs, unquote_plus
+from urllib.parse import parse_qs
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware

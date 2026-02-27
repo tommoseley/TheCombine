@@ -2,14 +2,12 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.routers.documents import (
     router,
-    get_document_repository,
     set_document_repository,
     reset_document_repository,
 )

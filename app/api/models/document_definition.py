@@ -41,7 +41,7 @@ class DocumentDefinition(Base):
         String(150),
         nullable=False,
         unique=True,
-        doc="Canonical docdef ID with semver (e.g., docdef:EpicBacklog:1.0.0)",
+        doc="Canonical docdef ID with semver (e.g., docdef:ImplementationPlan:1.0.0)",
     )
     
     # Optional document schema reference (nullable for MVP)

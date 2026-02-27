@@ -1,8 +1,7 @@
 """Tests for prompt builder."""
 
-import pytest
 
-from app.llm.models import Message, MessageRole
+from app.llm.models import MessageRole
 from app.llm.prompt_builder import (
     PromptBuilder,
     PromptContext,

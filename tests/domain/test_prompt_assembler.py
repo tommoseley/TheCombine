@@ -6,13 +6,10 @@ Per WS-ADR-034-POC Phase 8.2: Tests for prompt assembly service.
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
 from app.domain.services.prompt_assembler import (
     PromptAssembler,
     AssembledPrompt,
-    DocDefNotFoundError,
-    ComponentNotFoundError,
 )
 
 

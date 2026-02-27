@@ -6,7 +6,7 @@ Staleness is informational, not destructive - documents remain viewable.
 """
 
 import logging
-from typing import Dict, List, Set
+from typing import Dict, List
 from uuid import UUID
 
 from sqlalchemy import update, select, and_
@@ -26,9 +26,7 @@ logger = logging.getLogger(__name__)
 
 DOCUMENT_TYPE_DEPENDENCIES: Dict[str, List[str]] = {
     # doc_type_id -> list of doc_type_ids that depend on it
-    "project_discovery": ["epic_backlog", "technical_architecture"],
-    "epic_backlog": ["story_backlog", "technical_architecture"],
-    # story_backlog has no downstream dependents
+    "project_discovery": ["technical_architecture"],
     # technical_architecture has no downstream dependents
 }
 

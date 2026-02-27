@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
-    NodeResult,
 )
 from app.domain.workflow.nodes.task import TaskNodeExecutor
 from app.domain.workflow.nodes.gate import GateNodeExecutor

@@ -4,7 +4,6 @@ Tier-1 tests for ProjectTreeResponse workflow fields (ADR-046 Phase 6).
 Validates that ProjectTreeResponse includes has_workflow and workflow_status,
 and that the WorkflowInstance model has proper FK cascade on project deletion.
 """
-import pytest
 
 from app.api.v1.routers.projects import ProjectTreeResponse, ProjectResponse
 from app.api.models.workflow_instance import WorkflowInstance

@@ -12,6 +12,7 @@
 #   ops/scripts/tier0.sh --frontend                    # force SPA build
 #   ops/scripts/tier0.sh --scope app/ tests/           # validate file scope
 #   ops/scripts/tier0.sh --ws --scope ops/ tests/      # WS mode: scope mandatory
+#   ops/scripts/tier0.sh --skip-checks pytest,lint      # skip expensive checks (harness tests)
 #
 # WS mode (WS-TIER0-SCOPE-001):
 #   Activated by --ws flag or COMBINE_WS_ID env var.
@@ -24,6 +25,7 @@
 #   3. Backend types  (mypy)   — FAILS if missing, unless --allow-missing typecheck
 #   4. Frontend build (vite)   — auto-runs when spa/ files changed, or --frontend
 #   5. Scope validation        — mandatory in WS mode, opt-in otherwise
+#   6. Registry integrity      — all active_releases assets resolve (WS-REGISTRY-001)
 #
 # Mode B:
 #   --allow-missing <check>  declares a Mode B exception for a missing tool.
@@ -57,6 +59,7 @@ FRONTEND_FORCED=false
 WS_FLAG=false
 SCOPE_PATHS=()
 ALLOWED_MISSING=()
+SKIP_CHECKS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -75,6 +78,16 @@ while [[ $# -gt 0 ]]; do
                 shift
             done
             ;;
+        --skip-checks)
+            shift
+            if [[ $# -eq 0 ]]; then
+                echo "ERROR: --skip-checks requires comma-separated check names" >&2
+                exit 2
+            fi
+            IFS=',' read -ra _skips <<< "$1"
+            SKIP_CHECKS+=("${_skips[@]}")
+            shift
+            ;;
         --allow-missing)
             shift
             if [[ $# -eq 0 ]]; then
@@ -86,7 +99,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "ERROR: Unknown argument: $1" >&2
-            echo "Usage: tier0.sh [--ws] [--frontend] [--scope path1 ...] [--allow-missing check ...]" >&2
+            echo "Usage: tier0.sh [--ws] [--frontend] [--scope path1 ...] [--allow-missing check ...] [--skip-checks check1,check2]" >&2
             exit 2
             ;;
     esac
@@ -152,6 +165,16 @@ is_allowed_missing() {
     return 1
 }
 
+is_check_skipped() {
+    local check="$1"
+    for skipped in "${SKIP_CHECKS[@]+"${SKIP_CHECKS[@]}"}"; do
+        if [[ "$skipped" == "$check" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ---------------------------------------------------------------------------
 # Collect changed files (used by lint, frontend detection, scope)
 # ---------------------------------------------------------------------------
@@ -203,17 +226,22 @@ OVERALL_EXIT=0
 # Check 1: Backend tests (pytest)
 # ---------------------------------------------------------------------------
 echo "=== CHECK 1: Backend Tests (pytest) ==="
-# Ignore harness meta-tests to avoid recursive invocation
-python3 -m pytest tests/ -x -q \
-    --ignore=tests/infrastructure/test_tier0_harness.py \
-    2>&1
-RESULTS[pytest]=$?
-
-if [[ ${RESULTS[pytest]} -ne 0 ]]; then
-    echo "FAIL: pytest"
-    OVERALL_EXIT=1
+if is_check_skipped "pytest"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[pytest]="SKIP"
 else
-    echo "PASS: pytest"
+    # Ignore harness meta-tests to avoid recursive invocation
+    python3 -m pytest tests/ -x -q \
+        --ignore=tests/infrastructure/test_tier0_harness.py \
+        2>&1
+    RESULTS[pytest]=$?
+
+    if [[ ${RESULTS[pytest]} -ne 0 ]]; then
+        echo "FAIL: pytest"
+        OVERALL_EXIT=1
+    else
+        echo "PASS: pytest"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -222,7 +250,10 @@ fi
 echo ""
 echo "=== CHECK 2: Backend Lint (ruff) ==="
 
-if ! command -v ruff &>/dev/null; then
+if is_check_skipped "lint"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[lint]="SKIP"
+elif ! command -v ruff &>/dev/null; then
     if is_allowed_missing "lint"; then
         echo "B-MODE ACTIVE: lint (ruff not installed)"
         RESULTS[lint]="SKIP_B"
@@ -265,7 +296,10 @@ fi
 echo ""
 echo "=== CHECK 3: Backend Type Check (mypy) ==="
 
-if ! command -v mypy &>/dev/null; then
+if is_check_skipped "typecheck"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[typecheck]="SKIP"
+elif ! command -v mypy &>/dev/null; then
     if is_allowed_missing "typecheck"; then
         echo "B-MODE ACTIVE: typecheck (mypy not installed)"
         RESULTS[typecheck]="SKIP_B"
@@ -296,7 +330,10 @@ echo "=== CHECK 4: Frontend Build ==="
 spa_changed=$(echo "$ALL_CHANGED" | grep -E '^spa/' || true)
 RUN_FRONTEND=false
 
-if [[ "$FRONTEND_FORCED" == "true" ]]; then
+if is_check_skipped "frontend"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[frontend]="SKIP"
+elif [[ "$FRONTEND_FORCED" == "true" ]]; then
     RUN_FRONTEND=true
     echo "(forced via --frontend)"
 elif [[ -n "$spa_changed" ]]; then
@@ -304,24 +341,26 @@ elif [[ -n "$spa_changed" ]]; then
     echo "(auto-detected spa/ changes)"
 fi
 
-if [[ "$RUN_FRONTEND" == "true" ]]; then
-    if [[ -d "$REPO_ROOT/spa" ]]; then
-        (cd "$REPO_ROOT/spa" && npm run build) 2>&1
-        RESULTS[frontend]=$?
-        if [[ ${RESULTS[frontend]} -ne 0 ]]; then
-            echo "FAIL: frontend"
-            OVERALL_EXIT=1
+if [[ "${RESULTS[frontend]:-}" != "SKIP" ]]; then
+    if [[ "$RUN_FRONTEND" == "true" ]]; then
+        if [[ -d "$REPO_ROOT/spa" ]]; then
+            (cd "$REPO_ROOT/spa" && npm run build) 2>&1
+            RESULTS[frontend]=$?
+            if [[ ${RESULTS[frontend]} -ne 0 ]]; then
+                echo "FAIL: frontend"
+                OVERALL_EXIT=1
+            else
+                echo "PASS: frontend"
+            fi
         else
-            echo "PASS: frontend"
+            echo "WARNING: spa/ directory not found"
+            RESULTS[frontend]=1
+            OVERALL_EXIT=1
         fi
     else
-        echo "WARNING: spa/ directory not found"
-        RESULTS[frontend]=1
-        OVERALL_EXIT=1
+        echo "SKIPPED (no spa/ changes detected; use --frontend to force)"
+        RESULTS[frontend]="SKIP"
     fi
-else
-    echo "SKIPPED (no spa/ changes detected; use --frontend to force)"
-    RESULTS[frontend]="SKIP"
 fi
 
 # ---------------------------------------------------------------------------
@@ -333,7 +372,10 @@ if [[ "$WS_MODE" == "true" ]]; then
     echo "(WS mode: scope enforcement mandatory)"
 fi
 
-if [[ ${#SCOPE_PATHS[@]} -gt 0 ]]; then
+if is_check_skipped "scope"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[scope]="SKIP"
+elif [[ ${#SCOPE_PATHS[@]} -gt 0 ]]; then
     scope_violations=""
     for f in $ALL_CHANGED; do
         in_scope=false
@@ -363,6 +405,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Check 6: Registry integrity (WS-REGISTRY-001)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== CHECK 6: Registry Integrity ==="
+
+if is_check_skipped "registry"; then
+    echo "SKIPPED (--skip-checks)"
+    RESULTS[registry]="SKIP"
+else
+    python3 ops/scripts/check_registry_integrity.py 2>&1
+    RESULTS[registry]=$?
+    if [[ ${RESULTS[registry]} -ne 0 ]]; then
+        echo "FAIL: registry integrity"
+        OVERALL_EXIT=1
+    else
+        echo "PASS: registry integrity"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Human-readable summary
 # ---------------------------------------------------------------------------
 echo ""
@@ -370,7 +432,7 @@ echo "========================================="
 echo "          TIER 0 SUMMARY"
 echo "========================================="
 SKIP_COUNT=0
-for check in pytest lint typecheck frontend scope; do
+for check in pytest lint typecheck frontend scope registry; do
     status="${RESULTS[$check]}"
     if [[ "$status" == "SKIP" ]]; then
         printf "  %-12s SKIPPED\n" "$check"
@@ -408,7 +470,7 @@ END_EPOCH_MS=$(date +%s%3N 2>/dev/null || echo $(($(date +%s) * 1000)))
 DURATION_MS=$((END_EPOCH_MS - START_EPOCH_MS))
 
 json_checks=""
-for check in pytest lint typecheck frontend scope; do
+for check in pytest lint typecheck frontend scope registry; do
     status="${RESULTS[$check]}"
     if [[ "$status" == "SKIP" ]]; then
         label="SKIP"

@@ -7,13 +7,11 @@ from fastapi.testclient import TestClient
 from app.api.v1 import api_router
 from app.api.v1.dependencies import get_workflow_registry, get_persistence, clear_caches
 from app.api.v1.routers.executions import reset_execution_service
-from app.api.v1.services.execution_service import ExecutionService
 from app.domain.workflow import (
     Workflow,
     WorkflowStep,
     ScopeConfig,
     DocumentTypeConfig,
-    EntityTypeConfig,
     WorkflowNotFoundError,
     InMemoryStatePersistence,
 )

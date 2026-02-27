@@ -13,8 +13,6 @@ from app.domain.workflow import (
     WorkflowStep,
     ScopeConfig,
     DocumentTypeConfig,
-    EntityTypeConfig,
-    IterationConfig,
     WorkflowNotFoundError,
     InMemoryStatePersistence,
 )

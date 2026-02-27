@@ -9,7 +9,6 @@ Implements the Intake Sufficiency Rule:
 This replaces prompt-based conversational logic with a hard checklist.
 """
 
-import json
 import logging
 import re
 from dataclasses import dataclass, field, asdict

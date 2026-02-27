@@ -3,7 +3,7 @@
 import pytest
 from typing import Any, Dict, Optional
 
-from app.domain.workflow.step_executor import StepExecutor, ExecutionResult
+from app.domain.workflow.step_executor import StepExecutor
 from app.domain.workflow.step_state import StepState, StepStatus
 from app.domain.workflow.models import (
     Workflow, WorkflowStep, ScopeConfig, DocumentTypeConfig, InputReference

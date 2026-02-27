@@ -1,0 +1,3 @@
+name: "Work Package Task"
+intent: "Generate a work package document"
+tags: ["work_package"]

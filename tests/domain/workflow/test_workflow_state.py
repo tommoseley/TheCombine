@@ -1,12 +1,10 @@
 """Tests for workflow state."""
 
-import pytest
-from datetime import datetime, timezone
 
 from app.domain.workflow.workflow_state import (
     WorkflowState, WorkflowStatus, IterationProgress, AcceptanceDecision
 )
-from app.domain.workflow.step_state import StepState, StepStatus
+from app.domain.workflow.step_state import StepState
 
 
 class TestWorkflowStatus:
@@ -42,29 +40,29 @@ class TestAcceptanceDecision:
     
     def test_to_dict(self):
         decision = AcceptanceDecision(
-            doc_type="epic_backlog",
+            doc_type="implementation_plan",
             scope_id=None,
             accepted=True,
             comment="Looks good",
             decided_by="user_123",
         )
         data = decision.to_dict()
-        assert data["doc_type"] == "epic_backlog"
+        assert data["doc_type"] == "implementation_plan"
         assert data["accepted"] is True
         assert data["comment"] == "Looks good"
-    
+
     def test_from_dict(self):
         data = {
-            "doc_type": "epic_backlog",
-            "scope_id": "epic_1",
+            "doc_type": "implementation_plan",
+            "scope_id": "wp_1",
             "accepted": False,
             "comment": "Needs work",
             "decided_by": "user_456",
             "decided_at": "2026-01-03T12:00:00+00:00",
         }
         decision = AcceptanceDecision.from_dict(data)
-        assert decision.doc_type == "epic_backlog"
-        assert decision.scope_id == "epic_1"
+        assert decision.doc_type == "implementation_plan"
+        assert decision.scope_id == "wp_1"
         assert decision.accepted is False
 
 
@@ -106,10 +104,10 @@ class TestWorkflowState:
     def test_wait_for_acceptance(self):
         state = WorkflowState(workflow_id="wf1", project_id="proj1")
         state.start()
-        state.wait_for_acceptance("epic_backlog", "epic_1")
+        state.wait_for_acceptance("implementation_plan", "wp_1")
         assert state.status == WorkflowStatus.WAITING_ACCEPTANCE
-        assert state.pending_acceptance == "epic_backlog"
-        assert state.pending_acceptance_scope_id == "epic_1"
+        assert state.pending_acceptance == "implementation_plan"
+        assert state.pending_acceptance_scope_id == "wp_1"
     
     def test_wait_for_clarification(self):
         state = WorkflowState(workflow_id="wf1", project_id="proj1")

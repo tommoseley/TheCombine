@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # Test 2: Import Document
     try:
         from app.api.models.document import Document
-        print(f"✅ Document model imported")
+        print("✅ Document model imported")
         print(f"   Table name: {Document.__tablename__}")
     except ImportError as e:
         print(f"❌ Failed to import Document: {e}")
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     # Test 3: Import Project
     try:
         from app.api.models import Project
-        print(f"✅ Project model imported")
+        print("✅ Project model imported")
         print(f"   Table name: {Project.__tablename__}")
     except ImportError as e:
         print(f"❌ Failed to import Project: {e}")
@@ -36,7 +36,7 @@ if __name__ == "__main__":
             LLMContent, LLMRun, LLMRunInputRef,
             LLMRunOutputRef, LLMRunError, LLMRunToolCall
         )
-        print(f"✅ LLM models imported from app.domain.models")
+        print("✅ LLM models imported from app.domain.models")
         print(f"   LLMContent table: {LLMContent.__tablename__}")
         print(f"   LLMRun table: {LLMRun.__tablename__}")
     except ImportError as e:
@@ -60,6 +60,6 @@ if __name__ == "__main__":
             for table in sorted(llm_tables):
                 print(f"  - {table}")
         else:
-            print(f"\n❌ No LLM logging tables found!")
+            print("\n❌ No LLM logging tables found!")
     except Exception as e:
         print(f"❌ Error checking LLM tables: {e}")

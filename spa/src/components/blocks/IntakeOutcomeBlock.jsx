@@ -38,7 +38,7 @@ export default function IntakeOutcomeBlock({ block }) {
                         margin: 0,
                         marginBottom: next_action ? 12 : 0,
                         fontSize: 13,
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         lineHeight: 1.5,
                     }}
                 >

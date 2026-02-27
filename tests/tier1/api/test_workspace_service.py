@@ -7,7 +7,7 @@ without external dependencies (Git, filesystem).
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock
 from dataclasses import dataclass
 
 from app.api.services.workspace_service import (
@@ -16,10 +16,6 @@ from app.api.services.workspace_service import (
     WorkspaceNotFoundError,
     WorkspaceDirtyError,
     ArtifactIdError,
-    ArtifactNotFoundError,
-    WorkspaceState,
-    Tier1Report,
-    Tier1Result,
     WORKSPACE_TTL_HOURS,
 )
 

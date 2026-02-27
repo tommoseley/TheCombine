@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol
 
-from app.llm.models import Message, MessageRole
+from app.llm.models import Message
 
 
 class DocumentProvider(Protocol):

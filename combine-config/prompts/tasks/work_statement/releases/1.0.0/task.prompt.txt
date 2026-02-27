@@ -1,0 +1,147 @@
+# Task: Work Statement Production
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Produce one or more Work Statement documents by decomposing a committed Work Package
+into authorized units of execution. Each Work Statement defines a discrete scope of work
+with clear procedure, verification criteria, and file-path constraints.
+
+This document is the authoritative record for one unit of executable work.
+Each Work Statement will be executed by a developer agent following Mode A or Mode B
+verification as defined by project policy.
+
+## Inputs Provided
+
+You will receive:
+
+* Work Package - the parent WP containing scope, dependencies, governance pins,
+  and definition of done. Each WS must reference this WP's wp_id as parent_wp_id.
+
+* Technical Architecture - the governing TA document that provides structural
+  constraints, allowed patterns, and ADR references. The TA informs allowed_paths
+  and governance_pins for each WS.
+
+These are the ONLY sources of requirements. No other context may be assumed.
+
+## Work Statement Structure
+
+Each Work Statement document must contain:
+
+* ws_id - unique identifier (format: WS-{PARENT_WP}-NNN, e.g., "WS-DCW-001")
+* parent_wp_id - the wp_id of the parent Work Package (required, non-empty)
+* title - human-readable Work Statement title
+* objective - what this Work Statement achieves (clear, measurable)
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* allowed_paths - file/directory paths this WS may touch (array of strings, may be empty)
+* procedure - ordered steps to execute (array of strings, minimum 1)
+* verification_criteria - measurable completion criteria (array of strings, minimum 1)
+* prohibited_actions - what the executor MUST NOT do (array of strings)
+* governance_pins - governance references from the parent WP and TA:
+  * ta_version_id - Technical Architecture version (required, non-empty)
+  * adr_refs - applicable ADR IDs (may be empty array)
+  * policy_refs - applicable policy IDs (may be empty array)
+
+## Parent Reference Requirements
+
+Every Work Statement MUST carry parent_wp_id:
+
+1. parent_wp_id MUST match the wp_id of the parent Work Package
+2. This creates traceability from execution back to planned work
+3. A WS without parent_wp_id is always invalid
+
+## Allowed Paths Requirements
+
+allowed_paths constrains which files and directories the WS executor may modify:
+
+1. Paths should be relative to the project root
+2. Directory paths should end with / (e.g., "app/domain/handlers/")
+3. An empty array means no file-path constraints (unrestricted)
+4. Paths should be informed by the Technical Architecture's structural constraints
+
+## Governance Pin Requirements
+
+Every Work Statement MUST carry governance_pins:
+
+1. ta_version_id MUST be non-empty - it identifies which Technical Architecture
+   version informed this Work Statement's constraints
+2. adr_refs SHOULD reference any ADRs that constrain or govern this WS's execution
+3. policy_refs SHOULD reference any policies that constrain this WS's execution
+
+These pins create traceability from execution back to architectural decisions.
+
+## Decomposition Rules
+
+When decomposing a Work Package into Work Statements:
+
+* Each WS must be independently executable
+* Each WS must have a clear, testable objective
+* WS scope must not overlap (no two WSs touch the same concern)
+* The union of all WS scopes must cover the WP's scope_in
+* Procedure steps must be concrete and ordered
+* Verification criteria must be measurable without human judgment
+
+## What You MUST NOT Do
+
+* Do not create Work Statements that exceed the parent WP's scope
+* Do not assign estimates, timelines, or ownership
+* Do not modify the governance_pins from what the WP and TA provide
+* Do not add scope items not derivable from the parent WP
+* Do not create circular dependencies between Work Statements
+* Do not reference prior executions, time, or external state
+* Do not combine unrelated concerns into a single WS
+
+## Output Rules
+
+* Output valid JSON only
+* Follow the Work Statement schema exactly
+* All arrays must be present even if empty
+* Never output null for required fields
+* No commentary, markdown, or explanation outside JSON
+* If producing multiple WSs, output a JSON array of WS objects
+
+## Governance & Audit Constraints
+
+* Each WS must be traceable to its parent WP via parent_wp_id
+* governance_pins.ta_version_id must be populated
+* No implicit decisions or silent interpretations
+* Output must be fully loggable and replayable per ADR-010
+* No bypassing of audit, QA, or traceability mechanisms per ADR-009
+
+## Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+* Produce equivalent output with equivalent scope and intent
+* Preserve semantic meaning across runs
+* Maintain stable ws_id and field values
+* Avoid stylistic variance that alters interpretation
+* Contain no references to time, prior executions, or external state
+
+## Final Self-Check Before Output
+
+1. JSON parses correctly
+2. All required fields present on every WS
+3. Every WS has parent_wp_id matching the input WP's wp_id
+4. governance_pins.ta_version_id is non-empty on every WS
+5. procedure has at least one step per WS
+6. verification_criteria has at least one criterion per WS
+7. scope_in and scope_out are arrays (may be empty)
+8. allowed_paths is an array (may be empty)
+9. No WS exceeds the parent WP's scope
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* Any WS is missing parent_wp_id
+* governance_pins.ta_version_id is empty or missing on any WS
+* procedure is empty on any WS
+* verification_criteria is empty on any WS
+* A WS's scope exceeds the parent WP's scope_in
+* Role identity or authority is restated or altered
+* Output depends on unstated context or prior runs

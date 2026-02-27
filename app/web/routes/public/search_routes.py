@@ -30,10 +30,9 @@ async def search_all(
             "query": q,
             "results": {
                 "projects": results.projects,
-                "epics": results.epics,
-                "stories": results.stories
+                "documents": results.documents
             },
             "affected_paths": affected_paths,
-            "has_results": bool(results.projects or results.epics or results.stories)
+            "has_results": bool(results.projects or results.documents)
         }
     )

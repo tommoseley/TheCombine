@@ -6,15 +6,12 @@ Per WS-ADR-034-POC Phase 8.1: Service unit tests for component registry.
 
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 from app.api.services.component_registry_service import (
     ComponentRegistryService,
     InvalidComponentIdError,
-    ComponentNotFoundError,
-    ComponentAlreadyAcceptedError,
-    SchemaNotFoundError,
     COMPONENT_ID_PATTERN,
 )
 from app.api.models.component_artifact import ComponentArtifact

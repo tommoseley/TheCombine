@@ -1,6 +1,5 @@
 """Tests for document condenser."""
 
-import pytest
 
 from app.llm.document_condenser import (
     DocumentCondenser,

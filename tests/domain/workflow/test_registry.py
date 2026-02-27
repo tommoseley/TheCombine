@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from app.domain.workflow.registry import WorkflowRegistry, WorkflowNotFoundError
-from app.domain.workflow.models import Workflow, ScopeConfig, WorkflowStep, DocumentTypeConfig
+from app.domain.workflow.models import Workflow, ScopeConfig
 
 
 class TestWorkflowRegistry:

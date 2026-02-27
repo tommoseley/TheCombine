@@ -1,7 +1,6 @@
 """Tests for Personal Access Token service."""
 
 import pytest
-import pytest_asyncio
 from datetime import datetime, timedelta, timezone
 
 from app.auth.models import User, PersonalAccessToken, AuthProvider

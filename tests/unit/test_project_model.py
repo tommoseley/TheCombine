@@ -10,7 +10,7 @@ WS-PROJECT-MODEL-001: Behavior preservation tests
 import pytest
 from uuid import uuid4, UUID
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

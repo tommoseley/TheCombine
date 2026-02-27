@@ -3,7 +3,7 @@
 import pytest
 from uuid import uuid4
 
-from app.execution.context import ExecutionContext, StepProgress
+from app.execution.context import ExecutionContext
 from app.persistence import (
     InMemoryDocumentRepository,
     InMemoryExecutionRepository,

@@ -1756,8 +1756,8 @@ class PlanExecutor:
             "CONTEXT": "deployment",
             "SCOPE": "scope",
             "MATH": "scope",
-            "FEATURE": "feature",
-            "TRACKING": "feature",
+            "CAPABILITY": "capability",
+            "TRACKING": "capability",
             "STANDARD": "compliance",
             "EDUCATIONAL": "compliance",
             "SYSTEM": "integration",
@@ -2114,7 +2114,7 @@ class PlanExecutor:
             try:
                 await publish_event(state.project_id, "children_updated", {
                     "parent_document_type": state.document_type,
-                    "child_doc_type": "epic",
+                    "child_doc_type": "work_package",
                     "created": created_ids,
                     "updated": updated_ids,
                     "superseded": superseded_ids,

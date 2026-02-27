@@ -15,7 +15,7 @@ export default function ParagraphBlock({ block }) {
                     margin: 0,
                     fontSize: 14,
                     lineHeight: 1.6,
-                    color: '#374151',
+                    color: 'var(--text-secondary)',
                     whiteSpace: 'pre-line',
                 }}
             >

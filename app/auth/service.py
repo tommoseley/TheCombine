@@ -8,14 +8,12 @@ Business logic for session management, user creation, and audit logging.
 Stage 6: With Account Linking
 """
 import secrets
-import hashlib
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional, Tuple, Dict, Any
 from uuid import UUID
 from collections import deque
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, insert, delete, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, delete, func
 
 from app.auth.models import User, UserSession, AuthEventType
 from app.auth.db_models import (

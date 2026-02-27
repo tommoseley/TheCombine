@@ -6,9 +6,8 @@ end-to-end behavior without requiring actual LLM calls.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
-from datetime import datetime
 
 from fastapi.testclient import TestClient
 
@@ -17,7 +16,6 @@ from app.auth.models import User
 from app.domain.workflow.document_workflow_state import (
     DocumentWorkflowState,
     DocumentWorkflowStatus,
-    NodeExecution,
 )
 
 

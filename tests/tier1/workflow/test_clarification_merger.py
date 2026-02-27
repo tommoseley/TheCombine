@@ -3,7 +3,6 @@
 Per ADR-042 and WS-ADR-042-001 Phase 2.
 """
 
-import pytest
 from app.domain.workflow.clarification_merger import (
     merge_clarifications,
     extract_invariants,

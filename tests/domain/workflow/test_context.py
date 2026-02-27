@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.domain.workflow.context import WorkflowContext, ScopeInstance
+from app.domain.workflow.context import WorkflowContext
 from app.domain.workflow.models import (
     Workflow, ScopeConfig, DocumentTypeConfig, EntityTypeConfig
 )

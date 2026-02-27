@@ -24,7 +24,7 @@ export default function RenderModelViewer({
 
     if (!renderModel) {
         return (
-            <div style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>
                 No render model available
             </div>
         );
@@ -81,7 +81,7 @@ export default function RenderModelViewer({
                             margin: 0,
                             fontSize: 24,
                             fontWeight: 700,
-                            color: '#111827',
+                            color: 'var(--text-primary)',
                         }}
                     >
                         {displayTitle}
@@ -91,7 +91,7 @@ export default function RenderModelViewer({
                             style={{
                                 margin: '8px 0 0',
                                 fontSize: 14,
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                             }}
                         >
                             {subtitle}
@@ -120,8 +120,8 @@ export default function RenderModelViewer({
                     style={{
                         padding: 32,
                         textAlign: 'center',
-                        color: '#9ca3af',
-                        background: '#f9fafb',
+                        color: 'var(--text-dim)',
+                        background: 'var(--bg-panel)',
                         borderRadius: 8,
                     }}
                 >
@@ -284,9 +284,9 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
     return (
         <div
             style={{
-                background: '#ffffff',
+                background: 'var(--bg-node)',
                 borderRadius: 8,
-                border: '1px solid #e5e7eb',
+                border: '1px solid var(--border-node)',
                 overflow: 'hidden',
             }}
         >
@@ -296,9 +296,9 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                 style={{
                     width: '100%',
                     padding: isCompact ? '10px 14px' : '14px 18px',
-                    background: '#f9fafb',
+                    background: 'var(--bg-panel)',
                     border: 'none',
-                    borderBottom: isExpanded ? '1px solid #e5e7eb' : 'none',
+                    borderBottom: isExpanded ? '1px solid var(--border-node)' : 'none',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -312,12 +312,12 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                             margin: 0,
                             fontSize: isCompact ? 13 : 15,
                             fontWeight: 600,
-                            color: '#111827',
+                            color: 'var(--text-primary)',
                         }}
                     >
                         {title}
                         {hasMore && (
-                            <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>
+                            <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>
                                 (showing {sidecar_max_items} of {blocks.length})
                             </span>
                         )}
@@ -327,7 +327,7 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                             style={{
                                 margin: '4px 0 0',
                                 fontSize: 12,
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                             }}
                         >
                             {description}
@@ -361,7 +361,7 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                         stroke="currentColor"
                         strokeWidth="2"
                         style={{
-                            color: '#9ca3af',
+                            color: 'var(--text-dim)',
                             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                             transition: 'transform 0.2s',
                         }}
@@ -380,10 +380,10 @@ function RenderSection({ section, isExpanded, onToggle, onClick, variant }) {
                             style={{
                                 marginTop: 8,
                                 padding: '8px 12px',
-                                background: '#f3f4f6',
+                                background: 'var(--bg-button)',
                                 borderRadius: 4,
                                 fontSize: 12,
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                                 textAlign: 'center',
                             }}
                         >
@@ -489,7 +489,7 @@ export function RenderModelSidecar({
 
             <div
                 style={{
-                    background: '#ffffff',
+                    background: 'var(--bg-node)',
                     borderRadius: 2,
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     minHeight: height,

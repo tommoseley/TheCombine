@@ -4,12 +4,9 @@ Tests for Schema Resolver (ADR-031).
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
 
 from app.domain.services.schema_resolver import (
     SchemaResolver,
-    ResolvedSchemaBundle,
-    SchemaDependency,
     CircularSchemaReferenceError,
     SchemaResolutionError,
 )

@@ -5,7 +5,6 @@ import pytest
 from app.domain.workflow.plan_models import (
     CircuitBreaker,
     ConditionOperator,
-    DownstreamRequirements,
     Edge,
     EdgeCondition,
     EdgeKind,
@@ -13,7 +12,6 @@ from app.domain.workflow.plan_models import (
     Node,
     NodeType,
     OutcomeMapping,
-    StalenessHandling,
     ThreadOwnership,
     WorkflowPlan,
 )

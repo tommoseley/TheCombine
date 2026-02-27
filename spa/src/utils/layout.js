@@ -61,9 +61,12 @@ export const buildGraph = (data, expandedId, callbacks) => {
     data.forEach((item, idx) => {
         if ((item.level || 1) !== 1) return;
 
+        const isCompact = !!callbacks.compact;
         const width = 280;
-        let height = 95;
-        if (item.stations?.length > 0) height += 35;
+        // Compact: fixed height (all nodes show stations, same size)
+        // Full: variable height based on content
+        let height = isCompact ? 90 : 95;
+        if (!isCompact && item.stations?.length > 0) height += 35;
 
         const isExpanded = expandedId === item.id;
 
@@ -78,13 +81,17 @@ export const buildGraph = (data, expandedId, callbacks) => {
 
         if (prevId) {
             const prevState = data[idx - 1]?.state;
+            const targetState = item.state;
+            // Edge color: use target state when blocked (red path = spatial truth)
+            const edgeState = ['requirements_not_met', 'blocked', 'halted', 'failed'].includes(targetState)
+                ? targetState : prevState;
             edges.push({
                 id: 'e-' + prevId + '-' + item.id,
                 source: prevId,
                 target: item.id,
                 type: 'smoothstep',
                 animated: prevState === 'active',
-                style: { stroke: getEdgeColor(prevState, theme), strokeWidth: 3 }
+                style: { stroke: getEdgeColor(edgeState, theme), strokeWidth: 3 }
             });
         }
 
@@ -190,14 +197,19 @@ export const addChildrenToLayout = (layoutResult, parentId, childNodes, expanded
             });
 
             // Edge from junction to child (manifold branch)
+            // Use child state when blocked (red branch = spatial truth)
+            const childState = child.state;
+            const branchBlocked = ['requirements_not_met', 'blocked', 'halted', 'failed'].includes(childState);
+            const branchColor = branchBlocked ? getEdgeColor(childState, theme) : edgeColor;
+
             edges.push({
                 id: `e-branch-${child.id}`,
                 source: junctionId,
                 target: child.id,
                 type: 'smoothstep',
                 pathOptions: { borderRadius: 20 },
-                animated: isAnimated,
-                style: { stroke: edgeColor, strokeWidth: 2 }
+                animated: isAnimated && !branchBlocked,
+                style: { stroke: branchColor, strokeWidth: 2 }
             });
         });
     }

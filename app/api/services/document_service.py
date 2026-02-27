@@ -8,12 +8,11 @@ This service handles:
 - Cross-space standard references
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from uuid import UUID
-from datetime import datetime
 import logging
 
-from sqlalchemy import select, update, and_, or_
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

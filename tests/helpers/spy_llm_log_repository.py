@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any, Tuple
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.domain.repositories.llm_log_repository import (
     LLMRunRecord,

@@ -26,13 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.api.services.production_service import get_production_status
-from app.domain.workflow.production_state import (
-    ProductionState,
-    Station,
-    STATE_DISPLAY_TEXT,
-    map_node_outcome_to_state,
-    map_station_from_node,
-)
 
 logger = logging.getLogger(__name__)
 

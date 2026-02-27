@@ -11,7 +11,7 @@ Usage:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,

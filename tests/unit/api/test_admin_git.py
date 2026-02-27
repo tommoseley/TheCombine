@@ -6,7 +6,6 @@ Note: These tests operate on the real combine-config repository.
 """
 
 import pytest
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 

@@ -4,16 +4,15 @@ Account linking routes.
 ADR-008 Stage 6: Account Linking
 Routes for linking/unlinking OAuth providers to existing accounts.
 """
-from fastapi import APIRouter, Request, Depends, HTTPException, Query
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from typing import Optional
 import os
 import logging
 
 from app.auth.oidc_config import OIDCConfig
 from app.auth.service import AuthService
 from app.auth.models import User, AuthEventType
-from app.auth.dependencies import require_auth, get_current_user
+from app.auth.dependencies import require_auth
 from app.core.dependencies import get_oidc_config
 from app.core.database import get_db
 from app.middleware.rate_limit import get_client_ip
@@ -188,7 +187,7 @@ async def link_callback(
             redirect_uri = f"{scheme}://{domain}/auth/accounts/callback/{provider_id}"
             
             # Get code verifier from session (PKCE)
-            code_verifier = request.session.get(f'_microsoft_authlib_code_verifier_')
+            code_verifier = request.session.get('_microsoft_authlib_code_verifier_')
             
             # Exchange code for token (manual POST request)
             async with httpx.AsyncClient() as http_client:

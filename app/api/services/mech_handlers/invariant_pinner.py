@@ -9,7 +9,7 @@ _pin_invariants_to_known_constraints method.
 
 import copy
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from app.api.services.mech_handlers.base import (
     ExecutionContext,

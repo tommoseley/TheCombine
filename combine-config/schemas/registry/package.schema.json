@@ -49,7 +49,7 @@
     },
     "scope": {
       "type": "string",
-      "enum": ["project", "epic", "feature"],
+      "enum": ["project", "work_package", "work_statement"],
       "description": "Document scope level"
     },
     "required_inputs": {

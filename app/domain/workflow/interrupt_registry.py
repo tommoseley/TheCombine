@@ -15,7 +15,7 @@ Phase 8 additions:
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 from uuid import UUID
@@ -24,8 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
-    from app.api.models.project import Project
-    from app.api.models.workflow_execution import WorkflowExecution
+    pass
 
 logger = logging.getLogger(__name__)
 

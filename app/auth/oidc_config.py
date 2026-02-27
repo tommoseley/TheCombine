@@ -5,7 +5,7 @@ ADR-008: Multi-Provider OAuth Authentication
 Environment-based OIDC provider registration using Authlib.
 Supports Google and Microsoft with proper ID token validation.
 """
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from authlib.integrations.starlette_client import OAuth
 from starlette.requests import Request
 import os

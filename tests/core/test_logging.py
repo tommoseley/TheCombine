@@ -1,9 +1,7 @@
 """Tests for structured logging."""
 
-import pytest
 import json
 import logging
-from io import StringIO
 
 from app.core.logging import (
     JSONFormatter,

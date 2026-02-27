@@ -11,7 +11,6 @@ from app.auth import (
     InMemoryUserRepository,
     InMemorySessionRepository,
     SessionService,
-    hash_token,
 )
 
 

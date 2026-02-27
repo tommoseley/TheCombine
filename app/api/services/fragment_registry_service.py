@@ -6,7 +6,6 @@ Provides CRUD operations and binding management for fragment artifacts.
 
 import hashlib
 from typing import List, Optional
-from uuid import UUID
 
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession

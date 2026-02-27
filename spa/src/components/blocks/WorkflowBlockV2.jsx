@@ -136,9 +136,9 @@ export default function WorkflowBlockV2({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             {/* Header */}
@@ -151,7 +151,7 @@ export default function WorkflowBlockV2({ block }) {
                 </p>
             )}
             {data.trigger && (
-                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#6b7280', fontStyle: 'italic' }}>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     Trigger: {data.trigger}
                 </p>
             )}
@@ -162,9 +162,9 @@ export default function WorkflowBlockV2({ block }) {
                     <div
                         style={{
                             height: containerHeight,
-                            border: '1px solid #e5e7eb',
+                            border: '1px solid var(--border-node)',
                             borderRadius: 6,
-                            background: '#ffffff',
+                            background: 'var(--bg-canvas)',
                             overflow: 'hidden',
                             transition: 'height 0.2s ease',
                         }}
@@ -197,7 +197,7 @@ export default function WorkflowBlockV2({ block }) {
                             fontSize: 11,
                             color: '#6366f1',
                             background: 'none',
-                            border: '1px solid #e5e7eb',
+                            border: '1px solid var(--border-node)',
                             borderRadius: 4,
                             cursor: 'pointer',
                         }}
@@ -206,7 +206,7 @@ export default function WorkflowBlockV2({ block }) {
                     </button>
                 </>
             ) : (
-                <p style={{ margin: 0, fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic' }}>
                     No workflow steps defined.
                 </p>
             )}

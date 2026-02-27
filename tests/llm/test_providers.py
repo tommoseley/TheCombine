@@ -2,16 +2,13 @@
 
 import pytest
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.llm.models import Message, MessageRole, LLMResponse, LLMError, LLMException
-from app.llm.providers.base import LLMProvider, BaseLLMProvider
 from app.llm.providers.mock import (
     MockLLMProvider,
     create_json_response_provider,
     create_echo_provider,
 )
-from app.llm.providers.anthropic import AnthropicProvider
 
 
 class TestMessage:

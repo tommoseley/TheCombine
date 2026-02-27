@@ -1,13 +1,10 @@
 """Tests for LLM step executor."""
 
 import pytest
-import json
-from uuid import uuid4
 
 from app.execution import (
     LLMStepExecutor,
     StepInput,
-    StepOutput,
     ExecutionContext,
     create_test_executor,
 )

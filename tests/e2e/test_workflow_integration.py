@@ -2,7 +2,6 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -225,7 +224,7 @@ class TestWorkflowToDocumentFlow:
         
         # Get versions
         response = client.get(
-            f"/api/v1/documents/by-scope/project/proj-e2e/discovery/versions"
+            "/api/v1/documents/by-scope/project/proj-e2e/discovery/versions"
         )
         
         assert response.status_code == 200

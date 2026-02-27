@@ -73,7 +73,7 @@ class DocumentDefinitionService:
         if not DOCDEF_ID_PATTERN.match(document_def_id):
             raise InvalidDocDefIdError(
                 f"Invalid document_def_id format: '{document_def_id}'. "
-                f"Expected: docdef:<n>:<semver> (e.g., docdef:EpicBacklog:1.0.0)"
+                f"Expected: docdef:<n>:<semver> (e.g., docdef:ImplementationPlan:1.0.0)"
             )
     
     async def get(self, document_def_id: str) -> Optional[DocumentDefinition]:
@@ -81,7 +81,7 @@ class DocumentDefinitionService:
         Get document definition by exact document_def_id.
         
         Args:
-            document_def_id: Exact definition ID (e.g., docdef:EpicBacklog:1.0.0)
+            document_def_id: Exact definition ID (e.g., docdef:ImplementationPlan:1.0.0)
             
         Returns:
             DocumentDefinition or None if not found
@@ -99,7 +99,7 @@ class DocumentDefinitionService:
         Per D7: Orders by accepted_at DESC for deterministic results.
         
         Args:
-            document_def_id_prefix: Prefix to match (e.g., "docdef:EpicBacklog:")
+            document_def_id_prefix: Prefix to match (e.g., "docdef:ImplementationPlan:")
             
         Returns:
             Latest accepted DocumentDefinition or None

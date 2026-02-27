@@ -1,6 +1,5 @@
 """Repository protocols and in-memory implementations."""
 
-from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Protocol, runtime_checkable
 from uuid import UUID
@@ -8,7 +7,6 @@ from uuid import UUID
 from app.persistence.models import (
     StoredDocument,
     StoredExecutionState,
-    DocumentStatus,
     ExecutionStatus,
 )
 

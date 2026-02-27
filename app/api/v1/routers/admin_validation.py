@@ -8,13 +8,11 @@ to prevent bad configurations from entering the system.
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.api.services.config_validator import (
     ConfigValidator,
     ValidationReport,
-    ValidationResult,
-    ValidationSeverity,
     get_config_validator,
 )
 from app.config.package_loader import get_package_loader

@@ -4,8 +4,6 @@ Tests for Phase 5: Route Deprecation with Warning Headers (WS-DOCUMENT-SYSTEM-CL
 Tests deprecation middleware, warning headers, and redirect helpers.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from starlette.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.responses import Response, JSONResponse
@@ -22,9 +20,9 @@ class TestDeprecationInfoLookup:
     def test_exact_match_returns_info(self):
         """Verify exact path match returns deprecation info."""
         from app.core.middleware.deprecation import get_deprecation_info
-        
-        info = get_deprecation_info("/view/EpicBacklogView")
-        
+
+        info = get_deprecation_info("/view/ArchitecturalSummaryView")
+
         assert info is not None
         assert "redirect_to" in info
         assert "message" in info
@@ -106,13 +104,13 @@ class TestDeprecationMiddleware:
             return JSONResponse({"status": "ok"})
         
         app = Starlette(
-            routes=[Route("/view/EpicBacklogView", homepage)],
+            routes=[Route("/view/ArchitecturalSummaryView", homepage)],
         )
         app.add_middleware(DeprecationMiddleware)
-        
+
         client = TestClient(app)
-        response = client.get("/view/EpicBacklogView")
-        
+        response = client.get("/view/ArchitecturalSummaryView")
+
         assert response.status_code == 200
         assert "Warning" in response.headers
         assert "299" in response.headers["Warning"]
@@ -144,13 +142,13 @@ class TestDeprecationMiddleware:
             return JSONResponse({"status": "ok"})
         
         app = Starlette(
-            routes=[Route("/view/StoryBacklogView", homepage)],
+            routes=[Route("/view/ArchitecturalSummaryView", homepage)],
         )
         app.add_middleware(DeprecationMiddleware)
-        
+
         client = TestClient(app)
-        response = client.get("/view/StoryBacklogView")
-        
+        response = client.get("/view/ArchitecturalSummaryView")
+
         assert response.headers.get("Deprecation") == "true"
 
 

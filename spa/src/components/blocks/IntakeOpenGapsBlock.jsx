@@ -20,7 +20,7 @@ export default function IntakeOpenGapsBlock({ block }) {
                         style={{
                             fontSize: 12,
                             fontWeight: 500,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             marginBottom: 8,
                             marginTop: 0,
                         }}
@@ -37,7 +37,7 @@ export default function IntakeOpenGapsBlock({ block }) {
                                     gap: 8,
                                     marginBottom: 6,
                                     fontSize: 13,
-                                    color: '#374151',
+                                    color: 'var(--text-secondary)',
                                 }}
                             >
                                 <span style={{ color: '#3b82f6' }}>&#10067;</span>
@@ -53,7 +53,7 @@ export default function IntakeOpenGapsBlock({ block }) {
                         style={{
                             fontSize: 12,
                             fontWeight: 500,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             marginBottom: 8,
                             marginTop: 0,
                         }}
@@ -70,7 +70,7 @@ export default function IntakeOpenGapsBlock({ block }) {
                                     gap: 8,
                                     marginBottom: 6,
                                     fontSize: 13,
-                                    color: '#374151',
+                                    color: 'var(--text-secondary)',
                                 }}
                             >
                                 <span style={{ color: '#f59e0b' }}>&#9888;</span>
@@ -86,7 +86,7 @@ export default function IntakeOpenGapsBlock({ block }) {
                         style={{
                             fontSize: 12,
                             fontWeight: 500,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             marginBottom: 8,
                             marginTop: 0,
                         }}
@@ -103,10 +103,10 @@ export default function IntakeOpenGapsBlock({ block }) {
                                     gap: 8,
                                     marginBottom: 6,
                                     fontSize: 13,
-                                    color: '#374151',
+                                    color: 'var(--text-secondary)',
                                 }}
                             >
-                                <span style={{ color: '#6b7280' }}>&#128161;</span>
+                                <span style={{ color: 'var(--text-muted)' }}>&#128161;</span>
                                 <span>{item}</span>
                             </li>
                         ))}

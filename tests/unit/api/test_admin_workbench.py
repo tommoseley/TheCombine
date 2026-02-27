@@ -6,7 +6,6 @@ Git-canonical configuration from combine-config/.
 """
 
 import pytest
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -45,11 +44,11 @@ class TestDocumentTypeEndpoints:
 
         assert "document_types" in data
         assert "total" in data
-        assert data["total"] >= 2  # project_discovery, primary_implementation_plan
+        assert data["total"] >= 2  # project_discovery, implementation_plan
 
         doc_type_ids = [dt["doc_type_id"] for dt in data["document_types"]]
         assert "project_discovery" in doc_type_ids
-        assert "primary_implementation_plan" in doc_type_ids
+        assert "implementation_plan" in doc_type_ids
 
     def test_get_document_type(self, client):
         """Should get document type details."""

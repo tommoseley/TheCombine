@@ -5,7 +5,6 @@ They use the real app without proper mocking of database/auth dependencies.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 

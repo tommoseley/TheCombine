@@ -39,8 +39,6 @@
       "type": "string",
       "enum": [
         "discovery",
-        "epic_backlog",
-        "story_backlog",
         "architecture",
         "qa_remediation",
         "constraint_resolution",
@@ -52,7 +50,7 @@
     },
     "artifact_scope": {
       "type": "string",
-      "enum": ["project", "epic", "story", "document", "unknown"]
+      "enum": ["project", "work_package", "document", "unknown"]
     },
     "must_answer_before_proceeding_ids": {
       "type": ["array", "null"],
@@ -74,7 +72,7 @@
           "id": {
             "type": "string",
             "pattern": "^[A-Z0-9_\\-]{3,64}$",
-            "description": "Stable-ish local id (e.g., TARGET_USERS, EPIC_SCOPE, DB_PROVIDER)."
+            "description": "Stable-ish local id (e.g., TARGET_USERS, WP_SCOPE, DB_PROVIDER)."
           },
           "text": {
             "type": "string",

@@ -27,7 +27,7 @@ class DocumentStore(Protocol):
         
         Args:
             doc_type: Document type identifier
-            scope: Scope level (e.g., "project", "epic")
+            scope: Scope level (e.g., "project")
             scope_id: Optional scope instance ID (for non-root scopes)
             
         Returns:
@@ -99,7 +99,7 @@ class InputResolver:
     
     Usage:
         resolver = InputResolver(workflow, document_store)
-        result = resolver.resolve(step, current_scope_id="epic_123")
+        result = resolver.resolve(step, current_scope_id="wp_123")
         
         if result.success:
             inputs = result.to_dict()

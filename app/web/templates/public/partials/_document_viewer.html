@@ -45,7 +45,7 @@
 {% endfor %}
 
 {# Tab display names - can be document-type specific #}
-{% set details_label = 'Epics' if render_model.document_type == 'epic_backlog' else 'Details' %}
+{% set details_label = 'Details' %}
 {% set tab_labels = {
     'overview': 'Overview',
     'details': details_label,

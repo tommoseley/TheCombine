@@ -9,9 +9,9 @@ export default function GenericBlock({ block }) {
         <div
             style={{
                 padding: '12px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 6,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
                 marginBottom: 12,
             }}
         >

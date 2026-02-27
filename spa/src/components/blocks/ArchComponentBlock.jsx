@@ -19,7 +19,7 @@ export default function ArchComponentBlock({ block }) {
     const labelStyle = {
         fontSize: 11,
         fontWeight: 600,
-        color: '#6b7280',
+        color: 'var(--text-muted)',
         textTransform: 'uppercase',
         letterSpacing: '0.04em',
         marginBottom: 2,
@@ -27,7 +27,7 @@ export default function ArchComponentBlock({ block }) {
 
     const valueStyle = {
         fontSize: 13,
-        color: '#374151',
+        color: 'var(--text-secondary)',
         lineHeight: 1.5,
         margin: 0,
     };
@@ -45,9 +45,9 @@ export default function ArchComponentBlock({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -77,7 +77,7 @@ export default function ArchComponentBlock({ block }) {
                     <div style={labelStyle}>Responsibilities</div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                         {responsibilities.map((r, i) => (
-                            <li key={i} style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{r}</li>
+                            <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r}</li>
                         ))}
                     </ul>
                 </div>

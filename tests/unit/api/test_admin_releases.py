@@ -6,7 +6,7 @@ These tests verify the release management functionality per ADR-044 WS-044-07.
 
 import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -17,12 +17,11 @@ from app.api.services.release_service import (
     ReleaseState,
     ReleaseHistoryEntry,
     RollbackResult,
-    ReleaseServiceError,
     ImmutabilityViolationError,
     ValidationFailedError,
     reset_release_service,
 )
-from app.api.services.config_validator import ValidationReport, ValidationResult, ValidationSeverity
+from app.api.services.config_validator import ValidationReport
 
 
 @pytest.fixture(autouse=True)

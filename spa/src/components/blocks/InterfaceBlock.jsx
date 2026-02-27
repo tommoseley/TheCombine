@@ -21,9 +21,9 @@ export default function InterfaceBlock({ block }) {
             style={{
                 marginBottom: 12,
                 padding: '14px 16px',
-                background: '#f8fafc',
+                background: 'var(--bg-panel)',
                 borderRadius: 8,
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--border-node)',
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -47,7 +47,7 @@ export default function InterfaceBlock({ block }) {
                 </p>
             )}
             {(data.authentication || data.authorization) && (
-                <div style={{ marginBottom: 8, fontSize: 12, color: '#6b7280' }}>
+                <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
                     {data.authentication && <span>Auth: {data.authentication}</span>}
                     {data.authentication && data.authorization && <span> | </span>}
                     {data.authorization && <span>Authz: {data.authorization}</span>}
@@ -56,15 +56,15 @@ export default function InterfaceBlock({ block }) {
             {endpoints.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {endpoints.map((ep, i) => {
-                        const mc = methodColors[ep.method] || { bg: '#f3f4f6', color: '#374151' };
+                        const mc = methodColors[ep.method] || { bg: '#f3f4f6', color: 'var(--text-secondary)' };
                         return (
                             <div
                                 key={i}
                                 style={{
                                     padding: '8px 10px',
-                                    background: '#ffffff',
+                                    background: 'var(--bg-canvas)',
                                     borderRadius: 6,
-                                    border: '1px solid #e5e7eb',
+                                    border: '1px solid var(--border-node)',
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -84,7 +84,7 @@ export default function InterfaceBlock({ block }) {
                                     <code style={{ fontSize: 13, color: '#1e293b' }}>{ep.path}</code>
                                 </div>
                                 {ep.description && (
-                                    <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280' }}>
+                                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
                                         {ep.description}
                                     </p>
                                 )}

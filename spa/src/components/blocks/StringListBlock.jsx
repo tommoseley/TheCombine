@@ -18,7 +18,7 @@ export default function StringListBlock({ block }) {
                     style={{
                         fontSize: 12,
                         fontWeight: 600,
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         marginBottom: 8,
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
@@ -40,7 +40,7 @@ export default function StringListBlock({ block }) {
                         style={{
                             fontSize: 14,
                             lineHeight: 1.6,
-                            color: '#374151',
+                            color: 'var(--text-secondary)',
                             marginBottom: 4,
                             display: style === 'check' ? 'flex' : 'list-item',
                             alignItems: 'flex-start',
@@ -88,11 +88,11 @@ function StringListItem({ item }) {
     return (
         <span>
             {item.id && (
-                <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af', marginRight: 6 }}>{item.id}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)', marginRight: 6 }}>{item.id}</span>
             )}
             {text}
             {item.constraint_type && (
-                <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', background: '#f3f4f6', borderRadius: 4, color: '#6b7280' }}>{item.constraint_type}</span>
+                <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', background: 'var(--bg-button)', borderRadius: 4, color: 'var(--text-muted)' }}>{item.constraint_type}</span>
             )}
             {item.confidence && (
                 <span style={{
@@ -102,7 +102,7 @@ function StringListItem({ item }) {
                 }}>{item.confidence}</span>
             )}
             {item.validation_approach && (
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                     <span style={{ fontWeight: 500 }}>Validation:</span> {item.validation_approach}
                 </div>
             )}

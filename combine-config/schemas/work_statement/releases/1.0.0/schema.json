@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_statement.v1.json",
+  "type": "object",
+  "title": "Work Statement",
+  "description": "A governed unit of authorized execution within a Work Package. Defines objective, scope, procedure, verification criteria, prohibited actions, and allowed file paths.",
+  "required": [
+    "ws_id",
+    "parent_wp_id",
+    "title",
+    "objective",
+    "scope_in",
+    "scope_out",
+    "procedure",
+    "verification_criteria",
+    "prohibited_actions",
+    "governance_pins"
+  ],
+  "properties": {
+    "ws_id": {
+      "type": "string",
+      "description": "Unique identifier (e.g., WS-DCW-001).",
+      "minLength": 1
+    },
+    "parent_wp_id": {
+      "type": "string",
+      "description": "wp_id of the parent Work Package.",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable Work Statement title."
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What this Work Statement achieves."
+    },
+    "scope_in": {
+      "type": "array",
+      "description": "What is explicitly in scope.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope_out": {
+      "type": "array",
+      "description": "What is explicitly excluded.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "allowed_paths": {
+      "type": "array",
+      "description": "File/directory paths this WS may modify. Empty means unrestricted.",
+      "items": { "type": "string" }
+    },
+    "procedure": {
+      "type": "array",
+      "description": "Ordered execution steps.",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "verification_criteria": {
+      "type": "array",
+      "description": "Measurable completion criteria.",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "prohibited_actions": {
+      "type": "array",
+      "description": "Actions the executor MUST NOT take.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "governance_pins": {
+      "type": "object",
+      "description": "Governance references pinned from parent WP and TA.",
+      "required": ["ta_version_id"],
+      "properties": {
+        "ta_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Technical Architecture version that informed this WS."
+        },
+        "adr_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ADR IDs that apply to this WS."
+        },
+        "policy_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Policy IDs that apply to this WS."
+        }
+      }
+    },
+    "state": {
+      "type": "string",
+      "description": "Lifecycle state (set by handler, not by LLM).",
+      "enum": ["DRAFT", "READY", "IN_PROGRESS", "ACCEPTED", "REJECTED", "BLOCKED"]
+    },
+    "_lineage": {
+      "type": "object",
+      "description": "Lineage metadata injected by the handler.",
+      "properties": {
+        "parent_document_type": { "type": "string" },
+        "parent_execution_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -20,7 +20,7 @@ depends_on = None
 
 def upgrade() -> None:
     # Add view_docdef column - stores the document definition ID used for rendering
-    # e.g., 'EpicBacklogView', 'ProjectDiscovery', 'StoryBacklogView'
+    # e.g., 'ProjectDiscovery', 'ArchitecturalSummaryView'
     op.add_column(
         'document_types',
         sa.Column('view_docdef', sa.String(100), nullable=True,
@@ -35,7 +35,6 @@ def upgrade() -> None:
             WHEN 'project_discovery' THEN 'ProjectDiscovery'
             WHEN 'epic_backlog' THEN 'EpicBacklogView'
             WHEN 'technical_architecture' THEN 'ArchitecturalSummaryView'
-            WHEN 'story_backlog' THEN 'StoryBacklogView'
             WHEN 'architecture_spec' THEN 'ArchitecturalSummaryView'
             ELSE NULL
         END

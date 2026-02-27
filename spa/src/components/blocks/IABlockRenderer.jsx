@@ -17,7 +17,7 @@ function formatFieldLabel(key) {
 /** Top-level dispatcher: renders data according to bind.render_as */
 export default function IABlockRenderer({ bind, data, label }) {
     if (data === null || data === undefined) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>No data</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data</span>;
     }
 
     const renderAs = bind?.render_as || 'paragraph';
@@ -45,7 +45,7 @@ export default function IABlockRenderer({ bind, data, label }) {
 function ParagraphRenderer({ data }) {
     const text = typeof data === 'string' ? data : JSON.stringify(data);
     return (
-        <p style={{ fontSize: 14, color: '#1f2937', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+        <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
             {text}
         </p>
     );
@@ -53,12 +53,12 @@ function ParagraphRenderer({ data }) {
 
 function ListRenderer({ data }) {
     if (!Array.isArray(data) || data.length === 0) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>Empty list</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Empty list</span>;
     }
     return (
         <ul style={{ margin: 0, paddingLeft: 20 }}>
             {data.map((item, i) => (
-                <li key={i} style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>
+                <li key={i} style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 4 }}>
                     {typeof item === 'string' ? item : <ObjectListItem item={item} />}
                 </li>
             ))}
@@ -68,12 +68,12 @@ function ListRenderer({ data }) {
 
 function OrderedListRenderer({ data }) {
     if (!Array.isArray(data) || data.length === 0) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>Empty list</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Empty list</span>;
     }
     return (
         <ol style={{ margin: 0, paddingLeft: 20 }}>
             {data.map((item, i) => (
-                <li key={i} style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>
+                <li key={i} style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 4 }}>
                     {typeof item === 'string' ? item : <ObjectListItem item={item} />}
                 </li>
             ))}
@@ -110,11 +110,11 @@ function ObjectListItem({ item }) {
     return (
         <div>
             <span>
-                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af', marginRight: 6 }}>{id}</span>}
+                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)', marginRight: 6 }}>{id}</span>}
                 {text}
             </span>
             {remaining.length > 0 && (
-                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                     {remaining.map(([k, v]) => (
                         <span key={k} style={{ marginRight: 10 }}>
                             <span style={{ fontWeight: 500 }}>{formatFieldLabel(k)}:</span>{' '}
@@ -129,7 +129,7 @@ function ObjectListItem({ item }) {
 
 function TableRenderer({ data, columns }) {
     if (!Array.isArray(data) || data.length === 0) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>No data</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data</span>;
     }
     if (!columns || columns.length === 0) {
         // Fallback: auto-detect columns from first item
@@ -141,15 +141,15 @@ function TableRenderer({ data, columns }) {
         }
     }
     return (
-        <div className="rounded border overflow-hidden" style={{ borderColor: '#e2e8f0' }}>
+        <div className="rounded border overflow-hidden" style={{ borderColor: 'var(--border-panel)' }}>
             <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                 <thead>
-                    <tr style={{ background: '#f1f5f9' }}>
+                    <tr style={{ background: 'var(--bg-panel)' }}>
                         {columns.map(col => (
                             <th
                                 key={col.field}
                                 className="px-3 py-2 text-left font-medium"
-                                style={{ color: '#64748b', borderBottom: '1px solid #e2e8f0' }}
+                                style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-node)' }}
                             >
                                 {col.label}
                             </th>
@@ -158,11 +158,11 @@ function TableRenderer({ data, columns }) {
                 </thead>
                 <tbody>
                     {data.map((row, i) => (
-                        <tr key={i} style={{ borderTop: i > 0 ? '1px solid #e2e8f0' : 'none' }}>
+                        <tr key={i} style={{ borderTop: i > 0 ? '1px solid var(--border-node)' : 'none' }}>
                             {columns.map(col => {
                                 const val = row?.[col.field];
                                 return (
-                                    <td key={col.field} className="px-3 py-2" style={{ color: '#1e293b', fontSize: 13 }}>
+                                    <td key={col.field} className="px-3 py-2" style={{ color: 'var(--text-primary)', fontSize: 13 }}>
                                         {val === null || val === undefined ? '-'
                                             : typeof val === 'boolean' ? (val ? 'Yes' : 'No')
                                             : typeof val === 'object' ? JSON.stringify(val)
@@ -186,10 +186,10 @@ function KeyValuePairsRenderer({ data }) {
         <div className="space-y-2">
             {Object.entries(data).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
-                    <span style={{ fontWeight: 600, color: '#6b7280', minWidth: 120, flexShrink: 0 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-muted)', minWidth: 120, flexShrink: 0 }}>
                         {formatFieldLabel(k)}
                     </span>
-                    <span style={{ color: '#1f2937' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>
                         {typeof v === 'string' ? v : JSON.stringify(v)}
                     </span>
                 </div>
@@ -200,7 +200,7 @@ function KeyValuePairsRenderer({ data }) {
 
 function CardListRenderer({ data, card }) {
     if (!Array.isArray(data) || data.length === 0) {
-        return <span style={{ color: '#9ca3af', fontSize: 13 }}>No items</span>;
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>No items</span>;
     }
     if (!card) {
         // Fallback: render as simple list
@@ -217,8 +217,8 @@ function CardListRenderer({ data, card }) {
                     <div
                         key={item.id || i}
                         style={{
-                            background: '#fff',
-                            border: '1px solid #e2e8f0',
+                            background: 'var(--bg-node)',
+                            border: '1px solid var(--border-node)',
                             borderRadius: 8,
                             overflow: 'hidden',
                         }}
@@ -226,11 +226,11 @@ function CardListRenderer({ data, card }) {
                         <div
                             style={{
                                 padding: '12px 16px',
-                                borderBottom: '1px solid #e2e8f0',
-                                background: '#f8fafc',
+                                borderBottom: '1px solid var(--border-node)',
+                                background: 'var(--bg-panel)',
                             }}
                         >
-                            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1f2937' }}>
+                            <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
                                 {title}
                             </h4>
                         </div>
@@ -243,7 +243,7 @@ function CardListRenderer({ data, card }) {
                                         <div style={{
                                             fontSize: 11,
                                             fontWeight: 600,
-                                            color: '#6b7280',
+                                            color: 'var(--text-muted)',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.05em',
                                             marginBottom: 6,
@@ -275,11 +275,11 @@ function NestedObjectRenderer({ data, fields }) {
                 const fieldData = data[field.path];
                 if (fieldData === null || fieldData === undefined) return null;
                 return (
-                    <div key={field.path} style={{ borderLeft: '3px solid #e2e8f0', paddingLeft: 12 }}>
+                    <div key={field.path} style={{ borderLeft: '3px solid var(--border-node)', paddingLeft: 12 }}>
                         <div style={{
                             fontSize: 11,
                             fontWeight: 600,
-                            color: '#6b7280',
+                            color: 'var(--text-muted)',
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em',
                             marginBottom: 6,

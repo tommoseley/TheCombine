@@ -7,40 +7,44 @@
  * - ready: yellow (#eab308)
  * - stabilized: green (#10b981)
  */
+/**
+ * Edge colors per theme — synced with --state-*-edge CSS variables in themes.css.
+ * These are used for React Flow inline styles (can't use CSS vars in SVG paths).
+ */
 export const EDGE_COLORS = {
     light: {
-        // Artifact states
+        // Artifact states (match --state-*-edge in .theme-light)
         blocked: '#ef4444',
-        in_progress: '#6366f1',  // indigo for light theme
-        ready: '#eab308',
+        in_progress: '#F6AD55',
+        ready: '#1e40af',
         stabilized: '#10b981',
         // Legacy mappings (for backward compat during transition)
-        active: '#6366f1',
-        queued: '#eab308',
+        active: '#F6AD55',
+        queued: '#94a3b8',
         produced: '#10b981',
         requirements_not_met: '#ef4444',
     },
     industrial: {
-        // Artifact states
+        // Artifact states (match --state-*-edge in .theme-industrial)
         blocked: '#ef4444',
-        in_progress: '#f59e0b',
-        ready: '#eab308',
+        in_progress: '#F6AD55',
+        ready: '#00E5FF',
         stabilized: '#10b981',
         // Legacy mappings
-        active: '#f59e0b',
-        queued: '#eab308',
+        active: '#F6AD55',
+        queued: '#334155',
         produced: '#10b981',
         requirements_not_met: '#ef4444',
     },
     blueprint: {
-        // Artifact states
+        // Artifact states (match --state-*-edge in .theme-blueprint)
         blocked: '#ef4444',
-        in_progress: '#fbbf24',
-        ready: '#eab308',
+        in_progress: '#F6AD55',
+        ready: '#00E5FF',
         stabilized: '#10b981',
         // Legacy mappings
-        active: '#fbbf24',
-        queued: '#eab308',
+        active: '#F6AD55',
+        queued: '#5a7a9a',
         produced: '#10b981',
         requirements_not_met: '#ef4444',
     }

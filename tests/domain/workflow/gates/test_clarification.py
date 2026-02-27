@@ -7,7 +7,6 @@ import uuid
 from app.domain.workflow.gates.clarification import (
     ClarificationGate,
     ClarificationQuestion,
-    ClarificationResult,
 )
 
 

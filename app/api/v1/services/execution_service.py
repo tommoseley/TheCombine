@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from app.domain.workflow import (
     Workflow,
-    WorkflowExecutor,
     WorkflowState,
     WorkflowStatus,
     WorkflowContext,

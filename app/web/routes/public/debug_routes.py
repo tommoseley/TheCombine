@@ -37,7 +37,6 @@ async def test_template_engine(request: Request):
                 },
                 "high_level_architecture": None,
                 "detailed_architecture": None,
-                "epics": []
             }
         )
     except Exception as e:

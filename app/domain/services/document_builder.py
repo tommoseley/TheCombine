@@ -314,7 +314,7 @@ class DocumentBuilder:
         """
         Create child documents extracted by the handler.
 
-        For example, implementation_plan creates Epic documents.
+        For example, implementation_plan creates child documents.
 
         Returns list of created child document IDs.
         """

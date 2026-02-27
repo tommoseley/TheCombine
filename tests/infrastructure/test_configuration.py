@@ -92,10 +92,10 @@ class TestPromptFiles:
 
     PROMPTS_DIR = Path("combine-config/prompts/tasks")
     REQUIRED_PROMPTS = [
-        "strategy_discovery_v1/releases/1.0.0/task.prompt.txt",
-        "strategy_requirements_v1/releases/1.0.0/task.prompt.txt",
-        "strategy_architecture_v1/releases/1.0.0/task.prompt.txt",
-        "strategy_review_v1/releases/1.0.0/task.prompt.txt",
+        "project_discovery/releases/1.4.0/task.prompt.txt",
+        "implementation_plan/releases/1.0.0/task.prompt.txt",
+        "technical_architecture/releases/1.0.0/task.prompt.txt",
+        "work_package/releases/1.0.0/task.prompt.txt",
     ]
 
     def test_prompts_directory_exists(self):

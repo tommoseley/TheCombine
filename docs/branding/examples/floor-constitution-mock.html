@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<!--
+  SUPERSEDED - NOT CURRENT BRAND DIRECTION
+  This mock shows the UI Constitution v2.0 design (neutral surfaces, violet accent,
+  Inter font, light/dark only). It was created 2026-02-24 as a design comparison.
+  The industrial 3-theme implementation was chosen instead.
+  DO NOT use this file as a reference for current styling.
+  See docs/branding/ for the canonical design system.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[SUPERSEDED] The Combine - Floor (Constitution v2.0 Mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-page: #FFFFFF;
+  --bg-card: #F9FAFB;
+  --bg-elevated: #FFFFFF;
+  --border: #E5E7EB;
+  --border-subtle: #F3F4F6;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --accent: #7C3AED;
+  --accent-hover: #6D28D9;
+  --success: #059669;
+  --warning: #D97706;
+  --error: #DC2626;
+  --info: #2563EB;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+}
+
+.dark {
+  --bg-page: #111827;
+  --bg-card: #1F2937;
+  --bg-elevated: #374151;
+  --border: #4B5563;
+  --border-subtle: #374151;
+  --text-primary: #F9FAFB;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  --accent: #8B5CF6;
+  --accent-hover: #7C3AED;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: background 0.2s ease, color 0.2s ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Canvas --- */
+.canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* --- Top-left Panel --- */
+.info-panel {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 280px;
+}
+
+.panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.panel-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.panel-status svg { flex-shrink: 0; }
+
+.project-code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.project-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.project-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- Theme Toggle --- */
+.theme-toggle {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.theme-toggle .icon-sun { display: block; }
+.theme-toggle .icon-moon { display: none; }
+.dark .theme-toggle .icon-sun { display: none; }
+.dark .theme-toggle .icon-moon { display: block; }
+
+/* --- Document Nodes --- */
+.nodes-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-40%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.node-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.edge-line {
+  width: 2px;
+  height: 48px;
+  background: var(--border);
+  transition: background 0.2s;
+}
+
+.doc-node {
+  width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.doc-node:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.node-header {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-page);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.node-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.node-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.node-body {
+  padding: 14px 16px;
+}
+
+.state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.state-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.state-text {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.state-stabilized .state-icon { color: var(--success); }
+.state-stabilized .state-text { color: var(--success); }
+
+.state-in-progress .state-icon { color: var(--warning); }
+.state-in-progress .state-text { color: var(--warning); }
+
+.state-ready .state-icon { color: var(--info); }
+.state-ready .state-text { color: var(--info); }
+
+.state-blocked .state-icon { color: var(--error); }
+.state-blocked .state-text { color: var(--error); }
+
+.node-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.node-waiting {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  transition: border-color 0.2s;
+}
+
+.node-waiting strong {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.node-action {
+  margin-top: 12px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--accent);
+  color: #FFFFFF;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Semantic Border-Left Demo (inside a card) --- */
+.semantic-section {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--warning);
+  background: var(--bg-page);
+  border-radius: 0 6px 6px 0;
+  transition: background 0.2s;
+}
+
+.semantic-section-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.semantic-section-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* --- Legend --- */
+.legend {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 10;
+}
+
+.legend-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.legend-title {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.legend-items {
+  display: flex;
+  gap: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.legend-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* --- Instructions --- */
+.instructions {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* --- Watermark --- */
+.watermark {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 10;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.watermark-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <!-- Top-Left Info Panel -->
+  <div class="info-panel">
+    <div class="panel-card">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Production Line</div>
+          <div class="panel-status">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--warning)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Active</span>
+          </div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <div class="project-row">
+        <div class="project-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div>
+          <div class="project-code">PRJ-001</div>
+          <div class="project-name">Enterprise Resource Planner</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Watermark -->
+  <div class="watermark">
+    <div class="watermark-label">Design Mock</div>
+    UI Constitution v2.0
+  </div>
+
+  <!-- Document Nodes -->
+  <div class="nodes-container">
+
+    <!-- Node 1: Concierge Intake - Stabilized -->
+    <div class="node-wrapper">
+      <div class="doc-node">
+        <div class="node-header">
+          <span class="node-label">Document</span>
+          <span class="node-name">Concierge Intake</span>
+        </div>
+        <div class="node-body">
+          <div class="state-row state-stabilized">
+            <svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="state-text">Stabilized</span>
+          </div>
+          <div class="node-desc">Initial project intake and requirements gathering</div>
+          <div class="node-action">
+            <button class="btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Document
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="edge-line"></div>
+    </div>
+
+    <!-- Node 2: Project Discovery - In Progress -->
+    <div class="node-wrapper">
+      <div class="doc-node">
+        <div class="node-header">
+          <span class="node-label">Document</span>
+          <span class="node-name">Project Discovery</span>
+        </div>
+        <div class="node-body">
+          <div class="state-row state-in-progress">
+            <svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span class="state-text">In Progress</span>
+          </div>
+          <div class="node-desc">Deep discovery and domain analysis</div>
+          <div class="semantic-section">
+            <div class="semantic-section-label">Open Questions</div>
+            <div class="semantic-section-text">3 questions awaiting user input</div>
+          </div>
+          <div class="node-action">
+            <button class="btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Answer Questions
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="edge-line"></div>
+    </div>
+
+    <!-- Node 3: Technical Architecture - Ready -->
+    <div class="node-wrapper">
+      <div class="doc-node">
+        <div class="node-header">
+          <span class="node-label">Document</span>
+          <span class="node-name">Technical Architecture</span>
+        </div>
+        <div class="node-body">
+          <div class="state-row state-ready">
+            <svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="state-text">Ready</span>
+          </div>
+          <div class="node-desc">System architecture and technical decisions</div>
+          <div class="node-action">
+            <button class="btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Start Production
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="edge-line"></div>
+    </div>
+
+    <!-- Node 4: Implementation Plan - Blocked -->
+    <div class="node-wrapper">
+      <div class="doc-node">
+        <div class="node-header">
+          <span class="node-label">Document</span>
+          <span class="node-name">Implementation Plan</span>
+        </div>
+        <div class="node-body">
+          <div class="state-row state-blocked">
+            <svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span class="state-text">Blocked</span>
+          </div>
+          <div class="node-desc">Phased implementation roadmap</div>
+          <div class="node-waiting">
+            <strong>Waiting for:</strong> Technical Architecture
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-card">
+      <div class="legend-title">Artifact State</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Stabilized
+        </div>
+        <div class="legend-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--warning)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          In Progress
+        </div>
+        <div class="legend-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--info)"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Ready
+        </div>
+        <div class="legend-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--error)"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Blocked
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div class="instructions">
+    Constitution v2.0 | Inter + Neutral Surfaces + Violet Accent | Light/Dark Only
+  </div>
+
+</div>
+
+<script>
+function toggleTheme() {
+  document.documentElement.classList.toggle('dark');
+  var isDark = document.documentElement.classList.contains('dark');
+  localStorage.setItem('combine-theme', isDark ? 'dark' : 'light');
+}
+
+// Initialize theme from localStorage or system preference
+(function() {
+  var saved = localStorage.getItem('combine-theme');
+  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+</script>
+</body>
+</html>

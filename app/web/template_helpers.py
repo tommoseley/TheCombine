@@ -5,7 +5,7 @@ ADR-033: Fragment rendering is a web channel concern, not BFF.
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Dict
 from markupsafe import Markup
 from jinja2 import Environment
 

@@ -7,13 +7,10 @@ Tests the mechanical sufficiency check behavior:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from app.domain.workflow.nodes.intake_gate import (
     IntakeGateExecutor,
     IntakeFrame,
-    MIN_SUBSTANTIAL_LENGTH,
-    FIELD_QUESTIONS,
 )
 from app.domain.workflow.nodes.base import DocumentWorkflowContext
 

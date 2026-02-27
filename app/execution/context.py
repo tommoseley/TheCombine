@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.persistence.models import StoredDocument, StoredExecutionState, ExecutionStatus
 from app.persistence.repositories import DocumentRepository, ExecutionRepository

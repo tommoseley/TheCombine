@@ -8,7 +8,6 @@ Stage 4: Login + Logout only (Account linking deferred to later stage)
 """
 from fastapi import APIRouter, Request, Depends, HTTPException, Header
 from fastapi.responses import RedirectResponse
-from typing import Optional
 from urllib.parse import urlparse
 import os
 import httpx

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, AsyncGenerator
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.execution import (
     ExecutionContext,
@@ -18,8 +18,6 @@ from app.execution import (
 from app.persistence import (
     DocumentRepository,
     ExecutionRepository,
-    StoredDocument,
-    StoredExecutionState,
     ExecutionStatus,
 )
 from app.llm import TelemetryService

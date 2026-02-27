@@ -5,7 +5,6 @@ These tests verify the preview functionality per ADR-044 WS-044-06.
 """
 
 import pytest
-from datetime import datetime
 
 from fastapi.testclient import TestClient
 

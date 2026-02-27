@@ -7,11 +7,9 @@ ADR-010 Week 3: LLM execution replay functionality.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID, uuid4
-from datetime import datetime
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 import hashlib
-import json
 import logging
 
 from app.core.database import get_db

@@ -5,10 +5,9 @@ IMPORTANT: Does NOT commit. Caller owns transaction.
 Follows PostgresLLMLogRepository pattern.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
-from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { ReactFlowProvider } from 'reactflow';
 
 import ProjectTree from './components/ProjectTree';
 import Floor from './components/Floor';
@@ -249,22 +248,21 @@ function AppContent() {
                 />
                 <div className="flex-1">
                     {activeProjectId ? (
-                        <ReactFlowProvider key={activeProjectId}>
-                            <Floor
-                                projectId={activeProjectId}
-                                projectCode={projects[activeProjectId]?.projectId}
-                                projectName={projects[activeProjectId]?.name}
-                                isArchived={projects[activeProjectId]?.isArchived}
-                                savedLayout={projects[activeProjectId]?.metadata?.floor_layout}
-                                autoExpandNodeId={autoExpandNode}
-                                theme={theme}
-                                onThemeChange={setTheme}
-                                onProjectUpdate={handleProjectUpdate}
-                                onProjectArchive={handleProjectArchive}
-                                onProjectUnarchive={handleProjectUnarchive}
-                                onProjectDelete={handleProjectDelete}
-                            />
-                        </ReactFlowProvider>
+                        <Floor
+                            key={activeProjectId}
+                            projectId={activeProjectId}
+                            projectCode={projects[activeProjectId]?.projectId}
+                            projectName={projects[activeProjectId]?.name}
+                            isArchived={projects[activeProjectId]?.isArchived}
+                            savedLayout={projects[activeProjectId]?.metadata?.floor_layout}
+                            autoExpandNodeId={autoExpandNode}
+                            theme={theme}
+                            onThemeChange={setTheme}
+                            onProjectUpdate={handleProjectUpdate}
+                            onProjectArchive={handleProjectArchive}
+                            onProjectUnarchive={handleProjectUnarchive}
+                            onProjectDelete={handleProjectDelete}
+                        />
                     ) : (
                         <div className="flex items-center justify-center h-full"
                              style={{ background: 'var(--bg-canvas)' }}>

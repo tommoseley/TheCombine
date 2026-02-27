@@ -4,7 +4,6 @@ Tests for LLMRunRecord dataclass structure.
 Verifies the LLMRunRecord includes workflow_execution_id field.
 """
 
-import pytest
 from uuid import uuid4
 from datetime import datetime, timezone
 

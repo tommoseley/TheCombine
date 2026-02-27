@@ -1,7 +1,6 @@
 """Error handlers for consistent API error responses."""
 
 import logging
-from typing import Callable
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse

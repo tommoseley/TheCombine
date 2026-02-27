@@ -162,17 +162,6 @@ async def seed_document_types(test_db):
             display_order=30,
             is_active=True,
         ),
-        TestDocumentType(
-            doc_type_id="story_backlog",
-            name="Story Backlog",
-            scope="project",
-            icon="list-checks",
-            acceptance_required=False,
-            accepted_by_role=None,
-            required_inputs=["technical_architecture", "epic_backlog"],
-            display_order=40,
-            is_active=True,
-        ),
     ]
     
     for dt in doc_types:
@@ -261,8 +250,7 @@ class TestGetProjectDocumentStatuses:
         # Others need project_discovery - should be blocked
         assert docs_by_type["technical_architecture"]["readiness"] == "blocked"
         assert docs_by_type["epic_backlog"]["readiness"] == "blocked"
-        assert docs_by_type["story_backlog"]["readiness"] == "blocked"
-    
+
     @pytest.mark.asyncio
     async def test_returns_correct_status_with_documents(
         self, client, project_id, seed_documents
@@ -284,11 +272,7 @@ class TestGetProjectDocumentStatuses:
         
         # Epic backlog - deps met but not built
         assert docs_by_type["epic_backlog"]["readiness"] == "waiting"
-        
-        # Story backlog - missing epic_backlog
-        assert docs_by_type["story_backlog"]["readiness"] == "blocked"
-        assert "epic_backlog" in docs_by_type["story_backlog"]["missing_inputs"]
-    
+
     @pytest.mark.asyncio
     async def test_returns_correct_action_flags(
         self, client, project_id, seed_documents
@@ -325,7 +309,6 @@ class TestGetProjectDocumentStatuses:
             "project_discovery",
             "technical_architecture",
             "epic_backlog",
-            "story_backlog",
         ]
 
 

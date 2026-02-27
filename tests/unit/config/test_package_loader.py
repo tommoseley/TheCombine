@@ -9,7 +9,6 @@ import pytest
 from pathlib import Path
 
 from app.config.package_model import (
-    DocumentTypePackage,
     AuthorityLevel,
     CreationMode,
     ProductionMode,
@@ -75,13 +74,11 @@ class TestDocumentTypePackage:
         assert package.production_mode == ProductionMode.GENERATE
         assert package.scope == Scope.PROJECT
 
-    def test_load_primary_implementation_plan(self, loader):
-        """Primary Implementation Plan package should load correctly."""
-        package = loader.get_document_type("primary_implementation_plan")
-
-        assert package.doc_type_id == "primary_implementation_plan"
-        assert package.authority_level == AuthorityLevel.PRESCRIPTIVE
-        assert package.required_inputs == ["project_discovery"]
+    def test_primary_implementation_plan_not_in_active_releases(self, loader):
+        """Primary Implementation Plan removed from active_releases (WS-PIPELINE-001).
+        Collapsed into implementation_plan."""
+        active = loader.get_active_releases()
+        assert "primary_implementation_plan" not in active.document_types
 
     def test_load_specific_version(self, loader):
         """Should load a specific version when requested."""
@@ -235,7 +232,7 @@ class TestListOperations:
         doc_types = loader.list_document_types()
 
         assert "project_discovery" in doc_types
-        assert "primary_implementation_plan" in doc_types
+        assert "implementation_plan" in doc_types
 
     def test_list_document_type_versions(self, loader):
         """Should list versions for a document type."""

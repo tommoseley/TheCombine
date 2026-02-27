@@ -22,13 +22,9 @@ from app.domain.handlers.exceptions import HandlerNotFoundError
 # Import concrete handlers as they are created
 from app.domain.handlers.project_discovery_handler import ProjectDiscoveryHandler
 from app.domain.handlers.architecture_spec_handler import ArchitectureSpecHandler
-from app.domain.handlers.story_backlog_handler import StoryBacklogHandler
-from app.domain.handlers.primary_implementation_plan_handler import ImplementationPlanPrimaryHandler
 from app.domain.handlers.implementation_plan_handler import ImplementationPlanHandler
 from app.domain.handlers.intent_packet_handler import IntentPacketHandler
-from app.domain.handlers.backlog_item_handler import BacklogItemHandler
 from app.domain.handlers.execution_plan_handler import ExecutionPlanHandler
-from app.domain.handlers.plan_explanation_handler import PlanExplanationHandler
 from app.domain.handlers.pipeline_run_handler import PipelineRunHandler
 from app.domain.handlers.work_package_handler import WorkPackageHandler
 from app.domain.handlers.work_statement_handler import WorkStatementHandler
@@ -47,16 +43,11 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     # Registered handlers:
     "project_discovery": ProjectDiscoveryHandler(),
     "technical_architecture": ArchitectureSpecHandler(),
-    "story_backlog": StoryBacklogHandler(),
-    "primary_implementation_plan": ImplementationPlanPrimaryHandler(),
     "implementation_plan": ImplementationPlanHandler(),
     # WS-BCP-001: Backlog Compilation Pipeline
     "intent_packet": IntentPacketHandler(),
-    "backlog_item": BacklogItemHandler(),
     # WS-BCP-002: ExecutionPlan (mechanically derived)
     "execution_plan": ExecutionPlanHandler(),
-    # WS-BCP-003: Plan Explanation (LLM explains, never computes)
-    "plan_explanation": PlanExplanationHandler(),
     # WS-BCP-004: Pipeline Run metadata
     "pipeline_run": PipelineRunHandler(),
     # WS-ONTOLOGY-001: Work Package

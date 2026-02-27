@@ -10,6 +10,12 @@ Hardening additions (ADR-050 Mode B enforcement):
 - Frontend build auto-detects spa/ changes (tracked + untracked)
 - Machine-readable JSON with schema_version, timing, exit_code
 
+Performance design:
+- Only 3 tests run the full pytest+lint suite (Criteria 1, 2, 6)
+- All other tests use --skip-checks pytest,lint to test harness logic only
+- Class-level fixtures deduplicate identical harness invocations
+- Tests that trigger argument validation failures exit instantly (no checks)
+
 Test approach: subprocess invocation of the harness script with
 deliberately introduced violations, verifying exit codes.
 """
@@ -21,12 +27,19 @@ import textwrap
 
 import pytest
 
+# Excluded from default runs. Run explicitly: pytest -m slow
+pytestmark = pytest.mark.slow
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 HARNESS = os.path.join(REPO_ROOT, "ops", "scripts", "tier0.sh")
 
-# All tests that aren't specifically testing typecheck behavior need this
-# flag because mypy is not installed (Mode B debt).
+# Mode B declaration for missing mypy
 ALLOW_MISSING_TYPECHECK = ["--allow-missing", "typecheck"]
+
+# Skip expensive checks when testing harness logic only (scope, JSON, Mode B).
+# pytest and lint are the expensive checks (~minutes each). Typecheck, frontend,
+# and scope are fast or auto-skipped when not triggered.
+SKIP_EXPENSIVE = ["--skip-checks", "pytest,lint"]
 
 
 def run_harness(*args, timeout=300, env_override=None):
@@ -53,6 +66,12 @@ def extract_json(stdout):
         if line.startswith("{") and '"schema_version"' in line:
             return json.loads(line)
     return None
+
+
+# ===========================================================================
+# Full-suite tests: These MUST run pytest/lint to verify detection.
+# Only 3 tests in this section — they are the expensive ones.
+# ===========================================================================
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +136,28 @@ class TestCriterion2LintFailure:
 
 
 # ---------------------------------------------------------------------------
+# Criterion 6: Tier 0 returns zero on a clean repository
+# ---------------------------------------------------------------------------
+class TestCriterion6CleanPass:
+    """Run harness with no violations present, assert exit code == 0."""
+
+    def test_harness_passes_on_clean_repo(self):
+        # Must declare Mode B for missing mypy — this is honest, not a loophole
+        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        assert result.returncode == 0, (
+            f"Tier 0 harness must return zero on clean repo.\n"
+            f"stdout: {result.stdout[-500:]}\n"
+            f"stderr: {result.stderr[-500:]}"
+        )
+
+
+# ===========================================================================
+# Harness-logic tests: Skip pytest+lint, test harness behavior only.
+# These run in seconds, not minutes.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
 # Criterion 3: Missing type checker fails without Mode B declaration
 # ---------------------------------------------------------------------------
 class TestCriterion3TypeCheckMissing:
@@ -126,8 +167,8 @@ class TestCriterion3TypeCheckMissing:
     """
 
     def test_harness_fails_when_typecheck_missing(self):
-        # Run WITHOUT --allow-missing typecheck
-        result = run_harness()
+        # Skip pytest+lint — we only care about typecheck behavior
+        result = run_harness(*SKIP_EXPENSIVE)
         data = extract_json(result.stdout)
 
         if data and data["checks"]["typecheck"] == "PASS":
@@ -150,7 +191,7 @@ class TestCriterion3bModeBTypeCheck:
     """With --allow-missing typecheck, missing mypy is SKIP_B, not failure."""
 
     def test_mode_b_allows_missing_typecheck(self):
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        result = run_harness(*SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK)
         data = extract_json(result.stdout)
 
         if data and data["checks"]["typecheck"] == "PASS":
@@ -190,8 +231,8 @@ class TestCriterion4FrontendBuildFailure:
                 f.write(self._original_content)
 
     def test_harness_fails_on_frontend_build_error(self):
-        # No --frontend flag: auto-detection of spa/ changes should trigger build
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        # Skip pytest+lint — we only need the frontend check
+        result = run_harness(*SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK)
         assert result.returncode != 0, (
             "Tier 0 harness must return non-zero when frontend build fails"
         )
@@ -231,26 +272,12 @@ class TestCriterion5ScopeViolation:
 
     def test_harness_fails_on_scope_violation(self):
         # Declare scope as only app/ — the docs/ file is out of scope
-        result = run_harness("--scope", "app/", *ALLOW_MISSING_TYPECHECK)
+        result = run_harness(
+            "--scope", "app/", *SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK,
+        )
         assert result.returncode != 0, (
             "Tier 0 harness must return non-zero when files outside "
             "declared scope are modified"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Criterion 6: Tier 0 returns zero on a clean repository
-# ---------------------------------------------------------------------------
-class TestCriterion6CleanPass:
-    """Run harness with no violations present, assert exit code == 0."""
-
-    def test_harness_passes_on_clean_repo(self):
-        # Must declare Mode B for missing mypy — this is honest, not a loophole
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        assert result.returncode == 0, (
-            f"Tier 0 harness must return zero on clean repo.\n"
-            f"stdout: {result.stdout[-500:]}\n"
-            f"stderr: {result.stderr[-500:]}"
         )
 
 
@@ -260,12 +287,20 @@ class TestCriterion6CleanPass:
 class TestMachineReadableOutput:
     """Verify the harness emits parseable JSON with required fields."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_run(self, request):
+        """Run harness once, share result across tests in this class."""
+        request.cls._result = run_harness(
+            *SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK,
+        )
+        request.cls._data = extract_json(request.cls._result.stdout)
+
     def test_json_schema_version_and_fields(self):
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
+        result = self._result
+        data = self._data
         assert "--- TIER0_JSON ---" in result.stdout, (
             "Harness must emit --- TIER0_JSON --- marker"
         )
-        data = extract_json(result.stdout)
         assert data is not None, "JSON block must be parseable"
 
         # schema_version for forward compatibility
@@ -296,6 +331,7 @@ class TestMachineReadableOutput:
         result = run_harness(
             "--ws",
             "--scope", "nonexistent/",
+            *SKIP_EXPENSIVE,
             *ALLOW_MISSING_TYPECHECK,
             env_override={
                 "TIER0_CHANGED_FILES_OVERRIDE": "app/main.py",
@@ -315,10 +351,18 @@ class TestMachineReadableOutput:
 class TestCriterion7SkipIsNotPass:
     """When checks are skipped, harness must NOT say ALL CHECKS PASSED."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_run(self, request):
+        """Run harness once, share result across tests in this class."""
+        request.cls._result = run_harness(
+            *SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK,
+        )
+        request.cls._data = extract_json(request.cls._result.stdout)
+
     def test_mode_b_skip_produces_passed_with_skips(self):
         """Mode B typecheck skip -> PASSED WITH SKIPS, not ALL CHECKS PASSED."""
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        data = extract_json(result.stdout)
+        result = self._result
+        data = self._data
 
         if data and data["checks"]["typecheck"] == "PASS":
             pytest.skip("mypy is installed — no skip to test")
@@ -336,8 +380,8 @@ class TestCriterion7SkipIsNotPass:
 
     def test_all_checks_passed_requires_zero_skips(self):
         """ALL CHECKS PASSED should only appear when every check actually ran."""
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        data = extract_json(result.stdout)
+        result = self._result
+        data = self._data
 
         if data and data["overall"] == "PASS":
             # Genuine full pass — ALL CHECKS PASSED is correct
@@ -354,6 +398,7 @@ class TestCIGuard:
     """In CI, --allow-missing must be rejected unless ALLOW_MODE_B_IN_CI=1."""
 
     def test_ci_rejects_allow_missing(self):
+        # CI guard exits before running any checks — already fast
         result = run_harness(
             *ALLOW_MISSING_TYPECHECK,
             env_override={"CI": "true"},
@@ -367,6 +412,7 @@ class TestCIGuard:
 
     def test_ci_allows_mode_b_with_explicit_override(self):
         result = run_harness(
+            *SKIP_EXPENSIVE,
             *ALLOW_MISSING_TYPECHECK,
             env_override={"CI": "true", "ALLOW_MODE_B_IN_CI": "1"},
         )
@@ -398,15 +444,18 @@ class TestWSCriterion1FlagRequiresScope:
     """Invoke tier0 with --ws and no --scope -> exit non-zero, stderr has
     actionable error instructing how to pass scope."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_run(self, request):
+        """--ws without --scope exits immediately — one invocation for both tests."""
+        request.cls._result = run_harness("--ws", *ALLOW_MISSING_TYPECHECK)
+
     def test_ws_flag_without_scope_fails(self):
-        result = run_harness("--ws", *ALLOW_MISSING_TYPECHECK)
-        assert result.returncode != 0, (
+        assert self._result.returncode != 0, (
             "WS mode (--ws) without --scope must return non-zero"
         )
 
     def test_ws_flag_without_scope_has_actionable_error(self):
-        result = run_harness("--ws", *ALLOW_MISSING_TYPECHECK)
-        combined = result.stdout + result.stderr
+        combined = self._result.stdout + self._result.stderr
         assert "--scope" in combined, (
             "Error message must mention --scope so the user knows how to fix it"
         )
@@ -419,6 +468,7 @@ class TestWSCriterion2EnvVarRequiresScope:
     """Invoke tier0 with COMBINE_WS_ID=WS-123 and no --scope -> fail."""
 
     def test_ws_env_var_without_scope_fails(self):
+        # Exits immediately at WS scope guard — already fast
         result = run_harness(
             *ALLOW_MISSING_TYPECHECK,
             env_override={"COMBINE_WS_ID": "WS-TIER0-SCOPE-001"},
@@ -436,10 +486,11 @@ class TestWSCriterion3ScopePass:
     and JSON shows checks.scope=PASS."""
 
     def test_ws_mode_scope_pass(self):
-        # Use test seam to control changed files
+        # Use test seam to control changed files; skip expensive checks
         result = run_harness(
             "--ws",
             "--scope", "ops/scripts/", "tests/infrastructure/",
+            *SKIP_EXPENSIVE,
             *ALLOW_MISSING_TYPECHECK,
             env_override={
                 "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\ntests/infrastructure/test_tier0_harness.py",
@@ -463,34 +514,31 @@ class TestWSCriterion4ScopeFail:
     """With at least one changed file outside scope, tier0 fails and JSON
     shows checks.scope=FAIL, stderr lists out-of-scope files."""
 
-    def test_ws_mode_scope_fail(self):
-        result = run_harness(
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_run(self, request):
+        """One invocation for both scope-fail assertions."""
+        request.cls._result = run_harness(
             "--ws",
             "--scope", "ops/scripts/",
+            *SKIP_EXPENSIVE,
             *ALLOW_MISSING_TYPECHECK,
             env_override={
                 "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\napp/main.py",
             },
         )
-        assert result.returncode != 0, (
+        request.cls._data = extract_json(request.cls._result.stdout)
+
+    def test_ws_mode_scope_fail(self):
+        assert self._result.returncode != 0, (
             "WS mode with out-of-scope files must return non-zero"
         )
-        data = extract_json(result.stdout)
-        assert data is not None
-        assert data["checks"]["scope"] == "FAIL", (
+        assert self._data is not None
+        assert self._data["checks"]["scope"] == "FAIL", (
             "checks.scope must be FAIL when files are out of scope"
         )
 
     def test_ws_mode_scope_fail_lists_files(self):
-        result = run_harness(
-            "--ws",
-            "--scope", "ops/scripts/",
-            *ALLOW_MISSING_TYPECHECK,
-            env_override={
-                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh\napp/main.py",
-            },
-        )
-        combined = result.stdout + result.stderr
+        combined = self._result.stdout + self._result.stderr
         assert "app/main.py" in combined, (
             "Out-of-scope files must be listed in output"
         )
@@ -503,9 +551,16 @@ class TestWSCriterion5NonWSModeSkipped:
     """Run tier0 without --ws and without scopes -> does not fail due to scope;
     JSON includes ws_mode=false and checks.scope=SKIPPED."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_run(self, request):
+        """One invocation for both non-WS-mode assertions."""
+        request.cls._result = run_harness(
+            *SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK,
+        )
+        request.cls._data = extract_json(request.cls._result.stdout)
+
     def test_non_ws_mode_scope_skipped(self):
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        data = extract_json(result.stdout)
+        data = self._data
         assert data is not None
         assert data.get("ws_mode") is False, (
             "ws_mode must be false when not in WS mode"
@@ -516,10 +571,8 @@ class TestWSCriterion5NonWSModeSkipped:
 
     def test_non_ws_mode_does_not_fail_on_scope(self):
         """Non-WS mode must not fail due to missing scope."""
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        # If it fails, it should not be because of scope
-        if result.returncode != 0:
-            data = extract_json(result.stdout)
+        if self._result.returncode != 0:
+            data = self._data
             assert data is None or data["checks"]["scope"] != "FAIL", (
                 "Non-WS mode must not fail due to scope"
             )
@@ -532,9 +585,28 @@ class TestWSCriterion6JSONContract:
     """JSON output includes ws_mode (boolean), declared_scope_paths (array),
     and checks.scope (PASS/FAIL/SKIPPED) in all modes."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def _shared_harness_runs(self, request):
+        """Two invocations: non-WS mode and WS mode. Shared across 3 tests."""
+        request.cls._non_ws_result = run_harness(
+            *SKIP_EXPENSIVE, *ALLOW_MISSING_TYPECHECK,
+        )
+        request.cls._non_ws_data = extract_json(
+            request.cls._non_ws_result.stdout,
+        )
+        request.cls._ws_result = run_harness(
+            "--ws",
+            "--scope", "ops/scripts/", "tests/",
+            *SKIP_EXPENSIVE,
+            *ALLOW_MISSING_TYPECHECK,
+            env_override={
+                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh",
+            },
+        )
+        request.cls._ws_data = extract_json(request.cls._ws_result.stdout)
+
     def test_json_has_ws_fields_in_non_ws_mode(self):
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        data = extract_json(result.stdout)
+        data = self._non_ws_data
         assert data is not None
         assert "ws_mode" in data, "JSON must include ws_mode in non-WS mode"
         assert isinstance(data["ws_mode"], bool), "ws_mode must be boolean"
@@ -546,15 +618,7 @@ class TestWSCriterion6JSONContract:
         )
 
     def test_json_has_ws_fields_in_ws_mode(self):
-        result = run_harness(
-            "--ws",
-            "--scope", "ops/scripts/", "tests/",
-            *ALLOW_MISSING_TYPECHECK,
-            env_override={
-                "TIER0_CHANGED_FILES_OVERRIDE": "ops/scripts/tier0.sh",
-            },
-        )
-        data = extract_json(result.stdout)
+        data = self._ws_data
         assert data is not None
         assert data["ws_mode"] is True, "ws_mode must be true in WS mode"
         assert data["declared_scope_paths"] == ["ops/scripts/", "tests/"], (
@@ -566,8 +630,7 @@ class TestWSCriterion6JSONContract:
 
     def test_scope_check_values_valid(self):
         """checks.scope must be PASS, FAIL, or SKIP/SKIPPED."""
-        result = run_harness(*ALLOW_MISSING_TYPECHECK)
-        data = extract_json(result.stdout)
+        data = self._non_ws_data
         assert data is not None
         assert data["checks"]["scope"] in ("PASS", "FAIL", "SKIP", "SKIPPED"), (
             f"checks.scope has unexpected value: {data['checks']['scope']}"
@@ -582,6 +645,7 @@ class TestWSCriterion7CIGuard:
     unless ALLOW_SCOPE_SKIP_IN_CI=1."""
 
     def test_ci_ws_mode_requires_scope(self):
+        # Exits immediately at WS scope guard — already fast
         result = run_harness(
             "--ws",
             env_override={
@@ -597,6 +661,7 @@ class TestWSCriterion7CIGuard:
         """ALLOW_SCOPE_SKIP_IN_CI=1 bypasses the CI scope requirement."""
         result = run_harness(
             "--ws",
+            *SKIP_EXPENSIVE,
             *ALLOW_MISSING_TYPECHECK,
             env_override={
                 "CI": "true",

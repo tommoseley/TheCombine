@@ -14,7 +14,6 @@ Routes:
 
 import logging
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
@@ -29,7 +28,6 @@ from app.api.services.fragment_registry_service import FragmentRegistryService
 from app.domain.services.render_model_builder import (
     RenderModelBuilder,
     RenderModel,
-    RenderSection,
     RenderBlock,
     DocDefNotFoundError,
     ComponentNotFoundError,

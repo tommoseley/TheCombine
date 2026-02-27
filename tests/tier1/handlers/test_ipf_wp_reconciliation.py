@@ -1,13 +1,16 @@
 """
-Tests for IPF Work Package Reconciliation — WS-ONTOLOGY-005.
+Tests for Implementation Plan v3 schema contract.
 
-Six test groups mapping to the six Mode A Tier 1 verification criteria:
-  C1: IPF accepts WP candidates as input
-  C2: IPF produces committed work_packages[]
-  C3: Reconciliation entries (kept/split/merged/dropped)
-  C4: Bidirectional traceability
-  C5: Governance pinning on committed WPs
-  C6: Committed WPs instantiated as child documents via get_child_documents()
+Updated for v3: IP produces candidate Work Packages (WPC-###), not committed WPs.
+Reconciliation, governance pinning, and transformation are Work Binder concerns.
+
+Test groups:
+  C1: Schema defines work_package_candidates
+  C2: Candidate structure (candidate_id, dependencies, definition_of_done)
+  C3: Risk summary references candidates by WPC-### ID
+  C4: Schema excludes committed-WP fields (no reconciliation, no governance_pins)
+  C5: Transform enrichment
+  C6: Validation against v3 schema
 """
 
 import pytest
@@ -45,18 +48,18 @@ def ipf_schema(ipf_package):
 @pytest.fixture
 def ipf_data():
     """
-    Representative IPF output with committed WPs reconciled from WPC candidates.
+    Representative v3 IP output with candidate Work Packages.
 
     Scenarios covered:
-    - WPC-001 kept as wp_document_registry
-    - WPC-002 split into wp_llm_client and wp_execution_logging
-    - WPC-003 merged with WPC-004 into wp_workflow_engine
-    - WPC-005 dropped
+    - WPC-001: standalone candidate (no dependencies)
+    - WPC-002: depends on WPC-001
+    - WPC-003: depends on external prerequisite
+    - WPC-004: depends on WPC-001 and WPC-002
     """
     return {
         "meta": {
-            "schema_version": "1.0",
-            "artifact_id": "test-ipf-001",
+            "schema_version": "3.0",
+            "artifact_id": "test-ip-001",
             "created_at": "2026-01-01T00:00:00Z",
             "source": "human",
         },
@@ -66,337 +69,238 @@ def ipf_data():
             "key_constraints": ["Stateless LLM execution", "All state changes traceable"],
             "sequencing_rationale": "Foundation first, then pipeline, then orchestration",
         },
-        "work_packages": [
+        "work_package_candidates": [
             {
-                "wp_id": "wp_document_registry",
+                "candidate_id": "WPC-001",
                 "title": "Document Type Registry",
                 "rationale": "Foundation for all document types",
                 "scope_in": ["Handler registration", "Schema validation"],
                 "scope_out": ["UI rendering"],
                 "dependencies": [],
                 "definition_of_done": ["All seed types registered", "Validation enforced"],
-                "governance_pins": {
-                    "ta_version_id": "ta-v1.0",
-                    "adr_refs": ["ADR-045"],
-                    "policy_refs": [],
-                },
-                "transformation": "kept",
-                "source_candidate_ids": ["WPC-001"],
-                "transformation_notes": "Preserved from IPP",
             },
             {
-                "wp_id": "wp_llm_client",
+                "candidate_id": "WPC-002",
                 "title": "LLM Client Integration",
                 "rationale": "Stateless LLM invocation layer",
                 "scope_in": ["API client", "Token management"],
                 "scope_out": ["Conversation history"],
-                "dependencies": [{"wp_id": "wp_document_registry", "dependency_type": "must_complete_first"}],
+                "dependencies": [
+                    {
+                        "depends_on_candidate_id": "WPC-001",
+                        "dependency_type": "must_complete_first",
+                        "notes": "Need registry before LLM calls",
+                    }
+                ],
                 "definition_of_done": ["LLM calls succeed", "Token usage tracked"],
-                "governance_pins": {
-                    "ta_version_id": "ta-v1.0",
-                    "adr_refs": ["ADR-040"],
-                    "policy_refs": [],
-                },
-                "transformation": "split",
-                "source_candidate_ids": ["WPC-002"],
-                "transformation_notes": "Split execution pipeline into client and logging",
             },
             {
-                "wp_id": "wp_execution_logging",
-                "title": "LLM Execution Logging",
-                "rationale": "Full audit trail per ADR-010",
-                "scope_in": ["Execution logging", "Replay capability"],
-                "scope_out": ["Real-time monitoring"],
-                "dependencies": [{"wp_id": "wp_llm_client", "dependency_type": "must_complete_first"}],
-                "definition_of_done": ["All executions logged", "Replay functional"],
-                "governance_pins": {
-                    "ta_version_id": "ta-v1.0",
-                    "adr_refs": ["ADR-010"],
-                    "policy_refs": [],
-                },
-                "transformation": "split",
-                "source_candidate_ids": ["WPC-002"],
-                "transformation_notes": "Split execution pipeline into client and logging",
+                "candidate_id": "WPC-003",
+                "title": "External Auth Integration",
+                "rationale": "SSO and OAuth support",
+                "scope_in": ["OAuth flow", "Token refresh"],
+                "scope_out": ["Custom auth providers"],
+                "dependencies": [
+                    {
+                        "depends_on_external": "SSO requirements clarified by security team",
+                        "dependency_type": "must_complete_first",
+                        "notes": "Cannot start until security review complete",
+                    }
+                ],
+                "definition_of_done": ["OAuth login functional", "Token refresh works"],
             },
             {
-                "wp_id": "wp_workflow_engine",
+                "candidate_id": "WPC-004",
                 "title": "Workflow Orchestration Engine",
                 "rationale": "POW and DCW execution",
                 "scope_in": ["POW sequencing", "DCW gate execution"],
                 "scope_out": ["Custom workflow DSL"],
                 "dependencies": [
-                    {"wp_id": "wp_document_registry", "dependency_type": "must_complete_first"},
-                    {"wp_id": "wp_llm_client", "dependency_type": "must_complete_first"},
+                    {
+                        "depends_on_candidate_id": "WPC-001",
+                        "dependency_type": "must_complete_first",
+                        "notes": "Registry must exist",
+                    },
+                    {
+                        "depends_on_candidate_id": "WPC-002",
+                        "dependency_type": "must_complete_first",
+                        "notes": "LLM client needed for gate execution",
+                    },
                 ],
                 "definition_of_done": ["POW executes", "DCW gates validate"],
-                "governance_pins": {
-                    "ta_version_id": "ta-v1.0",
-                    "adr_refs": [],
-                    "policy_refs": [],
-                },
-                "transformation": "merged",
-                "source_candidate_ids": ["WPC-003", "WPC-004"],
-                "transformation_notes": "Merged orchestration and gate execution",
-            },
-        ],
-        "candidate_reconciliation": [
-            {
-                "candidate_id": "WPC-001",
-                "outcome": "kept",
-                "resulting_wp_ids": ["wp_document_registry"],
-                "notes": "Direct mapping",
-            },
-            {
-                "candidate_id": "WPC-002",
-                "outcome": "split",
-                "resulting_wp_ids": ["wp_llm_client", "wp_execution_logging"],
-                "notes": "Architecture review separated client from logging concerns",
-            },
-            {
-                "candidate_id": "WPC-003",
-                "outcome": "merged",
-                "resulting_wp_ids": ["wp_workflow_engine"],
-                "notes": "Combined with WPC-004 per architecture recommendation",
-            },
-            {
-                "candidate_id": "WPC-004",
-                "outcome": "merged",
-                "resulting_wp_ids": ["wp_workflow_engine"],
-                "notes": "Combined with WPC-003 per architecture recommendation",
-            },
-            {
-                "candidate_id": "WPC-005",
-                "outcome": "dropped",
-                "resulting_wp_ids": [],
-                "notes": "Deferred — not needed for MVP",
+                "sequencing_hint": 4,
+                "notes_for_work_binder": "Consider splitting orchestration and gate execution during TA review",
             },
         ],
         "cross_cutting_concerns": ["Stateless execution invariant"],
-        "risk_summary": [],
+        "risk_summary": [
+            {
+                "risk": "LLM API rate limits may throttle pipeline throughput",
+                "affected_candidates": ["WPC-002", "WPC-004"],
+                "overall_impact": "medium",
+                "mitigation_strategy": "Implement exponential backoff with circuit breaker",
+            },
+        ],
+        "recommendations_for_architecture": [
+            "Evaluate whether gate execution should be synchronous or event-driven",
+        ],
+        "open_questions": [
+            {
+                "question": "What is the expected document volume per day?",
+                "why_it_matters": "Affects storage and LLM cost projections",
+                "who_needs_to_answer": "Product owner",
+            },
+        ],
     }
 
 
 # =========================================================================
-# C1 — IPF accepts WP candidates as input
+# C1 -- Schema defines work_package_candidates
 # =========================================================================
 
 
-class TestC1AcceptsWPCandidates:
-    def test_required_inputs_include_ipp(self, ipf_package):
-        """IPF requires primary_implementation_plan (which now emits WP candidates)."""
-        assert "primary_implementation_plan" in ipf_package.required_inputs
+class TestC1SchemaStructure:
+    def test_required_inputs_include_project_discovery(self, ipf_package):
+        """IP requires project_discovery."""
+        assert "project_discovery" in ipf_package.required_inputs
 
-    def test_schema_has_work_packages_property(self, ipf_schema):
-        assert "work_packages" in ipf_schema["properties"]
+    def test_schema_has_work_package_candidates(self, ipf_schema):
+        assert "work_package_candidates" in ipf_schema["properties"]
 
-    def test_schema_requires_work_packages(self, ipf_schema):
-        assert "work_packages" in ipf_schema["required"]
-
-    def test_schema_has_no_epics_in_required(self, ipf_schema):
-        assert "epics" not in ipf_schema.get("required", [])
+    def test_schema_requires_work_package_candidates(self, ipf_schema):
+        assert "work_package_candidates" in ipf_schema["required"]
 
     def test_schema_has_no_epics_property(self, ipf_schema):
         assert "epics" not in ipf_schema.get("properties", {})
 
+    def test_schema_version_is_3(self, ipf_schema):
+        meta_props = ipf_schema["properties"]["meta"]["properties"]
+        assert meta_props["schema_version"]["const"] == "3.0"
+
 
 # =========================================================================
-# C2 — IPF produces committed work_packages[]
+# C2 -- Candidate structure
 # =========================================================================
 
 
-class TestC2ProducesCommittedWPs:
-    def test_ipf_data_has_work_packages(self, ipf_data):
-        assert "work_packages" in ipf_data
-        assert len(ipf_data["work_packages"]) == 4
+class TestC2CandidateStructure:
+    def test_data_has_4_candidates(self, ipf_data):
+        assert len(ipf_data["work_package_candidates"]) == 4
 
-    def test_each_wp_has_unique_id(self, ipf_data):
-        ids = [wp["wp_id"] for wp in ipf_data["work_packages"]]
+    def test_each_candidate_has_unique_id(self, ipf_data):
+        ids = [c["candidate_id"] for c in ipf_data["work_package_candidates"]]
         assert len(ids) == len(set(ids))
 
-    def test_each_wp_has_required_fields(self, ipf_data):
+    def test_each_candidate_has_required_fields(self, ipf_data):
         required = [
-            "wp_id", "title", "rationale", "scope_in", "scope_out",
-            "dependencies", "definition_of_done", "governance_pins",
+            "candidate_id", "title", "rationale", "scope_in", "scope_out",
+            "dependencies", "definition_of_done",
         ]
-        for wp in ipf_data["work_packages"]:
+        for c in ipf_data["work_package_candidates"]:
             for field in required:
-                assert field in wp, f"WP '{wp['wp_id']}' missing '{field}'"
+                assert field in c, f"Candidate '{c['candidate_id']}' missing '{field}'"
 
-    def test_validation_passes(self, handler, ipf_schema, ipf_data):
-        is_valid, errors = handler.validate(ipf_data, ipf_schema)
-        assert is_valid, f"Validation errors: {errors}"
+    def test_candidate_id_format(self, ipf_data):
+        import re
+        for c in ipf_data["work_package_candidates"]:
+            assert re.match(r"^WPC-[0-9]{3}$", c["candidate_id"]), (
+                f"candidate_id '{c['candidate_id']}' does not match WPC-### format"
+            )
 
-
-# =========================================================================
-# C3 — Reconciliation entries (kept/split/merged/dropped)
-# =========================================================================
-
-
-class TestC3ReconciliationEntries:
-    def test_schema_has_candidate_reconciliation(self, ipf_schema):
-        assert "candidate_reconciliation" in ipf_schema["properties"]
-
-    def test_reconciliation_entries_exist(self, ipf_data):
-        assert "candidate_reconciliation" in ipf_data
-        assert len(ipf_data["candidate_reconciliation"]) == 5
-
-    def test_reconciliation_has_all_outcome_types(self, ipf_data):
-        outcomes = {r["outcome"] for r in ipf_data["candidate_reconciliation"]}
-        assert outcomes == {"kept", "split", "merged", "dropped"}
-
-    def test_kept_entry_has_one_result(self, ipf_data):
-        kept = [r for r in ipf_data["candidate_reconciliation"] if r["outcome"] == "kept"]
-        assert len(kept) == 1
-        assert len(kept[0]["resulting_wp_ids"]) == 1
-
-    def test_split_entry_has_multiple_results(self, ipf_data):
-        split = [r for r in ipf_data["candidate_reconciliation"] if r["outcome"] == "split"]
-        assert len(split) == 1
-        assert len(split[0]["resulting_wp_ids"]) == 2
-
-    def test_dropped_entry_has_empty_results(self, ipf_data):
-        dropped = [r for r in ipf_data["candidate_reconciliation"] if r["outcome"] == "dropped"]
-        assert len(dropped) == 1
-        assert dropped[0]["resulting_wp_ids"] == []
-
-    def test_each_reconciliation_entry_has_required_fields(self, ipf_data):
-        for entry in ipf_data["candidate_reconciliation"]:
-            assert "candidate_id" in entry
-            assert "outcome" in entry
-            assert "resulting_wp_ids" in entry
-            assert "notes" in entry
+    def test_dependency_references_valid_candidates_or_external(self, ipf_data):
+        candidate_ids = {c["candidate_id"] for c in ipf_data["work_package_candidates"]}
+        for c in ipf_data["work_package_candidates"]:
+            for dep in c["dependencies"]:
+                if "depends_on_candidate_id" in dep:
+                    assert dep["depends_on_candidate_id"] in candidate_ids, (
+                        f"Dependency '{dep['depends_on_candidate_id']}' not found in candidates"
+                    )
+                else:
+                    assert "depends_on_external" in dep, (
+                        f"Dependency in '{c['candidate_id']}' has neither candidate nor external ref"
+                    )
 
 
 # =========================================================================
-# C4 — Bidirectional traceability
+# C3 -- Risk summary references candidates
 # =========================================================================
 
 
-class TestC4BidirectionalTraceability:
-    def test_every_wp_has_source_candidate_ids(self, ipf_data):
-        for wp in ipf_data["work_packages"]:
-            assert "source_candidate_ids" in wp, f"WP '{wp['wp_id']}' missing source_candidate_ids"
-            assert "transformation" in wp, f"WP '{wp['wp_id']}' missing transformation"
+class TestC3RiskSummary:
+    def test_risk_summary_exists(self, ipf_data):
+        assert "risk_summary" in ipf_data
+        assert len(ipf_data["risk_summary"]) >= 1
 
-    def test_every_wp_traces_back_to_candidates(self, ipf_data):
-        """Every WP with transformation != 'added' must have non-empty source_candidate_ids."""
-        for wp in ipf_data["work_packages"]:
-            if wp["transformation"] != "added":
-                assert len(wp["source_candidate_ids"]) >= 1, (
-                    f"WP '{wp['wp_id']}' has transformation '{wp['transformation']}' "
-                    f"but empty source_candidate_ids"
+    def test_risk_affected_candidates_are_valid(self, ipf_data):
+        candidate_ids = {c["candidate_id"] for c in ipf_data["work_package_candidates"]}
+        for risk in ipf_data["risk_summary"]:
+            for cid in risk["affected_candidates"]:
+                assert cid in candidate_ids, (
+                    f"Risk references '{cid}' which is not a valid candidate"
                 )
 
-    def test_every_candidate_traces_forward(self, ipf_data):
-        """Every candidate_id in reconciliation maps to an outcome."""
-        candidate_ids = {r["candidate_id"] for r in ipf_data["candidate_reconciliation"]}
-        assert len(candidate_ids) == len(ipf_data["candidate_reconciliation"])
-
-    def test_resulting_wp_ids_reference_real_wps(self, ipf_data):
-        """All resulting_wp_ids must exist in work_packages[]."""
-        wp_ids = {wp["wp_id"] for wp in ipf_data["work_packages"]}
-        for entry in ipf_data["candidate_reconciliation"]:
-            for wp_id in entry["resulting_wp_ids"]:
-                assert wp_id in wp_ids, (
-                    f"Reconciliation references '{wp_id}' which is not in work_packages[]"
-                )
-
-    def test_merged_wp_has_multiple_sources(self, ipf_data):
-        merged = [wp for wp in ipf_data["work_packages"] if wp["transformation"] == "merged"]
-        assert len(merged) == 1
-        assert len(merged[0]["source_candidate_ids"]) >= 2
-
 
 # =========================================================================
-# C5 — Governance pinning
+# C4 -- Schema excludes committed-WP fields
 # =========================================================================
 
 
-class TestC5GovernancePinning:
-    def test_every_wp_has_governance_pins(self, ipf_data):
-        for wp in ipf_data["work_packages"]:
-            assert "governance_pins" in wp, f"WP '{wp['wp_id']}' missing governance_pins"
+class TestC4NoCommittedWPFields:
+    def test_no_candidate_reconciliation_in_schema(self, ipf_schema):
+        assert "candidate_reconciliation" not in ipf_schema["properties"]
 
-    def test_governance_pins_has_ta_version_id(self, ipf_data):
-        for wp in ipf_data["work_packages"]:
-            pins = wp["governance_pins"]
-            assert "ta_version_id" in pins, (
-                f"WP '{wp['wp_id']}' governance_pins missing ta_version_id"
-            )
-            assert pins["ta_version_id"], (
-                f"WP '{wp['wp_id']}' governance_pins.ta_version_id is empty"
-            )
+    def test_no_work_packages_alias_in_schema(self, ipf_schema):
+        """v3 schema should not have the deprecated work_packages alias."""
+        assert "work_packages" not in ipf_schema["properties"]
 
-    def test_governance_pins_has_adr_refs(self, ipf_data):
-        """adr_refs must exist (may be empty list)."""
-        for wp in ipf_data["work_packages"]:
-            pins = wp["governance_pins"]
-            assert "adr_refs" in pins, (
-                f"WP '{wp['wp_id']}' governance_pins missing adr_refs"
-            )
-            assert isinstance(pins["adr_refs"], list)
-
-    def test_schema_defines_governance_pins_on_wp(self, ipf_schema):
-        # work_packages items use $ref — resolve via definitions
-        wp_ref = ipf_schema["properties"]["work_packages"]["items"]
+    def test_candidate_def_has_no_governance_pins(self, ipf_schema):
+        """Candidates should not have governance_pins (Work Binder concern)."""
+        wp_ref = ipf_schema["properties"]["work_package_candidates"]["items"]
         if "$ref" in wp_ref:
             ref_name = wp_ref["$ref"].split("/")[-1]
             wp_props = ipf_schema["definitions"][ref_name]["properties"]
         else:
             wp_props = wp_ref["properties"]
-        assert "governance_pins" in wp_props
+        assert "governance_pins" not in wp_props
+        assert "transformation" not in wp_props
+        assert "source_candidate_ids" not in wp_props
 
 
 # =========================================================================
-# C6 — Committed WPs instantiated via get_child_documents()
+# C5 -- Transform enrichment
 # =========================================================================
 
 
-class TestC6WPInstantiation:
-    def test_get_child_documents_returns_wp_children(self, handler, ipf_data):
-        children = handler.get_child_documents(ipf_data, "Test Plan")
-        assert len(children) == 4
+class TestC5TransformEnrichment:
+    def test_transform_adds_wp_count(self, handler, ipf_data):
+        result = handler.transform(ipf_data)
+        assert result["wp_count"] == 4
 
-    def test_child_doc_type_is_work_package(self, handler, ipf_data):
+    def test_get_child_documents_returns_empty(self, handler, ipf_data):
+        """WP creation is manual -- handler returns empty."""
         children = handler.get_child_documents(ipf_data, "Test Plan")
-        assert all(c["doc_type_id"] == "work_package" for c in children)
-
-    def test_child_identifier_matches_wp_id(self, handler, ipf_data):
-        children = handler.get_child_documents(ipf_data, "Test Plan")
-        ids = [c["identifier"] for c in children]
-        assert "wp_document_registry" in ids
-        assert "wp_llm_client" in ids
-
-    def test_child_content_has_wp_fields(self, handler, ipf_data):
-        children = handler.get_child_documents(ipf_data, "Test Plan")
-        content = children[0]["content"]
-        assert content["wp_id"] == "wp_document_registry"
-        assert content["title"] == "Document Type Registry"
-        assert content["rationale"] == "Foundation for all document types"
-        assert "scope_in" in content
-        assert "scope_out" in content
-        assert "definition_of_done" in content
-        assert "governance_pins" in content
-
-    def test_child_content_has_lineage(self, handler, ipf_data):
-        children = handler.get_child_documents(ipf_data, "Test Plan")
-        lineage = children[0]["content"]["_lineage"]
-        assert lineage["parent_document_type"] == "implementation_plan"
-        assert lineage["source_candidate_ids"] == ["WPC-001"]
-        assert lineage["transformation"] == "kept"
-
-    def test_child_wp_state_is_planned(self, handler, ipf_data):
-        """Newly instantiated WPs start in PLANNED state."""
-        children = handler.get_child_documents(ipf_data, "Test Plan")
-        for child in children:
-            assert child["content"]["state"] == "PLANNED"
-
-    def test_empty_work_packages_returns_empty(self, handler):
-        data = {"plan_summary": {}, "work_packages": []}
-        children = handler.get_child_documents(data, "Test Plan")
         assert children == []
 
-    def test_missing_work_packages_key_returns_empty(self, handler):
-        data = {"plan_summary": {}}
-        children = handler.get_child_documents(data, "Test Plan")
-        assert children == []
+    def test_transform_adds_associated_risks(self, handler, ipf_data):
+        """Transform injects associated_risks from risk_summary."""
+        result = handler.transform(ipf_data)
+        # WPC-002 should have the LLM rate limit risk
+        wpc_002 = [c for c in result["work_package_candidates"] if c["candidate_id"] == "WPC-002"][0]
+        assert len(wpc_002["associated_risks"]) == 1
+        assert "rate limit" in wpc_002["associated_risks"][0].lower()
+
+    def test_transform_empty_candidates(self, handler):
+        data = {"work_package_candidates": []}
+        result = handler.transform(data)
+        assert result["wp_count"] == 0
+
+
+# =========================================================================
+# C6 -- Validation against v3 schema
+# =========================================================================
+
+
+class TestC6Validation:
+    def test_validation_passes(self, handler, ipf_schema, ipf_data):
+        is_valid, errors = handler.validate(ipf_data, ipf_schema)
+        assert is_valid, f"Validation errors: {errors}"

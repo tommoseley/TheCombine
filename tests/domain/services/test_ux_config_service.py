@@ -4,8 +4,6 @@ Tests for Phase 9: Data-driven UX (WS-DOCUMENT-SYSTEM-CLEANUP)
 Tests UX configuration service, status badges, primary actions, and display variants.
 """
 
-import pytest
-from typing import Dict, Any
 
 
 # =============================================================================
@@ -286,10 +284,10 @@ class TestConvenienceFunctions:
         """Verify get_primary_action convenience function works."""
         from app.domain.services.ux_config_service import get_primary_action
         
-        result = get_primary_action(doc_name="Epic Backlog")
-        
+        result = get_primary_action(doc_name="Implementation Plan")
+
         assert isinstance(result, dict)
-        assert "Epic Backlog" in result["label"]
+        assert "Implementation Plan" in result["label"]
     
     def test_get_variant_css_class_function(self):
         """Verify get_variant_css_class convenience function works."""

@@ -52,13 +52,14 @@ class TestIPFInputAlignment:
             f"ADR-053 says IPF runs before TA. Current: {requires}"
         )
 
-    def test_c2_dcw_requires_ipp(self):
-        """C2: DCW requires_inputs includes primary_implementation_plan."""
+    def test_c2_dcw_does_not_require_ipp(self):
+        """C2: DCW requires_inputs does NOT include primary_implementation_plan.
+        (WS-PIPELINE-001 collapsed IPP into IP — IP no longer takes IPP as input.)"""
         dcw = _load_dcw()
         requires = dcw.get("requires_inputs", [])
-        assert "primary_implementation_plan" in requires, (
-            f"IPF DCW missing 'primary_implementation_plan' in requires_inputs. "
-            f"Current: {requires}"
+        assert "primary_implementation_plan" not in requires, (
+            f"IP DCW still lists 'primary_implementation_plan' in requires_inputs. "
+            f"IPP was collapsed into IP by WS-PIPELINE-001. Current: {requires}"
         )
 
     def test_c3_package_matches_dcw(self):
@@ -68,7 +69,7 @@ class TestIPFInputAlignment:
         dcw_requires = set(dcw.get("requires_inputs", []))
         pkg_requires = set(pkg.get("required_inputs", []))
         assert dcw_requires == pkg_requires, (
-            f"IPF package.yaml required_inputs does not match DCW requires_inputs. "
+            f"IP package.yaml required_inputs does not match DCW requires_inputs. "
             f"DCW: {sorted(dcw_requires)}, Package: {sorted(pkg_requires)}"
         )
 

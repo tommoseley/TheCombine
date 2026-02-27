@@ -4,7 +4,6 @@ Unit tests for verify_project_not_archived dependency.
 
 import pytest
 from fastapi import HTTPException
-from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 

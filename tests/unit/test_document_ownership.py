@@ -33,18 +33,18 @@ TEST_WORKFLOW = {
     "scopes": {
         "project": {"parent": None},
         "epic": {"parent": "project"},
-        "story": {"parent": "epic"},
+        "task": {"parent": "epic"},
     },
     "document_types": {
         "project_discovery": {"scope": "project", "may_own": []},
         "epic_backlog": {"scope": "project", "may_own": ["epic"]},
         "epic_architecture": {"scope": "epic", "may_own": []},
-        "story_backlog": {"scope": "epic", "may_own": ["story"]},
-        "story_implementation": {"scope": "story", "may_own": []},
+        "task_backlog": {"scope": "epic", "may_own": ["task"]},
+        "task_detail": {"scope": "task", "may_own": []},
     },
     "entity_types": {
         "epic": {"parent_doc_type": "epic_backlog", "creates_scope": "epic"},
-        "story": {"parent_doc_type": "story_backlog", "creates_scope": "story"},
+        "task": {"parent_doc_type": "task_backlog", "creates_scope": "task"},
     },
 }
 
@@ -220,14 +220,14 @@ class TestScopeMonotonicity:
     
     def test_child_scope_narrower_accepted(self):
         """Child with narrower scope (higher depth) is valid."""
-        parent = make_mock_document(doc_type_id="story_backlog")
-        child = make_mock_document(doc_type_id="story_implementation")
+        parent = make_mock_document(doc_type_id="task_backlog")
+        child = make_mock_document(doc_type_id="task_detail")
         svc = DocumentService(AsyncMock())
         svc._check_scope_monotonicity(child, parent, TEST_WORKFLOW)
     
     def test_child_scope_broader_rejected(self):
         """Child with broader scope (lower depth) is invalid."""
-        parent = make_mock_document(doc_type_id="story_implementation")
+        parent = make_mock_document(doc_type_id="task_detail")
         child = make_mock_document(doc_type_id="epic_architecture")
         svc = DocumentService(AsyncMock())
         with pytest.raises(ScopeViolationError, match="broader than"):
@@ -236,7 +236,7 @@ class TestScopeMonotonicity:
     def test_same_scope_accepted(self):
         """Same scope is valid (depth equal)."""
         parent = make_mock_document(doc_type_id="epic_architecture")
-        child = make_mock_document(doc_type_id="story_backlog")
+        child = make_mock_document(doc_type_id="task_backlog")
         svc = DocumentService(AsyncMock())
         svc._check_scope_monotonicity(child, parent, TEST_WORKFLOW)
     
@@ -247,16 +247,16 @@ class TestScopeMonotonicity:
         svc = DocumentService(AsyncMock())
         svc._check_scope_monotonicity(child, parent, TEST_WORKFLOW)
     
-    def test_project_to_story_accepted(self):
-        """Project to story (multi-level jump) is valid."""
+    def test_project_to_task_accepted(self):
+        """Project to task (multi-level jump) is valid."""
         parent = make_mock_document(doc_type_id="project_discovery")
-        child = make_mock_document(doc_type_id="story_implementation")
+        child = make_mock_document(doc_type_id="task_detail")
         svc = DocumentService(AsyncMock())
         svc._check_scope_monotonicity(child, parent, TEST_WORKFLOW)
     
-    def test_story_to_project_rejected(self):
-        """Story to project (reverse direction) is invalid."""
-        parent = make_mock_document(doc_type_id="story_implementation")
+    def test_task_to_project_rejected(self):
+        """Task to project (reverse direction) is invalid."""
+        parent = make_mock_document(doc_type_id="task_detail")
         child = make_mock_document(doc_type_id="project_discovery")
         svc = DocumentService(AsyncMock())
         with pytest.raises(ScopeViolationError, match="broader than"):
@@ -273,7 +273,7 @@ class TestScopeMonotonicity:
     def test_missing_parent_scope_skips(self):
         """Missing parent scope info skips validation."""
         parent = make_mock_document(doc_type_id="unknown_type")
-        child = make_mock_document(doc_type_id="story_implementation")
+        child = make_mock_document(doc_type_id="task_detail")
         svc = DocumentService(AsyncMock())
         svc._check_scope_monotonicity(child, parent, TEST_WORKFLOW)
     
@@ -308,26 +308,26 @@ class TestOwnershipValidity:
     
     def test_wrong_entity_type_rejected(self):
         """Parent may_own different entity type is invalid."""
-        parent = make_mock_document(doc_type_id="story_backlog")
+        parent = make_mock_document(doc_type_id="task_backlog")
         child = make_mock_document(doc_type_id="epic_architecture")
         svc = DocumentService(AsyncMock())
         with pytest.raises(InvalidOwnershipError, match="cannot own"):
             svc._check_ownership_validity(child, parent, TEST_WORKFLOW)
     
-    def test_story_backlog_owns_story_scope(self):
-        """story_backlog can own documents with story scope."""
-        parent = make_mock_document(doc_type_id="story_backlog")
-        child = make_mock_document(doc_type_id="story_implementation")
+    def test_task_backlog_owns_task_scope(self):
+        """task_backlog can own documents with task scope."""
+        parent = make_mock_document(doc_type_id="task_backlog")
+        child = make_mock_document(doc_type_id="task_detail")
         svc = DocumentService(AsyncMock())
         svc._check_ownership_validity(child, parent, TEST_WORKFLOW)
     
     def test_unknown_parent_doc_type_skips(self):
         """Unknown parent doc_type skips ownership check."""
         parent = make_mock_document(doc_type_id="unknown_type")
-        child = make_mock_document(doc_type_id="story_implementation")
+        child = make_mock_document(doc_type_id="task_detail")
         svc = DocumentService(AsyncMock())
         svc._check_ownership_validity(child, parent, TEST_WORKFLOW)
-    
+
     def test_unknown_child_with_parent_may_own_rejected(self):
         """Unknown child when parent has may_own is rejected."""
         parent = make_mock_document(doc_type_id="epic_backlog")

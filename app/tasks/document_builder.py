@@ -4,12 +4,11 @@ Background document build runner.
 Runs document builds as background tasks, updating the task registry
 with progress. This decouples the build from the SSE stream.
 """
-import asyncio
 import json
 import logging
 from uuid import UUID
 
-from app.tasks.registry import TaskInfo, TaskStatus, update_task
+from app.tasks.registry import TaskStatus, update_task
 from app.domain.services.document_builder import DocumentBuilder
 from app.api.services.document_service import DocumentService
 from app.api.services.role_prompt_service import RolePromptService
@@ -267,7 +266,7 @@ async def run_workflow_build(
                         space_type="project",
                         space_id=project_id,
                         doc_type_id=doc_type_id,
-                        title=f"Project Discovery",
+                        title="Project Discovery",
                         summary=produced_doc.get("preliminary_summary", {}).get("problem_understanding", "")[:500],
                         content=produced_doc,
                         lifecycle_state="complete",

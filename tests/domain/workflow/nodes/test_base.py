@@ -1,6 +1,5 @@
 """Tests for node executor base classes (ADR-039)."""
 
-import pytest
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,

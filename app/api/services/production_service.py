@@ -154,7 +154,7 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
     - id: document type identifier
     - name: human-readable name
     - requires: list of required document type IDs
-    - scope: document scope (project, epic, feature)
+    - scope: document scope (project, work_package)
     - may_own: list of entity types this document can own (for parent-child relationships)
     - collection_field: field name containing child entities (if may_own is set)
     """
@@ -355,7 +355,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         scope = doc_type.get("scope", "project")
 
         # For now, only show project-scoped documents in the production line
-        # Epic and story documents require entity context
+        # Non-project-scoped documents require entity context
         if scope != "project":
             continue
 
@@ -440,7 +440,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         tracks.append(track)
 
     # Query spawned child documents for tracks with child_doc_type
-    # These are data snapshots (e.g., epics spawned from implementation_plan)
+    # These are data snapshots (e.g., work_packages spawned from implementation_plan)
     # that appear as L2 children on the production floor
     for track in tracks:
         child_doc_type = track.get("child_doc_type")
@@ -471,7 +471,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 "stations": [],
                 "elapsed_ms": None,
                 "blocked_by": [],
-                "identifier": child_doc.content.get("epic_id", ""),
+                "identifier": child_doc.content.get("work_package_id", ""),
                 "sequence": child_doc.content.get("sequence"),
                 "instance_id": child_doc.instance_id,
             }

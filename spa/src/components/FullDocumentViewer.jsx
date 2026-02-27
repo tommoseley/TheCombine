@@ -10,7 +10,7 @@ import ConfigDrivenDocViewer from './viewers/ConfigDrivenDocViewer';
  * RenderModelViewer component. Falls back to raw JSON display
  * if RenderModel is not available.
  */
-export default function FullDocumentViewer({ projectId, projectCode, docTypeId, instanceId, onClose }) {
+export default function FullDocumentViewer({ projectId, projectCode, docTypeId, instanceId, onClose, inline }) {
     const [renderModel, setRenderModel] = useState(null);
     const [rawContent, setRawContent] = useState(null);
     const [docMetadata, setDocMetadata] = useState({});
@@ -75,15 +75,23 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
 
     // Close on Escape key
     useEffect(() => {
+        if (inline) return;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    }, [onClose, inline]);
 
     // Loading state
     if (loading) {
+        if (inline) {
+            return (
+                <div className="flex items-center justify-center h-full" style={{ background: 'var(--bg-canvas)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading document...</div>
+                </div>
+            );
+        }
         return (
             <div
                 className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -104,6 +112,24 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
     const hasRenderingConfig = renderModel?.rendering_config?.detail_html;
 
     if (hasRenderingConfig && renderModel) {
+        const configContent = (
+            <ConfigDrivenDocViewer
+                renderModel={renderModel}
+                projectId={projectId}
+                projectCode={projectCode}
+                docTypeId={docTypeId}
+                executionId={executionId}
+                docTypeName={metadata.document_type_name}
+                onClose={onClose}
+            />
+        );
+        if (inline) {
+            return (
+                <div className="w-full h-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-canvas)' }}>
+                    {configContent}
+                </div>
+            );
+        }
         return (
             <div
                 className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -112,63 +138,50 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
             >
                 <div
                     className="relative w-full max-w-6xl h-[90vh] overflow-hidden rounded-lg shadow-2xl flex flex-col"
-                    style={{ background: '#ffffff' }}
+                    style={{ background: 'var(--bg-canvas)' }}
                 >
                     {/* Close button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-2 right-3 z-10 p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-                        style={{ background: 'rgba(255,255,255,0.9)' }}
+                        className="absolute top-2 right-3 z-10 p-1.5 rounded-lg hover:opacity-80 transition-colors"
+                        style={{ background: 'var(--bg-panel)' }}
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                     </button>
-                    <ConfigDrivenDocViewer
-                        renderModel={renderModel}
-                        projectId={projectId}
-                        projectCode={projectCode}
-                        docTypeId={docTypeId}
-                        executionId={executionId}
-                        docTypeName={metadata.document_type_name}
-                        onClose={onClose}
-                    />
+                    {configContent}
                 </div>
             </div>
         );
     }
 
-    return (
-        <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
-            onClick={(e) => e.target === e.currentTarget && onClose()}
-        >
+    const legacyContent = (
+        <>
+            {/* Document Header */}
+            <DocumentHeader
+                title={renderModel?.title || docTitle}
+                projectCode={projectCode}
+                adminUrl={adminUrl}
+                executionId={executionId}
+                metadata={metadata}
+                onClose={inline ? undefined : onClose}
+            />
+
+            {/* Spawned children panel */}
+            {metadata?.spawned_children?.count > 0 && (
+                <SpawnedChildrenPanel children={metadata.spawned_children} />
+            )}
+
+            {/* Content */}
             <div
-                className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg shadow-2xl"
-                style={{ background: '#ffffff' }}
+                className="overflow-y-auto p-6"
+                style={inline
+                    ? { flex: 1 }
+                    : { maxHeight: metadata?.spawned_children?.count > 0 ? 'calc(90vh - 130px)' : 'calc(90vh - 80px)' }
+                }
+                onWheel={inline ? undefined : (e) => e.stopPropagation()}
             >
-                {/* Document Header */}
-                <DocumentHeader
-                    title={renderModel?.title || docTitle}
-                    projectCode={projectCode}
-                    adminUrl={adminUrl}
-                    executionId={executionId}
-                    metadata={metadata}
-                    onClose={onClose}
-                />
-
-                {/* Spawned children panel */}
-                {metadata?.spawned_children?.count > 0 && (
-                    <SpawnedChildrenPanel children={metadata.spawned_children} />
-                )}
-
-                {/* Content */}
-                <div
-                    className="overflow-y-auto p-6"
-                    style={{ maxHeight: metadata?.spawned_children?.count > 0 ? 'calc(90vh - 130px)' : 'calc(90vh - 80px)' }}
-                    onWheel={(e) => e.stopPropagation()}
-                >
                     {error && (
                         <div className="text-center py-12">
                             <p className="text-red-500">{error}</p>
@@ -185,7 +198,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
 
                     {!renderModel && !rawContent && !error && (
                         <div className="text-center py-12">
-                            <p className="text-gray-500">No content available</p>
+                            <p style={{ color: 'var(--text-muted)' }}>No content available</p>
                         </div>
                     )}
 
@@ -194,6 +207,28 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                         <PgcContextSection pgcContext={pgcContext} />
                     )}
                 </div>
+        </>
+    );
+
+    if (inline) {
+        return (
+            <div className="w-full h-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-canvas)' }}>
+                {legacyContent}
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.8)' }}
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <div
+                className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-lg shadow-2xl"
+                style={{ background: 'var(--bg-canvas)' }}
+            >
+                {legacyContent}
             </div>
         </div>
     );
@@ -234,7 +269,7 @@ function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, o
     return (
         <div
             className="sticky top-0 px-6 py-4 border-b"
-            style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
+            style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-panel)' }}
         >
             <div className="flex items-start justify-between">
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -288,8 +323,8 @@ function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, o
                         {version && version > 1 && (
                             <span style={{
                                 padding: '2px 8px',
-                                background: '#f3f4f6',
-                                color: '#6b7280',
+                                background: 'var(--bg-button)',
+                                color: 'var(--text-muted)',
                                 fontSize: 11,
                                 fontWeight: 600,
                                 borderRadius: 4,
@@ -303,14 +338,14 @@ function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, o
                         margin: 0,
                         fontSize: 20,
                         fontWeight: 700,
-                        color: '#111827',
+                        color: 'var(--text-primary)',
                         lineHeight: 1.3,
                     }}>
                         {displayTitle}
                     </h2>
                     {/* Date line */}
                     {generatedDate && (
-                        <div style={{ marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
+                        <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-dim)' }}>
                             Generated {generatedDate}
                             {updatedDate && updatedDate !== generatedDate && (
                                 <span> &middot; Updated {updatedDate}</span>
@@ -320,7 +355,7 @@ function DocumentHeader({ title, projectCode, adminUrl, executionId, metadata, o
                 </div>
                 <button
                     onClick={onClose}
-                    className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="p-2 rounded-lg hover:opacity-80 transition-colors"
                     style={{ flexShrink: 0, marginLeft: 12 }}
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -374,7 +409,7 @@ function SpawnedChildrenPanel({ children }) {
  */
 function RawContentViewer({ content, docTypeId }) {
     if (!content) {
-        return <p className="text-gray-500">No content available</p>;
+        return <p style={{ color: 'var(--text-muted)' }}>No content available</p>;
     }
 
     const title = content.project_name || content.title || content.name;
@@ -386,7 +421,7 @@ function RawContentViewer({ content, docTypeId }) {
         unknowns: { title: 'Unknowns to Resolve', icon: '?', color: '#d97706' },
         early_decision_points: { title: 'Early Decision Points', icon: 'D', color: '#7c3aed' },
         risks: { title: 'Risks', icon: '!', color: '#dc2626' },
-        known_constraints: { title: 'Known Constraints', icon: 'C', color: '#6b7280' },
+        known_constraints: { title: 'Known Constraints', icon: 'C', color: 'var(--text-muted)' },
         assumptions: { title: 'Assumptions', icon: 'A', color: '#d97706' },
         mvp_guardrails: { title: 'MVP Guardrails', icon: 'G', color: '#059669' },
         recommendations_for_pm: { title: 'Recommendations for PM', icon: 'R', color: '#2563eb' },
@@ -410,9 +445,9 @@ function RawContentViewer({ content, docTypeId }) {
         <div className="space-y-6">
             {/* Title */}
             {title && (
-                <div style={{ borderBottom: '2px solid #7c3aed', paddingBottom: 12 }}>
-                    <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-                    <span className="text-xs font-mono text-gray-400">{docTypeId}</span>
+                <div style={{ borderBottom: '2px solid var(--action-primary)', paddingBottom: 12 }}>
+                    <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
+                    <span className="text-xs font-mono" style={{ color: 'var(--text-dim)' }}>{docTypeId}</span>
                 </div>
             )}
 
@@ -446,7 +481,7 @@ function RawContentViewer({ content, docTypeId }) {
                             <ArraySection
                                 key={key}
                                 data={data}
-                                config={{ title: formatLabel(key), icon: '#', color: '#6b7280' }}
+                                config={{ title: formatLabel(key), icon: '#', color: 'var(--text-muted)' }}
                             />
                         );
                     }
@@ -463,22 +498,22 @@ function RawContentViewer({ content, docTypeId }) {
                 })}
 
             {/* Collapsible Raw JSON */}
-            <details style={{ borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <details style={{ borderRadius: 8, border: '1px solid var(--border-node)' }}>
                 <summary
                     style={{
                         padding: '12px 16px',
                         cursor: 'pointer',
                         fontSize: 13,
                         fontWeight: 600,
-                        color: '#6b7280',
-                        background: '#f8fafc',
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-panel)',
                         borderRadius: 8,
                     }}
                 >
                     Raw Data (JSON)
                 </summary>
                 <div style={{ padding: 16, overflow: 'auto' }}>
-                    <pre style={{ margin: 0, fontSize: 11, color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.5 }}>
+                    <pre style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.5 }}>
                         {JSON.stringify(content, null, 2)}
                     </pre>
                 </div>
@@ -495,13 +530,13 @@ function SummarySection({ data, config }) {
         { key: 'proposed_system_shape', label: 'Proposed System Shape' },
     ];
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
             <SectionHeader config={config} />
             <div style={{ padding: 16 }} className="space-y-3">
                 {fields.map(f => data[f.key] ? (
                     <div key={f.key} style={{ borderLeft: `3px solid ${config.color}`, paddingLeft: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{f.label}</div>
-                        <p style={{ fontSize: 14, color: '#1f2937', margin: 0, lineHeight: 1.6 }}>{data[f.key]}</p>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{f.label}</div>
+                        <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 }}>{data[f.key]}</p>
                     </div>
                 ) : null)}
                 {/* Render any other fields */}
@@ -509,8 +544,8 @@ function SummarySection({ data, config }) {
                     .filter(([k]) => !fields.some(f => f.key === k))
                     .map(([k, v]) => typeof v === 'string' ? (
                         <div key={k} style={{ borderLeft: `3px solid ${config.color}`, paddingLeft: 12 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{formatLabel(k)}</div>
-                            <p style={{ fontSize: 14, color: '#1f2937', margin: 0, lineHeight: 1.6 }}>{v}</p>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{formatLabel(k)}</div>
+                            <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 }}>{v}</p>
                         </div>
                     ) : null)}
             </div>
@@ -524,7 +559,7 @@ function QuestionsSection({ data, config }) {
     const nonBlocking = data.filter(q => !q.blocking);
 
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
             <SectionHeader config={config} count={data.length} />
             <div style={{ padding: 16 }} className="space-y-3">
                 {blocking.length > 0 && (
@@ -537,7 +572,7 @@ function QuestionsSection({ data, config }) {
                 )}
                 {nonBlocking.length > 0 && (
                     <div>
-                        {blocking.length > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, textTransform: 'uppercase' }}>Non-blocking</div>}
+                        {blocking.length > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase' }}>Non-blocking</div>}
                         {nonBlocking.map((q, i) => (
                             <QuestionItem key={q.id || i} q={q} borderColor="#d1d5db" />
                         ))}
@@ -552,11 +587,11 @@ function QuestionItem({ q, borderColor }) {
     return (
         <div style={{ borderLeft: `3px solid ${borderColor}`, paddingLeft: 12, marginBottom: 8 }}>
             <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
-                {q.id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{q.id}</span>}
-                {q.directed_to && <span style={{ fontSize: 11, padding: '1px 6px', background: '#f3f4f6', borderRadius: 4, color: '#6b7280' }}>{q.directed_to.replace(/_/g, ' ')}</span>}
+                {q.id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{q.id}</span>}
+                {q.directed_to && <span style={{ fontSize: 11, padding: '1px 6px', background: 'var(--bg-button)', borderRadius: 4, color: 'var(--text-muted)' }}>{q.directed_to.replace(/_/g, ' ')}</span>}
             </div>
-            <p style={{ fontSize: 14, color: '#1f2937', margin: 0, fontWeight: 500 }}>{q.question || q.text || extractText(q)}</p>
-            {q.notes && <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0' }}>{q.notes}</p>}
+            <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, fontWeight: 500 }}>{q.question || q.text || extractText(q)}</p>
+            {q.notes && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>{q.notes}</p>}
         </div>
     );
 }
@@ -570,7 +605,7 @@ function ClarificationsSection({ data, config }) {
         preference: { bg: '#f0fdf4', color: '#166534' },
     };
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
             <SectionHeader config={config} count={data.length} />
             <div style={{ padding: 16 }} className="space-y-3">
                 {data.map((c, i) => {
@@ -578,18 +613,18 @@ function ClarificationsSection({ data, config }) {
                     return (
                         <div key={c.question_id || i} style={{ borderLeft: `3px solid ${config.color}`, paddingLeft: 12, marginBottom: 8 }}>
                             <div className="flex items-center gap-2" style={{ marginBottom: 2, flexWrap: 'wrap' }}>
-                                {c.question_id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{c.question_id}</span>}
+                                {c.question_id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{c.question_id}</span>}
                                 {c.binding && <span style={{ fontSize: 10, padding: '1px 5px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontWeight: 600 }}>BINDING</span>}
                                 {c.constraint_kind && <span style={{ fontSize: 10, padding: '1px 5px', background: kc.bg, color: kc.color, borderRadius: 4 }}>{c.constraint_kind}</span>}
-                                {c.binding_source && <span style={{ fontSize: 10, color: '#9ca3af' }}>via {c.binding_source}</span>}
+                                {c.binding_source && <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>via {c.binding_source}</span>}
                             </div>
-                            <p style={{ fontSize: 14, color: '#1f2937', margin: '2px 0', fontWeight: 500 }}>{c.question}</p>
+                            <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: '2px 0', fontWeight: 500 }}>{c.question}</p>
                             {c.why_it_matters && (
-                                <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0', fontStyle: 'italic' }}>{c.why_it_matters}</p>
+                                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', fontStyle: 'italic' }}>{c.why_it_matters}</p>
                             )}
                             {c.answer && (
                                 <div style={{ marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Answer:</span>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Answer:</span>
                                     <span style={{ fontSize: 13, color: '#059669', fontWeight: 500 }}>{c.answer}</span>
                                 </div>
                             )}
@@ -608,14 +643,14 @@ function PgcContextSection({ pgcContext }) {
     const informational = clarifications.filter(c => !c.binding);
 
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, marginTop: 24 }}>
-            <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8, marginTop: 24 }}>
+            <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-node)' }}>
                 <span style={{
                     width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 700, background: '#7c3aed15', color: '#7c3aed',
                 }}>Q</span>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1f2937' }}>Pre-Generation Clarifications</h3>
-                <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>{clarifications.length}</span>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Pre-Generation Clarifications</h3>
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-dim)' }}>{clarifications.length}</span>
             </div>
             <div style={{ padding: 16 }} className="space-y-4">
                 {binding.length > 0 && (
@@ -631,7 +666,7 @@ function PgcContextSection({ pgcContext }) {
                 {informational.length > 0 && (
                     <div>
                         {binding.length > 0 && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 8, marginTop: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8, marginTop: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Informational ({informational.length})
                             </div>
                         )}
@@ -659,7 +694,7 @@ function PgcClarificationItem({ item }) {
         <div style={{ borderLeft: `3px solid ${item.binding ? '#3b82f6' : '#d1d5db'}`, paddingLeft: 12, marginBottom: 12 }}>
             <div className="flex items-center gap-2" style={{ marginBottom: 2, flexWrap: 'wrap' }}>
                 {item.question_id && (
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{item.question_id}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{item.question_id}</span>
                 )}
                 {item.binding && (
                     <span style={{ fontSize: 10, padding: '1px 5px', background: '#dbeafe', color: '#1e40af', borderRadius: 4, fontWeight: 600 }}>BINDING</span>
@@ -668,18 +703,18 @@ function PgcClarificationItem({ item }) {
                     <span style={{ fontSize: 10, padding: '1px 5px', background: kc.bg, color: kc.color, borderRadius: 4 }}>{item.constraint_kind}</span>
                 )}
                 {item.binding_source && (
-                    <span style={{ fontSize: 10, color: '#9ca3af' }}>via {item.binding_source}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>via {item.binding_source}</span>
                 )}
             </div>
-            <p style={{ fontSize: 14, color: '#1f2937', margin: '2px 0', fontWeight: 500 }}>{item.question}</p>
+            <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: '2px 0', fontWeight: 500 }}>{item.question}</p>
             {item.why_it_matters && (
-                <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0', fontStyle: 'italic' }}>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0', fontStyle: 'italic' }}>
                     {item.why_it_matters}
                 </p>
             )}
             {item.answer && (
                 <div style={{ marginTop: 4, display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Answer:</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Answer:</span>
                     <span style={{ fontSize: 13, color: '#059669', fontWeight: 500 }}>{item.answer}</span>
                 </div>
             )}
@@ -691,12 +726,12 @@ function PgcClarificationItem({ item }) {
 function ArraySection({ data, config }) {
     if (!data || data.length === 0) return null;
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
             <SectionHeader config={config} count={data.length} />
             <div style={{ padding: 16 }}>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} className="space-y-2">
                     {data.map((item, i) => (
-                        <li key={typeof item === 'object' ? (item.id || i) : i} className="flex items-start gap-2" style={{ fontSize: 14, color: '#374151' }}>
+                        <li key={typeof item === 'object' ? (item.id || i) : i} className="flex items-start gap-2" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                             <span style={{ color: config.color, marginTop: 2, flexShrink: 0, fontSize: 12 }}>{config.icon === '!' ? '\u25B2' : '\u2022'}</span>
                             <div style={{ flex: 1 }}>
                                 {typeof item === 'string' ? (
@@ -736,7 +771,7 @@ function StructuredItem({ item }) {
     // If no recognizable text field, show the whole object as inline fields
     if (!text) {
         return (
-            <span style={{ fontSize: 13, color: '#374151' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                 {Object.entries(item).map(([k, v], i) => (
                     <span key={k}>
                         {i > 0 && ' \u00B7 '}
@@ -750,9 +785,9 @@ function StructuredItem({ item }) {
     return (
         <div>
             <div className="flex items-center gap-2 flex-wrap">
-                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#9ca3af' }}>{id}</span>}
+                {id && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)' }}>{id}</span>}
                 <span style={{ fontWeight: 500 }}>{text}</span>
-                {constraintType && <span style={{ fontSize: 11, padding: '1px 6px', background: '#f3f4f6', borderRadius: 4, color: '#6b7280' }}>{constraintType}</span>}
+                {constraintType && <span style={{ fontSize: 11, padding: '1px 6px', background: 'var(--bg-button)', borderRadius: 4, color: 'var(--text-muted)' }}>{constraintType}</span>}
                 {confidence && (
                     <span style={{
                         fontSize: 11, padding: '1px 6px', borderRadius: 4, fontWeight: 600,
@@ -762,10 +797,10 @@ function StructuredItem({ item }) {
                 )}
                 {likelihood && <span style={{ fontSize: 11, padding: '1px 6px', background: '#fee2e2', borderRadius: 4, color: '#991b1b' }}>{likelihood}/{item.impact || '?'}</span>}
             </div>
-            {validationApproach && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Validation: {validationApproach}</p>}
-            {why && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Why: {why}</p>}
-            {impact && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Impact: {impact}</p>}
-            {mitigation && <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>Mitigation: {mitigation}</p>}
+            {validationApproach && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Validation: {validationApproach}</p>}
+            {why && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Why: {why}</p>}
+            {impact && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Impact: {impact}</p>}
+            {mitigation && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Mitigation: {mitigation}</p>}
             {recommendation && <p style={{ fontSize: 12, color: '#059669', margin: '2px 0 0' }}>Recommendation: {recommendation}</p>}
         </div>
     );
@@ -774,13 +809,13 @@ function StructuredItem({ item }) {
 /** Render an object as a labeled section */
 function ObjectSection({ data, label }) {
     return (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontWeight: 600, fontSize: 14, color: '#1f2937' }}>{label}</div>
+        <div style={{ background: 'var(--bg-node)', border: '1px solid var(--border-node)', borderRadius: 8 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-node)', fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{label}</div>
             <div style={{ padding: 16 }}>
                 {Object.entries(data).map(([k, v]) => (
                     <div key={k} style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{formatLabel(k)}</div>
-                        <div style={{ fontSize: 14, color: '#1f2937' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{formatLabel(k)}</div>
+                        <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
                             {typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
                         </div>
                     </div>
@@ -793,13 +828,13 @@ function ObjectSection({ data, label }) {
 /** Section header with icon and count badge */
 function SectionHeader({ config, count }) {
     return (
-        <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+        <div className="flex items-center gap-2" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-node)' }}>
             <span style={{
                 width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 12, fontWeight: 700, background: `${config.color}15`, color: config.color,
             }}>{config.icon}</span>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1f2937' }}>{config.title}</h3>
-            {count !== undefined && <span style={{ marginLeft: 'auto', fontSize: 12, color: '#9ca3af' }}>{count}</span>}
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{config.title}</h3>
+            {count !== undefined && <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-dim)' }}>{count}</span>}
         </div>
     );
 }
@@ -812,12 +847,12 @@ function FallbackJsonViewer({ content, docTypeId, title }) {
                 No view definition configured for <strong>{docTypeId}</strong> - displaying raw content
             </div>
             {title && (
-                <div style={{ padding: 16, background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                <div style={{ padding: 16, background: 'var(--bg-panel)', borderRadius: 8, border: '1px solid var(--border-node)' }}>
+                    <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
                 </div>
             )}
-            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 16, overflow: 'auto' }} onWheel={(e) => e.stopPropagation()}>
-                <pre style={{ margin: 0, fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.6 }}>
+            <div style={{ background: 'var(--bg-panel)', borderRadius: 8, padding: 16, overflow: 'auto' }} onWheel={(e) => e.stopPropagation()}>
+                <pre style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.6 }}>
                     {JSON.stringify(content, null, 2)}
                 </pre>
             </div>

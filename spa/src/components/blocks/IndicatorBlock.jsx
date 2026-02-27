@@ -34,7 +34,7 @@ export default function IndicatorBlock({ block }) {
                 <span
                     style={{
                         fontSize: 12,
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         fontWeight: 500,
                     }}
                 >

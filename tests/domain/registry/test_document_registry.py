@@ -12,10 +12,8 @@ from app.domain.registry.loader import (
     get_document_config,
     list_document_types,
     list_by_category,
-    list_by_scope,
     get_dependencies,
     can_build,
-    get_buildable_documents,
     DocumentNotFoundError,
 )
 
@@ -71,19 +69,19 @@ def mock_architecture_spec():
 
 
 @pytest.fixture
-def mock_epic_backlog():
-    """Mock epic_backlog document type."""
+def mock_implementation_plan():
+    """Mock implementation_plan document type."""
     mock = MagicMock()
     mock.to_dict.return_value = {
         "id": "uuid-3",
-        "doc_type_id": "epic_backlog",
-        "name": "Epic Backlog",
-        "description": "Project epics",
+        "doc_type_id": "implementation_plan",
+        "name": "Implementation Plan",
+        "description": "Project implementation plan",
         "category": "planning",
         "icon": "layers",
         "builder_role": "pm",
-        "builder_task": "epic_generation",
-        "handler_id": "epic_backlog",
+        "builder_task": "implementation_plan_generation",
+        "handler_id": "implementation_plan",
         "required_inputs": ["project_discovery"],
         "optional_inputs": ["architecture_spec"],
         "scope": "project",
@@ -136,24 +134,24 @@ async def test_get_document_config_not_found():
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_list_document_types(mock_project_discovery, mock_architecture_spec, mock_epic_backlog):
+async def test_list_document_types(mock_project_discovery, mock_architecture_spec, mock_implementation_plan):
     """Test listing all document types."""
     # Arrange
     db = AsyncMock(spec=AsyncSession)
     mock_result = MagicMock()
     mock_scalars = MagicMock()
-    mock_scalars.all.return_value = [mock_project_discovery, mock_architecture_spec, mock_epic_backlog]
+    mock_scalars.all.return_value = [mock_project_discovery, mock_architecture_spec, mock_implementation_plan]
     mock_result.scalars.return_value = mock_scalars
     db.execute.return_value = mock_result
-    
+
     # Act
     doc_types = await list_document_types(db)
-    
+
     # Assert
     assert len(doc_types) == 3
     assert doc_types[0]["doc_type_id"] == "project_discovery"
     assert doc_types[1]["doc_type_id"] == "architecture_spec"
-    assert doc_types[2]["doc_type_id"] == "epic_backlog"
+    assert doc_types[2]["doc_type_id"] == "implementation_plan"
 
 
 # =============================================================================
@@ -272,19 +270,19 @@ async def test_document_dependency_chain():
     Test the full dependency chain:
     - project_discovery has no deps (can build first)
     - architecture_spec needs project_discovery
-    - epic_backlog needs project_discovery
+    - implementation_plan needs project_discovery
     """
     # This would be an integration test with a real database
     # For now, just document the expected behavior
-    
+
     # Phase 1: Nothing exists
     # - project_discovery: can build (no deps)
     # - architecture_spec: cannot build (missing project_discovery)
-    # - epic_backlog: cannot build (missing project_discovery)
-    
+    # - implementation_plan: cannot build (missing project_discovery)
+
     # Phase 2: project_discovery exists
     # - architecture_spec: can build
-    # - epic_backlog: can build
+    # - implementation_plan: can build
     
     # Phase 3: All exist
     # - Nothing new to build at project scope

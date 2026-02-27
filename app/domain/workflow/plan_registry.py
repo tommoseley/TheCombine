@@ -6,7 +6,7 @@ Provides cached access to loaded workflow plans.
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from app.domain.workflow.plan_loader import PlanLoader, PlanLoadError
+from app.domain.workflow.plan_loader import PlanLoader
 from app.domain.workflow.plan_models import WorkflowPlan
 
 

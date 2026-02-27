@@ -8,6 +8,7 @@ Provides RESTful API for project management:
 - GET /api/v1/projects/{id}/tree - Get project with documents
 """
 
+import copy
 import json
 import logging
 from datetime import datetime, timezone
@@ -783,9 +784,7 @@ async def get_document_render_model(
     )
     doc_type = doc_type_result.scalar_one_or_none()
 
-    view_docdef = doc_type.view_docdef if doc_type else None
-
-    # Load package for view_docdef fallback and rendering config (ADR-054)
+    # Load package from combine-config (authoritative source for rendering config)
     _package = None
     try:
         from app.config.package_loader import get_package_loader
@@ -793,9 +792,11 @@ async def get_document_render_model(
     except Exception:
         pass  # combine-config lookup is best-effort
 
-    # Fall back to combine-config package.yaml if DB has no view_docdef
-    if not view_docdef and _package:
+    # combine-config is authoritative for view_docdef; DB is legacy fallback
+    if _package:
         view_docdef = _package.view_docdef
+    else:
+        view_docdef = doc_type.view_docdef if doc_type else None
 
     # Helper: build common metadata dict for all response paths
     async def _build_doc_metadata() -> Dict[str, Any]:
@@ -876,6 +877,12 @@ async def get_document_render_model(
         except Exception:
             pass  # Handler transform is best-effort at render time
 
+    # Snapshot for IA-driven rendering (schema-canonical names).
+    # The docdef normalization below may reverse field names for the old
+    # RenderModel builder; raw_content must keep canonical names for the
+    # IA block renderer in the SPA.
+    ia_raw_content = copy.deepcopy(document_data) if isinstance(document_data, dict) else document_data
+
     if not view_docdef:
         # No view_docdef configured - return raw content wrapped in basic structure
         meta = await _build_doc_metadata()
@@ -889,7 +896,7 @@ async def get_document_render_model(
             "title": document.title or doc_type_id,
             "sections": [],
             "metadata": meta,
-            "raw_content": document_data,
+            "raw_content": ia_raw_content,
         }
         _inject_ia_config(result)
         return result
@@ -960,7 +967,7 @@ async def get_document_render_model(
 
         # Always include raw_content so SPA can use IA-driven rendering
         # even when DocDef sections are incomplete (e.g. workflows)
-        result_dict["raw_content"] = document_data
+        result_dict["raw_content"] = ia_raw_content
 
         # Inject rendering config from package.yaml (ADR-054)
         _inject_ia_config(result_dict)
@@ -1009,7 +1016,7 @@ async def get_document_render_model(
             "title": display_title or doc_type_id,
             "sections": [],
             "metadata": meta,
-            "raw_content": document_data,
+            "raw_content": ia_raw_content,
         }
         _inject_ia_config(result)
         return result
@@ -1452,3 +1459,149 @@ async def complete_workflow_instance(
         created_at=instance.created_at.isoformat() if instance.created_at else None,
         updated_at=instance.updated_at.isoformat() if instance.updated_at else None,
     )
+
+
+# =============================================================================
+# Work Packages
+# =============================================================================
+
+class WorkPackageResponse(BaseModel):
+    """Response model for a governed work package."""
+    id: str
+    wp_id: Optional[str] = None
+    title: Optional[str] = None
+    name: Optional[str] = None
+    state: Optional[str] = None
+    ws_count: int = 0
+    provenance: Optional[Dict[str, Any]] = None
+    created_at: Optional[str] = None
+
+
+@router.get("/{project_id}/work-packages")
+async def list_work_packages(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
+) -> List[WorkPackageResponse]:
+    """List governed work packages for a project."""
+    project = await _resolve_project(project_id, db)
+
+    result = await db.execute(
+        select(Document)
+        .where(Document.space_type == 'project')
+        .where(Document.space_id == project.id)
+        .where(Document.doc_type_id == 'work_package')
+        .where(Document.is_latest == True)
+        .order_by(Document.created_at)
+    )
+    docs = result.scalars().all()
+
+    # Count work statements per WP
+    ws_counts: Dict[str, int] = {}
+    if docs:
+        ws_result = await db.execute(
+            select(Document)
+            .where(Document.space_type == 'project')
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == 'work_statement')
+            .where(Document.is_latest == True)
+        )
+        for ws in ws_result.scalars().all():
+            parent = (ws.content or {}).get('parent_wp_id', '')
+            if parent:
+                ws_counts[parent] = ws_counts.get(parent, 0) + 1
+
+    return [
+        WorkPackageResponse(
+            id=str(doc.id),
+            wp_id=doc.instance_id or str(doc.id)[:8],
+            title=(doc.content or {}).get('title'),
+            name=(doc.content or {}).get('name', doc.instance_id),
+            state=(doc.content or {}).get('state', 'ready'),
+            ws_count=ws_counts.get(str(doc.id), 0),
+            provenance=(doc.content or {}).get('provenance'),
+            created_at=doc.created_at.isoformat() if doc.created_at else None,
+        )
+        for doc in docs
+    ]
+
+
+@router.post("/{project_id}/work-packages/generate")
+async def generate_work_packages(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Trigger LLM generation of governed work packages from IP candidates + TA."""
+    project = await _resolve_project(project_id, db)
+
+    # Placeholder: In a future WS, this will invoke the work_package_handler
+    # to decompose IP candidates into governed WPs with TA bindings.
+    logger.info(
+        "Work package generation requested for project %s by %s",
+        project.id, current_user.email,
+    )
+
+    return {
+        "status": "accepted",
+        "message": "Work package generation is not yet implemented. "
+                   "This endpoint will invoke the WP handler in a future release.",
+    }
+
+
+@router.get("/{project_id}/work-packages/{wp_id}/work-statements")
+async def list_work_statements(
+    project_id: str,
+    wp_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
+) -> List[Dict[str, Any]]:
+    """List work statements for a governed work package."""
+    project = await _resolve_project(project_id, db)
+
+    result = await db.execute(
+        select(Document)
+        .where(Document.space_type == 'project')
+        .where(Document.space_id == project.id)
+        .where(Document.doc_type_id == 'work_statement')
+        .where(Document.is_latest == True)
+    )
+    ws_docs = result.scalars().all()
+
+    # Filter to WSs belonging to this WP
+    statements = []
+    for doc in ws_docs:
+        content = doc.content or {}
+        parent = content.get('parent_wp_id', '')
+        if parent == wp_id or str(doc.id).startswith(wp_id):
+            statements.append({
+                "id": str(doc.id),
+                "ws_id": doc.instance_id or str(doc.id)[:8],
+                "title": content.get('title'),
+                "state": content.get('state', 'ready'),
+                "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            })
+
+    return statements
+
+
+@router.post("/{project_id}/work-packages/{wp_id}/work-statements/generate")
+async def generate_work_statements(
+    project_id: str,
+    wp_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Trigger LLM decomposition of a work package into work statements."""
+    project = await _resolve_project(project_id, db)
+
+    logger.info(
+        "Work statement generation requested for WP %s in project %s by %s",
+        wp_id, project.id, current_user.email,
+    )
+
+    return {
+        "status": "accepted",
+        "message": "Work statement generation is not yet implemented. "
+                   "This endpoint will invoke the WS handler in a future release.",
+    }

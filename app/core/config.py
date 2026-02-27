@@ -33,12 +33,6 @@ else:
 # Workforce root directory
 WORKFORCE_ROOT = PROJECT_ROOT / "workforce"
 
-# Epic directory
-EPIC_DIR = PROJECT_ROOT / "epics"
-
-# Epics root (for compatibility with existing code)
-EPICS_ROOT = DATA_ROOT / "epics"
-
 # Logs root (for compatibility with existing code)
 LOGS_ROOT = DATA_ROOT / "logs"
 
@@ -108,7 +102,6 @@ DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 # Ensure test directories exist when in pytest
 if _IN_PYTEST and not data_root_env:
-    EPICS_ROOT.mkdir(parents=True, exist_ok=True)
     LOGS_ROOT.mkdir(parents=True, exist_ok=True)
 
 # API Configuration
@@ -150,8 +143,6 @@ class Settings:
         self.PROJECT_ROOT = PROJECT_ROOT
         self.DATA_ROOT = DATA_ROOT
         self.WORKFORCE_ROOT = WORKFORCE_ROOT
-        self.EPIC_DIR = EPIC_DIR
-        self.EPICS_ROOT = EPICS_ROOT
         self.LOGS_ROOT = LOGS_ROOT
         self.CANON_DIR = CANON_DIR
         self.OUTPUT_DIR = OUTPUT_DIR
@@ -181,7 +172,3 @@ class Settings:
 settings = Settings()
 
 
-# Backwards compatibility function
-def epic_dir(epic_id: str) -> Path:
-    """Get epic directory path for given epic ID."""
-    return EPICS_ROOT / epic_id

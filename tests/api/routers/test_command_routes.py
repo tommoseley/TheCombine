@@ -5,8 +5,6 @@ Tests canonical command routes and deprecation of old routes.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 
 # =============================================================================
@@ -61,7 +59,7 @@ class TestCommandResponseModels:
         response = MarkStaleResponse(
             status="marked",
             task_id="abc-123",
-            doc_type_id="epic_backlog",
+            doc_type_id="implementation_plan",
             document_id="doc-456",
             downstream_marked=2,
         )

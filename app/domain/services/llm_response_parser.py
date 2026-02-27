@@ -5,7 +5,6 @@ This module provides parsing strategies to extract JSON artifacts from varied LL
 output formats including clean JSON, markdown fences, and text with explanations.
 
 Author: D-1 (Senior Developer)
-Epic: PIPELINE-175B
 """
 
 from dataclasses import dataclass

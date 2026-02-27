@@ -11,7 +11,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.services.schema_registry_service import SchemaRegistryService
 

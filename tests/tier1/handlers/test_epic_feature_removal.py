@@ -105,11 +105,11 @@ class TestC4NoEpicRefsInIPPIPF:
         assert "epic" not in src.lower(), "IPF handler still references epic"
         assert "feature" not in src.lower(), "IPF handler still references feature"
 
-    def test_ipp_handler_no_creates_children_epic(self):
-        """IPP combine-config should not declare creates_children with epic."""
+    def test_ipp_deprecated_in_active_releases(self):
+        """IPP removed from active_releases (WS-PIPELINE-001 collapsed into IP)."""
         from app.config.package_loader import get_package_loader
-        ipp = get_package_loader().get_document_type("primary_implementation_plan")
-        assert "epic" not in ipp.creates_children, "IPP still creates epic children"
+        active = get_package_loader().get_active_releases()
+        assert "primary_implementation_plan" not in active.document_types
 
     def test_ipf_handler_no_creates_children_epic(self):
         """IPF combine-config should declare creates_children with work_package only."""

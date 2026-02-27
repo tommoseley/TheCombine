@@ -10,7 +10,6 @@ from typing import Optional
 import logging
 
 from app.config.package_loader import (
-    PackageLoader,
     PackageNotFoundError,
     VersionNotFoundError,
     get_package_loader,

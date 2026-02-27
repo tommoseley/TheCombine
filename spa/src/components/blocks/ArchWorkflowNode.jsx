@@ -94,7 +94,7 @@ function ArchWorkflowNode({ data }) {
                             <span style={{ 
                                 fontSize: 9, 
                                 fontWeight: 600, 
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.03em',
                                 flexShrink: 0,
@@ -118,7 +118,7 @@ function ArchWorkflowNode({ data }) {
                             <span style={{ 
                                 fontSize: 9, 
                                 fontWeight: 600, 
-                                color: '#6b7280',
+                                color: 'var(--text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.03em',
                                 flexShrink: 0,

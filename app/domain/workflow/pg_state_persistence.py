@@ -7,7 +7,7 @@ Everything else derived at runtime from execution_log.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession

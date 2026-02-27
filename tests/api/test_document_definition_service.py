@@ -11,9 +11,6 @@ from uuid import uuid4
 
 from app.api.services.document_definition_service import (
     DocumentDefinitionService,
-    InvalidDocDefIdError,
-    DocDefNotFoundError,
-    DocDefAlreadyAcceptedError,
     DOCDEF_ID_PATTERN,
 )
 from app.api.models.document_definition import DocumentDefinition
@@ -25,7 +22,7 @@ class TestDocDefIdValidation:
     def test_valid_docdef_id_patterns(self):
         """Valid document definition IDs should match the pattern."""
         valid_ids = [
-            "docdef:EpicBacklog:1.0.0",
+            "docdef:ImplementationPlan:1.0.0",
             "docdef:ProjectDiscovery:2.1.3",
             "docdef:My_Document:0.0.1",
             "docdef:Test-Doc:10.20.30",
@@ -37,11 +34,11 @@ class TestDocDefIdValidation:
     def test_invalid_docdef_id_patterns(self):
         """Invalid document definition IDs should not match the pattern."""
         invalid_ids = [
-            "EpicBacklog:1.0.0",  # missing prefix
-            "docdef:EpicBacklog",  # missing version
+            "TestDoc:1.0.0",  # missing prefix
+            "docdef:ImplementationPlan",  # missing version
             "docdef::1.0.0",  # empty name
-            "docdef:EpicBacklog:1.0",  # incomplete version
-            "docdef:Epic Backlog:1.0.0",  # space in name
+            "docdef:ImplementationPlan:1.0",  # incomplete version
+            "docdef:Test Doc:1.0.0",  # space in name
         ]
         for docdef_id in invalid_ids:
             assert not DOCDEF_ID_PATTERN.match(docdef_id), f"Should not match: {docdef_id}"
@@ -97,14 +94,14 @@ class TestDocumentDefinitionService:
         """Test getting a document definition by exact ID."""
         expected = DocumentDefinition(
             id=uuid4(),
-            document_def_id="docdef:EpicBacklog:1.0.0",
+            document_def_id="docdef:ImplementationPlan:1.0.0",
         )
         
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = expected
         mock_db.execute.return_value = mock_result
         
-        result = await service.get("docdef:EpicBacklog:1.0.0")
+        result = await service.get("docdef:ImplementationPlan:1.0.0")
         
         assert result == expected
     
@@ -113,7 +110,7 @@ class TestDocumentDefinitionService:
         """Test that get_accepted orders by accepted_at DESC (D7)."""
         expected = DocumentDefinition(
             id=uuid4(),
-            document_def_id="docdef:EpicBacklog:1.0.0",
+            document_def_id="docdef:ImplementationPlan:1.0.0",
             status="accepted",
             accepted_at=datetime.now(timezone.utc),
         )
@@ -122,7 +119,7 @@ class TestDocumentDefinitionService:
         mock_result.scalar_one_or_none.return_value = expected
         mock_db.execute.return_value = mock_result
         
-        result = await service.get_accepted("docdef:EpicBacklog:")
+        result = await service.get_accepted("docdef:ImplementationPlan:")
         
         assert result == expected
         assert result.status == "accepted"

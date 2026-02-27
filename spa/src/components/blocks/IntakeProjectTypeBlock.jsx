@@ -22,7 +22,7 @@ export default function IntakeProjectTypeBlock({ block }) {
                     {category}
                 </span>
                 {confidence && (
-                    <span style={{ fontSize: 13, color: '#6b7280' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                         Confidence: {confidence}
                     </span>
                 )}
@@ -32,7 +32,7 @@ export default function IntakeProjectTypeBlock({ block }) {
                     style={{
                         margin: 0,
                         fontSize: 13,
-                        color: '#6b7280',
+                        color: 'var(--text-muted)',
                         lineHeight: 1.5,
                     }}
                 >

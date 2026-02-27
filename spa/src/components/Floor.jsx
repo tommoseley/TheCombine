@@ -1,23 +1,13 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import ReactFlow, {
-    useNodesState,
-    useEdgesState,
-    useReactFlow,
-    Panel,
-    MiniMap
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-import DocumentNode from './DocumentNode';
-import WaypointNode from './WaypointNode';
+import PipelineRail from './PipelineRail';
 import FullDocumentViewer from './FullDocumentViewer';
+import ContentPanel from './ContentPanel';
 import ProjectWorkflow from './ProjectWorkflow';
-import { buildGraph, getLayoutedElements, addChildrenToLayout } from '../utils/layout';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
 import { api } from '../api/client';
 
-const nodeTypes = { documentNode: DocumentNode, waypoint: WaypointNode };
 const THEME_LABELS = { industrial: 'Industrial', light: 'Light', blueprint: 'Blueprint' };
 
 export default function Floor({ projectId, projectCode, projectName, isArchived, savedLayout, autoExpandNodeId, theme, onThemeChange, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
@@ -34,21 +24,13 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     } = useProductionStatus(projectId);
 
     const [data, setData] = useState([]);
-    const [expandedId, setExpandedId] = useState(null);
-    const [expandType, setExpandType] = useState(null);
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [fullViewerDocId, setFullViewerDocId] = useState(null);
     const [isEditingName, setIsEditingName] = useState(false);
     const [editName, setEditName] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [showWorkflow, setShowWorkflow] = useState(false);
-    const reactFlowInstance = useReactFlow();
-
-    // Layout persistence refs
-    const currentPositionsRef = useRef(savedLayout?.node_positions || null);
-    const viewportRef = useRef(savedLayout?.viewport || null);
-    const saveTimerRef = useRef(null);
-    const viewportRestoredRef = useRef(false);
 
     // Update data when productionData changes
     useEffect(() => {
@@ -57,61 +39,23 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [productionData]);
 
-    // Auto-expand only when explicitly requested (new project)
+    // Auto-select first node when data arrives and nothing is selected
     useEffect(() => {
-        if (autoExpandNodeId && data.length > 0) {
-            setTimeout(() => {
-                setExpandedId(autoExpandNodeId);
-                setExpandType('questions');
-            }, 300);
+        if (data.length > 0 && !selectedNodeId) {
+            const firstL1 = data.find(d => (d.level || 1) === 1);
+            if (firstL1) setSelectedNodeId(firstL1.id);
         }
-    }, [autoExpandNodeId, data.length]);
+    }, [data, selectedNodeId]);
 
-    // Reset expansion when project changes
+    // Reset selection when project changes
     useEffect(() => {
-        setExpandedId(null);
-        setExpandType(null);
+        setSelectedNodeId(null);
     }, [projectId]);
-
-    // Cleanup debounce timer on unmount
-    useEffect(() => {
-        return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-    }, []);
 
     const cycleTheme = useCallback(() => {
         const idx = THEMES.indexOf(theme);
         onThemeChange(THEMES[(idx + 1) % THEMES.length]);
     }, [theme, onThemeChange]);
-
-    // Debounced save of floor layout to project metadata
-    const debounceSave = useCallback(() => {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = setTimeout(() => {
-            const layout = {
-                node_positions: currentPositionsRef.current,
-                viewport: viewportRef.current,
-            };
-            api.saveFloorLayout(projectId, layout).catch(err =>
-                console.error('Failed to save floor layout:', err)
-            );
-        }, 800);
-    }, [projectId]);
-
-    // Save node positions on drag stop
-    const onNodeDragStop = useCallback((event, node) => {
-        const positions = { ...(currentPositionsRef.current || {}) };
-        positions[node.id] = node.position;
-        currentPositionsRef.current = positions;
-        debounceSave();
-    }, [debounceSave]);
-
-    // Save viewport on pan/zoom end
-    const onMoveEnd = useCallback((event, viewport) => {
-        if (viewport) {
-            viewportRef.current = viewport;
-            debounceSave();
-        }
-    }, [debounceSave]);
 
     const handleStartEdit = useCallback(() => {
         setEditName(projectName || '');
@@ -166,151 +110,78 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [projectId, onProjectDelete]);
 
-    const onZoomToNode = useCallback((nodeId) => {
-        const node = reactFlowInstance.getNode(nodeId);
-        if (node) {
-            const zoom = 0.9;
-            const viewportWidth = window.innerWidth;
-            const x = -node.position.x * zoom + viewportWidth / 2 - 400;
-            const y = -node.position.y * zoom + 120;
-            reactFlowInstance.setViewport({ x, y, zoom }, { duration: 800 });
+    // Production callbacks used by ContentPanel
+    const handleStartProduction = useCallback(async (docTypeId) => {
+        console.log('Starting production for:', docTypeId);
+
+        // Optimistic update: immediately show as in_production
+        setData(prev => prev.map(item => {
+            if (item.id === docTypeId) {
+                return {
+                    ...item,
+                    _prevState: item.state,
+                    state: 'in_production',
+                };
+            }
+            return item;
+        }));
+
+        try {
+            await startProduction(docTypeId);
+        } catch (err) {
+            // Revert optimistic update
+            setData(prev => prev.map(item =>
+                item.id === docTypeId
+                    ? { ...item, state: item._prevState || 'ready_for_production', stations: null }
+                    : item
+            ));
         }
-    }, [reactFlowInstance]);
+    }, [startProduction]);
 
-    const callbacks = useMemo(() => ({
-        onExpand: (id, type) => { setExpandedId(id); setExpandType(type); },
-        onCollapse: () => {
-            setExpandedId(null);
-            setExpandType(null);
-            setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 300 }), 50);
-        },
-        onViewFullDocument: (docIdOrObj) => {
-            setFullViewerDocId(docIdOrObj);
-        },
-        onStartProduction: async (docTypeId) => {
-            console.log('Starting production for:', docTypeId);
+    const handleSubmitQuestions = useCallback(async (id, answers) => {
+        console.log('Submitted:', id, answers);
 
-            // Optimistic update: immediately show as in_production
-            // Stations will be populated by backend via SSE (workflow-driven per WS-STATION-DATA-001)
-            setData(prev => prev.map(item => {
-                if (item.id === docTypeId) {
+        // Optimistically update local state - mark PGC complete, ASM active
+        setData(prev => {
+            const update = (items) => items.map(item => {
+                if (item.id === id && item.stations) {
                     return {
                         ...item,
-                        _prevState: item.state,
                         state: 'in_production',
+                        stations: item.stations.map(s =>
+                            s.id === 'pgc' ? { ...s, state: 'complete', needs_input: false } :
+                                s.id === 'asm' ? { ...s, state: 'active' } : s
+                        )
                     };
                 }
+                if (item.children) return { ...item, children: update(item.children) };
                 return item;
-            }));
-
-            try {
-                await startProduction(docTypeId);
-            } catch (err) {
-                // Error handling and notification done in the hook
-                // Revert optimistic update and clear any SSE-driven stations
-                setData(prev => prev.map(item =>
-                    item.id === docTypeId
-                        ? { ...item, state: item._prevState || 'ready_for_production', stations: null }
-                        : item
-                ));
-            }
-        },
-        onSubmitQuestions: async (id, answers) => {
-            console.log('Submitted:', id, answers);
-
-            // Close the tray immediately
-            setExpandedId(null);
-            setExpandType(null);
-
-            // Optimistically update local state - mark PGC complete, ASM active
-            setData(prev => {
-                const update = (items) => items.map(item => {
-                    if (item.id === id && item.stations) {
-                        return {
-                            ...item,
-                            state: 'in_production',
-                            stations: item.stations.map(s =>
-                                s.id === 'pgc' ? { ...s, state: 'complete', needs_input: false } :
-                                    s.id === 'asm' ? { ...s, state: 'active' } : s
-                            )
-                        };
-                    }
-                    if (item.children) return { ...item, children: update(item.children) };
-                    return item;
-                });
-                return update(prev);
             });
+            return update(prev);
+        });
 
-            // Find the document to get its interruptId and submit
-            const doc = data.find(d => d.id === id);
-            if (doc?.interruptId) {
-                try {
-                    await resolveInterrupt(doc.interruptId, answers);
-                } catch (err) {
-                    console.error('Failed to submit answers:', err);
-                }
+        // Find the document to get its interruptId and submit
+        const doc = data.find(d => d.id === id);
+        if (doc?.interruptId) {
+            try {
+                await resolveInterrupt(doc.interruptId, answers);
+            } catch (err) {
+                console.error('Failed to submit answers:', err);
             }
         }
-    }), [reactFlowInstance, data, resolveInterrupt, startProduction]);
+    }, [data, resolveInterrupt]);
 
-    const { layoutNodes, layoutEdges } = useMemo(() => {
-        if (data.length === 0) return { layoutNodes: [], layoutEdges: [] };
-
-        const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes, edges, parentId, childNodes } = buildGraph(data, expandedId, callbacksWithType);
-        const dagreResult = getLayoutedElements(nodes, edges, currentPositionsRef.current);
-        const { nodes: allNodes, edges: allEdges } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, callbacksWithType);
-        const nodesWithType = allNodes.map(n => ({ ...n, data: { ...n.data, expandType: n.id === expandedId ? expandType : null } }));
-        return { layoutNodes: nodesWithType, layoutEdges: allEdges };
-    }, [data, expandedId, expandType, callbacks, theme, onZoomToNode, projectId, projectCode]);
-
-    const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
-
-    useEffect(() => {
-        if (data.length === 0) return;
-
-        const callbacksWithType = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes: n, edges: e, parentId, childNodes } = buildGraph(data, expandedId, callbacksWithType);
-        const dagreResult = getLayoutedElements(n, e, currentPositionsRef.current);
-        const { nodes: allNodes, edges: allEdges } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, callbacksWithType);
-        const nodesWithType = allNodes.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
-        setNodes(nodesWithType);
-        setEdges(allEdges);
-    }, [data, expandedId, expandType, callbacks, setNodes, setEdges, theme, onZoomToNode, projectId, projectCode]);
-
-    // Restore saved viewport once after initial layout
-    useEffect(() => {
-        if (!viewportRestoredRef.current && viewportRef.current && nodes.length > 0) {
-            viewportRestoredRef.current = true;
-            setTimeout(() => {
-                reactFlowInstance.setViewport(viewportRef.current, { duration: 0 });
-            }, 100);
+    // Find the selected step data for ContentPanel
+    const selectedStep = useMemo(() => {
+        if (!selectedNodeId) return null;
+        const l1 = data.find(d => d.id === selectedNodeId && (d.level || 1) === 1);
+        if (l1) return l1;
+        for (const item of data) {
+            const child = item.children?.find(c => c.id === selectedNodeId);
+            if (child) return child;
         }
-    }, [nodes.length, reactFlowInstance]);
-
-    // Reset layout to auto-computed Dagre positions
-    const handleResetLayout = useCallback(() => {
-        currentPositionsRef.current = null;
-        viewportRef.current = null;
-        api.saveFloorLayout(projectId, null).catch(err =>
-            console.error('Failed to clear floor layout:', err)
-        );
-        // Rebuild layout without saved positions
-        const cbs = { ...callbacks, expandType, theme, onZoomToNode, projectId, projectCode };
-        const { nodes: n, edges: e, parentId, childNodes } = buildGraph(data, expandedId, cbs);
-        const dagreResult = getLayoutedElements(n, e, null);
-        const { nodes: allN, edges: allE } = addChildrenToLayout(dagreResult, parentId, childNodes, expandedId, cbs);
-        const nodesWithType = allN.map(node => ({ ...node, data: { ...node.data, expandType: node.id === expandedId ? expandType : null } }));
-        setNodes(nodesWithType);
-        setEdges(allE);
-        setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 300 }), 50);
-    }, [projectId, callbacks, expandType, theme, onZoomToNode, projectCode, data, expandedId, setNodes, setEdges, reactFlowInstance]);
-
-    const onNodeClick = useCallback((_, node) => {
-        // Node clicks are handled by buttons within the node (View Document, Answer Questions, etc.)
-        // No default click behavior on the node itself
-    }, []);
+        return null;
+    }, [data, selectedNodeId]);
 
     if (loading && data.length === 0) {
         return (
@@ -338,233 +209,220 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     }
 
     return (
-        <div className="w-full h-full">
-            <ReactFlow
-                nodes={nodes} edges={edges}
-                onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-                onNodeClick={onNodeClick}
-                onNodeDragStop={onNodeDragStop}
-                onMoveEnd={onMoveEnd}
-                nodeTypes={nodeTypes}
-                nodesDraggable nodesConnectable={false} edgesUpdatable={false} edgesFocusable={false}
-                zoomOnScroll
-                fitView={!viewportRef.current} fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.3} maxZoom={1.5}
-                style={{ background: 'var(--bg-canvas)' }}
-                proOptions={{ hideAttribution: true }}
-                defaultEdgeOptions={{ type: 'smoothstep' }}
+        <div className="w-full h-full flex">
+            {/* Left: Pipeline Rail */}
+            <div
+                className="flex flex-col flex-shrink-0"
+                style={{
+                    width: 320,
+                    borderRight: '1px solid var(--border-panel)',
+                    background: 'var(--bg-canvas)',
+                }}
             >
-                <Panel position="top-left">
-                    <div className="space-y-2">
-                        {/* Production Line Status */}
-                        <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
-                            <div className="flex items-center justify-between gap-4">
-                                <div>
-                                    <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
-                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                        {lineState === 'active' && <span className="text-amber-500">● Active</span>}
-                                        {lineState === 'stopped' && <span className="text-red-500">● Stopped</span>}
-                                        {lineState === 'complete' && <span className="text-emerald-500">● Complete</span>}
-                                        {lineState === 'idle' && <span>● Idle</span>}
-                                        {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        onClick={handleResetLayout}
-                                        className="subway-button p-1.5 rounded-md transition-colors"
-                                        title="Reset layout"
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8" />
-                                            <path d="M21 3v5h-5" />
-                                            <path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16" />
-                                            <path d="M3 21v-5h5" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={cycleTheme}
-                                        className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-                                    >
-                                        {THEME_LABELS[theme]}
-                                    </button>
-                                </div>
+                {/* Header panels */}
+                <div className="space-y-2 p-3" style={{ flexShrink: 0 }}>
+                    {/* Production Line Status */}
+                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
+                        <div className="flex items-center justify-between gap-4">
+                            <div>
+                                <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {lineState === 'active' && <span className="text-amber-500">&#9679; Active</span>}
+                                    {lineState === 'stopped' && <span className="text-red-500">&#9679; Stopped</span>}
+                                    {lineState === 'complete' && <span className="text-emerald-500">&#9679; Complete</span>}
+                                    {lineState === 'idle' && <span>&#9679; Idle</span>}
+                                    {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
+                                </p>
                             </div>
+                            <button
+                                onClick={cycleTheme}
+                                className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                            >
+                                {THEME_LABELS[theme]}
+                            </button>
                         </div>
+                    </div>
 
-                        {/* Project Info */}
-                        <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
-                            <div className="flex items-center gap-3">
-                                <div
-                                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                                    style={{ background: 'var(--state-active-bg)' }}
+                    {/* Project Info */}
+                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
+                        <div className="flex items-center gap-3">
+                            <div
+                                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ background: 'var(--state-active-bg)' }}
+                            >
+                                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                                </svg>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <p
+                                    className="text-xs font-mono"
+                                    style={{ color: 'var(--text-muted)' }}
                                 >
-                                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                    </svg>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p
-                                        className="text-xs font-mono"
-                                        style={{ color: 'var(--text-muted)' }}
-                                    >
-                                        {projectCode || 'No Project'}
-                                    </p>
-                                    {isEditingName ? (
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <input
-                                                type="text"
-                                                value={editName}
-                                                onChange={(e) => setEditName(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') handleSaveName();
-                                                    if (e.key === 'Escape') handleCancelEdit();
-                                                }}
-                                                className="flex-1 px-2 py-1 text-sm rounded border bg-transparent"
-                                                style={{
-                                                    color: 'var(--text-primary)',
-                                                    borderColor: 'var(--border-panel)',
-                                                }}
-                                                autoFocus
-                                                disabled={actionLoading}
-                                            />
-                                            <button
-                                                onClick={handleSaveName}
-                                                disabled={actionLoading}
-                                                className="p-1 rounded hover:bg-white/10"
-                                                title="Save"
-                                            >
-                                                <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            </button>
-                                            <button
-                                                onClick={handleCancelEdit}
-                                                disabled={actionLoading}
-                                                className="p-1 rounded hover:bg-white/10"
-                                                title="Cancel"
-                                            >
-                                                <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <p
-                                            className="text-sm font-semibold truncate"
-                                            style={{ color: 'var(--text-primary)' }}
-                                        >
-                                            {projectName || 'Untitled Project'}
-                                        </p>
-                                    )}
-                                </div>
-                                {!isEditingName && (
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={handleStartEdit}
-                                            className="p-1.5 rounded hover:bg-white/10 transition-colors"
-                                            style={{ color: 'var(--text-muted)' }}
-                                            title="Edit name"
-                                        >
-                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={handleArchiveToggle}
-                                            disabled={actionLoading}
-                                            className="p-1.5 rounded hover:bg-white/10 transition-colors"
-                                            style={{ color: isArchived ? '#f59e0b' : 'var(--text-muted)' }}
-                                            title={isArchived ? 'Unarchive project' : 'Archive project'}
-                                        >
-                                            <svg className="w-4 h-4 relative" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
-                                                {isArchived && (
-                                                    <path d="M4 20L20 4" strokeWidth="2.5" stroke="currentColor" />
-                                                )}
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => setShowDeleteConfirm(true)}
-                                            disabled={actionLoading || !isArchived}
-                                            className={`p-1.5 rounded transition-colors ${isArchived ? 'hover:bg-red-500/20' : ''}`}
-                                            style={{
-                                                color: 'var(--text-muted)',
-                                                opacity: isArchived ? 1 : 0.3,
-                                                cursor: isArchived ? 'pointer' : 'not-allowed',
+                                    {projectCode || 'No Project'}
+                                </p>
+                                {isEditingName ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <input
+                                            type="text"
+                                            value={editName}
+                                            onChange={(e) => setEditName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveName();
+                                                if (e.key === 'Escape') handleCancelEdit();
                                             }}
-                                            title={isArchived ? 'Delete project' : 'Archive project first to delete'}
+                                            className="flex-1 px-2 py-1 text-sm rounded border bg-transparent"
+                                            style={{
+                                                color: 'var(--text-primary)',
+                                                borderColor: 'var(--border-panel)',
+                                            }}
+                                            autoFocus
+                                            disabled={actionLoading}
+                                        />
+                                        <button
+                                            onClick={handleSaveName}
+                                            disabled={actionLoading}
+                                            className="p-1 rounded hover:bg-white/10"
+                                            title="Save"
                                         >
-                                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                            <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={handleCancelEdit}
+                                            disabled={actionLoading}
+                                            className="p-1 rounded hover:bg-white/10"
+                                            title="Cancel"
+                                        >
+                                            <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M6 18L18 6M6 6l12 12" />
                                             </svg>
                                         </button>
                                     </div>
+                                ) : (
+                                    <p
+                                        className="text-sm font-semibold truncate"
+                                        style={{ color: 'var(--text-primary)' }}
+                                    >
+                                        {projectName || 'Untitled Project'}
+                                    </p>
                                 )}
                             </div>
-                        </div>
-
-                        {/* Workflow Instance (ADR-046) */}
-                        <div className="subway-panel backdrop-blur rounded-lg border overflow-hidden">
-                            <button
-                                onClick={() => setShowWorkflow(!showWorkflow)}
-                                className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold hover:opacity-80"
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-primary)',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                <span>Workflow</span>
-                                <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
-                                    {showWorkflow ? '\u25B2' : '\u25BC'}
-                                </span>
-                            </button>
-                            {showWorkflow && (
-                                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                                    <ProjectWorkflow projectId={projectId} />
+                            {!isEditingName && (
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={handleStartEdit}
+                                        className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                                        style={{ color: 'var(--text-muted)' }}
+                                        title="Edit name"
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={handleArchiveToggle}
+                                        disabled={actionLoading}
+                                        className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                                        style={{ color: isArchived ? '#f59e0b' : 'var(--text-muted)' }}
+                                        title={isArchived ? 'Unarchive project' : 'Archive project'}
+                                    >
+                                        <svg className="w-4 h-4 relative" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+                                            {isArchived && (
+                                                <path d="M4 20L20 4" strokeWidth="2.5" stroke="currentColor" />
+                                            )}
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        disabled={actionLoading || !isArchived}
+                                        className={`p-1.5 rounded transition-colors ${isArchived ? 'hover:bg-red-500/20' : ''}`}
+                                        style={{
+                                            color: 'var(--text-muted)',
+                                            opacity: isArchived ? 1 : 0.3,
+                                            cursor: isArchived ? 'pointer' : 'not-allowed',
+                                        }}
+                                        title={isArchived ? 'Delete project' : 'Archive project first to delete'}
+                                    >
+                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                        </svg>
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </div>
-                </Panel>
-                <MiniMap
-                    position="top-right"
-                    nodeColor={(node) => {
-                        // Get CSS variables from themed element (not documentElement which has no theme class)
-                        const state = node.data?.state;
-                        const themedEl = document.querySelector('[class*="theme-"]') || document.body;
-                        const cs = getComputedStyle(themedEl);
-                        if (['produced', 'stabilized', 'ready', 'complete'].includes(state)) return cs.getPropertyValue('--state-stabilized-bg').trim();
-                        if (['requirements_not_met', 'blocked', 'halted', 'failed'].includes(state)) return cs.getPropertyValue('--state-blocked-bg').trim();
-                        if (['in_production', 'active', 'queued', 'awaiting_operator'].includes(state)) return cs.getPropertyValue('--state-active-bg').trim();
-                        if (['ready_for_production', 'waiting', 'pending_acceptance'].includes(state)) return cs.getPropertyValue('--state-ready-bg').trim();
-                        return cs.getPropertyValue('--state-ready-bg').trim();
-                    }}
-                    maskColor="rgba(11, 17, 32, 0.85)"
-                    style={{
-                        background: 'var(--bg-panel)',
-                        border: '1px solid var(--border-panel)',
-                        borderRadius: 8
-                    }}
-                    pannable
-                    zoomable
-                />
-                <Panel position="bottom-left">
-                    <div className="subway-panel flex gap-4 text-[10px] backdrop-blur px-4 py-2.5 rounded-lg border">
-                        <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Stabilized</span></div>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-ready-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Ready</span></div>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-active-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>In Progress</span></div>
-                        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full" style={{ background: 'var(--state-blocked-bg)' }} /><span style={{ color: 'var(--text-muted)' }}>Blocked</span></div>
+
+                    {/* Workflow Instance (ADR-046) */}
+                    <div className="subway-panel backdrop-blur rounded-lg border overflow-hidden">
+                        <button
+                            onClick={() => setShowWorkflow(!showWorkflow)}
+                            className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold hover:opacity-80"
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <span>Workflow</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
+                                {showWorkflow ? '\u25B2' : '\u25BC'}
+                            </span>
+                        </button>
+                        {showWorkflow && (
+                            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                                <ProjectWorkflow projectId={projectId} />
+                            </div>
+                        )}
                     </div>
-                </Panel>
-                <Panel position="bottom-right">
-                    <div className="subway-panel text-[10px] px-2 py-1 rounded" style={{ color: 'var(--text-muted)' }}>Scroll to zoom | Drag to pan | Drag nodes to rearrange</div>
-                </Panel>
-            </ReactFlow>
+                </div>
+
+                {/* Pipeline rail — static vertical node list (scrollable) */}
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    <PipelineRail
+                        data={data}
+                        selectedNodeId={selectedNodeId}
+                        onSelectNode={setSelectedNodeId}
+                        theme={theme}
+                    />
+                </div>
+
+                {/* Legend — pinned to bottom of rail */}
+                <div className="subway-panel border-t px-4 py-2" style={{ flexShrink: 0 }}>
+                    <div className="flex flex-wrap gap-3 text-[10px]">
+                        <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>Stabilized</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-ready-bg)' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>Ready</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-active-bg)' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>In Progress</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-blocked-bg)' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>Blocked</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right: Detail View (Content Panel) */}
+            <ContentPanel
+                step={selectedStep}
+                projectId={projectId}
+                projectCode={projectCode}
+                onStartProduction={handleStartProduction}
+                onSubmitQuestions={handleSubmitQuestions}
+            />
 
             {/* Notification Toast */}
             {notification && (

@@ -6,7 +6,6 @@ Minimal persistence for Document Workflow Engine (ADR-039).
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-import uuid
 
 from app.core.database import Base
 

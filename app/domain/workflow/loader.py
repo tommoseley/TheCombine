@@ -16,7 +16,6 @@ from app.domain.workflow.models import (
     Workflow,
     WorkflowStep,
 )
-from app.domain.workflow.types import ValidationResult
 from app.domain.workflow.validator import WorkflowValidator
 
 

@@ -20,8 +20,6 @@ from app.api.services.preview_service import (
     PromptPreview,
     SchemaPreview,
     PreviewDiff,
-    DiffItem,
-    PreviewServiceError,
     get_preview_service,
 )
 

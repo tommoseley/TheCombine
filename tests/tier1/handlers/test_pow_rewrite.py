@@ -203,17 +203,18 @@ class TestC5StepOrdering:
     def test_step_order_matches_adr_053(self):
         """Top-level steps execute in order per ADR-053.
 
-        Expected: discovery, primary_plan, implementation_plan,
-                  technical_architecture, per_work_package
+        Expected: discovery, implementation_plan,
+                  technical_architecture, work_package_creation, per_work_package
+        (WS-PIPELINE-001 collapsed IPP+IPF into single IP)
         """
         pow_def = _load_pow()
         steps = pow_def.get("steps", [])
         step_ids = [s["step_id"] for s in steps]
         expected = [
             "discovery",
-            "primary_plan",
             "implementation_plan",
             "technical_architecture",
+            "work_package_creation",
             "per_work_package",
         ]
         assert step_ids == expected, (
@@ -236,13 +237,13 @@ class TestC6IterationBlockReferencesWP:
             "steps must include 'per_work_package'"
         )
 
-    def test_iteration_doc_type_is_implementation_plan(self):
+    def test_iteration_doc_type_is_work_package(self):
         pow_def = _load_pow()
         for step in pow_def.get("steps", []):
             if step.get("step_id") == "per_work_package":
                 iterate = step.get("iterate_over", {})
-                assert iterate.get("doc_type") == "implementation_plan", (
-                    "per_work_package must iterate over implementation_plan"
+                assert iterate.get("doc_type") == "work_package", (
+                    "per_work_package must iterate over work_package"
                 )
                 return
         raise AssertionError("per_work_package step not found")

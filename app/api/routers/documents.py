@@ -1,4 +1,3 @@
-import logging
 """
 Documents API Routes - Unified endpoint for building any document type.
 
@@ -10,15 +9,15 @@ Uses the new document-centric model with:
 Week 2 (ADR-010): Integrated correlation_id for LLM execution logging.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.domain.services.document_builder import DocumentBuilder, BuildResult
+from app.domain.services.document_builder import DocumentBuilder
 from app.domain.registry.loader import (
     list_document_types,
     get_document_config,

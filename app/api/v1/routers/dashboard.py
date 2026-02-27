@@ -5,7 +5,7 @@ Provides API endpoints for dashboard data:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel

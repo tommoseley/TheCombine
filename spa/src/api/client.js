@@ -211,6 +211,19 @@ export const api = {
         return request(`/projects/${projectId}/documents/${docTypeId}/pgc${qs}`);
     },
 
+    // Work Packages
+    getWorkPackages: (projectId) =>
+        request(`/projects/${projectId}/work-packages`),
+
+    generateWorkPackages: (projectId) =>
+        request(`/projects/${projectId}/work-packages/generate`, { method: 'POST' }),
+
+    getWorkStatements: (projectId, wpId) =>
+        request(`/projects/${projectId}/work-packages/${wpId}/work-statements`),
+
+    generateWorkStatements: (projectId, wpId) =>
+        request(`/projects/${projectId}/work-packages/${wpId}/work-statements/generate`, { method: 'POST' }),
+
     // Concierge Intake
     startIntake: () =>
         request('/intake/start', { method: 'POST' }),

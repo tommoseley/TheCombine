@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import urlencode
 
 from app.auth.models import OAuthTokens, OAuthUserInfo

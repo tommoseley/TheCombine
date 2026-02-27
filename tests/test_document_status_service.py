@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.api.services.document_status_service import (
     DocumentStatusService,
-    DocumentStatus,
     ReadinessStatus,
     AcceptanceState,
 )
@@ -63,12 +62,12 @@ def mock_doc_type_with_acceptance():
 def mock_doc_type_blocked():
     """Document type with multiple dependencies."""
     doc_type = MagicMock()
-    doc_type.doc_type_id = "story_backlog"
-    doc_type.name = "Story Backlog"
-    doc_type.icon = "list-checks"
+    doc_type.doc_type_id = "implementation_plan"
+    doc_type.name = "Implementation Plan"
+    doc_type.icon = "clipboard-list"
     doc_type.acceptance_required = False
     doc_type.accepted_by_role = None
-    doc_type.required_inputs = ["project_discovery", "architecture_spec", "epic_set"]
+    doc_type.required_inputs = ["project_discovery", "architecture_spec", "technical_architecture"]
     doc_type.display_order = 3
     return doc_type
 
@@ -190,7 +189,7 @@ class TestReadinessDerivation:
         )
         
         assert readiness == ReadinessStatus.REQUIREMENTS_NOT_MET
-        assert set(missing) == {"architecture_spec", "epic_set"}
+        assert set(missing) == {"architecture_spec", "technical_architecture"}
 
     def test_blocked_takes_precedence_over_stale(
         self, status_service, mock_doc_type_with_acceptance
@@ -327,12 +326,12 @@ class TestSubtitleDerivation:
             document=None,
             readiness=ReadinessStatus.REQUIREMENTS_NOT_MET,
             acceptance_state=None,
-            missing_inputs=["architecture_spec", "epic_set"],
+            missing_inputs=["architecture_spec", "implementation_plan"],
         )
         
         assert "Missing:" in subtitle
         assert "architecture_spec" in subtitle
-        assert "epic_set" in subtitle
+        assert "implementation_plan" in subtitle
 
     def test_stale_accepted_shows_review_warning(
         self, status_service, mock_doc_type_with_acceptance

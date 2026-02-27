@@ -8,12 +8,12 @@ Three tables for durable LLM work:
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 from uuid import UUID
 
 from sqlalchemy import (
     Column, String, Integer, Text, DateTime,
-    ForeignKey, Index, UniqueConstraint
+    ForeignKey, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped

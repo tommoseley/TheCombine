@@ -209,7 +209,7 @@ class TestInMemoryDocumentRepository:
                 document_type=doc_type,
                 scope_type="project",
                 scope_id="proj-123",
-                title=f"Doc",
+                title="Doc",
                 content={},
             )
             await repo.save(doc)

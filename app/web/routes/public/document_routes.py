@@ -156,12 +156,6 @@ DOCUMENT_CONFIG = {
         "template": "public/pages/partials/_technical_architecture_content.html",
         "view_docdef": "ArchitecturalSummaryView",  # ADR-034: New viewer docdef
     },
-    "story_backlog": {
-        "title": "Story Backlog",
-        "icon": "list-checks",
-        "template": "public/pages/partials/_story_backlog_content.html",
-        "view_docdef": "StoryBacklogView",  # ADR-034: New viewer docdef
-    },
 }
 
 
@@ -301,70 +295,6 @@ async def get_document(
     
     # Try to load the document
     document = await _get_document_by_type(db, proj_uuid, doc_type_id)
-    
-    # =========================================================================
-    # WS-STORY-BACKLOG-COMMANDS: Special handling for story_backlog
-    # URL uses story_backlog (lowercase), doc_type_id is also story_backlog
-    # =========================================================================
-    if doc_type_id == "story_backlog":
-        # Try to load existing story_backlog document
-        story_backlog_doc = await _get_document_by_type(db, proj_uuid, "story_backlog")
-        
-        if not story_backlog_doc:
-            # Auto-init from EpicBacklog
-            logger.info(f"StoryBacklog not found for project {project_id}, auto-initializing")
-            from app.api.services.document_service import DocumentService
-            doc_service = DocumentService(db)
-            
-            # Load EpicBacklog
-            epic_backlog = await doc_service.get_latest(
-                space_type="project",
-                space_id=proj_uuid,
-                doc_type_id="epic_backlog"
-            )
-            
-            if epic_backlog and epic_backlog.content:
-                source_epics = epic_backlog.content.get("epics", [])
-                
-                # Build StoryBacklog content
-                story_backlog_epics = []
-                for epic in source_epics:
-                    story_backlog_epics.append({
-                        "epic_id": epic.get("epic_id") or epic.get("id") or f"epic-{len(story_backlog_epics)+1}",
-                        "name": epic.get("title") or epic.get("name") or "Untitled Epic",
-                        "intent": epic.get("description") or epic.get("intent") or "",
-                        "mvp_phase": epic.get("mvp_phase") or epic.get("phase") or "mvp",
-                        "stories": []
-                    })
-                
-                story_backlog_content = {
-                    "project_id": project_id,
-                    "project_name": epic_backlog.content.get("project_name", ""),
-                    "source_epic_backlog_ref": {
-                        "document_type": "EpicBacklog",
-                        "params": {"project_id": project_id}
-                    },
-                    "epics": story_backlog_epics
-                }
-                
-                # Create StoryBacklog document
-                story_backlog_doc = await doc_service.create_document(
-                    space_type="project",
-                    space_id=proj_uuid,
-                    doc_type_id="story_backlog",
-                    title="Story Backlog",
-                    content=story_backlog_content,
-                    summary=f"Story backlog with {len(story_backlog_epics)} epics",
-                    created_by="story-backlog-auto-init",
-                    created_by_type="builder"
-                )
-                await db.commit()
-                logger.info(f"Auto-initialized StoryBacklog with {len(story_backlog_epics)} epics")
-        
-        # Use StoryBacklog document for rendering
-        if story_backlog_doc:
-            document = story_backlog_doc
-    # =========================================================================
     
     logger.info(f"Document found: {document is not None}")
     

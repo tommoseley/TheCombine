@@ -21,7 +21,6 @@ from app.api.models.document import Document
 from app.api.models.document_type import DocumentType
 from app.api.services.document_status_service import (
     document_status_service,
-    DocumentStatus,
 )
 
 router = APIRouter(tags=["documents"])

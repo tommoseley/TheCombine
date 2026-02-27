@@ -1,17 +1,15 @@
 """Tests for WebSocket endpoint and event broadcasting."""
 
-import asyncio
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1 import api_router
 from app.api.v1.dependencies import get_workflow_registry, get_persistence, clear_caches
-from app.api.v1.routers.executions import reset_execution_service, get_execution_service
+from app.api.v1.routers.executions import reset_execution_service
 from app.api.v1.services.event_broadcaster import (
     EventBroadcaster,
     ExecutionEvent,
-    get_broadcaster,
     reset_broadcaster,
 )
 from app.domain.workflow import (
