@@ -4,9 +4,7 @@ Minimal implementation - stores only essential fields.
 Everything else derived at runtime from execution_log.
 """
 
-import json
 import logging
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import select, and_
@@ -15,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.workflow.document_workflow_state import (
     DocumentWorkflowState,
     DocumentWorkflowStatus,
-    NodeExecution,
 )
 
 logger = logging.getLogger(__name__)
@@ -183,58 +180,30 @@ class PgStatePersistence:
         return [self._row_to_state(row) for row in rows]
 
     def _row_to_state(self, row) -> DocumentWorkflowState:
-        """Convert ORM object to DocumentWorkflowState."""
-        execution_log = row.execution_log if isinstance(row.execution_log, list) else json.loads(row.execution_log or '[]')
-        retry_counts = row.retry_counts if isinstance(row.retry_counts, dict) else json.loads(row.retry_counts or '{}')
+        """Convert ORM object to DocumentWorkflowState.
 
-        # Parse pending_choices if present
-        pending_choices = None
-        if row.pending_choices:
-            pending_choices = row.pending_choices if isinstance(row.pending_choices, list) else json.loads(row.pending_choices)
+        Delegates to pure function row_dict_to_state() for testability.
+        """
+        from app.domain.workflow.state_mapping import row_dict_to_state
 
-        # Parse context_state
-        context_state = {}
-        if row.context_state:
-            context_state = row.context_state if isinstance(row.context_state, dict) else json.loads(row.context_state)
-
-        # Parse node history
-        node_history = [
-            NodeExecution(
-                node_id=entry["node_id"],
-                outcome=entry["outcome"],
-                timestamp=datetime.fromisoformat(entry["timestamp"]),
-                metadata=entry.get("metadata", {}),
-            )
-            for entry in execution_log
-        ]
-
-        # Derive timestamps from execution log
-        first_entry = execution_log[0] if execution_log else None
-        created_at = datetime.fromisoformat(first_entry["timestamp"]) if first_entry else datetime.now(timezone.utc)
-        updated_at = datetime.fromisoformat(execution_log[-1]["timestamp"]) if execution_log else created_at
-
-        # Use stored status
-        status = DocumentWorkflowStatus(row.status) if row.status else DocumentWorkflowStatus.RUNNING
-
-        return DocumentWorkflowState(
-            execution_id=row.execution_id,
-            project_id=row.document_id or "unknown",
-            document_type=row.document_type or "unknown",
-            workflow_id=row.workflow_id or "unknown",
-            user_id=str(row.user_id) if row.user_id else None,
-            current_node_id=row.current_node_id,
-            status=status,
-            node_history=node_history,
-            retry_counts=retry_counts,
-            gate_outcome=row.gate_outcome,
-            terminal_outcome=row.terminal_outcome,
-            thread_id=row.thread_id,
-            context_state=context_state,
-            pending_user_input=row.pending_user_input or False,
-            pending_user_input_rendered=row.pending_user_input_rendered,
-            pending_choices=pending_choices,
-            pending_user_input_payload=row.pending_user_input_payload,
-            pending_user_input_schema_ref=row.pending_user_input_schema_ref,
-            created_at=created_at,
-            updated_at=updated_at,
-        )
+        row_data = {
+            "execution_id": row.execution_id,
+            "document_id": row.document_id,
+            "document_type": row.document_type,
+            "workflow_id": row.workflow_id,
+            "user_id": row.user_id,
+            "current_node_id": row.current_node_id,
+            "status": row.status,
+            "execution_log": row.execution_log,
+            "retry_counts": row.retry_counts,
+            "gate_outcome": row.gate_outcome,
+            "terminal_outcome": row.terminal_outcome,
+            "thread_id": row.thread_id,
+            "context_state": row.context_state,
+            "pending_user_input": row.pending_user_input,
+            "pending_user_input_rendered": row.pending_user_input_rendered,
+            "pending_choices": row.pending_choices,
+            "pending_user_input_payload": row.pending_user_input_payload,
+            "pending_user_input_schema_ref": row.pending_user_input_schema_ref,
+        }
+        return row_dict_to_state(row_data)

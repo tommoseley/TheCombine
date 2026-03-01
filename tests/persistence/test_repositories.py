@@ -122,7 +122,7 @@ class TestInMemoryDocumentRepository:
             content={"data": "test"},
         )
         
-        saved = await repo.save(doc)
+        await repo.save(doc)
         retrieved = await repo.get(doc.document_id)
         
         assert retrieved is not None

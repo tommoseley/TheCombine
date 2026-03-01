@@ -262,7 +262,7 @@ class PlanValidator:
         """Validate graph structure integrity."""
         # Build node index
         node_ids: Set[str] = {node["node_id"] for node in raw.get("nodes", [])}
-        end_node_ids: Set[str] = {
+        _end_node_ids: Set[str] = {
             node["node_id"]
             for node in raw.get("nodes", [])
             if node.get("type") == "end"

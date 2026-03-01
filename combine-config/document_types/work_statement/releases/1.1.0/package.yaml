@@ -1,0 +1,61 @@
+# Work Statement Document Type Package
+# Version 1.1.0 - Revision tracking, lexicographic ordering
+
+doc_type_id: work_statement
+display_name: "Work Statement"
+version: "1.1.0"
+description: >
+  Unit of authorized execution within a Work Package.
+  Defines objective, scope, procedure, verification criteria,
+  prohibited actions, and allowed file paths. v1.1.0 adds revision
+  metadata for edition tracking and order_key for lexicographic
+  ordering within the parent WP.
+
+# Classification
+authority_level: constructive  # Derived from upstream decision artifacts (WP + TA)
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+cardinality: multi
+instance_key: ws_id
+
+# Dependencies
+required_inputs:
+  - work_package
+  - technical_architecture
+optional_inputs: []
+creates_children: []
+parent_doc_type: work_package
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:work_statement:1.1.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: true
+  accepted_by:
+    - stakeholder
+    - technical_lead
+
+# UI configuration
+ui:
+  icon: file-check
+  category: planning
+  display_order: 39

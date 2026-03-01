@@ -32,7 +32,7 @@ class DocumentTypeConfig:
 class EntityTypeConfig:
     """Configuration for an entity type."""
     name: str
-    parent_doc_type: str
+    parent_doc_type: Optional[str]
     creates_scope: str
     # Extensible
     extra: Dict[str, Any] = field(default_factory=dict)

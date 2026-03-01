@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_statement.v1.1.json",
+  "type": "object",
+  "title": "Work Statement v1.1.0",
+  "description": "A governed unit of authorized execution with revision tracking and lexicographic ordering.",
+  "required": [
+    "ws_id",
+    "parent_wp_id",
+    "title",
+    "objective",
+    "scope_in",
+    "scope_out",
+    "procedure",
+    "verification_criteria",
+    "prohibited_actions",
+    "governance_pins"
+  ],
+  "properties": {
+    "ws_id": { "type": "string", "minLength": 1 },
+    "parent_wp_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string", "minLength": 1 },
+    "scope_in": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "scope_out": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "allowed_paths": { "type": "array", "items": { "type": "string" } },
+    "procedure": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "verification_criteria": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "prohibited_actions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "governance_pins": {
+      "type": "object",
+      "required": ["ta_version_id"],
+      "properties": {
+        "ta_version_id": { "type": "string", "minLength": 1 },
+        "adr_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["DRAFT", "READY", "IN_PROGRESS", "ACCEPTED", "REJECTED", "BLOCKED"]
+    },
+    "order_key": {
+      "type": "string",
+      "description": "Lexicographic ordering key within parent WP (e.g., a0, a1, b0).",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "object",
+      "description": "Edition tracking. Independent of parent WP revision.",
+      "required": ["edition"],
+      "properties": {
+        "edition": { "type": "integer", "minimum": 1 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "updated_by": { "type": "string" }
+      }
+    },
+    "_lineage": {
+      "type": "object",
+      "properties": {
+        "parent_document_type": { "type": "string" },
+        "parent_execution_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

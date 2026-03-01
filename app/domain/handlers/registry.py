@@ -29,6 +29,7 @@ from app.domain.handlers.pipeline_run_handler import PipelineRunHandler
 from app.domain.handlers.work_package_handler import WorkPackageHandler
 from app.domain.handlers.work_statement_handler import WorkStatementHandler
 from app.domain.handlers.project_logbook_handler import ProjectLogbookHandler
+from app.domain.handlers.work_package_candidate_handler import WorkPackageCandidateHandler
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,8 @@ HANDLERS: Dict[str, BaseDocumentHandler] = {
     "work_statement": WorkStatementHandler(),
     # WS-ONTOLOGY-003: Project Logbook
     "project_logbook": ProjectLogbookHandler(),
+    # WS-WB-002: Work Package Candidate (immutable lineage artifact)
+    "work_package_candidate": WorkPackageCandidateHandler(),
 }
 
 

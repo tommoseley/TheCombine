@@ -161,8 +161,8 @@
           "description": "Human-readable entity type name"
         },
         "parent_doc_type": {
-          "type": "string",
-          "description": "Document type that owns entities of this type"
+          "type": ["string", "null"],
+          "description": "Document type that owns entities of this type (null for top-level entities)"
         },
         "creates_scope": {
           "type": "string",

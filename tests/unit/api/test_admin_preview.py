@@ -212,7 +212,7 @@ class TestPreviewDocumentTypeEndpoint:
         )
 
         assert response.status_code == 200
-        data = response.json()
+        response.json()
         # Diff may be None when not included
 
 

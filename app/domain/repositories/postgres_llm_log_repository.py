@@ -13,8 +13,6 @@ from sqlalchemy import select, func as sql_func
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-logger = logging.getLogger(__name__)
-
 from app.domain.repositories.llm_log_repository import (
     LLMRunRecord,
     LLMContentRecord,
@@ -22,6 +20,8 @@ from app.domain.repositories.llm_log_repository import (
     LLMOutputRefRecord,
     LLMErrorRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresLLMLogRepository:

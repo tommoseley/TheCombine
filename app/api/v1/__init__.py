@@ -22,6 +22,7 @@ from app.api.v1.routers.interrupts import router as interrupts_router
 from app.api.v1.routers.intake import router as intake_router
 from app.api.v1.routers.intents import router as intents_router
 from app.api.v1.routers.metrics import router as metrics_router
+from app.api.v1.routers.work_binder import router as work_binder_router
 
 
 # Create main v1 router
@@ -46,6 +47,7 @@ api_router.include_router(admin_releases_router)  # ADR-044 WS-044-07: Release &
 api_router.include_router(admin_preview_router)  # ADR-044 WS-044-06: Preview & Dry-Run Engine
 api_router.include_router(admin_workspaces_router)  # ADR-044 WS-044-03: Prompt Editor Workspaces
 api_router.include_router(metrics_router)  # WS-METRICS-001: Execution Metrics
+api_router.include_router(work_binder_router)  # WP-WB-001: Work Binder
 
 
 __all__ = ["api_router"]

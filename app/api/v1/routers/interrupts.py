@@ -131,21 +131,16 @@ async def resolve_interrupt(
     registry = InterruptRegistry(db)
 
     # Build resolution dict from request
-    resolution: Dict[str, Any] = {}
+    from app.api.v1.services.pgc_pure import build_resolution_dict
 
     logger.info(f"Resolve request: answers={request.answers}, decision={request.decision}, notes={request.notes}")
 
-    if request.answers:
-        resolution["answers"] = request.answers
-
-    if request.decision:
-        resolution["decision"] = request.decision
-
-    if request.notes:
-        resolution["notes"] = request.notes
-
-    if request.escalation_option:
-        resolution["escalation_option"] = request.escalation_option
+    resolution = build_resolution_dict(
+        answers=request.answers,
+        decision=request.decision,
+        notes=request.notes,
+        escalation_option=request.escalation_option,
+    )
 
     if not resolution:
         raise HTTPException(

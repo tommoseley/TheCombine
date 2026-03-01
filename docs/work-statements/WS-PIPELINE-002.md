@@ -1,6 +1,6 @@
 # WS-PIPELINE-002: Floor Layout Redesign (Master-Detail)
 
-## Status: Draft
+## Status: Complete
 
 ## Parent Work Package: WP-PIPELINE-001
 

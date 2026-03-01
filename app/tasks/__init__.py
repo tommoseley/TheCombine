@@ -19,4 +19,6 @@ __all__ = [
     "find_task",
     "cleanup_old_tasks",
     "run_document_build",
+    "run_workflow_build",
+    "WORKFLOW_DOCUMENT_TYPES",
 ]

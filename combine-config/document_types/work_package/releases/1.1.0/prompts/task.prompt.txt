@@ -1,0 +1,119 @@
+# Task: Work Package Production
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Produce a single Work Package document from a committed Work Package entry in the
+Final Implementation Plan (IPF). The Work Package is a governed unit of planned work
+that defines scope, dependencies, governance pins, and completion criteria.
+
+This document is the authoritative record for one unit of deliverable work.
+Each Work Package will subsequently be decomposed into Work Statements for execution.
+
+## Inputs Provided
+
+You will receive:
+
+* Implementation Plan (Final) - the committed plan containing this Work Package
+  in its work_packages[] array. The specific WP entry to produce is identified
+  by wp_id.
+
+The Implementation Plan is the ONLY source of requirements. No other context may be assumed.
+
+## Work Package Structure
+
+The Work Package document must faithfully represent the committed WP entry from the IPF.
+You must preserve:
+
+* wp_id - the unique identifier (snake_case, e.g., "document_registry")
+* title - human-readable Work Package title
+* rationale - why this Work Package is needed
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* dependencies - references to other wp_ids with dependency_type and optional notes
+* definition_of_done - measurable completion criteria (array of strings, minimum 1)
+* governance_pins - governance references pinned at reconciliation time:
+  * ta_version_id - Technical Architecture version (required, non-empty)
+  * adr_refs - applicable ADR IDs (may be empty array)
+  * policy_refs - applicable policy IDs (may be empty array)
+
+## Governance Pin Requirements
+
+Every Work Package MUST carry governance_pins:
+
+1. ta_version_id MUST be non-empty - it identifies which Technical Architecture
+   version informed this Work Package's scope and constraints
+2. adr_refs SHOULD reference any ADRs that constrain or govern this WP's implementation
+3. policy_refs SHOULD reference any policies that constrain this WP's execution
+
+These pins create traceability from planned work back to architectural decisions.
+
+## Dependency Rules
+
+Dependencies reference other wp_ids within the same Implementation Plan:
+
+* dependency_type must be one of: must_complete_first, can_start_after, soft
+* Each dependency references a valid wp_id from the same plan
+* Circular dependencies are prohibited
+
+## What You MUST NOT Do
+
+* Do not decompose the Work Package into Work Statements, tasks, stories, or features
+* Do not assign estimates, timelines, or ownership
+* Do not modify the governance_pins from what the IPF committed
+* Do not add scope items not present in the IPF entry
+* Do not remove scope items present in the IPF entry
+* Do not invent dependencies not present in the IPF
+* Do not reference prior executions, time, or external state
+
+## Output Rules
+
+* Output valid JSON only
+* Follow the Work Package schema exactly
+* All arrays must be present even if empty
+* Never output null
+* No commentary, markdown, or explanation outside JSON
+* additionalProperties constraints must be respected at every level
+
+## Governance & Audit Constraints
+
+* The WP must be traceable to its IPF source via source_candidate_ids
+* governance_pins.ta_version_id must be populated
+* No implicit decisions or silent interpretations
+* Output must be fully loggable and replayable per ADR-010
+* No bypassing of audit, QA, or traceability mechanisms per ADR-009
+
+## Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+* Produce equivalent output with equivalent scope and intent
+* Preserve semantic meaning across runs
+* Maintain stable wp_id and field values
+* Avoid stylistic variance that alters interpretation
+* Contain no references to time, prior executions, or external state
+
+## Final Self-Check Before Output
+
+1. JSON parses correctly
+2. All required fields present
+3. wp_id is valid snake_case
+4. governance_pins.ta_version_id is non-empty
+5. definition_of_done has at least one entry
+6. Dependencies reference valid wp_ids only
+7. scope_in and scope_out are arrays (may be empty)
+8. No additional properties at any level
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* governance_pins.ta_version_id is empty or missing
+* definition_of_done is empty
+* wp_id is not valid snake_case
+* Work Statements, tasks, or features appear in the output
+* Role identity or authority is restated or altered
+* Output depends on unstated context or prior runs

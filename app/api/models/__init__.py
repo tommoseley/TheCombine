@@ -26,6 +26,7 @@ __all__ = [
     'RolePrompt',
     'Role',
     'RoleTask',
+    'DocumentType',
     'Document',
     'DocumentRelation',
     'RelationType',

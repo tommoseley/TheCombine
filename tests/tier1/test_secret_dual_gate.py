@@ -96,7 +96,7 @@ class TestHTTPIngressRejectsSecret:
         async def mock_app(scope, receive, send):
             pass  # Should never be reached
 
-        middleware = SecretIngressMiddleware(mock_app)
+        SecretIngressMiddleware(mock_app)
 
         # Create a mock request with secret in body
         mock_request = MagicMock()

@@ -332,7 +332,7 @@ class TaskNodeExecutor(NodeExecutor):
         ]
         
         for i, issue in enumerate(issues, 1):
-            issue_type = issue.get("type", "unknown")
+            _issue_type = issue.get("type", "unknown")
             message = issue.get("message", "No details")
             remediation = issue.get("remediation")
             section = issue.get("section")
@@ -376,7 +376,7 @@ class TaskNodeExecutor(NodeExecutor):
         lines = ["Please answer the following questions:\n"]
         for i, q in enumerate(questions, 1):
             if isinstance(q, dict):
-                qid = q.get("id", f"Q{i}")
+                _qid = q.get("id", f"Q{i}")
                 text = q.get("text", "")
                 priority = q.get("priority", "")
                 answer_type = q.get("answer_type", "")

@@ -10,8 +10,6 @@ Per D2:
 - Logs: docdef_id, component_ids, bundle_sha256 (ADR-010 alignment)
 """
 
-import hashlib
-import json
 import logging
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
@@ -19,6 +17,12 @@ from typing import List, Dict, Optional, Any
 from app.api.services.document_definition_service import DocumentDefinitionService
 from app.api.services.component_registry_service import ComponentRegistryService
 from app.api.services.schema_registry_service import SchemaRegistryService
+from app.domain.services.prompt_assembler_pure import (
+    collect_ordered_component_ids,
+    dedupe_bullets,
+    compute_bundle_sha256,
+    format_prompt_text as pure_format_prompt_text,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -116,16 +120,7 @@ class PromptAssembler:
         
         # 2. Collect unique component_ids from sections (preserve section order)
         sections = docdef.sections or []
-        # Sort by order field
-        sorted_sections = sorted(sections, key=lambda s: s.get("order", 0))
-        
-        seen_component_ids = set()
-        ordered_component_ids = []
-        for section in sorted_sections:
-            comp_id = section.get("component_id")
-            if comp_id and comp_id not in seen_component_ids:
-                seen_component_ids.add(comp_id)
-                ordered_component_ids.append(comp_id)
+        ordered_component_ids = collect_ordered_component_ids(sections)
         
         # 3. Resolve each component spec
         components = []
@@ -136,22 +131,16 @@ class PromptAssembler:
             components.append(component)
         
         # 4. Concatenate bullets (preserve order, dedupe exact duplicates)
-        all_bullets = []
-        seen_bullets = set()
-        for component in components:
-            guidance = component.generation_guidance or {}
-            bullets = guidance.get("bullets", [])
-            for bullet in bullets:
-                if bullet not in seen_bullets:
-                    seen_bullets.add(bullet)
-                    all_bullets.append(bullet)
+        components_guidance = [
+            component.generation_guidance or {} for component in components
+        ]
+        all_bullets = dedupe_bullets(components_guidance)
         
         # 5. Resolve schema bundle from component schemas
         schema_bundle = await self._build_schema_bundle(components)
         
         # 6. Compute bundle SHA256
-        bundle_json = json.dumps(schema_bundle, sort_keys=True, separators=(',', ':'))
-        bundle_sha256 = f"sha256:{hashlib.sha256(bundle_json.encode()).hexdigest()}"
+        bundle_sha256 = compute_bundle_sha256(schema_bundle)
         
         # 7. Build header from docdef
         header = docdef.prompt_header or {}
@@ -215,46 +204,13 @@ class PromptAssembler:
     def format_prompt_text(self, assembled: AssembledPrompt) -> str:
         """
         Format assembled prompt as LLM-ready text.
-        
-        Creates a structured prompt with:
-        - Role context from header
-        - Constraints from header
-        - Generation bullets from components
-        - Schema information
-        
-        Args:
-            assembled: AssembledPrompt from assemble()
-            
-        Returns:
-            Formatted prompt string
+
+        Delegates to pure format_prompt_text function.
         """
-        lines = []
-        
-        # Role
-        role = assembled.header.get("role", "")
-        if role:
-            lines.append(role)
-            lines.append("")
-        
-        # Constraints
-        constraints = assembled.header.get("constraints", [])
-        if constraints:
-            lines.append("## Constraints")
-            for constraint in constraints:
-                lines.append(f"- {constraint}")
-            lines.append("")
-        
-        # Generation guidance bullets
-        if assembled.component_bullets:
-            lines.append("## Generation Guidelines")
-            for bullet in assembled.component_bullets:
-                lines.append(f"- {bullet}")
-            lines.append("")
-        
-        # Schema reference
-        lines.append("## Schema Bundle")
-        lines.append(f"SHA256: {assembled.bundle_sha256}")
-        lines.append(f"Components: {', '.join(assembled.component_ids)}")
-        
-        return "\n".join(lines)
+        return pure_format_prompt_text(
+            header=assembled.header,
+            component_bullets=assembled.component_bullets,
+            component_ids=assembled.component_ids,
+            bundle_sha256=assembled.bundle_sha256,
+        )
 

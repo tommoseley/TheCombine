@@ -286,7 +286,7 @@ class TestLoadActualConciergeIntakePlan:
         if not plan_path.exists():
             pytest.skip("concierge_intake.v1.json not found")
 
-        plan = registry.load_file(plan_path)
+        registry.load_file(plan_path)
 
         # Retrieve by ID
         by_id = registry.get("concierge_intake")

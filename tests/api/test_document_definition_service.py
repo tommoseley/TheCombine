@@ -64,7 +64,7 @@ class TestDocumentDefinitionService:
     async def test_create_document_definition(self, service, mock_db):
         """Test creating a new document definition."""
         # Create definition
-        docdef = await service.create(
+        await service.create(
             document_def_id="docdef:TestDoc:1.0.0",
             prompt_header={"role": "Test role", "constraints": []},
             sections=[],

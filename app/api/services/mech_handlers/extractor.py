@@ -23,6 +23,74 @@ from app.api.services.mech_handlers.registry import register_handler
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Pure functions (extracted for testability — WS-CRAP-004)
+# ---------------------------------------------------------------------------
+
+def extract_jsonpath(source: Dict[str, Any], path: str) -> Any:
+    """Extract a value from a dict using JSONPath.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        source: Source document dict
+        path: JSONPath expression
+
+    Returns:
+        Extracted value, list of values (for multiple matches), or None
+
+    Raises:
+        TransformError: If JSONPath expression is invalid
+    """
+    try:
+        jsonpath_expr = jsonpath_parse(path)
+    except JsonPathParserError as e:
+        raise TransformError(f"Invalid JSONPath '{path}': {e}")
+
+    matches = jsonpath_expr.find(source)
+
+    if not matches:
+        return None
+
+    if len(matches) == 1:
+        return matches[0].value
+
+    return [match.value for match in matches]
+
+
+def extract_fields(source: Dict[str, Any], field_paths: list) -> Dict[str, Any]:
+    """Extract multiple fields from a document using JSONPath specs.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        source: Source document dict
+        field_paths: List of {"path": str, "as": str} extraction specs
+
+    Returns:
+        Dict of extracted values keyed by output name
+    """
+    extracted = {}
+    for field_spec in field_paths:
+        path = field_spec.get("path")
+        output_key = field_spec.get("as")
+
+        if not path or not output_key:
+            continue
+
+        try:
+            value = extract_jsonpath(source, path)
+            extracted[output_key] = value
+        except TransformError:
+            extracted[output_key] = None
+
+    return extracted
+
+
+# ---------------------------------------------------------------------------
+# Handler class
+# ---------------------------------------------------------------------------
+
 @register_handler
 class ExtractorHandler(MechHandler):
     """
@@ -50,18 +118,8 @@ class ExtractorHandler(MechHandler):
         config: Dict[str, Any],
         context: ExecutionContext,
     ) -> MechResult:
-        """
-        Execute the extraction.
-
-        Args:
-            config: Extractor configuration with field_paths
-            context: Execution context with source_document input
-
-        Returns:
-            MechResult with extracted fields
-        """
+        """Execute the extraction."""
         try:
-            # Get source document
             if not context.has_input("source_document"):
                 return MechResult.fail(
                     error="No source_document in context",
@@ -70,37 +128,20 @@ class ExtractorHandler(MechHandler):
 
             source = context.get_input("source_document")
 
-            # Ensure source is a dict
             if not isinstance(source, dict):
                 return MechResult.fail(
                     error=f"source_document must be a dict, got {type(source).__name__}",
                     error_code="transform_error",
                 )
 
-            # Extract fields
-            field_paths = config.get("field_paths", [])
-            if not field_paths:
+            fp = config.get("field_paths", [])
+            if not fp:
                 return MechResult.fail(
                     error="No field_paths configured",
                     error_code="transform_error",
                 )
 
-            extracted = {}
-            for field_spec in field_paths:
-                path = field_spec.get("path")
-                output_key = field_spec.get("as")
-
-                if not path or not output_key:
-                    continue
-
-                try:
-                    value = self._extract_path(source, path)
-                    extracted[output_key] = value
-                except TransformError as e:
-                    logger.warning(f"Extraction failed for {path}: {e}")
-                    # Continue with other fields, set None for failed
-                    extracted[output_key] = None
-
+            extracted = extract_fields(source, fp)
             return MechResult.ok(output=extracted)
 
         except InputMissingError as e:
@@ -114,38 +155,6 @@ class ExtractorHandler(MechHandler):
                 error=str(e),
                 error_code="transform_error",
             )
-
-    def _extract_path(self, source: Dict[str, Any], path: str) -> Any:
-        """
-        Extract a value using JSONPath.
-
-        Args:
-            source: Source document
-            path: JSONPath expression
-
-        Returns:
-            Extracted value(s)
-
-        Raises:
-            TransformError: If path is invalid or extraction fails
-        """
-        try:
-            jsonpath_expr = jsonpath_parse(path)
-        except JsonPathParserError as e:
-            raise TransformError(f"Invalid JSONPath '{path}': {e}")
-
-        matches = jsonpath_expr.find(source)
-
-        if not matches:
-            # Return None for no matches (field doesn't exist)
-            return None
-
-        if len(matches) == 1:
-            # Single match - return the value directly
-            return matches[0].value
-
-        # Multiple matches - return as list
-        return [match.value for match in matches]
 
     def validate_config(self, config: Dict[str, Any]) -> List[str]:
         """Validate extractor configuration."""

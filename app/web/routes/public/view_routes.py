@@ -32,6 +32,11 @@ from app.domain.services.render_model_builder import (
     DocDefNotFoundError,
     ComponentNotFoundError,
 )
+from app.web.routes.public.view_pure import (
+    extract_web_fragment_id,
+    find_component_by_schema_id,
+    render_placeholder_html,
+)
 from ..shared import templates
 
 
@@ -87,48 +92,43 @@ class FragmentRenderer:
             await self._resolve_fragment(schema_id)
     
     async def _resolve_fragment(self, schema_id: str) -> Optional[str]:
-        """Resolve fragment markup for a schema_id."""
+        """Resolve fragment markup for a schema_id.
+
+        Uses view_pure helpers for component lookup and binding extraction.
+        """
         if schema_id in self._fragment_cache:
             return self._fragment_cache[schema_id]
-        
+
         try:
-            # Get component by schema_id
-            # schema_id format: "schema:XxxV1"
-            # component lookup expects schema_id directly
+            # Get component by schema_id via pure function
             components = await self.component_service.list_all()
-            component = None
-            for c in components:
-                if c.schema_id == schema_id:
-                    component = c
-                    break
-            
+            component = find_component_by_schema_id(components, schema_id)
+
             if not component:
                 logger.warning(f"No component found for schema_id: {schema_id}")
                 self._fragment_cache[schema_id] = None
                 return None
-            
+
             self._component_cache[schema_id] = component
-            
-            # Get fragment_id from web bindings
-            view_bindings = component.view_bindings or {}
-            web_binding = view_bindings.get("web", {})
-            fragment_id = web_binding.get("fragment_id")
-            
+
+            # Get fragment_id from web bindings via pure function
+            fragment_id = extract_web_fragment_id(component)
+
             if not fragment_id:
                 logger.warning(f"No web fragment binding for component: {component.component_id}")
                 self._fragment_cache[schema_id] = None
                 return None
-            
-            # Get fragment markup
+
+            # Get fragment markup (I/O)
             fragment = await self.fragment_service.get_fragment(fragment_id)
             if not fragment:
                 logger.warning(f"Fragment not found: {fragment_id}")
                 self._fragment_cache[schema_id] = None
                 return None
-            
+
             self._fragment_cache[schema_id] = fragment.fragment_markup
             return fragment.fragment_markup
-            
+
         except Exception as e:
             logger.error(f"Error resolving fragment for {schema_id}: {e}")
             self._fragment_cache[schema_id] = None
@@ -170,14 +170,11 @@ class FragmentRenderer:
             )
     
     def _render_placeholder(self, title: str, *details: str) -> str:
-        """Render a graceful degradation placeholder."""
-        detail_html = "".join(f'<div class="text-xs text-gray-500">{d}</div>' for d in details)
-        return f'''
-        <div class="border border-amber-300 bg-amber-50 rounded p-3 my-2">
-            <div class="text-sm font-medium text-amber-800">{title}</div>
-            {detail_html}
-        </div>
-        '''
+        """Render a graceful degradation placeholder.
+
+        Delegates to view_pure.render_placeholder_html.
+        """
+        return render_placeholder_html(title, list(details))
 
 
 # =============================================================================

@@ -42,15 +42,9 @@ class AdminWorkbenchService:
         self._loader = loader or get_package_loader()
         self._workflow_doc_type_map: Optional[Dict[str, str]] = None
 
-    def invalidate_cache(self) -> None:
-        """
-        Invalidate all caches to pick up config changes without restart.
-
-        Call this after modifying workflow definitions, document types,
-        or active_releases.json.
-        """
+    def _clear_local_cache(self) -> None:
+        """Clear local workflow-to-doc-type map cache."""
         self._workflow_doc_type_map = None
-        self._loader.invalidate_cache()
 
     # =========================================================================
     # Internal: Workflow-to-DocType mapping
@@ -354,12 +348,16 @@ class AdminWorkbenchService:
         - Role prompts from combine-config/prompts/roles/
         - Task/QA/PGC prompts from document type packages
 
+        Uses admin_workbench_pure.build_fragment_dict for dict assembly.
+
         Args:
             kind: Optional kind filter (role, task, qa, pgc, questions, reflection)
 
         Returns:
             List of prompt fragment summaries
         """
+        from app.api.services.admin_workbench_pure import build_fragment_dict
+
         fragments = []
 
         # Convert kind string to enum if provided
@@ -373,122 +371,64 @@ class AdminWorkbenchService:
         # 1. Role fragments from standalone roles
         if kind_filter is None or kind_filter == PromptFragmentKind.ROLE:
             role_ids = self._loader.list_roles()
-            active = self._loader.get_active_releases()
+            _active = self._loader.get_active_releases()
 
             for role_id in sorted(role_ids):
-                active_version = active.get_role_version(role_id)
                 try:
                     role = self._loader.get_role(role_id)
                     fragment = PromptFragment.from_role(role)
-                    fragments.append({
-                        "fragment_id": fragment.fragment_id,
-                        "kind": fragment.kind.value,
-                        "version": fragment.version,
-                        "name": fragment.name,
-                        "intent": fragment.intent,
-                        "tags": fragment.tags,
-                        "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
-                        "source_doc_type": None,
-                    })
+                    fragments.append(build_fragment_dict(
+                        fragment_id=fragment.fragment_id,
+                        kind=fragment.kind.value,
+                        version=fragment.version,
+                        name=fragment.name,
+                        intent=fragment.intent,
+                        tags=fragment.tags,
+                        content=fragment.content,
+                        source_doc_type=None,
+                    ))
                 except PackageLoaderError as e:
                     logger.warning(f"Could not load role {role_id}: {e}")
 
         # 2. Task/QA/PGC/Questions/Reflection fragments from document types
         doc_type_ids = self._loader.list_document_types()
-        active = self._loader.get_active_releases()
+        _active = self._loader.get_active_releases()
+
+        # Map of (kind_filter, getter_method, kind_enum, name_suffix)
+        artifact_kinds = [
+            (PromptFragmentKind.TASK, "get_task_prompt", PromptFragmentKind.TASK, "Task"),
+            (PromptFragmentKind.QA, "get_qa_prompt", PromptFragmentKind.QA, "QA"),
+            (PromptFragmentKind.PGC, "get_pgc_context", PromptFragmentKind.PGC, "PGC"),
+            (PromptFragmentKind.REFLECTION, "get_reflection_prompt", PromptFragmentKind.REFLECTION, "Reflection"),
+        ]
 
         for doc_type_id in sorted(doc_type_ids):
             try:
                 package = self._loader.get_document_type(doc_type_id)
                 display_name = package.display_name
 
-                # Task prompt
-                if kind_filter is None or kind_filter == PromptFragmentKind.TASK:
-                    task_content = package.get_task_prompt()
-                    if task_content:
+                for frag_kind, getter, kind_enum, suffix in artifact_kinds:
+                    if kind_filter is not None and kind_filter != frag_kind:
+                        continue
+                    content = getattr(package, getter)()
+                    if content:
                         fragment = PromptFragment.from_doctype_artifact(
                             doc_type_id=doc_type_id,
                             version=package.version,
-                            kind=PromptFragmentKind.TASK,
-                            content=task_content,
-                            name=f"{display_name} Task",
+                            kind=kind_enum,
+                            content=content,
+                            name=f"{display_name} {suffix}",
                         )
-                        fragments.append({
-                            "fragment_id": fragment.fragment_id,
-                            "kind": fragment.kind.value,
-                            "version": fragment.version,
-                            "name": fragment.name,
-                            "intent": fragment.intent,
-                            "tags": fragment.tags,
-                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
-                            "source_doc_type": doc_type_id,
-                        })
-
-                # QA prompt
-                if kind_filter is None or kind_filter == PromptFragmentKind.QA:
-                    qa_content = package.get_qa_prompt()
-                    if qa_content:
-                        fragment = PromptFragment.from_doctype_artifact(
-                            doc_type_id=doc_type_id,
-                            version=package.version,
-                            kind=PromptFragmentKind.QA,
-                            content=qa_content,
-                            name=f"{display_name} QA",
-                        )
-                        fragments.append({
-                            "fragment_id": fragment.fragment_id,
-                            "kind": fragment.kind.value,
-                            "version": fragment.version,
-                            "name": fragment.name,
-                            "intent": fragment.intent,
-                            "tags": fragment.tags,
-                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
-                            "source_doc_type": doc_type_id,
-                        })
-
-                # PGC context
-                if kind_filter is None or kind_filter == PromptFragmentKind.PGC:
-                    pgc_content = package.get_pgc_context()
-                    if pgc_content:
-                        fragment = PromptFragment.from_doctype_artifact(
-                            doc_type_id=doc_type_id,
-                            version=package.version,
-                            kind=PromptFragmentKind.PGC,
-                            content=pgc_content,
-                            name=f"{display_name} PGC",
-                        )
-                        fragments.append({
-                            "fragment_id": fragment.fragment_id,
-                            "kind": fragment.kind.value,
-                            "version": fragment.version,
-                            "name": fragment.name,
-                            "intent": fragment.intent,
-                            "tags": fragment.tags,
-                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
-                            "source_doc_type": doc_type_id,
-                        })
-
-                # Reflection prompt (for Concierge)
-                if kind_filter is None or kind_filter == PromptFragmentKind.REFLECTION:
-                    reflection_content = package.get_reflection_prompt()
-                    if reflection_content:
-                        fragment = PromptFragment.from_doctype_artifact(
-                            doc_type_id=doc_type_id,
-                            version=package.version,
-                            kind=PromptFragmentKind.REFLECTION,
-                            content=reflection_content,
-                            name=f"{display_name} Reflection",
-                        )
-                        fragments.append({
-                            "fragment_id": fragment.fragment_id,
-                            "kind": fragment.kind.value,
-                            "version": fragment.version,
-                            "name": fragment.name,
-                            "intent": fragment.intent,
-                            "tags": fragment.tags,
-                            "content_preview": fragment.content[:200] + "..." if len(fragment.content) > 200 else fragment.content,
-                            "source_doc_type": doc_type_id,
-                        })
+                        fragments.append(build_fragment_dict(
+                            fragment_id=fragment.fragment_id,
+                            kind=fragment.kind.value,
+                            version=fragment.version,
+                            name=fragment.name,
+                            intent=fragment.intent,
+                            tags=fragment.tags,
+                            content=fragment.content,
+                            source_doc_type=doc_type_id,
+                        ))
 
             except PackageLoaderError as e:
                 logger.warning(f"Could not load document type {doc_type_id}: {e}")
@@ -744,11 +684,14 @@ class AdminWorkbenchService:
         List all available workflow plans (ADR-039 graph-based format).
 
         Scans combine-config/workflows/ for directories with release versions.
+        Uses admin_workbench_pure.build_workflow_summary for dict assembly.
 
         Returns:
             List of workflow summaries
         """
         import json
+
+        from app.api.services.admin_workbench_pure import build_workflow_summary
 
         active = self._loader.get_active_releases()
         config_path = self._loader.config_path
@@ -784,18 +727,9 @@ class AdminWorkbenchService:
                 with open(definition_path, "r", encoding="utf-8-sig") as f:
                     raw = json.load(f)
 
-                # Only include graph-based workflows (ADR-039 format)
-                if "nodes" not in raw or "edges" not in raw:
-                    continue
-
-                summaries.append({
-                    "workflow_id": workflow_id,
-                    "name": raw.get("name", workflow_id),
-                    "active_version": active_version,
-                    "description": raw.get("description"),
-                    "node_count": len(raw.get("nodes", [])),
-                    "edge_count": len(raw.get("edges", [])),
-                })
+                summary = build_workflow_summary(workflow_id, raw, active_version)
+                if summary is not None:
+                    summaries.append(summary)
             except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
                 logger.warning(f"Could not load workflow {workflow_id}: {e}")
                 summaries.append({
@@ -816,10 +750,13 @@ class AdminWorkbenchService:
 
         These are workflow.v1 format files with steps/scopes/document_types,
         NOT ADR-039 graph-based plans.
+        Uses admin_workbench_pure.build_orchestration_summary for dict assembly.
 
         Returns:
             List of orchestration workflow summaries
         """
+        from app.api.services.admin_workbench_pure import build_orchestration_summary
+
         active = self._loader.get_active_releases()
         config_path = self._loader.config_path
         workflows_dir = config_path / "workflows"
@@ -853,29 +790,9 @@ class AdminWorkbenchService:
                 with open(definition_path, "r", encoding="utf-8-sig") as f:
                     raw = json.load(f)
 
-                # Only include step-based workflows (NOT graph-based)
-                if "nodes" in raw and "edges" in raw:
-                    continue
-
-                # Derive derived_from display string
-                derived_from = raw.get("derived_from")
-                derived_from_label = None
-                if derived_from and isinstance(derived_from, dict):
-                    derived_from_label = f"{derived_from.get('workflow_id', '')} v{derived_from.get('version', '')}"
-
-                summaries.append({
-                    "workflow_id": workflow_id,
-                    "name": raw.get("name", workflow_id.replace("_", " ").title()),
-                    "active_version": active_version,
-                    "description": raw.get("description"),
-                    "step_count": len(raw.get("steps", [])),
-                    "schema_version": raw.get("schema_version", "workflow.v1"),
-                    "pow_class": raw.get("pow_class", "reference"),
-                    "derived_from": derived_from,
-                    "derived_from_label": derived_from_label,
-                    "source_version": raw.get("source_version"),
-                    "tags": raw.get("tags", []),
-                })
+                summary = build_orchestration_summary(workflow_id, raw, active_version)
+                if summary is not None:
+                    summaries.append(summary)
             except (json.JSONDecodeError, FileNotFoundError, OSError) as e:
                 logger.warning(f"Could not load orchestration workflow {workflow_id}: {e}")
                 summaries.append({

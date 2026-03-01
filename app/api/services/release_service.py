@@ -141,7 +141,7 @@ class ReleaseService:
 
         # Check if version exists as a committed package
         try:
-            package = self._loader.get_document_type(doc_type_id, version)
+            self._loader.get_document_type(doc_type_id, version)
 
             # Get commit info for this version
             commit_info = self._get_version_commit(doc_type_id, version)

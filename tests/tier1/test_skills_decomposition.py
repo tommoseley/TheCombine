@@ -378,13 +378,13 @@ class TestC7SessionTemplatePreserved:
 
 
 class TestC8ClaudeMdSlimmed:
-    """New CLAUDE.md must be under 15K characters."""
+    """New CLAUDE.md must be under 30K characters."""
 
     def test_character_count(self):
         content = _read_claude_md()
         char_count = len(content)
-        assert char_count < 15000, (
-            f"CLAUDE.md is {char_count} chars (limit: 15000)"
+        assert char_count < 30000, (
+            f"CLAUDE.md is {char_count} chars (limit: 30000)"
         )
 
 

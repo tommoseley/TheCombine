@@ -1,4 +1,3 @@
-import os
 """
 Authentication service.
 
@@ -7,6 +6,8 @@ Business logic for session management, user creation, and audit logging.
 
 Stage 6: With Account Linking
 """
+import logging
+import os
 import secrets
 from datetime import timedelta
 from typing import Optional, Tuple, Dict, Any
@@ -21,7 +22,6 @@ from app.auth.db_models import (
     AuthAuditLogORM, LinkIntentNonceORM
 )
 from app.auth.utils import utcnow
-import logging
 
 logger = logging.getLogger(__name__)
 

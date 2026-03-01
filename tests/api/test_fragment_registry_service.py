@@ -65,7 +65,7 @@ async def test_create_fragment_artifact(registry, mock_db):
         obj.id = uuid4()
     mock_db.refresh = mock_refresh
     
-    artifact = await registry.create_fragment(
+    await registry.create_fragment(
         fragment_id="TestFragment",
         schema_type_id="TestTypeV1",
         fragment_markup=markup,
@@ -232,7 +232,7 @@ async def test_create_binding(registry, mock_db):
         obj.id = uuid4()
     mock_db.refresh = mock_refresh
     
-    binding = await registry.create_binding(
+    await registry.create_binding(
         schema_type_id="TestTypeV1",
         fragment_id="TestFragment",
         fragment_version="1.0",
@@ -283,7 +283,7 @@ async def test_only_one_active_binding_per_type(registry, mock_db):
         pass
     mock_db.refresh = mock_refresh
     
-    result = await registry.activate_binding(
+    await registry.activate_binding(
         schema_type_id="TestTypeV1",
         fragment_id="TestFragment",
         fragment_version="1.0",

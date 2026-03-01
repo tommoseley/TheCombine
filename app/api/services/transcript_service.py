@@ -112,22 +112,19 @@ async def get_execution_transcript(
     first_run = runs[0]
     project_name = await _get_project_name(db, first_run.project_id)
 
+    from app.api.services.service_pure import (
+        build_transcript_entry,
+        compute_transcript_totals,
+        format_transcript_timestamps,
+    )
+
     # Build transcript entries
     transcript_entries = []
-    total_tokens = 0
-    total_cost = 0.0
 
     for i, run in enumerate(runs, 1):
-        # Get inputs and outputs
+        # Get inputs and outputs (I/O -- not extractable)
         inputs = await _get_llm_run_inputs(db, run.id)
         outputs = await _get_llm_run_outputs(db, run.id)
-
-        # Calculate duration
-        duration_seconds = None
-        duration_str = None
-        if run.started_at and run.ended_at:
-            duration_seconds = (run.ended_at - run.started_at).total_seconds()
-            duration_str = f"{duration_seconds:.1f}s"
 
         # Extract node_id and prompt_sources from metadata if available
         node_id = None
@@ -136,56 +133,32 @@ async def get_execution_transcript(
             node_id = run.run_metadata.get("node_id")
             prompt_sources = run.run_metadata.get("prompt_sources")
 
-        # Format timestamps
-        started_at_time = None
-        started_at_iso = None
-        if run.started_at:
-            started_at_time = run.started_at.astimezone(DISPLAY_TZ).strftime("%H:%M:%S")
-            started_at_iso = run.started_at.isoformat()
-
-        entry = {
-            "run_number": i,
-            "run_id": str(run.id),
-            "run_id_short": str(run.id)[:8],
-            "role": run.role,
-            "task_ref": run.prompt_id,
-            "node_id": node_id,
-            "prompt_sources": prompt_sources,
-            "model": run.model_name,
-            "status": run.status,
-            "started_at_time": started_at_time,
-            "started_at_iso": started_at_iso,
-            "duration": duration_str,
-            "duration_seconds": duration_seconds,
-            "tokens": run.total_tokens,
-            "cost": float(run.cost_usd) if run.cost_usd else None,
-            "inputs": inputs,
-            "outputs": outputs,
-        }
+        entry = build_transcript_entry(
+            run_number=i,
+            run_id=str(run.id),
+            role=run.role,
+            prompt_id=run.prompt_id,
+            node_id=node_id,
+            prompt_sources=prompt_sources,
+            model_name=run.model_name,
+            status=run.status,
+            started_at=run.started_at,
+            ended_at=run.ended_at,
+            total_tokens=run.total_tokens,
+            cost_usd=run.cost_usd,
+            inputs=inputs,
+            outputs=outputs,
+            display_tz=DISPLAY_TZ,
+        )
         transcript_entries.append(entry)
 
-        if run.total_tokens:
-            total_tokens += run.total_tokens
-        if run.cost_usd:
-            total_cost += float(run.cost_usd)
+    total_tokens, total_cost = compute_transcript_totals(transcript_entries)
 
-    # Format execution start/end times
-    started_at_formatted = None
-    started_at_iso = None
-    ended_at_formatted = None
-    ended_at_iso = None
-
-    if runs[0].started_at:
-        started_at_formatted = runs[0].started_at.astimezone(DISPLAY_TZ).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-        started_at_iso = runs[0].started_at.isoformat()
-
-    if runs[-1].ended_at:
-        ended_at_formatted = runs[-1].ended_at.astimezone(DISPLAY_TZ).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-        ended_at_iso = runs[-1].ended_at.isoformat()
+    timestamps = format_transcript_timestamps(
+        started_at=runs[0].started_at,
+        ended_at=runs[-1].ended_at,
+        display_tz=DISPLAY_TZ,
+    )
 
     return {
         "execution_id": execution_id,
@@ -196,8 +169,5 @@ async def get_execution_transcript(
         "total_runs": len(runs),
         "total_tokens": total_tokens,
         "total_cost": total_cost,
-        "started_at_formatted": started_at_formatted,
-        "started_at_iso": started_at_iso,
-        "ended_at_formatted": ended_at_formatted,
-        "ended_at_iso": ended_at_iso,
+        **timestamps,
     }

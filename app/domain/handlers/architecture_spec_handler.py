@@ -13,6 +13,80 @@ from app.domain.handlers.base_handler import BaseDocumentHandler
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Pure functions (extracted for testability — WS-CRAP-004)
+# ---------------------------------------------------------------------------
+
+def normalize_quality_attributes(qa: Any) -> dict:
+    """Normalize quality_attributes from various formats to dict.
+
+    Pure function — no I/O, no side effects.
+
+    Schema expects object form. LLM may produce array of dicts with
+    name/acceptance_criteria fields, or non-dict values.
+
+    Args:
+        qa: quality_attributes value (list, dict, None, or other)
+
+    Returns:
+        Normalized dict with lowercase_underscore keys
+    """
+    if isinstance(qa, list):
+        qa_obj = {}
+        for item in qa:
+            if isinstance(item, dict) and "name" in item:
+                key = item["name"].lower().replace(" ", "_")
+                qa_obj[key] = item.get("acceptance_criteria",
+                                       item.get("criteria", []))
+        return qa_obj
+    elif isinstance(qa, dict):
+        return qa
+    else:
+        return {}
+
+
+def transform_architecture_spec(data: dict) -> dict:
+    """Transform architecture spec data.
+
+    Pure function — no I/O, no side effects.
+    Mutates the input dict (caller should copy if needed).
+
+    - Migrate legacy field names to schema-canonical names
+    - Normalize quality_attributes (array -> object)
+    - Ensure required fields exist with correct types
+    - Normalize summary structure
+    """
+    # Legacy field name migration
+    if "data_model" in data and "data_models" not in data:
+        data["data_models"] = data.pop("data_model")
+    if "interfaces" in data and "api_interfaces" not in data:
+        data["api_interfaces"] = data.pop("interfaces")
+
+    # Ensure all array fields exist
+    for field in [
+        "components", "data_models", "api_interfaces",
+        "workflows", "risks", "open_questions",
+    ]:
+        if field not in data:
+            data[field] = []
+
+    # Normalize quality_attributes
+    data["quality_attributes"] = normalize_quality_attributes(
+        data.get("quality_attributes")
+    )
+
+    # Ensure architecture_summary is structured
+    if "architecture_summary" not in data:
+        data["architecture_summary"] = {}
+    elif isinstance(data["architecture_summary"], str):
+        data["architecture_summary"] = {
+            "title": "Architecture Overview",
+            "refined_description": data["architecture_summary"],
+        }
+
+    return data
+
+
 class ArchitectureSpecHandler(BaseDocumentHandler):
     """
     Handler for Architecture Specification documents.
@@ -78,51 +152,8 @@ class ArchitectureSpecHandler(BaseDocumentHandler):
     # =========================================================================
     
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Transform architecture spec data.
-
-        - Migrate legacy field names to schema-canonical names
-        - Normalize quality_attributes (array -> object)
-        - Ensure required fields exist with correct types
-        - Normalize summary structure
-        """
-        # Legacy field name migration (handler used to create wrong names)
-        if "data_model" in data and "data_models" not in data:
-            data["data_models"] = data.pop("data_model")
-        if "interfaces" in data and "api_interfaces" not in data:
-            data["api_interfaces"] = data.pop("interfaces")
-
-        # Ensure all array fields exist with schema-canonical names
-        for field in [
-            "components", "data_models", "api_interfaces",
-            "workflows", "risks", "open_questions",
-        ]:
-            if field not in data:
-                data[field] = []
-
-        # Normalize quality_attributes: schema says object, LLM may produce array
-        qa = data.get("quality_attributes")
-        if isinstance(qa, list):
-            qa_obj = {}
-            for item in qa:
-                if isinstance(item, dict) and "name" in item:
-                    key = item["name"].lower().replace(" ", "_")
-                    qa_obj[key] = item.get("acceptance_criteria",
-                                           item.get("criteria", []))
-            data["quality_attributes"] = qa_obj
-        elif not isinstance(qa, dict):
-            data["quality_attributes"] = {}
-
-        # Ensure architecture_summary is structured
-        if "architecture_summary" not in data:
-            data["architecture_summary"] = {}
-        elif isinstance(data["architecture_summary"], str):
-            data["architecture_summary"] = {
-                "title": "Architecture Overview",
-                "refined_description": data["architecture_summary"],
-            }
-
-        return data
+        """Transform architecture spec data. Delegates to pure function."""
+        return transform_architecture_spec(data)
     
     # =========================================================================
     # TITLE EXTRACTION

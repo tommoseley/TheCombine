@@ -138,76 +138,42 @@ async def _get_executor(db: AsyncSession) -> PlanExecutor:
 
 
 def _extract_messages(state) -> List[IntakeMessage]:
-    """Extract conversation messages from workflow state.
-
-    Messages are returned in chronological order (oldest first).
-    The pending_user_input_rendered is included as the last assistant message
-    to maintain consistent top-to-bottom conversation flow.
-    """
-    messages = []
-    node_history = list(state.node_history)
-
-    for i, execution in enumerate(node_history):
-        if execution.metadata.get("user_input"):
-            messages.append(IntakeMessage(
-                role="user",
-                content=execution.metadata["user_input"],
-            ))
-        response = execution.metadata.get("response") or execution.metadata.get("user_prompt")
-        if response:
-            messages.append(IntakeMessage(
-                role="assistant",
-                content=response,
-            ))
-
-    # Include user_input from context_state if not in messages
-    user_input = state.context_state.get("user_input")
-    if user_input and not any(m.content == user_input for m in messages if m.role == "user"):
-        insert_idx = 0
-        for idx, m in enumerate(messages):
-            if m.role == "assistant":
-                insert_idx = idx + 1
-            else:
-                break
-        messages.insert(insert_idx, IntakeMessage(role="user", content=user_input))
-
-    return messages
+    """Extract conversation messages from workflow state."""
+    from app.api.v1.services.intake_pure import extract_messages
+    history = [e.metadata for e in state.node_history]
+    raw = extract_messages(history, state.context_state.get("user_input"))
+    return [IntakeMessage(role=m["role"], content=m["content"]) for m in raw]
 
 
 def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> IntakeStateResponse:
     """Build full state response from workflow state."""
-    interpretation_raw = state.context_state.get("interpretation", {})
-    interpretation = {}
-    for key, val in interpretation_raw.items():
-        if isinstance(val, dict):
-            interpretation[key] = InterpretationField(
-                value=val.get("value", ""),
-                source=val.get("source", "llm"),
-                locked=val.get("locked", False),
-            )
-        else:
-            interpretation[key] = InterpretationField(value=str(val))
+    from app.api.v1.services.intake_pure import (
+        build_interpretation,
+        determine_phase,
+        deduplicate_pending_prompt,
+    )
 
-    phase = state.context_state.get("phase", "describe")
-    if state.status == DocumentWorkflowStatus.COMPLETED:
-        phase = "complete"
+    interpretation_raw = state.context_state.get("interpretation", {})
+    interp_data = build_interpretation(interpretation_raw)
+    interpretation = {
+        k: InterpretationField(**v) for k, v in interp_data.items()
+    }
+
+    phase = determine_phase(
+        state.context_state.get("phase", "describe"),
+        state.status == DocumentWorkflowStatus.COMPLETED,
+    )
 
     confidence = calculate_confidence(interpretation_raw)
     missing = get_missing_fields(interpretation_raw)
 
-    # Extract messages first
     messages = _extract_messages(state)
 
-    # Don't show pending_prompt if it's already the last assistant message
-    # This prevents duplication in the UI
-    pending_prompt = state.pending_user_input_rendered
-    if pending_prompt and messages:
-        last_assistant = next(
-            (m for m in reversed(messages) if m.role == "assistant"),
-            None
-        )
-        if last_assistant and last_assistant.content == pending_prompt:
-            pending_prompt = None
+    # Deduplicate pending prompt vs last assistant message
+    msg_dicts = [{"role": m.role, "content": m.content} for m in messages]
+    pending_prompt = deduplicate_pending_prompt(
+        state.pending_user_input_rendered, msg_dicts,
+    )
 
     return IntakeStateResponse(
         execution_id=state.execution_id,
@@ -221,10 +187,8 @@ def _build_state_response(state, project: Optional[Dict[str, Any]] = None) -> In
         can_initialize=confidence >= 1.0,
         gate_outcome=state.gate_outcome,
         project=project,
-        # Gate Profile fields (ADR-047)
         intake_classification=state.context_state.get("intake_classification"),
         intake_gate_phase=state.context_state.get("intake_gate_phase"),
-        # Operational error (WS-OPS-001)
         operational_error=state.context_state.get("intake_operational_error"),
     )
 

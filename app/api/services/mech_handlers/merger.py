@@ -20,30 +20,119 @@ from app.api.services.mech_handlers.registry import register_handler
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Pure functions (extracted for testability — WS-CRAP-004)
+# ---------------------------------------------------------------------------
+
+def merge_values(base: Any, override: Any) -> Any:
+    """Recursively merge two values.
+
+    Pure function — no I/O, no side effects.
+    Deep-copies internally to avoid mutation.
+
+    - dict + dict: recursive merge
+    - list + list: concatenate
+    - other: override wins
+    """
+    if isinstance(base, dict) and isinstance(override, dict):
+        result = copy.deepcopy(base)
+        for key, value in override.items():
+            if key in result:
+                result[key] = merge_values(result[key], value)
+            else:
+                result[key] = copy.deepcopy(value)
+        return result
+    elif isinstance(base, list) and isinstance(override, list):
+        return base + override
+    else:
+        return copy.deepcopy(override)
+
+
+def deep_merge_collected(collected: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Deep merge all collected inputs.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        collected: List of {"key": str, "value": Any} dicts
+
+    Returns:
+        Merged dict keyed by input keys
+    """
+    result = {}
+
+    for item in collected:
+        key = item["key"]
+        value = item["value"]
+
+        if key in result:
+            result[key] = merge_values(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+
+    return result
+
+
+def shallow_merge_collected(collected: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Shallow merge all collected inputs (later values overwrite).
+
+    Pure function — no I/O, no side effects.
+    """
+    result = {}
+    for item in collected:
+        result[item["key"]] = copy.deepcopy(item["value"])
+    return result
+
+
+def concatenate_collected(collected: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Concatenate all inputs into a dict keyed by their keys.
+
+    Pure function — no I/O, no side effects.
+    """
+    result = {}
+    for item in collected:
+        result[item["key"]] = copy.deepcopy(item["value"])
+    return result
+
+
+MERGE_STRATEGIES = {
+    "deep_merge": deep_merge_collected,
+    "shallow_merge": shallow_merge_collected,
+    "concatenate": concatenate_collected,
+}
+
+
+def merge_collected(collected: List[Dict[str, Any]], strategy: str) -> Dict[str, Any]:
+    """Merge collected inputs using the specified strategy.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        collected: List of {"key": str, "value": Any} dicts
+        strategy: One of "deep_merge", "shallow_merge", "concatenate"
+
+    Returns:
+        Merged dict
+
+    Raises:
+        ValueError: If strategy is unknown
+    """
+    merge_fn = MERGE_STRATEGIES.get(strategy)
+    if not merge_fn:
+        raise ValueError(f"Unknown merge strategy: {strategy}")
+    return merge_fn(collected)
+
+
+# ---------------------------------------------------------------------------
+# Handler class
+# ---------------------------------------------------------------------------
+
 @register_handler
 class MergerHandler(MechHandler):
-    """
-    Handler for merger operations.
+    """Handler for merger operations.
 
-    Combines multiple inputs into a single structured output.
-
-    Config:
-        inputs: List of {ref, key} objects defining inputs to merge
-        merge_strategy: deep_merge | shallow_merge | concatenate
-        output_shape: Schema for merged output (for validation)
-
-    Example config:
-        inputs:
-          - ref: pass_a_output
-            key: questions
-          - ref: entry_output
-            key: answers
-        merge_strategy: deep_merge
-
-    Merge strategies:
-        - deep_merge: Recursively merge dicts, concatenate lists
-        - shallow_merge: Top-level merge only, later values overwrite
-        - concatenate: Combine all inputs into a single dict keyed by 'key'
+    Combines multiple inputs into a single structured output using
+    configurable merge strategies.
     """
 
     operation_type = "merger"
@@ -53,18 +142,8 @@ class MergerHandler(MechHandler):
         config: Dict[str, Any],
         context: ExecutionContext,
     ) -> MechResult:
-        """
-        Execute the merge.
-
-        Args:
-            config: Merger configuration with inputs and strategy
-            context: Execution context with input data
-
-        Returns:
-            MechResult with merged output
-        """
+        """Execute the merge."""
         try:
-            # Get inputs configuration
             inputs_config = config.get("inputs", [])
             if not inputs_config:
                 return MechResult.fail(
@@ -72,7 +151,6 @@ class MergerHandler(MechHandler):
                     error_code="transform_error",
                 )
 
-            # Collect inputs
             collected = []
             for input_spec in inputs_config:
                 ref = input_spec.get("ref")
@@ -83,7 +161,6 @@ class MergerHandler(MechHandler):
 
                 if not context.has_input(ref):
                     logger.warning(f"Input {ref} not found in context")
-                    # Use empty dict for missing inputs
                     collected.append({"key": key, "value": {}})
                 else:
                     value = context.get_input(ref)
@@ -95,18 +172,13 @@ class MergerHandler(MechHandler):
                     error_code="input_missing",
                 )
 
-            # Apply merge strategy
             strategy = config.get("merge_strategy", "deep_merge")
 
-            if strategy == "deep_merge":
-                merged = self._deep_merge(collected)
-            elif strategy == "shallow_merge":
-                merged = self._shallow_merge(collected)
-            elif strategy == "concatenate":
-                merged = self._concatenate(collected)
-            else:
+            try:
+                merged = merge_collected(collected, strategy)
+            except ValueError as e:
                 return MechResult.fail(
-                    error=f"Unknown merge strategy: {strategy}",
+                    error=str(e),
                     error_code="transform_error",
                 )
 
@@ -123,76 +195,6 @@ class MergerHandler(MechHandler):
                 error=str(e),
                 error_code="transform_error",
             )
-
-    def _deep_merge(self, collected: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Deep merge all collected inputs.
-
-        For dict values: recursively merge
-        For list values: concatenate
-        For other values: later values overwrite
-        """
-        result = {}
-
-        for item in collected:
-            key = item["key"]
-            value = item["value"]
-
-            if key in result:
-                # Merge with existing
-                result[key] = self._merge_values(result[key], value)
-            else:
-                # Copy to avoid mutation
-                result[key] = copy.deepcopy(value)
-
-        return result
-
-    def _merge_values(self, base: Any, override: Any) -> Any:
-        """Recursively merge two values."""
-        if isinstance(base, dict) and isinstance(override, dict):
-            result = copy.deepcopy(base)
-            for key, value in override.items():
-                if key in result:
-                    result[key] = self._merge_values(result[key], value)
-                else:
-                    result[key] = copy.deepcopy(value)
-            return result
-        elif isinstance(base, list) and isinstance(override, list):
-            return base + override
-        else:
-            # Override wins
-            return copy.deepcopy(override)
-
-    def _shallow_merge(self, collected: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Shallow merge all collected inputs.
-
-        Later values overwrite earlier ones at the top level.
-        """
-        result = {}
-
-        for item in collected:
-            key = item["key"]
-            value = item["value"]
-            result[key] = copy.deepcopy(value)
-
-        return result
-
-    def _concatenate(self, collected: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Concatenate all inputs into a dict keyed by their keys.
-
-        This is the simplest strategy - just puts each input
-        under its configured key.
-        """
-        result = {}
-
-        for item in collected:
-            key = item["key"]
-            value = item["value"]
-            result[key] = copy.deepcopy(value)
-
-        return result
 
     def validate_config(self, config: Dict[str, Any]) -> List[str]:
         """Validate merger configuration."""

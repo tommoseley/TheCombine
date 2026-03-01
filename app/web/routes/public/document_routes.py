@@ -21,6 +21,11 @@ from app.api.services import project_service
 from app.api.models import Document
 from app.api.models.project import Project
 from app.api.models.document_type import DocumentType
+from app.web.routes.public.document_pure import (
+    get_fallback_config,
+    merge_doc_type_config,
+    resolve_view_docdef,
+)
 
 # ADR-034: New viewer imports
 from app.api.services.document_definition_service import DocumentDefinitionService
@@ -156,6 +161,12 @@ DOCUMENT_CONFIG = {
         "template": "public/pages/partials/_technical_architecture_content.html",
         "view_docdef": "ArchitecturalSummaryView",  # ADR-034: New viewer docdef
     },
+    "story_backlog": {
+        "title": "Story Backlog",
+        "icon": "list-checks",
+        "template": "public/pages/partials/_story_backlog_content.html",
+        "view_docdef": "StoryBacklogView",  # ADR-034: New viewer docdef
+    },
 }
 
 
@@ -280,21 +291,80 @@ async def get_document(
     # Get document type from database
     doc_type = await _get_document_type(db, doc_type_id)
     
-    # Fallback to static config if not in database
-    fallback_config = DOCUMENT_CONFIG.get(doc_type_id, {
-        "title": doc_type_id.replace("_", " ").title(),
-        "icon": "file-text",
-        "template": "public/pages/partials/_document_not_found.html",
-    })
-    
-    # Merge database config with fallback
-    doc_type_name = doc_type["name"] if doc_type else fallback_config["title"]
-    doc_type_icon = doc_type["icon"] if doc_type and doc_type["icon"] else fallback_config["icon"]
-    doc_type_description = doc_type["description"] if doc_type else None
-    template_path = fallback_config.get("template", "public/pages/partials/_document_not_found.html")
+    # Resolve config via pure functions
+    fallback_config = get_fallback_config(doc_type_id)
+    merged = merge_doc_type_config(doc_type, fallback_config)
+    doc_type_name = merged["name"]
+    doc_type_icon = merged["icon"]
+    doc_type_description = merged["description"]
+    template_path = merged["template"]
     
     # Try to load the document
     document = await _get_document_by_type(db, proj_uuid, doc_type_id)
+    
+    # =========================================================================
+    # WS-STORY-BACKLOG-COMMANDS: Special handling for story_backlog
+    # URL uses story_backlog (lowercase), doc_type_id is also story_backlog
+    # =========================================================================
+    if doc_type_id == "story_backlog":
+        # Try to load existing story_backlog document
+        story_backlog_doc = await _get_document_by_type(db, proj_uuid, "story_backlog")
+        
+        if not story_backlog_doc:
+            # Auto-init from EpicBacklog
+            logger.info(f"StoryBacklog not found for project {project_id}, auto-initializing")
+            from app.api.services.document_service import DocumentService
+            doc_service = DocumentService(db)
+            
+            # Load EpicBacklog
+            epic_backlog = await doc_service.get_latest(
+                space_type="project",
+                space_id=proj_uuid,
+                doc_type_id="epic_backlog"
+            )
+            
+            if epic_backlog and epic_backlog.content:
+                source_epics = epic_backlog.content.get("epics", [])
+                
+                # Build StoryBacklog content
+                story_backlog_epics = []
+                for epic in source_epics:
+                    story_backlog_epics.append({
+                        "epic_id": epic.get("epic_id") or epic.get("id") or f"epic-{len(story_backlog_epics)+1}",
+                        "name": epic.get("title") or epic.get("name") or "Untitled Epic",
+                        "intent": epic.get("description") or epic.get("intent") or "",
+                        "mvp_phase": epic.get("mvp_phase") or epic.get("phase") or "mvp",
+                        "stories": []
+                    })
+                
+                story_backlog_content = {
+                    "project_id": project_id,
+                    "project_name": epic_backlog.content.get("project_name", ""),
+                    "source_epic_backlog_ref": {
+                        "document_type": "EpicBacklog",
+                        "params": {"project_id": project_id}
+                    },
+                    "epics": story_backlog_epics
+                }
+                
+                # Create StoryBacklog document
+                story_backlog_doc = await doc_service.create_document(
+                    space_type="project",
+                    space_id=proj_uuid,
+                    doc_type_id="story_backlog",
+                    title="Story Backlog",
+                    content=story_backlog_content,
+                    summary=f"Story backlog with {len(story_backlog_epics)} epics",
+                    created_by="story-backlog-auto-init",
+                    created_by_type="builder"
+                )
+                await db.commit()
+                logger.info(f"Auto-initialized StoryBacklog with {len(story_backlog_epics)} epics")
+        
+        # Use StoryBacklog document for rendering
+        if story_backlog_doc:
+            document = story_backlog_doc
+    # =========================================================================
     
     logger.info(f"Document found: {document is not None}")
     
@@ -302,11 +372,7 @@ async def get_document(
     is_htmx = request.headers.get("HX-Request") == "true"
     
     # ADR-034: Try new viewer if view_docdef is configured and document exists
-    # Phase 1 (WS-DOCUMENT-SYSTEM-CLEANUP): Prefer DB value, fallback to DOCUMENT_CONFIG
-    view_docdef = (doc_type.get("view_docdef") if doc_type else None) or fallback_config.get("view_docdef")
-    # Skip new viewer for project_discovery - intake workflow uses different schema than ProjectDiscovery docdef
-    if doc_type_id == "project_discovery":
-        view_docdef = None
+    view_docdef = resolve_view_docdef(doc_type_id, doc_type, fallback_config)
     if document and view_docdef and document.content:
         logger.info(f"Attempting new viewer for {doc_type_id} -> {view_docdef}")
         response = await _render_with_new_viewer(

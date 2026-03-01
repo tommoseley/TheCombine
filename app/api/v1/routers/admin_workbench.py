@@ -967,7 +967,7 @@ async def get_active_releases(
     description="Invalidate the package loader cache to reload from disk.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def invalidate_cache(
+async def invalidate_cache_v2(
     service: AdminWorkbenchService = Depends(get_admin_workbench_service),
 ) -> None:
     """Invalidate cache."""

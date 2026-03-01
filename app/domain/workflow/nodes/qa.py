@@ -12,7 +12,6 @@ Validation order (per ADR-042, WS-PGC-VALIDATION-001, and WS-SEMANTIC-QA-001):
 import json
 import logging
 import os
-import re
 from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -279,26 +278,15 @@ class QANodeExecutor(NodeExecutor):
             )
 
         logger.info(f"QA node {node_id} passed")
-        success_metadata = {
-            "node_id": node_id,
-            "qa_passed": True,
-        }
+        from app.domain.workflow.nodes.qa_parsing import build_qa_success_metadata
 
-        # Include drift warnings in success result (ADR-042)
-        if drift_warnings:
-            success_metadata["drift_warnings"] = drift_warnings
-
-        # Include code validation warnings in success result
-        if code_validation_warnings:
-            success_metadata["code_validation_warnings"] = code_validation_warnings
-
-        # Include semantic QA warnings in success result (WS-SEMANTIC-QA-001)
-        if semantic_warnings:
-            success_metadata["semantic_qa_warnings"] = semantic_warnings
-
-        # Include full semantic QA report if available
-        if semantic_qa_report:
-            success_metadata["semantic_qa_report"] = semantic_qa_report
+        success_metadata = build_qa_success_metadata(
+            node_id=node_id,
+            drift_warnings=drift_warnings,
+            code_validation_warnings=code_validation_warnings,
+            semantic_warnings=semantic_warnings,
+            semantic_qa_report=semantic_qa_report,
+        )
 
         return NodeResult.success(**success_metadata)
 
@@ -442,69 +430,61 @@ class QANodeExecutor(NodeExecutor):
     ) -> Optional[Dict[str, Any]]:
         """Run Layer 2 semantic QA validation (WS-SEMANTIC-QA-001).
 
-        Uses LLM to evaluate bound constraints for semantic compliance that
-        mechanical checks cannot detect (e.g., follow-up vs reopening questions).
-
-        Args:
-            node_id: QA node identifier
-            document: Generated document to validate
-            context: Workflow context with PGC data
-
-        Returns:
-            Parsed semantic QA report or None if skipped/disabled
+        Delegates pure logic to semantic_qa_pure module for testability.
         """
+        from app.domain.workflow.nodes.semantic_qa_pure import (
+            extract_semantic_qa_inputs,
+            build_semantic_qa_prompt,
+            build_error_report,
+        )
+
         # Check if semantic QA is enabled
         if not os.environ.get("SEMANTIC_QA_ENABLED", "true").lower() == "true":
             logger.info("Semantic QA disabled via SEMANTIC_QA_ENABLED=false")
             return None
 
-        # Check if we have LLM service
         if not self.llm_service:
             logger.debug("No LLM service, skipping semantic QA")
             return None
 
-        # Get invariants from context_state
-        invariants = []
-        if hasattr(context, "context_state") and context.context_state:
-            invariants = context.context_state.get("pgc_invariants", [])
+        # Pure: extract inputs from context_state
+        has_ctx = hasattr(context, "context_state") and context.context_state
+        ctx_state = context.context_state if has_ctx else {}
+        invariants, pgc_questions, pgc_answers = extract_semantic_qa_inputs(ctx_state)
 
         if not invariants:
             logger.debug("No invariants available, skipping semantic QA")
             return None
-
-        # Get PGC questions and answers
-        pgc_questions = []
-        pgc_answers = {}
-        if hasattr(context, "context_state") and context.context_state:
-            # pgc_questions may be the full PGC document (dict with 'questions' key)
-            raw_pgc_questions = context.context_state.get("pgc_questions", [])
-            if isinstance(raw_pgc_questions, dict):
-                pgc_questions = raw_pgc_questions.get("questions", [])
-            else:
-                pgc_questions = raw_pgc_questions
-            pgc_answers = context.context_state.get("pgc_answers", {})
 
         logger.info(
             f"WS-SEMANTIC-QA-001: Running semantic QA against {len(invariants)} "
             f"binding invariants"
         )
 
-        # Get correlation ID for traceability
         correlation_id = ""
         if hasattr(context, "extra") and context.extra:
             correlation_id = context.extra.get("execution_id", "")
 
-        # Build semantic QA context
-        message_content = self._build_semantic_qa_context(
+        # Load policy prompt (I/O)
+        try:
+            from app.config.package_loader import get_package_loader
+            task = get_package_loader().get_task("qa_semantic_compliance", "1.1.0")
+            policy_prompt = task.content
+        except Exception:
+            logger.error("Semantic QA policy prompt not found via PackageLoader")
+            policy_prompt = "# Semantic QA Policy\nEvaluate constraints for compliance."
+
+        # Pure: build prompt
+        message_content = build_semantic_qa_prompt(
             pgc_questions=pgc_questions,
             pgc_answers=pgc_answers,
             invariants=invariants,
             document=document,
             correlation_id=correlation_id,
+            policy_prompt=policy_prompt,
         )
 
         try:
-            # Call LLM with semantic QA policy
             execution_id = context.extra.get("execution_id") if hasattr(context, "extra") else None
             response = await self.llm_service.complete(
                 messages=[{"role": "user", "content": message_content}],
@@ -516,7 +496,6 @@ class QANodeExecutor(NodeExecutor):
                 project_id=context.project_id,
             )
 
-            # Parse and validate response
             report = self._parse_semantic_qa_response(
                 response=response,
                 expected_constraint_count=len(invariants),
@@ -527,97 +506,7 @@ class QANodeExecutor(NodeExecutor):
 
         except Exception as e:
             logger.exception(f"Semantic QA failed: {e}")
-            # Return a failing report on error
-            return {
-                "schema_version": "qa_semantic_compliance_output.v1",
-                "correlation_id": correlation_id,
-                "gate": "fail",
-                "summary": {
-                    "errors": 1,
-                    "warnings": 0,
-                    "infos": 0,
-                    "expected_constraints": len(invariants),
-                    "evaluated_constraints": 0,
-                    "blocked_reasons": [f"Semantic QA error: {str(e)}"],
-                },
-                "coverage": {
-                    "expected_count": len(invariants),
-                    "evaluated_count": 0,
-                    "items": [],
-                },
-                "findings": [
-                    {
-                        "severity": "error",
-                        "code": "OTHER",
-                        "constraint_id": "SYSTEM",
-                        "message": f"Semantic QA execution failed: {str(e)}",
-                        "evidence_pointers": [],
-                    }
-                ],
-            }
-
-    def _build_semantic_qa_context(
-        self,
-        pgc_questions: List[Dict[str, Any]],
-        pgc_answers: Dict[str, Any],
-        invariants: List[Dict[str, Any]],
-        document: Dict[str, Any],
-        correlation_id: str,
-    ) -> str:
-        """Assemble the inputs for semantic QA.
-
-        Args:
-            pgc_questions: PGC question definitions
-            pgc_answers: User answers keyed by question ID
-            invariants: Bound constraints to evaluate
-            document: Generated document to audit
-            correlation_id: Workflow correlation ID
-
-        Returns:
-            Formatted message content for LLM
-        """
-        # Load policy prompt via PackageLoader (combine-config canonical source)
-        try:
-            from app.config.package_loader import get_package_loader
-            task = get_package_loader().get_task("qa_semantic_compliance", "1.1.0")
-            policy_prompt = task.content
-        except Exception:
-            logger.error("Semantic QA policy prompt not found via PackageLoader")
-            policy_prompt = "# Semantic QA Policy\nEvaluate constraints for compliance."
-
-        parts = [policy_prompt]
-
-        # PGC Questions with answers
-        parts.append("\n\n---\n\n## PGC Questions and Answers\n")
-        for q in pgc_questions:
-            qid = q.get("id", "UNKNOWN")
-            answer = pgc_answers.get(qid)
-            priority = q.get("priority", "could")
-            answer_label = ""
-            if isinstance(answer, dict):
-                answer_label = answer.get("label", str(answer))
-            elif answer is not None:
-                answer_label = str(answer)
-            parts.append(f"- {qid} (priority={priority}): {answer_label}\n")
-
-        # Bound constraints
-        parts.append("\n## Bound Constraints (MUST evaluate each)\n")
-        for inv in invariants:
-            cid = inv.get("id", "UNKNOWN")
-            kind = inv.get("invariant_kind", "requirement")
-            text = inv.get("normalized_text") or inv.get("user_answer_label") or str(inv.get("user_answer", ""))
-            parts.append(f"- {cid} [{kind}]: {text}\n")
-
-        # Document
-        parts.append("\n## Generated Document\n```json\n")
-        parts.append(json.dumps(document, indent=2))
-        parts.append("\n```\n")
-
-        # Correlation ID and output instructions
-        parts.append(f"\ncorrelation_id for output: {correlation_id}\n")
-        parts.append("\nOutput ONLY valid JSON matching qa_semantic_compliance_output.v1 schema. No prose.\n")
-
-        return "".join(parts)
+            return build_error_report(correlation_id, len(invariants), e)
 
     def _parse_semantic_qa_response(
         self,
@@ -684,61 +573,20 @@ class QANodeExecutor(NodeExecutor):
     ) -> None:
         """Validate semantic QA contract rules.
 
+        Delegates to qa_parsing.validate_semantic_qa_contract pure function.
+
         Args:
             report: Parsed report
             expected_constraint_count: Expected number of constraints
             provided_constraint_ids: Valid constraint IDs
-
-        Raises:
-            ValueError: If contract rules are violated
         """
-        coverage = report.get("coverage", {})
-        findings = report.get("findings", [])
-        summary = report.get("summary", {})
-        gate = report.get("gate")
+        from app.domain.workflow.nodes.qa_parsing import validate_semantic_qa_contract
 
-        # Rule 1: Coverage count must match
-        if coverage.get("expected_count") != expected_constraint_count:
-            logger.warning(
-                f"Coverage expected_count mismatch: got {coverage.get('expected_count')}, "
-                f"expected {expected_constraint_count}"
-            )
-
-        # Rule 2: All constraint IDs must be valid
-        provided_ids_lower = [cid.lower() for cid in provided_constraint_ids]
-        for item in coverage.get("items", []):
-            cid = item.get("constraint_id", "")
-            if cid.lower() not in provided_ids_lower and cid != "SYSTEM":
-                logger.warning(f"Unknown constraint_id in coverage: {cid}")
-
-        for finding in findings:
-            cid = finding.get("constraint_id", "")
-            if cid.lower() not in provided_ids_lower and cid != "SYSTEM":
-                logger.warning(f"Unknown constraint_id in findings: {cid}")
-
-        # Rule 3: Gate must be fail if any contradicted/reopened
-        has_error_status = any(
-            item.get("status") in ["contradicted", "reopened"]
-            for item in coverage.get("items", [])
+        warnings = validate_semantic_qa_contract(
+            report, expected_constraint_count, provided_constraint_ids
         )
-        if has_error_status and gate != "fail":
-            logger.warning(
-                f"Gate should be 'fail' due to contradicted/reopened status, but got '{gate}'"
-            )
-
-        # Rule 4: Summary counts should match findings
-        error_count = len([f for f in findings if f.get("severity") == "error"])
-        warning_count = len([f for f in findings if f.get("severity") == "warning"])
-        if summary.get("errors") != error_count:
-            logger.warning(
-                f"Summary errors mismatch: got {summary.get('errors')}, "
-                f"counted {error_count}"
-            )
-        if summary.get("warnings") != warning_count:
-            logger.warning(
-                f"Summary warnings mismatch: got {summary.get('warnings')}, "
-                f"counted {warning_count}"
-            )
+        for warning in warnings:
+            logger.warning(warning)
 
     def _convert_semantic_findings_to_feedback(
         self,
@@ -746,26 +594,17 @@ class QANodeExecutor(NodeExecutor):
     ) -> List[Dict[str, Any]]:
         """Convert semantic QA findings to feedback format.
 
+        Delegates to qa_parsing.convert_semantic_findings_to_feedback pure function.
+
         Args:
             report: Semantic QA report
 
         Returns:
             List of feedback issues compatible with remediation
         """
-        feedback_issues = []
+        from app.domain.workflow.nodes.qa_parsing import convert_semantic_findings_to_feedback
 
-        for finding in report.get("findings", []):
-            feedback_issues.append({
-                "type": "semantic_qa",
-                "check_id": finding.get("code"),
-                "severity": finding.get("severity"),
-                "message": finding.get("message"),
-                "constraint_id": finding.get("constraint_id"),
-                "evidence_pointers": finding.get("evidence_pointers", []),
-                "remediation": finding.get("suggested_fix"),
-            })
-
-        return feedback_issues
+        return convert_semantic_findings_to_feedback(report)
 
     async def _run_llm_qa(
         self,
@@ -844,99 +683,16 @@ class QANodeExecutor(NodeExecutor):
     def _parse_qa_response(self, response: str) -> Dict[str, Any]:
         """Parse LLM QA response.
 
+        Delegates to qa_parsing.parse_qa_response pure function.
+
         Args:
             response: Raw LLM response
 
         Returns:
             Dict with passed, issues, feedback
         """
-        import json
-        
-        # First, try to parse as JSON (many QA prompts return structured JSON)
-        try:
-            # Strip markdown code fences if present
-            json_str = response.strip()
-            if json_str.startswith("```json"):
-                json_str = json_str[7:]
-            if json_str.startswith("```"):
-                json_str = json_str[3:]
-            if json_str.endswith("```"):
-                json_str = json_str[:-3]
-            json_str = json_str.strip()
-            
-            parsed = json.loads(json_str)
-            if isinstance(parsed, dict) and "passed" in parsed:
-                passed = bool(parsed["passed"])
-                issues = parsed.get("issues", [])
-                # Normalize issues to list of strings
-                if issues and isinstance(issues[0], dict):
-                    issues = [issue.get("message", str(issue)) for issue in issues]
-                summary = parsed.get("summary", "")
-                logger.info(f"QA response parsed as JSON - passed: {passed}")
-                return {
-                    "passed": passed,
-                    "issues": issues,
-                    "feedback": summary or response,
-                }
-        except (json.JSONDecodeError, TypeError, KeyError):
-            pass  # Not valid JSON, fall through to text parsing
-        
-        response_lower = response.lower()
+        from app.domain.workflow.nodes.qa_parsing import parse_qa_response
 
-        # Look for explicit Result: PASS/FAIL from the QA prompt format
-        # The prompt outputs: **Result:** PASS or **Result:** FAIL
-        passed = False
-        issues = []
-
-        # Check for explicit Result line (matches prompt output format)
-        result_match = re.search(r'\*?\*?result\*?\*?:?\s*(pass|fail)', response_lower)
-        if result_match:
-            passed = result_match.group(1) == "pass"
-            logger.info(f"QA response parsed - Result: {'PASS' if passed else 'FAIL'}")
-        # Fallback to keyword heuristics
-        elif any(indicator in response_lower for indicator in [
-            "passes all",
-            "meets requirements",
-            "approved",
-            "no issues found",
-            "quality: pass",
-        ]):
-            passed = True
-            logger.info("QA response parsed via keyword heuristic - PASS")
-        elif any(indicator in response_lower for indicator in [
-            "fails",
-            "issues found",
-            "rejected",
-            "needs revision",
-            "quality: fail",
-        ]):
-            passed = False
-            logger.info("QA response parsed via keyword heuristic - FAIL")
-        else:
-            # Ambiguous - default to pass with warning
-            passed = True
-            logger.warning("QA response ambiguous, defaulting to PASS")
-
-        # Extract issues if failed
-        if not passed:
-            if "issues found" in response_lower or "### issues" in response_lower:
-                # Find the issues section
-                issues_start = response_lower.find("### issues")
-                if issues_start == -1:
-                    issues_start = response_lower.find("issues found")
-                if issues_start != -1:
-                    issues_section = response[issues_start:]
-                    # Extract bullet points
-                    for line in issues_section.split("\n")[1:10]:
-                        line = line.strip()
-                        if line and line.startswith(("-", "*", "Ã¢â‚¬Â¢", "[")):
-                            # Clean up the line
-                            cleaned = re.sub(r'^[-*Ã¢â‚¬Â¢\[\]]+\s*', '', line)
-                            if cleaned and len(cleaned) > 5:
-                                issues.append(cleaned)
-
-        return {
-            "passed": passed,
-            "issues": issues,
-            "feedback": response,
-        }
+        result = parse_qa_response(response)
+        logger.info(f"QA response parsed - passed: {result['passed']}")
+        return result

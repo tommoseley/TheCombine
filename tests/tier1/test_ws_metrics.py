@@ -644,7 +644,7 @@ class TestScopeId:
         exec_id = await service.start_execution(
             ws_id="WS-TEST-001", executor="claude_code"
         )
-        bf_id = await service.record_bug_fix(
+        await service.record_bug_fix(
             ws_execution_id=exec_id,
             description="Test",
             root_cause="Test",

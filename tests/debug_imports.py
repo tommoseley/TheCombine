@@ -32,7 +32,7 @@ if __name__ == "__main__":
     
     # Test 4: Import LLM models (THIS IS THE KEY!)
     try:
-        from app.domain.models import (
+        from app.domain.models import (  # noqa: F401
             LLMContent, LLMRun, LLMRunInputRef,
             LLMRunOutputRef, LLMRunError, LLMRunToolCall
         )

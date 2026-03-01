@@ -73,7 +73,7 @@ class TestComponentRegistryService:
         mock_db.execute.return_value = mock_result
         
         # Create component
-        component = await service.create(
+        await service.create(
             component_id="component:TestV1:1.0.0",
             schema_artifact_id=schema_artifact_id,
             schema_id="schema:TestV1",

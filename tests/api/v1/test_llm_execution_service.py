@@ -41,8 +41,8 @@ class TestProgressPublisher:
         publisher = ProgressPublisher()
         exec_id = uuid4()
         
-        q1 = publisher.subscribe(exec_id)
-        q2 = publisher.subscribe(exec_id)
+        publisher.subscribe(exec_id)
+        publisher.subscribe(exec_id)
         
         assert publisher.subscriber_count(exec_id) == 2
     

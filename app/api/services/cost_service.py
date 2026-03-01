@@ -87,52 +87,13 @@ async def get_cost_dashboard_data(
                 if run.status == "FAILED":
                     daily_totals[day_str]["errors"] += 1
 
-    # Build daily_data list in chronological order
-    daily_data = []
-    total_cost = 0.0
-    total_tokens = 0
-    total_calls = 0
-    total_errors = 0
+    from app.api.services.service_pure import aggregate_daily_costs
 
-    for i in range(days - 1, -1, -1):
-        day = today - timedelta(days=i)
-        day_str = day.strftime("%Y-%m-%d")
-        data = daily_totals[day_str]
-
-        daily_data.append(
-            {
-                "date": day_str,
-                "date_short": day.strftime("%m/%d"),
-                "cost": data["cost"],
-                "tokens": data["tokens"],
-                "calls": data["calls"],
-                "errors": data["errors"],
-                "workflow_cost": data["workflow_cost"],
-                "document_cost": data["document_cost"],
-            }
-        )
-
-        total_cost += data["cost"]
-        total_tokens += data["tokens"]
-        total_calls += data["calls"]
-        total_errors += data["errors"]
-
-    # Calculate averages
-    avg_cost_per_day = total_cost / days if days > 0 else 0
-    avg_cost_per_call = total_cost / total_calls if total_calls > 0 else 0
-    success_rate = (1 - (total_errors / total_calls)) * 100 if total_calls > 0 else 100
+    daily_data, summary = aggregate_daily_costs(dict(daily_totals), today, days)
 
     return {
         "period_days": days,
         "source_filter": source,
         "daily_data": daily_data,
-        "summary": {
-            "total_cost": round(total_cost, 4),
-            "total_tokens": total_tokens,
-            "total_calls": total_calls,
-            "total_errors": total_errors,
-            "avg_cost_per_day": round(avg_cost_per_day, 4),
-            "avg_cost_per_call": round(avg_cost_per_call, 6),
-            "success_rate": round(success_rate, 1),
-        },
+        "summary": summary,
     }

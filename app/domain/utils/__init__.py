@@ -1,1 +1,1 @@
-from app.domain.utils.pricing import *
+from app.domain.utils.pricing import *  # noqa: F403

@@ -1,0 +1,776 @@
+/* ============================================================
+   WorkBinder — Calm Authority aesthetic
+   Uses CSS custom properties from the design system (themes.css).
+   No animations. No floating elements. Boring Buttons.
+   ============================================================ */
+
+/* --- Root Layout --- */
+.wb-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+.wb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+/* --- Header --- */
+.wb-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-panel);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+}
+
+.wb-header-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.wb-header-project {
+    font-size: 12px;
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--text-muted);
+}
+
+/* --- Error Banner --- */
+.wb-error-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 24px;
+    background: var(--bg-node);
+    border-left: 4px solid var(--state-blocked-bg);
+    font-size: 13px;
+    color: var(--state-blocked-text);
+}
+
+.wb-error-banner p {
+    flex: 1;
+    margin: 0;
+}
+
+.wb-error-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+/* --- Two-Column Layout --- */
+.wb-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* --- Left Panel: WP Index --- */
+.wb-index {
+    width: 260px;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-panel);
+    background: var(--bg-panel);
+    overflow: hidden;
+}
+
+.wb-index-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-panel);
+}
+
+.wb-index-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.wb-index-count {
+    font-size: 10px;
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--text-dim);
+    background: var(--bg-node);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.wb-index-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.wb-index-empty {
+    padding: 24px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.wb-index-empty p {
+    margin: 0;
+}
+
+/* --- WP Index Item --- */
+.wb-index-item {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-panel);
+}
+
+.wb-index-item:hover {
+    background: var(--bg-node);
+}
+
+.wb-index-item--selected {
+    background: var(--bg-selected, var(--bg-node));
+    border-left: none;
+}
+
+.wb-index-state-sliver {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 2px 0 0 2px;
+}
+
+.wb-index-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    min-width: 0;
+}
+
+.wb-index-item-id {
+    font-size: 10px;
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    color: var(--text-muted);
+}
+
+.wb-index-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- WP Index Footer --- */
+.wb-index-footer {
+    padding: 12px;
+    border-top: 1px solid var(--border-panel);
+    flex-shrink: 0;
+}
+
+.wb-insert-btn {
+    width: 100%;
+}
+
+.wb-insert-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.wb-insert-input {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-input);
+    border-radius: 4px;
+    color: var(--text-input);
+    box-sizing: border-box;
+}
+
+.wb-insert-input:focus {
+    border-color: var(--state-active-bg);
+    outline: none;
+}
+
+.wb-insert-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* --- Center Panel: Content Area --- */
+.wb-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-canvas);
+}
+
+.wb-content-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.wb-content-empty p {
+    margin: 0;
+}
+
+/* --- Content Header --- */
+.wb-content-header {
+    padding: 16px 24px 12px;
+    border-bottom: 1px solid var(--border-panel);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+}
+
+.wb-content-header-top {
+    margin-bottom: 8px;
+}
+
+.wb-content-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.wb-content-title-text {
+    font-weight: 500;
+}
+
+.wb-content-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* --- Binding Block --- */
+.wb-binding-block {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.wb-binding-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+.wb-binding-value {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.wb-binding-unbound {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--state-blocked-text);
+    background: rgba(239, 68, 68, 0.12);
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* --- Provenance Stamp --- */
+.wb-provenance {
+    display: flex;
+    align-items: center;
+}
+
+.wb-provenance-text {
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+/* --- Sub-view Tabs --- */
+.wb-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-panel);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+    padding-left: 24px;
+}
+
+.wb-tab {
+    padding: 10px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+
+.wb-tab:hover {
+    color: var(--text-secondary);
+}
+
+.wb-tab--active {
+    color: var(--text-primary);
+    border-bottom-color: var(--action-primary);
+}
+
+/* --- Content Body --- */
+.wb-content-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* --- Monospace utility --- */
+.wb-mono {
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+/* --- Button System: Boring Buttons, verb-first labels --- */
+.wb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.wb-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.wb-btn--primary {
+    background: var(--action-primary);
+    color: white;
+}
+
+.wb-btn--primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.wb-btn--outline {
+    background: transparent;
+    border: 1px solid var(--border-input);
+    color: var(--text-secondary);
+}
+
+.wb-btn--outline:hover:not(:disabled) {
+    background: var(--bg-node);
+}
+
+.wb-btn--ghost {
+    background: transparent;
+    color: var(--text-muted);
+    padding: 4px 8px;
+}
+
+.wb-btn--ghost:hover:not(:disabled) {
+    background: var(--bg-node);
+    color: var(--text-secondary);
+}
+
+.wb-btn--sm {
+    padding: 4px 10px;
+    font-size: 11px;
+}
+
+/* --- WorkView --- */
+.wb-work-view {
+    padding: 16px 24px;
+}
+
+.wb-work-loading,
+.wb-work-empty {
+    padding: 32px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.wb-work-empty p {
+    margin: 0;
+}
+
+.wb-error-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    background: var(--bg-node);
+    border-left: 3px solid var(--state-blocked-bg);
+    font-size: 12px;
+    color: var(--state-blocked-text);
+}
+
+.wb-error-inline span {
+    flex: 1;
+}
+
+.wb-error-inline button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.wb-ws-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* --- WS Sheet --- */
+.wb-ws-sheet {
+    border: 1px solid var(--border-node);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.wb-ws-sheet:hover {
+    border-color: var(--text-dim);
+}
+
+.wb-ws-sheet--focused {
+    background: var(--bg-node);
+    border-color: var(--action-primary);
+}
+
+.wb-ws-sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+}
+
+.wb-ws-id {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.wb-ws-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-ws-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* --- WS Sheet Body (expanded) --- */
+.wb-ws-sheet-body {
+    padding: 0 14px 12px;
+    border-top: 1px solid var(--border-node);
+}
+
+.wb-ws-objective {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 10px 0;
+}
+
+.wb-ws-sheet-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.wb-ws-reorder {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+
+.wb-ws-provenance {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-node);
+    font-size: 10px;
+    color: var(--text-dim);
+}
+
+/* --- Ghost Row --- */
+.wb-ws-ghost {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 1px dashed var(--border-node);
+    border-radius: 6px;
+    background: transparent;
+}
+
+.wb-ws-ghost-id {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.wb-ws-ghost-input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 13px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-input);
+    border-radius: 4px;
+    color: var(--text-input);
+    font-family: inherit;
+}
+
+.wb-ws-ghost-input:focus {
+    border-color: var(--state-active-bg);
+    outline: none;
+}
+
+.wb-ws-ghost-input::placeholder {
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+
+/* --- HistoryView --- */
+.wb-history-view {
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wb-history-loading,
+.wb-history-empty {
+    padding: 32px 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.wb-history-empty p {
+    margin: 0;
+}
+
+.wb-history-edition {
+    border: 1px solid var(--border-node);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    overflow: hidden;
+}
+
+.wb-history-edition-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-node);
+    border-bottom: 1px solid var(--border-node);
+}
+
+.wb-history-edition-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.wb-history-timestamp {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.wb-history-author {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+}
+
+.wb-history-changes {
+    list-style: none;
+    padding: 10px 14px;
+    margin: 0;
+}
+
+.wb-history-change-item {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    padding: 2px 0;
+    padding-left: 12px;
+    position: relative;
+}
+
+.wb-history-change-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-dim);
+}
+
+/* --- GovernanceView --- */
+.wb-governance-view {
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.wb-gov-section {
+    border: 1px solid var(--border-node);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    overflow: hidden;
+}
+
+.wb-gov-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    background: var(--bg-node);
+    border-bottom: 1px solid var(--border-node);
+    margin: 0;
+}
+
+.wb-gov-empty {
+    padding: 16px 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0;
+}
+
+.wb-gov-pins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--border-node);
+}
+
+.wb-gov-pin {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    background: var(--bg-panel);
+}
+
+.wb-gov-pin-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+
+.wb-gov-pin-value {
+    font-size: 12px;
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+.wb-gov-transform {
+    padding: 12px 14px;
+}
+
+.wb-gov-transform-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 8px 0 0;
+}
+
+.wb-gov-transform-notes {
+    margin-top: 8px;
+}
+
+.wb-gov-transform-notes p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 4px 0 0;
+}
+
+.wb-gov-candidates {
+    list-style: none;
+    padding: 10px 14px;
+    margin: 0;
+}
+
+.wb-gov-candidate {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-node);
+}
+
+.wb-gov-candidate:last-child {
+    border-bottom: none;
+}

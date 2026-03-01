@@ -1,20 +1,33 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-02-26
-**Updated By:** Claude (WS-REGISTRY-002 + codebase audit + hygiene)
+**Last Updated:** 2026-03-01
+**Updated By:** Claude (WP-CRAP-001 execution + CRAP analysis)
 
 ## Current Focus
+
+**COMPLETE:** WP-CRAP-001 -- Testability Refactoring (7 Work Statements)
+- WS-CRAP-001: Workflow Engine Batch 1 (5 targets, 108 tests)
+- WS-CRAP-002: API v1 Routers Batch 1 (10 targets, 111 tests)
+- WS-CRAP-003: API Services Batch 1 (10 targets, 106 tests)
+- WS-CRAP-004: Document Handlers Batch 1 (7 targets, 237 tests)
+- WS-CRAP-005: Domain Services Batch 1 (10 targets, 131 tests)
+- WS-CRAP-006: Web Routes Batch 1 (10 targets, 156 tests)
+- WS-CRAP-007: Workflow Engine Batch 2 (5 targets, 144 tests)
+- Total: 57 target functions thinned, 116 pure functions extracted, 906 new Tier-1 tests
+- Critical CRAP functions: 262 -> 140 (-46.6%)
+- Total CRAP debt: 32,960 -> 11,864 (-64.0%)
+- Post-execution CRAP analysis: docs/audits/2026-02-27-crap-scores-post-wp-crap-001.md
 
 **COMPLETE:** WS-REGISTRY-002 -- story_backlog Retirement
 - Fully retired story_backlog and story_detail document types
 - 3 files deleted (handler, service, prompt dir), 18 files edited, 7 retirement tests
-- Runtime bug fixed: production_service.py epic_id → work_package_id
+- Runtime bug fixed: production_service.py epic_id -> work_package_id
 - Dead code removed: epic_context parameter in role_prompt_service.py
-- Zero grep matches for story_backlog/StoryBacklog in app/ and combine-config/
 
 **COMPLETE:** Codebase Audit (pre/post WS-PIPELINE-003)
 - Full audit documents in docs/audits/
 - Registry integrity baseline established
+- CRAP score baseline established (docs/audits/2026-02-26-crap-scores.md)
 
 **COMPLETE:** Hygiene Cleanup
 - ruff --fix: 469 auto-fixes across app/ and tests/
@@ -36,18 +49,7 @@
 - 30 verification tests covering all 15 criteria
 
 **COMPLETE:** WS-PGC-SEC-002 -- Dual Gate Secret Ingress Control
-- Canonical detector module (`app/core/secret_detector.py`) with entropy + char distribution + known patterns
-- HTTP ingress middleware (Gate 1) — scans POST/PUT/PATCH before persistence, returns 422 on detection
-- Orchestrator governance gate (Gate 2) — HARD_STOP on secret detection at PGC/stabilization/render/replay
-- PGC injection clauses (Tier-0, non-removable)
-- Content-type-aware scanning (JSON, form-encoded, multipart skip)
-- 39 verification tests covering all 13 criteria
-
 **COMPLETE:** WS-PGC-SEC-002-A -- Secret Detector Calibration Spike
-- Empirically determined thresholds: length=20, entropy=3.0, char_class_adjustment=0.85
-- TPR=100%, FPR=0.00% on 5,500 prose + 675 secret corpus
-- 24 verification tests
-
 **COMPLETE:** WS-SDP-003 -- IA-Driven Tab Rendering + IPF Input Alignment
 **COMPLETE:** ADR-053 / WS-SDP-001 / WS-SDP-002 -- Planning Before Architecture
 **COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
@@ -62,10 +64,44 @@
 
 ## Test Suite
 
-- **~2480 tests** passing as of 2026-02-26 (7 new retirement tests, some legacy tests removed with story_backlog)
-- 20 pre-existing failures (workflow definition validation, skills decomposition drift, dead handler test)
+- **~3453 tests** passing as of 2026-03-01 (906 new from WP-CRAP-001)
+- 20 pre-existing failures (workflow definition validation, skills decomposition drift, ws_metrics migration)
 - Tier 0: pytest has 1 pre-existing failure, lint has pre-existing issues, typecheck PASS, frontend PASS, registry PASS
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
+
+---
+
+## WP-CRAP-001 Artifacts
+
+### New Pure Function Modules (30 files)
+
+| Module | Functions | WS |
+|--------|----------:|-----|
+| app/domain/workflow/nodes/qa_parsing.py | 8 | WS-CRAP-001 |
+| app/domain/workflow/result_handling.py | 3 | WS-CRAP-001 |
+| app/api/v1/services/render_pure.py | 4 | WS-CRAP-002 |
+| app/api/v1/services/pgc_pure.py | 4 | WS-CRAP-002 |
+| app/api/v1/services/intake_pure.py | 4 | WS-CRAP-002 |
+| app/api/services/production_pure.py | 7 | WS-CRAP-003 |
+| app/api/services/admin_workbench_pure.py | 3 | WS-CRAP-003 |
+| app/api/services/service_pure.py | 8 | WS-CRAP-003 |
+| app/domain/services/render_model_pure.py | 11 | WS-CRAP-005 |
+| app/domain/services/document_builder_pure.py | 4 | WS-CRAP-005 |
+| app/domain/services/prompt_assembler_pure.py | 4 | WS-CRAP-005 |
+| app/web/routes/public/intake_pure.py | 11 | WS-CRAP-006 |
+| app/web/routes/public/document_pure.py | 3 | WS-CRAP-006 |
+| app/web/routes/public/workflow_build_pure.py | 5 | WS-CRAP-006 |
+| app/web/routes/public/project_pure.py | 5 | WS-CRAP-006 |
+| app/web/routes/public/view_pure.py | 3 | WS-CRAP-006 |
+| app/domain/workflow/state_mapping.py | 4 | WS-CRAP-007 |
+| app/domain/workflow/constraint_matching.py | 4 | WS-CRAP-007 |
+| app/domain/workflow/document_assembly.py | 6 | WS-CRAP-007 |
+| app/domain/workflow/nodes/semantic_qa_pure.py | 3 | WS-CRAP-007 |
+| app/domain/workflow/nodes/gate_pure.py | 3 | WS-CRAP-007 |
+
+### New Test Files (28 files, 906 tests)
+
+Tests in tests/tier1/ -- all pure in-memory, no DB, no I/O.
 
 ---
 
@@ -203,10 +239,9 @@ tests/tier1/
 
 ## Key Technical Decisions
 
-All previous decisions (1-43) plus:
+All previous decisions (1-45) plus:
 
-44. **Skills decomposition** -- CLAUDE.md operational procedures moved to 10 on-demand Claude Code Skills in `.claude/skills/`. CLAUDE.md retains always-on identity, constraints, structure. Skills load when trigger context matches.
-45. **Doc type naming standardization** -- `primary_implementation_plan` is the canonical name everywhere (config dir, handler, registry, DB, workflow definitions). No aliases or redirects.
+46. **CRAP score testability refactoring** -- Extract pure data transformation logic from complex orchestrator methods into standalone `*_pure.py` modules. Original methods become thin wrappers that delegate. Pattern: Extract Pure Logic -> Write Tier-1 tests -> Thin original. This reduces both CC and increases coverage simultaneously.
 
 ---
 
@@ -232,42 +267,44 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 # Tier 0 with frontend check
 ./ops/scripts/tier0.sh --frontend
 
-# Tier 0 allowing Mode B for missing tools
-./ops/scripts/tier0.sh --allow-missing typecheck
+# Run CRAP analysis
+python3 -m pytest tests/ -q --cov=app --cov-report=json:/tmp/combine_coverage.json --no-header
+python3 -m radon cc app/ -j -n A > /tmp/combine_complexity.json
+python3 ops/scripts/crap_analysis.py
 ```
 
 ---
 
 ## Handoff Notes
 
+### Recent Work (2026-02-27 / 2026-03-01)
+- WP-CRAP-001 fully executed: 7 Work Statements, 57 functions refactored, 906 new tests
+- WS-CRAP-001 and WS-CRAP-002 executed directly in main
+- WS-CRAP-003 through WS-CRAP-007 executed in parallel via worktree subagents, merged back
+- WS-CRAP-007 had conflicting files (plan_executor.py, qa.py) with WS-CRAP-001 -- manually merged
+- Post-execution CRAP analysis generated with delta comparison against baseline
+
 ### Recent Work (2026-02-26)
 - Codebase audit (pre/post WS-PIPELINE-003): full inventory of orphaned artifacts
 - WS-REGISTRY-002 executed: story_backlog + story_detail fully retired
-- Runtime bug fixed: production_service.py:474 epic_id → work_package_id
+- Runtime bug fixed: production_service.py:474 epic_id -> work_package_id
 - Dead code removed: epic_context param, primary_implementation_plan_handler.py, 2 backup files
 - ruff --fix: 469 lint auto-fixes
 - UI Constitution v2.0 mock created
 - Design system docs authored (docs/branding/)
 
-### Recent Work (2026-02-24)
-- WS-SKILLS-001 executed: 10 skills, CLAUDE.md slimmed 49%, 117 tests
-- IPP naming standardized: implementation_plan_primary → primary_implementation_plan
-- 2640 tests passing, 4 commits pushed to origin/main
-
 ### Next Work
-- Fix 20 pre-existing test failures (skills decomposition drift, workflow validation, dead handler test)
-- Integrate Claude Code metrics reporting during WS execution (POST to `/api/v1/metrics/ws-execution`)
+- Commit WP-CRAP-001 changes (uncommitted: 33 modified files, 59 untracked files)
+- Fix 20 pre-existing test failures (skills decomposition drift, workflow validation, ws_metrics migration)
+- Top remaining CRAP targets: get_document_render_model (662.6), get_production_tracks (626.9), document_routes.get_document (500.8)
+- Integrate Claude Code metrics reporting during WS execution
 - Establish React test harness to retire Mode B debt on SPA tests
 - Project Logbook as productized PROJECT_STATE.md for Combine-managed projects
-- WS as Combine document type (enables factory to author its own work)
-- Fix init_db.py to use ORM-based creation on RDS (instead of stale schema.sql)
-- Fix db_reset.sh to handle RDS permission model (can't DROP SCHEMA public)
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
 - MCP connector -- read-only document query layer as first step toward Claude Code integration
 - "Send to Combine" clipboard prompt -- not yet authored
-- Multi-LLM Sow tool -- explored, existing tools sufficient for now
 - Metrics API has no authentication -- acceptable for internal dev, needs auth before production
 
 ### Cleanup Tasks
@@ -275,6 +312,7 @@ cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
 - Remove Zone.Identifier files
 - Sync IPP task prompt field names with IPP schema
 - Configure mypy and resolve Verification Debt
+- Clean up .claude/worktrees/ after confirming merges are complete
 
 ### Known Issues
 - Two copies of IPF schema must be kept in sync

@@ -72,76 +72,17 @@ def _build_station_sequence_from_workflow(
     Per WS-STATION-DATA-001: Stations are derived from DCW node metadata,
     not hardcoded. Multiple nodes may map to the same station.
 
-    Args:
-        workflow_stations: Station list from WorkflowPlan.get_stations()
-        current_node: Current workflow node ID
-        current_node_station_id: Station ID for current node (from node metadata)
-        status: Execution status (running, paused, completed, failed)
-        terminal_outcome: Terminal outcome if completed (stabilized, blocked)
-        pending_user_input: Whether waiting for user input
-
-    Returns:
-        List of station dicts with station, label, state, needs_input
+    Delegates to production_pure.build_station_sequence for testability.
     """
-    if not workflow_stations:
-        # Fallback for workflows without station metadata
-        return []
+    from app.api.services.production_pure import build_station_sequence
 
-    stations = []
-    station_order = [s["id"] for s in workflow_stations]
-    current_idx = station_order.index(current_node_station_id) if current_node_station_id in station_order else -1
-
-    # Handle completed/stabilized state
-    if terminal_outcome == "stabilized" or status == "completed":
-        for s in workflow_stations:
-            stations.append({
-                "station": s["id"],
-                "label": s["label"],
-                "state": "complete",
-            })
-        return stations
-
-    # Handle failed/blocked state
-    if terminal_outcome == "blocked" or status == "failed":
-        for i, s in enumerate(workflow_stations):
-            if i < current_idx:
-                state = "complete"
-            elif i == current_idx:
-                state = "failed"
-            else:
-                state = "pending"
-            stations.append({
-                "station": s["id"],
-                "label": s["label"],
-                "state": state,
-            })
-        return stations
-
-    # Build stations based on current position
-    for i, s in enumerate(workflow_stations):
-        if i < current_idx:
-            state = "complete"
-        elif i == current_idx:
-            state = "active"
-            # If pending user input at current station, mark as needs_input
-            if pending_user_input:
-                stations.append({
-                    "station": s["id"],
-                    "label": s["label"],
-                    "state": "active",
-                    "needs_input": True,
-                })
-                continue
-        else:
-            state = "pending"
-
-        stations.append({
-            "station": s["id"],
-            "label": s["label"],
-            "state": state,
-        })
-
-    return stations
+    return build_station_sequence(
+        workflow_stations=workflow_stations,
+        current_node_station_id=current_node_station_id,
+        status=status,
+        terminal_outcome=terminal_outcome,
+        pending_user_input=pending_user_input,
+    )
 
 
 def get_document_type_dependencies() -> List[Dict[str, Any]]:
@@ -154,7 +95,7 @@ def get_document_type_dependencies() -> List[Dict[str, Any]]:
     - id: document type identifier
     - name: human-readable name
     - requires: list of required document type IDs
-    - scope: document scope (project, work_package)
+    - scope: document scope (project, epic, feature)
     - may_own: list of entity types this document can own (for parent-child relationships)
     - collection_field: field name containing child entities (if may_own is set)
     """
@@ -355,7 +296,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         scope = doc_type.get("scope", "project")
 
         # For now, only show project-scoped documents in the production line
-        # Non-project-scoped documents require entity context
+        # Epic and story documents require entity context
         if scope != "project":
             continue
 
@@ -375,34 +316,27 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             "collection_field": doc_type.get("collection_field"),
         }
 
-        # Check if produced (document exists and not failed/cancelled)
-        if type_id in documents:
-            doc = documents[type_id]
-            # Document exists - consider it produced unless explicitly failed
-            if doc.status not in ["failed", "error", "cancelled"]:
-                track["state"] = ProductionState.PRODUCED.value
-                stabilized_types.add(type_id)
-                # Show all stations as complete for produced documents
-                workflow_plan = _get_workflow_plan(type_id)
-                if workflow_plan:
-                    workflow_stations = workflow_plan.get_stations()
-                    track["stations"] = _build_station_sequence_from_workflow(
-                        workflow_stations=workflow_stations,
-                        current_node="end_stabilized",
-                        current_node_station_id="done",
-                        status="completed",
-                        terminal_outcome="stabilized",
-                        pending_user_input=False,
-                    )
-            else:
-                track["state"] = ProductionState.READY_FOR_PRODUCTION.value
-
-        # Check if blocked by dependencies
-        elif requires:
-            missing = [r for r in requires if r not in stabilized_types]
-            if missing:
-                track["state"] = ProductionState.REQUIREMENTS_NOT_MET.value
-                track["blocked_by"] = missing
+        # Classify track state using pure function
+        from app.api.services.production_pure import classify_execution_state, classify_track_state
+        state, blocked_by, is_stabilized = classify_track_state(
+            type_id, documents, stabilized_types, requires,
+        )
+        track["state"] = state
+        track["blocked_by"] = blocked_by
+        if is_stabilized:
+            stabilized_types.add(type_id)
+            # Show all stations as complete for produced documents
+            workflow_plan = _get_workflow_plan(type_id)
+            if workflow_plan:
+                workflow_stations = workflow_plan.get_stations()
+                track["stations"] = _build_station_sequence_from_workflow(
+                    workflow_stations=workflow_stations,
+                    current_node="end_stabilized",
+                    current_node_station_id="done",
+                    status="completed",
+                    terminal_outcome="stabilized",
+                    pending_user_input=False,
+                )
 
         # Check if actively running
         if type_id in active_executions:
@@ -410,11 +344,9 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
             current_node = ex.current_node_id or ""
 
             # Map execution state to production state + station
-            if ex.status == "paused":
-                track["state"] = ProductionState.AWAITING_OPERATOR.value
-            elif ex.status in ["running", "in_progress"]:
-                track["state"] = ProductionState.IN_PRODUCTION.value
-
+            exec_state = classify_execution_state(ex.status)
+            if exec_state:
+                track["state"] = exec_state
 
             # Build station sequence from workflow definition
             workflow_plan = _get_workflow_plan(type_id)
@@ -425,7 +357,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 node_station = workflow_plan.get_node_station(current_node)
                 if node_station:
                     current_station_id = node_station.id
-                
+
                 stations = _build_station_sequence_from_workflow(
                     workflow_stations=workflow_stations,
                     current_node=current_node,
@@ -440,7 +372,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         tracks.append(track)
 
     # Query spawned child documents for tracks with child_doc_type
-    # These are data snapshots (e.g., work_packages spawned from implementation_plan)
+    # These are data snapshots (e.g., epics spawned from implementation_plan)
     # that appear as L2 children on the production floor
     for track in tracks:
         child_doc_type = track.get("child_doc_type")
@@ -460,21 +392,15 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
         )
         child_docs = child_result.scalars().all()
 
+        from app.api.services.production_pure import build_child_track
+
         for child_doc in child_docs:
-            child_name = child_doc.title or child_doc.content.get("name", child_doc.doc_type_id)
-            child_track = {
-                "document_type": child_doc.doc_type_id,
-                "document_name": child_name,
-                "description": child_doc.content.get("intent", ""),
-                "scope": child_doc.doc_type_id,  # Non-"project" so transformer groups as child
-                "state": ProductionState.PRODUCED.value,
-                "stations": [],
-                "elapsed_ms": None,
-                "blocked_by": [],
-                "identifier": child_doc.content.get("work_package_id", ""),
-                "sequence": child_doc.content.get("sequence"),
-                "instance_id": child_doc.instance_id,
-            }
+            child_track = build_child_track(
+                doc_type_id=child_doc.doc_type_id,
+                title=child_doc.title,
+                content=child_doc.content,
+                instance_id=child_doc.instance_id,
+            )
             tracks.append(child_track)
 
     return tracks
@@ -507,49 +433,17 @@ async def get_production_status(
             },
         }
 
+    from app.api.services.production_pure import (
+        build_interrupts,
+        build_production_summary,
+        determine_line_state,
+    )
+
     tracks = await get_production_tracks(db, str(project.id))
 
-    # Calculate summary
-    summary = {
-        "total": len(tracks),
-        "produced": 0,
-        "in_production": 0,
-        "requirements_not_met": 0,
-        "ready_for_production": 0,
-        "awaiting_operator": 0,
-    }
-
-    for track in tracks:
-        state = track["state"]
-        if state == ProductionState.PRODUCED.value:
-            summary["produced"] += 1
-        elif state == ProductionState.IN_PRODUCTION.value:
-            summary["in_production"] += 1
-        elif state == ProductionState.REQUIREMENTS_NOT_MET.value:
-            summary["requirements_not_met"] += 1
-        elif state == ProductionState.READY_FOR_PRODUCTION.value:
-            summary["ready_for_production"] += 1
-        elif state == ProductionState.AWAITING_OPERATOR.value:
-            summary["awaiting_operator"] += 1
-
-    # Determine line state
-    if summary["in_production"] > 0:
-        line_state = "active"
-    elif summary["awaiting_operator"] > 0:
-        line_state = "stopped"
-    elif summary["produced"] == summary["total"]:
-        line_state = "complete"
-    else:
-        line_state = "idle"
-
-    # Build interrupts list
-    interrupts = []
-    for track in tracks:
-        if track["state"] == ProductionState.AWAITING_OPERATOR.value:
-            interrupts.append({
-                "document_type": track["document_type"],
-                "resolve_url": f"/projects/{project_id}/workflows/{track['document_type']}/build",
-            })
+    summary = build_production_summary(tracks)
+    line_state = determine_line_state(summary)
+    interrupts = build_interrupts(tracks, project_id)
 
     return {
         "project_id": str(project.id),

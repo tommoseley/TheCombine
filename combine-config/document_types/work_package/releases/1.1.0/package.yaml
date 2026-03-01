@@ -1,0 +1,62 @@
+# Work Package Document Type Package
+# Version 1.1.0 - Two-plane versioning, ws_index, mechanical change tracking
+
+doc_type_id: work_package
+display_name: "Work Package"
+version: "1.1.0"
+description: >
+  Unit of planned work produced from committed IPF output.
+  Tracks scope, dependencies, governance pins, state, and child
+  Work Statement references. v1.1.0 adds ws_index for structured
+  ordering, revision metadata for edition tracking, and mechanical
+  change_summary computation.
+
+# Classification
+authority_level: constructive  # Derived from upstream decision artifacts (IP + TA)
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+cardinality: multi
+instance_key: wp_id
+
+# Dependencies
+required_inputs:
+  - implementation_plan
+  - technical_architecture
+optional_inputs: []
+creates_children:
+  - work_statement
+parent_doc_type: null
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:work_package:1.1.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: true
+  accepted_by:
+    - stakeholder
+    - technical_lead
+
+# UI configuration
+ui:
+  icon: package
+  category: planning
+  display_order: 38

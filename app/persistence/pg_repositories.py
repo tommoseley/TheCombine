@@ -188,9 +188,9 @@ class PostgresDocumentRepository:
 # Execution ORM Model (inline - will be moved to models later if needed)
 # ============================================================================
 
-from sqlalchemy import Column, String, Text, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
-from sqlalchemy.sql import func
+from sqlalchemy import Column, String, Text, DateTime  # noqa: E402
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB  # noqa: E402
+from sqlalchemy.sql import func  # noqa: E402
 
 try:
     from app.core.database import Base

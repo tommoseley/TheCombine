@@ -1,0 +1,261 @@
+﻿{
+  "_meta": {
+    "purpose": "Schema specifications for WP-WB-001. These are the target schemas CC implements during WS-WB-001.",
+    "created": "2026-03-01",
+    "status": "DRAFT - subject to pressure test findings"
+  },
+  "work_package_v1_1_0": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://thecombine.dev/schemas/work_package.v1.1.json",
+    "type": "object",
+    "title": "Work Package v1.1.0",
+    "description": "A governed unit of planned work with two-plane versioning, ws_index for structured ordering, and mechanical change tracking.",
+    "required": [
+      "wp_id",
+      "title",
+      "rationale",
+      "scope_in",
+      "scope_out",
+      "dependencies",
+      "definition_of_done",
+      "governance_pins"
+    ],
+    "properties": {
+      "wp_id": {
+        "type": "string",
+        "description": "Unique identifier (snake_case).",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1
+      },
+      "rationale": {
+        "type": "string",
+        "minLength": 1
+      },
+      "scope_in": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "scope_out": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["wp_id", "dependency_type"],
+          "properties": {
+            "wp_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "dependency_type": { "type": "string", "enum": ["must_complete_first", "can_start_after", "soft"] },
+            "notes": { "type": "string" }
+          }
+        }
+      },
+      "definition_of_done": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "governance_pins": {
+        "type": "object",
+        "required": ["ta_version_id"],
+        "properties": {
+          "ta_version_id": { "type": "string", "minLength": 1 },
+          "adr_refs": { "type": "array", "items": { "type": "string" } },
+          "policy_refs": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "state": {
+        "type": "string",
+        "enum": ["PLANNED", "READY", "IN_PROGRESS", "AWAITING_GATE", "DONE"]
+      },
+      "ws_index": {
+        "type": "array",
+        "description": "Structured WS membership + ordering. WP-level field.",
+        "items": {
+          "type": "object",
+          "required": ["ws_id", "order_key"],
+          "properties": {
+            "ws_id": { "type": "string", "minLength": 1 },
+            "order_key": { "type": "string", "minLength": 1, "description": "Lexicographic key for ordering (e.g., a0, a1, b0)." }
+          },
+          "additionalProperties": false
+        }
+      },
+      "revision": {
+        "type": "object",
+        "description": "Edition tracking for two-plane versioning.",
+        "required": ["edition"],
+        "properties": {
+          "edition": { "type": "integer", "minimum": 1 },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "updated_by": { "type": "string" }
+        }
+      },
+      "change_summary": {
+        "type": "array",
+        "description": "System-computed diff entries for this edition. Never human-narrated.",
+        "items": { "type": "string" }
+      },
+      "ws_child_refs": {
+        "type": "array",
+        "description": "LEGACY: retained for backward compat. Use ws_index for ordering.",
+        "items": { "type": "string" }
+      },
+      "ws_total": { "type": "integer", "minimum": 0 },
+      "ws_done": { "type": "integer", "minimum": 0 },
+      "mode_b_count": { "type": "integer", "minimum": 0 },
+      "source_candidate_ids": {
+        "type": "array",
+        "items": { "type": "string", "pattern": "^WPC-\\d{1,4}$" }
+      },
+      "transformation": {
+        "type": "string",
+        "enum": ["kept", "split", "merged", "added"]
+      },
+      "transformation_notes": { "type": "string" },
+      "_lineage": {
+        "type": "object",
+        "properties": {
+          "parent_document_type": { "type": "string" },
+          "parent_execution_id": { "type": ["string", "null"] },
+          "source_candidate_ids": { "type": "array", "items": { "type": "string" } },
+          "transformation": { "type": "string" },
+          "transformation_notes": { "type": "string" }
+        }
+      }
+    },
+    "if": {
+      "properties": {
+        "governance_pins": {
+          "properties": { "ta_version_id": { "const": "pending" } }
+        }
+      }
+    },
+    "then": {
+      "properties": {
+        "ws_index": { "maxItems": 0 }
+      }
+    }
+  }
+,
+  
+  "work_statement_v1_1_0": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://thecombine.dev/schemas/work_statement.v1.1.json",
+    "type": "object",
+    "title": "Work Statement v1.1.0",
+    "description": "A governed unit of authorized execution with revision tracking and lexicographic ordering.",
+    "required": [
+      "ws_id",
+      "parent_wp_id",
+      "title",
+      "objective",
+      "scope_in",
+      "scope_out",
+      "procedure",
+      "verification_criteria",
+      "prohibited_actions",
+      "governance_pins"
+    ],
+    "properties": {
+      "ws_id": { "type": "string", "minLength": 1 },
+      "parent_wp_id": { "type": "string", "minLength": 1 },
+      "title": { "type": "string", "minLength": 1 },
+      "objective": { "type": "string", "minLength": 1 },
+      "scope_in": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+      "scope_out": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+      "allowed_paths": { "type": "array", "items": { "type": "string" } },
+      "procedure": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+      "verification_criteria": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+      "prohibited_actions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+      "governance_pins": {
+        "type": "object",
+        "required": ["ta_version_id"],
+        "properties": {
+          "ta_version_id": { "type": "string", "minLength": 1 },
+          "adr_refs": { "type": "array", "items": { "type": "string" } },
+          "policy_refs": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "state": {
+        "type": "string",
+        "enum": ["DRAFT", "READY", "IN_PROGRESS", "ACCEPTED", "REJECTED", "BLOCKED"]
+      },
+      "order_key": {
+        "type": "string",
+        "description": "Lexicographic ordering key within parent WP (e.g., a0, a1, b0).",
+        "minLength": 1
+      },
+      "revision": {
+        "type": "object",
+        "description": "Edition tracking. Independent of parent WP revision.",
+        "required": ["edition"],
+        "properties": {
+          "edition": { "type": "integer", "minimum": 1 },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "updated_by": { "type": "string" }
+        }
+      },
+      "_lineage": {
+        "type": "object",
+        "properties": {
+          "parent_document_type": { "type": "string" },
+          "parent_execution_id": { "type": ["string", "null"] }
+        }
+      }
+    }
+  },
+  "work_package_candidate_v1_0_0": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://thecombine.dev/schemas/work_package_candidate.v1.json",
+    "type": "object",
+    "title": "Work Package Candidate",
+    "description": "Frozen lineage artifact extracted from an Implementation Plan. Immutable after creation. Persists as governance provenance.",
+    "required": [
+      "wpc_id",
+      "title",
+      "rationale",
+      "scope_summary",
+      "source_ip_id",
+      "source_ip_version",
+      "frozen_at",
+      "frozen_by"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "wpc_id": {
+        "type": "string",
+        "description": "Deterministic ID (WPC-NNN).",
+        "pattern": "^WPC-\\d{1,4}$"
+      },
+      "title": { "type": "string", "minLength": 1 },
+      "rationale": { "type": "string", "minLength": 1 },
+      "scope_summary": {
+        "type": "array",
+        "description": "Key scope items from IP candidate section.",
+        "items": { "type": "string", "minLength": 1 }
+      },
+      "source_ip_id": {
+        "type": "string",
+        "description": "Document ID of the source Implementation Plan."
+      },
+      "source_ip_version": {
+        "type": "string",
+        "description": "Version/edition of the IP at freeze time."
+      },
+      "frozen_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Timestamp when candidate was frozen from IP."
+      },
+      "frozen_by": {
+        "type": "string",
+        "description": "Who/what performed the freeze (system or user ID)."
+      }
+    }
+  }
+}

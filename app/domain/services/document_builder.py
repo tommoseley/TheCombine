@@ -40,6 +40,12 @@ from app.domain.handlers import (
 from app.domain.services.llm_response_parser import LLMResponseParser
 from app.domain.services.llm_execution_logger import LLMExecutionLogger  # ADR-010
 from app.api.services.document_service import DocumentService
+from app.domain.services.document_builder_pure import (
+    resolve_model_params,
+    build_user_message as pure_build_user_message,
+    compute_stream_progress,
+    should_emit_stream_update,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,12 +226,8 @@ class DocumentBuilder:
             task_name=config["builder_task"]
         )
         user_message = self._build_user_message(config, inputs, input_docs)
-        model = options.get("model") or self.model
-        if model in (None, "", "string"):
-            model = self.model
-        max_tokens = options.get("max_tokens") or 4096
-        temperature = options.get("temperature") if options.get("temperature") is not None else 0.7
-        
+        model, max_tokens, temperature = resolve_model_params(options, self.model)
+
         return BuildContext(
             config=config, handler=handler, input_docs=input_docs, input_ids=input_ids,
             system_prompt=system_prompt, prompt_id=prompt_id, schema=schema,
@@ -314,7 +316,7 @@ class DocumentBuilder:
         """
         Create child documents extracted by the handler.
 
-        For example, implementation_plan creates child documents.
+        For example, implementation_plan creates Epic documents.
 
         Returns list of created child document IDs.
         """
@@ -451,11 +453,7 @@ class DocumentBuilder:
             
             user_message = self._build_user_message(config, inputs, input_docs)
             
-            model = options.get("model") or self.model
-            if model in (None, "", "string"):
-                model = self.model
-            max_tokens = options.get("max_tokens") or 4096
-            temperature = options.get("temperature") if options.get("temperature") is not None else 0.7
+            model, max_tokens, temperature = resolve_model_params(options, self.model)
             
             ctx = BuildContext(
                 config=config, handler=handler, input_docs=input_docs, input_ids=input_ids,
@@ -477,9 +475,9 @@ class DocumentBuilder:
                 ) as stream:
                     async for text in stream.text_stream:
                         accumulated_text += text
-                        if len(accumulated_text) % 100 < len(text):
+                        if should_emit_stream_update(len(accumulated_text), len(text)):
                             preview = accumulated_text[:100] + "..." if len(accumulated_text) > 100 else accumulated_text
-                            yield ProgressUpdate("streaming", "Generating...", min(30 + len(accumulated_text) // 50, 70), {"preview": preview}).to_sse()
+                            yield ProgressUpdate("streaming", "Generating...", compute_stream_progress(len(accumulated_text)), {"preview": preview}).to_sse()
                 
                 final_message = await stream.get_final_message()
                 input_tokens = final_message.usage.input_tokens
@@ -511,7 +509,7 @@ class DocumentBuilder:
             doc = await self._persist_document(ctx, result, input_tokens, output_tokens, run_id, created_by)
             
             yield ProgressUpdate("rendering", "Rendering document...", 95).to_sse()
-            html = handler.render(result["data"])
+            handler.render(result["data"])
             
             await self._complete_llm_logging(run_id, input_tokens, output_tokens, str(doc.id), parse_status, validation_status)
             
@@ -554,23 +552,4 @@ class DocumentBuilder:
         user_inputs: Dict[str, Any],
         input_docs: Dict[str, Any]
     ) -> str:
-        parts = []
-        parts.append(f"Create a {config['name']}.")
-        
-        if config.get("description"):
-            parts.append(f"\nDocument purpose: {config['description']}")
-        
-        if user_inputs.get("user_query"):
-            parts.append(f"\nUser request:\n{user_inputs['user_query']}")
-        
-        if user_inputs.get("project_description"):
-            parts.append(f"\nProject description:\n{user_inputs['project_description']}")
-        
-        if input_docs:
-            parts.append("\n\n--- Input Documents ---")
-            for doc_type, content in input_docs.items():
-                parts.append(f"\n### {doc_type}:\n" + '`json\n' + json.dumps(content, indent=2) + "\n" + '`')
-        
-        parts.append("\n\nRemember: Output ONLY valid JSON matching the schema. No markdown, no prose.")
-        
-        return "\n".join(parts)
+        return pure_build_user_message(config, user_inputs, input_docs)

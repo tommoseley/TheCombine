@@ -1,0 +1,57 @@
+# Work Package Candidate Document Type Package
+# Version 1.0.0 - Initial release
+
+doc_type_id: work_package_candidate
+display_name: "Work Package Candidate"
+version: "1.0.0"
+description: >
+  Frozen lineage artifact extracted from an Implementation Plan.
+  Immutable after creation. Persists as governance provenance,
+  encoding what the IP actually proposed vs what was promoted
+  to governed Work Packages.
+
+# Classification
+authority_level: constructive  # Derived from IP
+creation_mode: extracted  # Extracted mechanically, not LLM-generated
+production_mode: construct
+scope: project
+cardinality: multi
+instance_key: wpc_id
+
+# Dependencies
+required_inputs:
+  - implementation_plan
+optional_inputs: []
+creates_children: []
+parent_doc_type: null
+
+# Shared artifact references
+role_prompt_ref: null  # Not LLM-generated
+template_ref: null
+schema_ref: "schema:work_package_candidate:1.0.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: null  # Mechanically created, no LLM task prompt
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: false  # Mechanical extraction, no human gate
+  accepted_by: []
+
+# UI configuration
+ui:
+  icon: file-input
+  category: planning
+  display_order: 37

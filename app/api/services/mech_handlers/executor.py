@@ -136,7 +136,7 @@ async def execute_operation_by_ref(
             error_code="config_error",
         )
 
-    op_type, op_id, version = parts[1], parts[2], parts[3]
+    _op_type, op_id, version = parts[1], parts[2], parts[3]
 
     # Load operation from service
     try:

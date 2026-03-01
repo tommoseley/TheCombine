@@ -564,7 +564,7 @@ class TestTTLCleanup:
 
     def test_cleanup_preserves_active_workspaces(self, service):
         """Cleanup preserves non-expired workspaces."""
-        state = service.create_workspace("user-1")
+        service.create_workspace("user-1")
 
         cleaned = service.cleanup_expired_workspaces()
 

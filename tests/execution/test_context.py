@@ -138,7 +138,7 @@ class TestExecutionContext:
         )
         
         # Save
-        doc = await ctx.save_output_document(
+        await ctx.save_output_document(
             document_type="test-doc",
             title="Test Document",
             content={"data": "test"},

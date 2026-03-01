@@ -383,64 +383,43 @@ class GateNodeExecutor(NodeExecutor):
     ) -> NodeResult:
         """Execute a PGC (Pre-Gen Clarification) gate.
 
-        PGC gates have 3 phases:
-        1. pass_a: Generate questions (LLM)
-        2. entry: Collect user answers (UI pause)
-        3. merge: Combine questions + answers into clarifications
-
-        State tracking:
-        - context.context_state["pgc_questions"] = questions from pass_a
-        - context.context_state["pgc_answers"] = answers from entry phase
+        Delegates pure logic to gate_pure module for testability.
         """
         from app.domain.workflow.nodes.task import TaskNodeExecutor
+        from app.domain.workflow.nodes.gate_pure import (
+            determine_pgc_phase,
+            merge_questions_with_answers,
+            build_pgc_task_config,
+        )
 
         internals = node_config.get("internals", {})
         pass_a = internals.get("pass_a", {})
         produces = node_config.get("produces", "pgc_clarifications")
 
-        # Check current phase based on what's in context
         pgc_questions = context.context_state.get("pgc_questions")
         pgc_answers = context.context_state.get("pgc_answers")
 
-        # Debug: log all keys in context_state to diagnose state propagation
+        # Pure: determine phase
+        phase = determine_pgc_phase(pgc_questions, pgc_answers)
+
         context_keys = list(context.context_state.keys())
         logger.info(
             f"PGC Gate {node_id}: questions={pgc_questions is not None}, "
             f"answers={pgc_answers is not None}, context_keys={context_keys}"
         )
 
-        # Phase 3: merge - we have both questions and answers
-        if pgc_questions and pgc_answers:
+        # Phase 3: merge
+        if phase == "merge":
             logger.info(f"PGC Gate {node_id}: Phase 3 (merge) - combining questions and answers")
 
-            # Merge questions with answers
-            merged_clarifications = []
-            questions_list = pgc_questions.get("questions", [])
-
-            for q in questions_list:
-                q_id = q.get("id", "")
-                answer = pgc_answers.get(q_id, "")
-                merged_clarifications.append({
-                    "id": q_id,
-                    "question": q.get("text", q.get("question", "")),
-                    "answer": answer,
-                    "priority": q.get("priority", "should"),
-                    "why_it_matters": q.get("why_it_matters", ""),
-                })
-
-            # Store merged clarifications in context for document generation
-            clarifications_doc = {
-                "schema_version": "pgc_clarifications.v1",
-                "clarifications": merged_clarifications,
-                "question_count": len(questions_list),
-                "answered_count": len([c for c in merged_clarifications if c.get("answer")]),
-            }
-
+            # Pure: merge questions with answers
+            merged_clarifications, clarifications_doc = merge_questions_with_answers(
+                pgc_questions, pgc_answers,
+            )
             context.document_content[produces] = clarifications_doc
 
             logger.info(f"PGC Gate {node_id}: Merge complete, {len(merged_clarifications)} clarifications")
 
-            # Return "qualified" outcome to match v2 workflow edge (pgc_gate -> generation)
             return NodeResult(
                 outcome="qualified",
                 produced_document=clarifications_doc,
@@ -452,10 +431,8 @@ class GateNodeExecutor(NodeExecutor):
                 },
             )
 
-        # Phase 2: entry - we have questions but no answers, need user input
-        # This shouldn't normally happen here since the pause happens in phase 1
-        # But handle it for robustness
-        if pgc_questions and not pgc_answers:
+        # Phase 2: entry
+        if phase == "entry":
             logger.info(f"PGC Gate {node_id}: Phase 2 (entry) - waiting for user answers")
             return NodeResult.needs_user_input(
                 prompt="Please answer the clarification questions",
@@ -467,33 +444,19 @@ class GateNodeExecutor(NodeExecutor):
         # Phase 1: pass_a - generate questions
         logger.info(f"PGC Gate {node_id}: Phase 1 (pass_a) - generating questions")
 
-        # Resolve URN-style references to file paths
-        task_ref = self._resolve_urn(pass_a.get("template_ref", ""))
-        includes = {}
-        for key, value in pass_a.get("includes", {}).items():
-            includes[key] = self._resolve_urn(value)
+        # Pure: build task config
+        task_node_config = build_pgc_task_config(
+            pass_a, produces, resolve_urn_fn=self._resolve_urn,
+        )
 
-        # Add OUTPUT_SCHEMA from output_schema_ref if present (v2 workflow format)
-        if pass_a.get("output_schema_ref"):
-            includes["OUTPUT_SCHEMA"] = self._resolve_urn(pass_a.get("output_schema_ref"))
-
-        # Build task node config from pass_a internal
-        task_node_config = {
-            "type": "pgc",  # Triggers PGC behavior in TaskNodeExecutor
-            "task_ref": task_ref,
-            "includes": includes,
-            "produces": produces,
-        }
-
-        # Create task executor for PGC
         task_executor = TaskNodeExecutor(
             llm_service=self.llm_service,
             prompt_loader=self.prompt_loader,
         )
 
-        logger.info(f"PGC Gate {node_id}: Executing pass_a with task_ref={task_ref}")
+        logger.info(f"PGC Gate {node_id}: Executing pass_a with task_ref={task_node_config['task_ref']}")
 
-        # Execute PGC via task executor
+        # I/O: execute PGC via task executor
         result = await task_executor.execute(
             node_id=node_id,
             node_config=task_node_config,
@@ -501,15 +464,11 @@ class GateNodeExecutor(NodeExecutor):
             state_snapshot=state_snapshot,
         )
 
-        # If pass_a succeeded and returned questions, store them in context for phase tracking
         logger.info(f"PGC Gate {node_id}: result.outcome={result.outcome}, has_produced_doc={result.produced_document is not None}")
         if result.outcome == "needs_user_input" and result.produced_document:
-            # Store questions in context_state for phase tracking
-            # This will be persisted by the plan executor
             context.context_state["pgc_questions"] = result.produced_document
             logger.info(f"PGC Gate {node_id}: Stored {len(result.produced_document.get('questions', []))} questions in context_state")
 
-        # Add gate metadata to result
         if result.metadata is None:
             result.metadata = {}
         result.metadata["gate_id"] = node_id

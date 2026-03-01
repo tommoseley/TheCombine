@@ -13,5 +13,6 @@ __all__ = [
     # New repositories
     "RepositoryError",
     "RolePromptRepository",
+    "ProjectRepository",
     "ValidationResult",
 ]

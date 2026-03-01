@@ -245,19 +245,21 @@ class MechanicalOpsService:
                 continue
 
             try:
+                from app.api.services.service_pure import build_operation_summary
+
                 op = self._load_operation(op_id, active_version)
                 op_type = self._types_cache.get(op.type)
 
-                summaries.append({
-                    "op_id": op.id,
-                    "name": op.name,
-                    "description": op.description,
-                    "type": op.type,
-                    "type_name": op_type.name if op_type else op.type,
-                    "category": op_type.category if op_type else "uncategorized",
-                    "active_version": active_version,
-                    "tags": op.metadata.get("tags", []),
-                })
+                summaries.append(build_operation_summary(
+                    op_id=op.id,
+                    op_name=op.name,
+                    op_description=op.description,
+                    op_type=op.type,
+                    op_metadata=op.metadata,
+                    type_name=op_type.name if op_type else None,
+                    type_category=op_type.category if op_type else None,
+                    active_version=active_version,
+                ))
             except Exception as e:
                 logger.warning(f"Could not load operation {op_id}: {e}")
                 summaries.append({

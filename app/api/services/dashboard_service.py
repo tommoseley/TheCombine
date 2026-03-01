@@ -5,7 +5,7 @@ Used by both the API and web routes.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict
 from zoneinfo import ZoneInfo
 
@@ -23,18 +23,12 @@ DISPLAY_TZ = ZoneInfo('America/New_York')
 
 
 def _sort_key_datetime(x):
-    """Sort key that handles mixed timezone-aware/naive datetimes."""
-    dt = x.get("started_at")
-    if dt is None:
-        return datetime.min.replace(tzinfo=timezone.utc)
-    if isinstance(dt, str):
-        try:
-            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
-        except Exception:
-            return datetime.min.replace(tzinfo=timezone.utc)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
+    """Sort key that handles mixed timezone-aware/naive datetimes.
+
+    Delegates to service_pure.sort_key_datetime for testability.
+    """
+    from app.api.services.service_pure import sort_key_datetime
+    return sort_key_datetime(x)
 
 
 async def get_dashboard_summary(
@@ -95,22 +89,14 @@ async def get_dashboard_summary(
             "source_label": "Document Build",
         })
 
+    from app.api.services.service_pure import compute_dashboard_stats, format_execution_dates
+
     # Sort by started_at descending and take top N
     executions.sort(key=_sort_key_datetime, reverse=True)
     executions = executions[:limit]
 
     # Format dates for display
-    for e in executions:
-        if e["started_at"]:
-            dt = e["started_at"]
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            local_dt = dt.astimezone(DISPLAY_TZ)
-            e["started_at_formatted"] = local_dt.strftime("%Y-%m-%d %H:%M")
-            e["started_at_iso"] = dt.isoformat()
-        else:
-            e["started_at_formatted"] = None
-            e["started_at_iso"] = None
+    format_execution_dates(executions, DISPLAY_TZ)
 
     # Calculate stats
     running = sum(1 for e in all_workflow_executions if e.status == WorkflowStatus.RUNNING)
@@ -124,12 +110,7 @@ async def get_dashboard_summary(
         if r.started_at and r.started_at.astimezone(DISPLAY_TZ).date() == local_today
     ])
 
-    stats = {
-        "total_workflows": len(workflows),
-        "running_executions": running,
-        "waiting_action": waiting,
-        "doc_builds_today": doc_builds_today,
-    }
+    stats = compute_dashboard_stats(len(workflows), running, waiting, doc_builds_today)
 
     return {
         "workflows": workflows,

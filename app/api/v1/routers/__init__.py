@@ -14,6 +14,7 @@ from app.api.v1.routers.admin_validation import router as admin_validation_route
 from app.api.v1.routers.admin_releases import router as admin_releases_router
 from app.api.v1.routers.admin_preview import router as admin_preview_router
 from app.api.v1.routers.admin_workspaces import router as admin_workspaces_router
+from app.api.v1.routers.work_binder import router as work_binder_router
 
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "admin_releases_router",
     "admin_preview_router",
     "admin_workspaces_router",
+    "work_binder_router",
 ]

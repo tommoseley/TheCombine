@@ -9,7 +9,6 @@ data structures. Channel-specific rendering happens downstream.
 """
 
 import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
@@ -17,6 +16,19 @@ from typing import List, Dict, Optional, Any
 from app.api.services.document_definition_service import DocumentDefinitionService
 from app.api.services.component_registry_service import ComponentRegistryService
 from app.api.services.schema_registry_service import SchemaRegistryService
+from app.domain.services.render_model_pure import (
+    resolve_pointer,
+    compute_schema_bundle_hash,
+    collect_component_ids_from_sections,
+    flatten_nested_list,
+    process_container_repeat,
+    build_parent_as_data,
+    apply_derivation,
+    build_context,
+    resolve_docdef_id,
+    extract_document_type,
+    sort_sections,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -225,7 +237,7 @@ class RenderModel:
     - schema_id: "schema:RenderModelV1"
     - schema_bundle_sha256: hash of schema bundle
     - document_id: stable identifier
-    - document_type: short name (e.g., "DocumentDetailView")
+    - document_type: short name (e.g., "EpicDetailView")
     - title: display title
     - sections: list of RenderSection (ordered)
     - metadata: section_count and other metadata
@@ -313,8 +325,8 @@ class RenderModelBuilder:
         - Empty sections are omitted in output
         
         Args:
-            document_def_id: Exact document definition ID (e.g., docdef:DocumentDetailView:1.0.0)
-                            or short name (e.g., DocumentDetailView)
+            document_def_id: Exact document definition ID (e.g., docdef:EpicDetailView:1.0.0)
+                            or short name (e.g., EpicDetailView)
             document_data: Document data to render
             document_id: Optional document ID (computed if not provided)
             title: Optional title override
@@ -328,18 +340,15 @@ class RenderModelBuilder:
             ComponentNotFoundError: If any component not found
         """
         # Resolve short name to full docdef ID if needed
-        if not document_def_id.startswith("docdef:"):
-            document_def_id = f"docdef:{document_def_id}:1.0.0"
-        
+        document_def_id = resolve_docdef_id(document_def_id)
+
         # 1. Load document definition
         docdef = await self.docdef_service.get(document_def_id)
         if not docdef:
             raise DocDefNotFoundError(f"Document definition not found: {document_def_id}")
-        
+
         # Extract document_type from docdef ID
-        # Format: docdef:DocumentType:version
-        parts = document_def_id.split(":")
-        document_type = parts[1] if len(parts) >= 2 else document_def_id
+        document_type = extract_document_type(document_def_id)
         
         # Compute document_id if not provided
         if not document_id:
@@ -353,7 +362,7 @@ class RenderModelBuilder:
         
         # 2. Process sections in order
         sections_config = docdef.sections or []
-        sorted_sections = sorted(sections_config, key=lambda s: s.get("order", 0))
+        sorted_sections = sort_sections(sections_config)
         
         render_sections: List[RenderSection] = []
         
@@ -417,7 +426,7 @@ class RenderModelBuilder:
         """
         # Extract key identifying fields from data
         params = {}
-        for key in ["id", "story_id", "project_id"]:
+        for key in ["id", "epic_id", "story_id", "project_id"]:
             if key in document_data:
                 params[key] = str(document_data[key])
         
@@ -451,20 +460,16 @@ class RenderModelBuilder:
     ) -> str:
         """
         Compute SHA256 hash of schema bundle for this document.
-        
+
         Collects all component schemas and hashes the bundle.
         """
         sections = docdef.sections or []
-        
-        # Collect unique component IDs
-        component_ids = set()
-        for section in sections:
-            comp_id = section.get("component_id")
-            if comp_id:
-                component_ids.add(comp_id)
-        
-        # Build schema bundle
-        bundle = {"schemas": {}}
+
+        # Collect unique component IDs using pure helper
+        component_ids = collect_component_ids_from_sections(sections)
+
+        # Build schema bundle (I/O: fetches components and schemas)
+        bundle: Dict[str, Any] = {"schemas": {}}
         for comp_id in sorted(component_ids):
             component = await self.component_service.get(comp_id)
             if component and component.schema_id:
@@ -475,16 +480,15 @@ class RenderModelBuilder:
                         lookup_id = schema_id[7:]  # Remove prefix
                     else:
                         lookup_id = schema_id
-                    
+
                     schema = await self.schema_service.get_by_id(lookup_id)
                     if schema and schema.schema_json:
                         bundle["schemas"][component.schema_id] = schema.schema_json
                 else:
                     bundle["schemas"][component.schema_id] = {}
-        
-        # Compute hash
-        bundle_json = json.dumps(bundle, sort_keys=True, separators=(',', ':'))
-        return f"sha256:{hashlib.sha256(bundle_json.encode()).hexdigest()}"
+
+        # Compute hash using pure function
+        return compute_schema_bundle_hash(bundle)
     
     async def _process_section(
         self,
@@ -593,36 +597,28 @@ class RenderModelBuilder:
         source_pointer = section.get("source_pointer", "")
         repeat_over = section.get("repeat_over")
         context_mapping = section.get("context", {})
-        
+
         if not repeat_over:
             logger.warning(f"nested_list shape requires repeat_over: {section_id}")
             return []
-        
-        parents = self._resolve_pointer(document_data, repeat_over)
-        if not parents or not isinstance(parents, list):
-            return []
-        
-        blocks = []
-        for parent_idx, parent in enumerate(parents):
-            if not isinstance(parent, dict):
-                continue
-            
-            items = self._resolve_pointer(parent, source_pointer)
-            if not items or not isinstance(items, list):
-                continue
-            
-            context = self._build_context(parent, context_mapping)
-            
-            for item_idx, item in enumerate(items):
-                item_data = item if isinstance(item, dict) else {"value": item}
-                blocks.append(RenderBlock(
-                    type=schema_id,
-                    key=f"{section_id}:{parent_idx}:{item_idx}",
-                    data=item_data,
-                    context=context,
-                ))
-        
-        return blocks
+
+        block_descriptors = flatten_nested_list(
+            section_id=section_id,
+            source_pointer=source_pointer,
+            repeat_over_pointer=repeat_over,
+            context_mapping=context_mapping,
+            document_data=document_data,
+        )
+
+        return [
+            RenderBlock(
+                type=schema_id,
+                key=bd["key"],
+                data=bd["data"],
+                context=bd["context"],
+            )
+            for bd in block_descriptors
+        ]
     def _process_container_shape(
         self,
         section: Dict[str, Any],
@@ -674,73 +670,41 @@ class RenderModelBuilder:
         repeat_over = section.get("repeat_over")
         context_mapping = section.get("context", {})
         derived_fields = section.get("derived_fields", [])
-        
-        parents = self._resolve_pointer(document_data, repeat_over)
-        if not parents or not isinstance(parents, list):
-            return []
-        
-        blocks = []
-        for parent_idx, parent in enumerate(parents):
-            if not isinstance(parent, dict):
-                continue
-            
-            if source_pointer in ("/", ""):
-                block_data = self._build_parent_as_data(section, parent, derived_fields)
-            else:
-                parent_items = self._resolve_pointer(parent, source_pointer)
-                if not parent_items or not isinstance(parent_items, list):
-                    continue
-                
-                processed_items = []
-                for item in parent_items:
-                    item_data = item if isinstance(item, dict) else {"value": item}
-                    processed_items.append(item_data)
-                block_data = {"items": processed_items}
-            
-            context = self._build_context(parent, context_mapping)
-            
-            blocks.append(RenderBlock(
+
+        block_descriptors = process_container_repeat(
+            section_id=section_id,
+            source_pointer=source_pointer,
+            repeat_over_pointer=repeat_over,
+            context_mapping=context_mapping,
+            derived_fields=derived_fields,
+            exclude_fields=section.get("exclude_fields", []),
+            detail_ref_template=section.get("detail_ref_template"),
+            derivation_functions=DERIVATION_FUNCTIONS,
+            document_data=document_data,
+        )
+
+        return [
+            RenderBlock(
                 type=schema_id,
-                key=f"{section_id}:container:{parent_idx}",
-                data=block_data,
-                context=context,
-            ))
-        
-        return blocks
+                key=bd["key"],
+                data=bd["data"],
+                context=bd["context"],
+            )
+            for bd in block_descriptors
+        ]
     def _build_parent_as_data(
         self,
         section: Dict[str, Any],
         parent: Dict[str, Any],
         derived_fields: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        exclude_fields = section.get("exclude_fields", [])
-        block_data = {k: v for k, v in parent.items() if k not in exclude_fields}
-        
-        for df in derived_fields:
-            field_name = df.get("field")
-            func_name = df.get("function")
-            source = df.get("source", "")
-            
-            if func_name in DERIVATION_FUNCTIONS:
-                if source in ("/", ""):
-                    source_data = parent
-                else:
-                    source_data = self._resolve_pointer(parent, source)
-                    if source_data is None:
-                        source_data = []
-                block_data[field_name] = DERIVATION_FUNCTIONS[func_name](source_data)
-        
-        detail_ref_template = section.get("detail_ref_template")
-        if detail_ref_template:
-            block_data["detail_ref"] = {
-                "document_type": detail_ref_template.get("document_type", ""),
-                "params": {
-                    k: self._resolve_pointer(parent, v) 
-                    for k, v in detail_ref_template.get("params", {}).items()
-                }
-            }
-        
-        return block_data
+        return build_parent_as_data(
+            parent=parent,
+            derived_fields=derived_fields,
+            exclude_fields=section.get("exclude_fields", []),
+            detail_ref_template=section.get("detail_ref_template"),
+            derivation_functions=DERIVATION_FUNCTIONS,
+        )
 
     async def _process_derived_section(
         self,
@@ -752,57 +716,43 @@ class RenderModelBuilder:
     ) -> List[RenderBlock]:
         """
         Process a derived section using frozen derivation rules.
-        
+
         Args:
             section_id: Section identifier
             component_id: Component to use for rendering
             derived_from: {"function": "risk_level", "source": "/risks"}
             document_data: Full document data
             context_mapping: Static context from section config
-            
+
         Returns:
             List containing single RenderBlock with derived value
         """
         func_name = derived_from.get("function")
         source_pointer = derived_from.get("source", "")
-        
-        # Validate function exists
-        if func_name not in DERIVATION_FUNCTIONS:
-            logger.warning(f"Unknown derivation function: {func_name}")
-            return []
-        
-        # Check if we should omit when source is empty
         omit_when_empty = derived_from.get("omit_when_source_empty", False)
-        
-        # Resolve source data - "/" means pass entire document
-        if source_pointer in ("/", ""):
-            source_data = document_data
-        else:
-            source_data = self._resolve_pointer(document_data, source_pointer)
-            if source_data is None:
-                source_data = []
-        
-        # Omit block if source is empty and omit_when_source_empty is set
-        if omit_when_empty:
-            if source_data is None:
-                return []
-            if isinstance(source_data, list) and len(source_data) == 0:
-                return []
-            if isinstance(source_data, dict) and not source_data:
-                return []
-        
-        # Apply derivation
-        derive_fn = DERIVATION_FUNCTIONS[func_name]
-        derived_value = derive_fn(source_data)
-        
-        # Resolve component to get schema_id
+
+        # Apply derivation using pure function
+        derived_value = apply_derivation(
+            source_pointer=source_pointer,
+            func_name=func_name,
+            omit_when_empty=omit_when_empty,
+            derivation_functions=DERIVATION_FUNCTIONS,
+            document_data=document_data,
+        )
+
+        if derived_value is None:
+            if func_name not in DERIVATION_FUNCTIONS:
+                logger.warning(f"Unknown derivation function: {func_name}")
+            return []
+
+        # Resolve component to get schema_id (I/O)
         component = await self.component_service.get(component_id)
         if not component:
             raise ComponentNotFoundError(f"Component not found: {component_id}")
-        
+
         schema_id = component.schema_id
         static_context = context_mapping if context_mapping else None
-        
+
         return [RenderBlock(
             type=schema_id,
             key=f"{section_id}:derived",
@@ -817,40 +767,10 @@ class RenderModelBuilder:
     ) -> Any:
         """
         Resolve a JSON pointer against data.
-        
-        Args:
-            data: Data object to resolve against
-            pointer: JSON pointer (e.g., "/epics", "/open_questions")
-            
-        Returns:
-            Resolved value or None if not found
+
+        Delegates to pure resolve_pointer function.
         """
-        if not pointer or pointer == "/":
-            return data
-        
-        # Remove leading slash and split
-        parts = pointer.lstrip("/").split("/")
-        
-        current = data
-        for part in parts:
-            if not part:
-                continue
-            
-            if isinstance(current, dict):
-                current = current.get(part)
-            elif isinstance(current, list):
-                try:
-                    idx = int(part)
-                    current = current[idx]
-                except (ValueError, IndexError):
-                    return None
-            else:
-                return None
-            
-            if current is None:
-                return None
-        
-        return current
+        return resolve_pointer(data, pointer)
     
     def _build_context(
         self,
@@ -859,27 +779,10 @@ class RenderModelBuilder:
     ) -> Optional[Dict[str, Any]]:
         """
         Build context dict by resolving pointers relative to parent.
-        
-        Per ADR-034-A.4: Context pointers are evaluated relative to
-        each repeated parent object, not from document root.
-        
-        Args:
-            parent: Parent object to resolve against
-            context_mapping: Dict of {context_key: pointer}
-            
-        Returns:
-            Context dict or None if no mapping
+
+        Delegates to pure build_context function.
         """
-        if not context_mapping:
-            return None
-        
-        context = {}
-        for key, pointer in context_mapping.items():
-            value = self._resolve_pointer(parent, pointer)
-            if value is not None:
-                context[key] = value
-        
-        return context if context else None
+        return build_context(parent, context_mapping)
 
 
 

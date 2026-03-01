@@ -74,7 +74,7 @@ async def test_create_schema_artifact(registry, mock_db):
         obj.id = uuid4()
     mock_db.refresh = mock_refresh
     
-    artifact = await registry.create(
+    await registry.create(
         schema_id="TestSchemaV1",
         kind="type",
         schema_json=schema_json,
@@ -171,7 +171,7 @@ async def test_set_status_draft_to_accepted(registry, mock_db):
     mock_result.scalar_one_or_none.return_value = mock_artifact
     mock_db.execute.return_value = mock_result
     
-    result = await registry.set_status("TestV1", "1.0", "accepted")
+    await registry.set_status("TestV1", "1.0", "accepted")
     
     assert mock_artifact.status == "accepted"
     mock_db.commit.assert_called_once()

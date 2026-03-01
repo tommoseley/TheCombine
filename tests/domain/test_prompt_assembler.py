@@ -78,7 +78,7 @@ class TestPromptAssembler:
         mock_docdef_service.get.return_value = sample_docdef
         mock_component_service.get.side_effect = lambda cid: sample_components.get(cid)
         
-        result = await assembler.assemble("docdef:TestDoc:1.0.0")
+        await assembler.assemble("docdef:TestDoc:1.0.0")
         
         mock_docdef_service.get.assert_called_once_with("docdef:TestDoc:1.0.0")
     
@@ -88,7 +88,7 @@ class TestPromptAssembler:
         mock_docdef_service.get.return_value = sample_docdef
         mock_component_service.get.side_effect = lambda cid: sample_components.get(cid)
         
-        result = await assembler.assemble("docdef:TestDoc:1.0.0")
+        await assembler.assemble("docdef:TestDoc:1.0.0")
         
         assert mock_component_service.get.call_count == 2
     

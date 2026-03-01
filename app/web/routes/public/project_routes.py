@@ -22,6 +22,10 @@ from app.auth.models import User
 
 from app.core.audit_service import audit_service
 from app.core.dependencies.archive import verify_project_not_archived
+from app.web.routes.public.project_pure import (
+    derive_documents_and_summary,
+    validate_soft_delete,
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 logger = logging.getLogger(__name__)
@@ -229,33 +233,10 @@ async def get_project_documents_status(
         project_uuid = project.id
     
     document_statuses = await document_status_service.get_project_document_statuses(db, project_uuid)
-    
-    documents = []
-    status_summary = {"ready": 0, "stale": 0, "blocked": 0, "waiting": 0, "needs_acceptance": 0}
-    
-    for doc in document_statuses:
-        if hasattr(doc, 'readiness'):
-            readiness = doc.readiness
-            if readiness == 'ready':
-                status_summary['ready'] += 1
-            elif readiness == 'stale':
-                status_summary['stale'] += 1
-            elif readiness == 'blocked':
-                status_summary['blocked'] += 1
-            elif readiness == 'waiting':
-                status_summary['waiting'] += 1
-            
-            documents.append({
-                "doc_type_id": doc.doc_type_id,
-                "title": doc.title,
-                "icon": doc.icon,
-                "readiness": readiness,
-                "acceptance_state": getattr(doc, 'acceptance_state', None),
-                "subtitle": getattr(doc, 'subtitle', None)
-            })
-        else:
-            documents.append(doc)
-    
+
+    # Delegate status derivation to pure function
+    documents, status_summary = derive_documents_and_summary(document_statuses)
+
     return templates.TemplateResponse(request, "public/components/_project_documents.html", {
         "project_id": project_id,
         "documents": documents,
@@ -449,27 +430,32 @@ async def soft_delete_project(
         
         if not project:
             raise HTTPException(status_code=404, detail="Project not found or access denied")
-        
-        # Must be archived first
-        if project.archived_at is None:
-            raise HTTPException(status_code=400, detail="Project must be archived before deletion")
-        
-        # Already deleted (idempotent)
-        if project.deleted_at is not None:
+
+        # Validate preconditions via pure function
+        validation_error = validate_soft_delete(
+            project_archived_at=project.archived_at,
+            project_deleted_at=project.deleted_at,
+            confirmation=confirmation,
+            project_id_upper=project.project_id,
+        )
+
+        if validation_error == "Project must be archived before deletion":
+            raise HTTPException(status_code=400, detail=validation_error)
+
+        if validation_error == "already_deleted":
             return templates.TemplateResponse(request, "public/components/alerts/info.html", {
                     "title": "Already Deleted",
                     "message": "This project has already been deleted.",
                 },
                 headers={"HX-Redirect": "/", "HX-Trigger": "refreshProjectList"}
             )
-        
-        # Confirmation must match project_id
-        if confirmation.strip().upper() != project.project_id.upper():
+
+        if validation_error and validation_error.startswith("confirmation_mismatch:"):
             return templates.TemplateResponse(request, "public/components/alerts/error.html", {
                 "title": "Confirmation Failed",
                 "message": f"Please type '{project.project_id}' to confirm deletion."
             })
-        
+
         # Soft delete
         project.deleted_at = datetime.now(timezone.utc)
         project.deleted_by = user_uuid

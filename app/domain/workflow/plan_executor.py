@@ -29,7 +29,7 @@ Thread Ownership (WS-ADR-025 Phase 3):
 import json
 import logging
 import uuid
-from datetime import datetime
+
 from typing import Any, Dict, List, Optional, Protocol
 
 from app.domain.workflow.plan_models import Node, NodeType, WorkflowPlan
@@ -338,69 +338,12 @@ class PlanExecutor:
         # Clear pause state if we have user input
         if state.pending_user_input and (user_input or user_choice):
             state.clear_pause()
-            
+
             # Special handling for PGC nodes: store answers and advance to generation
-            # Don't re-execute PGC - that would generate new questions
             if current_node.type == NodeType.PGC and user_input:
-                logger.info(f"PGC node {current_node.node_id} received user answers - merging clarifications (ADR-042)")
-                
-                # Emit internal_step for merge phase
-                if current_node.internals and "merge" in current_node.internals:
-                    await self._emit_internal_step(plan, state, current_node, "merge")
-                
-                # ADR-042: Get questions (with DB fallback for restart scenarios)
-                questions = await self._get_pgc_questions_for_merge(state)
-
-                # ADR-042/ADR-047: Merge questions with answers via mechanical operation
-                from app.api.services.mech_handlers import execute_operation
-
-                op = self._ops_service.get_operation("pgc_clarification_processor")
-                if op:
-                    result = await execute_operation(
-                        operation=op,
-                        inputs={"questions": questions, "answers": user_input},
-                    )
-                    if result.success:
-                        clarifications = result.output.get("clarifications", [])
-                        invariants = result.output.get("invariants", [])
-                    else:
-                        logger.warning(f"Clarification merge failed: {result.error}, using fallback")
-                        # Fallback to direct call if operation fails
-                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                        clarifications = merge_clarifications(questions, user_input)
-                        invariants = extract_invariants(clarifications)
-                else:
-                    # Fallback if operation not configured
-                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                    clarifications = merge_clarifications(questions, user_input)
-                    invariants = extract_invariants(clarifications)
-
-                state.update_context_state({
-                    "pgc_answers": user_input,  # backward compat
-                    "pgc_clarifications": clarifications,  # ADR-042: Full merged structure
-                    "pgc_invariants": invariants,  # ADR-042: Binding constraints only
-                })
-
-                logger.info(
-                    f"ADR-042: Merged {len(clarifications)} clarifications, "
-                    f"{len(invariants)} binding invariants"
+                return await self._handle_pgc_user_answers(
+                    execution_id, current_node, state, plan, user_input
                 )
-                
-                # Route to next node using "success" outcome (user answered, proceed)
-                router = EdgeRouter(plan)
-                next_node_id, edge = router.get_next_node(
-                    current_node_id=current_node.node_id,
-                    outcome="success",
-                    state=state,
-                )
-                if next_node_id:
-                    state.current_node_id = next_node_id
-                    state.status = DocumentWorkflowStatus.RUNNING
-                    await self._persistence.save(state)
-                    # Continue execution at the new node
-                    return await self.execute_step(execution_id)
-                else:
-                    raise PlanExecutorError(f"No edge from PGC node {current_node.node_id} with outcome 'success'")
 
         # Update status to running
         state.status = DocumentWorkflowStatus.RUNNING
@@ -442,6 +385,99 @@ class PlanExecutor:
         await self._persistence.save(state)
 
         return state
+
+    async def _handle_pgc_user_answers(
+        self,
+        execution_id: str,
+        current_node: Node,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+        user_input: Any,
+    ) -> DocumentWorkflowState:
+        """Handle PGC node user answer submission.
+
+        Merges user answers with PGC questions, extracts invariants,
+        stores in context_state, then routes to next node.
+
+        Args:
+            execution_id: The workflow execution ID
+            current_node: The PGC node
+            state: Current execution state
+            plan: Workflow plan
+            user_input: User-provided answers
+
+        Returns:
+            Updated execution state
+        """
+        logger.info(
+            f"PGC node {current_node.node_id} received user answers "
+            f"- merging clarifications (ADR-042)"
+        )
+
+        # Emit internal_step for merge phase
+        if current_node.internals and "merge" in current_node.internals:
+            await self._emit_internal_step(plan, state, current_node, "merge")
+
+        # ADR-042: Get questions (with DB fallback for restart scenarios)
+        questions = await self._get_pgc_questions_for_merge(state)
+
+        # ADR-042/ADR-047: Merge questions with answers via mechanical operation
+        from app.api.services.mech_handlers import execute_operation
+
+        op = self._ops_service.get_operation("pgc_clarification_processor")
+        if op:
+            result = await execute_operation(
+                operation=op,
+                inputs={"questions": questions, "answers": user_input},
+            )
+            if result.success:
+                clarifications = result.output.get("clarifications", [])
+                invariants = result.output.get("invariants", [])
+            else:
+                logger.warning(
+                    f"Clarification merge failed: {result.error}, using fallback"
+                )
+                from app.domain.workflow.clarification_merger import (
+                    merge_clarifications,
+                    extract_invariants,
+                )
+                clarifications = merge_clarifications(questions, user_input)
+                invariants = extract_invariants(clarifications)
+        else:
+            from app.domain.workflow.clarification_merger import (
+                merge_clarifications,
+                extract_invariants,
+            )
+            clarifications = merge_clarifications(questions, user_input)
+            invariants = extract_invariants(clarifications)
+
+        state.update_context_state({
+            "pgc_answers": user_input,
+            "pgc_clarifications": clarifications,
+            "pgc_invariants": invariants,
+        })
+
+        logger.info(
+            f"ADR-042: Merged {len(clarifications)} clarifications, "
+            f"{len(invariants)} binding invariants"
+        )
+
+        # Route to next node using "success" outcome
+        router = EdgeRouter(plan)
+        next_node_id, edge = router.get_next_node(
+            current_node_id=current_node.node_id,
+            outcome="success",
+            state=state,
+        )
+        if next_node_id:
+            state.current_node_id = next_node_id
+            state.status = DocumentWorkflowStatus.RUNNING
+            await self._persistence.save(state)
+            return await self.execute_step(execution_id)
+        else:
+            raise PlanExecutorError(
+                f"No edge from PGC node {current_node.node_id} with outcome 'success'"
+            )
 
     async def run_to_completion_or_pause(
         self,
@@ -857,16 +893,9 @@ class PlanExecutor:
             logger.info(f"Setting paused state with payload={result.user_input_payload is not None}, schema_ref={result.user_input_schema_ref}")
 
             # Store Gate Profile metadata in context_state for resumption (ADR-047)
-            # This includes intake_gate_phase, intake_classification, etc.
-            gate_profile_keys = [
-                "intake_gate_phase", "intake_classification", "extracted",
-                "entry_op_ref", "user_input",
-                "intake_operational_error", "reason",
-            ]
-            gate_metadata = {}
-            for key in gate_profile_keys:
-                if key in result.metadata:
-                    gate_metadata[key] = result.metadata[key]
+            from app.domain.workflow.result_handling import extract_metadata_by_keys, GATE_PROFILE_KEYS
+
+            gate_metadata = extract_metadata_by_keys(result.metadata, GATE_PROFILE_KEYS)
             if gate_metadata:
                 state.update_context_state(gate_metadata)
                 logger.info(f"Stored Gate Profile metadata: {list(gate_metadata.keys())}")
@@ -910,26 +939,20 @@ class PlanExecutor:
             (current_node.type == NodeType.GATE and current_node.internals)
         )
         if is_intake_gate and result.outcome == "qualified":
-            intake_metadata = {}
-            for key in [
-                "intake_summary", "project_type", "user_input", "intent_canon",
-                "extracted_data", "interpretation", "phase",
-                # Gate Profile keys (ADR-047)
-                "intake_classification", "intake_confirmation", "artifact_type", "audience",
-                "intake_gate_phase",
-            ]:
-                if key in result.metadata:
-                    intake_metadata[key] = result.metadata[key]
+            from app.domain.workflow.result_handling import extract_metadata_by_keys, INTAKE_METADATA_KEYS, should_pause_for_intake_review
+
+            intake_metadata = extract_metadata_by_keys(result.metadata, INTAKE_METADATA_KEYS)
             if intake_metadata:
                 state.update_context_state(intake_metadata)
                 logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
-            
+
             # Legacy INTAKE_GATE: Pause for user review if phase is "review"
             # Gate Profile nodes (GATE with internals) handle their own pausing via Entry
-            # so this only applies to legacy intake_gate nodes
-            if current_node.type == NodeType.INTAKE_GATE:
-                current_phase = state.context_state.get("phase")
-                if result.metadata.get("phase") == "review" and current_phase != "generating":
+            if should_pause_for_intake_review(
+                current_node.type == NodeType.INTAKE_GATE,
+                result.metadata.get("phase"),
+                state.context_state.get("phase"),
+            ):
                     # Advance to next node BEFORE pausing (so resume starts at generation, not intake)
                     router = EdgeRouter(plan)
                     next_node_id, _ = router.get_next_node(
@@ -1081,85 +1104,18 @@ class PlanExecutor:
 
     def _extract_qa_feedback(self, result: NodeResult) -> Optional[Dict[str, Any]]:
         """Extract actionable QA feedback from failed result.
-        
-        Builds a structured feedback object that can be included in the
-        remediation context to help the LLM understand what went wrong.
-        
+
+        Delegates to result_handling.extract_qa_feedback pure function.
+
         Args:
             result: The failed QA NodeResult
-            
+
         Returns:
             Dict with issues, summary, and remediation hints, or None
         """
-        if not result.metadata:
-            return None
-            
-        feedback = {
-            "issues": [],
-            "summary": "",
-            "source": result.metadata.get("validation_source", "qa"),
-        }
-        
-        # Extract drift validation errors (ADR-042)
-        drift_errors = result.metadata.get("drift_errors", [])
-        for err in drift_errors:
-            feedback["issues"].append({
-                "type": "constraint_drift",
-                "check_id": err.get("check_id"),
-                "message": err.get("message"),
-                "remediation": err.get("remediation"),
-            })
-        
-        # Extract code-based validation errors
-        validation_errors = result.metadata.get("validation_errors", [])
-        for err in validation_errors:
-            feedback["issues"].append({
-                "type": "validation",
-                "check_id": err.get("check_id"),
-                "message": err.get("message"),
-            })
-        
-        # Extract LLM QA errors (list of strings or dicts)
-        qa_errors = result.metadata.get("errors", [])
-        for err in qa_errors:
-            if isinstance(err, dict):
-                feedback["issues"].append({
-                    "type": "llm_qa",
-                    "severity": err.get("severity", "error"),
-                    "section": err.get("section"),
-                    "message": err.get("message"),
-                })
-            elif isinstance(err, str):
-                feedback["issues"].append({
-                    "type": "llm_qa",
-                    "message": err,
-                })
+        from app.domain.workflow.result_handling import extract_qa_feedback
 
-        # Extract semantic QA findings (WS-SEMANTIC-QA-001)
-        semantic_report = result.metadata.get("semantic_qa_report")
-        if semantic_report:
-            for finding in semantic_report.get("findings", []):
-                if finding.get("severity") == "error":
-                    feedback["issues"].append({
-                        "type": "semantic_qa",
-                        "check_id": finding.get("code"),
-                        "constraint_id": finding.get("constraint_id"),
-                        "message": finding.get("message"),
-                        "remediation": finding.get("suggested_fix"),
-                        "evidence": finding.get("evidence_pointers", []),
-                    })
-
-        # Extract feedback summary
-        qa_feedback = result.metadata.get("feedback", {})
-        if isinstance(qa_feedback, dict):
-            feedback["summary"] = qa_feedback.get("llm_feedback", "")
-        elif isinstance(qa_feedback, str):
-            feedback["summary"] = qa_feedback
-        
-        if not feedback["issues"]:
-            return None
-            
-        return feedback
+        return extract_qa_feedback(result.metadata)
 
     def _find_generating_node(
         self,
@@ -1408,112 +1364,27 @@ class PlanExecutor:
             the `discovery_invariant_pinner` mechanical operation (ADR-047).
             This method is kept as a fallback and will be removed in a future release.
 
-        ADR-042 Fix #2: This runs AFTER generation, BEFORE QA.
-
-        Strategy: Build canonical pinned constraints from invariants, then
-        REMOVE any LLM-generated constraints that duplicate them. This ensures
-        consistent schema and no duplicates.
-
-        Args:
-            document: The produced document (will be copied, not mutated)
-            state: Workflow state containing pgc_invariants
-            
-        Returns:
-            Document with clean known_constraints (pinned + non-duplicate LLM)
+        Delegates to pure function pin_invariants_to_constraints() for testability.
         """
-        import copy
-        
-        invariants = state.context_state.get("pgc_invariants", [])
-        if not invariants:
-            return document
-        
-        # Work on a copy to avoid mutating the original
-        pinned = copy.deepcopy(document)
-        
-        # Get existing LLM-generated constraints
-        llm_constraints = pinned.get("known_constraints", [])
-        if not isinstance(llm_constraints, list):
-            llm_constraints = []
-        
-        # Build canonical pinned constraints from invariants
-        pinned_constraints = []
-        pinned_keywords = set()  # Keywords to check for duplicates
-        
-        for inv in invariants:
-            constraint_id = inv.get("id", "UNKNOWN")
-            answer_label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
-            
-            if not answer_label:
-                continue
-            
-            # Use normalized_text if available, otherwise clean format
-            normalized = inv.get("normalized_text")
-            constraint_text = normalized if normalized else answer_label
-            
-            # Add as structured constraint with clean text
-            pinned_constraints.append({
-                "text": constraint_text,
-                "source": "user_clarification",
-                "constraint_id": constraint_id,
-                "binding": True,
-            })
-            
-            # Build keywords for duplicate detection
-            # Include answer label words, normalized text words, and constraint ID
-            for word in answer_label.lower().split():
-                if len(word) > 3:  # Skip short words
-                    pinned_keywords.add(word)
-            if normalized:
-                for word in normalized.lower().split():
-                    if len(word) > 3:
-                        pinned_keywords.add(word)
-            # Add constraint ID parts (e.g., PLATFORM -> platform, TARGET -> target)
-            for part in constraint_id.split("_"):
-                if len(part) > 2:
-                    pinned_keywords.add(part.lower())
-        
-        def _is_duplicate_of_pinned(constraint: Any) -> bool:
-            """Check if LLM constraint duplicates a pinned constraint."""
-            # Extract text from constraint
-            if isinstance(constraint, str):
-                text = constraint.lower()
-            elif isinstance(constraint, dict):
-                # Check multiple fields where the constraint might be
-                text = " ".join([
-                    str(constraint.get("text", "")),
-                    str(constraint.get("constraint", "")),
-                    str(constraint.get("description", "")),
-                ]).lower()
-            else:
-                return False
-            
-            # Count how many pinned keywords appear in this constraint
-            matches = sum(1 for kw in pinned_keywords if kw in text)
-            
-            # If 2+ keyword matches, likely a duplicate
-            return matches >= 2
-        
-        # Filter out LLM constraints that duplicate pinned ones
-        filtered_llm = []
-        removed_count = 0
-        for kc in llm_constraints:
-            if _is_duplicate_of_pinned(kc):
-                removed_count += 1
-                logger.debug(f"ADR-042: Removed duplicate LLM constraint: {kc}")
-            else:
-                filtered_llm.append(kc)
-        
-        # Final list: pinned constraints first, then filtered LLM constraints
-        final_constraints = pinned_constraints + filtered_llm
-        pinned["known_constraints"] = final_constraints
-        
-        logger.info(
-            f"ADR-042: Pinned {len(pinned_constraints)} binding invariants, "
-            f"removed {removed_count} duplicates, kept {len(filtered_llm)} LLM constraints "
-            f"(total: {len(final_constraints)})"
+        from app.domain.workflow.constraint_matching import (
+            pin_invariants_to_constraints,
         )
-        
-        return pinned
+
+        invariants = state.context_state.get("pgc_invariants", [])
+        result = pin_invariants_to_constraints(document, invariants)
+
+        # Log summary (I/O concern stays in the thin wrapper)
+        pinned_count = len(invariants)
+        orig_count = len(document.get("known_constraints", []))
+        final_count = len(result.get("known_constraints", []))
+        removed = pinned_count + orig_count - final_count
+        logger.info(
+            f"ADR-042: Pinned {pinned_count} binding invariants, "
+            f"removed {max(0, removed)} duplicates "
+            f"(total: {final_count})"
+        )
+
+        return result
 
     def _filter_excluded_topics(
         self,
@@ -1527,8 +1398,7 @@ class PlanExecutor:
             the `discovery_exclusion_filter` mechanical operation (ADR-047).
             This method is kept as a fallback and will be removed in a future release.
 
-        ADR-042: Mechanical post-processing to remove boilerplate content
-        that violates exclusion constraints. Runs after generation, before QA.
+        Delegates to apply_exclusion_filter pure function (WS-CRAP-001).
 
         Args:
             document: The produced document (will be copied, not mutated)
@@ -1537,96 +1407,14 @@ class PlanExecutor:
         Returns:
             Document with excluded topics filtered out
         """
-        import copy
-        import json
-        
+        from app.api.services.mech_handlers.exclusion_filter import apply_exclusion_filter
+
         invariants = state.context_state.get("pgc_invariants", [])
-        
-        # Get exclusion invariants with their canonical tags
-        exclusions = []
-        for inv in invariants:
-            if inv.get("invariant_kind") == "exclusion":
-                tags = inv.get("canonical_tags", [])
-                if tags:
-                    exclusions.append({
-                        "id": inv.get("id", "UNKNOWN"),
-                        "tags": [t.lower() for t in tags],
-                    })
-        
-        if not exclusions:
-            return document
-        
-        # Work on a copy
-        filtered = copy.deepcopy(document)
-        removed_count = 0
-        
-        # Filter recommendations_for_pm
-        recommendations = filtered.get("recommendations_for_pm", [])
-        if recommendations:
-            original_count = len(recommendations)
-            filtered_recs = []
-            for rec in recommendations:
-                rec_text = rec.get("recommendation", "") if isinstance(rec, dict) else str(rec)
-                rec_lower = rec_text.lower()
-                
-                # Check if any exclusion tag is mentioned
-                should_remove = False
-                for excl in exclusions:
-                    for tag in excl["tags"]:
-                        if tag in rec_lower:
-                            logger.debug(f"ADR-042: Removing recommendation mentioning excluded '{tag}'")
-                            should_remove = True
-                            break
-                    if should_remove:
-                        break
-                
-                if not should_remove:
-                    filtered_recs.append(rec)
-            
-            filtered["recommendations_for_pm"] = filtered_recs
-            removed_count += original_count - len(filtered_recs)
-        
-        # Filter early_decision_points that overlap ANY binding invariant
-        # Decision points are for unresolved items - bound constraints are resolved
-        all_bindings = []
-        for inv in invariants:
-            tags = inv.get("canonical_tags", [])
-            if tags:
-                all_bindings.append({
-                    "id": inv.get("id", "UNKNOWN"),
-                    "tags": [t.lower() for t in tags],
-                    "kind": inv.get("invariant_kind", "requirement"),
-                })
-        
-        decision_points = filtered.get("early_decision_points", [])
-        if decision_points and all_bindings:
-            original_count = len(decision_points)
-            filtered_dps = []
-            for dp in decision_points:
-                dp_text = json.dumps(dp).lower() if isinstance(dp, dict) else str(dp).lower()
-                
-                should_remove = False
-                for binding in all_bindings:
-                    for tag in binding["tags"]:
-                        if tag in dp_text:
-                            logger.debug(
-                                f"ADR-042: Removing decision point overlapping bound "
-                                f"'{binding['id']}' ({binding['kind']})"
-                            )
-                            should_remove = True
-                            break
-                    if should_remove:
-                        break
-                
-                if not should_remove:
-                    filtered_dps.append(dp)
-            
-            filtered["early_decision_points"] = filtered_dps
-            removed_count += original_count - len(filtered_dps)
-        
+        filtered, removed_count = apply_exclusion_filter(document, invariants)
+
         if removed_count > 0:
             logger.info(f"ADR-042: Filtered {removed_count} items mentioning excluded topics")
-        
+
         return filtered
 
     def _promote_pgc_invariants_to_document(
@@ -1818,78 +1606,67 @@ class PlanExecutor:
         """Persist produced documents to the documents table.
 
         Called on successful workflow completion (stabilized).
-        Saves the primary output document to the database.
-
-        System-owned fields (meta.created_at, meta.artifact_id) are
-        overwritten with system values - LLM must not mint these.
-
-        Args:
-            state: The completed workflow state
-            plan: The workflow plan
+        Delegates pure data assembly to document_assembly module.
         """
         if not self._db_session:
             logger.warning("No db_session - skipping document persistence")
             return
 
-        # Import here to avoid circular dependencies
         from app.api.models.document import Document
         from uuid import UUID
-        import copy
+        from app.domain.workflow.document_assembly import (
+            enforce_system_meta,
+            derive_document_title,
+            promote_pgc_invariants_to_document,
+            embed_pgc_clarifications,
+        )
 
-        # Find the primary produced document (e.g., document_project_discovery)
         doc_key = f"document_{state.document_type}"
         produced_doc = state.context_state.get(doc_key)
-        
+
         if not produced_doc:
             logger.warning(f"No produced document found at {doc_key}")
             return
 
         try:
-            # Deep copy to avoid mutating context_state
-            doc_content = copy.deepcopy(produced_doc)
-            
-            # Enforce system-owned meta fields
-            if "meta" not in doc_content:
-                doc_content["meta"] = {}
-            
-            meta = doc_content["meta"]
-            
-            # Log if LLM minted values that differ from system values
-            llm_created_at = meta.get("created_at")
-            llm_artifact_id = meta.get("artifact_id")
-            
-            # System-owned: created_at = now
-            system_created_at = datetime.utcnow().isoformat() + "Z"
-            if llm_created_at and llm_created_at != system_created_at:
-                logger.warning(
-                    f"LLM minted meta.created_at={llm_created_at}, "
-                    f"overwriting with system value"
+            # Pure: enforce system-owned meta fields
+            doc_content, meta_warnings = enforce_system_meta(
+                produced_doc,
+                execution_id=state.execution_id,
+                document_type=state.document_type,
+                workflow_id=state.workflow_id,
+            )
+            for w in meta_warnings:
+                logger.warning(w)
+
+            system_artifact_id = doc_content["meta"]["artifact_id"]
+
+            # Pure: promote PGC invariants into document structure (ADR-042)
+            context_invariants = state.context_state.get("pgc_invariants", [])
+            inv_result = promote_pgc_invariants_to_document(
+                doc_content,
+                context_invariants,
+                derive_domain_fn=self._derive_constraint_domain,
+                build_statement_fn=self._build_invariant_statement,
+            )
+            if inv_result:
+                logger.info(
+                    f"ADR-042: Promoted {len(inv_result)} PGC invariants to document structure"
                 )
-            meta["created_at"] = system_created_at
-            
-            # System-owned: artifact_id = execution_id based
-            system_artifact_id = f"{state.document_type.upper()}-{state.execution_id}"
-            if llm_artifact_id and llm_artifact_id != system_artifact_id:
-                logger.warning(
-                    f"LLM minted meta.artifact_id={llm_artifact_id}, "
-                    f"overwriting with system value"
+
+            # Pure: embed PGC clarifications for traceability
+            clarifications = state.context_state.get("pgc_clarifications", [])
+            embedded = embed_pgc_clarifications(doc_content, clarifications)
+            if embedded:
+                logger.info(
+                    f"Embedded {len(embedded)} PGC clarifications in document"
                 )
-            meta["artifact_id"] = system_artifact_id
-            
-            # Add provenance: correlation_id links to execution
-            meta["correlation_id"] = state.execution_id
-            meta["workflow_id"] = state.workflow_id
 
-            # ADR-042: Promote PGC invariants into document structure
-            self._promote_pgc_invariants_to_document(doc_content, state)
-
-            # Embed PGC clarifications (questions + answers) for traceability
-            self._embed_pgc_clarifications(doc_content, state)
-
-            # Derive a meaningful title for the document
+            # Derive title -- may need DB lookups for fallback
             doc_title = doc_content.get("title") or doc_content.get("project_name")
+            project_name = None
+            doc_type_name = None
             if not doc_title:
-                # Look up project name and document type display name
                 from app.api.models.project import Project as ProjectModel
                 from app.api.models.document_type import DocumentType as DocTypeModel
                 proj_result = await self._db_session.execute(
@@ -1904,16 +1681,15 @@ class PlanExecutor:
                     )
                 )
                 doc_type_name = dt_result.scalar_one_or_none()
-                if project_name and doc_type_name:
-                    doc_title = f"{project_name}: {doc_type_name}"
-                elif project_name:
-                    doc_title = project_name
-                elif doc_type_name:
-                    doc_title = doc_type_name
-                else:
-                    doc_title = state.document_type.replace("_", " ").title()
 
-            # Create the document record
+            doc_title = derive_document_title(
+                doc_content,
+                state.document_type,
+                project_name=project_name,
+                doc_type_display_name=doc_type_name,
+            )
+
+            # Create the document record (I/O)
             document = Document(
                 space_type="project",
                 space_id=UUID(state.project_id),
@@ -1923,7 +1699,7 @@ class PlanExecutor:
                 version=1,
                 is_latest=True,
                 status="draft",
-                created_by=None,  # System-generated
+                created_by=None,
             )
             document.update_revision_hash()
 
@@ -1931,7 +1707,6 @@ class PlanExecutor:
             await self._db_session.commit()
 
             # Update context_state with system-corrected document
-            # so API responses show corrected values
             doc_key = f"document_{state.document_type}"
             state.context_state[doc_key] = doc_content
             await self._persistence.save(state)

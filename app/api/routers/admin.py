@@ -493,15 +493,15 @@ async def list_workflows():
                             "task_ref": node.task_ref,
                             "includes": list(node.includes.keys()),
                         })
-                except:
+                except Exception:
                     pass
-            
+
             if assembler_nodes:
                 result.append({
                     "workflow_id": wf_id,
                     "nodes_with_includes": assembler_nodes,
                 })
-        except:
+        except Exception:
             pass
     
     return {"workflows": result}

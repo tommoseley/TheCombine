@@ -24,13 +24,10 @@ Route Structure:
 """
 
 import logging
+
 from fastapi import APIRouter
 
-from app.core.config import ENABLE_DEBUG_ROUTES, USE_WORKFLOW_ENGINE_LLM
-
-logger = logging.getLogger(__name__)
-
-# Public routes
+from app.core.config import ENABLE_DEBUG_ROUTES, USE_WORKFLOW_ENGINE_LLM as USE_WORKFLOW_ENGINE_LLM
 from .public.home_routes import router as home_router
 from .public.project_routes import router as project_router
 from .public.document_routes import router as document_router  # DEPRECATED
@@ -39,6 +36,8 @@ from .public.search_routes import router as search_router
 from .public.concierge_routes import router as concierge_router  # WS-CONCIERGE-001
 from .public.intake_workflow_routes import router as intake_workflow_router  # WS-ADR-025
 from .public.workflow_build_routes import router as workflow_build_router  # WS-PGC-UX-001
+
+logger = logging.getLogger(__name__)
 
 # Create main router WITHOUT prefix - routes at root level
 router = APIRouter(tags=["web-ui"])

@@ -19,7 +19,7 @@ FLOOR_JSX = SPA_SRC / "components" / "Floor.jsx"
 DOC_NODE_JSX = SPA_SRC / "components" / "DocumentNode.jsx"
 PIPELINE_RAIL_JSX = SPA_SRC / "components" / "PipelineRail.jsx"
 CONTENT_PANEL_JSX = SPA_SRC / "components" / "ContentPanel.jsx"
-WORK_BINDER_JSX = SPA_SRC / "components" / "WorkBinder.jsx"
+WORK_BINDER_DIR = SPA_SRC / "components" / "WorkBinder"
 FULL_VIEWER_JSX = SPA_SRC / "components" / "FullDocumentViewer.jsx"
 API_CLIENT_JS = SPA_SRC / "api" / "client.js"
 PROJECTS_ROUTER_PY = (
@@ -29,6 +29,11 @@ PROJECTS_ROUTER_PY = (
 
 def _read(path: Path) -> str:
     return path.read_text()
+
+
+def _read_dir(dir_path: Path) -> str:
+    """Read all .jsx files in a directory and concatenate."""
+    return "\n".join(p.read_text() for p in sorted(dir_path.glob("*.jsx")))
 
 
 # ===================================================================
@@ -161,42 +166,42 @@ class TestContentPanel:
 class TestWorkBinder:
     """Criteria 13-18: WorkBinder manages WPs and WSs."""
 
-    def test_13_work_binder_renders_candidate_wps(self):
-        """C13: WorkBinder renders candidate WPs section (from IP)."""
-        src = _read(WORK_BINDER_JSX)
-        assert "candidateWPs" in src or "candidate_work_packages" in src
-        assert "Candidate Work Packages" in src
+    def test_13_work_binder_renders_candidate_lineage(self):
+        """C13: WorkBinder renders source candidate lineage (from IP)."""
+        src = _read_dir(WORK_BINDER_DIR)
+        assert "source_candidate_ids" in src or "candidates" in src
+        assert "Source Lineage" in src
 
-    def test_14_work_binder_renders_governed_wps(self):
-        """C14: WorkBinder renders governed WPs section."""
-        src = _read(WORK_BINDER_JSX)
-        assert "governedWPs" in src
-        assert "Governed Work Packages" in src
+    def test_14_work_binder_renders_wp_index(self):
+        """C14: WorkBinder renders WP index with package list."""
+        src = _read_dir(WORK_BINDER_DIR)
+        assert "wps" in src
+        assert "PACKAGES" in src
 
     def test_15_create_work_packages_button(self):
-        """C15: 'Create Work Packages' button exists and calls backend."""
-        src = _read(WORK_BINDER_JSX)
-        assert "Create Work Packages" in src
-        assert "generateWorkPackages" in src
+        """C15: 'Insert Package' button exists and calls backend."""
+        src = _read_dir(WORK_BINDER_DIR)
+        assert "INSERT PACKAGE" in src or "CREATE PACKAGE" in src
+        assert "onInsertPackage" in src
 
     def test_16_governed_wp_rows_show_id_title_state(self):
         """C16: Governed WP rows show: WP ID, Title, State."""
-        src = _read(WORK_BINDER_JSX)
+        src = _read_dir(WORK_BINDER_DIR)
         assert "wp_id" in src or "wp.id" in src
         assert "wp.title" in src or "wp.name" in src
         assert "StateDot" in src or "state" in src
 
-    def test_17_create_work_statements_button_per_wp(self):
-        """C17: 'Create Work Statements' button exists per governed WP."""
-        src = _read(WORK_BINDER_JSX)
-        assert "Create Work Statements" in src
-        assert "generateWorkStatements" in src
+    def test_17_create_work_statements_inline(self):
+        """C17: Work statement creation exists via ghost row in WorkView."""
+        src = _read_dir(WORK_BINDER_DIR)
+        assert "CREATE STATEMENT" in src or "ENTER INTENT" in src
+        assert "work-statements" in src
 
     def test_18_wp_provenance_stamping(self):
-        """C18: WP creation stamps provenance (source_ip_version, generated_by)."""
-        src = _read(WORK_BINDER_JSX)
+        """C18: WP displays provenance (source, authorization)."""
+        src = _read_dir(WORK_BINDER_DIR)
         assert "provenance" in src
-        assert "source_ip_version" in src
+        assert "SOURCE:" in src or "provenance.source" in src
 
 
 # ===================================================================
@@ -209,9 +214,10 @@ class TestThemeSupport:
 
     def test_19_components_use_css_variables(self):
         """C19: Rail and content panel respect theme CSS variables."""
-        for path in [CONTENT_PANEL_JSX, WORK_BINDER_JSX]:
-            src = _read(path)
-            assert "var(--" in src, f"{path.name} does not use CSS variables"
+        src = _read(CONTENT_PANEL_JSX)
+        assert "var(--" in src, "ContentPanel.jsx does not use CSS variables"
+        wb_src = _read_dir(WORK_BINDER_DIR)
+        assert "var(--" in wb_src, "WorkBinder does not use CSS variables"
 
     def test_20_floor_uses_theme_prop(self):
         """C20: Floor passes theme through and all three themes are supported."""

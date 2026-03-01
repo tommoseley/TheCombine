@@ -341,17 +341,22 @@ class WorkflowValidator:
                         path=f"{path}.iterate_over.doc_type",
                     ))
                 else:
-                    # Check doc_type has the collection_field
                     doc_config = doc_types[doc_type]
-                    if doc_config.get("collection_field") != collection_field:
+                    # collection_field is a runtime content property, not
+                    # a static doc_type config field — only validate that
+                    # one was specified (non-empty).
+                    if not collection_field:
                         errors.append(ValidationError(
                             code=ValidationErrorCode.MISSING_ITERATION_SOURCE,
-                            message=f"Document type '{doc_type}' does not have collection_field '{collection_field}'",
+                            message=f"Iteration on '{doc_type}' missing collection_field",
                             path=f"{path}.iterate_over.collection_field",
                         ))
-                    
-                    # Check entity_type is in may_own
-                    if entity_type not in doc_config.get("may_own", []):
+
+                    # Check entity_type is in may_own (skip for self-type
+                    # iteration where doc_type == entity_type, e.g.
+                    # iterating over all work_package entities).
+                    if (entity_type != doc_type
+                            and entity_type not in doc_config.get("may_own", [])):
                         errors.append(ValidationError(
                             code=ValidationErrorCode.MISSING_ITERATION_SOURCE,
                             message=f"Document type '{doc_type}' does not own entity type '{entity_type}'",

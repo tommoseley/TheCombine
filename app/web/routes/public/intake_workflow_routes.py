@@ -37,6 +37,13 @@ from app.api.services.project_creation_service import (
     create_project_from_intake,
     extract_intake_document_from_state,
 )
+from app.web.routes.public.intake_pure import (
+    assemble_completion_data,
+    clean_problem_statement,
+    extract_messages_from_node_history,
+    get_outcome_display,
+    insert_context_state_user_input,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -489,45 +496,18 @@ async def get_intake_status(
 
 
 def _build_template_context(request: Request, state) -> dict:
-    """Build template context from workflow state."""
-    # Extract conversation history from node history metadata
-    # Exclude the last response if paused, since it's shown via pending_user_input_rendered
-    messages = []
+    """Build template context from workflow state.
+
+    Delegates message extraction and outcome display to intake_pure module.
+    """
     node_history = list(state.node_history)
 
-    for i, execution in enumerate(node_history):
-        if execution.metadata.get("user_input"):
-            messages.append({
-                "role": "user",
-                "content": execution.metadata["user_input"],
-            })
-        # Check for response OR user_prompt (clarification questions)
-        response = execution.metadata.get("response") or execution.metadata.get("user_prompt")
-        if response:
-            # Skip the last response if we're paused - it's shown via pending_user_input_rendered
-            is_last = (i == len(node_history) - 1)
-            if is_last and state.pending_user_input_rendered:
-                continue
-            messages.append({
-                "role": "assistant",
-                "content": response,
-            })
-    
-    # Fallback: include user_input from context_state if no user messages found
-    # This captures the original user input that may not be in node metadata
+    # Extract messages via pure functions
+    messages = extract_messages_from_node_history(
+        node_history, state.pending_user_input_rendered
+    )
     user_input = state.context_state.get("user_input")
-    if user_input and not any(m.get("content") == user_input for m in messages if m["role"] == "user"):
-        # Insert after any initial assistant messages (prompts), before completion
-        insert_idx = 0
-        for idx, m in enumerate(messages):
-            if m["role"] == "assistant":
-                insert_idx = idx + 1
-            else:
-                break
-        messages.insert(insert_idx, {
-            "role": "user",
-            "content": user_input,
-        })
+    insert_context_state_user_input(messages, user_input)
 
     is_completed = state.status == DocumentWorkflowStatus.COMPLETED
 
@@ -552,46 +532,7 @@ def _build_template_context(request: Request, state) -> dict:
 
     # Add completion display info if completed
     if is_completed:
-        outcome_display = {
-            "qualified": {
-                "title": "Project Qualified",
-                "description": "Your project has been qualified and is ready for PM Discovery.",
-                "color": "green",
-                "next_action": "View Discovery Document",
-            },
-            "not_ready": {
-                "title": "Not Ready",
-                "description": "Additional information is needed before proceeding.",
-                "color": "yellow",
-                "next_action": "Start Over",
-            },
-            "out_of_scope": {
-                "title": "Out of Scope",
-                "description": "This request is outside the scope of The Combine.",
-                "color": "gray",
-                "next_action": None,
-            },
-            "redirect": {
-                "title": "Redirected",
-                "description": "This request has been redirected to a different engagement type.",
-                "color": "blue",
-                "next_action": None,
-            },
-            "blocked": {
-                "title": "Blocked",
-                "description": "The workflow could not complete due to validation issues.",
-                "color": "yellow",
-                "next_action": "Start Over",
-            },
-        }
-
-        outcome_info = outcome_display.get(state.terminal_outcome or state.gate_outcome, {
-            "title": "Complete",
-            "description": "The intake workflow has completed.",
-            "color": "gray",
-            "next_action": None,
-        })
-
+        outcome_info = get_outcome_display(state.terminal_outcome or state.gate_outcome)
         context.update({
             "outcome_title": outcome_info["title"],
             "outcome_description": outcome_info["description"],
@@ -603,7 +544,7 @@ def _build_template_context(request: Request, state) -> dict:
     interpretation = state.context_state.get("interpretation", {})
     phase = state.context_state.get("phase", "describe")
     confidence = calculate_confidence(interpretation)
-    
+
     context.update({
         "interpretation": interpretation,
         "intent_canon": state.context_state.get("intent_canon"),  # Immutable original
@@ -613,7 +554,7 @@ def _build_template_context(request: Request, state) -> dict:
         "missing_fields": get_missing_fields(interpretation),
         "can_initialize": confidence >= 1.0,
     })
-    
+
     return context
 
 
@@ -673,37 +614,10 @@ def _build_message_context(request: Request, state, user_message: str) -> dict:
 
 def _clean_problem_statement(text: str) -> str:
     """Mechanically strip 'The user wants to...' style prefixes from summary.description.
-    
-    This is a deterministic transformation, not LLM-based.
+
+    Delegates to intake_pure.clean_problem_statement.
     """
-    if not text:
-        return ""
-    
-    # Common prefixes to strip (case-insensitive matching)
-    prefixes_to_strip = [
-        "The user wants to ",
-        "The user wants ",
-        "User wants to ",
-        "User wants ",
-        "The user is requesting ",
-        "The user would like to ",
-        "The user needs to ",
-        "The user needs ",
-        "This request is for ",
-        "This is a request for ",
-        "The request is to ",
-    ]
-    
-    result = text.strip()
-    for prefix in prefixes_to_strip:
-        if result.lower().startswith(prefix.lower()):
-            result = result[len(prefix):]
-            # Capitalize first letter after stripping
-            if result:
-                result = result[0].upper() + result[1:]
-            break
-    
-    return result
+    return clean_problem_statement(text)
 
 async def _build_completion_context(
     request: Request,
@@ -714,11 +628,12 @@ async def _build_completion_context(
     """Build context for completion state.
 
     If gate_outcome is 'qualified', creates a Project record via service.
+    Pure data assembly delegated to intake_pure.assemble_completion_data.
     """
     project = None
     project_url = None
 
-    # Create project if qualified
+    # Create project if qualified (I/O)
     if state.gate_outcome == "qualified":
         try:
             intake_doc = extract_intake_document_from_state(state)
@@ -735,90 +650,21 @@ async def _build_completion_context(
                 logger.warning("No intake document found in workflow state for project creation")
         except Exception as e:
             logger.exception(f"Failed to create project: {e}")
-    
-    outcome_display = {
-        "qualified": {
-            "title": "Project Created" if project else "Project Qualified",
-            "description": f"Project {project.project_id} is ready for PM Discovery." if project else "Your project has been qualified and is ready for PM Discovery.",
-            "color": "green",
-            "next_action": "View Project" if project else "View Discovery Document",
-        },
-        "not_ready": {
-            "title": "Not Ready",
-            "description": "Additional information is needed before proceeding.",
-            "color": "yellow",
-            "next_action": "Start Over",
-        },
-        "out_of_scope": {
-            "title": "Out of Scope",
-            "description": "This request is outside the scope of The Combine.",
-            "color": "gray",
-            "next_action": None,
-        },
-        "redirect": {
-            "title": "Redirected",
-            "description": "This request has been redirected to a different engagement type.",
-            "color": "blue",
-            "next_action": None,
-        },
-    }
 
-    outcome_info = outcome_display.get(state.gate_outcome, {
-        "title": "Complete",
-        "description": "The intake workflow has completed.",
-        "color": "gray",
-        "next_action": None,
-    })
-
-    # Get intake document for detailed display
-    context_state = state.context_state or {}
-    intake_doc = (
-        context_state.get("document_concierge_intake_document") or
-        context_state.get("last_produced_document") or
-        context_state.get("concierge_intake_document") or
-        {}
+    # Delegate pure data assembly
+    context = assemble_completion_data(
+        gate_outcome=state.gate_outcome,
+        terminal_outcome=state.terminal_outcome,
+        context_state=state.context_state or {},
+        project_id=project.project_id if project else None,
+        project_name=project.name if project else None,
+        project_url=project_url,
+        has_project=project is not None,
+        execution_id=state.execution_id,
     )
-    interpretation = context_state.get("interpretation", {})
-    
-    # Extract and clean problem statement from summary.description
-    summary = intake_doc.get("summary", {})
-    raw_description = summary.get("description", "") if isinstance(summary, dict) else ""
-    problem_statement = _clean_problem_statement(raw_description)
-    
-    return {
-        "request": request,
-        "execution_id": state.execution_id,
-        "gate_outcome": state.gate_outcome,
-        "project": project,
-        "project_id": project.project_id if project else None,
-        "project_name": intake_doc.get("project_name") or (project.name if project else None),
-        "project_url": project_url,
-        "terminal_outcome": state.terminal_outcome,
-        "outcome_title": outcome_info["title"],
-        "outcome_description": outcome_info["description"],
-        "outcome_color": outcome_info["color"],
-        "next_action": outcome_info["next_action"],
-        # Problem statement: cleaned summary.description (no "The user wants..." prefix)
-        "problem_statement": problem_statement,
-        # Constraints: explicit only (inferred are internal scaffolding)
-        "constraints_explicit": (
-            intake_doc.get("constraints", {}).get("explicit", [])
-            if isinstance(intake_doc.get("constraints"), dict)
-            else intake_doc.get("constraints", [])
-        ),
-        # Project type category
-        "project_type": (
-            intake_doc.get("project_type", {}).get("category", "unknown")
-            if isinstance(intake_doc.get("project_type"), dict)
-            else intake_doc.get("project_type", "unknown")
-        ),
-        "routing_rationale": intake_doc.get("routing_rationale", ""),
-        "interpretation": interpretation,
-        # Required for template conditionals
-        "is_completed": True,
-        "is_paused": False,
-        "pending_user_input_rendered": None,
-        "pending_choices": None,
-        "escalation_active": False,
-        "phase": "complete",
-    }
+
+    # Add request and project (non-pure, template-specific)
+    context["request"] = request
+    context["project"] = project
+
+    return context

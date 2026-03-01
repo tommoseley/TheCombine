@@ -9,7 +9,6 @@ Provides RESTful API for project management:
 """
 
 import copy
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -845,27 +844,10 @@ async def get_document_render_model(
                 response_dict["information_architecture"] = _package.information_architecture
 
     # Unwrap document content if stored in raw envelope format
-    # Some documents are stored as {"raw": true, "content": "```json\n{...}\n```"}
-    # instead of the direct JSON structure
-    document_data = document.content
-    if isinstance(document_data, dict) and document_data.get("raw") and "content" in document_data:
-        raw_content = document_data["content"]
-        if isinstance(raw_content, str):
-            cleaned = raw_content.strip()
-            # Strip markdown code fences if present
-            if cleaned.startswith("```"):
-                cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned[:-3].strip()
-            try:
-                document_data = json.loads(cleaned)
-            except json.JSONDecodeError:
-                # LLM output may be truncated - try to repair by closing open structures
-                repaired = _repair_truncated_json(cleaned)
-                if repaired:
-                    document_data = repaired
-                else:
-                    logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
+    from app.api.v1.services.render_pure import unwrap_raw_envelope
+    document_data = unwrap_raw_envelope(document.content)
+    if document_data is document.content and isinstance(document_data, dict) and document_data.get("raw"):
+        logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
 
     # Apply handler transform at render time (computed fields like associated_risks)
     if isinstance(document_data, dict):
@@ -902,31 +884,9 @@ async def get_document_render_model(
         return result
 
     # Normalize LLM output keys to match docdef source pointers
-    # LLM may produce alternate key names; docdef uses canonical forms
     if isinstance(document_data, dict):
-        # data_models (LLM) -> data_model (docdef repeat_over)
-        if "data_models" in document_data and "data_model" not in document_data:
-            document_data["data_model"] = document_data["data_models"]
-        # api_interfaces (LLM) -> interfaces (docdef repeat_over)
-        if "api_interfaces" in document_data and "interfaces" not in document_data:
-            document_data["interfaces"] = document_data["api_interfaces"]
-        # risks (LLM schema) -> identified_risks (docdef source_pointer)
-        if "risks" in document_data and "identified_risks" not in document_data:
-            document_data["identified_risks"] = document_data["risks"]
-        # quality_attributes: flatten object-of-arrays to array-of-objects
-        qa = document_data.get("quality_attributes")
-        if isinstance(qa, dict) and not isinstance(qa, list):
-            # Convert {"performance": ["...", ...], "security": ["...", ...]}
-            # to [{"name": "Performance", "acceptance_criteria": ["...", ...]}, ...]
-            flattened = []
-            for category, items in qa.items():
-                if isinstance(items, list):
-                    flattened.append({
-                        "name": category.replace("_", " ").title(),
-                        "acceptance_criteria": items,
-                    })
-            if flattened:
-                document_data["quality_attributes"] = flattened
+        from app.api.v1.services.render_pure import normalize_document_keys
+        normalize_document_keys(document_data)
 
     # Build the RenderModel
     try:
@@ -940,20 +900,9 @@ async def get_document_render_model(
             schema_service=schema_service,
         )
 
-        # Determine best title - prefer document data over raw doc_type_id fallbacks
-        display_title = document.title
-        if not display_title or "_" in display_title:
-            # Try to extract title from document data
-            if isinstance(document_data, dict):
-                # Check common locations for a human-readable title
-                display_title = (
-                    document_data.get("title")
-                    or (document_data.get("architecture_summary") or {}).get("title")
-                    or display_title
-                )
-            # If still contains underscores, humanize
-            if display_title and "_" in display_title:
-                display_title = display_title.replace("_", " ").replace(" Document", "").title()
+        # Determine best title
+        from app.api.v1.services.render_pure import resolve_display_title
+        display_title = resolve_display_title(document.title, document_data)
 
         render_model = await builder.build(
             document_def_id=view_docdef,
@@ -1087,174 +1036,27 @@ async def get_document_pgc_context(
 
 
 def _repair_truncated_json(text: str) -> Optional[Dict[str, Any]]:
-    """Attempt to repair truncated JSON from LLM output.
-
-    LLM outputs may be cut off mid-structure when hitting token limits.
-    This tries to close any open brackets/braces to make the JSON parseable,
-    so the RenderModel can at least display the sections that were completed.
-    """
-    # Track open delimiters (ignoring those inside strings)
-    stack = []
-    in_string = False
-    escape = False
-
-    for ch in text:
-        if escape:
-            escape = False
-            continue
-        if ch == '\\' and in_string:
-            escape = True
-            continue
-        if ch == '"' and not escape:
-            in_string = not in_string
-            continue
-        if in_string:
-            continue
-        if ch in ('{', '['):
-            stack.append(ch)
-        elif ch == '}' and stack and stack[-1] == '{':
-            stack.pop()
-        elif ch == ']' and stack and stack[-1] == '[':
-            stack.pop()
-
-    if not stack:
-        return None  # Nothing to repair or empty
-
-    # Build closing sequence
-    # First, ensure we're not in the middle of a string or value
-    # Trim back to the last complete value (comma or colon boundary)
-    trimmed = text.rstrip()
-    # Remove trailing comma if present
-    if trimmed.endswith(','):
-        trimmed = trimmed[:-1]
-
-    # Close open structures in reverse order
-    closers = {'[': ']', '{': '}'}
-    suffix = ''.join(closers.get(c, '') for c in reversed(stack))
-
-    try:
-        return json.loads(trimmed + suffix)
-    except json.JSONDecodeError:
-        # Try more aggressive trimming - remove last incomplete key-value
-        lines = trimmed.rsplit('\n', 1)
-        if len(lines) > 1:
-            try:
-                trimmed2 = lines[0].rstrip().rstrip(',')
-                return json.loads(trimmed2 + suffix)
-            except json.JSONDecodeError:
-                pass
-        return None
+    """Attempt to repair truncated JSON from LLM output."""
+    from app.api.v1.services.render_pure import repair_truncated_json
+    return repair_truncated_json(text)
 
 
 def _build_pgc_from_answers_table(pgc_answer: PGCAnswer) -> List[Dict[str, Any]]:
     """Build clarifications from pgc_answers table (newer format)."""
-    questions = pgc_answer.questions or []
-    answers = pgc_answer.answers or {}
-
-    clarifications = []
-    for q in questions:
-        qid = q.get("id", "")
-        user_answer = answers.get(qid)
-        answer_label = _resolve_answer_label(q, user_answer)
-
-        clarifications.append({
-            "question_id": qid,
-            "question": q.get("text", ""),
-            "why_it_matters": q.get("why_it_matters"),
-            "answer": answer_label,
-            "binding": q.get("constraint_kind") in ("exclusion", "requirement") or q.get("priority") == "must",
-        })
-
-    return clarifications
+    from app.api.v1.services.pgc_pure import build_pgc_from_answers
+    return build_pgc_from_answers(pgc_answer.questions or [], pgc_answer.answers or {})
 
 
 def _build_pgc_from_context_state(context_state: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Build clarifications from workflow execution context_state (older format).
-
-    Checks multiple keys where PGC data may be stored:
-    - pgc_clarifications (newer context format)
-    - document_pgc_clarifications.* (older context format)
-    - pgc_questions + pgc_answers (raw data fallback)
-    """
-    # Try pgc_clarifications (newer context format, has full merged data)
-    pgc_clars = context_state.get("pgc_clarifications", [])
-    if pgc_clars:
-        return [
-            {
-                "question_id": c.get("id", ""),
-                "question": c.get("text", ""),
-                "why_it_matters": c.get("why_it_matters"),
-                "answer": c.get("user_answer_label") or str(c.get("user_answer", "")),
-                "binding": c.get("binding", False),
-            }
-            for c in pgc_clars
-            if c.get("resolved", True)
-        ]
-
-    # Try document_pgc_clarifications.* keys (older context format)
-    for key, value in context_state.items():
-        if key.startswith("document_pgc_clarifications.") and isinstance(value, dict):
-            clars = value.get("clarifications", [])
-            if clars:
-                # Older format has questions in pgc_questions with why_it_matters
-                questions_obj = context_state.get("pgc_questions", {})
-                questions_list = questions_obj.get("questions", [])
-                q_map = {q.get("id"): q for q in questions_list}
-
-                return [
-                    {
-                        "question_id": c.get("id", ""),
-                        "question": c.get("question", ""),
-                        "why_it_matters": c.get("why_it_matters") or q_map.get(c.get("id"), {}).get("why_it_matters"),
-                        "answer": _resolve_answer_label(
-                            q_map.get(c.get("id"), {}),
-                            c.get("answer"),
-                        ),
-                        "binding": c.get("priority") == "must" or c.get("binding", False),
-                    }
-                    for c in clars
-                ]
-
-    # Raw fallback: pgc_questions + pgc_answers
-    questions_obj = context_state.get("pgc_questions", {})
-    raw_answers = context_state.get("pgc_answers", {})
-    questions_list = questions_obj.get("questions", [])
-    if questions_list and raw_answers:
-        return [
-            {
-                "question_id": q.get("id", ""),
-                "question": q.get("text", ""),
-                "why_it_matters": q.get("why_it_matters"),
-                "answer": _resolve_answer_label(q, raw_answers.get(q.get("id"))),
-                "binding": q.get("constraint_kind") in ("exclusion", "requirement") or q.get("priority") == "must",
-            }
-            for q in questions_list
-        ]
-
-    return []
+    """Build clarifications from workflow execution context_state (older format)."""
+    from app.api.v1.services.pgc_pure import build_pgc_from_context_state
+    return build_pgc_from_context_state(context_state)
 
 
 def _resolve_answer_label(question: Dict[str, Any], user_answer: Any) -> Optional[str]:
     """Resolve human-readable answer label from question choices."""
-    if user_answer is None:
-        return None
-
-    answer_type = question.get("answer_type", "free_text")
-    choices = question.get("choices", [])
-
-    if answer_type == "single_choice" and choices:
-        for c in choices:
-            if (c.get("id") or c.get("value")) == user_answer:
-                return c.get("label", str(user_answer))
-    elif answer_type == "multi_choice" and choices and isinstance(user_answer, list):
-        choice_map = {(c.get("id") or c.get("value")): c.get("label") for c in choices}
-        return ", ".join(choice_map.get(s, str(s)) for s in user_answer)
-    elif answer_type == "yes_no" and isinstance(user_answer, bool):
-        return "Yes" if user_answer else "No"
-
-    if isinstance(user_answer, list):
-        return ", ".join(str(s) for s in user_answer)
-    return str(user_answer)
+    from app.api.v1.services.pgc_pure import resolve_answer_label
+    return resolve_answer_label(question, user_answer)
 
 
 # =============================================================================

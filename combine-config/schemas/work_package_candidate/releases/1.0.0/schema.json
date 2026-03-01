@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_package_candidate.v1.json",
+  "type": "object",
+  "title": "Work Package Candidate",
+  "description": "Frozen lineage artifact extracted from an Implementation Plan. Immutable after creation. Persists as governance provenance.",
+  "required": [
+    "wpc_id",
+    "title",
+    "rationale",
+    "scope_summary",
+    "source_ip_id",
+    "source_ip_version",
+    "frozen_at",
+    "frozen_by"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "wpc_id": {
+      "type": "string",
+      "description": "Deterministic ID (WPC-NNN).",
+      "pattern": "^WPC-\\d{1,4}$"
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "rationale": { "type": "string", "minLength": 1 },
+    "scope_summary": {
+      "type": "array",
+      "description": "Key scope items from IP candidate section.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "source_ip_id": {
+      "type": "string",
+      "description": "Document ID of the source Implementation Plan."
+    },
+    "source_ip_version": {
+      "type": "string",
+      "description": "Version/edition of the IP at freeze time."
+    },
+    "frozen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when candidate was frozen from IP."
+    },
+    "frozen_by": {
+      "type": "string",
+      "description": "Who/what performed the freeze (system or user ID)."
+    }
+  }
+}

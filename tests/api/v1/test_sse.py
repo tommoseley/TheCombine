@@ -58,7 +58,7 @@ class TestSSEFormatting:
         
         # Extract data line
         lines = result.strip().split("\n")
-        data_line = [l for l in lines if l.startswith("data: ")][0]
+        data_line = [line for line in lines if line.startswith("data: ")][0]
         json_str = data_line[6:]  # Remove "data: " prefix
         
         parsed = json.loads(json_str)

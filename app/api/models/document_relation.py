@@ -128,13 +128,13 @@ class DocumentRelation(Base):
     # RELATIONSHIPS
     # =========================================================================
     
-    from_document: Mapped["Document"] = relationship(
+    from_document: Mapped["Document"] = relationship(  # noqa: F821
         "Document",
         foreign_keys=[from_document_id],
         back_populates="outgoing_relations"
     )
-    
-    to_document: Mapped["Document"] = relationship(
+
+    to_document: Mapped["Document"] = relationship(  # noqa: F821
         "Document",
         foreign_keys=[to_document_id],
         back_populates="incoming_relations"

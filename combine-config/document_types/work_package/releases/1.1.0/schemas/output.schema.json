@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_package.v1.1.json",
+  "type": "object",
+  "title": "Work Package v1.1.0",
+  "description": "A governed unit of planned work with two-plane versioning, ws_index for structured ordering, and mechanical change tracking.",
+  "required": [
+    "wp_id",
+    "title",
+    "rationale",
+    "scope_in",
+    "scope_out",
+    "dependencies",
+    "definition_of_done",
+    "governance_pins"
+  ],
+  "properties": {
+    "wp_id": {
+      "type": "string",
+      "description": "Unique identifier (snake_case).",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_in": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope_out": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["wp_id", "dependency_type"],
+        "properties": {
+          "wp_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+          "dependency_type": { "type": "string", "enum": ["must_complete_first", "can_start_after", "soft"] },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "definition_of_done": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "governance_pins": {
+      "type": "object",
+      "required": ["ta_version_id"],
+      "properties": {
+        "ta_version_id": { "type": "string", "minLength": 1 },
+        "adr_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["PLANNED", "READY", "IN_PROGRESS", "AWAITING_GATE", "DONE"]
+    },
+    "ws_index": {
+      "type": "array",
+      "description": "Structured WS membership + ordering. WP-level field.",
+      "items": {
+        "type": "object",
+        "required": ["ws_id", "order_key"],
+        "properties": {
+          "ws_id": { "type": "string", "minLength": 1 },
+          "order_key": { "type": "string", "minLength": 1, "description": "Lexicographic key for ordering (e.g., a0, a1, b0)." }
+        },
+        "additionalProperties": false
+      }
+    },
+    "revision": {
+      "type": "object",
+      "description": "Edition tracking for two-plane versioning.",
+      "required": ["edition"],
+      "properties": {
+        "edition": { "type": "integer", "minimum": 1 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "updated_by": { "type": "string" }
+      }
+    },
+    "change_summary": {
+      "type": "array",
+      "description": "System-computed diff entries for this edition. Never human-narrated.",
+      "items": { "type": "string" }
+    },
+    "ws_child_refs": {
+      "type": "array",
+      "description": "LEGACY: retained for backward compat. Use ws_index for ordering.",
+      "items": { "type": "string" }
+    },
+    "ws_total": { "type": "integer", "minimum": 0 },
+    "ws_done": { "type": "integer", "minimum": 0 },
+    "mode_b_count": { "type": "integer", "minimum": 0 },
+    "source_candidate_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^WPC-\\d{1,4}$" }
+    },
+    "transformation": {
+      "type": "string",
+      "enum": ["kept", "split", "merged", "added"]
+    },
+    "transformation_notes": { "type": "string" },
+    "_lineage": {
+      "type": "object",
+      "properties": {
+        "parent_document_type": { "type": "string" },
+        "parent_execution_id": { "type": ["string", "null"] },
+        "source_candidate_ids": { "type": "array", "items": { "type": "string" } },
+        "transformation": { "type": "string" },
+        "transformation_notes": { "type": "string" }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "governance_pins": {
+        "properties": { "ta_version_id": { "const": "pending" } }
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "ws_index": { "maxItems": 0 }
+    }
+  }
+}

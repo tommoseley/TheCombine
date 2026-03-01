@@ -385,15 +385,12 @@ class TestConvertSemanticFindingsToFeedback:
 
 
 class TestBuildSemanticQAContext:
-    """Tests for _build_semantic_qa_context method."""
+    """Tests for build_semantic_qa_prompt (extracted to semantic_qa_pure)."""
 
-    @pytest.fixture
-    def executor(self):
-        return QANodeExecutor()
-
-    def test_builds_context_with_all_inputs(self, executor):
+    def test_builds_context_with_all_inputs(self):
         """Context should include all inputs properly formatted."""
-        # Build context
+        from app.domain.workflow.nodes.semantic_qa_pure import build_semantic_qa_prompt
+
         pgc_questions = [
             {"id": "Q1", "text": "Platform?", "priority": "must"},
         ]
@@ -403,12 +400,13 @@ class TestBuildSemanticQAContext:
         ]
         document = {"summary": "Test document"}
 
-        context = executor._build_semantic_qa_context(
+        context = build_semantic_qa_prompt(
             pgc_questions=pgc_questions,
             pgc_answers=pgc_answers,
             invariants=invariants,
             document=document,
             correlation_id="test-123",
+            policy_prompt="# Semantic QA Policy\nEvaluate constraints for compliance.",
         )
 
         # Check all sections are present

@@ -20,30 +20,114 @@ from app.api.services.mech_handlers.registry import register_handler
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Pure functions (extracted for testability — WS-CRAP-004)
+# ---------------------------------------------------------------------------
+
+def build_lineage(
+    lineage_config: dict,
+    parent_execution_id: str,
+    spawning_operation_id: str,
+) -> dict:
+    """Build lineage dict from config and parent context.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        lineage_config: Lineage configuration dict
+        parent_execution_id: Parent execution ID
+        spawning_operation_id: Spawning operation ID
+
+    Returns:
+        Lineage dict for spawn receipt
+    """
+    return {
+        "spawned_from_execution_id": parent_execution_id
+        if lineage_config.get("set_spawned_from_execution_id", True)
+        else None,
+        "spawned_by_operation_id": spawning_operation_id
+        if lineage_config.get("set_spawned_by_operation_id", True)
+        else None,
+        "spawned_by_step_name": "Spawn Follow-on POW",
+    }
+
+
+def collect_seed_inputs(
+    seed_inputs_config: list,
+    available_input_keys: set,
+) -> list:
+    """Collect seed inputs from config, filtering by available inputs.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        seed_inputs_config: List of seed input config dicts
+        available_input_keys: Set of available input reference keys
+
+    Returns:
+        List of seed input dicts with name and artifact_id
+    """
+    seed_inputs = []
+    for seed_input in seed_inputs_config:
+        artifact_id = seed_input.get("from_artifact_id")
+        name = seed_input.get("name", artifact_id)
+
+        if artifact_id and artifact_id in available_input_keys:
+            seed_inputs.append({
+                "name": name,
+                "artifact_id": artifact_id,
+            })
+    return seed_inputs
+
+
+def assemble_spawn_receipt(
+    next_pow_ref: str,
+    child_execution_id: str,
+    lineage: dict,
+    seed_inputs: list,
+    project_id: str = None,
+    write_project_event: bool = False,
+    spawned_at: str = None,
+) -> dict:
+    """Assemble a spawn receipt dict.
+
+    Pure function — no I/O, no side effects.
+
+    Args:
+        next_pow_ref: POW reference to spawn
+        child_execution_id: Generated child execution ID
+        lineage: Lineage dict from build_lineage()
+        seed_inputs: Seed inputs list from collect_seed_inputs()
+        project_id: Optional project ID
+        write_project_event: Whether project event was written
+        spawned_at: ISO timestamp (generated if not provided)
+
+    Returns:
+        Spawn receipt dict
+    """
+    return {
+        "schema_version": "spawn_receipt.v1",
+        "spawned_at": spawned_at or datetime.now(timezone.utc).isoformat(),
+        "child_execution_id": child_execution_id,
+        "child_pow_ref": next_pow_ref,
+        "lineage": lineage,
+        "seed_inputs": seed_inputs,
+        "project_id": project_id,
+        "project_event_written": write_project_event,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Handler class
+# ---------------------------------------------------------------------------
+
 @register_handler
 class SpawnerHandler(MechHandler):
-    """
-    Handler for spawner operations.
+    """Handler for spawner operations.
 
     Creates a new POW execution based on routing_decision and seeds it
     with artifacts from the parent execution. Returns a spawn_receipt
     with lineage pointers.
-
-    Config:
-        seed_inputs: List of artifacts to pass to spawned POW
-        write_project_event: Whether to write a project event
-        return_child_execution_id: Whether to include child ID in receipt
-        lineage: Lineage configuration
-            set_spawned_from_execution_id: Store parent execution ID
-            set_spawned_by_operation_id: Store spawning operation ID
-
-    Example config:
-        seed_inputs:
-          - name: intake_record
-            from_artifact_id: intake_record
-        lineage:
-          set_spawned_from_execution_id: true
-          set_spawned_by_operation_id: true
     """
 
     operation_type = "spawner"
@@ -53,18 +137,8 @@ class SpawnerHandler(MechHandler):
         config: Dict[str, Any],
         context: ExecutionContext,
     ) -> MechResult:
-        """
-        Execute the spawn operation.
-
-        Args:
-            config: Spawner configuration
-            context: Execution context with routing_decision and artifacts
-
-        Returns:
-            MechResult with spawn_receipt
-        """
+        """Execute the spawn operation."""
         try:
-            # Get routing decision to determine which POW to spawn
             routing_decision = None
             if context.has_input("routing_decision"):
                 routing_decision = context.get_input("routing_decision")
@@ -81,7 +155,6 @@ class SpawnerHandler(MechHandler):
                     error_code="invalid_input_type",
                 )
 
-            # Extract the POW to spawn
             decision = routing_decision.get("decision", {})
             next_pow_ref = decision.get("next_pow_ref")
 
@@ -91,65 +164,40 @@ class SpawnerHandler(MechHandler):
                     error_code="missing_pow_ref",
                 )
 
-            # Generate child execution ID
             child_execution_id = f"exec_{uuid.uuid4().hex[:12]}"
-
-            # Get parent execution context
             parent_execution_id = context.workflow_id or "unknown"
             spawning_operation_id = context.node_id or "spawn_pow"
 
-            # Collect seed inputs
-            seed_inputs_config = config.get("seed_inputs", [])
-            seed_inputs = []
+            # Collect available input keys for seed_inputs filtering
+            available_keys = set(context.inputs.keys()) | set(context.node_outputs.keys())
+            seed_inputs = collect_seed_inputs(
+                config.get("seed_inputs", []),
+                available_keys,
+            )
 
-            for seed_input in seed_inputs_config:
-                artifact_id = seed_input.get("from_artifact_id")
-                name = seed_input.get("name", artifact_id)
+            lineage = build_lineage(
+                config.get("lineage", {}),
+                parent_execution_id,
+                spawning_operation_id,
+            )
 
-                if artifact_id and context.has_input(artifact_id):
-                    seed_inputs.append({
-                        "name": name,
-                        "artifact_id": artifact_id,
-                    })
-
-            # Build lineage
-            lineage_config = config.get("lineage", {})
-            lineage = {
-                "spawned_from_execution_id": parent_execution_id
-                if lineage_config.get("set_spawned_from_execution_id", True)
-                else None,
-                "spawned_by_operation_id": spawning_operation_id
-                if lineage_config.get("set_spawned_by_operation_id", True)
-                else None,
-                "spawned_by_step_name": "Spawn Follow-on POW",
-            }
-
-            # Get project ID if available
             project_id = None
             if context.has_input("project_id"):
                 project_id = context.get_input("project_id")
 
-            # Build spawn receipt
-            spawn_receipt = {
-                "schema_version": "spawn_receipt.v1",
-                "spawned_at": datetime.now(timezone.utc).isoformat(),
-                "child_execution_id": child_execution_id,
-                "child_pow_ref": next_pow_ref,
-                "lineage": lineage,
-                "seed_inputs": seed_inputs,
-                "project_id": project_id,
-                "project_event_written": config.get("write_project_event", False),
-            }
+            spawn_receipt = assemble_spawn_receipt(
+                next_pow_ref=next_pow_ref,
+                child_execution_id=child_execution_id,
+                lineage=lineage,
+                seed_inputs=seed_inputs,
+                project_id=project_id,
+                write_project_event=config.get("write_project_event", False),
+            )
 
             logger.info(
                 f"Spawner: created spawn_receipt for {next_pow_ref} "
                 f"(child={child_execution_id}, parent={parent_execution_id})"
             )
-
-            # Note: Actual POW execution creation is delegated to the workflow
-            # engine layer. This handler produces the spawn_receipt which
-            # documents the intent. The engine will use this to create the
-            # child execution with proper lineage.
 
             return MechResult.ok(output=spawn_receipt)
 
