@@ -1,9 +1,23 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-01
-**Updated By:** Claude (WP-CRAP-001 execution + CRAP analysis)
+**Updated By:** Claude (WP-WB-001 Tier 0 fixes + session close)
 
 ## Current Focus
+
+**COMPLETE:** WP-WB-001 -- Work Binder Operations
+- WorkBinder SPA decomposed: monolithic WorkBinder.jsx -> 7 files (index, WPIndex, WPContentArea, WorkView, HistoryView, GovernanceView, CSS)
+- Work Binder API routes (app/api/v1/routers/work_binder.py)
+- WP/WS CRUD services, WP edition tracking, WS promotion, candidate import, audit service
+- Governance invariant tests, schema evolution tests, work binder route tests
+- WP 1.1.0, WS 1.1.0, WPC 1.0.0 schemas created in combine-config/schemas/
+
+**COMPLETE:** Tier 0 Stabilization (2026-03-01)
+- Ruff lint: 91 errors fixed across app/ and tests/ (F811, F841, F401, F403, E402, F821, E741)
+- Workflow validation: allow null parent_doc_type for top-level entities, fix self-type iteration validator
+- Registry: created work_package:1.1.0, work_statement:1.1.0, work_package_candidate:1.0.0 schemas
+- Tests: updated WorkBinder assertions for decomposed components, fixed stale handler imports
+- Tier 0 result: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63), pytest 3614 pass
 
 **COMPLETE:** WP-CRAP-001 -- Testability Refactoring (7 Work Statements)
 - WS-CRAP-001: Workflow Engine Batch 1 (5 targets, 108 tests)
@@ -64,9 +78,9 @@
 
 ## Test Suite
 
-- **~3453 tests** passing as of 2026-03-01 (906 new from WP-CRAP-001)
-- 20 pre-existing failures (workflow definition validation, skills decomposition drift, ws_metrics migration)
-- Tier 0: pytest has 1 pre-existing failure, lint has pre-existing issues, typecheck PASS, frontend PASS, registry PASS
+- **~3614 tests** passing as of 2026-03-01 (906 from WP-CRAP-001, ~160 from WP-WB-001)
+- 13 pre-existing failures: 12 in test_skills_decomposition.py (CLAUDE.md grew past decomposition limits), 1 in test_ws_metrics.py (migration not yet created)
+- Tier 0: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63 assets), pytest PASS (excluding pre-existing)
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
 
 ---
@@ -215,7 +229,16 @@ app/api/middleware/
 spa/src/components/
 +-- DocumentNode.jsx               # Unified L1/L2 node (WP metadata display)
 +-- WSChildList.jsx                # WS children sidecar tray
-+-- Floor.jsx                      # Production floor layout
++-- Floor.jsx                      # Production floor (master-detail layout)
++-- PipelineRail.jsx               # Static vertical pipeline rail (left column)
++-- ContentPanel.jsx               # Right column content switcher
++-- WorkBinder/                    # WP/WS management panel (7 files)
+    +-- index.jsx                  # Orchestrator (WPIndex + WPContentArea)
+    +-- WPIndex.jsx                # Left sidebar with WP list
+    +-- WPContentArea.jsx          # Center panel with sub-view tabs
+    +-- WorkView.jsx               # WS sheet list with reordering
+    +-- HistoryView.jsx            # Edition history ledger
+    +-- GovernanceView.jsx         # Read-only governance metadata
 
 .claude/skills/                    # 10 Claude Code Skills (on-demand operational knowledge)
 
@@ -277,25 +300,24 @@ python3 ops/scripts/crap_analysis.py
 
 ## Handoff Notes
 
-### Recent Work (2026-02-27 / 2026-03-01)
+### Recent Work (2026-03-01, session 2)
+- Tier 0 stabilization: fixed 91 ruff lint errors, workflow validation bugs, registry gaps, stale test assertions
+- WP-WB-001 committed: WorkBinder SPA decomposition, work_binder API routes, WP/WS services, schemas
+- Cleaned up 7 stale agent worktrees and orphaned branches
+- Tier 0 green: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63), pytest 3614 pass
+
+### Recent Work (2026-03-01, session 1)
+- WP-WB-001 pressure test: executed 11 work statements via parallel worktree subagents
 - WP-CRAP-001 fully executed: 7 Work Statements, 57 functions refactored, 906 new tests
-- WS-CRAP-001 and WS-CRAP-002 executed directly in main
-- WS-CRAP-003 through WS-CRAP-007 executed in parallel via worktree subagents, merged back
-- WS-CRAP-007 had conflicting files (plan_executor.py, qa.py) with WS-CRAP-001 -- manually merged
 - Post-execution CRAP analysis generated with delta comparison against baseline
 
 ### Recent Work (2026-02-26)
 - Codebase audit (pre/post WS-PIPELINE-003): full inventory of orphaned artifacts
 - WS-REGISTRY-002 executed: story_backlog + story_detail fully retired
-- Runtime bug fixed: production_service.py:474 epic_id -> work_package_id
-- Dead code removed: epic_context param, primary_implementation_plan_handler.py, 2 backup files
-- ruff --fix: 469 lint auto-fixes
-- UI Constitution v2.0 mock created
-- Design system docs authored (docs/branding/)
+- UI Constitution v2.0 mock created, design system docs in docs/branding/
 
 ### Next Work
-- Commit WP-CRAP-001 changes (uncommitted: 33 modified files, 59 untracked files)
-- Fix 20 pre-existing test failures (skills decomposition drift, workflow validation, ws_metrics migration)
+- Fix 13 pre-existing test failures: 12 skills decomposition (CLAUDE.md regrew), 1 ws_metrics migration
 - Top remaining CRAP targets: get_document_render_model (662.6), get_production_tracks (626.9), document_routes.get_document (500.8)
 - Integrate Claude Code metrics reporting during WS execution
 - Establish React test harness to retire Mode B debt on SPA tests
@@ -312,7 +334,6 @@ python3 ops/scripts/crap_analysis.py
 - Remove Zone.Identifier files
 - Sync IPP task prompt field names with IPP schema
 - Configure mypy and resolve Verification Debt
-- Clean up .claude/worktrees/ after confirming merges are complete
 
 ### Known Issues
 - Two copies of IPF schema must be kept in sync
