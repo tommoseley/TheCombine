@@ -272,27 +272,20 @@ class TestC4NoCommittedWPFields:
 
 
 class TestC5TransformEnrichment:
-    def test_transform_adds_wp_count(self, handler, ipf_data):
+    def test_transform_is_identity(self, handler, ipf_data):
+        """Transform is a no-op — schema has additionalProperties: false,
+        so computed fields are provided at render time instead."""
         result = handler.transform(ipf_data)
-        assert result["wp_count"] == 4
+        assert result is ipf_data
+
+    def test_transform_does_not_inject_wp_count(self, handler, ipf_data):
+        result = handler.transform(ipf_data)
+        assert "wp_count" not in result
 
     def test_get_child_documents_returns_empty(self, handler, ipf_data):
         """WP creation is manual -- handler returns empty."""
         children = handler.get_child_documents(ipf_data, "Test Plan")
         assert children == []
-
-    def test_transform_adds_associated_risks(self, handler, ipf_data):
-        """Transform injects associated_risks from risk_summary."""
-        result = handler.transform(ipf_data)
-        # WPC-002 should have the LLM rate limit risk
-        wpc_002 = [c for c in result["work_package_candidates"] if c["candidate_id"] == "WPC-002"][0]
-        assert len(wpc_002["associated_risks"]) == 1
-        assert "rate limit" in wpc_002["associated_risks"][0].lower()
-
-    def test_transform_empty_candidates(self, handler):
-        data = {"work_package_candidates": []}
-        result = handler.transform(data)
-        assert result["wp_count"] == 0
 
 
 # =========================================================================

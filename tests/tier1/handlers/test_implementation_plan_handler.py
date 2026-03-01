@@ -69,46 +69,15 @@ def plan_data():
 
 
 class TestTransform:
-    def test_adds_wp_count(self, handler, plan_data):
+    def test_transform_is_identity(self, handler, plan_data):
+        """Transform is a no-op — schema has additionalProperties: false,
+        so computed fields are provided at render time instead."""
         result = handler.transform(plan_data)
-        assert result["wp_count"] == 2
+        assert result is plan_data
 
-    def test_empty_candidates_gives_zero_count(self, handler):
-        data = {"work_package_candidates": []}
-        result = handler.transform(data)
-        assert result["wp_count"] == 0
-
-    def test_associated_risks_injected_from_risk_summary(self, handler, plan_data):
-        """Transform injects associated_risks from risk_summary (v3)."""
+    def test_transform_does_not_inject_wp_count(self, handler, plan_data):
         result = handler.transform(plan_data)
-        wp1 = result["work_package_candidates"][0]
-        assert len(wp1["associated_risks"]) == 1
-        assert "concurrent writes" in wp1["associated_risks"][0]
-
-    def test_no_risks_leaves_empty_list(self, handler, plan_data):
-        """WP with no matching risks gets empty associated_risks."""
-        result = handler.transform(plan_data)
-        wp2 = result["work_package_candidates"][1]
-        assert wp2["associated_risks"] == []
-
-    def test_associated_risks_from_risks_overview(self, handler):
-        """Transform also supports v2 risks_overview format."""
-        data = {
-            "work_package_candidates": [
-                {"candidate_id": "WPC-001", "title": "Test"},
-            ],
-            "risks_overview": [
-                {
-                    "risk_id": "RSK-001",
-                    "description": "Test risk",
-                    "affected_candidates": ["WPC-001"],
-                },
-            ],
-        }
-        result = handler.transform(data)
-        wp = result["work_package_candidates"][0]
-        assert len(wp["associated_risks"]) == 1
-        assert "RSK-001" in wp["associated_risks"][0]
+        assert "wp_count" not in result
 
     def test_get_child_documents_returns_empty(self, handler, plan_data):
         """WP creation is manual -- handler's get_child_documents returns empty.
