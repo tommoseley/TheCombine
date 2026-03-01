@@ -173,7 +173,7 @@ function PriorityBadge({ priority }) {
     );
 }
 
-export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }) {
+export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose, inline }) {
     const [answers, setAnswers] = useState({});
     const [isExpanded, setIsExpanded] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -203,7 +203,81 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
         // Don't reset isSubmitting - component will unmount after successful submit
     };
 
-    // Stop events from propagating to ReactFlow canvas
+    // Shared question list + submit button
+    const questionList = (
+        <>
+            <div className={`p-3 space-y-4 overflow-y-auto ${inline ? '' : 'nowheel'} ${!inline && isExpanded ? 'max-h-[520px]' : !inline ? 'max-h-[420px]' : ''}`}>
+                {questions.map(q => (
+                    <div
+                        key={q.id}
+                        className="pb-3"
+                        style={{ borderBottom: '1px solid var(--border-input)' }}
+                    >
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                            <label
+                                className="block text-[11px] font-medium"
+                                style={{ color: 'var(--text-sidecar)' }}
+                            >
+                                {q.text} {q.required && <span className="text-amber-500">*</span>}
+                            </label>
+                            <PriorityBadge priority={q.priority} />
+                        </div>
+
+                        {q.why_it_matters && (
+                            <p
+                                className="text-[9px] mb-2 italic"
+                                style={{ color: 'var(--text-sidecar-muted)' }}
+                            >
+                                {q.why_it_matters}
+                            </p>
+                        )}
+
+                        <QuestionInput
+                            question={q}
+                            value={answers[q.id]}
+                            onChange={(val) => handleChange(q.id, val)}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            <div className="p-3" style={{ borderTop: '1px solid var(--border-node)' }}>
+                <button
+                    className={`w-full py-2 rounded text-xs font-medium transition-colors ${
+                        allAnswered && !isSubmitting
+                            ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                            : 'subway-button cursor-not-allowed'
+                    }`}
+                    disabled={!allAnswered || isSubmitting}
+                    onClick={handleSubmit}
+                >
+                    {isSubmitting ? 'Submitting...' : 'Submit & Continue'}
+                </button>
+            </div>
+        </>
+    );
+
+    // Inline mode: normal-flow block, no absolute positioning or sidecar chrome
+    if (inline) {
+        return (
+            <div
+                className="w-full border border-amber-500/50 rounded-lg"
+                style={{
+                    background: 'var(--bg-sidecar)',
+                    userSelect: 'text',
+                }}
+            >
+                <div className="bg-amber-500/10 border-b border-amber-500/30 px-3 py-2">
+                    <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide">
+                        Operator Input Required
+                    </span>
+                </div>
+                {questionList}
+            </div>
+        );
+    }
+
+    // Sidecar mode: absolute-positioned overlay anchored to pipeline rail
     const stopPropagation = (e) => e.stopPropagation();
 
     return (
@@ -263,57 +337,7 @@ export default function QuestionTray({ questions, nodeWidth, onSubmit, onClose }
                 </div>
             </div>
 
-            <div className={`p-3 space-y-4 overflow-y-auto nowheel ${isExpanded ? 'max-h-[520px]' : 'max-h-[420px]'}`}>
-                {questions.map(q => (
-                    <div
-                        key={q.id}
-                        className="pb-3"
-                        style={{ borderBottom: '1px solid var(--border-input)' }}
-                    >
-                        {/* Question header with priority */}
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                            <label
-                                className="block text-[11px] font-medium"
-                                style={{ color: 'var(--text-sidecar)' }}
-                            >
-                                {q.text} {q.required && <span className="text-amber-500">*</span>}
-                            </label>
-                            <PriorityBadge priority={q.priority} />
-                        </div>
-
-                        {/* Why it matters */}
-                        {q.why_it_matters && (
-                            <p
-                                className="text-[9px] mb-2 italic"
-                                style={{ color: 'var(--text-sidecar-muted)' }}
-                            >
-                                {q.why_it_matters}
-                            </p>
-                        )}
-
-                        {/* Input control */}
-                        <QuestionInput
-                            question={q}
-                            value={answers[q.id]}
-                            onChange={(val) => handleChange(q.id, val)}
-                        />
-                    </div>
-                ))}
-            </div>
-
-            <div className="p-3" style={{ borderTop: '1px solid var(--border-node)' }}>
-                <button
-                    className={`w-full py-2 rounded text-xs font-medium transition-colors ${
-                        allAnswered && !isSubmitting
-                            ? 'bg-amber-500 text-slate-900 hover:bg-amber-400'
-                            : 'subway-button cursor-not-allowed'
-                    }`}
-                    disabled={!allAnswered || isSubmitting}
-                    onClick={handleSubmit}
-                >
-                    {isSubmitting ? 'Submitting...' : 'Submit & Continue'}
-                </button>
-            </div>
+            {questionList}
         </div>
     );
 }

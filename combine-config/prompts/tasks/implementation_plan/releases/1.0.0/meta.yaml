@@ -1,3 +1,3 @@
-name: "Implementation Plan (Final)"
-intent: "Task prompt for final implementation plan with committed Epics and candidate reconciliation"
+name: "Implementation Plan"
+intent: "Task prompt for implementation plan with Work Package Candidates (WPC-###), conforming to schema v3.0"
 tags: [task]

@@ -1,6 +1,7 @@
-"""Work Binder API router — WS-WB-003, WS-WB-004, WS-WB-006, WS-WB-008.
+"""Work Binder API router — WS-WB-003, WS-WB-004, WS-WB-006, WS-WB-008, WS-WB-009.
 
 Provides endpoints for Work Binder operations:
+- GET /candidates — List WPC documents for a project (WS-WB-009)
 - POST /import-candidates — Extract WP candidates from IP (WS-WB-003)
 - POST /promote — Promote WPC to governed WP (WS-WB-004)
 - POST /wp/{wp_id}/work-statements — Create WS (WS-WB-006)
@@ -28,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.document import Document
+from app.api.models.project import Project
 from app.core.database import get_db
 from app.domain.services.candidate_import_service import import_candidates
 from app.domain.services.wp_promotion_service import (
@@ -153,6 +155,90 @@ class WSListResponse(BaseModel):
     """Response for listing Work Statements."""
     work_statements: list[WSResponse]
     total: int
+
+
+class WPCDetail(BaseModel):
+    """Detail for a single WPC in the candidate list."""
+    wpc_id: str
+    title: str
+    rationale: str = ""
+    scope_summary: list[str] = Field(default_factory=list)
+    source_ip_id: str = ""
+    frozen_at: str = ""
+    promoted: bool = False
+
+
+class WPCListResponse(BaseModel):
+    """Response for listing WP candidates for a project."""
+    candidates: list[WPCDetail]
+    count: int
+    import_available: bool = False
+    source_ip_id: str | None = None
+
+
+# ===========================================================================
+# WS-WB-009: List Candidates
+# ===========================================================================
+
+
+@router.get("/candidates", response_model=WPCListResponse)
+async def list_candidates(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> WPCListResponse:
+    """List WP candidate documents for a project (read-only).
+
+    Returns existing WPC documents. If none exist but an IP document does,
+    returns import_available=True with the IP document ID so the SPA can
+    trigger an explicit import via POST /import-candidates.
+    """
+    project = await _resolve_project(db, project_id)
+
+    # Query all WPC documents for this project
+    wpc_result = await db.execute(
+        select(Document)
+        .where(Document.space_type == "project")
+        .where(Document.space_id == project.id)
+        .where(Document.doc_type_id == "work_package_candidate")
+        .where(Document.is_latest == True)  # noqa: E712
+        .order_by(Document.created_at)
+    )
+    wpc_docs = list(wpc_result.scalars().all())
+
+    if wpc_docs:
+        # Compute promoted flag via lineage (source_candidate_ids on WPs)
+        promoted_ids = await _collect_promoted_wpc_ids(db, project.id)
+
+        candidates = []
+        for doc in wpc_docs:
+            content = doc.content or {}
+            candidates.append(WPCDetail(
+                wpc_id=content.get("wpc_id", doc.instance_id or ""),
+                title=content.get("title", doc.title or ""),
+                rationale=content.get("rationale", ""),
+                scope_summary=content.get("scope_summary", []),
+                source_ip_id=content.get("source_ip_id", ""),
+                frozen_at=content.get("frozen_at", ""),
+                promoted=content.get("wpc_id", "") in promoted_ids,
+            ))
+
+        return WPCListResponse(
+            candidates=candidates,
+            count=len(candidates),
+            import_available=False,
+        )
+
+    # No WPCs — check if an IP document exists for import
+    ip_doc = await _find_ip_for_project(db, project.id)
+    if ip_doc:
+        return WPCListResponse(
+            candidates=[],
+            count=0,
+            import_available=True,
+            source_ip_id=str(ip_doc.id),
+        )
+
+    return WPCListResponse(candidates=[], count=0)
 
 
 # ===========================================================================
@@ -940,3 +1026,69 @@ async def _load_ws_document(
             detail=f"Work Statement '{ws_id}' not found",
         )
     return doc
+
+
+async def _resolve_project(
+    db: AsyncSession, project_id: str,
+) -> "Project":
+    """Resolve project by UUID or project_id string. 404 if not found."""
+    try:
+        project_uuid = UUID(project_id)
+        result = await db.execute(
+            select(Project).where(
+                Project.id == project_uuid,
+                Project.deleted_at.is_(None),
+            )
+        )
+    except ValueError:
+        result = await db.execute(
+            select(Project).where(
+                Project.project_id == project_id,
+                Project.deleted_at.is_(None),
+            )
+        )
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    return project
+
+
+async def _find_ip_for_project(
+    db: AsyncSession, space_id: UUID,
+) -> Document | None:
+    """Find the latest IP document for a project space."""
+    ip_types = {"implementation_plan", "primary_implementation_plan"}
+    result = await db.execute(
+        select(Document)
+        .where(Document.space_type == "project")
+        .where(Document.space_id == space_id)
+        .where(Document.doc_type_id.in_(ip_types))
+        .where(Document.is_latest == True)  # noqa: E712
+        .order_by(Document.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _collect_promoted_wpc_ids(
+    db: AsyncSession, space_id: UUID,
+) -> set[str]:
+    """Collect all WPC IDs that have been promoted to governed WPs.
+
+    Uses lineage (source_candidate_ids on WP content), not naming conventions.
+    """
+    result = await db.execute(
+        select(Document)
+        .where(Document.space_type == "project")
+        .where(Document.space_id == space_id)
+        .where(Document.doc_type_id == "work_package")
+        .where(Document.is_latest == True)  # noqa: E712
+    )
+    promoted_ids: set[str] = set()
+    for wp_doc in result.scalars().all():
+        src_ids = (wp_doc.content or {}).get("source_candidate_ids", [])
+        promoted_ids.update(src_ids)
+    return promoted_ids

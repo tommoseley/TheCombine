@@ -41,48 +41,27 @@ class ImplementationPlanHandler(BaseDocumentHandler):
 
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Transform/enrich the implementation plan data.
+        Transform/validate the implementation plan data.
 
-        Adds computed fields for UI display:
-        - wp_count (from work_package_candidates / candidate_work_packages / work_packages)
-        - associated_risks on each WP candidate (reverse index from risk_summary / risks_overview)
+        Schema has additionalProperties: false at every level, so transform
+        must NOT inject computed fields into the persisted document.
+        Computed fields (wp_count, associated_risks) are provided via
+        render methods instead.
         """
-        candidates = self._get_candidates(data)
-        data["wp_count"] = len(candidates)
-
-        # Build reverse mapping: candidate_id -> ["RSK-001: description", ...]
-        # Support both v3 risk_summary and v2 risks_overview
-        candidate_risks: Dict[str, list] = {}
-        for risk in data.get("risks_overview", []):
-            risk_id = risk.get("risk_id", "")
-            description = risk.get("description", "")
-            label = f"{risk_id}: {description}" if description else risk_id
-            for cid in risk.get("affected_candidates", []):
-                candidate_risks.setdefault(cid, []).append(label)
-        for risk in data.get("risk_summary", []):
-            risk_text = risk.get("risk", "")
-            for cid in risk.get("affected_candidates", []):
-                candidate_risks.setdefault(cid, []).append(risk_text)
-
-        # Inject associated_risks into each candidate
-        for candidate in candidates:
-            cid = candidate.get("candidate_id", candidate.get("wp_id", ""))
-            candidate["associated_risks"] = candidate_risks.get(cid, [])
-
         return data
 
     def render(self, data: Dict[str, Any]) -> str:
         """
         Render full view HTML.
         """
-        wp_count = data.get("wp_count", len(self._get_candidates(data)))
+        wp_count = len(self._get_candidates(data))
         return f"Implementation Plan: {wp_count} WP candidates"
 
     def render_summary(self, data: Dict[str, Any]) -> str:
         """
         Render compact summary for cards/lists.
         """
-        wp_count = data.get("wp_count", len(self._get_candidates(data)))
+        wp_count = len(self._get_candidates(data))
         return f"{wp_count} WP candidates"
 
 

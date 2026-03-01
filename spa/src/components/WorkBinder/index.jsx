@@ -5,6 +5,7 @@
  * URL-addressable when the Work Binder node is selected in the Pipeline Rail.
  *
  * WS-WB-007: Dedicated screen replacing the flat WorkBinder.jsx.
+ * WS-WB-009: Candidate listing, import, and promotion.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api/client';
@@ -31,35 +32,64 @@ async function fetchWorkPackages(projectId) {
     }
 }
 
+/**
+ * Fetch candidates from backend (read-only, no side effects).
+ */
+async function fetchCandidates(projectId) {
+    try {
+        const res = await api.getCandidates(projectId);
+        return res || { candidates: [], count: 0, import_available: false, source_ip_id: null };
+    } catch (e) {
+        console.warn('WorkBinder: candidate fetch failed:', e.message);
+        return { candidates: [], count: 0, import_available: false, source_ip_id: null };
+    }
+}
+
 export default function WorkBinder({ projectId, projectCode }) {
     const [wps, setWps] = useState([]);
+    const [candidates, setCandidates] = useState([]);
+    const [importAvailable, setImportAvailable] = useState(false);
+    const [sourceIpId, setSourceIpId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedWpId, setSelectedWpId] = useState(null);
+    const [selectedCandidateId, setSelectedCandidateId] = useState(null);
     const [activeSubView, setActiveSubView] = useState('WORK');
 
     const refresh = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await fetchWorkPackages(projectId);
-            setWps(data);
-            // Auto-select first WP if none selected
-            if (!selectedWpId && data.length > 0) {
-                setSelectedWpId(data[0].id);
+            const [wpData, candData] = await Promise.all([
+                fetchWorkPackages(projectId),
+                fetchCandidates(projectId),
+            ]);
+            setWps(wpData);
+            setCandidates(candData.candidates || []);
+            setImportAvailable(candData.import_available || false);
+            setSourceIpId(candData.source_ip_id || null);
+            // Auto-select first WP if none selected and no candidate selected
+            if (!selectedWpId && !selectedCandidateId && wpData.length > 0) {
+                setSelectedWpId(wpData[0].id);
             }
         } catch (e) {
             setError(e.message);
         } finally {
             setLoading(false);
         }
-    }, [projectId, selectedWpId]);
+    }, [projectId, selectedWpId, selectedCandidateId]);
 
     useEffect(() => { refresh(); }, [projectId]);
 
     const handleSelectWp = useCallback((wpId) => {
         setSelectedWpId(wpId);
+        setSelectedCandidateId(null);
         setActiveSubView('WORK');
+    }, []);
+
+    const handleSelectCandidate = useCallback((wpcId) => {
+        setSelectedCandidateId(wpcId);
+        setSelectedWpId(null);
     }, []);
 
     const handleInsertPackage = useCallback(async (title) => {
@@ -73,12 +103,33 @@ export default function WorkBinder({ projectId, projectCode }) {
             const newWp = await res.json();
             await refresh();
             setSelectedWpId(newWp.id);
+            setSelectedCandidateId(null);
         } catch (e) {
             setError('Failed to insert package: ' + e.message);
         }
     }, [projectId, refresh]);
 
+    const handleImportCandidates = useCallback(async () => {
+        if (!sourceIpId) return;
+        try {
+            await api.importCandidates(sourceIpId);
+            await refresh();
+        } catch (e) {
+            setError('Failed to import candidates: ' + e.message);
+        }
+    }, [sourceIpId, refresh]);
+
+    const handlePromote = useCallback(async (wpcId) => {
+        try {
+            await api.promoteCandidate(wpcId, 'kept', 'Promoted as-is from IP candidate.');
+            await refresh();
+        } catch (e) {
+            setError('Failed to promote candidate: ' + e.message);
+        }
+    }, [refresh]);
+
     const selectedWp = wps.find(wp => wp.id === selectedWpId) || null;
+    const selectedCandidate = candidates.find(c => c.wpc_id === selectedCandidateId) || null;
 
     if (loading) {
         return (
@@ -112,15 +163,22 @@ export default function WorkBinder({ projectId, projectCode }) {
                     selectedWpId={selectedWpId}
                     onSelectWp={handleSelectWp}
                     onInsertPackage={handleInsertPackage}
+                    candidates={candidates}
+                    selectedCandidateId={selectedCandidateId}
+                    onSelectCandidate={handleSelectCandidate}
+                    importAvailable={importAvailable}
+                    onImportCandidates={handleImportCandidates}
                 />
 
-                {/* Center: WP Content Area */}
+                {/* Center: WP Content Area or Candidate Detail */}
                 <WPContentArea
                     wp={selectedWp}
+                    candidate={selectedCandidate}
                     projectId={projectId}
                     activeSubView={activeSubView}
                     onChangeSubView={setActiveSubView}
                     onRefresh={refresh}
+                    onPromote={handlePromote}
                 />
             </div>
         </div>

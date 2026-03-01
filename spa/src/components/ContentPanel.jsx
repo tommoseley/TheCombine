@@ -211,12 +211,10 @@ function InProgressState({ step, onSubmitQuestions }) {
             )}
 
             {needsInput && hasQuestions && (
-                <div className="w-full max-w-lg">
+                <div className="w-full max-w-2xl">
                     <QuestionTray
                         questions={step.questions}
-                        nodeWidth={500}
                         onSubmit={(answers) => onSubmitQuestions(step.id, answers)}
-                        onClose={() => {}}
                         inline
                     />
                 </div>

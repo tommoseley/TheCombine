@@ -774,3 +774,101 @@
 .wb-gov-candidate:last-child {
     border-bottom: none;
 }
+
+/* ============================================================
+   WS-WB-009: Candidate styles
+   ============================================================ */
+
+/* --- Candidate badge (WPC / PROMOTED) --- */
+.wb-candidate-badge {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgba(245, 158, 11, 0.15);
+    color: rgb(245, 158, 11);
+    flex-shrink: 0;
+    align-self: center;
+    margin-right: 10px;
+}
+
+.wb-candidate-badge--promoted {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-muted);
+}
+
+/* --- Promoted candidate item dimming --- */
+.wb-index-item--promoted {
+    opacity: 0.5;
+}
+
+.wb-index-item--promoted:hover {
+    opacity: 0.7;
+}
+
+/* --- Import button container --- */
+.wb-index-import {
+    padding: 12px;
+}
+
+.wb-import-btn {
+    width: 100%;
+    border-color: rgb(245, 158, 11) !important;
+    color: rgb(245, 158, 11) !important;
+}
+
+.wb-import-btn:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.08) !important;
+}
+
+/* --- Candidate detail view --- */
+.wb-candidate-detail {
+    padding: 20px;
+}
+
+.wb-candidate-section {
+    margin-bottom: 20px;
+}
+
+.wb-candidate-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.wb-candidate-section-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.wb-candidate-scope-list {
+    list-style: disc;
+    padding-left: 20px;
+    margin: 0;
+}
+
+.wb-candidate-scope-list li {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    padding: 2px 0;
+}
+
+.wb-candidate-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-panel);
+}
+
+.wb-candidate-promoted-msg {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+}

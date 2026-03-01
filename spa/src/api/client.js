@@ -224,6 +224,26 @@ export const api = {
     generateWorkStatements: (projectId, wpId) =>
         request(`/projects/${projectId}/work-packages/${wpId}/work-statements/generate`, { method: 'POST' }),
 
+    // Work Binder — Candidates
+    getCandidates: (projectId) =>
+        request(`/work-binder/candidates?project_id=${encodeURIComponent(projectId)}`),
+
+    importCandidates: (ipDocumentId) =>
+        request('/work-binder/import-candidates', {
+            method: 'POST',
+            body: JSON.stringify({ ip_document_id: ipDocumentId }),
+        }),
+
+    promoteCandidate: (wpcId, transformation = 'kept', transformationNotes = '') =>
+        request('/work-binder/promote', {
+            method: 'POST',
+            body: JSON.stringify({
+                wpc_id: wpcId,
+                transformation,
+                transformation_notes: transformationNotes,
+            }),
+        }),
+
     // Concierge Intake
     startIntake: () =>
         request('/intake/start', { method: 'POST' }),
