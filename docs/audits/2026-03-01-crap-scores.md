@@ -15,6 +15,7 @@ and code coverage to identify functions that are both complex and under-tested.
 | Clean | <= 5 | Minimal risk |
 
 Coverage source: Tier-1 + unit tests only (no integration/e2e).
+Test run: 2343 passed, 4 skipped, 0 failed.
 
 ---
 

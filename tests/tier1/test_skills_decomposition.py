@@ -394,19 +394,19 @@ class TestC8ClaudeMdSlimmed:
 
 
 class TestC9SkillsTablePresent:
-    """CLAUDE.md must have a Skills section listing all 10 skills."""
+    """CLAUDE.md must reference all 10 skills via progressive disclosure pointers."""
 
-    def test_skills_section_exists(self):
+    def test_skill_pointers_exist(self):
         content = _read_claude_md()
-        assert "## Skills" in content or "# Skills" in content, (
-            "CLAUDE.md missing Skills section"
+        assert "> **Skill:**" in content, (
+            "CLAUDE.md missing skill pointers (> **Skill:** blocks)"
         )
 
     @pytest.mark.parametrize("skill_name", SKILL_NAMES)
     def test_skill_listed_in_table(self, skill_name):
         content = _read_claude_md()
         assert skill_name in content, (
-            f"Skill '{skill_name}' not listed in CLAUDE.md Skills table"
+            f"Skill '{skill_name}' not referenced in CLAUDE.md"
         )
 
 
@@ -462,9 +462,11 @@ class TestC11AlwaysOnConstraints:
         )
 
     def test_combine_config_reference(self):
+        """combine-config is referenced via skill pointers or repo structure."""
         content = _read_claude_md()
-        assert "combine-config" in content, (
-            "combine-config reference missing from CLAUDE.md"
+        # combine-config is referenced in config-governance skill pointer
+        assert "config-governance" in content, (
+            "config-governance skill reference missing from CLAUDE.md"
         )
 
 
@@ -495,70 +497,92 @@ class TestC12NonNegotiablesUnchanged:
 # ===================================================================
 
 
-class TestC13NoMovedSections:
-    """CLAUDE.md must not contain sections that moved to skills."""
+class TestC13ProgressiveDisclosure:
+    """Sections retained in CLAUDE.md must have skill pointers for deeper content.
 
-    def test_no_bug_first_testing_rule_section(self):
+    The progressive disclosure approach (commit 62f659b) keeps governance
+    sections in CLAUDE.md and adds > **Skill:** pointers to the corresponding
+    skill files for detailed procedures and examples.
+    """
+
+    def test_bug_first_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Bug-First Testing Rule" not in content, (
-            "Bug-First Testing Rule section still in CLAUDE.md"
+        assert "## Bug-First Testing Rule" in content, (
+            "Bug-First section missing from CLAUDE.md"
         )
 
-    def test_no_autonomous_bug_fixing_section(self):
+    def test_autonomous_bug_fix_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Autonomous Bug Fixing" not in content, (
-            "Autonomous Bug Fixing section still in CLAUDE.md"
+        assert "## Autonomous Bug Fixing" in content, (
+            "Autonomous Bug Fixing section missing from CLAUDE.md"
+        )
+        assert "autonomous-bug-fix" in content, (
+            "Autonomous Bug Fixing missing skill pointer"
         )
 
-    def test_no_subagent_usage_section(self):
+    def test_subagent_usage_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Subagent Usage" not in content, (
-            "Subagent Usage section still in CLAUDE.md"
+        assert "## Subagent Usage" in content, (
+            "Subagent Usage section missing from CLAUDE.md"
+        )
+        assert "subagent-dispatch" in content, (
+            "Subagent Usage missing skill pointer"
         )
 
-    def test_no_metrics_reporting_section(self):
+    def test_metrics_reporting_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Metrics Reporting" not in content, (
-            "Metrics Reporting section still in CLAUDE.md"
+        assert "## Metrics Reporting" in content, (
+            "Metrics Reporting section missing from CLAUDE.md"
+        )
+        assert "metrics-reporting" in content, (
+            "Metrics Reporting missing skill pointer"
         )
 
-    def test_no_session_management_section(self):
+    def test_session_management_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Session Management" not in content, (
-            "Session Management section still in CLAUDE.md"
+        assert "## Session Management" in content, (
+            "Session Management section missing from CLAUDE.md"
+        )
+        assert "session-management" in content, (
+            "Session Management missing skill pointer"
         )
 
-    def test_no_backfilling_session_logs_section(self):
+    def test_backfilling_section_present(self):
         content = _read_claude_md()
-        assert "## Backfilling Session Logs" not in content, (
-            "Backfilling Session Logs section still in CLAUDE.md"
+        assert "## Backfilling Session Logs" in content, (
+            "Backfilling Session Logs section missing from CLAUDE.md"
         )
 
-    def test_no_seed_governance_section(self):
+    def test_seed_governance_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Seed Governance" not in content, (
-            "Seed Governance section still in CLAUDE.md"
+        assert "## Seed Governance" in content, (
+            "Seed Governance section missing from CLAUDE.md"
+        )
+        assert "config-governance" in content, (
+            "Seed Governance missing skill pointer"
         )
 
-    def test_no_planning_discipline_section(self):
+    def test_planning_discipline_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Planning Discipline" not in content, (
-            "Planning Discipline section still in CLAUDE.md"
+        assert "## Planning Discipline" in content, (
+            "Planning Discipline section missing from CLAUDE.md"
+        )
+        assert "tier0-verification" in content, (
+            "Planning Discipline missing skill pointer"
         )
 
-    def test_no_adr040_detail_block(self):
-        """ADR-040 detail (multi-paragraph) should not be in CLAUDE.md."""
+    def test_adr040_detail_present(self):
+        """ADR-040 detail retained in CLAUDE.md with skill pointer."""
         content = _read_claude_md()
-        assert "No transcript replay" not in content, (
-            "ADR-040 detail block still in CLAUDE.md"
+        assert "No transcript replay" in content, (
+            "ADR-040 detail missing from CLAUDE.md"
         )
 
-    def test_no_adr049_detail_block(self):
-        """ADR-049 detail (multi-paragraph) should not be in CLAUDE.md."""
+    def test_adr049_detail_present(self):
+        """ADR-049 detail retained in CLAUDE.md with skill pointer."""
         content = _read_claude_md()
-        # Check for the distinctive ADR-049 phrase
-        assert '"Generate" is deprecated as a step abstraction' not in content, (
-            "ADR-049 detail block still in CLAUDE.md"
+        assert '"Generate" is deprecated as a step abstraction' in content, (
+            "ADR-049 detail missing from CLAUDE.md"
         )
 
 
