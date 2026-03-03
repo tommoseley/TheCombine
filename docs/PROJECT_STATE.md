@@ -1,9 +1,55 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-01
-**Updated By:** Claude (WP-WB-001 Tier 0 fixes + session close)
+**Last Updated:** 2026-03-03
+**Updated By:** Claude (WS-WB-025 IA contract alignment, CRAP audit, PROPOSE pipeline fixes)
 
 ## Current Focus
+
+**COMPLETE:** WS-WB-025 -- IA Contract Alignment (2026-03-03)
+- 10 IA findings resolved: 2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW (3 deferred out of scope)
+- CRITICAL: Reorder endpoint sends correct {ws_index: [{ws_id, order_key}]} shape
+- CRITICAL: Ghost row sends {title: intent} not {intent}
+- HIGH: STATE_BADGE aligned to schema enum (removed STABILIZED/COMPLETE, added ACCEPTED/REJECTED)
+- MEDIUM: WPCDetail gains source_ip_version + frozen_by fields
+- MEDIUM: BindingBlock reads governance_pins.ta_version_id (actual schema field)
+- MEDIUM: ProvenanceStamp reads transformation + source_candidate_ids (actual schema fields)
+- LOW: formatWsId uses ws_id only (dead fallbacks removed)
+- 10 new tests, WSResponse revision normalization validator added
+- Bug fix: WSResponse revision type mismatch (scalar int → dict normalization)
+
+**COMPLETE:** CRAP Score Audit (2026-03-03)
+- 2,369 functions analyzed (vs 2,356 on Mar 1)
+- 147 critical (6.2%), 170 smelly, 558 acceptable, 1,494 clean
+- Total CRAP debt: 12,053 (+189 / +1.6% vs Feb 27 baseline of 11,864)
+- Notable: check_promotion_validity dropped from ~1700 CRAP to 43.5 (88.6% coverage)
+- Top 3 worst: _handle_result (967.4), _spawn_child_documents (710.1), QANodeExecutor.execute (600.1)
+- Report: docs/audits/2026-03-03-crap-scores.md
+
+**COMPLETE:** WP-WB-002 -- Work Binder LLM Proposal Station Primitive
+- WS-WB-020: document_readiness.py with is_doc_ready_for_downstream() (11 tests)
+- WS-WB-021: WP schema ws_index[] declared + version bump (24 tests)
+- WS-WB-022: task_execution_service.py with execute_task() primitive (8 tests)
+- WS-WB-023: propose_work_statements@1.0.0 task prompt + meta
+- WS-WB-024: 4 audit event types in wb_audit_service (33 tests)
+- WS-WB-025: POST /work-binder/propose-ws endpoint + SPA wiring (16 tests)
+- Total: 92 new tests, 3870 total passing, 0 failures
+- IA verification: schema PASS, work_package IA section N/A (pre-existing gap)
+
+**COMPLETE:** WS-WB-009 -- Work Binder Candidate Population
+- GET /work-binder/candidates endpoint (read-only, returns WPCs with promoted flag via lineage)
+- IMPORT CANDIDATES explicit button (no auto-import on GET)
+- SPA: candidate display in WPIndex with amber sliver, promote action in WPContentArea
+
+**COMPLETE:** WS-IAV-001 + WS-IAV-002 -- IA Verification Fix + IP Prompt Remediation
+- IA verification skill Phase 1.1 fixed: bidirectional schema-to-document field diff
+- IP task prompt rewritten to match collapsed pipeline (no IPP/TA reconciliation)
+- candidate_reconciliation removed (function now in Work Binder promotion)
+- Handler fix: removed transform field injection violating additionalProperties: false
+- 18 Tier-1 tests, 7/7 original violations resolved, re-verification: 0 FAIL, 32 PASS, 4 LOW
+
+**COMPLETE:** PGC QuestionTray Inline Rendering
+- QuestionTray.jsx respects inline prop (no absolute positioning, no sidecar overlay)
+- ContentPanel passes inline correctly
 
 **COMPLETE:** WP-WB-001 -- Work Binder Operations
 - WorkBinder SPA decomposed: monolithic WorkBinder.jsx -> 7 files (index, WPIndex, WPContentArea, WorkView, HistoryView, GovernanceView, CSS)
@@ -20,54 +66,24 @@
 - Tier 0 result: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63), pytest 3614 pass
 
 **COMPLETE:** WP-CRAP-001 -- Testability Refactoring (7 Work Statements)
-- WS-CRAP-001: Workflow Engine Batch 1 (5 targets, 108 tests)
-- WS-CRAP-002: API v1 Routers Batch 1 (10 targets, 111 tests)
-- WS-CRAP-003: API Services Batch 1 (10 targets, 106 tests)
-- WS-CRAP-004: Document Handlers Batch 1 (7 targets, 237 tests)
-- WS-CRAP-005: Domain Services Batch 1 (10 targets, 131 tests)
-- WS-CRAP-006: Web Routes Batch 1 (10 targets, 156 tests)
-- WS-CRAP-007: Workflow Engine Batch 2 (5 targets, 144 tests)
 - Total: 57 target functions thinned, 116 pure functions extracted, 906 new Tier-1 tests
 - Critical CRAP functions: 262 -> 140 (-46.6%)
 - Total CRAP debt: 32,960 -> 11,864 (-64.0%)
-- Post-execution CRAP analysis: docs/audits/2026-02-27-crap-scores-post-wp-crap-001.md
 
 **COMPLETE:** WS-REGISTRY-002 -- story_backlog Retirement
-- Fully retired story_backlog and story_detail document types
-- 3 files deleted (handler, service, prompt dir), 18 files edited, 7 retirement tests
-- Runtime bug fixed: production_service.py epic_id -> work_package_id
-- Dead code removed: epic_context parameter in role_prompt_service.py
-
 **COMPLETE:** Codebase Audit (pre/post WS-PIPELINE-003)
-- Full audit documents in docs/audits/
-- Registry integrity baseline established
-- CRAP score baseline established (docs/audits/2026-02-26-crap-scores.md)
-
 **COMPLETE:** Hygiene Cleanup
-- ruff --fix: 469 auto-fixes across app/ and tests/
-- Deleted dead files: primary_implementation_plan_handler.py, document_builder_backup.py, llm_execution_logger_original.py
-
 **COMPLETE:** UI Constitution v2.0 Mock
-- Standalone HTML at docs/branding/examples/floor-constitution-mock.html
-- Design system docs in docs/branding/
-
 **COMPLETE:** WS-SKILLS-001 -- Decompose CLAUDE.md into Claude Code Skills
 **COMPLETE:** IPP Naming Standardization
 **COMPLETE:** Admin Transcript Viewer Fix
-
 **COMPLETE:** WS-METRICS-001 -- Developer Execution Metrics Collection and Storage
-- Database schema (ws_executions, ws_bug_fixes) via Alembic migration
-- PostgreSQL repository, service layer, API router (POST/GET endpoints)
-- Dashboard, cost-summary, and scoreboard aggregation endpoints
-- Idempotent phase updates, status/phase-name enum enforcement
-- 30 verification tests covering all 15 criteria
-
 **COMPLETE:** WS-PGC-SEC-002 -- Dual Gate Secret Ingress Control
 **COMPLETE:** WS-PGC-SEC-002-A -- Secret Detector Calibration Spike
 **COMPLETE:** WS-SDP-003 -- IA-Driven Tab Rendering + IPF Input Alignment
 **COMPLETE:** ADR-053 / WS-SDP-001 / WS-SDP-002 -- Planning Before Architecture
 **COMPLETE:** WS-OPS-001 -- Transient LLM Error Recovery and Honest Gate Outcomes
-**COMPLETE:** ADR-050 -- Work Statement Verification Constitution (execution_state: complete)
+**COMPLETE:** ADR-050 -- Work Statement Verification Constitution
 **COMPLETE:** ADR-051 -- Work Package as Runtime Primitive
 **COMPLETE:** ADR-052 -- Document Pipeline Integration for WP/WS
 **COMPLETE:** WS-ONTOLOGY-001 through WS-ONTOLOGY-007
@@ -76,56 +92,37 @@
 
 ---
 
+## Quality Infrastructure
+
+### Skills (Claude Code)
+- **pressure-test**: Pre-flight WP validation (schema, prerequisites, dependency chain, execution risk)
+- **ia-verification**: Post-flight conformance checking (schema shape, registry, API surface, governance)
+- **crap-refactor**: CRAP score analysis + bounded refactoring WS generation
+- 7 additional operational skills in .claude/skills/
+
+### Quality Gates
+- Pressure test → execution → IA verification → remediation → re-verification (proven cycle)
+- IA verification found 7 violations in IP document, CC self-remediated from report (WS-IAV-002)
+- Pressure test caught 6 execution bombs before WP-WB-001 implementation
+
+---
+
 ## Test Suite
 
-- **~3614 tests** passing as of 2026-03-01 (906 from WP-CRAP-001, ~160 from WP-WB-001)
-- 13 pre-existing failures: 12 in test_skills_decomposition.py (CLAUDE.md grew past decomposition limits), 1 in test_ws_metrics.py (migration not yet created)
-- Tier 0: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63 assets), pytest PASS (excluding pre-existing)
+- **2254 Tier-1 tests** passing as of 2026-03-03 (10 new from WS-WB-025 IA alignment)
+- Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS (64 assets)
+- SPA: 626 modules, builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
 
 ---
 
-## WP-CRAP-001 Artifacts
+## Platform Primitives (New)
 
-### New Pure Function Modules (30 files)
-
-| Module | Functions | WS |
-|--------|----------:|-----|
-| app/domain/workflow/nodes/qa_parsing.py | 8 | WS-CRAP-001 |
-| app/domain/workflow/result_handling.py | 3 | WS-CRAP-001 |
-| app/api/v1/services/render_pure.py | 4 | WS-CRAP-002 |
-| app/api/v1/services/pgc_pure.py | 4 | WS-CRAP-002 |
-| app/api/v1/services/intake_pure.py | 4 | WS-CRAP-002 |
-| app/api/services/production_pure.py | 7 | WS-CRAP-003 |
-| app/api/services/admin_workbench_pure.py | 3 | WS-CRAP-003 |
-| app/api/services/service_pure.py | 8 | WS-CRAP-003 |
-| app/domain/services/render_model_pure.py | 11 | WS-CRAP-005 |
-| app/domain/services/document_builder_pure.py | 4 | WS-CRAP-005 |
-| app/domain/services/prompt_assembler_pure.py | 4 | WS-CRAP-005 |
-| app/web/routes/public/intake_pure.py | 11 | WS-CRAP-006 |
-| app/web/routes/public/document_pure.py | 3 | WS-CRAP-006 |
-| app/web/routes/public/workflow_build_pure.py | 5 | WS-CRAP-006 |
-| app/web/routes/public/project_pure.py | 5 | WS-CRAP-006 |
-| app/web/routes/public/view_pure.py | 3 | WS-CRAP-006 |
-| app/domain/workflow/state_mapping.py | 4 | WS-CRAP-007 |
-| app/domain/workflow/constraint_matching.py | 4 | WS-CRAP-007 |
-| app/domain/workflow/document_assembly.py | 6 | WS-CRAP-007 |
-| app/domain/workflow/nodes/semantic_qa_pure.py | 3 | WS-CRAP-007 |
-| app/domain/workflow/nodes/gate_pure.py | 3 | WS-CRAP-007 |
-
-### New Test Files (28 files, 906 tests)
-
-Tests in tests/tier1/ -- all pure in-memory, no DB, no I/O.
-
----
-
-## Verification Debt
-
-| Item | Reason | Mechanization Plan |
-|------|--------|--------------------|
-| mypy type checking | Added to requirements.txt, not yet configured | Configure for app/, add to Tier 0 harness |
-| SPA component tests (WS-007) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
-| ExecutionList tests (WS-ADMIN-EXEC-UI-001) | No React test harness | Source inspection proxy; upgrade to Jest + RTL when harness established |
+| Primitive | Location | Purpose |
+|-----------|----------|---------|
+| document_readiness | app/domain/services/document_readiness.py | Mechanical readiness gate for downstream consumption |
+| task_execution | app/domain/services/task_execution_service.py | Reusable LLM task invocation outside workflow engine |
+| wb_audit_service | app/domain/services/wb_audit_service.py | Structured audit events for Work Binder mutations |
 
 ---
 
@@ -144,39 +141,6 @@ export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
 python -m pytest tests/ -x -q
 ```
 
-**AWS DEV database:**
-- 36 tables created from current ORM models (includes ws_executions, ws_bug_fixes)
-- 14 document types seeded (9 core + 5 BCP)
-- `primary_implementation_plan` doc type renamed in document_types table (2026-02-24)
-- Prompts are file-based from combine-config/ (no DB seeding needed)
-- role_prompts/role_tasks tables are legacy (not used at runtime)
-
----
-
-## Admin Panel Status
-
-**Location:** `/admin` (SPA route, served by home_routes.py)
-
-### Features Complete
-- **Execution list** with full ID display, project code column, sortable headers, doc-type filter, search (WS-ADMIN-EXEC-UI-001)
-- **Execution detail** with overview, transcript (full content by default, collapsible), QA coverage (WS-ADMIN-RECONCILE-001)
-- **Cost dashboard** with daily breakdown, period selector, summary cards (WS-ADMIN-RECONCILE-001)
-- **Deep links**: `/admin/executions/{id}` and `/admin?execution={id}` both supported
-- **Dual execution API**: Handles both workflow and document-workflow (exec- prefixed) execution IDs
-
----
-
-## Admin Workbench Status
-
-**Location:** `/admin/workbench` (SPA route)
-
-### Features Complete
-- All features from previous state
-- **Gate Profile pattern** (2026-02-07)
-- **intake_and_route POW** (2026-02-07)
-- **RouterHandler** (2026-02-07)
-- **Selected item highlighting** (2026-02-07)
-
 ---
 
 ## Workflow Architecture
@@ -194,152 +158,89 @@ python -m pytest tests/ -x -q
 
 ---
 
-## React SPA Status
-
-**Location:** `spa/` directory
-
-### Features Complete
-- All previous features through 2026-02-19
-- **Production Floor WP/WS** (2026-02-19): DocumentNode renders Work Packages with metadata (ws_done/ws_total, Mode B count, dependency count), WSChildList replaces FeatureGrid for WS children, all Epic references removed
-
----
-
 ## Architecture
 
 ```
-app/domain/handlers/
-+-- work_package_handler.py        # WP document handler
-+-- work_statement_handler.py      # WS document handler with parent WP enforcement
-+-- project_logbook_handler.py     # Logbook handler (governance)
-
 app/domain/services/
-+-- work_package_state.py          # WP state machine (PLANNED->READY->IN_PROGRESS->AWAITING_GATE->DONE)
-+-- work_statement_state.py        # WS state machine (DRAFT->READY->IN_PROGRESS->ACCEPTED/REJECTED/BLOCKED)
++-- document_readiness.py          # is_doc_ready_for_downstream() gate
++-- task_execution_service.py      # execute_task() - reusable LLM primitive
++-- ws_proposal_service.py         # WS proposal station logic
++-- work_package_state.py          # WP state machine
++-- work_statement_state.py        # WS state machine
 +-- work_statement_registration.py # WS-to-WP registration + rollup
-+-- logbook_service.py             # Logbook CRUD + transactional WS acceptance orchestration
-+-- ws_metrics_service.py          # WS execution metrics (dashboard, scoreboard, cost summary)
-+-- secret_governance.py           # Orchestrator Tier-0 secret detection gate
++-- logbook_service.py             # Logbook CRUD
++-- ws_metrics_service.py          # WS execution metrics
++-- secret_governance.py           # Tier-0 secret detection gate
 
-app/core/
-+-- secret_detector.py             # Canonical secret detector (entropy + char distribution + patterns)
+app/api/v1/routers/
++-- work_binder.py                 # Candidates, promote, propose-ws endpoints
 
-app/api/middleware/
-+-- secret_ingress.py              # HTTP ingress secret detection (Gate 1)
+spa/src/components/WorkBinder/
++-- index.jsx                      # Orchestrator (candidates + WPs)
++-- WPIndex.jsx                    # Left sidebar (CANDIDATES + PACKAGES sections)
++-- WPContentArea.jsx              # Center panel (WP detail + candidate detail + propose)
++-- WorkView.jsx                   # WS sheet list
++-- HistoryView.jsx                # Edition history
++-- GovernanceView.jsx             # Governance metadata
++-- WorkBinder.css                 # Styles
 
-spa/src/components/
-+-- DocumentNode.jsx               # Unified L1/L2 node (WP metadata display)
-+-- WSChildList.jsx                # WS children sidecar tray
-+-- Floor.jsx                      # Production floor (master-detail layout)
-+-- PipelineRail.jsx               # Static vertical pipeline rail (left column)
-+-- ContentPanel.jsx               # Right column content switcher
-+-- WorkBinder/                    # WP/WS management panel (7 files)
-    +-- index.jsx                  # Orchestrator (WPIndex + WPContentArea)
-    +-- WPIndex.jsx                # Left sidebar with WP list
-    +-- WPContentArea.jsx          # Center panel with sub-view tabs
-    +-- WorkView.jsx               # WS sheet list with reordering
-    +-- HistoryView.jsx            # Edition history ledger
-    +-- GovernanceView.jsx         # Read-only governance metadata
-
-.claude/skills/                    # 10 Claude Code Skills (on-demand operational knowledge)
-
-tests/tier1/handlers/
-+-- test_work_package_handler.py   # 20 tests (WS-001)
-+-- test_work_statement_handler.py # 21 tests (WS-002)
-+-- test_project_logbook_handler.py # 24 tests (WS-003)
-+-- test_ipp_wp_candidates.py      # 15 tests (WS-004)
-+-- test_ipf_wp_reconcile.py       # 17 tests (WS-005)
-+-- test_epic_feature_removal.py   # 21 tests (WS-006)
-+-- test_production_floor_wp_ws.py # 17 tests (WS-007)
-
-tests/tier1/
-+-- test_secret_detector_calibration.py # 24 tests (WS-PGC-SEC-002-A)
-+-- test_secret_dual_gate.py            # 39 tests (WS-PGC-SEC-002)
-+-- test_ws_metrics.py                  # 30 tests (WS-METRICS-001)
-+-- test_skills_decomposition.py        # 117 tests (WS-SKILLS-001)
+.claude/skills/
++-- ia-verification/SKILL.md       # Post-flight conformance verification
++-- wp-pressure-test/SKILL.md      # Pre-flight WP validation
++-- crap-refactor/skill.md         # CRAP analysis + refactoring
 ```
 
 ---
 
 ## Key Technical Decisions
 
-All previous decisions (1-45) plus:
+All previous decisions (1-46) plus:
 
-46. **CRAP score testability refactoring** -- Extract pure data transformation logic from complex orchestrator methods into standalone `*_pure.py` modules. Original methods become thin wrappers that delegate. Pattern: Extract Pure Logic -> Write Tier-1 tests -> Thin original. This reduces both CC and increases coverage simultaneously.
+47. **IA verification as post-flight gate** -- Complements pressure test (pre-flight). Checks implementation artifacts against authoritative sources (schema, WS, ADR). Bidirectional field diff catches both missing and undeclared fields.
 
----
+48. **Task execution primitive** -- Reusable service for LLM calls outside the workflow engine. Handles prompt loading, ADR-010 logging, output schema validation. Prevents router-level ad hoc LLM execution.
 
-## Quick Commands
+49. **Document readiness gate** -- Mechanical predicate (is_doc_ready_for_downstream) used by WB propose station and future gates. Replaces ambiguous "stabilized" concept.
 
-```bash
-# Run backend (AWS DEV)
-cd ~/dev/TheCombine && source venv/bin/activate
-export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
-export ENVIRONMENT=dev_aws
-python -m uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
+50. **Promoted flag via lineage** -- Work Package promotion status computed from source_candidate_ids linkage, not derived ID naming. Survives rename/split/merge.
 
-# Build SPA for production
-cd spa && npm run build
+51. **Read-only candidate listing** -- GET /work-binder/candidates never mutates. Import is explicit POST action. Prevents audit noise from prefetch/retry.
 
-# Run tests
-export DATABASE_URL=$(ops/scripts/db_connect.sh dev)
-python -m pytest tests/ -x -q
+52. **IA contract alignment as formal WS** -- Cross-layer drift (schema → API → frontend) treated as governed work, not ad hoc fixes. WS-WB-025 established the pattern: audit → WS → test-first fix → verify.
 
-# Run Tier 0 verification harness
-cd ~/dev/TheCombine && ./ops/scripts/tier0.sh
-
-# Tier 0 with frontend check
-./ops/scripts/tier0.sh --frontend
-
-# Run CRAP analysis
-python3 -m pytest tests/ -q --cov=app --cov-report=json:/tmp/combine_coverage.json --no-header
-python3 -m radon cc app/ -j -n A > /tmp/combine_complexity.json
-python3 ops/scripts/crap_analysis.py
-```
+53. **File-level coverage as CRAP proxy** -- CRAP audits use file-level coverage as per-function proxy. More stable than AST-based per-function mapping across runs. May overestimate coverage for large files.
 
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-01, session 2)
-- Tier 0 stabilization: fixed 91 ruff lint errors, workflow validation bugs, registry gaps, stale test assertions
-- WP-WB-001 committed: WorkBinder SPA decomposition, work_binder API routes, WP/WS services, schemas
-- Cleaned up 7 stale agent worktrees and orphaned branches
-- Tier 0 green: lint PASS, typecheck PASS, frontend PASS, registry PASS (63/63), pytest 3614 pass
-
-### Recent Work (2026-03-01, session 1)
-- WP-WB-001 pressure test: executed 11 work statements via parallel worktree subagents
-- WP-CRAP-001 fully executed: 7 Work Statements, 57 functions refactored, 906 new tests
-- Post-execution CRAP analysis generated with delta comparison against baseline
-
-### Recent Work (2026-02-26)
-- Codebase audit (pre/post WS-PIPELINE-003): full inventory of orphaned artifacts
-- WS-REGISTRY-002 executed: story_backlog + story_detail fully retired
-- UI Constitution v2.0 mock created, design system docs in docs/branding/
+### Recent Work (2026-03-03)
+- WSResponse revision normalization bug fixed (scalar int → dict via Pydantic field_validator)
+- IA Verification Audit: 10 findings across WS/WP/WPC schema→API→frontend layers
+- WS-WB-025 executed: 7 fixes (2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW), 10 new tests
+- CRAP score audit: 2,369 functions, 147 critical, 12,053 debt (+1.6% from baseline)
+- PROPOSE STATEMENTS pipeline fully operational (WSs rendering with all 14 fields)
 
 ### Next Work
-- Fix 13 pre-existing test failures: 12 skills decomposition (CLAUDE.md regrew), 1 ws_metrics migration
-- Top remaining CRAP targets: get_document_render_model (662.6), get_production_tracks (626.9), document_routes.get_document (500.8)
-- Integrate Claude Code metrics reporting during WS execution
-- Establish React test harness to retire Mode B debt on SPA tests
-- Project Logbook as productized PROJECT_STATE.md for Combine-managed projects
+- work_package IA section authoring (package.yaml information_architecture + rendering blocks, add to TIER1_DOC_TYPES)
+- Portfolio agent IP: reject and redraft using fixed prompt
+- Top CRAP targets: _handle_result (967.4), _spawn_child_documents (710.1), QANodeExecutor.execute (600.1)
+- Zero-coverage files: admin.py, accounts.py, auth/routes.py, prompt_assembler.py, schema_resolver.py
+- Industrial AI content: "What Is Industrial AI?" essay
+- WarmPulse dogfood project
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
-- MCP connector -- read-only document query layer as first step toward Claude Code integration
-- "Send to Combine" clipboard prompt -- not yet authored
-- Metrics API has no authentication -- acceptable for internal dev, needs auth before production
-
-### Cleanup Tasks
-- Delete unused `spa/src/components/LoginPage.jsx`
-- Remove Zone.Identifier files
-- Sync IPP task prompt field names with IPP schema
-- Configure mypy and resolve Verification Debt
+- MCP connector -- read-only document query layer
+- "Send to Combine" clipboard prompt
+- Metrics API has no authentication
+- Prompt governance rule: task prompts must not describe output field names (schema describes shape)
+- Consultation Board concept (multi-model deliberation) -- post-beta
 
 ### Known Issues
 - Two copies of IPF schema must be kept in sync
-- IPP task prompt field names don't match IPP schema
-- BCP pipeline still uses "epic"/"feature" as hierarchy level names (intentional, separate from document types)
-- init_db.py schema.sql doesn't work on RDS (workaround: ORM-based creation)
-- db_reset.sh can't DROP SCHEMA public on RDS (workaround: drop tables individually)
-- Workflow definition validation warnings for intake_and_route and software_product_development (missing nodes/edges/entry_node_ids)
-- `.gitignore` `*secret*` pattern requires explicit negation for every new file with "secret" in name
+- BCP pipeline still uses "epic"/"feature" as hierarchy level names
+- init_db.py schema.sql doesn't work on RDS
+- db_reset.sh can't DROP SCHEMA public on RDS
+- Workflow definition validation warnings for POWs
+- `.gitignore` `*secret*` pattern requires explicit negation
