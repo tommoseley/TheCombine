@@ -866,11 +866,13 @@ class PlanExecutor:
     ) -> None:
         """Handle the result of a node execution.
 
-        This method:
+        Orchestrates 5 concerns via sub-methods (WS-CRAP-008):
         1. Records the execution in history
         2. Handles pause/user input requirements
-        3. Uses EdgeRouter to determine next node
-        4. Updates state with next node or terminal outcome
+        3. Stores produced documents in context
+        4. Handles intake gate pause-for-review
+        5. Routes to next node (terminal, non-advancing, or advance)
+        6. Manages QA retry feedback
 
         Args:
             result: The node execution result
@@ -878,7 +880,7 @@ class PlanExecutor:
             state: Current execution state
             plan: Workflow plan
         """
-        # Record execution in history (include user_prompt for clarification questions)
+        # 1. Record execution in history
         execution_metadata = dict(result.metadata) if result.metadata else {}
         if result.user_prompt:
             execution_metadata["user_prompt"] = result.user_prompt
@@ -888,99 +890,21 @@ class PlanExecutor:
             metadata=execution_metadata,
         )
 
-        # Handle user input requirement
-        if result.requires_user_input:
-            logger.info(f"Setting paused state with payload={result.user_input_payload is not None}, schema_ref={result.user_input_schema_ref}")
-
-            # Store Gate Profile metadata in context_state for resumption (ADR-047)
-            from app.domain.workflow.result_handling import extract_metadata_by_keys, GATE_PROFILE_KEYS
-
-            gate_metadata = extract_metadata_by_keys(result.metadata, GATE_PROFILE_KEYS)
-            if gate_metadata:
-                state.update_context_state(gate_metadata)
-                logger.info(f"Stored Gate Profile metadata: {list(gate_metadata.keys())}")
-
-            state.set_paused(
-                prompt=result.user_prompt,
-                choices=result.user_choices,
-                payload=result.user_input_payload,
-                schema_ref=result.user_input_schema_ref,
-            )
+        # 2. User input pause
+        if await self._handle_user_input_pause(result, state):
             return
 
-        # Store produced document in context_state for subsequent nodes (e.g., QA)
-        # Note: produced_document is a direct field on NodeResult, not in metadata
-        if result.produced_document:
-            produces_key = result.metadata.get("produces", "last_produced")
+        # 3. Produced document storage
+        await self._store_produced_document(result, state)
 
-            # ADR-042/ADR-047: Pin invariants into known_constraints BEFORE storing
-            # This runs after generation, before QA, making constraints mechanical
-            pinned_document = await self._pin_invariants_via_operation(
-                result.produced_document, state
-            )
+        # 4. Intake gate handling
+        if await self._handle_intake_gate_result(result, current_node, state, plan):
+            return
 
-            # ADR-042/ADR-047: Filter excluded topics from recommendations
-            # Prevents boilerplate recs from violating exclusion constraints
-            filtered_document = await self._filter_excluded_via_operation(
-                pinned_document, state
-            )
+        # 5. Pre-routing: Set generating_node_id for QA failures
+        self._prepare_qa_retry_tracking(result, current_node, state, plan)
 
-            state.update_context_state({
-                f"document_{produces_key}": filtered_document,
-                "last_produced_document": pinned_document,
-            })
-            logger.info(f"Stored produced document as document_{produces_key}")
-
-        # Store intake gate metadata in context_state for downstream nodes
-        # This includes: intake_summary, project_type, user_input, interpretation, phase
-        # Supports both legacy INTAKE_GATE type and new GATE type with internals (ADR-047)
-        is_intake_gate = (
-            current_node.type == NodeType.INTAKE_GATE or
-            (current_node.type == NodeType.GATE and current_node.internals)
-        )
-        if is_intake_gate and result.outcome == "qualified":
-            from app.domain.workflow.result_handling import extract_metadata_by_keys, INTAKE_METADATA_KEYS, should_pause_for_intake_review
-
-            intake_metadata = extract_metadata_by_keys(result.metadata, INTAKE_METADATA_KEYS)
-            if intake_metadata:
-                state.update_context_state(intake_metadata)
-                logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
-
-            # Legacy INTAKE_GATE: Pause for user review if phase is "review"
-            # Gate Profile nodes (GATE with internals) handle their own pausing via Entry
-            if should_pause_for_intake_review(
-                current_node.type == NodeType.INTAKE_GATE,
-                result.metadata.get("phase"),
-                state.context_state.get("phase"),
-            ):
-                    # Advance to next node BEFORE pausing (so resume starts at generation, not intake)
-                    router = EdgeRouter(plan)
-                    next_node_id, _ = router.get_next_node(
-                        current_node_id=current_node.node_id,
-                        outcome=result.outcome,
-                        state=state,
-                    )
-                    if next_node_id:
-                        state.current_node_id = next_node_id
-                        logger.info(f"Advanced to {next_node_id} before pausing for review")
-
-                    state.set_paused(prompt=None, choices=None)
-                    await self._persistence.save(state)
-                    logger.info("Intake qualified - pausing for user review")
-                    return  # Don't execute next node until user clicks Initialize
-
-        # Pre-routing: Set generating_node_id for QA failures (needed by edge router)
-        if current_node.type == NodeType.QA and result.outcome == "failed":
-            generating_node_id = self._find_generating_node(state, plan)
-            if generating_node_id:
-                state.generating_node_id = generating_node_id
-                current_retries = state.get_retry_count(generating_node_id)
-                logger.info(
-                    f"Circuit breaker check: {generating_node_id} has {current_retries} retries "
-                    f"(threshold: 2)"
-                )
-
-        # Use EdgeRouter to determine next node
+        # 6. Route via EdgeRouter
         router = EdgeRouter(plan)
         next_node_id, matched_edge = router.get_next_node(
             current_node_id=current_node.node_id,
@@ -988,26 +912,23 @@ class PlanExecutor:
             state=state,
         )
 
-        # Handle non-advancing edge (circuit breaker)
+        # 7. Non-advancing edge (circuit breaker)
         if matched_edge and matched_edge.to_node_id is None:
             if matched_edge.escalation_options:
                 state.set_escalation(matched_edge.escalation_options)
-                return
             else:
-                # Non-advancing without escalation - stay at current node
                 logger.warning(
                     f"Non-advancing edge without escalation options at "
                     f"{current_node.node_id}"
                 )
-                return
+            return
 
-        # No matching edge - error state
+        # 8. No matching edge → error
         if next_node_id is None:
             logger.error(
                 f"No matching edge from {current_node.node_id} "
                 f"with outcome '{result.outcome}'"
             )
-            # WS-STATION-DATA-001 Phase 2: Mark current station as blocked
             await self._emit_station_changed(plan, state, current_node.node_id, "blocked")
             state.set_failed(
                 f"No routing edge for outcome '{result.outcome}' "
@@ -1015,69 +936,231 @@ class PlanExecutor:
             )
             return
 
-        # Check if next node is terminal
+        # 9. Terminal node
         if router.is_terminal_node(next_node_id):
-            terminal_outcome = router.get_terminal_outcome(next_node_id)
-
-            # Get gate outcome: prefer end node definition, fallback to result metadata
-            gate_outcome = router.get_gate_outcome(next_node_id)
-            if not gate_outcome:
-                gate_outcome = result.metadata.get("gate_outcome")
-
-            # Detect circuit breaker trigger
-            if (
-                current_node.type == NodeType.QA
-                and result.outcome == "failed"
-                and terminal_outcome == "blocked"
-            ):
-                retry_count = state.get_retry_count(state.generating_node_id) if state.generating_node_id else 0
-                logger.warning(
-                    f"CIRCUIT BREAKER TRIPPED: QA failed {retry_count} times for "
-                    f"{state.generating_node_id}, routing to {next_node_id}"
-                )
-
-            state.current_node_id = next_node_id
-
-            # WS-STATION-DATA-001 Phase 2: Mark current station complete, then done station complete
-            current_station = plan.get_node_station(current_node.node_id)
-            if current_station:
-                await self._emit_station_changed(plan, state, current_node.node_id, "complete")
-            # Terminal node maps to "done" station - mark it complete
-            await self._emit_station_changed(plan, state, next_node_id, "complete")
-
-            state.set_completed(
-                terminal_outcome=terminal_outcome,
-                gate_outcome=gate_outcome,
-            )
-
-            # Record governance outcome (ADR-037)
-            await self._record_governance_outcome(state, plan, result)
-
-            # Persist produced documents to database on successful completion
-            if terminal_outcome == "stabilized":
-                await self._persist_produced_documents(state, plan)
-
-            logger.info(
-                f"Execution {state.execution_id} reached terminal: "
-                f"{terminal_outcome} (gate: {gate_outcome})"
+            await self._handle_terminal_node(
+                router, next_node_id, current_node, result, state, plan,
             )
             return
 
-        # WS-STATION-DATA-001 Phase 2: Mark current station complete if moving to different station
+        # 10. Station transitions + advance
+        await self._advance_to_next_node(
+            current_node, next_node_id, state, plan,
+        )
+
+        # 11. QA retry/feedback
+        self._handle_qa_retry_feedback(result, current_node, state)
+
+    # =========================================================================
+    # WS-CRAP-008: Sub-methods extracted from _handle_result
+    # =========================================================================
+
+    async def _handle_user_input_pause(
+        self,
+        result: NodeResult,
+        state: DocumentWorkflowState,
+    ) -> bool:
+        """Handle user input requirement. Returns True if execution paused."""
+        if not result.requires_user_input:
+            return False
+
+        logger.info(
+            f"Setting paused state with payload={result.user_input_payload is not None}, "
+            f"schema_ref={result.user_input_schema_ref}"
+        )
+
+        # Store Gate Profile metadata in context_state for resumption (ADR-047)
+        from app.domain.workflow.result_handling import extract_metadata_by_keys, GATE_PROFILE_KEYS
+
+        gate_metadata = extract_metadata_by_keys(result.metadata, GATE_PROFILE_KEYS)
+        if gate_metadata:
+            state.update_context_state(gate_metadata)
+            logger.info(f"Stored Gate Profile metadata: {list(gate_metadata.keys())}")
+
+        state.set_paused(
+            prompt=result.user_prompt,
+            choices=result.user_choices,
+            payload=result.user_input_payload,
+            schema_ref=result.user_input_schema_ref,
+        )
+        return True
+
+    async def _store_produced_document(
+        self,
+        result: NodeResult,
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Store produced document in context_state after invariant pinning."""
+        if not result.produced_document:
+            return
+
+        produces_key = result.metadata.get("produces", "last_produced")
+
+        # ADR-042/ADR-047: Pin invariants into known_constraints BEFORE storing
+        pinned_document = await self._pin_invariants_via_operation(
+            result.produced_document, state
+        )
+
+        # ADR-042/ADR-047: Filter excluded topics from recommendations
+        filtered_document = await self._filter_excluded_via_operation(
+            pinned_document, state
+        )
+
+        state.update_context_state({
+            f"document_{produces_key}": filtered_document,
+            "last_produced_document": pinned_document,
+        })
+        logger.info(f"Stored produced document as document_{produces_key}")
+
+    async def _handle_intake_gate_result(
+        self,
+        result: NodeResult,
+        current_node: Node,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+    ) -> bool:
+        """Handle intake gate metadata + pause-for-review. Returns True if paused."""
+        is_intake_gate = (
+            current_node.type == NodeType.INTAKE_GATE or
+            (current_node.type == NodeType.GATE and current_node.internals)
+        )
+        if not is_intake_gate or result.outcome != "qualified":
+            return False
+
+        from app.domain.workflow.result_handling import (
+            extract_metadata_by_keys, INTAKE_METADATA_KEYS, should_pause_for_intake_review,
+        )
+
+        intake_metadata = extract_metadata_by_keys(result.metadata, INTAKE_METADATA_KEYS)
+        if intake_metadata:
+            state.update_context_state(intake_metadata)
+            logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
+
+        if should_pause_for_intake_review(
+            current_node.type == NodeType.INTAKE_GATE,
+            result.metadata.get("phase"),
+            state.context_state.get("phase"),
+        ):
+            # Advance to next node BEFORE pausing (so resume starts at generation)
+            router = EdgeRouter(plan)
+            next_node_id, _ = router.get_next_node(
+                current_node_id=current_node.node_id,
+                outcome=result.outcome,
+                state=state,
+            )
+            if next_node_id:
+                state.current_node_id = next_node_id
+                logger.info(f"Advanced to {next_node_id} before pausing for review")
+
+            state.set_paused(prompt=None, choices=None)
+            await self._persistence.save(state)
+            logger.info("Intake qualified - pausing for user review")
+            return True
+
+        return False
+
+    async def _handle_terminal_node(
+        self,
+        router: EdgeRouter,
+        next_node_id: str,
+        current_node: Node,
+        result: NodeResult,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+    ) -> None:
+        """Handle terminal node: set completed, record governance, persist documents."""
+        terminal_outcome = router.get_terminal_outcome(next_node_id)
+
+        # Get gate outcome: prefer end node definition, fallback to result metadata
+        gate_outcome = router.get_gate_outcome(next_node_id)
+        if not gate_outcome:
+            gate_outcome = result.metadata.get("gate_outcome")
+
+        # Detect circuit breaker trigger
+        if (
+            current_node.type == NodeType.QA
+            and result.outcome == "failed"
+            and terminal_outcome == "blocked"
+        ):
+            retry_count = (
+                state.get_retry_count(state.generating_node_id)
+                if state.generating_node_id else 0
+            )
+            logger.warning(
+                f"CIRCUIT BREAKER TRIPPED: QA failed {retry_count} times for "
+                f"{state.generating_node_id}, routing to {next_node_id}"
+            )
+
+        state.current_node_id = next_node_id
+
+        # WS-STATION-DATA-001 Phase 2: Station events
+        current_station = plan.get_node_station(current_node.node_id)
+        if current_station:
+            await self._emit_station_changed(plan, state, current_node.node_id, "complete")
+        await self._emit_station_changed(plan, state, next_node_id, "complete")
+
+        state.set_completed(
+            terminal_outcome=terminal_outcome,
+            gate_outcome=gate_outcome,
+        )
+
+        # Record governance outcome (ADR-037)
+        await self._record_governance_outcome(state, plan, result)
+
+        # Persist produced documents on successful completion
+        if terminal_outcome == "stabilized":
+            await self._persist_produced_documents(state, plan)
+
+        logger.info(
+            f"Execution {state.execution_id} reached terminal: "
+            f"{terminal_outcome} (gate: {gate_outcome})"
+        )
+
+    def _prepare_qa_retry_tracking(
+        self,
+        result: NodeResult,
+        current_node: Node,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+    ) -> None:
+        """Set generating_node_id on state if QA failed (needed by EdgeRouter)."""
+        if current_node.type != NodeType.QA or result.outcome != "failed":
+            return
+        generating_node_id = self._find_generating_node(state, plan)
+        if generating_node_id:
+            state.generating_node_id = generating_node_id
+            current_retries = state.get_retry_count(generating_node_id)
+            logger.info(
+                f"Circuit breaker check: {generating_node_id} has {current_retries} retries "
+                f"(threshold: 2)"
+            )
+
+    async def _advance_to_next_node(
+        self,
+        current_node: Node,
+        next_node_id: str,
+        state: DocumentWorkflowState,
+        plan: WorkflowPlan,
+    ) -> None:
+        """Advance state to next node, emitting station change events."""
         current_station = plan.get_node_station(current_node.node_id)
         next_station = plan.get_node_station(next_node_id)
+
         if current_station and (not next_station or current_station.id != next_station.id):
             await self._emit_station_changed(plan, state, current_node.node_id, "complete")
 
-        # Advance to next node
         state.current_node_id = next_node_id
 
-        # WS-STATION-DATA-001 Phase 2: Mark new station as active
         if next_station and (not current_station or next_station.id != current_station.id):
             await self._emit_station_changed(plan, state, next_node_id, "active")
 
-        # Handle QA failure -> increment retry for generating node
-        # Note: generating_node_id was already set on state before routing
+    def _handle_qa_retry_feedback(
+        self,
+        result: NodeResult,
+        current_node: Node,
+        state: DocumentWorkflowState,
+    ) -> None:
+        """Handle QA retry counting and feedback storage/clearing."""
         if (
             current_node.type == NodeType.QA
             and result.outcome == "failed"
@@ -1088,15 +1171,15 @@ class PlanExecutor:
                 f"QA failed, incremented retry for {state.generating_node_id} "
                 f"to {retry_count}"
             )
-            
-            # Store QA feedback in context_state for remediation node
-            # This enables the LLM to learn from the failure
+
             qa_feedback = self._extract_qa_feedback(result)
             if qa_feedback:
                 state.update_context_state({"qa_feedback": qa_feedback})
-                logger.info(f"Stored QA feedback for remediation: {len(qa_feedback.get('issues', []))} issues")
-        
-        # Clear QA feedback on success (to prevent stale feedback on subsequent runs)
+                logger.info(
+                    f"Stored QA feedback for remediation: "
+                    f"{len(qa_feedback.get('issues', []))} issues"
+                )
+
         elif current_node.type == NodeType.QA and result.outcome == "success":
             if state.context_state.get("qa_feedback"):
                 state.context_state.pop("qa_feedback", None)
@@ -1743,117 +1826,99 @@ class PlanExecutor:
         Drift-aware: children from a previous run that are no longer in the
         current spec are marked stale (superseded), not deleted.
 
-        Args:
-            state: The completed workflow state
-            doc_content: The parent document content
-            parent_id: UUID of the parent document
-            parent_title: Title of the parent document
-            execution_id: Execution ID to inject into lineage metadata
+        WS-CRAP-009: Thinned dispatcher — delegates to pure helpers and
+        sub-methods for envelope unwrap, lineage injection, upsert, stale
+        marking, and event payload construction.
         """
         from app.domain.handlers.registry import handler_exists, get_handler
         from app.api.models.document import Document
-        from uuid import UUID
+        from app.domain.workflow.child_document_helpers import (
+            unwrap_raw_envelope,
+            inject_execution_id_into_lineage,
+            build_children_event_payload,
+        )
 
         if not handler_exists(state.document_type):
             return
 
         handler = get_handler(state.document_type)
-
-        # Unwrap raw envelope if present — LLM output is often stored as
-        # {"raw": true, "content": "```json\n{...}\n```"} and the handler
-        # expects the parsed JSON structure
-        unwrapped = doc_content
-        if isinstance(doc_content, dict) and doc_content.get("raw") and "content" in doc_content:
-            raw_str = doc_content["content"]
-            if isinstance(raw_str, str):
-                cleaned = raw_str.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
-                    if cleaned.endswith("```"):
-                        cleaned = cleaned[:-3].strip()
-                try:
-                    unwrapped = json.loads(cleaned)
-                    logger.debug("Unwrapped raw envelope for child document extraction")
-                except json.JSONDecodeError:
-                    logger.warning("Failed to unwrap raw content for child extraction")
-
+        unwrapped = unwrap_raw_envelope(doc_content)
         child_specs = handler.get_child_documents(unwrapped, parent_title or "")
 
         if not child_specs:
             return
 
-        # Inject execution_id into lineage metadata
-        if execution_id:
-            for spec in child_specs:
-                lineage = spec["content"].get("_lineage")
-                if lineage:
-                    lineage["parent_execution_id"] = execution_id
+        inject_execution_id_into_lineage(child_specs, execution_id)
 
-        # Load existing children for idempotency check (keyed by instance_id)
-        existing_result = await self._db_session.execute(
-            select(Document).where(
-                Document.parent_document_id == parent_id,
-                Document.doc_type_id.in_([s["doc_type_id"] for s in child_specs]),
-                Document.is_latest == True,
-            )
+        existing_children = await self._load_existing_children(
+            parent_id, child_specs, Document,
         )
-        existing_children = {
-            doc.instance_id: doc
-            for doc in existing_result.scalars().all()
-            if doc.instance_id
-        }
 
-        created_count = 0
-        updated_count = 0
-        spawned_ids = set()
+        spawned_ids, created_count, updated_count = await self._run_upsert_loop(
+            child_specs, existing_children, state, parent_id,
+        )
 
-        for spec in child_specs:
-            identifier = spec.get("identifier", "")
-            if not identifier:
-                logger.error(
-                    f"Child spec for {spec.get('doc_type_id')} missing identifier - "
-                    f"skipping (would violate multi-instance uniqueness)"
-                )
-                continue
-            spawned_ids.add(identifier)
+        superseded_count = self._mark_stale_children(existing_children, spawned_ids)
 
-            try:
-                existing = existing_children.get(identifier)
-                if existing:
-                    # Update existing child document
-                    existing.content = spec["content"]
-                    existing.title = spec["title"]
-                    existing.version += 1
-                    existing.update_revision_hash()
-                    updated_count += 1
-                    logger.debug(f"Updated existing child: {identifier}")
-                else:
-                    # Create new child document
-                    child_doc = Document(
-                        space_type="project",
-                        space_id=UUID(state.project_id),
-                        doc_type_id=spec["doc_type_id"],
-                        title=spec["title"],
-                        content=spec["content"],
-                        version=1,
-                        is_latest=True,
-                        status="draft",
-                        created_by=None,
-                        parent_document_id=parent_id,
-                        instance_id=identifier,
-                    )
-                    child_doc.update_revision_hash()
-                    self._db_session.add(child_doc)
-                    created_count += 1
-                    logger.debug(f"Created child: {identifier} (instance_id={identifier})")
-            except Exception as e:
-                logger.error(
-                    f"Failed to upsert child document "
-                    f"{spec.get('doc_type_id')}/{identifier}: {e}"
-                )
+        await self._commit_and_notify_children(
+            created_count, updated_count, superseded_count,
+            state, parent_id, child_specs, existing_children, spawned_ids,
+            build_children_event_payload,
+        )
 
-        # Drift: supersede children that are no longer in the spec
-        superseded_count = 0
+    async def _upsert_child_document(
+        self,
+        spec: dict,
+        existing_children: dict,
+        state: DocumentWorkflowState,
+        parent_id: "UUID",  # noqa: F821
+    ) -> str:
+        """Upsert a single child document. Returns 'created', 'updated', or 'skipped'."""
+        from app.api.models.document import Document
+        from uuid import UUID
+
+        identifier = spec.get("identifier", "")
+        if not identifier:
+            logger.error(
+                f"Child spec for {spec.get('doc_type_id')} missing identifier - "
+                f"skipping (would violate multi-instance uniqueness)"
+            )
+            return "skipped"
+
+        existing = existing_children.get(identifier)
+        if existing:
+            existing.content = spec["content"]
+            existing.title = spec["title"]
+            existing.version += 1
+            existing.update_revision_hash()
+            logger.debug(f"Updated existing child: {identifier}")
+            return "updated"
+        else:
+            child_doc = Document(
+                space_type="project",
+                space_id=UUID(state.project_id),
+                doc_type_id=spec["doc_type_id"],
+                title=spec["title"],
+                content=spec["content"],
+                version=1,
+                is_latest=True,
+                status="draft",
+                created_by=None,
+                parent_document_id=parent_id,
+                instance_id=identifier,
+            )
+            child_doc.update_revision_hash()
+            self._db_session.add(child_doc)
+            logger.debug(f"Created child: {identifier} (instance_id={identifier})")
+            return "created"
+
+    def _mark_stale_children(
+        self,
+        existing_children: dict,
+        spawned_ids: set[str],
+    ) -> int:
+        """Mark children no longer in spec as stale. Returns count."""
+        count = 0
         for child_id, child_doc in existing_children.items():
             if child_id not in spawned_ids:
                 child_doc.is_latest = False
@@ -1861,41 +1926,92 @@ class PlanExecutor:
                     child_doc.mark_stale()
                 else:
                     child_doc.lifecycle_state = "stale"
-                superseded_count += 1
+                count += 1
                 logger.info(f"Superseded child: {child_id} (no longer in parent)")
+        return count
 
-        if created_count > 0 or updated_count > 0 or superseded_count > 0:
-            await self._db_session.commit()
-            logger.info(
-                f"Spawned children from {state.document_type} (parent={parent_id}): "
-                f"created={created_count}, updated={updated_count}, "
-                f"superseded={superseded_count}"
+    async def _load_existing_children(
+        self,
+        parent_id: "UUID",  # noqa: F821
+        child_specs: list[dict],
+        Document,
+    ) -> dict:
+        """Load existing children for idempotency check, keyed by instance_id."""
+        existing_result = await self._db_session.execute(
+            select(Document).where(
+                Document.parent_document_id == parent_id,
+                Document.doc_type_id.in_([s["doc_type_id"] for s in child_specs]),
+                Document.is_latest == True,
             )
+        )
+        return {
+            doc.instance_id: doc
+            for doc in existing_result.scalars().all()
+            if doc.instance_id
+        }
 
-            # Emit SSE event so the production floor updates live
-            created_ids = [
-                s.get("identifier", "")
-                for s in child_specs
-                if s.get("identifier", "") not in existing_children
-            ]
-            updated_ids = [
-                s.get("identifier", "")
-                for s in child_specs
-                if s.get("identifier", "") in existing_children
-            ]
-            superseded_ids = [
-                cid for cid in existing_children if cid not in spawned_ids
-            ]
+    async def _run_upsert_loop(
+        self,
+        child_specs: list[dict],
+        existing_children: dict,
+        state: DocumentWorkflowState,
+        parent_id: "UUID",  # noqa: F821
+    ) -> tuple[set, int, int]:
+        """Run upsert for each child spec. Returns (spawned_ids, created, updated)."""
+        spawned_ids = set()
+        created_count = updated_count = 0
+        for spec in child_specs:
             try:
-                await publish_event(state.project_id, "children_updated", {
-                    "parent_document_type": state.document_type,
-                    "child_doc_type": "work_package",
-                    "created": created_ids,
-                    "updated": updated_ids,
-                    "superseded": superseded_ids,
-                })
+                result = await self._upsert_child_document(
+                    spec, existing_children, state, parent_id,
+                )
+                if result == "created":
+                    created_count += 1
+                elif result == "updated":
+                    updated_count += 1
+                if spec.get("identifier"):
+                    spawned_ids.add(spec["identifier"])
             except Exception as e:
-                logger.warning(f"Failed to publish children_updated event: {e}")
+                logger.error(
+                    f"Failed to upsert child document "
+                    f"{spec.get('doc_type_id')}/{spec.get('identifier')}: {e}"
+                )
+        return spawned_ids, created_count, updated_count
+
+    async def _commit_and_notify_children(
+        self,
+        created_count: int,
+        updated_count: int,
+        superseded_count: int,
+        state: DocumentWorkflowState,
+        parent_id: "UUID",  # noqa: F821
+        child_specs: list[dict],
+        existing_children: dict,
+        spawned_ids: set,
+        build_children_event_payload,
+    ) -> None:
+        """Commit DB changes and publish SSE event if anything changed."""
+        if not (created_count or updated_count or superseded_count):
+            return
+
+        await self._db_session.commit()
+        logger.info(
+            f"Spawned children from {state.document_type} (parent={parent_id}): "
+            f"created={created_count}, updated={updated_count}, "
+            f"superseded={superseded_count}"
+        )
+
+        payload = build_children_event_payload(
+            child_specs, set(existing_children.keys()), spawned_ids,
+        )
+        try:
+            await publish_event(state.project_id, "children_updated", {
+                "parent_document_type": state.document_type,
+                "child_doc_type": "work_package",
+                **payload,
+            })
+        except Exception as e:
+            logger.warning(f"Failed to publish children_updated event: {e}")
 
     # =========================================================================
     # WS-STATION-DATA-001 Phase 2: Station Event Emission
