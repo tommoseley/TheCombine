@@ -323,7 +323,7 @@ async def import_candidates_from_ip(
         wpc_id = wpc_content["wpc_id"]
 
         existing = await _find_existing_wpc(
-            db, wpc_id, request.ip_document_id, source_ip_version,
+            db, wpc_id, ip_doc.space_id,
         )
 
         if existing:
@@ -1220,36 +1220,42 @@ async def _load_ip_document(
 async def _find_existing_wpc(
     db: AsyncSession,
     wpc_id: str,
-    source_ip_id: str,
-    source_ip_version: str,
+    space_id: UUID,
 ) -> Document | None:
-    """Find existing WPC by wpc_id + source IP provenance."""
+    """Find existing WPC by wpc_id within the same space.
+
+    Checks instance_id + space_id only (not IP provenance). This prevents
+    duplicate WPCs when import-candidates runs against different IP document
+    versions that contain the same candidate IDs.
+    """
     result = await db.execute(
         select(Document).where(
             Document.doc_type_id == "work_package_candidate",
             Document.instance_id == wpc_id,
+            Document.space_id == space_id,
             Document.is_latest == True,  # noqa: E712
-            Document.content["source_ip_id"].astext == source_ip_id,
-            Document.content[
-                "source_ip_version"
-            ].astext == source_ip_version,
         )
     )
-    return result.scalar_one_or_none()
+    return result.scalars().first()
 
 
 async def _load_wpc_document(
     db: AsyncSession, wpc_id: str,
 ) -> Document:
-    """Load a WPC document by instance_id. 404 if not found."""
+    """Load a WPC document by instance_id. 404 if not found.
+
+    Uses scalars().first() instead of scalar_one_or_none() to tolerate
+    duplicate WPC rows (created when import-candidates runs against
+    different IP document versions with the same candidate IDs).
+    """
     result = await db.execute(
         select(Document).where(
             Document.doc_type_id == "work_package_candidate",
             Document.instance_id == wpc_id,
             Document.is_latest == True,  # noqa: E712
-        )
+        ).order_by(Document.created_at.desc())
     )
-    doc = result.scalar_one_or_none()
+    doc = result.scalars().first()
 
     if not doc:
         raise HTTPException(

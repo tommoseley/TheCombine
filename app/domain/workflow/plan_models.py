@@ -125,6 +125,23 @@ class Node:
     includes: Dict[str, str] = field(default_factory=dict)  # ADR-041 template includes
     internals: Dict[str, Any] = field(default_factory=dict)  # ADR-047 Gate Profile internals
     station: Optional[StationMetadata] = None  # WS-STATION-DATA-001: Production floor station
+    gate_kind: Optional[str] = None  # WS-RING0-001: "qa", "pgc", etc.
+
+    def is_qa_gate(self) -> bool:
+        """Canonical definition of QA-ness. Single source of truth.
+
+        A node is a QA gate if:
+        - It has type QA directly, OR
+        - It has type GATE with gate_kind="qa" (workflow v2 pattern)
+
+        All code that needs to know "is this a QA gate?" must call this method.
+        Do not check NodeType.QA directly — that misses gate-type QA nodes.
+        See RCA 2026-03-03 (type identity drift).
+        """
+        return (
+            self.type == NodeType.QA
+            or (self.type == NodeType.GATE and self.gate_kind == "qa")
+        )
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "Node":
@@ -144,6 +161,7 @@ class Node:
             includes=raw.get("includes", {}),
             internals=raw.get("internals", {}),
             station=StationMetadata.from_dict(raw["station"]) if raw.get("station") else None,
+            gate_kind=raw.get("gate_kind"),
         )
 
 

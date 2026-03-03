@@ -98,10 +98,14 @@ class FakeNodeResult:
 class FakeNode:
     """Minimal Node stub."""
 
-    def __init__(self, node_id="node-1", node_type=None, internals=None):
+    def __init__(self, node_id="node-1", node_type=None, internals=None, gate_kind=None):
         self.node_id = node_id
         self.type = node_type
         self.internals = internals
+        self.gate_kind = gate_kind
+
+    def is_qa_gate(self):
+        return self.type == "qa" or (self.type == "gate" and self.gate_kind == "qa")
 
 
 class FakeEdge:

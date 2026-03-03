@@ -384,7 +384,7 @@ export default function WorkView({ wp, projectId, onRefresh, onProposeStatements
                         key={ws.ws_id}
                         ws={ws}
                         isFocused={focusedWsId === ws.ws_id}
-                        onFocus={setFocusedWsId}
+                        onFocus={(id) => setFocusedWsId(prev => prev === id ? null : id)}
                         onStabilize={handleStabilize}
                         onMoveUp={(id) => handleMove(id, 'up')}
                         onMoveDown={(id) => handleMove(id, 'down')}

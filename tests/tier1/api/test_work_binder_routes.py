@@ -5,6 +5,7 @@ Tier-1 tests for work_binder router:
 - Plane separation enforcement (WS-WB-006)
 - Stabilization validation (WS-WB-006)
 - WS CRUD operations (WS-WB-006)
+- Duplicate WPC handling (promote resilience)
 
 Pure business logic -- uses Pydantic model validation + mocked DB.
 """
@@ -14,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import MultipleResultsFound
 
 from pydantic import ValidationError
 
@@ -25,6 +27,7 @@ from app.api.v1.routers.work_binder import (
     ReorderWSRequest,
     WSResponse,
     WPCDetail,
+    _load_wpc_document,
     router,
 )
 
@@ -855,3 +858,58 @@ class TestWPCDetailSchemaFields:
         detail = WPCDetail(wpc_id="WPC-001", title="Test")
         assert detail.source_ip_version == ""
         assert detail.frozen_by == ""
+
+
+# ===========================================================================
+# Duplicate WPC handling: _load_wpc_document resilience
+# ===========================================================================
+
+class TestLoadWpcDocumentDuplicateResilience:
+    """_load_wpc_document must not crash when duplicate WPCs exist.
+
+    Bug: If import-candidates runs twice with different IP document IDs
+    (e.g., IP re-created), duplicate WPC rows with the same instance_id
+    and is_latest=True are created. scalar_one_or_none() then raises
+    MultipleResultsFound, causing a 500 on promote.
+
+    Fix: Use scalars().first() to tolerate duplicates gracefully.
+    """
+
+    @pytest.mark.asyncio
+    async def test_returns_doc_when_duplicates_exist(self):
+        """_load_wpc_document returns first doc when duplicates exist."""
+        mock_doc = MagicMock()
+        mock_doc.instance_id = "WPC-001"
+
+        db = AsyncMock()
+        result = MagicMock()
+        # scalar_one_or_none would raise on duplicates (current bug)
+        result.scalar_one_or_none.side_effect = MultipleResultsFound(
+            "Multiple rows returned for one_or_none()"
+        )
+        # scalars().first() returns the first doc (desired behavior)
+        scalars_mock = MagicMock()
+        scalars_mock.first.return_value = mock_doc
+        result.scalars.return_value = scalars_mock
+
+        db.execute = AsyncMock(return_value=result)
+
+        doc = await _load_wpc_document(db, "WPC-001")
+        assert doc.instance_id == "WPC-001"
+
+    @pytest.mark.asyncio
+    async def test_returns_404_when_no_docs(self):
+        """_load_wpc_document raises 404 when no WPC found."""
+        from fastapi import HTTPException
+
+        db = AsyncMock()
+        result = MagicMock()
+        scalars_mock = MagicMock()
+        scalars_mock.first.return_value = None
+        result.scalars.return_value = scalars_mock
+
+        db.execute = AsyncMock(return_value=result)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _load_wpc_document(db, "WPC-NONEXISTENT")
+        assert exc_info.value.status_code == 404

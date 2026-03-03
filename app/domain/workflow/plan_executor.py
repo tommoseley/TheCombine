@@ -349,7 +349,7 @@ class PlanExecutor:
         state.status = DocumentWorkflowStatus.RUNNING
 
         # Load PGC answers from database for QA nodes (WS-PGC-VALIDATION-001 Phase 2)
-        if current_node.type == NodeType.QA and self._db_session:
+        if current_node.is_qa_gate() and self._db_session:
             await self._load_pgc_answers_for_qa(state, context)
 
         # Execute the node
@@ -1078,7 +1078,7 @@ class PlanExecutor:
 
         # Detect circuit breaker trigger
         if (
-            current_node.type == NodeType.QA
+            current_node.is_qa_gate()
             and result.outcome == "failed"
             and terminal_outcome == "blocked"
         ):
@@ -1124,7 +1124,7 @@ class PlanExecutor:
         plan: WorkflowPlan,
     ) -> None:
         """Set generating_node_id on state if QA failed (needed by EdgeRouter)."""
-        if current_node.type != NodeType.QA or result.outcome != "failed":
+        if not current_node.is_qa_gate() or result.outcome != "failed":
             return
         generating_node_id = self._find_generating_node(state, plan)
         if generating_node_id:
@@ -1162,7 +1162,7 @@ class PlanExecutor:
     ) -> None:
         """Handle QA retry counting and feedback storage/clearing."""
         if (
-            current_node.type == NodeType.QA
+            current_node.is_qa_gate()
             and result.outcome == "failed"
             and state.generating_node_id
         ):
@@ -1180,7 +1180,7 @@ class PlanExecutor:
                     f"{len(qa_feedback.get('issues', []))} issues"
                 )
 
-        elif current_node.type == NodeType.QA and result.outcome == "success":
+        elif current_node.is_qa_gate() and result.outcome == "success":
             if state.context_state.get("qa_feedback"):
                 state.context_state.pop("qa_feedback", None)
                 logger.debug("Cleared QA feedback after successful validation")
