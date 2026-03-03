@@ -1,29 +1,27 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-03
-**Updated By:** Claude (WS-WB-025 IA contract alignment, CRAP audit, PROPOSE pipeline fixes)
+**Updated By:** Claude (WP-CRAP-002 testability refactoring)
 
 ## Current Focus
 
+**COMPLETE:** WP-CRAP-002 -- Testability Refactoring: Workflow Engine Top 3 (2026-03-03)
+- WS-CRAP-008: `_handle_result` CC 41→10, CRAP 967→49 (7 sub-methods, 17 tests)
+- WS-CRAP-009: `_spawn_child_documents` CC 35→4, CRAP 710→10 (5 sub-methods + 3 pure helpers, 18 tests)
+- WS-CRAP-010: `QANodeExecutor.execute` CC 36→7, CRAP 600→15 (5 check methods + 2 helpers, 20 tests)
+- Combined: CC 112→21, CRAP 2,278→74 (-96.8%), F-grade functions 4→1
+- 55 new Tier-1 tests (2,309 total passing), 0 existing tests broken
+- New module: `child_document_helpers.py` (3 pure functions, 100% coverage)
+- Post-refactoring audit: docs/audits/2026-03-03-crap-scores-post-wp-crap-002.md
+
 **COMPLETE:** WS-WB-025 -- IA Contract Alignment (2026-03-03)
 - 10 IA findings resolved: 2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW (3 deferred out of scope)
-- CRITICAL: Reorder endpoint sends correct {ws_index: [{ws_id, order_key}]} shape
-- CRITICAL: Ghost row sends {title: intent} not {intent}
-- HIGH: STATE_BADGE aligned to schema enum (removed STABILIZED/COMPLETE, added ACCEPTED/REJECTED)
-- MEDIUM: WPCDetail gains source_ip_version + frozen_by fields
-- MEDIUM: BindingBlock reads governance_pins.ta_version_id (actual schema field)
-- MEDIUM: ProvenanceStamp reads transformation + source_candidate_ids (actual schema fields)
-- LOW: formatWsId uses ws_id only (dead fallbacks removed)
-- 10 new tests, WSResponse revision normalization validator added
 - Bug fix: WSResponse revision type mismatch (scalar int → dict normalization)
 
-**COMPLETE:** CRAP Score Audit (2026-03-03)
-- 2,369 functions analyzed (vs 2,356 on Mar 1)
-- 147 critical (6.2%), 170 smelly, 558 acceptable, 1,494 clean
-- Total CRAP debt: 12,053 (+189 / +1.6% vs Feb 27 baseline of 11,864)
-- Notable: check_promotion_validity dropped from ~1700 CRAP to 43.5 (88.6% coverage)
-- Top 3 worst: _handle_result (967.4), _spawn_child_documents (710.1), QANodeExecutor.execute (600.1)
-- Report: docs/audits/2026-03-03-crap-scores.md
+**COMPLETE:** CRAP Score Audit (2026-03-03, pre WP-CRAP-002)
+- 147 critical, top 3 worst: _handle_result (967.4), _spawn_child_documents (710.1), QANodeExecutor.execute (600.1)
+- Post WP-CRAP-002: 145 critical, F-grade 4→1, top 3 eliminated from rankings
+- Reports: docs/audits/2026-03-03-crap-scores.md, docs/audits/2026-03-03-crap-scores-post-wp-crap-002.md
 
 **COMPLETE:** WP-WB-002 -- Work Binder LLM Proposal Station Primitive
 - WS-WB-020: document_readiness.py with is_doc_ready_for_downstream() (11 tests)
@@ -109,7 +107,7 @@
 
 ## Test Suite
 
-- **2254 Tier-1 tests** passing as of 2026-03-03 (10 new from WS-WB-025 IA alignment)
+- **2309 Tier-1 tests** passing as of 2026-03-03 (55 new from WP-CRAP-002)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS (64 assets)
 - SPA: 626 modules, builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -210,21 +208,25 @@ All previous decisions (1-46) plus:
 
 53. **File-level coverage as CRAP proxy** -- CRAP audits use file-level coverage as per-function proxy. More stable than AST-based per-function mapping across runs. May overestimate coverage for large files.
 
+54. **importlib bypass for circular imports in tests** -- Tier-1 tests for plan_executor.py and qa.py use `importlib.util.spec_from_file_location` to avoid the `app.domain.workflow.__init__.py` circular import chain. Side effect: test coverage from these tests doesn't appear in file-level coverage reports.
+
 ---
 
 ## Handoff Notes
 
 ### Recent Work (2026-03-03)
+- WP-CRAP-002 executed: 3 WSs decomposing workflow engine's 3 worst functions
+  - _handle_result CC 41→10, _spawn_child_documents CC 35→4, QANodeExecutor.execute CC 36→7
+  - 55 new Tier-1 tests, combined CRAP 2,278→74, F-grade functions 4→1
 - WSResponse revision normalization bug fixed (scalar int → dict via Pydantic field_validator)
-- IA Verification Audit: 10 findings across WS/WP/WPC schema→API→frontend layers
-- WS-WB-025 executed: 7 fixes (2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW), 10 new tests
-- CRAP score audit: 2,369 functions, 147 critical, 12,053 debt (+1.6% from baseline)
-- PROPOSE STATEMENTS pipeline fully operational (WSs rendering with all 14 fields)
+- WS-WB-025 executed: 7 IA contract fixes (2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW), 10 new tests
+- CRAP score audits: pre + post WP-CRAP-002 comparison
 
 ### Next Work
 - work_package IA section authoring (package.yaml information_architecture + rendering blocks, add to TIER1_DOC_TYPES)
 - Portfolio agent IP: reject and redraft using fixed prompt
-- Top CRAP targets: _handle_result (967.4), _spawn_child_documents (710.1), QANodeExecutor.execute (600.1)
+- Remaining CRAP targets: get_production_tracks (461), compare_runs (342), get_document (276), get_document_render_model (246)
+- check_promotion_validity (CC=41, sole remaining F-grade) -- decomposition would eliminate all F-grade
 - Zero-coverage files: admin.py, accounts.py, auth/routes.py, prompt_assembler.py, schema_resolver.py
 - Industrial AI content: "What Is Industrial AI?" essay
 - WarmPulse dogfood project
