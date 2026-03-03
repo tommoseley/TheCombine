@@ -422,6 +422,66 @@
     padding: 16px 24px;
 }
 
+/* --- WP Content Summary (above WS list) --- */
+.wb-wp-summary {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-panel);
+}
+
+.wb-wp-summary-section {
+    margin-bottom: 12px;
+}
+
+.wb-wp-summary-section:last-child {
+    margin-bottom: 0;
+}
+
+.wb-wp-summary-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.wb-wp-summary-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.wb-wp-summary-list {
+    list-style: disc;
+    padding-left: 20px;
+    margin: 0;
+}
+
+.wb-wp-summary-list li {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    padding: 2px 0;
+}
+
+.wb-wp-lineage-id {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-node);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-right: 6px;
+}
+
+.wb-wp-summary-lineage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
 .wb-work-loading,
 .wb-work-empty {
     padding: 32px 24px;
@@ -545,12 +605,45 @@
     margin-left: auto;
 }
 
-.wb-ws-provenance {
+/* --- WS Content Sections (expanded sheet) --- */
+.wb-ws-section {
     margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-node);
+}
+
+.wb-ws-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.wb-ws-section-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.wb-ws-section-list li {
+    margin-bottom: 2px;
+}
+
+.wb-ws-gov-pins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.wb-ws-pin {
     font-size: 10px;
     color: var(--text-dim);
+    background: var(--bg-panel);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border-node);
 }
 
 /* --- Ghost Row --- */
@@ -773,6 +866,23 @@
 
 .wb-gov-candidate:last-child {
     border-bottom: none;
+}
+
+.wb-gov-candidate-link {
+    background: none;
+    border: none;
+    color: var(--action-primary);
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    font-size: inherit;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+}
+
+.wb-gov-candidate-link:hover {
+    color: var(--text-primary);
 }
 
 /* ============================================================

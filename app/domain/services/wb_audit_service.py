@@ -22,10 +22,14 @@ SUPPORTED_EVENT_TYPES = {
     "candidate_promotion",
     "wp_created",
     "wp_updated",
+    "wp_ws_index_updated",
     "ws_created",
     "ws_updated",
     "ws_reordered",
     "ws_stabilized",
+    "ws_proposal_requested",
+    "ws_proposal_rejected",
+    "ws_proposed",
     "state_transition",
 }
 

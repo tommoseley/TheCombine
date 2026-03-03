@@ -84,22 +84,43 @@ class MarkdownFenceStrategy:
 
 
 class FuzzyBoundaryStrategy:
-    """Find first { to last } and attempt parse."""
-    
+    """Find outermost JSON boundaries and attempt parse.
+
+    Handles both JSON objects ({...}) and arrays ([...]).
+    When both are present, tries the one that starts first.
+    """
+
     def parse(self, text: str) -> Optional[Dict[str, Any]]:
-        """Parse JSON by finding first { to last }."""
+        """Parse JSON by finding outermost delimiters ({ } or [ ])."""
+        # Find both object and array boundaries
         first_brace = text.find('{')
         last_brace = text.rfind('}')
-        
-        if first_brace == -1 or last_brace == -1:
+        first_bracket = text.find('[')
+        last_bracket = text.rfind(']')
+
+        candidates = []
+
+        # Object candidate: { ... }
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            candidates.append((first_brace, text[first_brace:last_brace + 1]))
+
+        # Array candidate: [ ... ]
+        if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
+            candidates.append((first_bracket, text[first_bracket:last_bracket + 1]))
+
+        if not candidates:
             return None
-        
-        json_text = text[first_brace:last_brace + 1]
-        
-        try:
-            return json.loads(json_text)
-        except (json.JSONDecodeError, ValueError, TypeError):
-            return None
+
+        # Try the candidate that starts first (outermost structure)
+        candidates.sort(key=lambda c: c[0])
+
+        for _, json_text in candidates:
+            try:
+                return json.loads(json_text)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                continue
+
+        return None
 
 
 class LLMResponseParser:

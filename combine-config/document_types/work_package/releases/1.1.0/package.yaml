@@ -55,6 +55,162 @@ gating_rules:
     - stakeholder
     - technical_lead
 
+# Rendering — IA-driven (ADR-054), no legacy docdef
+view_docdef: null
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 2
+
+  sections:
+    - id: overview
+      label: Overview
+      binds:
+        - path: wp_id
+          render_as: paragraph
+        - path: title
+          render_as: paragraph
+        - path: rationale
+          render_as: paragraph
+        - path: state
+          render_as: paragraph
+
+    - id: scope
+      label: Scope
+      binds:
+        - path: scope_in
+          render_as: list
+        - path: scope_out
+          render_as: list
+        - path: definition_of_done
+          render_as: ordered-list
+
+    - id: dependencies
+      label: Dependencies
+      binds:
+        - path: dependencies
+          render_as: table
+          columns:
+            - field: wp_id
+              label: Work Package
+            - field: dependency_type
+              label: Type
+            - field: notes
+              label: Notes
+
+    - id: governance
+      label: Governance
+      binds:
+        - path: governance_pins
+          render_as: nested-object
+          fields:
+            - path: ta_version_id
+              render_as: paragraph
+            - path: adr_refs
+              render_as: list
+            - path: policy_refs
+              render_as: list
+
+    - id: work_statements
+      label: Work Statements
+      binds:
+        - path: ws_index
+          render_as: table
+          columns:
+            - field: ws_id
+              label: Statement ID
+            - field: order_key
+              label: Order
+
+    - id: progress
+      label: Progress
+      binds:
+        - path: ws_total
+          render_as: paragraph
+        - path: ws_done
+          render_as: paragraph
+        - path: mode_b_count
+          render_as: paragraph
+
+    - id: revision
+      label: Revision
+      binds:
+        - path: revision
+          render_as: nested-object
+          fields:
+            - path: edition
+              render_as: paragraph
+            - path: updated_at
+              render_as: paragraph
+            - path: updated_by
+              render_as: paragraph
+        - path: change_summary
+          render_as: list
+
+    - id: lineage
+      label: Lineage
+      binds:
+        - path: source_candidate_ids
+          render_as: list
+        - path: transformation
+          render_as: paragraph
+        - path: transformation_notes
+          render_as: paragraph
+        - path: _lineage
+          render_as: nested-object
+          fields:
+            - path: parent_document_type
+              render_as: paragraph
+            - path: parent_execution_id
+              render_as: paragraph
+            - path: source_candidate_ids
+              render_as: list
+            - path: transformation
+              render_as: paragraph
+            - path: transformation_notes
+              render_as: paragraph
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview
+          - scope
+
+      - id: governance
+        label: Governance
+        sections:
+          - governance
+          - dependencies
+
+      - id: execution
+        label: Execution
+        sections:
+          - work_statements
+          - progress
+          - revision
+
+      - id: lineage
+        label: Lineage
+        sections:
+          - lineage
+
+  pdf:
+    linear_order:
+      - overview
+      - scope
+      - dependencies
+      - governance
+      - work_statements
+      - progress
+      - revision
+      - lineage
+    toc: true
+
 # UI configuration
 ui:
   icon: package

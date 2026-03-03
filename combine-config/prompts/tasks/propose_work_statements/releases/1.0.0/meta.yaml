@@ -1,0 +1,11 @@
+name: "Propose Work Statements Task"
+intent: "Decompose a Work Package into draft Work Statement documents"
+tags: ["propose_work_statements", "work_statement", "work_package"]
+inputs:
+  - name: "work_package"
+    description: "The parent Work Package document to decompose"
+    required: true
+  - name: "technical_architecture"
+    description: "The governing Technical Architecture document"
+    required: true
+output_schema: "work_statement"

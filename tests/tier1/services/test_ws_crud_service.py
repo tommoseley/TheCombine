@@ -100,9 +100,9 @@ class TestBuildNewWs:
         ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
         assert ws["state"] == "DRAFT"
 
-    def test_revision_is_one(self):
+    def test_revision_is_edition_one(self):
         ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
-        assert ws["revision"] == 1
+        assert ws["revision"] == {"edition": 1}
 
     def test_ws_id_set(self):
         ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})

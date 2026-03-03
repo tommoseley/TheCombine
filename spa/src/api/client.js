@@ -244,6 +244,15 @@ export const api = {
             }),
         }),
 
+    getWorkPackageDetail: (wpId) =>
+        request(`/work-binder/wp/${encodeURIComponent(wpId)}`),
+
+    proposeWorkStatements: (projectId, wpId) =>
+        request('/work-binder/propose-ws', {
+            method: 'POST',
+            body: JSON.stringify({ project_id: projectId, wp_id: wpId }),
+        }),
+
     // Concierge Intake
     startIntake: () =>
         request('/intake/start', { method: 'POST' }),

@@ -66,13 +66,14 @@ function EditionRow({ edition }) {
 export default function HistoryView({ wp, projectId }) {
     const [editions, setEditions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const wpContentId = wp.wp_id || wp.id;
 
     const load = useCallback(async () => {
         setLoading(true);
-        const data = await fetchHistory(wp.id);
+        const data = await fetchHistory(wpContentId);
         setEditions(data);
         setLoading(false);
-    }, [wp.id]);
+    }, [wpContentId]);
 
     useEffect(() => { load(); }, [load]);
 

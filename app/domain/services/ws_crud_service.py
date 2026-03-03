@@ -162,7 +162,7 @@ def build_new_ws(
         "parent_wp_id": wp_id,
         "state": "DRAFT",
         "order_key": order_key,
-        "revision": 1,
+        "revision": {"edition": 1},
         "title": content.get("title", ""),
         "objective": content.get("objective", ""),
         "scope_in": content.get("scope_in", []),
