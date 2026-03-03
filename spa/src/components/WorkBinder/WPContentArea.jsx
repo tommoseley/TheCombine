@@ -15,30 +15,31 @@ import GovernanceView from './GovernanceView';
 const SUB_VIEWS = ['WORK', 'HISTORY', 'GOVERNANCE'];
 
 function formatWpId(wp) {
-    return wp.wp_id || wp.code || `WP-${String(wp.sequence || '???').padStart(3, '0')}`;
+    return wp.wp_id || 'WP-???';
 }
 
 function BindingBlock({ wp }) {
-    const componentId = wp.ta_component_id || wp.binding?.component_id || null;
+    const taVersionId = wp.governance_pins?.ta_version_id || null;
     return (
         <div className="wb-binding-block">
-            <span className="wb-binding-label">TA COMPONENT</span>
-            {componentId ? (
-                <span className="wb-binding-value wb-mono">{componentId}</span>
+            <span className="wb-binding-label">TA VERSION</span>
+            {taVersionId && taVersionId !== 'pending' ? (
+                <span className="wb-binding-value wb-mono">{taVersionId}</span>
             ) : (
-                <span className="wb-binding-unbound">Unbound</span>
+                <span className="wb-binding-unbound">Pending</span>
             )}
         </div>
     );
 }
 
 function ProvenanceStamp({ wp }) {
-    const source = wp.provenance?.source || wp.source || 'UNKNOWN';
-    const auth = wp.provenance?.authorization || wp.authorization || 'UNKNOWN';
+    const transformation = wp.transformation || null;
+    const sourceIds = wp.source_candidate_ids || [];
     return (
         <div className="wb-provenance">
             <span className="wb-mono wb-provenance-text">
-                SOURCE: {source} | AUTH: {auth}
+                {transformation ? `TRANSFORM: ${transformation.toUpperCase()}` : 'SOURCE: UNKNOWN'}
+                {sourceIds.length > 0 && ` | FROM: ${sourceIds.join(', ')}`}
             </span>
         </div>
     );
@@ -116,7 +117,7 @@ function CandidateDetail({ candidate, onPromote }) {
     );
 }
 
-export default function WPContentArea({ wp, candidate, projectId, activeSubView, onChangeSubView, onRefresh, onPromote }) {
+export default function WPContentArea({ wp, candidate, projectId, activeSubView, onChangeSubView, onRefresh, onPromote, onProposeStatements, onViewCandidate }) {
     // Candidate selected — show candidate detail
     if (candidate) {
         return <CandidateDetail candidate={candidate} onPromote={onPromote} />;
@@ -170,6 +171,7 @@ export default function WPContentArea({ wp, candidate, projectId, activeSubView,
                         wp={wp}
                         projectId={projectId}
                         onRefresh={onRefresh}
+                        onProposeStatements={onProposeStatements}
                     />
                 )}
                 {activeSubView === 'HISTORY' && (
@@ -179,7 +181,7 @@ export default function WPContentArea({ wp, candidate, projectId, activeSubView,
                     />
                 )}
                 {activeSubView === 'GOVERNANCE' && (
-                    <GovernanceView wp={wp} />
+                    <GovernanceView wp={wp} onViewCandidate={onViewCandidate} />
                 )}
             </div>
         </div>

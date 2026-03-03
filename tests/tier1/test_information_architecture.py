@@ -28,6 +28,7 @@ TIER1_DOC_TYPES = [
     "technical_architecture",
     "project_discovery",
     "implementation_plan",
+    "work_package",
 ]
 
 # Valid render_as vocabulary for Level 2 IA binds

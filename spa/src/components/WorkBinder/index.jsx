@@ -55,10 +55,12 @@ export default function WorkBinder({ projectId, projectCode }) {
     const [selectedWpId, setSelectedWpId] = useState(null);
     const [selectedCandidateId, setSelectedCandidateId] = useState(null);
     const [activeSubView, setActiveSubView] = useState('WORK');
+    const [wpDetail, setWpDetail] = useState(null);
 
     const refresh = useCallback(async () => {
         setLoading(true);
         setError(null);
+        setWpDetail(null);
         try {
             const [wpData, candData] = await Promise.all([
                 fetchWorkPackages(projectId),
@@ -72,8 +74,10 @@ export default function WorkBinder({ projectId, projectCode }) {
             if (!selectedWpId && !selectedCandidateId && wpData.length > 0) {
                 setSelectedWpId(wpData[0].id);
             }
+            return wpData;
         } catch (e) {
             setError(e.message);
+            return null;
         } finally {
             setLoading(false);
         }
@@ -121,15 +125,57 @@ export default function WorkBinder({ projectId, projectCode }) {
 
     const handlePromote = useCallback(async (wpcId) => {
         try {
-            await api.promoteCandidate(wpcId, 'kept', 'Promoted as-is from IP candidate.');
-            await refresh();
+            const result = await api.promoteCandidate(wpcId, 'kept', 'Promoted as-is from IP candidate.');
+            const freshWps = await refresh();
+            // Auto-navigate to the newly promoted WP's WORK tab
+            if (result?.wp_id && freshWps) {
+                const promotedWp = freshWps.find(wp => wp.wp_id === result.wp_id);
+                if (promotedWp) {
+                    setSelectedWpId(promotedWp.id);
+                    setSelectedCandidateId(null);
+                    setActiveSubView('WORK');
+                }
+            }
         } catch (e) {
             setError('Failed to promote candidate: ' + e.message);
         }
     }, [refresh]);
 
+    const handleViewCandidate = useCallback((wpcId) => {
+        const cand = candidates.find(c => c.wpc_id === wpcId);
+        if (cand) {
+            setSelectedCandidateId(wpcId);
+            setSelectedWpId(null);
+        }
+    }, [candidates]);
+
+    const handleProposeStatements = useCallback(async (wpId) => {
+        try {
+            await api.proposeWorkStatements(projectId, wpId);
+            await refresh();
+        } catch (e) {
+            setError(e.message || 'Failed to propose work statements');
+        }
+    }, [projectId, refresh]);
+
     const selectedWp = wps.find(wp => wp.id === selectedWpId) || null;
     const selectedCandidate = candidates.find(c => c.wpc_id === selectedCandidateId) || null;
+
+    // Fetch full WP content when a WP is selected (list endpoint returns summary only)
+    useEffect(() => {
+        if (!selectedWpId) { setWpDetail(null); return; }
+        const wp = wps.find(w => w.id === selectedWpId);
+        const contentWpId = wp?.wp_id;
+        if (!contentWpId) { setWpDetail(null); return; }
+        let cancelled = false;
+        api.getWorkPackageDetail(contentWpId)
+            .then(detail => { if (!cancelled) setWpDetail(detail); })
+            .catch(e => {
+                console.warn('WP detail fetch failed:', e.message);
+                if (!cancelled) setWpDetail(null);
+            });
+        return () => { cancelled = true; };
+    }, [selectedWpId, wps]);
 
     if (loading) {
         return (
@@ -172,13 +218,15 @@ export default function WorkBinder({ projectId, projectCode }) {
 
                 {/* Center: WP Content Area or Candidate Detail */}
                 <WPContentArea
-                    wp={selectedWp}
+                    wp={wpDetail || selectedWp}
                     candidate={selectedCandidate}
                     projectId={projectId}
                     activeSubView={activeSubView}
                     onChangeSubView={setActiveSubView}
                     onRefresh={refresh}
                     onPromote={handlePromote}
+                    onProposeStatements={handleProposeStatements}
+                    onViewCandidate={handleViewCandidate}
                 />
             </div>
         </div>

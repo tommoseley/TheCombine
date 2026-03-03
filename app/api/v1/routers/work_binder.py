@@ -1,9 +1,10 @@
-"""Work Binder API router — WS-WB-003, WS-WB-004, WS-WB-006, WS-WB-008, WS-WB-009.
+"""Work Binder API router — WS-WB-003, WS-WB-004, WS-WB-006, WS-WB-008, WS-WB-009, WS-WB-025.
 
 Provides endpoints for Work Binder operations:
 - GET /candidates — List WPC documents for a project (WS-WB-009)
 - POST /import-candidates — Extract WP candidates from IP (WS-WB-003)
 - POST /promote — Promote WPC to governed WP (WS-WB-004)
+- POST /propose-ws — Propose WS drafts via LLM (WS-WB-025)
 - POST /wp/{wp_id}/work-statements — Create WS (WS-WB-006)
 - PATCH /work-statements/{ws_id} — Update WS content only
 - PUT /wp/{wp_id}/ws-index — Reorder WSs (WP edition bump)
@@ -24,7 +25,7 @@ from typing import Any, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +60,18 @@ from app.domain.services.wb_audit_service import (
     validate_provenance,
 )
 from app.domain.services.work_statement_state import validate_ws_transition
+from app.domain.services.ws_proposal_service import (
+    build_ws_documents,
+    build_ws_index_entries,
+    validate_proposal_gates,
+)
+from app.domain.services.task_execution_service import (
+    TaskExecutionError,
+    TaskOutputParseError,
+    TaskOutputValidationError,
+    TaskPromptNotFoundError,
+    execute_task,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +152,16 @@ class WSResponse(BaseModel):
     parent_wp_id: str
     state: str
     order_key: str
-    revision: int
+    revision: dict[str, Any] = Field(default_factory=lambda: {"edition": 1})
+
+    @field_validator("revision", mode="before")
+    @classmethod
+    def _normalize_revision(cls, v: Any) -> dict[str, Any]:
+        """Normalize legacy scalar revision (int) to {edition: int}."""
+        if isinstance(v, int):
+            return {"edition": v}
+        return v
+
     title: str = ""
     objective: str = ""
     scope_in: list[str] = Field(default_factory=list)
@@ -157,6 +179,19 @@ class WSListResponse(BaseModel):
     total: int
 
 
+class ProposeWSRequest(BaseModel):
+    """Request to propose WS drafts for a promoted WP via LLM."""
+    project_id: str = Field(..., min_length=1)
+    wp_id: str = Field(..., min_length=1)
+
+
+class ProposeWSResponse(BaseModel):
+    """Response after proposing WS drafts."""
+    wp_id: str
+    created: bool
+    ws_ids: list[str]
+
+
 class WPCDetail(BaseModel):
     """Detail for a single WPC in the candidate list."""
     wpc_id: str
@@ -164,7 +199,9 @@ class WPCDetail(BaseModel):
     rationale: str = ""
     scope_summary: list[str] = Field(default_factory=list)
     source_ip_id: str = ""
+    source_ip_version: str = ""
     frozen_at: str = ""
+    frozen_by: str = ""
     promoted: bool = False
 
 
@@ -218,7 +255,9 @@ async def list_candidates(
                 rationale=content.get("rationale", ""),
                 scope_summary=content.get("scope_summary", []),
                 source_ip_id=content.get("source_ip_id", ""),
+                source_ip_version=content.get("source_ip_version", ""),
                 frozen_at=content.get("frozen_at", ""),
+                frozen_by=content.get("frozen_by", ""),
                 promoted=content.get("wpc_id", "") in promoted_ids,
             ))
 
@@ -462,6 +501,213 @@ async def promote_candidate(
 
 
 # ===========================================================================
+# WS-WB-025: Propose Work Statements (LLM Draft Station)
+# ===========================================================================
+
+
+@router.post("/propose-ws", response_model=ProposeWSResponse)
+async def propose_work_statements(
+    request: ProposeWSRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ProposeWSResponse:
+    """Propose WS drafts for a promoted WP via LLM.
+
+    This is the first LLM boundary crossing in the Work Binder.
+    Gates: TA must be ready, WP ws_index must be empty.
+    Produces DRAFT-only WS artifacts, validated before persistence.
+    """
+    # --- Resolve WP ---
+    wp_doc = await _load_wp_document(db, request.wp_id)
+    wp_content = dict(wp_doc.content or {})
+
+    # --- Resolve TA ---
+    project = await _resolve_project(db, request.project_id)
+    ta_doc = await _find_ta_for_project(db, project.id)
+
+    # --- Gate checks (mechanical) ---
+    gate_errors = validate_proposal_gates(wp_content, ta_doc)
+    if gate_errors:
+        # Determine status code: ws_index conflict -> 409, else 400
+        status_code = (
+            status.HTTP_409_CONFLICT
+            if any("already has Work Statements" in e for e in gate_errors)
+            else status.HTTP_400_BAD_REQUEST
+        )
+
+        # Audit: rejection
+        audit_evt = build_wb_audit_event(
+            event_type="ws_proposal_rejected",
+            entity_id=request.wp_id,
+            entity_type="work_package",
+            mutation_data={
+                "project_id": request.project_id,
+                "reason": "; ".join(gate_errors),
+            },
+            actor="system",
+        )
+        logger.info("AUDIT: %s", audit_evt)
+
+        raise HTTPException(
+            status_code=status_code,
+            detail="; ".join(gate_errors),
+        )
+
+    # --- Audit: proposal requested ---
+    ta_version = str(ta_doc.version) if ta_doc else "unknown"
+    audit_req = build_wb_audit_event(
+        event_type="ws_proposal_requested",
+        entity_id=request.wp_id,
+        entity_type="work_package",
+        mutation_data={
+            "project_id": request.project_id,
+            "ta_version": ta_version,
+        },
+        actor="system",
+    )
+    logger.info("AUDIT: %s", audit_req)
+
+    # --- LLM call via task execution primitive (WS-WB-022) ---
+    import json as _json
+    import os as _os
+    wp_json = _json.dumps(wp_content, indent=2, default=str)
+    ta_json = _json.dumps(ta_doc.content or {}, indent=2, default=str)
+
+    # Wire up LLM client
+    from app.llm.providers.anthropic import AnthropicProvider
+    from app.domain.workflow.nodes.llm_executors import LoggingLLMService
+
+    api_key = _os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ANTHROPIC_API_KEY not configured",
+        )
+    llm_client = LoggingLLMService(
+        provider=AnthropicProvider(api_key=api_key),
+        default_max_tokens=16384,
+    )
+
+    try:
+        result = await execute_task(
+            task_id="propose_work_statements",
+            version="1.0.0",
+            inputs={"work_package": wp_json, "technical_architecture": ta_json},
+            expected_schema_id="work_statement",
+            llm_client=llm_client,
+        )
+    except TaskPromptNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Task prompt not found: {exc}",
+        )
+    except TaskOutputParseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"LLM output parse failed: {exc}",
+        )
+    except TaskOutputValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"LLM output schema validation failed: {exc}",
+        )
+    except TaskExecutionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Task execution failed: {exc}",
+        )
+
+    # --- Parse LLM output ---
+    # Output may be a single WS dict or a list of WS dicts
+    raw_output = result["output"]
+    if isinstance(raw_output, dict):
+        ws_items = [raw_output]
+    elif isinstance(raw_output, list):
+        ws_items = raw_output
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LLM output is not a dict or list of WS objects",
+        )
+
+    if not ws_items:
+        return ProposeWSResponse(
+            wp_id=request.wp_id,
+            created=False,
+            ws_ids=[],
+        )
+
+    # --- Build WS documents ---
+    ws_docs_data = build_ws_documents(ws_items, request.wp_id)
+    ws_index_entries = build_ws_index_entries(ws_items)
+
+    # --- Persist WS documents ---
+    ws_ids = []
+    for ws_data in ws_docs_data:
+        ws_id = ws_data["ws_id"]
+        ws_doc = Document(
+            space_type=wp_doc.space_type,
+            space_id=wp_doc.space_id,
+            doc_type_id="work_statement",
+            title=ws_data.get("title", ws_id),
+            content=ws_data,
+            version=1,
+            status="draft",
+            lifecycle_state="complete",
+            instance_id=ws_id,
+            created_by="system",
+            created_by_type="llm_proposal",
+        )
+        ws_doc.update_revision_hash()
+        db.add(ws_doc)
+        ws_ids.append(ws_id)
+
+        # Audit: per-WS
+        audit_ws = build_wb_audit_event(
+            event_type="ws_proposed",
+            entity_id=ws_id,
+            entity_type="work_statement",
+            mutation_data={
+                "wp_id": request.wp_id,
+                "project_id": request.project_id,
+            },
+            actor="system",
+        )
+        logger.info("AUDIT: %s", audit_ws)
+
+    # --- Update WP ws_index (new edition) ---
+    old_content = copy.deepcopy(wp_content)
+    wp_content["ws_index"] = ws_index_entries
+    wp_content = apply_edition_bump(wp_content, old_content, "system")
+    wp_doc.content = wp_content
+
+    await db.flush()
+
+    # Audit: ws_index updated
+    audit_idx = build_wb_audit_event(
+        event_type="wp_ws_index_updated",
+        entity_id=request.wp_id,
+        entity_type="work_package",
+        mutation_data={
+            "before_count": 0,
+            "after_count": len(ws_ids),
+            "ws_ids": ws_ids,
+        },
+        actor="system",
+    )
+    logger.info("AUDIT: %s", audit_idx)
+
+    logger.info(
+        "Proposed %d WS drafts for WP %s", len(ws_ids), request.wp_id,
+    )
+
+    return ProposeWSResponse(
+        wp_id=request.wp_id,
+        created=True,
+        ws_ids=ws_ids,
+    )
+
+
+# ===========================================================================
 # WS-WB-006: Create Work Statement
 # ===========================================================================
 
@@ -579,9 +825,12 @@ async def update_work_statement(
     for key, value in update_data.items():
         ws_content[key] = value
 
-    ws_content["revision"] = ws_content.get("revision", 0) + 1
-
-    old_revision = ws_content.get("revision", 0) - 1  # before increment
+    rev = ws_content.get("revision", {})
+    if isinstance(rev, int):
+        rev = {"edition": rev}
+    old_edition = rev.get("edition", 0)
+    rev["edition"] = old_edition + 1
+    ws_content["revision"] = rev
     ws_doc.content = ws_content
     await db.flush()
 
@@ -592,15 +841,15 @@ async def update_work_statement(
         entity_type="work_statement",
         mutation_data={
             "fields_updated": list(update_data.keys()),
-            "revision_before": old_revision,
-            "revision_after": ws_content["revision"],
+            "edition_before": old_edition,
+            "edition_after": rev["edition"],
         },
         actor="system",
     )
     logger.info("AUDIT: %s", audit_evt)
 
     logger.info(
-        "Updated WS %s (revision %d)", ws_id, ws_content["revision"]
+        "Updated WS %s (edition %d)", ws_id, rev["edition"]
     )
     return WSResponse(**ws_content)
 
@@ -729,6 +978,32 @@ async def update_work_package(
 
 
 # ===========================================================================
+# WP Detail (full content for Work Binder UI)
+# ===========================================================================
+
+
+@router.get("/wp/{wp_id}")
+async def get_work_package_detail(
+    wp_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Return full WP content for the Work Binder detail view.
+
+    The list endpoint (GET /projects/{id}/work-packages) returns a summary
+    projection.  This endpoint returns the complete document content so
+    sub-views (Governance, History, Work) can render all fields.
+    """
+    wp_doc = await _load_wp_document(db, wp_id)
+    content = dict(wp_doc.content or {})
+    # Merge DB-level metadata the SPA expects
+    content["id"] = str(wp_doc.id)
+    content["created_at"] = (
+        wp_doc.created_at.isoformat() if wp_doc.created_at else ""
+    )
+    return content
+
+
+# ===========================================================================
 # WS-WB-006: List WSs in Order
 # ===========================================================================
 
@@ -809,10 +1084,18 @@ async def get_wp_history(
     edition = revision.get("edition", 0) if isinstance(revision, dict) else 0
     change_summary = wp_content.get("change_summary", [])
 
+    editions = []
+    if edition > 0 or change_summary:
+        editions.append({
+            "edition": edition,
+            "timestamp": revision.get("updated_at", "") if isinstance(revision, dict) else "",
+            "updated_by": revision.get("updated_by", "") if isinstance(revision, dict) else "",
+            "change_summary": change_summary,
+        })
+
     return {
         "wp_id": wp_id,
-        "edition": edition,
-        "change_summary": change_summary,
+        "editions": editions,
     }
 
 
@@ -864,7 +1147,11 @@ async def stabilize_work_statement(
         )
 
     ws_content["state"] = "READY"
-    ws_content["revision"] = ws_content.get("revision", 0) + 1
+    stab_rev = ws_content.get("revision", {})
+    if isinstance(stab_rev, int):
+        stab_rev = {"edition": stab_rev}
+    stab_rev["edition"] = stab_rev.get("edition", 0) + 1
+    ws_content["revision"] = stab_rev
 
     ws_doc.content = ws_content
     await db.flush()
@@ -1066,6 +1353,22 @@ async def _find_ip_for_project(
         .where(Document.space_type == "project")
         .where(Document.space_id == space_id)
         .where(Document.doc_type_id.in_(ip_types))
+        .where(Document.is_latest == True)  # noqa: E712
+        .order_by(Document.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _find_ta_for_project(
+    db: AsyncSession, space_id: UUID,
+) -> Document | None:
+    """Find the latest TA document for a project space."""
+    result = await db.execute(
+        select(Document)
+        .where(Document.space_type == "project")
+        .where(Document.space_id == space_id)
+        .where(Document.doc_type_id == "technical_architecture")
         .where(Document.is_latest == True)  # noqa: E712
         .order_by(Document.created_at.desc())
         .limit(1)

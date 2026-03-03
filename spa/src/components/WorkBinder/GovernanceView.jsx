@@ -28,7 +28,7 @@ function Section({ title, children, empty }) {
     );
 }
 
-export default function GovernanceView({ wp }) {
+export default function GovernanceView({ wp, onViewCandidate }) {
     const pins = wp.governance_pins || wp.governance || {};
     const transformation = wp.transformation || wp.transform_metadata || null;
     const candidates = wp.source_candidate_ids || wp.candidates || [];
@@ -51,18 +51,24 @@ export default function GovernanceView({ wp }) {
             <Section title="Transformation" empty="No transformation metadata.">
                 {transformation && (
                     <div className="wb-gov-transform">
-                        {transformation.type && (
-                            <PinItem label="Type" value={transformation.type} />
+                        {typeof transformation === 'string' ? (
+                            <PinItem label="Type" value={transformation} />
+                        ) : (
+                            <>
+                                {transformation.type && (
+                                    <PinItem label="Type" value={transformation.type} />
+                                )}
+                                {(transformation.transformation || transformation.description) && (
+                                    <p className="wb-gov-transform-desc">
+                                        {transformation.transformation || transformation.description}
+                                    </p>
+                                )}
+                            </>
                         )}
-                        {(transformation.transformation || transformation.description) && (
-                            <p className="wb-gov-transform-desc">
-                                {transformation.transformation || transformation.description}
-                            </p>
-                        )}
-                        {transformation.transformation_notes && (
+                        {wp.transformation_notes && (
                             <div className="wb-gov-transform-notes">
                                 <span className="wb-gov-pin-label">Notes</span>
-                                <p>{transformation.transformation_notes}</p>
+                                <p>{wp.transformation_notes}</p>
                             </div>
                         )}
                     </div>
@@ -73,11 +79,22 @@ export default function GovernanceView({ wp }) {
             <Section title="Source Lineage" empty="No source candidates linked.">
                 {candidates.length > 0 && (
                     <ul className="wb-gov-candidates">
-                        {candidates.map((cid, idx) => (
-                            <li key={idx} className="wb-gov-candidate wb-mono">
-                                {typeof cid === 'string' ? cid : cid.id || JSON.stringify(cid)}
-                            </li>
-                        ))}
+                        {candidates.map((cid, idx) => {
+                            const candidateId = typeof cid === 'string' ? cid : cid.id || JSON.stringify(cid);
+                            return (
+                                <li key={idx} className="wb-gov-candidate wb-mono">
+                                    {onViewCandidate ? (
+                                        <button
+                                            className="wb-gov-candidate-link"
+                                            onClick={() => onViewCandidate(candidateId)}
+                                            title="View source candidate"
+                                        >
+                                            {candidateId}
+                                        </button>
+                                    ) : candidateId}
+                                </li>
+                            );
+                        })}
                     </ul>
                 )}
             </Section>

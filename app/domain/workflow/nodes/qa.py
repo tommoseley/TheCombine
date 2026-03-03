@@ -91,6 +91,10 @@ class QANodeExecutor(NodeExecutor):
     ) -> NodeResult:
         """Execute a QA node.
 
+        Runs a sequential validation pipeline:
+        drift -> code-based -> schema -> semantic -> LLM.
+        Each check may return an early failure or collect warnings/errors.
+
         Args:
             node_id: The QA node ID
             node_config: Node configuration with task_ref, schema_ref
@@ -100,16 +104,11 @@ class QANodeExecutor(NodeExecutor):
         Returns:
             NodeResult with outcome "success" or "failed"
         """
-        task_ref = node_config.get("task_ref")
-        schema_ref = node_config.get("schema_ref")
         requires_qa = node_config.get("requires_qa", True)
-
         if not requires_qa:
-            # QA not required, auto-pass
             logger.info(f"QA node {node_id} skipped (requires_qa=false)")
             return NodeResult.success(qa_skipped=True)
 
-        # Get the document to validate
         document = self._get_document_to_validate(context)
         if not document:
             logger.warning(f"QA node {node_id}: No document to validate")
@@ -120,151 +119,39 @@ class QANodeExecutor(NodeExecutor):
 
         errors: List[str] = []
         feedback: Dict[str, Any] = {}
-        code_validation_warnings: List[Dict[str, Any]] = []
-        drift_warnings: List[Dict[str, Any]] = []
 
-        # 1. Run constraint drift validation FIRST (ADR-042)
-        # Fails fast if bound constraints are violated
-        drift_result = self._run_drift_validation(
-            document=document,
-            context=context,
+        # 1. Drift validation (ADR-042) - fails fast
+        fail_result, drift_warnings = self._check_drift_validation(
+            document, context, node_id,
+        )
+        if fail_result:
+            return fail_result
+
+        # 2. Code-based validation (WS-PGC-VALIDATION-001) - fails fast
+        fail_result, code_validation_warnings = self._check_code_validation(
+            document, context, node_id,
+        )
+        if fail_result:
+            return fail_result
+
+        # 3. Schema validation
+        self._check_schema_validation(
+            document, node_config.get("schema_ref"), errors, feedback,
         )
 
-        if drift_result is not None:
-            if not drift_result.passed:
-                # Log full error details for debugging
-                for err in drift_result.errors:
-                    logger.warning(
-                        f"ADR-042 drift ERROR: {err.check_id} - {err.clarification_id}: {err.message}"
-                    )
-                for warn in drift_result.warnings:
-                    logger.info(
-                        f"ADR-042 drift WARNING: {warn.check_id} - {warn.clarification_id}: {warn.message}"
-                    )
-                logger.warning(
-                    f"QA node {node_id} failed drift validation with "
-                    f"{len(drift_result.errors)} errors"
-                )
-                return NodeResult(
-                    outcome="failed",
-                    metadata={
-                        "node_id": node_id,
-                        "drift_errors": [v.to_dict() for v in drift_result.errors],
-                        "drift_warnings": [v.to_dict() for v in drift_result.warnings],
-                        "validation_source": "constraint_drift",
-                    },
-                )
+        # 4. Semantic QA (WS-SEMANTIC-QA-001 Layer 2)
+        fail_result, semantic_warnings, semantic_qa_report = await self._check_semantic_qa(
+            node_id, document, context, errors,
+        )
+        if fail_result:
+            return fail_result
 
-            # Collect drift warnings
-            if drift_result.warnings:
-                drift_warnings = [v.to_dict() for v in drift_result.warnings]
-                logger.info(
-                    f"QA node {node_id}: {len(drift_warnings)} drift validation warnings"
-                )
-
-        # 2. Run promotion validation (WS-PGC-VALIDATION-001)
-        code_validation_result = self._run_code_based_validation(
-            document=document,
-            context=context,
+        # 5. LLM QA
+        await self._check_llm_qa(
+            node_id, node_config, document, context, errors, feedback,
         )
 
-        if code_validation_result is not None:
-            # Fail immediately on validation errors
-            if not code_validation_result.passed:
-                logger.warning(
-                    f"QA node {node_id} failed code-based validation with "
-                    f"{len(code_validation_result.errors)} errors"
-                )
-                return NodeResult(
-                    outcome="failed",
-                    metadata={
-                        "node_id": node_id,
-                        "validation_errors": [asdict(e) for e in code_validation_result.errors],
-                        "validation_warnings": [asdict(w) for w in code_validation_result.warnings],
-                        "validation_source": "code_based",
-                    },
-                )
-
-            # Collect warnings for inclusion in final result
-            if code_validation_result.warnings:
-                code_validation_warnings = [asdict(w) for w in code_validation_result.warnings]
-                logger.info(
-                    f"QA node {node_id}: {len(code_validation_warnings)} code validation warnings"
-                )
-
-        # Run schema validation if configured
-        if schema_ref and self.schema_validator:
-            schema_valid, schema_errors = self.schema_validator.validate(
-                document, schema_ref
-            )
-            if not schema_valid:
-                errors.extend(schema_errors)
-                feedback["schema_errors"] = schema_errors
-
-        # 3. Run semantic QA (Layer 2) - only if mechanical checks passed
-        # This detects constraint violations requiring semantic understanding
-        # (e.g., distinguishing follow-up questions from reopening decisions)
-        semantic_qa_report = None
-        semantic_warnings: List[Dict[str, Any]] = []
-
-        try:
-            semantic_qa_report = await self._run_semantic_qa(node_id, document, context)
-        except ValueError as e:
-            # Schema/contract validation failed - treat as error
-            logger.error(f"Semantic QA validation error: {e}")
-            errors.append(f"Semantic QA validation error: {str(e)}")
-
-        if semantic_qa_report:
-            if semantic_qa_report.get("gate") == "fail":
-                # Convert findings to feedback format
-                semantic_feedback = self._convert_semantic_findings_to_feedback(
-                    semantic_qa_report
-                )
-                error_findings = [
-                    f for f in semantic_feedback if f.get("severity") == "error"
-                ]
-                warning_findings = [
-                    f for f in semantic_feedback if f.get("severity") == "warning"
-                ]
-
-                logger.warning(
-                    f"QA node {node_id} failed semantic QA with "
-                    f"{len(error_findings)} errors, {len(warning_findings)} warnings"
-                )
-
-                return NodeResult(
-                    outcome="failed",
-                    metadata={
-                        "node_id": node_id,
-                        "semantic_qa_report": semantic_qa_report,
-                        "errors": [f["message"] for f in error_findings],
-                        "validation_source": "semantic_qa",
-                    },
-                )
-
-            # Collect semantic QA warnings for success result
-            for finding in semantic_qa_report.get("findings", []):
-                if finding.get("severity") in ["warning", "info"]:
-                    semantic_warnings.append(finding)
-
-        # Run LLM-based QA if configured
-        # qa_mode: "structural" (default) or "structural+intent"
-        qa_mode = node_config.get("qa_mode", "structural")
-
-        if task_ref and self.llm_service and self.prompt_loader:
-            llm_result = await self._run_llm_qa(
-                node_id, task_ref, document, context, qa_mode
-            )
-            if not llm_result["passed"]:
-                issues = llm_result.get("issues", [])
-                if issues:
-                    errors.extend(issues)
-                else:
-                    # Failed but no specific issues extracted
-                    errors.append("QA check failed")
-                feedback["llm_feedback"] = llm_result.get("feedback", "")
-
-        # Determine outcome
+        # 6. Final outcome
         if errors:
             logger.info(f"QA node {node_id} failed with {len(errors)} issues")
             return NodeResult(
@@ -287,8 +174,160 @@ class QANodeExecutor(NodeExecutor):
             semantic_warnings=semantic_warnings,
             semantic_qa_report=semantic_qa_report,
         )
-
         return NodeResult.success(**success_metadata)
+
+    # ------------------------------------------------------------------
+    # Validation check methods (WS-CRAP-010 extractions)
+    # ------------------------------------------------------------------
+
+    def _check_drift_validation(
+        self,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        node_id: str,
+    ) -> tuple[Optional[NodeResult], List[Dict[str, Any]]]:
+        """Run drift validation. Returns (early_fail_result, warnings)."""
+        drift_result = self._run_drift_validation(document=document, context=context)
+
+        if drift_result is None:
+            return None, []
+
+        if not drift_result.passed:
+            logger.warning(
+                f"QA node {node_id} failed drift validation with "
+                f"{len(drift_result.errors)} errors, "
+                f"{len(drift_result.warnings)} warnings"
+            )
+            return NodeResult(
+                outcome="failed",
+                metadata={
+                    "node_id": node_id,
+                    "drift_errors": [v.to_dict() for v in drift_result.errors],
+                    "drift_warnings": [v.to_dict() for v in drift_result.warnings],
+                    "validation_source": "constraint_drift",
+                },
+            ), []
+
+        return None, [v.to_dict() for v in drift_result.warnings]
+
+    def _check_code_validation(
+        self,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        node_id: str,
+    ) -> tuple[Optional[NodeResult], List[Dict[str, Any]]]:
+        """Run code-based validation. Returns (early_fail_result, warnings)."""
+        result = self._run_code_based_validation(document=document, context=context)
+
+        if result is None:
+            return None, []
+
+        if not result.passed:
+            return NodeResult(
+                outcome="failed",
+                metadata={
+                    "node_id": node_id,
+                    "validation_errors": [asdict(e) for e in result.errors],
+                    "validation_warnings": [asdict(w) for w in result.warnings],
+                    "validation_source": "code_based",
+                },
+            ), []
+
+        return None, [asdict(w) for w in result.warnings]
+
+    def _check_schema_validation(
+        self,
+        document: Dict[str, Any],
+        schema_ref: Optional[str],
+        errors: List[str],
+        feedback: Dict[str, Any],
+    ) -> None:
+        """Run schema validation, appending errors in place."""
+        if not schema_ref or not self.schema_validator:
+            return
+
+        schema_valid, schema_errors = self.schema_validator.validate(
+            document, schema_ref
+        )
+        if not schema_valid:
+            errors.extend(schema_errors)
+            feedback["schema_errors"] = schema_errors
+
+    async def _check_semantic_qa(
+        self,
+        node_id: str,
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        errors: List[str],
+    ) -> tuple[Optional[NodeResult], List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """Run semantic QA. Returns (early_fail_result, warnings, report)."""
+        try:
+            semantic_qa_report = await self._run_semantic_qa(node_id, document, context)
+        except ValueError as e:
+            logger.error(f"Semantic QA validation error: {e}")
+            errors.append(f"Semantic QA validation error: {str(e)}")
+            return None, [], None
+
+        if not semantic_qa_report:
+            return None, [], None
+
+        if semantic_qa_report.get("gate") == "fail":
+            error_messages = self._extract_semantic_error_messages(semantic_qa_report)
+            return NodeResult(
+                outcome="failed",
+                metadata={
+                    "node_id": node_id,
+                    "semantic_qa_report": semantic_qa_report,
+                    "errors": error_messages,
+                    "validation_source": "semantic_qa",
+                },
+            ), [], semantic_qa_report
+
+        warnings = self._collect_semantic_warnings(semantic_qa_report)
+        return None, warnings, semantic_qa_report
+
+    async def _check_llm_qa(
+        self,
+        node_id: str,
+        node_config: Dict[str, Any],
+        document: Dict[str, Any],
+        context: DocumentWorkflowContext,
+        errors: List[str],
+        feedback: Dict[str, Any],
+    ) -> None:
+        """Run LLM QA if configured, appending errors in place."""
+        task_ref = node_config.get("task_ref")
+        qa_mode = node_config.get("qa_mode", "structural")
+
+        if not (task_ref and self.llm_service and self.prompt_loader):
+            return
+
+        llm_result = await self._run_llm_qa(
+            node_id, task_ref, document, context, qa_mode,
+        )
+        if not llm_result["passed"]:
+            issues = llm_result.get("issues", [])
+            if issues:
+                errors.extend(issues)
+            else:
+                errors.append("QA check failed")
+            feedback["llm_feedback"] = llm_result.get("feedback", "")
+
+    def _extract_semantic_error_messages(
+        self, report: Dict[str, Any],
+    ) -> List[str]:
+        """Extract error-level messages from a semantic QA report."""
+        feedback = self._convert_semantic_findings_to_feedback(report)
+        return [f["message"] for f in feedback if f.get("severity") == "error"]
+
+    def _collect_semantic_warnings(
+        self, report: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Collect warning/info findings from a semantic QA report."""
+        return [
+            f for f in report.get("findings", [])
+            if f.get("severity") in ("warning", "info")
+        ]
 
     def _get_document_to_validate(
         self,
