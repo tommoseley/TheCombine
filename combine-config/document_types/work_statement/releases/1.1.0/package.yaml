@@ -17,7 +17,7 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 cardinality: multi
-instance_key: ws_id
+display_prefix: WS
 
 # Dependencies
 required_inputs:

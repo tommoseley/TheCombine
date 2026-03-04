@@ -37,14 +37,12 @@ from app.domain.services.candidate_import_service import import_candidates
 from app.domain.services.wp_promotion_service import (
     build_audit_event,
     build_promoted_wp,
-    derive_wp_id,
     validate_promotion_request,
 )
 from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
     build_new_ws,
     generate_order_key,
-    generate_ws_id,
     reorder_ws_index,
     validate_stabilization,
     validate_wp_update_fields,
@@ -350,6 +348,7 @@ async def import_candidates_from_ip(
             status="active",
             lifecycle_state="complete",
             instance_id=wpc_id,
+            display_id=wpc_id,
             parent_document_id=ip_doc.id,
             created_by="system",
             created_by_type="import",
@@ -443,20 +442,26 @@ async def promote_candidate(
     project = await _resolve_project(db, request.project_id)
     wpc_doc = await _load_wpc_document(db, request.wpc_id, project.id)
 
-    wp_id = derive_wp_id(request.wpc_id)
-    existing_wp = await _find_existing_wp(db, wp_id, wpc_doc.space_id)
+    # Check for existing WP promoted from this WPC (idempotency)
+    existing_wp = await _find_wp_by_source_wpc(db, request.wpc_id, wpc_doc.space_id)
     if existing_wp:
+        existing_wp_id = (existing_wp.content or {}).get("wp_id", existing_wp.instance_id or "")
         logger.info(
-            f"WP {wp_id} already exists for WPC {request.wpc_id} "
+            f"WP {existing_wp_id} already exists for WPC {request.wpc_id} "
             f"-- returning existing (idempotent)"
         )
         return PromoteCandidateResponse(
-            wp_id=wp_id,
+            wp_id=existing_wp_id,
             document_id=str(existing_wp.id),
         )
 
+    # Mint a new display ID for the WP (replaces derive_wp_id)
+    from app.domain.services.display_id_service import mint_display_id
+    wp_id = await mint_display_id(db, wpc_doc.space_id, "work_package")
+
     wp_content = build_promoted_wp(
         candidate=wpc_doc.content,
+        wp_id=wp_id,
         transformation=request.transformation,
         transformation_notes=request.transformation_notes,
         title_override=request.title_override,
@@ -473,6 +478,7 @@ async def promote_candidate(
         status="active",
         lifecycle_state="complete",
         instance_id=wp_id,
+        display_id=wp_id,
         parent_document_id=wpc_doc.parent_document_id,
         created_by="system",
         created_by_type="promotion",
@@ -651,7 +657,17 @@ async def propose_work_statements(
             ws_ids=[],
         )
 
-    # --- Build WS documents ---
+    # --- Mint display IDs and build WS documents ---
+    # Replace LLM-generated ws_ids with minted sequential IDs.
+    # Mint the first ID via DB query, then increment locally for the batch
+    # (unflushed rows aren't visible to subsequent MAX queries).
+    from app.domain.services.display_id_service import mint_display_id, parse_display_id
+    first_ws_id = await mint_display_id(db, wp_doc.space_id, "work_statement")
+    prefix, num_str = parse_display_id(first_ws_id)
+    first_num = int(num_str)
+    for i, ws_item in enumerate(ws_items):
+        ws_item["ws_id"] = f"{prefix}-{first_num + i:03d}"
+
     ws_docs_data = build_ws_documents(ws_items, request.wp_id)
     ws_index_entries = build_ws_index_entries(ws_items)
 
@@ -669,6 +685,7 @@ async def propose_work_statements(
             status="draft",
             lifecycle_state="complete",
             instance_id=ws_id,
+            display_id=ws_id,
             created_by="system",
             created_by_type="llm_proposal",
         )
@@ -760,9 +777,9 @@ async def create_work_statement(
     wp_content = dict(wp_doc.content or {})
 
     ws_index = wp_content.get("ws_index", [])
-    sequence_num = len(ws_index) + 1
 
-    ws_id = generate_ws_id(wp_id, sequence_num)
+    from app.domain.services.display_id_service import mint_display_id
+    ws_id = await mint_display_id(db, wp_doc.space_id, "work_statement")
     existing_keys = [e.get("order_key", "") for e in ws_index]
     order_key = generate_order_key(existing_keys)
 
@@ -778,6 +795,8 @@ async def create_work_statement(
         title=ws_data.get("title", ws_id),
         content=ws_data,
         version=1,
+        instance_id=ws_id,
+        display_id=ws_id,
     )
     db.add(ws_doc)
 
@@ -1297,6 +1316,27 @@ async def _find_existing_wp(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def _find_wp_by_source_wpc(
+    db: AsyncSession,
+    wpc_id: str,
+    space_id: UUID,
+) -> Document | None:
+    """Find existing WP promoted from a given WPC (idempotency check).
+
+    Searches WP documents in the space whose content.source_candidate_ids
+    contains the given wpc_id.
+    """
+    result = await db.execute(
+        select(Document).where(
+            Document.doc_type_id == "work_package",
+            Document.space_id == space_id,
+            Document.is_latest == True,  # noqa: E712
+            Document.content["source_candidate_ids"].astext.contains(wpc_id),
+        )
+    )
+    return result.scalars().first()
 
 
 async def _load_wp_document(

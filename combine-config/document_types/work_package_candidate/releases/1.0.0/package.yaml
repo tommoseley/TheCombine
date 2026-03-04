@@ -16,7 +16,7 @@ creation_mode: extracted  # Extracted mechanically, not LLM-generated
 production_mode: construct
 scope: project
 cardinality: multi
-instance_key: wpc_id
+display_prefix: WPC
 
 # Dependencies
 required_inputs:

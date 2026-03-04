@@ -16,7 +16,7 @@ creation_mode: llm_generated
 production_mode: generate
 scope: project
 cardinality: multi
-instance_key: wp_id
+display_prefix: WP
 
 # Dependencies
 required_inputs:

@@ -13,7 +13,6 @@ from app.domain.services.ws_crud_service import (
     WS_BLOCKED_IN_UPDATE,
     WP_BLOCKED_IN_UPDATE,
     WS_REQUIRED_FOR_STABILIZE,
-    generate_ws_id,
     generate_order_key,
     build_new_ws,
     validate_ws_update_fields,
@@ -25,38 +24,46 @@ from app.domain.services.ws_crud_service import (
 
 
 # ===========================================================================
-# generate_ws_id
+# display_id_service.parse_display_id (format verification)
 # ===========================================================================
 
-class TestGenerateWsId:
+class TestDisplayIdFormat:
+    """Tests that new display IDs follow the WP-NNN / WS-NNN format."""
 
-    def test_basic_wp_id(self):
-        result = generate_ws_id("wp_wb_001", 1)
-        assert result == "WS-WB-001"
+    def test_parse_wp_id(self):
+        """WP-001 parses to prefix='WP', num_str='001'."""
+        from app.domain.services.display_id_service import parse_display_id
+        prefix, num_str = parse_display_id("WP-001")
+        assert prefix == "WP"
+        assert num_str == "001"
 
-    def test_sequence_two(self):
-        result = generate_ws_id("wp_wb_001", 2)
-        assert result == "WS-WB-002"
+    def test_parse_ws_id(self):
+        """WS-003 parses to prefix='WS', num_str='003'."""
+        from app.domain.services.display_id_service import parse_display_id
+        prefix, num_str = parse_display_id("WS-003")
+        assert prefix == "WS"
+        assert num_str == "003"
 
-    def test_high_sequence(self):
-        result = generate_ws_id("wp_wb_001", 15)
-        assert result == "WS-WB-015"
+    def test_parse_wpc_id(self):
+        """WPC-012 parses to prefix='WPC', num_str='012'."""
+        from app.domain.services.display_id_service import parse_display_id
+        prefix, num_str = parse_display_id("WPC-012")
+        assert prefix == "WPC"
+        assert num_str == "012"
 
-    def test_multi_segment_prefix(self):
-        result = generate_ws_id("wp_pipeline_003", 5)
-        assert result == "WS-PIPELINE-005"
+    def test_invalid_format_raises(self):
+        """Invalid display ID raises ValueError."""
+        import pytest
+        from app.domain.services.display_id_service import parse_display_id
+        with pytest.raises(ValueError):
+            parse_display_id("not-a-valid-id-xyz")
 
-    def test_uppercase_output(self):
-        result = generate_ws_id("wp_crap_001", 1)
-        assert result == "WS-CRAP-001"
-
-    def test_prefix_is_uppercase(self):
-        result = generate_ws_id("wp_wb_001", 1)
-        assert "WS-" in result
-        # Verify the prefix part is uppercase
-        parts = result.split("-")
-        assert parts[0] == "WS"
-        assert parts[1] == "WB"
+    def test_no_separator_raises(self):
+        """Missing separator raises ValueError."""
+        import pytest
+        from app.domain.services.display_id_service import parse_display_id
+        with pytest.raises(ValueError):
+            parse_display_id("WP001")
 
 
 # ===========================================================================
@@ -97,23 +104,23 @@ class TestGenerateOrderKey:
 class TestBuildNewWs:
 
     def test_state_is_draft(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
         assert ws["state"] == "DRAFT"
 
     def test_revision_is_edition_one(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
         assert ws["revision"] == {"edition": 1}
 
     def test_ws_id_set(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
-        assert ws["ws_id"] == "WS-WB-001"
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
+        assert ws["ws_id"] == "WS-001"
 
     def test_parent_wp_id_set(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
-        assert ws["parent_wp_id"] == "wp_wb_001"
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
+        assert ws["parent_wp_id"] == "WP-001"
 
     def test_order_key_set(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
         assert ws["order_key"] == "a0"
 
     def test_content_fields_populated(self):
@@ -123,14 +130,14 @@ class TestBuildNewWs:
             "procedure": ["Step 1", "Step 2"],
             "verification_criteria": ["Check A"],
         }
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", content)
+        ws = build_new_ws("WP-001", "WS-001", "a0", content)
         assert ws["title"] == "My WS"
         assert ws["objective"] == "Do something"
         assert ws["procedure"] == ["Step 1", "Step 2"]
         assert ws["verification_criteria"] == ["Check A"]
 
     def test_missing_content_defaults_to_empty(self):
-        ws = build_new_ws("wp_wb_001", "WS-WB-001", "a0", {})
+        ws = build_new_ws("WP-001", "WS-001", "a0", {})
         assert ws["title"] == ""
         assert ws["objective"] == ""
         assert ws["scope_in"] == []

@@ -9,7 +9,6 @@ Tests the 3 extracted pure functions:
 import importlib
 import importlib.util
 import json
-import pytest
 
 # Direct file import to avoid circular imports through app.domain.workflow.__init__
 _spec = importlib.util.spec_from_file_location(

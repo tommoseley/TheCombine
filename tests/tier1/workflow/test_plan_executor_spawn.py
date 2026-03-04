@@ -9,7 +9,7 @@ import importlib
 import importlib.util
 import sys
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 
@@ -113,15 +113,21 @@ class TestUpsertChildDocument:
             "content": {"data": "fresh"},
         }
 
-        result = await executor._upsert_child_document(
-            spec, existing_children, state, parent_id,
-        )
+        with patch(
+            "app.domain.services.display_id_service.mint_display_id",
+            new_callable=AsyncMock,
+            return_value="WP-001",
+        ):
+            result = await executor._upsert_child_document(
+                spec, existing_children, state, parent_id,
+            )
 
         assert result == "created"
         executor._db_session.add.assert_called_once()
         created_doc = executor._db_session.add.call_args[0][0]
         assert created_doc.title == "New WP"
         assert created_doc.instance_id == "beta"
+        assert created_doc.display_id == "WP-001"
 
     @pytest.mark.asyncio
     async def test_missing_identifier_returns_skipped(self, executor):

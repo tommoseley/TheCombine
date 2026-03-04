@@ -101,7 +101,7 @@
           "internal_type": "LLM",
           "name": "QA Evaluation",
           "description": "Evaluate document against quality criteria",
-          "task_ref": "prompt:task:project_discovery_qa:1.1.0",
+          "task_ref": "prompt:task:project_discovery_qa:1.2.0",
           "includes": {
             "ROLE_PROMPT": "prompt:role:quality_assurance:1.0.0"
           },

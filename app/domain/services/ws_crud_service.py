@@ -52,52 +52,6 @@ WS_REQUIRED_FOR_STABILIZE = {
 
 
 # ===========================================================================
-# ID generation
-# ===========================================================================
-
-def generate_ws_id(wp_id: str, sequence_num: int) -> str:
-    """
-    Generate deterministic WS ID from WP ID and sequence number.
-
-    Extracts the prefix from wp_id and builds a WS ID.
-    E.g., wp_id='wp_wb_001', seq=1 -> 'WS-WB-001'
-    E.g., wp_id='wp_wb_001', seq=2 -> 'WS-WB-002'
-    E.g., wp_id='wp_pipeline_003', seq=5 -> 'WS-PIPELINE-005'
-
-    Args:
-        wp_id: Work Package ID (e.g., 'wp_wb_001')
-        sequence_num: 1-based sequence number
-
-    Returns:
-        Deterministic WS ID string
-    """
-    # Parse wp_id: strip 'wp_' prefix, split on last '_' to get prefix and WP number
-    # But we use the WP prefix for the WS ID, not the WP number
-    stripped = wp_id
-    if stripped.lower().startswith("wp_"):
-        stripped = stripped[3:]
-
-    # Split into parts — the last part is the WP numeric suffix
-    parts = stripped.split("_")
-
-    # Extract prefix (everything except trailing numeric part)
-    prefix_parts = []
-    for part in parts:
-        if part.isdigit() and not prefix_parts:
-            # Numeric at start — keep it as prefix
-            prefix_parts.append(part)
-        elif part.isdigit() and prefix_parts:
-            # Trailing numeric — this is the WP number, skip it
-            break
-        else:
-            prefix_parts.append(part)
-
-    prefix = "-".join(p.upper() for p in prefix_parts)
-
-    return f"WS-{prefix}-{sequence_num:03d}"
-
-
-# ===========================================================================
 # Order key generation
 # ===========================================================================
 

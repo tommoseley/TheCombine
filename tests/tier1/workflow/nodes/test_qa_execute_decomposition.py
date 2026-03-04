@@ -11,7 +11,6 @@ Tests the 5 extracted check methods:
 import os
 import sys
 import types
-from dataclasses import asdict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,7 +27,6 @@ if "app.domain.workflow" not in sys.modules:
 
 from app.domain.workflow.nodes.base import (  # noqa: E402
     DocumentWorkflowContext,
-    NodeResult,
 )
 from app.domain.workflow.nodes.qa import QANodeExecutor  # noqa: E402
 from app.domain.workflow.validation.validation_result import (  # noqa: E402

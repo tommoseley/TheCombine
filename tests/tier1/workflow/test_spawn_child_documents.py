@@ -4,6 +4,14 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+# All tests that create new child documents need mint_display_id mocked
+# since _upsert_child_document now calls it (WS-ID-003 / ADR-055).
+_MOCK_MINT = patch(
+    "app.domain.services.display_id_service.mint_display_id",
+    new_callable=AsyncMock,
+    return_value="WP-001",
+)
+
 
 # Minimal DocumentWorkflowState stub
 class FakeState:
@@ -107,7 +115,8 @@ class TestSpawnChildDocuments:
         executor._db_session.execute = AsyncMock(return_value=mock_result)
 
         with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
-             patch("app.domain.handlers.registry.get_handler") as mock_handler:
+             patch("app.domain.handlers.registry.get_handler") as mock_handler, \
+             _MOCK_MINT:
             mock_handler.return_value.get_child_documents.return_value = specs
 
             await executor._spawn_child_documents(
@@ -131,7 +140,8 @@ class TestSpawnChildDocuments:
         executor._db_session.execute = AsyncMock(return_value=mock_result)
 
         with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
-             patch("app.domain.handlers.registry.get_handler") as mock_handler:
+             patch("app.domain.handlers.registry.get_handler") as mock_handler, \
+             _MOCK_MINT:
             mock_handler.return_value.get_child_documents.return_value = specs
 
             await executor._spawn_child_documents(
@@ -248,7 +258,8 @@ class TestSpawnChildDocuments:
         executor._db_session.execute = AsyncMock(return_value=mock_result)
 
         with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
-             patch("app.domain.handlers.registry.get_handler") as mock_handler:
+             patch("app.domain.handlers.registry.get_handler") as mock_handler, \
+             _MOCK_MINT:
             mock_handler.return_value.get_child_documents.return_value = specs
 
             await executor._spawn_child_documents(
@@ -286,7 +297,8 @@ class TestSpawnChildDocuments:
 
         try:
             with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
-                 patch("app.domain.handlers.registry.get_handler") as mock_handler:
+                 patch("app.domain.handlers.registry.get_handler") as mock_handler, \
+                 _MOCK_MINT:
                 mock_handler.return_value.get_child_documents.return_value = specs
 
                 await executor._spawn_child_documents(
@@ -356,7 +368,8 @@ class TestSpawnChildDocuments:
         executor._db_session.execute = AsyncMock(return_value=mock_result)
 
         with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
-             patch("app.domain.handlers.registry.get_handler") as mock_handler:
+             patch("app.domain.handlers.registry.get_handler") as mock_handler, \
+             _MOCK_MINT:
             mock_handler.return_value.get_child_documents.return_value = _make_child_specs(["alpha"])
 
             await executor._spawn_child_documents(

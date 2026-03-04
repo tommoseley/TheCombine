@@ -109,12 +109,21 @@ TABLE_CHECK=$(PGPASSWORD="$DB_PASS_TMP" psql -h "$DB_HOST_TMP" -U "$DB_USER_TMP"
     "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';" 2>/dev/null | tr -d ' ')
 
 if [[ "$TABLE_CHECK" == "0" || -z "$TABLE_CHECK" ]]; then
-    echo "  Empty database detected — bootstrapping base schema via init_db.py"
-    python "$REPO_ROOT/ops/db/init_db.py" 2>&1
-    echo "  Base schema bootstrapped"
-    # Stamp alembic to latest so migrations don't try to replay
-    python -m alembic stamp head 2>&1
-    echo "  Alembic stamped to head"
+    echo "  Empty database detected — bootstrapping from schema.sql"
+    SCHEMA_FILE="$REPO_ROOT/ops/db/schema.sql"
+    if [[ ! -f "$SCHEMA_FILE" ]]; then
+        echo "ERROR: $SCHEMA_FILE not found." >&2
+        echo "Generate it: ops/scripts/db_dump_schema.sh prod" >&2
+        exit 1
+    fi
+    # Load the canonical schema dump (includes DDL + alembic_version stamp)
+    PGPASSWORD="$DB_PASS_TMP" psql -h "$DB_HOST_TMP" -U "$DB_USER_TMP" \
+        -p "$DB_PORT_TMP" -d "$DB_NAME_TMP" -f "$SCHEMA_FILE" -q 2>&1 | \
+        grep -v "^SET\|^$" | head -20 || true
+    echo "  Schema loaded"
+    # Run any migrations newer than the stamp in the dump
+    python -m alembic upgrade head 2>&1
+    echo "  Alembic upgraded to head"
 else
     echo "  Existing tables found ($TABLE_CHECK) — running incremental migrations"
     python -m alembic upgrade head 2>&1

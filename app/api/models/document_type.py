@@ -96,10 +96,10 @@ class DocumentType(Base):
         doc="'single' = one latest per space, 'multi' = multiple instances per space"
     )
 
-    # Content field name used as instance_id for multi-instance types (e.g., 'work_package_id')
-    instance_key = Column(
-        String(100), nullable=True,
-        doc="Content field name used as instance_id for multi-instance types (e.g., 'work_package_id')"
+    # Uppercase prefix for display_id (ADR-055)
+    display_prefix = Column(
+        String(4), nullable=False,
+        doc="Uppercase prefix for display_id (e.g., 'PD', 'WPC', 'WP')"
     )
 
     # =========================================================================
@@ -179,7 +179,7 @@ class DocumentType(Base):
             "acceptance_required": self.acceptance_required,
             "accepted_by_role": self.accepted_by_role,
             "cardinality": self.cardinality,
-            "instance_key": self.instance_key,
+            "display_prefix": self.display_prefix,
             "scope": self.scope,
             "display_order": self.display_order,
             "view_docdef": self.view_docdef,

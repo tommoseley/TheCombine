@@ -155,6 +155,10 @@ async def create_project_from_intake(
         else str(summary_obj)[:500]
     )
 
+    # Mint a human-readable display_id for the intake document (ADR-055)
+    from app.domain.services.display_id_service import mint_display_id
+    did = await mint_display_id(db, project.id, "concierge_intake")
+
     intake_doc = Document(
         space_type="project",
         space_id=project.id,
@@ -166,6 +170,7 @@ async def create_project_from_intake(
         lifecycle_state="complete",
         version=1,
         is_latest=True,
+        display_id=did,
     )
 
     db.add(intake_doc)

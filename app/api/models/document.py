@@ -80,6 +80,13 @@ class Document(Base):
         doc="Stable domain identifier for multi-instance doc types (e.g., epic_id). NULL for single-instance types."
     )
 
+    # Human-readable identity in {TYPE}-{NNN} format (ADR-055)
+    display_id: Mapped[str] = Column(
+        String(20),
+        nullable=False,
+        doc="Human-readable identity in {TYPE}-{NNN} format (e.g., PD-001, WP-003). Immutable after creation."
+    )
+
     # =========================================================================
     # TYPE - What kind of document is this?
     # =========================================================================
@@ -311,18 +318,18 @@ class Document(Base):
     __table_args__ = (
         # Composite index for space lookups
         Index("idx_documents_space", "space_type", "space_id"),
-        
-        # Unique: only one "latest" doc per type per space
+
+        # Unique display_id per doc type per space (ADR-055)
         Index(
-            "idx_documents_unique_latest",
-            "space_type", "space_id", "doc_type_id",
+            "idx_documents_latest_display",
+            "space_type", "space_id", "doc_type_id", "display_id",
             unique=True,
             postgresql_where=(is_latest == True)
         ),
-        
+
         # Full-text search
         Index("idx_documents_search", "search_vector", postgresql_using="gin"),
-        
+
         # Acceptance status index (ADR-007)
         Index(
             "idx_documents_acceptance",

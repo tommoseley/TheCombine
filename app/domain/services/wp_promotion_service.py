@@ -8,7 +8,6 @@ Pure module -- no DB, no handlers, no external dependencies.
 All functions are stateless and side-effect-free for Tier-1 testability.
 """
 
-import re
 from datetime import datetime, timezone
 
 
@@ -17,31 +16,6 @@ from datetime import datetime, timezone
 # ---------------------------------------------------------------------------
 
 VALID_TRANSFORMATIONS = {"kept", "split", "merged", "added"}
-
-_WPC_ID_PATTERN = re.compile(r"^WPC-(\d{1,4})$")
-
-
-# ---------------------------------------------------------------------------
-# wp_id derivation
-# ---------------------------------------------------------------------------
-
-
-def derive_wp_id(wpc_id: str) -> str:
-    """Derive a snake_case wp_id from a WPC-NNN candidate ID.
-
-    WPC-001 -> wp_wb_001
-    WPC-002 -> wp_wb_002
-    WPC-1234 -> wp_wb_1234
-
-    The 'wb' prefix indicates Work Binder origin.
-    The numeric portion is preserved without zero-padding changes.
-    """
-    match = _WPC_ID_PATTERN.match(wpc_id)
-    if match:
-        numeric = match.group(1)
-        return f"wp_wb_{numeric}"
-    # Fallback: lowercase, replace hyphens with underscores
-    return wpc_id.lower().replace("-", "_")
 
 
 # ---------------------------------------------------------------------------
@@ -74,11 +48,12 @@ def build_promoted_wp(
     transformation_notes: str,
     title_override: str | None = None,
     rationale_override: str | None = None,
+    wp_id: str | None = None,
 ) -> dict:
     """Build a governed WP document from a WPC candidate.
 
     Returns a dict conforming to work_package v1.1.0 schema:
-    - wp_id derived from wpc_id (e.g., WPC-001 -> wp_wb_001)
+    - wp_id: pre-minted display ID (e.g., WP-001) or derived from wpc_id
     - state: PLANNED
     - ws_index: [] (empty)
     - revision: { edition: 1 }
@@ -90,7 +65,8 @@ def build_promoted_wp(
     Does not mutate the input candidate dict.
     """
     wpc_id = candidate["wpc_id"]
-    wp_id = derive_wp_id(wpc_id)
+    if wp_id is None:
+        raise ValueError("wp_id must be provided (minted by display_id_service)")
 
     title = title_override if title_override is not None else candidate.get("title", "")
     rationale = rationale_override if rationale_override is not None else candidate.get("rationale", "")

@@ -10,7 +10,7 @@ WS-PROJECT-MODEL-001: Behavior preservation tests
 import pytest
 from uuid import uuid4, UUID
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -222,7 +222,8 @@ class TestProjectCreationBehavior:
         assert project_id == "TP-003"  # Next in sequence
     
     @pytest.mark.asyncio
-    async def test_create_project_from_intake_sets_ownership(self):
+    @patch("app.domain.services.display_id_service.mint_display_id", new_callable=AsyncMock, return_value="CI-001")
+    async def test_create_project_from_intake_sets_ownership(self, mock_mint):
         """Verify create_project_from_intake sets owner_id via ORM."""
         from app.api.services.project_creation_service import create_project_from_intake
         from app.api.models.project import Project

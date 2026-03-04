@@ -44,11 +44,73 @@ DB_NAME=$(echo "$DATABASE_URL" | python3 -c "from urllib.parse import urlparse; 
 DB_USER=$(echo "$DATABASE_URL" | python3 -c "from urllib.parse import urlparse; import sys; u=urlparse(sys.stdin.read().strip()); print(u.username)")
 DB_PASS=$(echo "$DATABASE_URL" | python3 -c "from urllib.parse import urlparse; import sys; u=urlparse(sys.stdin.read().strip()); print(u.password)")
 
-# Drop all tables
-PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" -c \
-    "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO $DB_USER;" 2>&1
+# Drop all objects (RDS users don't own the public schema, so drop objects individually)
+# Each category uses EXCEPTION handling so permission errors on extension-owned objects
+# don't abort the entire block.
+PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" <<'SQL' 2>&1
+DO $$
+DECLARE
+    r RECORD;
+    drop_cmd TEXT;
+BEGIN
+    -- Drop all tables in public schema
+    FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+        drop_cmd := 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+        BEGIN
+            EXECUTE drop_cmd;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'Skipping table % (insufficient privilege)', r.tablename;
+        END;
+    END LOOP;
 
-echo "Schema dropped and recreated."
+    -- Drop all sequences (exclude extension-owned)
+    FOR r IN (SELECT s.sequencename FROM pg_sequences s
+              WHERE s.schemaname = 'public'
+              AND NOT EXISTS (
+                  SELECT 1 FROM pg_depend d
+                  JOIN pg_class c ON c.oid = d.objid
+                  WHERE c.relname = s.sequencename AND d.deptype = 'e'
+              )) LOOP
+        drop_cmd := 'DROP SEQUENCE IF EXISTS public.' || quote_ident(r.sequencename) || ' CASCADE';
+        BEGIN
+            EXECUTE drop_cmd;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'Skipping sequence % (insufficient privilege)', r.sequencename;
+        END;
+    END LOOP;
+
+    -- Drop all functions/procedures (exclude extension-owned)
+    FOR r IN (SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
+              FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
+              WHERE n.nspname = 'public' AND p.prokind IN ('f', 'p')
+              AND NOT EXISTS (
+                  SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e'
+              )) LOOP
+        drop_cmd := 'DROP FUNCTION IF EXISTS public.' || quote_ident(r.proname) || '(' || r.args || ') CASCADE';
+        BEGIN
+            EXECUTE drop_cmd;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'Skipping function %(%s) (insufficient privilege)', r.proname, r.args;
+        END;
+    END LOOP;
+
+    -- Drop all custom types/enums (exclude extension-owned)
+    FOR r IN (SELECT t.typname FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid
+              WHERE n.nspname = 'public' AND t.typtype = 'e'
+              AND NOT EXISTS (
+                  SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.deptype = 'e'
+              )) LOOP
+        drop_cmd := 'DROP TYPE IF EXISTS public.' || quote_ident(r.typname) || ' CASCADE';
+        BEGIN
+            EXECUTE drop_cmd;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'Skipping type % (insufficient privilege)', r.typname;
+        END;
+    END LOOP;
+END $$;
+SQL
+
+echo "All user-owned objects dropped from public schema."
 
 # Re-run migration to bootstrap
 echo "Re-bootstrapping via db_migrate.sh..."

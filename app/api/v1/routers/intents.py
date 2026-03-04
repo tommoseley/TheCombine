@@ -69,6 +69,10 @@ async def create_intent(
         "schema_version": "1.0.0",
     }
 
+    # Mint a human-readable display_id for the intent (ADR-055)
+    from app.domain.services.display_id_service import mint_display_id
+    did = await mint_display_id(db, UUID(request.project_id), "intent_packet")
+
     doc = Document(
         space_type="project",
         space_id=UUID(request.project_id),
@@ -80,6 +84,7 @@ async def create_intent(
         status="complete",
         lifecycle_state="complete",
         created_by=str(current_user.user_id) if current_user else None,
+        display_id=did,
     )
 
     db.add(doc)

@@ -26,7 +26,6 @@ Thread Ownership (WS-ADR-025 Phase 3):
 - Threads can be resumed when workflow is interrupted
 """
 
-import json
 import logging
 import uuid
 
@@ -1772,6 +1771,10 @@ class PlanExecutor:
                 doc_type_display_name=doc_type_name,
             )
 
+            # Mint a human-readable display_id (ADR-055)
+            from app.domain.services.display_id_service import mint_display_id
+            did = await mint_display_id(self._db_session, UUID(state.project_id), state.document_type)
+
             # Create the document record (I/O)
             document = Document(
                 space_type="project",
@@ -1783,6 +1786,7 @@ class PlanExecutor:
                 is_latest=True,
                 status="draft",
                 created_by=None,
+                display_id=did,
             )
             document.update_revision_hash()
 
@@ -1894,6 +1898,10 @@ class PlanExecutor:
             logger.debug(f"Updated existing child: {identifier}")
             return "updated"
         else:
+            # Mint a human-readable display_id for the child (ADR-055)
+            from app.domain.services.display_id_service import mint_display_id
+            did = await mint_display_id(self._db_session, UUID(state.project_id), spec["doc_type_id"])
+
             child_doc = Document(
                 space_type="project",
                 space_id=UUID(state.project_id),
@@ -1906,6 +1914,7 @@ class PlanExecutor:
                 created_by=None,
                 parent_document_id=parent_id,
                 instance_id=identifier,
+                display_id=did,
             )
             child_doc.update_revision_hash()
             self._db_session.add(child_doc)

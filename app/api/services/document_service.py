@@ -82,14 +82,15 @@ class DocumentService:
         builder_metadata: Optional[Dict[str, Any]] = None,
         derived_from: Optional[List[UUID]] = None,
         schema_bundle_sha256: Optional[str] = None,
+        display_id: Optional[str] = None,
     ) -> Document:
         """
         Create a new document.
-        
+
         If a document of this type already exists in this space:
         - Mark the old one as not latest
         - Increment version number
-        
+
         Args:
             space_type: 'project' | 'organization' | 'team'
             space_id: UUID of owning entity
@@ -102,19 +103,26 @@ class DocumentService:
             builder_metadata: Build metadata (model, tokens, etc.)
             derived_from: List of document IDs this was built from
             schema_bundle_sha256: Schema bundle hash at generation time
-            
+            display_id: Human-readable identity in {TYPE}-{NNN} format (ADR-055).
+                        If not provided, one will be minted automatically.
+
         Returns:
             Created Document
         """
         # Check for existing latest document of this type
         existing = await self.get_latest(space_type, space_id, doc_type_id)
-        
+
         version = 1
         if existing:
             # Mark existing as not latest
             existing.is_latest = False
             version = existing.version + 1
-        
+
+        # Mint display_id if not provided (ADR-055)
+        if display_id is None:
+            from app.domain.services.display_id_service import mint_display_id
+            display_id = await mint_display_id(self.db, space_id, doc_type_id)
+
         # Create new document
         doc = Document(
             space_type=space_type,
@@ -131,6 +139,7 @@ class DocumentService:
             created_by_type=created_by_type,
             builder_metadata=builder_metadata,
             schema_bundle_sha256=schema_bundle_sha256,
+            display_id=display_id,
         )
         
         # Compute revision hash

@@ -11,7 +11,7 @@ Pure business logic -- uses Pydantic model validation + mocked DB.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -532,8 +532,9 @@ class TestStabilization:
 class TestWSCreation:
 
     @pytest.mark.asyncio
-    async def test_create_ws_returns_201(self):
-        """POST to create WS -> 201 with WS data."""
+    @patch("app.domain.services.display_id_service.mint_display_id", new_callable=AsyncMock, return_value="WS-001")
+    async def test_create_ws_returns_201(self, mock_mint):
+        """POST to create WS -> 201 with WS data (new display ID format)."""
         wp_doc = _mock_wp_document()
         db = _mock_db_session(wp_doc=wp_doc)
 
@@ -552,7 +553,7 @@ class TestWSCreation:
                 )
                 assert resp.status_code == 201
                 body = resp.json()
-                assert body["ws_id"] == "WS-WB-001"
+                assert body["ws_id"] == "WS-001"
                 assert body["parent_wp_id"] == "wp_wb_001"
                 assert body["state"] == "DRAFT"
                 assert body["revision"] == {"edition": 1}
@@ -592,7 +593,6 @@ class TestWSResponseRevisionNormalization:
 
     def test_scalar_revision_normalized_to_dict(self):
         """Legacy DB records have revision=1 (int). Must not crash."""
-        from app.api.v1.routers.work_binder import WSResponse
         ws = WSResponse(
             ws_id="WS-001", parent_wp_id="wp_001",
             state="DRAFT", order_key="a0", revision=1,
@@ -601,7 +601,6 @@ class TestWSResponseRevisionNormalization:
 
     def test_dict_revision_passes_through(self):
         """New-format revision dicts must pass through unchanged."""
-        from app.api.v1.routers.work_binder import WSResponse
         ws = WSResponse(
             ws_id="WS-001", parent_wp_id="wp_001",
             state="DRAFT", order_key="a0",
@@ -611,7 +610,6 @@ class TestWSResponseRevisionNormalization:
 
     def test_default_revision(self):
         """When revision is omitted, default to {edition: 1}."""
-        from app.api.v1.routers.work_binder import WSResponse
         ws = WSResponse(
             ws_id="WS-001", parent_wp_id="wp_001",
             state="DRAFT", order_key="a0",

@@ -74,7 +74,7 @@
     "clarification_questions_generator": "1.1.0",
     "qa_semantic_compliance": "1.1.0",
     "pm_discovery_generation": "1.0.0",
-    "project_discovery_qa": "1.1.0",
+    "project_discovery_qa": "1.2.0",
     "implementation_plan": "1.0.0",
     "work_package": "1.0.0",
     "work_statement": "1.0.0",
