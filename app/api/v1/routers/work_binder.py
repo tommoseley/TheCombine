@@ -27,6 +27,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.document import Document
@@ -365,7 +366,19 @@ async def import_candidates_from_ip(
             f"{request.ip_document_id} v{source_ip_version}"
         )
 
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        logger.warning(
+            "IntegrityError during candidate import for IP %s — "
+            "candidates likely already exist (concurrent or re-import)",
+            request.ip_document_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Candidates already exist for this project. Refresh and retry.",
+        )
 
     # --- Audit trail (WS-WB-008) ---
     for ci in result_candidates:
