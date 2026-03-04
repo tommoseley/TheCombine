@@ -579,6 +579,16 @@
     flex-shrink: 0;
 }
 
+/* --- WS Copy Button --- */
+.wb-ws-copy-btn {
+    flex-shrink: 0;
+    opacity: 0.4;
+}
+
+.wb-ws-copy-btn:hover {
+    opacity: 1;
+}
+
 /* --- WS Sheet Body (expanded) --- */
 .wb-ws-sheet-body {
     padding: 0 14px 12px;
@@ -907,6 +917,37 @@
 .wb-candidate-badge--promoted {
     background: rgba(128, 128, 128, 0.15);
     color: var(--text-muted);
+}
+
+/* --- Candidates list: auto-height so packages get remaining space --- */
+.wb-index-list--candidates {
+    flex: 0 1 auto;
+    max-height: 40%;
+}
+
+/* --- Show all toggle in candidates header --- */
+.wb-index-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.wb-index-toggle input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--action-primary);
+}
+
+.wb-index-toggle-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    user-select: none;
 }
 
 /* --- Promoted candidate item dimming --- */

@@ -34,6 +34,10 @@ export default function WPIndex({
     const [newTitle, setNewTitle] = useState('');
     const [inserting, setInserting] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [showPromoted, setShowPromoted] = useState(false);
+
+    const promotedCount = candidates.filter(c => c.promoted).length;
+    const visibleCandidates = showPromoted ? candidates : candidates.filter(c => !c.promoted);
 
     const handleSubmitInsert = useCallback(async () => {
         if (!newTitle.trim()) return;
@@ -71,11 +75,21 @@ export default function WPIndex({
                     <div className="wb-index-header">
                         <span className="wb-index-label">CANDIDATES</span>
                         {candidates.length > 0 && (
-                            <span className="wb-index-count">{candidates.length}</span>
+                            <span className="wb-index-count">{visibleCandidates.length}/{candidates.length}</span>
+                        )}
+                        {promotedCount > 0 && (
+                            <label className="wb-index-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={showPromoted}
+                                    onChange={(e) => setShowPromoted(e.target.checked)}
+                                />
+                                <span className="wb-index-toggle-label">ALL</span>
+                            </label>
                         )}
                     </div>
 
-                    <div className="wb-index-list">
+                    <div className="wb-index-list wb-index-list--candidates">
                         {candidates.length === 0 && importAvailable && (
                             <div className="wb-index-import">
                                 <button
@@ -88,7 +102,7 @@ export default function WPIndex({
                             </div>
                         )}
 
-                        {candidates.map((cand) => {
+                        {visibleCandidates.map((cand) => {
                             const isSelected = cand.wpc_id === selectedCandidateId;
                             return (
                                 <button

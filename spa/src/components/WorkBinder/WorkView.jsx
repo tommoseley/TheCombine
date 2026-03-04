@@ -86,7 +86,33 @@ function WSListSection({ label, items }) {
     );
 }
 
-function WSSheet({ ws, isFocused, onFocus, onStabilize, onMoveUp, onMoveDown, isFirst, isLast }) {
+function formatWsForClipboard(ws) {
+    const lines = [];
+    lines.push(`# ${formatWsId(ws)}: ${ws.title || ws.objective || 'Untitled'}`);
+    if (ws.state) lines.push(`State: ${ws.state}`);
+    if (ws.objective) { lines.push(''); lines.push(`## Objective`); lines.push(ws.objective); }
+    const listSection = (heading, items) => {
+        if (!items || items.length === 0) return;
+        lines.push(''); lines.push(`## ${heading}`);
+        items.forEach(item => lines.push(`- ${item}`));
+    };
+    listSection('Scope', ws.scope_in);
+    listSection('Out of Scope', ws.scope_out);
+    listSection('Procedure', ws.procedure);
+    listSection('Verification Criteria', ws.verification_criteria);
+    listSection('Prohibited Actions', ws.prohibited_actions);
+    listSection('Allowed Paths', ws.allowed_paths);
+    const pins = ws.governance_pins || {};
+    if (pins.ta_version_id || (pins.adr_refs && pins.adr_refs.length > 0) || (pins.policy_refs && pins.policy_refs.length > 0)) {
+        lines.push(''); lines.push('## Governance Pins');
+        if (pins.ta_version_id) lines.push(`- TA: ${pins.ta_version_id}`);
+        if (pins.adr_refs && pins.adr_refs.length > 0) lines.push(`- ADR: ${pins.adr_refs.join(', ')}`);
+        if (pins.policy_refs && pins.policy_refs.length > 0) lines.push(`- POL: ${pins.policy_refs.join(', ')}`);
+    }
+    return lines.join('\n');
+}
+
+function WSSheet({ ws, isFocused, onFocus, onCopy, onStabilize, onMoveUp, onMoveDown, isFirst, isLast }) {
     const badge = getStateBadge(ws.state);
     const wsId = formatWsId(ws);
     const wsKey = ws.ws_id;
@@ -102,6 +128,16 @@ function WSSheet({ ws, isFocused, onFocus, onStabilize, onMoveUp, onMoveDown, is
             <div className="wb-ws-sheet-header">
                 <span className="wb-mono wb-ws-id">{wsId}</span>
                 <span className="wb-ws-title">{ws.title || ws.objective || 'Untitled'}</span>
+                <button
+                    className="wb-btn wb-btn--ghost wb-btn--sm wb-ws-copy-btn"
+                    onClick={(e) => { e.stopPropagation(); onCopy(ws); }}
+                    title="Copy to clipboard"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                </button>
                 <span
                     className="wb-ws-badge"
                     style={{ backgroundColor: `var(${badge.cssVar})` }}
@@ -268,6 +304,13 @@ export default function WorkView({ wp, projectId, onRefresh, onProposeStatements
         }
     }, [onProposeStatements, wpContentId, loadStatements]);
 
+    const handleCopy = useCallback((ws) => {
+        const text = formatWsForClipboard(ws);
+        navigator.clipboard.writeText(text).catch(() => {
+            console.warn('WorkView: clipboard write failed');
+        });
+    }, []);
+
     const handleMove = useCallback(async (wsId, direction) => {
         const idx = statements.findIndex(ws => ws.ws_id === wsId);
         if (idx < 0) return;
@@ -385,6 +428,7 @@ export default function WorkView({ wp, projectId, onRefresh, onProposeStatements
                         ws={ws}
                         isFocused={focusedWsId === ws.ws_id}
                         onFocus={(id) => setFocusedWsId(prev => prev === id ? null : id)}
+                        onCopy={handleCopy}
                         onStabilize={handleStabilize}
                         onMoveUp={(id) => handleMove(id, 'up')}
                         onMoveDown={(id) => handleMove(id, 'down')}

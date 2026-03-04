@@ -104,6 +104,7 @@ class ImportCandidatesResponse(BaseModel):
 class PromoteCandidateRequest(BaseModel):
     """Request to promote a WPC to a governed Work Package."""
     wpc_id: str = Field(..., min_length=1)
+    project_id: str = Field(..., min_length=1)
     transformation: str = Field(..., min_length=1)
     transformation_notes: str = ""
     title_override: str | None = None
@@ -439,7 +440,8 @@ async def promote_candidate(
             detail="; ".join(errors),
         )
 
-    wpc_doc = await _load_wpc_document(db, request.wpc_id)
+    project = await _resolve_project(db, request.project_id)
+    wpc_doc = await _load_wpc_document(db, request.wpc_id, project.id)
 
     wp_id = derive_wp_id(request.wpc_id)
     existing_wp = await _find_existing_wp(db, wp_id, wpc_doc.space_id)
@@ -1253,21 +1255,22 @@ async def _find_existing_wpc(
 
 
 async def _load_wpc_document(
-    db: AsyncSession, wpc_id: str,
+    db: AsyncSession, wpc_id: str, space_id: UUID | None = None,
 ) -> Document:
-    """Load a WPC document by instance_id. 404 if not found.
+    """Load a WPC document by instance_id, scoped to space_id. 404 if not found.
 
     Uses scalars().first() instead of scalar_one_or_none() to tolerate
     duplicate WPC rows (created when import-candidates runs against
     different IP document versions with the same candidate IDs).
     """
-    result = await db.execute(
-        select(Document).where(
-            Document.doc_type_id == "work_package_candidate",
-            Document.instance_id == wpc_id,
-            Document.is_latest == True,  # noqa: E712
-        ).order_by(Document.created_at.desc())
+    query = select(Document).where(
+        Document.doc_type_id == "work_package_candidate",
+        Document.instance_id == wpc_id,
+        Document.is_latest == True,  # noqa: E712
     )
+    if space_id is not None:
+        query = query.where(Document.space_id == space_id)
+    result = await db.execute(query.order_by(Document.created_at.desc()))
     doc = result.scalars().first()
 
     if not doc:

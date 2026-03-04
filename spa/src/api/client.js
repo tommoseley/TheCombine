@@ -234,11 +234,12 @@ export const api = {
             body: JSON.stringify({ ip_document_id: ipDocumentId }),
         }),
 
-    promoteCandidate: (wpcId, transformation = 'kept', transformationNotes = '') =>
+    promoteCandidate: (wpcId, projectId, transformation = 'kept', transformationNotes = '') =>
         request('/work-binder/promote', {
             method: 'POST',
             body: JSON.stringify({
                 wpc_id: wpcId,
+                project_id: projectId,
                 transformation,
                 transformation_notes: transformationNotes,
             }),

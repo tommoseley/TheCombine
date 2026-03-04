@@ -125,7 +125,7 @@ export default function WorkBinder({ projectId, projectCode }) {
 
     const handlePromote = useCallback(async (wpcId) => {
         try {
-            const result = await api.promoteCandidate(wpcId, 'kept', 'Promoted as-is from IP candidate.');
+            const result = await api.promoteCandidate(wpcId, projectId, 'kept', 'Promoted as-is from IP candidate.');
             const freshWps = await refresh();
             // Auto-navigate to the newly promoted WP's WORK tab
             if (result?.wp_id && freshWps) {
