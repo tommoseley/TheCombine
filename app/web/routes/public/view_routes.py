@@ -181,36 +181,6 @@ class FragmentRenderer:
 # Viewer Routes
 # =============================================================================
 
-@router.get("/view/{document_type}", response_class=HTMLResponse)
-async def view_document(
-    request: Request,
-    document_type: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Render a stored document.
-    
-    Per DOCUMENT_VIEWER_CONTRACT v1.0:
-    - Resolves document_type to latest accepted docdef
-    - Loads stored document by type + params
-    - Builds RenderModel and renders via fragments
-    
-    Args:
-        document_type: Short name (e.g., "EpicDetailView")
-        Query params: Document-specific params (e.g., epic_id=EPIC-001)
-    """
-    # TODO: Implement stored document lookup
-    # For now, return 501 Not Implemented
-    # This will be completed when we have stored documents
-    
-    logger.warning(f"Stored document view not yet implemented: {document_type}")
-    
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail=f"Stored document view not yet implemented. Use POST /view/{document_type}/preview instead.",
-    )
-
-
 @router.post("/view/{document_type}/preview", response_class=HTMLResponse)
 async def preview_document(
     request: Request,

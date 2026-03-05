@@ -1,118 +1,137 @@
-# Routing Contract v1.0
+# Routing Contract v2.0
 
-> **Frozen**: Standardizes URL construction and retirement.
+> **Supersedes**: v1.0 (2026-01-12). Updated per ADR-056 (Unified Routing v2).
 
 ## Philosophy
 
-Routes are the API contract. Changing routes without deprecation warnings breaks clients. All commands live under a predictable namespace.
+Routes are the API contract. The SPA owns all user-facing paths; the server owns API, auth, and static asset paths. Every document is addressable by URL via display_id (ADR-055).
 
 ## Route Categories
 
-### VIEW Routes (Read-Only)
+### SPA Routes (Client-Side)
 
-**Pattern**: `GET /projects/{project_id}/documents/{doc_type_id}`
+**Pattern**: `/{path}` (any path not matching API, auth, or static)
 
-- Response: HTML (full page or HTMX partial)
-- Data Flow: `documents` table → `RenderModelBuilder` → `RenderModelV1` → Fragments
-- Caching: Allowed
-
-### COMMAND Routes (Mutating)
-
-**Pattern**: `POST /api/commands/{domain}/{action}`
-
-- Response: JSON with `task_id`
-- Properties: Async, idempotent, mutate documents not views
-- Caching: Never
-
-### Canonical Command Routes
+All user-facing routes are handled by React Router. The server returns `index.html` for any unmatched path (catch-all fallback).
 
 | Route | Purpose |
 |-------|---------|
-| `POST /api/commands/documents/{doc_type_id}/build` | Build any document |
-| `POST /api/commands/documents/{doc_type_id}/mark-stale` | Mark document stale |
-| `POST /api/commands/story-backlog/init` | Initialize story backlog |
-| `POST /api/commands/story-backlog/generate-epic` | Generate stories for epic |
-| `POST /api/commands/story-backlog/generate-all` | Generate all stories |
+| `/` | Home / project list |
+| `/learn` | Learn page (unauthenticated) |
+| `/projects/{project_slug}` | Project dashboard |
+| `/projects/{project_slug}/docs/{display_id}` | Document deep link |
+| `/projects/{project_slug}/work-binder` | Work Binder |
+| `/projects/{project_slug}/work-binder/{display_id}` | Work Binder deep link (WP/WS/WPC) |
+| `/projects/{project_slug}/production` | Production view |
+| `/admin` | Admin panel |
+| `/admin/workbench` | Admin workbench |
+| `/admin/executions/{execution_id}` | Execution detail |
+
+**Path conventions**: kebab-case in URL segments, snake_case in parameters.
+**Project slug**: Uses `project_id` field (e.g., `HWCA-001`).
+
+### API Routes (Server-Side)
+
+**Pattern**: `/api/v1/{domain}/{resource}`
+
+All API endpoints live under `/api/v1/`. The SPA client prepends this prefix automatically.
+
+| Route Pattern | Domain | Purpose |
+|---------------|--------|---------|
+| `/api/v1/projects/*` | Projects | CRUD, tree, workflow, documents |
+| `/api/v1/projects/{id}/documents/{identifier}` | Documents | By doc_type_id or display_id |
+| `/api/v1/work-binder/*` | Work Binder | WP/WS/WPC operations |
+| `/api/v1/production/*` | Production | Status, start, SSE events |
+| `/api/v1/executions/*` | Executions | Monitoring, transcripts |
+| `/api/v1/workflows/*` | Workflows | Definitions, management |
+| `/api/v1/intake/*` | Intake | Concierge intake flow |
+| `/api/v1/intents/*` | Intents | Intent intake |
+| `/api/v1/interrupts/*` | Interrupts | Operator interrupt resolution |
+
+### Command Routes
+
+**Pattern**: `/api/commands/{domain}/{action}`
+
+Legacy command namespace. Story-backlog commands were planned but never implemented and are now formally retired.
 
 ### SSE Routes (Streaming)
 
-**Pattern**: `POST /api/commands/{domain}/{action}/stream`
+| Route | Purpose |
+|-------|---------|
+| `/api/v1/production/events?project_id={id}` | Production line events |
+| `/api/v1/intake/{execution_id}/events` | Intake generation events |
 
-- Response: `text/event-stream`
-- Headers: `Cache-Control: no-cache`, `Connection: keep-alive`
+### Auth Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/auth/login/{provider}` | OAuth login redirect |
+| `/auth/logout` | Logout |
+| `/api/me` | Current user info |
+
+### Static Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/assets/*` | SPA JS/CSS bundles (Vite build output) |
+| `/content/*` | SPA content files (YAML/JSON config) |
+| `/web/*` | Legacy web assets |
+
+## Display ID Resolution (ADR-055)
+
+The universal document resolver at `/api/v1/projects/{project_id}/documents/{identifier}` accepts both:
+
+- **doc_type_id** (e.g., `project_discovery`) — traditional lookup
+- **display_id** (e.g., `PD-001`) — ADR-055 prefix resolution
+
+Display IDs match pattern `[A-Z]{2,4}-\d{3,}`. The prefix maps to `document_types.display_prefix` in the registry.
+
+## SPA Deep Linking
+
+Direct navigation to any SPA route works via:
+1. Server catch-all returns `index.html` for non-API/auth/asset paths
+2. React Router resolves the route client-side
+3. Components read URL params via `useParams()`
+
+Work Binder deep linking resolves display_id prefix:
+- `WP-*` → Select work package directly
+- `WS-*` → Fetch document, find parent WP, select parent
+- `WPC-*` → Select candidate
+
+## Retired Routes
+
+The following routes from v1.0 are formally retired:
+
+| Route | Status | Notes |
+|-------|--------|-------|
+| `POST /api/commands/story-backlog/init` | Never implemented | Story-backlog retired (WS-REGISTRY-002) |
+| `POST /api/commands/story-backlog/generate-epic` | Never implemented | Story-backlog retired |
+| `POST /api/commands/story-backlog/generate-all` | Never implemented | Story-backlog retired |
+| `GET /view/EpicBacklogView` | Never existed | Listed in v1.0 deprecated registry |
+| `GET /view/StoryBacklogView` | Never existed | Listed in v1.0 deprecated registry |
+| HTMX partial routes | Superseded by SPA | React SPA handles all rendering |
 
 ## Deprecation Protocol
 
-### Step 1: Mark Deprecated
-
-```python
-@router.post("/old/route", deprecated=True)
-async def old_route(...):
-    ...
-```
-
-### Step 2: Add Warning Header
-
-All deprecated routes MUST emit:
-
-```http
-Warning: 299 - "Deprecated: Use POST /api/commands/documents/{doc_type_id}/build"
-Deprecation: true
-```
-
-### Step 3: Log Usage
-
-```python
-logger.warning(f"DEPRECATED_ROUTE_HIT: {path} - Use {canonical_path} instead")
-```
-
-### Step 4: Monitor & Remove
-
-- Monitor deprecated route usage for 2+ weeks
-- Remove only after zero hits
-- Never silent removal
-
-## Deprecated Routes Registry
-
-| Old Route | New Route | Status |
-|-----------|-----------|--------|
-| `/api/documents/build/{type}` | `/api/commands/documents/{type}/build` | Deprecated |
-| `/api/documents/{id}/mark-stale` | `/api/commands/documents/{type}/mark-stale` | Deprecated |
-| `/view/EpicBacklogView` | `/projects/{id}/documents/epic_backlog` | Deprecated |
-| `/view/StoryBacklogView` | `/projects/{id}/documents/story_backlog` | Deprecated |
-
-## Command Response Contract
-
-All command routes return:
-
-```json
-{
-  "status": "completed|queued|error",
-  "task_id": "uuid",
-  "doc_type_id": "string",
-  "document_id": "uuid|null",
-  "message": "string|null"
-}
-```
-
-## Invariants
-
-1. **All commands return task_id** - For async tracking
-2. **Commands are idempotent** - Safe to retry
-3. **Commands mutate documents, not views** - Separation of concerns
-4. **Deprecated routes emit Warning header** - RFC 7234 compliance
-5. **No silent route removal** - Always deprecate first
+Same as v1.0:
+1. Mark `deprecated=True` in FastAPI decorator
+2. Emit `Warning` and `Deprecation` headers
+3. Log usage
+4. Monitor, then remove after zero hits
 
 ## Governance Boundary
 
 | Change | Requires WS/ADR? |
 |--------|------------------|
-| Add new command route | No |
+| Add new API route under `/api/v1/` | No |
+| Add new SPA route | No |
 | Deprecate existing route | No |
 | Remove deprecated route (after monitoring) | No |
-| Change route namespace pattern | Yes |
-| Change command response schema | Yes |
+| Change API namespace pattern | Yes |
+| Change display_id resolution logic | Yes |
+| Modify catch-all fallback behavior | Yes |
 
 ---
 
-_Frozen: 2026-01-12 (WS-DOCUMENT-SYSTEM-CLEANUP Phase 5, 7)_
+_Updated: 2026-03-04 (WP-ROUTE-001, ADR-056)_
+_Supersedes: v1.0 (2026-01-12)_

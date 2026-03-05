@@ -8,6 +8,7 @@
  * WS-WB-009: Candidate listing, import, and promotion.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import WPIndex from './WPIndex';
 import WPContentArea from './WPContentArea';
@@ -46,6 +47,9 @@ async function fetchCandidates(projectId) {
 }
 
 export default function WorkBinder({ projectId, projectCode }) {
+    const { displayId: urlDisplayId } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [wps, setWps] = useState([]);
     const [candidates, setCandidates] = useState([]);
     const [importAvailable, setImportAvailable] = useState(false);
@@ -56,6 +60,7 @@ export default function WorkBinder({ projectId, projectCode }) {
     const [selectedCandidateId, setSelectedCandidateId] = useState(null);
     const [activeSubView, setActiveSubView] = useState('WORK');
     const [wpDetail, setWpDetail] = useState(null);
+    const [initialResolved, setInitialResolved] = useState(!urlDisplayId);
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -85,33 +90,71 @@ export default function WorkBinder({ projectId, projectCode }) {
 
     useEffect(() => { refresh(); }, [projectId]);
 
+    // ADR-056: Resolve URL display_id to initial selection after data loads
+    useEffect(() => {
+        if (initialResolved || loading || !urlDisplayId) return;
+        if (wps.length === 0 && candidates.length === 0) return;
+
+        const prefix = urlDisplayId.split('-')[0];
+        if (prefix === 'WP') {
+            // Direct WP selection
+            const wp = wps.find(w => w.display_id === urlDisplayId || w.wp_id === urlDisplayId);
+            if (wp) {
+                setSelectedWpId(wp.id);
+                setSelectedCandidateId(null);
+                setActiveSubView('WORK');
+            }
+        } else if (prefix === 'WS') {
+            // WS: find parent WP via API, then select parent and expand
+            api.getDocumentByDisplayId(projectCode, urlDisplayId)
+                .then(doc => {
+                    if (doc?.content?.parent_wp_id) {
+                        const parentWp = wps.find(w => w.wp_id === doc.content.parent_wp_id);
+                        if (parentWp) {
+                            setSelectedWpId(parentWp.id);
+                            setSelectedCandidateId(null);
+                            setActiveSubView('WORK');
+                        }
+                    }
+                })
+                .catch(() => {});
+        } else if (prefix === 'WPC') {
+            // Direct candidate selection
+            const cand = candidates.find(c => c.wpc_id === urlDisplayId || c.display_id === urlDisplayId);
+            if (cand) {
+                setSelectedCandidateId(cand.wpc_id);
+                setSelectedWpId(null);
+            }
+        }
+        setInitialResolved(true);
+    }, [loading, wps, candidates, urlDisplayId, initialResolved, projectCode]);
+
+    // ADR-056: Update URL when WP/WS/WPC selection changes
+    const updateUrlForSelection = useCallback((displayId) => {
+        if (!projectCode) return;
+        const basePath = `/projects/${projectCode}/work-binder`;
+        const targetPath = displayId ? `${basePath}/${displayId}` : basePath;
+        if (location.pathname !== targetPath) {
+            navigate(targetPath, { replace: true });
+        }
+    }, [projectCode, navigate, location.pathname]);
+
     const handleSelectWp = useCallback((wpId) => {
         setSelectedWpId(wpId);
         setSelectedCandidateId(null);
         setActiveSubView('WORK');
-    }, []);
+        // Update URL with WP display_id
+        const wp = wps.find(w => w.id === wpId);
+        if (wp) updateUrlForSelection(wp.display_id || wp.wp_id);
+    }, [wps, updateUrlForSelection]);
 
     const handleSelectCandidate = useCallback((wpcId) => {
         setSelectedCandidateId(wpcId);
         setSelectedWpId(null);
-    }, []);
-
-    const handleInsertPackage = useCallback(async (title) => {
-        try {
-            const res = await fetch(`/api/v1/work-binder/wp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_id: projectId, title }),
-            });
-            if (!res.ok) throw new Error(`Failed to create WP: ${res.status}`);
-            const newWp = await res.json();
-            await refresh();
-            setSelectedWpId(newWp.id);
-            setSelectedCandidateId(null);
-        } catch (e) {
-            setError('Failed to insert package: ' + e.message);
-        }
-    }, [projectId, refresh]);
+        // Update URL with WPC display_id
+        const cand = candidates.find(c => c.wpc_id === wpcId);
+        if (cand) updateUrlForSelection(cand.display_id || cand.wpc_id);
+    }, [candidates, updateUrlForSelection]);
 
     const handleImportCandidates = useCallback(async () => {
         if (!sourceIpId) return;
@@ -208,7 +251,6 @@ export default function WorkBinder({ projectId, projectCode }) {
                     wps={wps}
                     selectedWpId={selectedWpId}
                     onSelectWp={handleSelectWp}
-                    onInsertPackage={handleInsertPackage}
                     candidates={candidates}
                     selectedCandidateId={selectedCandidateId}
                     onSelectCandidate={handleSelectCandidate}

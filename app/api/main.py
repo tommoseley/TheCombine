@@ -152,6 +152,7 @@ app.mount("/web", StaticFiles(directory="app/web"), name="web")
 # Only mount if the spa/dist directory exists (after npm run build)
 import pathlib  # noqa: E402
 SPA_DIST_PATH = pathlib.Path("spa/dist")
+SPA_INDEX = SPA_DIST_PATH / "index.html"
 SPA_ENABLED = SPA_DIST_PATH.exists()
 if SPA_ENABLED:
     # Mount SPA assets at /assets (JS, CSS bundles)
@@ -281,8 +282,21 @@ if SPA_ENABLED:
         """Serve favicon."""
         return FileResponse(SPA_DIST_PATH / "logo-256.png", media_type="image/png")
 
-# Note: The home route at "/" is defined in home_routes.py and will be updated
-# to serve the SPA index.html instead of the Jinja template.
+# ============================================================================
+# SPA CATCH-ALL — MUST BE LAST ROUTE (ADR-056)
+# ============================================================================
+# Serves index.html for any path not matched by API, auth, or static routes.
+# React Router handles client-side routing from there.
+
+if SPA_ENABLED:
+    @app.get("/{full_path:path}")
+    async def spa_catch_all(request: Request, full_path: str):
+        """Serve SPA index.html for all non-API/auth/asset paths.
+
+        This enables deep linking: direct navigation to /projects/HWCA-001/docs/PD-001
+        returns index.html, and React Router resolves the route client-side.
+        """
+        return FileResponse(SPA_INDEX, media_type="text/html")
 
 
 # ============================================================================

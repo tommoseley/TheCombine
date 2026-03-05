@@ -199,6 +199,10 @@ export const api = {
         return request(`/projects/${projectId}/documents/${docTypeId}${qs}`);
     },
 
+    // Document resolver (ADR-055: by display_id like PD-001, WP-001)
+    getDocumentByDisplayId: (projectId, displayId) =>
+        request(`/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(displayId)}`),
+
     // RenderModel (data-driven document display)
     getDocumentRenderModel: (projectId, docTypeId, instanceId) => {
         const qs = instanceId ? `?instance_id=${encodeURIComponent(instanceId)}` : '';

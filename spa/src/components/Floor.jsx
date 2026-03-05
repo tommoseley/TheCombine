@@ -39,13 +39,17 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [productionData]);
 
-    // Auto-select first node when data arrives and nothing is selected
+    // Auto-select node: prefer autoExpandNodeId (deep linking), then first node
     useEffect(() => {
         if (data.length > 0 && !selectedNodeId) {
+            if (autoExpandNodeId) {
+                const target = data.find(d => d.id === autoExpandNodeId);
+                if (target) { setSelectedNodeId(target.id); return; }
+            }
             const firstL1 = data.find(d => (d.level || 1) === 1);
             if (firstL1) setSelectedNodeId(firstL1.id);
         }
-    }, [data, selectedNodeId]);
+    }, [data, selectedNodeId, autoExpandNodeId]);
 
     // Reset selection when project changes
     useEffect(() => {

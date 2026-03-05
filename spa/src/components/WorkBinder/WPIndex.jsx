@@ -2,7 +2,6 @@
  * WPIndex -- Vertical Work Package Index (left panel).
  *
  * Lists candidates (from IP) above governed WPs.
- * "INSERT PACKAGE" button at bottom opens inline form (not a modal).
  *
  * WS-WB-007, WS-WB-009.
  */
@@ -26,35 +25,15 @@ function formatWpId(wp) {
 }
 
 export default function WPIndex({
-    wps, selectedWpId, onSelectWp, onInsertPackage,
+    wps, selectedWpId, onSelectWp,
     candidates = [], selectedCandidateId, onSelectCandidate,
     importAvailable = false, onImportCandidates,
 }) {
-    const [showInsertForm, setShowInsertForm] = useState(false);
-    const [newTitle, setNewTitle] = useState('');
-    const [inserting, setInserting] = useState(false);
     const [importing, setImporting] = useState(false);
     const [showPromoted, setShowPromoted] = useState(false);
 
     const promotedCount = candidates.filter(c => c.promoted).length;
     const visibleCandidates = showPromoted ? candidates : candidates.filter(c => !c.promoted);
-
-    const handleSubmitInsert = useCallback(async () => {
-        if (!newTitle.trim()) return;
-        setInserting(true);
-        try {
-            await onInsertPackage(newTitle.trim());
-            setNewTitle('');
-            setShowInsertForm(false);
-        } finally {
-            setInserting(false);
-        }
-    }, [newTitle, onInsertPackage]);
-
-    const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Enter') handleSubmitInsert();
-        if (e.key === 'Escape') { setShowInsertForm(false); setNewTitle(''); }
-    }, [handleSubmitInsert]);
 
     const handleImport = useCallback(async () => {
         setImporting(true);
@@ -165,46 +144,6 @@ export default function WPIndex({
                 })}
             </div>
 
-            {/* Insert Package -- inline form, NOT a modal */}
-            <div className="wb-index-footer">
-                {showInsertForm ? (
-                    <div className="wb-insert-form">
-                        <input
-                            type="text"
-                            className="wb-insert-input"
-                            placeholder="Package title..."
-                            value={newTitle}
-                            onChange={(e) => setNewTitle(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            autoFocus
-                            disabled={inserting}
-                        />
-                        <div className="wb-insert-actions">
-                            <button
-                                className="wb-btn wb-btn--primary"
-                                onClick={handleSubmitInsert}
-                                disabled={inserting || !newTitle.trim()}
-                            >
-                                {inserting ? 'CREATING...' : 'CREATE PACKAGE'}
-                            </button>
-                            <button
-                                className="wb-btn wb-btn--ghost"
-                                onClick={() => { setShowInsertForm(false); setNewTitle(''); }}
-                                disabled={inserting}
-                            >
-                                CANCEL
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <button
-                        className="wb-btn wb-btn--outline wb-insert-btn"
-                        onClick={() => setShowInsertForm(true)}
-                    >
-                        INSERT PACKAGE
-                    </button>
-                )}
-            </div>
         </div>
     );
 }

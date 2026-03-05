@@ -813,16 +813,61 @@ function ObjectSection({ data, label }) {
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-node)', fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{label}</div>
             <div style={{ padding: 16 }}>
                 {Object.entries(data).map(([k, v]) => (
-                    <div key={k} style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{formatLabel(k)}</div>
-                        <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
-                            {typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
-                        </div>
+                    <div key={k} style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{formatLabel(k)}</div>
+                        <ObjectFieldValue value={v} />
                     </div>
                 ))}
             </div>
         </div>
     );
+}
+
+/** Render a single field value inside an ObjectSection */
+function ObjectFieldValue({ value }) {
+    if (value === null || value === undefined) {
+        return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>—</span>;
+    }
+    if (typeof value === 'boolean') {
+        return <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{value ? 'Yes' : 'No'}</span>;
+    }
+    if (typeof value === 'string') {
+        return <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, lineHeight: 1.6 }}>{value}</p>;
+    }
+    if (Array.isArray(value)) {
+        if (value.length === 0) {
+            return <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>None</span>;
+        }
+        return (
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }} className="space-y-1">
+                {value.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2" style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)', marginTop: 2, flexShrink: 0, fontSize: 12 }}>{'\u2022'}</span>
+                        <span style={{ flex: 1 }}>
+                            {typeof item === 'string' ? item
+                                : typeof item === 'object' && item !== null ? extractText(item)
+                                : String(item)}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+    if (typeof value === 'object') {
+        return (
+            <div className="space-y-2" style={{ paddingLeft: 8 }}>
+                {Object.entries(value).map(([k, v]) => (
+                    <div key={k}>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{formatLabel(k)}: </span>
+                        <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                            {typeof v === 'string' ? v : JSON.stringify(v)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return <span style={{ fontSize: 14, color: 'var(--text-primary)' }}>{String(value)}</span>;
 }
 
 /** Section header with icon and count badge */

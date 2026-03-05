@@ -1,9 +1,20 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-03
-**Updated By:** Claude (WP-CRAP-002 testability refactoring)
+**Last Updated:** 2026-03-04
+**Updated By:** Claude (WP-ID-001 Document Identity Standard)
 
 ## Current Focus
+
+**COMPLETE:** WP-ID-001 -- Document Identity Standard (ADR-055) (2026-03-04)
+- WS-ID-001: Alembic migration 20260304_001 (display_id on documents, display_prefix on document_types, drops instance_key)
+- WS-ID-002: display_id_service.py (parse_display_id, resolve_display_id, mint_display_id)
+- WS-ID-003: Minting wired into project_creation_service, document_service, plan_executor, work_binder, intents (lazy imports)
+- WS-ID-004: Removed derive_wp_id and generate_ws_id legacy functions
+- WS-ID-005: DEV and TEST databases reset from canonical prod schema
+- DB infrastructure: db_dump_schema.sh (new), db_reset.sh (RDS-safe rewrite), db_migrate.sh (schema.sql bootstrap)
+- QA prompt fix: project_discovery_qa v1.2.0 (risks/mvp_guardrails marked optional)
+- Batch display_id fix: propose_work_statements mints first, increments locally
+- Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
 
 **COMPLETE:** WP-CRAP-002 -- Testability Refactoring: Workflow Engine Top 3 (2026-03-03)
 - WS-CRAP-008: `_handle_result` CC 41→10, CRAP 967→49 (7 sub-methods, 17 tests)
@@ -107,9 +118,9 @@
 
 ## Test Suite
 
-- **2309 Tier-1 tests** passing as of 2026-03-03 (55 new from WP-CRAP-002)
-- Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS (64 assets)
-- SPA: 626 modules, builds clean
+- **4063 Tier-1 tests** passing as of 2026-03-04
+- Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
+- SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
 
 ---
@@ -118,6 +129,7 @@
 
 | Primitive | Location | Purpose |
 |-----------|----------|---------|
+| display_id_service | app/domain/services/display_id_service.py | Human-readable document identity minting (ADR-055) |
 | document_readiness | app/domain/services/document_readiness.py | Mechanical readiness gate for downstream consumption |
 | task_execution | app/domain/services/task_execution_service.py | Reusable LLM task invocation outside workflow engine |
 | wb_audit_service | app/domain/services/wb_audit_service.py | Structured audit events for Work Binder mutations |
@@ -160,6 +172,7 @@ python -m pytest tests/ -x -q
 
 ```
 app/domain/services/
++-- display_id_service.py          # mint_display_id(), parse/resolve (ADR-055)
 +-- document_readiness.py          # is_doc_ready_for_downstream() gate
 +-- task_execution_service.py      # execute_task() - reusable LLM primitive
 +-- ws_proposal_service.py         # WS proposal station logic
@@ -210,26 +223,29 @@ All previous decisions (1-46) plus:
 
 54. **importlib bypass for circular imports in tests** -- Tier-1 tests for plan_executor.py and qa.py use `importlib.util.spec_from_file_location` to avoid the `app.domain.workflow.__init__.py` circular import chain. Side effect: test coverage from these tests doesn't appear in file-level coverage reports.
 
+55. **Document Identity Standard (ADR-055)** -- Human-readable display_id ({PREFIX}-{NNN}) replaces UUID-based identity for user-facing contexts. Lazy imports to avoid circular chains. Batch minting queries MAX once, increments locally.
+
+56. **RDS-safe DB reset** -- Individual object drops with pg_depend extension filtering instead of DROP SCHEMA CASCADE (RDS users don't own public schema). Schema bootstrap from pg_dump output instead of init_db.py.
+
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-03)
-- WP-CRAP-002 executed: 3 WSs decomposing workflow engine's 3 worst functions
-  - _handle_result CC 41→10, _spawn_child_documents CC 35→4, QANodeExecutor.execute CC 36→7
-  - 55 new Tier-1 tests, combined CRAP 2,278→74, F-grade functions 4→1
-- WSResponse revision normalization bug fixed (scalar int → dict via Pydantic field_validator)
-- WS-WB-025 executed: 7 IA contract fixes (2 CRITICAL, 1 HIGH, 3 MEDIUM, 1 LOW), 10 new tests
-- CRAP score audits: pre + post WP-CRAP-002 comparison
+### Recent Work (2026-03-04)
+- WP-ID-001 executed: Document Identity Standard (ADR-055), WS-ID-001 through WS-ID-005
+  - display_id minting service, Alembic migration, lazy import wiring, legacy removal
+  - DB infrastructure hardening: db_dump_schema.sh, db_reset.sh (RDS-safe), db_migrate.sh (schema.sql bootstrap)
+  - QA prompt fix: project_discovery_qa v1.2.0
+  - Batch minting fix: query MAX once, increment locally for remaining items
+  - Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
 
 ### Next Work
-- work_package IA section authoring (package.yaml information_architecture + rendering blocks, add to TIER1_DOC_TYPES)
-- Portfolio agent IP: reject and redraft using fixed prompt
-- Remaining CRAP targets: get_production_tracks (461), compare_runs (342), get_document (276), get_document_render_model (246)
-- check_promotion_validity (CC=41, sole remaining F-grade) -- decomposition would eliminate all F-grade
+- **WP-ROUTE-001 (Unified Routing v2, ADR-056)** -- WS-ROUTE-001 through WS-ROUTE-005
+- Production migration: 20260304_001 needs to be applied after WP-ID-001 merge
+- work_package IA section authoring
+- Remaining CRAP targets: get_production_tracks (461), compare_runs (342), get_document (276)
+- check_promotion_validity (CC=41, sole remaining F-grade)
 - Zero-coverage files: admin.py, accounts.py, auth/routes.py, prompt_assembler.py, schema_resolver.py
-- Industrial AI content: "What Is Industrial AI?" essay
-- WarmPulse dogfood project
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
@@ -242,7 +258,7 @@ All previous decisions (1-46) plus:
 ### Known Issues
 - Two copies of IPF schema must be kept in sync
 - BCP pipeline still uses "epic"/"feature" as hierarchy level names
-- init_db.py schema.sql doesn't work on RDS
-- db_reset.sh can't DROP SCHEMA public on RDS
+- init_db.py is obsolete for bootstrap (replaced by schema.sql loading) — should be removed or updated
+- document_types seed data in loader.py INITIAL_DOCUMENT_TYPES stale (2 entries, no display_prefix)
 - Workflow definition validation warnings for POWs
 - `.gitignore` `*secret*` pattern requires explicit negation

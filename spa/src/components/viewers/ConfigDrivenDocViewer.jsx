@@ -436,7 +436,7 @@ function RawFieldRenderer({ data, fieldName }) {
                             {formatFieldLabel(k)}
                         </div>
                         <div style={{ fontSize: 14, color: 'var(--text-primary)' }}>
-                            {typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
+                            <RawObjectFieldValue value={v} />
                         </div>
                     </div>
                 ))}
@@ -516,6 +516,28 @@ function RawStructuredItem({ item }) {
             {recommendation && <p style={{ fontSize: 12, color: '#059669', margin: '2px 0 0' }}>Recommendation: {recommendation}</p>}
         </div>
     );
+}
+
+/** Render a field value inside an object, handling arrays as lists */
+function RawObjectFieldValue({ value }) {
+    if (value === null || value === undefined) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
+    if (typeof value === 'boolean') return <span>{value ? 'Yes' : 'No'}</span>;
+    if (typeof value === 'string') return <span>{value}</span>;
+    if (Array.isArray(value)) {
+        if (value.length === 0) return <span style={{ color: 'var(--text-dim)' }}>None</span>;
+        return (
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {value.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2" style={{ marginBottom: 4 }}>
+                        <span style={{ color: 'var(--text-muted)', marginTop: 2, flexShrink: 0, fontSize: 12 }}>{'\u2022'}</span>
+                        <span>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+    if (typeof value === 'object') return <span>{JSON.stringify(value, null, 2)}</span>;
+    return <span>{String(value)}</span>;
 }
 
 /** Convert snake_case field name to Title Case label */

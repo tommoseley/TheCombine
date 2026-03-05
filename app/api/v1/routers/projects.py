@@ -6,10 +6,12 @@ Provides RESTful API for project management:
 - POST /api/v1/projects/from-intake - Create project from intake workflow
 - GET /api/v1/projects/{id} - Get project details
 - GET /api/v1/projects/{id}/tree - Get project with documents
+- GET /api/v1/projects/{id}/documents/{identifier} - Get document by doc_type_id or display_id
 """
 
 import copy
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -45,6 +47,9 @@ from app.api.services.admin_workbench_service import get_admin_workbench_service
 from app.api.services.workflow_instance_service import WorkflowInstanceService
 
 logger = logging.getLogger(__name__)
+
+# ADR-055: Pattern to detect display_id format ({PREFIX}-{NNN}) vs doc_type_id (snake_case)
+_DISPLAY_ID_PATTERN = re.compile(r'^[A-Z]{2,4}-\d{3,}$')
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -192,6 +197,8 @@ async def _resolve_project(project_id: str, db: AsyncSession) -> Project:
             detail=f"Project '{project_id}' not found",
         )
     return project
+
+
 
 
 def _project_to_response(project: Project) -> ProjectResponse:
@@ -648,58 +655,72 @@ async def get_project_interrupts(
     return [i.to_dict() for i in interrupts]
 
 
-@router.get("/{project_id}/documents/{doc_type_id}")
+@router.get("/{project_id}/documents/{identifier}")
 async def get_project_document(
     project_id: str,
-    doc_type_id: str,
+    identifier: str,
     instance_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """Get document content for a project.
 
+    Accepts either a doc_type_id (e.g., 'project_discovery') or a display_id
+    (e.g., 'PD-001') per ADR-055. Display_id format is detected automatically.
+
     Returns the full document content as JSON for the SPA viewer.
     When instance_id is provided, filters to that specific instance
     (needed for multi-instance doc types like epics).
     """
-    # Try UUID first
-    try:
-        project_uuid = UUID(project_id)
+    # Resolve project (supports both UUID and project_id)
+    project = await _resolve_project(project_id, db)
+
+    # ADR-055: Detect display_id format vs doc_type_id
+    if _DISPLAY_ID_PATTERN.match(identifier):
+        # Display ID path: resolve prefix → doc_type_id, then query by display_id
+        from app.domain.services.display_id_service import resolve_display_id
+        try:
+            doc_type_id = await resolve_display_id(db, identifier)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
         result = await db.execute(
-            select(Project).where(Project.id == project_uuid)
+            select(Document).where(
+                Document.space_id == project.id,
+                Document.doc_type_id == doc_type_id,
+                Document.display_id == identifier,
+                Document.is_latest == True,
+            )
         )
-    except ValueError:
-        result = await db.execute(
-            select(Project).where(Project.project_id == project_id)
+        document = result.scalars().first()
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document not found: {identifier} in project {project_id}",
+            )
+    else:
+        # Traditional doc_type_id path
+        doc_type_id = identifier
+        query = (
+            select(Document)
+            .where(Document.space_type == "project")
+            .where(Document.space_id == project.id)
+            .where(Document.doc_type_id == doc_type_id)
+            .where(Document.is_latest == True)
         )
+        if instance_id:
+            query = query.where(Document.instance_id == instance_id)
+        doc_result = await db.execute(query)
+        document = doc_result.scalar_one_or_none()
 
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project '{project_id}' not found",
-        )
-
-    # Get the latest document of this type
-    query = (
-        select(Document)
-        .where(Document.space_type == "project")
-        .where(Document.space_id == project.id)
-        .where(Document.doc_type_id == doc_type_id)
-        .where(Document.is_latest == True)
-    )
-    if instance_id:
-        query = query.where(Document.instance_id == instance_id)
-    doc_result = await db.execute(query)
-    document = doc_result.scalar_one_or_none()
-
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document '{doc_type_id}' not found for project",
-        )
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document '{doc_type_id}' not found for project",
+            )
 
     return {
         "id": str(document.id),
+        "display_id": getattr(document, 'display_id', None),
         "doc_type_id": document.doc_type_id,
         "title": document.title,
         "content": document.content,

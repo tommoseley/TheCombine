@@ -50,22 +50,37 @@ def client(mock_admin_user):
 # Criterion 1: HTMX admin routes return 404
 # ---------------------------------------------------------------------------
 class TestCriterion1AdminRoutesRemoved:
-    """All deprecated HTMX admin routes must return 404."""
+    """Deprecated HTMX admin routes must not be registered as explicit server routes.
 
-    @pytest.mark.parametrize("path", [
+    After ADR-056, the SPA catch-all returns index.html (200) for all unmatched
+    paths — React Router handles 404 client-side. So we verify the route table
+    directly instead of checking HTTP status codes.
+    """
+
+    REMOVED_PATHS = [
         "/admin/workflows",
         "/admin/executions",
         "/admin/dashboard",
         "/admin/dashboard/costs",
         "/admin/documents",
         "/partials/executions",
-    ])
-    def test_htmx_admin_route_returns_404(self, client, path):
-        response = client.get(path)
-        assert response.status_code == 404, (
-            f"{path} must return 404 after HTMX admin removal, "
-            f"got {response.status_code}"
-        )
+    ]
+
+    def test_htmx_admin_routes_not_in_route_table(self):
+        """No explicit route should exist for deprecated HTMX admin paths."""
+        explicit_paths = set()
+        for route in app.routes:
+            if hasattr(route, "path"):
+                explicit_paths.add(route.path)
+            if hasattr(route, "routes"):
+                for sub in route.routes:
+                    if hasattr(sub, "path"):
+                        explicit_paths.add(route.path.rstrip("/") + sub.path)
+        for removed in self.REMOVED_PATHS:
+            assert removed not in explicit_paths, (
+                f"{removed} must not be registered as an explicit route "
+                f"after HTMX admin removal"
+            )
 
 
 # ---------------------------------------------------------------------------

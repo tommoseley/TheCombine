@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
 
 import ProjectTree from './components/ProjectTree';
 import Floor from './components/Floor';
@@ -58,18 +59,37 @@ function UserButton({ user, onClick }) {
 
 /**
  * Main app content (shown when authenticated)
+ * Reads optional projectId from URL params for deep linking.
  */
 function AppContent() {
     const { user } = useAuth();
+    const { projectId: urlProjectId } = useParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     const [showArchived, setShowArchived] = useState(false);
     const { projects, loading, error, refresh: refreshProjects } = useProjects({ includeArchived: showArchived });
     const [selectedProjectId, setSelectedProjectId] = useState(null);
-    const [autoExpandNode, setAutoExpandNode] = useState(null);
+    // Auto-expand work_package node when URL contains /work-binder
+    const [autoExpandNode, setAutoExpandNode] = useState(
+        location.pathname.includes('/work-binder') ? 'work_package' : null
+    );
     const [showIntakeSidecar, setShowIntakeSidecar] = useState(false);
     const [showUserSidecar, setShowUserSidecar] = useState(false);
     const { theme, setTheme } = useTheme();
 
-    // Select first project when loaded
+    // Resolve URL projectId (project_id slug like HWCA-001) to internal UUID
+    useEffect(() => {
+        if (urlProjectId && Object.keys(projects).length > 0) {
+            const entry = Object.entries(projects).find(
+                ([, p]) => p.projectId === urlProjectId
+            );
+            if (entry) {
+                setSelectedProjectId(entry[0]); // internal UUID key
+            }
+        }
+    }, [urlProjectId, projects]);
+
+    // Select first project when loaded and no URL projectId
     const projectIds = Object.keys(projects);
     const activeProjectId = selectedProjectId && projects[selectedProjectId]
         ? selectedProjectId
@@ -88,6 +108,11 @@ function AppContent() {
     const handleSelectProject = (projectId) => {
         setSelectedProjectId(projectId);
         setAutoExpandNode(null);
+        // Update URL to reflect selected project
+        const project = projects[projectId];
+        if (project?.projectId) {
+            navigate(`/projects/${project.projectId}`, { replace: true });
+        }
     };
 
     const handleNewProject = () => {
@@ -129,6 +154,11 @@ function AppContent() {
                 const currentIndex = sorted.findIndex(p => p.id === projectId);
                 const nextProject = sorted[currentIndex + 1] || sorted[currentIndex - 1] || null;
                 setSelectedProjectId(nextProject?.id || null);
+                if (nextProject) {
+                    navigate(`/projects/${nextProject.projectId}`, { replace: true });
+                } else {
+                    navigate('/', { replace: true });
+                }
             }
             await refreshProjects();
         } catch (err) {
@@ -158,6 +188,11 @@ function AppContent() {
             const currentIndex = sorted.findIndex(p => p.id === projectId);
             const nextProject = sorted[currentIndex + 1] || sorted[currentIndex - 1] || null;
             setSelectedProjectId(nextProject?.id || null);
+            if (nextProject) {
+                navigate(`/projects/${nextProject.projectId}`, { replace: true });
+            } else {
+                navigate('/', { replace: true });
+            }
             await refreshProjects();
         } catch (err) {
             console.error('Failed to delete project:', err);
@@ -295,64 +330,91 @@ function AppContent() {
 }
 
 /**
- * App wrapper that handles auth state and routing
+ * Loading screen shown while checking auth state
+ */
+function LoadingScreen() {
+    const { theme } = useTheme();
+    return (
+        <div className={`flex h-screen items-center justify-center theme-${theme}`}
+             style={{ background: 'var(--bg-canvas)' }}>
+            <div className="text-center">
+                <img
+                    src="/logo-light.png"
+                    alt="The Combine"
+                    className="h-16 mx-auto mb-4 animate-pulse"
+                />
+                <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * 404 page for unmatched routes
+ */
+function NotFound() {
+    const { theme } = useTheme();
+    const navigate = useNavigate();
+    return (
+        <div className={`flex h-screen items-center justify-center theme-${theme}`}
+             style={{ background: 'var(--bg-canvas)' }}>
+            <div className="text-center">
+                <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>404</h1>
+                <p className="mb-4" style={{ color: 'var(--text-muted)' }}>Page not found</p>
+                <button
+                    onClick={() => navigate('/')}
+                    className="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600"
+                >
+                    Back to Home
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Admin wrapper with theme
+ */
+function AdminRoute({ children }) {
+    const { theme } = useTheme();
+    return <div className={`h-screen theme-${theme}`}>{children}</div>;
+}
+
+/**
+ * App wrapper that handles auth state and routing (ADR-056)
  */
 function AppWithAuth() {
     const { isAuthenticated, loading } = useAuth();
-    const { theme } = useTheme();
-    const [path, setPath] = useState(window.location.pathname);
 
-    // Listen for navigation changes
-    useEffect(() => {
-        const handlePopState = () => setPath(window.location.pathname);
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, []);
-
-    // Show loading while checking auth
     if (loading) {
-        return (
-            <div className={`flex h-screen items-center justify-center theme-${theme}`}
-                 style={{ background: 'var(--bg-canvas)' }}>
-                <div className="text-center">
-                    <img
-                        src="/logo-light.png"
-                        alt="The Combine"
-                        className="h-16 mx-auto mb-4 animate-pulse"
-                    />
-                    <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen />;
     }
 
-    // Unauthenticated routes (Lobby pages)
+    // Unauthenticated routes
     if (!isAuthenticated) {
-        if (path === '/learn') {
-            return <LearnPage />;
-        }
-        return <Lobby />;
+        return (
+            <Routes>
+                <Route path="/learn" element={<LearnPage />} />
+                <Route path="*" element={<Lobby />} />
+            </Routes>
+        );
     }
 
     // Authenticated routes
-    if (path === '/admin/workbench') {
-        return (
-            <div className={`h-screen theme-${theme}`}>
-                <AdminWorkbench />
-            </div>
-        );
-    }
-
-    if (path === '/admin' || path.startsWith('/admin/executions')) {
-        return (
-            <div className={`h-screen theme-${theme}`}>
-                <AdminPanel />
-            </div>
-        );
-    }
-
-    // Show main app if authenticated
-    return <AppContent />;
+    return (
+        <Routes>
+            <Route path="/admin/workbench" element={<AdminRoute><AdminWorkbench /></AdminRoute>} />
+            <Route path="/admin/executions/:executionId" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
+            <Route path="/projects/:projectId/docs/:displayId" element={<AppContent />} />
+            <Route path="/projects/:projectId/work-binder/:displayId" element={<AppContent />} />
+            <Route path="/projects/:projectId/work-binder" element={<AppContent />} />
+            <Route path="/projects/:projectId/production" element={<AppContent />} />
+            <Route path="/projects/:projectId" element={<AppContent />} />
+            <Route path="/" element={<AppContent />} />
+            <Route path="*" element={<NotFound />} />
+        </Routes>
+    );
 }
 
 /**
