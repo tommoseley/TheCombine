@@ -178,11 +178,10 @@ class TestWorkBinder:
         assert "wps" in src
         assert "PACKAGES" in src
 
-    def test_15_create_work_packages_button(self):
-        """C15: 'Insert Package' button exists and calls backend."""
+    def test_15_import_candidates_button(self):
+        """C15: 'Import Candidates' button exists for populating WB from IP."""
         src = _read_dir(WORK_BINDER_DIR)
-        assert "INSERT PACKAGE" in src or "CREATE PACKAGE" in src
-        assert "onInsertPackage" in src
+        assert "IMPORT CANDIDATES" in src or "importCandidates" in src
 
     def test_16_governed_wp_rows_show_id_title_state(self):
         """C16: Governed WP rows show: WP ID, Title, State."""
