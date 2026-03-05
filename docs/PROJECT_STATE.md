@@ -1,20 +1,37 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-04
-**Updated By:** Claude (WP-ID-001 Document Identity Standard)
+**Last Updated:** 2026-03-05
+**Updated By:** Claude (WP-ONTOLOGY-CLEANUP + WS-WEB-CLEANUP-001)
 
 ## Current Focus
 
+**COMPLETE:** WS-WEB-CLEANUP-001 -- Remove Dead Jinja2/HTMX Layer (2026-03-05)
+- Deleted entire app/web/ directory (routes, templates, static, BFF, viewmodels)
+- Deleted dead magic-link auth router (app/api/routers/auth.py)
+- Removed 13 orphaned test files, removed USE_LEGACY_TEMPLATES config flag
+- Confirmed zero Jinja2 route hits via instrumentation during full PGC flow
+- 3808 tests passing, IA audit 75/75
+
+**COMPLETE:** WP-ONTOLOGY-CLEANUP (2026-03-05)
+- WS-ONTOLOGY-001: "slug" → "project_id" in ADR-055/056/057, ROUTING_CONTRACT, WS docs. Registered `edition` in ADR-057.
+- WS-ONTOLOGY-002: instance_id → display_id in work_binder.py (0 instance_id refs remaining), projects.py, production_pure/service.
+- Migration 20260305_001: Dropped legacy idx_documents_latest_single/multi (superseded by idx_documents_latest_display)
+
+**COMPLETE:** WP-ROUTE-001 -- Unified Routing v2 (ADR-056) (2026-03-05)
+- WS-ROUTE-001 through WS-ROUTE-005 implemented (previous session)
+- Fixed _resolve_project() duplicate function shadow crash (swapped args)
+- Removed INSERT PACKAGE button (no backend POST endpoint)
+- Fixed Concierge Intake rendering: arrays as bullet lists instead of JSON.stringify
+- Fixed white screen on empty Work Binder (stale showInsertForm reference)
+- HTMX admin removal tests updated for SPA catch-all (route table check)
+- Production migration 20260304_001 applied manually
+- Deployed to production, all CI green, smoke test passed
+
 **COMPLETE:** WP-ID-001 -- Document Identity Standard (ADR-055) (2026-03-04)
-- WS-ID-001: Alembic migration 20260304_001 (display_id on documents, display_prefix on document_types, drops instance_key)
-- WS-ID-002: display_id_service.py (parse_display_id, resolve_display_id, mint_display_id)
-- WS-ID-003: Minting wired into project_creation_service, document_service, plan_executor, work_binder, intents (lazy imports)
-- WS-ID-004: Removed derive_wp_id and generate_ws_id legacy functions
-- WS-ID-005: DEV and TEST databases reset from canonical prod schema
-- DB infrastructure: db_dump_schema.sh (new), db_reset.sh (RDS-safe rewrite), db_migrate.sh (schema.sql bootstrap)
-- QA prompt fix: project_discovery_qa v1.2.0 (risks/mvp_guardrails marked optional)
+- WS-ID-001 through WS-ID-005: migration, service, wiring, legacy removal, DB reset
+- DB infrastructure: db_dump_schema.sh, db_reset.sh (RDS-safe), db_migrate.sh (schema.sql bootstrap)
+- QA prompt fix: project_discovery_qa v1.2.0
 - Batch display_id fix: propose_work_statements mints first, increments locally
-- Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
 
 **COMPLETE:** WP-CRAP-002 -- Testability Refactoring: Workflow Engine Top 3 (2026-03-03)
 - WS-CRAP-008: `_handle_result` CC 41→10, CRAP 967→49 (7 sub-methods, 17 tests)
@@ -118,7 +135,7 @@
 
 ## Test Suite
 
-- **4063 Tier-1 tests** passing as of 2026-03-04
+- **3808 Tier-1 tests** passing as of 2026-03-05 (reduced from 4067 after removing ~260 orphaned Jinja2/web tests)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -231,21 +248,18 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
-### Recent Work (2026-03-04)
-- WP-ID-001 executed: Document Identity Standard (ADR-055), WS-ID-001 through WS-ID-005
-  - display_id minting service, Alembic migration, lazy import wiring, legacy removal
-  - DB infrastructure hardening: db_dump_schema.sh, db_reset.sh (RDS-safe), db_migrate.sh (schema.sql bootstrap)
-  - QA prompt fix: project_discovery_qa v1.2.0
-  - Batch minting fix: query MAX once, increment locally for remaining items
-  - Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
+### Recent Work (2026-03-05)
+- WS-WEB-CLEANUP-001: Removed entire Jinja2/HTMX layer (app/web/, dead auth router, 13 orphaned test files)
+- WP-ONTOLOGY-CLEANUP: Terminology sweep (slug→project_id) + instance_id→display_id migration
+- Migration 20260305_001: Dropped legacy uniqueness indexes (applied to dev + prod)
+- WP-ROUTE-001 executed: Unified Routing v2 (ADR-056), deployed to production
+- WP-ID-001 executed (2026-03-04): Document Identity Standard (ADR-055)
 
 ### Next Work
-- **WP-ROUTE-001 (Unified Routing v2, ADR-056)** -- WS-ROUTE-001 through WS-ROUTE-005
-- Production migration: 20260304_001 needs to be applied after WP-ID-001 merge
 - work_package IA section authoring
-- Remaining CRAP targets: get_production_tracks (461), compare_runs (342), get_document (276)
+- Remaining CRAP targets: get_document_render_model (663), get_production_tracks (627), list_operations (318)
 - check_promotion_validity (CC=41, sole remaining F-grade)
-- Zero-coverage files: admin.py, accounts.py, auth/routes.py, prompt_assembler.py, schema_resolver.py
+- Zero-coverage files: admin.py, accounts.py, prompt_assembler.py, schema_resolver.py
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052

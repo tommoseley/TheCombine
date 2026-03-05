@@ -43,7 +43,7 @@ Create the alembic migration that adds `display_id` to `documents`, adds `displa
 - Minting logic (WS-ID-002)
 - Wiring minting into creation paths (WS-ID-003)
 - Changes to `derive_wp_id` or `generate_ws_id` (WS-ID-004)
-- Any changes to the `projects` table (`project_id` already serves as slug)
+- Any changes to the `projects` table (`project_id` already serves as human-readable identifier)
 - `instance_id` column — not modified, not dropped, not touched
 - `WorkflowInstance.instance_id` — completely separate semantic
 

@@ -223,7 +223,7 @@ def build_child_track(
     doc_type_id: str,
     title: Optional[str],
     content: Dict[str, Any],
-    instance_id: Optional[str],
+    display_id: Optional[str],
 ) -> Dict[str, Any]:
     """Build a child track dict from a child document's data.
 
@@ -231,7 +231,7 @@ def build_child_track(
         doc_type_id: Document type ID of the child
         title: Document title (may be None)
         content: Document content dict
-        instance_id: Document instance_id
+        display_id: Document display_id
 
     Returns:
         Child track dict
@@ -250,5 +250,5 @@ def build_child_track(
         "blocked_by": [],
         "identifier": content.get("epic_id", ""),
         "sequence": content.get("sequence"),
-        "instance_id": instance_id,
+        "display_id": display_id,
     }

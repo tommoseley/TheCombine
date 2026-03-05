@@ -49,11 +49,11 @@ The SPA owns all routes not prefixed with `/api/`, `/auth/`, or `/assets/`. The 
 
 ```
 /                                       → Lobby (project selector)
-/projects/{project_slug}                → Project dashboard
-/projects/{project_slug}/docs/{display_id}  → Document viewer
-/projects/{project_slug}/work-binder    → Work Binder
-/projects/{project_slug}/work-binder/{display_id}  → WB focused on document
-/projects/{project_slug}/production     → Production floor
+/projects/{project_id}                → Project dashboard
+/projects/{project_id}/docs/{display_id}  → Document viewer
+/projects/{project_id}/work-binder    → Work Binder
+/projects/{project_id}/work-binder/{display_id}  → WB focused on document
+/projects/{project_id}/production     → Production floor
 /admin                                  → Admin panel
 /admin/workbench                        → Admin workbench
 /learn                                  → Learn page
@@ -76,7 +76,7 @@ When a user navigates directly to a deep link (bookmark, shared URL):
 
 1. Server returns `index.html` (SPA fallback)
 2. SPA reads `window.location.pathname`
-3. SPA parses route → resolves `project_slug` → fetches project → renders correct view
+3. SPA parses route → resolves `project_id` → fetches project → renders correct view
 4. If project or document not found → 404 page within SPA
 
 ### 3. API Route Consolidation
@@ -93,13 +93,15 @@ All API routes live under `/api/v1/`. Current scattered prefixes are consolidate
 ### 4. Path Segment Conventions
 
 - **URL paths:** kebab-case (`/work-binder`, `/import-candidates`, `/propose-ws`)
-- **Path parameters:** snake_case when matching Python/DB identifiers (`{project_slug}`, `{display_id}`)
+- **Path parameters:** snake_case when matching Python/DB identifiers (`{project_id}`, `{display_id}`)
 - **JSON fields:** snake_case (unchanged)
 - **Query parameters:** snake_case (unchanged)
 
-### 5. Project Slug in URLs
+### 5. Project Identifier in URLs
 
-The existing `project_id` field (defined in ADR-055, section 9) serves as the project slug. It already follows `{PREFIX}-{NNN}` format (e.g., `HWCA-001`), is unique, and is human-readable. URLs use `{project_id}` instead of UUIDs. No schema change needed.
+The existing `project_id` field (defined in ADR-055, section 9) serves as the human-readable project identifier in URLs. It already follows `{PREFIX}-{NNN}` format (e.g., `HWCA-001`), is unique, and is human-readable. URLs use `{project_id}` instead of UUIDs. No schema change needed.
+
+`project_id` is the human-readable project identifier string (e.g., `HWCA-001`); the internal UUID primary key is `project.id`.
 
 ### 6. display_id Resolution in URLs
 
@@ -127,18 +129,16 @@ The specific routing library is an implementation choice for the Work Statement,
 
 ### 8. Server-Side SPA Fallback
 
-The FastAPI server SHALL return `index.html` for any GET request that:
-- Does not match `/api/`, `/auth/`, or `/assets/`
-- Has `Accept: text/html` (or no Accept header)
+The FastAPI server SHALL return `index.html` for any GET request whose path does not match `/api/`, `/auth/`, `/health`, or `/assets/` prefixes.
 
-This enables cold-load deep linking.
+No `Accept` header inspection. API routes are disambiguated by prefix, not by content negotiation. This enables cold-load deep linking.
 
 ### 9. Universal Document Resolver Endpoint
 
-A single API endpoint resolves any document by project slug and display_id:
+A single API endpoint resolves any document by project_id and display_id:
 
 ```
-GET /api/v1/projects/{project_slug}/documents/{display_id}
+GET /api/v1/projects/{project_id}/documents/{display_id}
 ```
 
 Response: the document's JSON representation (content, metadata, version, status).
@@ -186,14 +186,14 @@ All routes from ROUTING_CONTRACT.md v1 that are not carried forward here are dep
 
 - **Client-side routing library dependency.** The SPA will need a routing library. Implementation choice deferred to WS.
 - **Server fallback route.** Must be configured carefully to not swallow API 404s.
-- **Project slug schema change.** Covered by ADR-055 (identity standard).
+- **Project identifier schema change.** Covered by ADR-055 (identity standard).
 
 ---
 
 ## Implementation Sequence
 
-1. **ADR-055 first** — display_id, project slug, and prefix resolution must exist before routing can reference them.
-2. **Universal document resolver** — `GET /api/v1/projects/{project_slug}/documents/{display_id}`. This is the backend guardrail: once it works, SPA deep links can be implemented incrementally.
+1. **ADR-055 first** — display_id, project_id, and prefix resolution must exist before routing can reference them.
+2. **Universal document resolver** — `GET /api/v1/projects/{project_id}/documents/{display_id}`. This is the backend guardrail: once it works, SPA deep links can be implemented incrementally.
 3. **Add SPA fallback** — FastAPI catch-all returns `index.html` for non-API routes.
 4. **Refactor SPA routing** — replace manual pathname matching with declarative client-side routing.
 5. **Consolidate API prefixes** — move `/work-binder/` under `/api/v1/`.
@@ -209,7 +209,7 @@ All routes from ROUTING_CONTRACT.md v1 that are not carried forward here are dep
 | Add new SPA route | No |
 | Add new API route under `/api/v1/` | No |
 | Change URL path convention | Yes |
-| Change project slug format | Yes (ADR-055) |
+| Change project_id format | Yes (ADR-055) |
 | Remove existing API route | No (if unused) |
 | Add new route category | Yes |
 

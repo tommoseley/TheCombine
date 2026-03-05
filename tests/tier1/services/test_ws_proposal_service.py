@@ -25,7 +25,7 @@ def _make_doc(
     lifecycle_state="complete",
     space_id="proj-uuid-1",
     space_type="project",
-    instance_id=None,
+    display_id=None,
 ):
     """Create a mock document object."""
     doc = SimpleNamespace(
@@ -36,7 +36,7 @@ def _make_doc(
         lifecycle_state=lifecycle_state,
         space_id=space_id,
         space_type=space_type,
-        instance_id=instance_id,
+        display_id=display_id,
         version=1,
         title="Test Doc",
         parent_document_id=None,
@@ -59,7 +59,7 @@ def _make_wp_doc(wp_id="wp_wb_001", ws_index=None, **kwargs):
     return _make_doc(
         doc_type_id="work_package",
         content=content,
-        instance_id=wp_id,
+        display_id=wp_id,
         **kwargs,
     )
 

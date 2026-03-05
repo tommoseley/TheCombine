@@ -18,17 +18,17 @@ All user-facing routes are handled by React Router. The server returns `index.ht
 |-------|---------|
 | `/` | Home / project list |
 | `/learn` | Learn page (unauthenticated) |
-| `/projects/{project_slug}` | Project dashboard |
-| `/projects/{project_slug}/docs/{display_id}` | Document deep link |
-| `/projects/{project_slug}/work-binder` | Work Binder |
-| `/projects/{project_slug}/work-binder/{display_id}` | Work Binder deep link (WP/WS/WPC) |
-| `/projects/{project_slug}/production` | Production view |
+| `/projects/{project_id}` | Project dashboard |
+| `/projects/{project_id}/docs/{display_id}` | Document deep link |
+| `/projects/{project_id}/work-binder` | Work Binder |
+| `/projects/{project_id}/work-binder/{display_id}` | Work Binder deep link (WP/WS/WPC) |
+| `/projects/{project_id}/production` | Production view |
 | `/admin` | Admin panel |
 | `/admin/workbench` | Admin workbench |
 | `/admin/executions/{execution_id}` | Execution detail |
 
 **Path conventions**: kebab-case in URL segments, snake_case in parameters.
-**Project slug**: Uses `project_id` field (e.g., `HWCA-001`).
+**Project identifier**: Uses `project_id` field (e.g., `HWCA-001`).
 
 ### API Routes (Server-Side)
 

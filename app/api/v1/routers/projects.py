@@ -1337,9 +1337,9 @@ async def list_work_packages(
     return [
         WorkPackageResponse(
             id=str(doc.id),
-            wp_id=doc.instance_id or str(doc.id)[:8],
+            wp_id=doc.display_id or str(doc.id)[:8],
             title=(doc.content or {}).get('title'),
-            name=(doc.content or {}).get('name', doc.instance_id),
+            name=(doc.content or {}).get('name', doc.display_id),
             state=(doc.content or {}).get('state', 'ready'),
             ws_count=ws_counts.get(str(doc.id), 0),
             provenance=(doc.content or {}).get('provenance'),
@@ -1399,7 +1399,7 @@ async def list_work_statements(
         if parent == wp_id or str(doc.id).startswith(wp_id):
             statements.append({
                 "id": str(doc.id),
-                "ws_id": doc.instance_id or str(doc.id)[:8],
+                "ws_id": doc.display_id or str(doc.id)[:8],
                 "title": content.get('title'),
                 "state": content.get('state', 'ready'),
                 "created_at": doc.created_at.isoformat() if doc.created_at else None,

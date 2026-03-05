@@ -399,7 +399,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 doc_type_id=child_doc.doc_type_id,
                 title=child_doc.title,
                 content=child_doc.content,
-                instance_id=child_doc.instance_id,
+                display_id=child_doc.display_id,
             )
             tracks.append(child_track)
 

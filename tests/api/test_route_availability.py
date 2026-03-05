@@ -132,31 +132,18 @@ class TestAuthRoutes:
         assert data["authenticated"] is False
 
 
-class TestIntakeWorkflowRoutes:
-    """Intake workflow routes must be available (WS-ADR-025)."""
+class TestSPACatchAllRoutes:
+    """SPA catch-all serves index.html for all non-API paths (ADR-056)."""
 
-    def test_intake_route_exists(self, client):
-        """GET /intake route is wired up."""
-        # Don't follow redirects to detect if route exists
+    def test_intake_route_serves_spa(self, client):
+        """GET /intake returns SPA index.html."""
         response = client.get("/intake", follow_redirects=False)
-        # Should return 200 (feature enabled + auth), 302 (redirect to login),
-        # but not 404 (route not wired)
-        assert response.status_code in (200, 302), "Intake route not wired up"
+        assert response.status_code == 200
 
-    def test_intake_redirects_to_login_when_unauthenticated(self, client):
-        """GET /intake redirects to login when not authenticated."""
-        response = client.get("/intake", follow_redirects=False)
-        # Without auth, should redirect to login
-        assert response.status_code == 302
-        assert "login" in response.headers.get("location", "").lower()
-
-    def test_intake_execution_route_exists(self, client):
-        """GET /intake/{execution_id} route is wired up."""
-        # Don't follow redirects to detect if route exists
+    def test_intake_execution_route_serves_spa(self, client):
+        """GET /intake/{execution_id} returns SPA index.html."""
         response = client.get(
             "/intake/00000000-0000-0000-0000-000000000000",
             follow_redirects=False,
         )
-        # Should redirect (auth required) or return error, but route is wired
-        assert response.status_code in (200, 302, 500), \
-            "Intake execution route not wired up"
+        assert response.status_code == 200
