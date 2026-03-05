@@ -115,7 +115,7 @@ export default function WPIndex({
             </div>
 
             <div className="wb-index-list">
-                {wps.length === 0 && !showInsertForm && (
+                {wps.length === 0 && (
                     <div className="wb-index-empty">
                         <p>No work packages yet.</p>
                     </div>
