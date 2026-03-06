@@ -100,6 +100,205 @@ def keyword_overlap_ratio(source_keywords: Set[str], target_keywords: Set[str]) 
     return len(overlap) / len(target_keywords)
 
 
+def _is_empty_answer(answer: Any) -> bool:
+    """Check if a PGC answer is empty, null, or undecided."""
+    return answer is None or answer == "" or answer == "undecided"
+
+
+def _build_answer_keywords(question: Dict[str, Any], answer: Any) -> Set[str]:
+    """Extract combined keywords from a PGC question and its answer."""
+    q_text = question.get("text", "") or question.get("question", "")
+    answer_text = str(answer) if not isinstance(answer, bool) else ""
+    combined_text = f"{q_text} {answer_text}"
+    return extract_keywords(combined_text)
+
+
+def _collect_pgc_sources(
+    question_map: Dict[str, Dict[str, Any]],
+    pgc_answers: Dict[str, Any],
+    target_priorities: Set[str],
+) -> List[Dict[str, Any]]:
+    """Collect keyword sources from PGC answers filtered by priority.
+
+    Args:
+        question_map: Map of question ID to question dict
+        pgc_answers: User's answers keyed by question ID
+        target_priorities: Set of priority values to include (e.g. {"must"})
+
+    Returns:
+        List of source dicts with 'keywords', 'source', and 'priority' keys
+    """
+    sources: List[Dict[str, Any]] = []
+    for q_id, answer in pgc_answers.items():
+        question = question_map.get(q_id)
+        if not question:
+            continue
+
+        priority = question.get("priority", "").lower()
+        if priority not in target_priorities:
+            continue
+
+        if _is_empty_answer(answer):
+            continue
+
+        sources.append({
+            "keywords": _build_answer_keywords(question, answer),
+            "source": f"PGC {priority}-answer: {q_id}",
+            "priority": priority,
+        })
+
+    return sources
+
+
+def _collect_intake_source(intake: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Extract keyword source from intake brief fields.
+
+    Returns:
+        Source dict with 'keywords', 'source', 'priority' keys, or None
+    """
+    if not intake:
+        return None
+
+    intake_texts = []
+    for field in ["description", "brief", "statement", "artifact_type", "audience"]:
+        if field in intake and intake[field]:
+            intake_texts.append(str(intake[field]))
+
+    if "raw_inputs" in intake and isinstance(intake["raw_inputs"], list):
+        intake_texts.extend(str(inp) for inp in intake["raw_inputs"])
+
+    if not intake_texts:
+        return None
+
+    return {
+        "keywords": extract_keywords(" ".join(intake_texts)),
+        "source": "intake",
+        "priority": "stated",
+    }
+
+
+def _find_best_source_match(
+    constraint_keywords: Set[str],
+    sources: List[Dict[str, Any]],
+) -> tuple:
+    """Find the best keyword overlap match against a list of sources.
+
+    Returns:
+        Tuple of (best_match_ratio, best_source_dict_or_None)
+    """
+    best_match = 0.0
+    best_source = None
+    for source in sources:
+        overlap = keyword_overlap_ratio(source["keywords"], constraint_keywords)
+        if overlap > best_match:
+            best_match = overlap
+            best_source = source
+    return best_match, best_source
+
+
+def _match_confidence(match_pct: int, high_threshold: int, medium_threshold: int) -> str:
+    """Classify match confidence based on percentage thresholds."""
+    if match_pct >= high_threshold:
+        return "HIGH"
+    if match_pct >= medium_threshold:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _build_promotion_issue(
+    constraint_id: str,
+    constraint_text: str,
+    matched_source: Dict[str, Any],
+    match_ratio: float,
+) -> ValidationIssue:
+    """Build a ValidationIssue for a should/could-to-constraint promotion."""
+    source_priority = matched_source["priority"].upper()
+    match_pct = round(match_ratio * 100)
+    confidence = _match_confidence(match_pct, 80, 60)
+
+    return ValidationIssue(
+        severity="warning",
+        check_type="promotion",
+        section="known_constraints",
+        field_id=constraint_id,
+        message=f"Constraint appears derived from {matched_source['priority']}-priority answer, not must-priority",
+        evidence={
+            "constraint": constraint_text,
+            "matched_source": matched_source["source"],
+            "source_priority": matched_source["priority"],
+            "match_ratio": round(match_ratio, 2),
+            # Rule identification
+            "rule_id": "QA-PGC-PROMOTION-002",
+            "rule_name": "Should/Could Answer Promotion",
+            # Source traceability
+            "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
+            "actual_source": f"PGC {matched_source['priority']}-priority answer ({match_pct}% match)",
+            # Decision support
+            "confidence": confidence,
+            "confidence_rationale": f"{match_pct}% keyword overlap with {source_priority} answer",
+            # Normalized promotion path
+            "promotion_path": f"PGC_{source_priority} -> PINNED",
+            "promotion_legitimacy": "UNAUTHORIZED",
+            # Promotion impact
+            "blocks_stabilization": False,
+            "requires_user_confirmation": True,
+            # Governance
+            "governance_ref": "ADR-042 S3.2",
+            "governance_title": "Constraint Promotion Rules",
+            # Rationale and guidance
+            "severity_rationale": f"Non-binding {source_priority}-answer promoted without must-priority justification",
+            "override_guidance": "If intentional: change PGC question priority to 'must', or add explicit intake constraint",
+        },
+    )
+
+
+def _build_untraceable_issue(
+    constraint_id: str,
+    constraint_text: str,
+    best_valid_match: float,
+    best_should_match: float,
+) -> ValidationIssue:
+    """Build a ValidationIssue for a constraint with no traceable source."""
+    best_match = max(best_valid_match, best_should_match)
+    match_pct = round(best_match * 100)
+    confidence = _match_confidence(match_pct, 40, 20)
+    # Invert: low match_pct means HIGH confidence it's untraceable
+    confidence = "HIGH" if match_pct < 20 else "MEDIUM" if match_pct < 40 else "LOW"
+
+    return ValidationIssue(
+        severity="warning",
+        check_type="promotion",
+        section="known_constraints",
+        field_id=constraint_id,
+        message="Constraint has no traceable source in intake or must-priority answers",
+        evidence={
+            "constraint": constraint_text,
+            "best_match_ratio": round(best_match, 2),
+            # Rule identification
+            "rule_id": "QA-PGC-PROMOTION-001",
+            "rule_name": "Untraceable Constraint",
+            # Source traceability
+            "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
+            "actual_source": f"Inferred from document text (best match: {match_pct}%)",
+            # Decision support
+            "confidence": confidence,
+            "confidence_rationale": f"No input source matched above 50% threshold (best: {match_pct}%)",
+            # Normalized promotion path
+            "promotion_path": "INFERRED -> PINNED",
+            "promotion_legitimacy": "UNAUTHORIZED",
+            # Promotion impact
+            "blocks_stabilization": False,
+            "requires_user_confirmation": True,
+            # Governance
+            "governance_ref": "ADR-042 S3.1",
+            "governance_title": "Constraint Binding Requirements",
+            # Rationale and guidance
+            "severity_rationale": "Constraint may be correct but lacks binding justification from governed input",
+            "override_guidance": f"If intentional: add explicit PGC must-priority question or concierge hard constraint for '{constraint_id}'",
+        },
+    )
+
+
 def check_promotion_validity(
     constraints: List[Dict[str, Any]],
     pgc_questions: List[Dict[str, Any]],
@@ -122,79 +321,16 @@ def check_promotion_validity(
         List of validation issues (warnings for invalid promotions)
     """
     issues: List[ValidationIssue] = []
+    question_map = {q.get("id"): q for q in pgc_questions}
 
     # Build valid sources: must-priority answers + intake statements
-    valid_source_keywords: List[Dict[str, Any]] = []
+    valid_sources = _collect_pgc_sources(question_map, pgc_answers, {"must"})
+    intake_source = _collect_intake_source(intake)
+    if intake_source:
+        valid_sources.append(intake_source)
 
-    # Add must-priority PGC answers as valid sources
-    question_map = {q.get("id"): q for q in pgc_questions}
-    for q_id, answer in pgc_answers.items():
-        question = question_map.get(q_id)
-        if not question:
-            continue
-
-        priority = question.get("priority", "").lower()
-        if priority != "must":
-            continue
-
-        # Skip empty/null/undecided answers
-        if answer is None or answer == "" or answer == "undecided":
-            continue
-
-        # Build keywords from question text and answer
-        q_text = question.get("text", "") or question.get("question", "")
-        answer_text = str(answer) if not isinstance(answer, bool) else ""
-        combined_text = f"{q_text} {answer_text}"
-
-        valid_source_keywords.append({
-            "keywords": extract_keywords(combined_text),
-            "source": f"PGC must-answer: {q_id}",
-            "priority": "must",
-        })
-
-    # Add should-priority answers (to detect promotion from these)
-    should_sources: List[Dict[str, Any]] = []
-    for q_id, answer in pgc_answers.items():
-        question = question_map.get(q_id)
-        if not question:
-            continue
-
-        priority = question.get("priority", "").lower()
-        if priority not in ("should", "could"):
-            continue
-
-        if answer is None or answer == "" or answer == "undecided":
-            continue
-
-        q_text = question.get("text", "") or question.get("question", "")
-        answer_text = str(answer) if not isinstance(answer, bool) else ""
-        combined_text = f"{q_text} {answer_text}"
-
-        should_sources.append({
-            "keywords": extract_keywords(combined_text),
-            "source": f"PGC {priority}-answer: {q_id}",
-            "priority": priority,
-        })
-
-    # Add intake statements as valid sources
-    if intake:
-        # Extract text from common intake fields
-        intake_texts = []
-        for field in ["description", "brief", "statement", "artifact_type", "audience"]:
-            if field in intake and intake[field]:
-                intake_texts.append(str(intake[field]))
-
-        # Also check raw_inputs if present
-        if "raw_inputs" in intake and isinstance(intake["raw_inputs"], list):
-            intake_texts.extend(str(inp) for inp in intake["raw_inputs"])
-
-        if intake_texts:
-            combined_intake = " ".join(intake_texts)
-            valid_source_keywords.append({
-                "keywords": extract_keywords(combined_intake),
-                "source": "intake",
-                "priority": "stated",
-            })
+    # Build should/could sources (to detect promotion from these)
+    should_sources = _collect_pgc_sources(question_map, pgc_answers, {"should", "could"})
 
     # Check each constraint
     for constraint in constraints:
@@ -209,101 +345,24 @@ def check_promotion_validity(
             continue
 
         # Check against valid sources (must-answers and intake)
-        best_valid_match = 0.0
-        for source in valid_source_keywords:
-            overlap = keyword_overlap_ratio(source["keywords"], constraint_keywords)
-            best_valid_match = max(best_valid_match, overlap)
+        best_valid_match, _ = _find_best_source_match(constraint_keywords, valid_sources)
 
         # If >= 50% match to valid source, it's valid
         if best_valid_match >= 0.5:
             continue
 
         # Check if it matches a should/could source (promotion violation)
-        best_should_match = 0.0
-        matched_should_source = None
-        for source in should_sources:
-            overlap = keyword_overlap_ratio(source["keywords"], constraint_keywords)
-            if overlap > best_should_match:
-                best_should_match = overlap
-                matched_should_source = source
+        best_should_match, matched_should_source = _find_best_source_match(
+            constraint_keywords, should_sources
+        )
 
         if best_should_match >= 0.5 and matched_should_source:
-            # Promotion from should/could to constraint
-            source_priority = matched_should_source['priority'].upper()
-            match_pct = round(best_should_match * 100)
-            confidence = "HIGH" if match_pct >= 80 else "MEDIUM" if match_pct >= 60 else "LOW"
-
-            issues.append(ValidationIssue(
-                severity="warning",
-                check_type="promotion",
-                section="known_constraints",
-                field_id=constraint_id,
-                message=f"Constraint appears derived from {matched_should_source['priority']}-priority answer, not must-priority",
-                evidence={
-                    "constraint": constraint_text,
-                    "matched_source": matched_should_source["source"],
-                    "source_priority": matched_should_source["priority"],
-                    "match_ratio": round(best_should_match, 2),
-                    # Rule identification
-                    "rule_id": "QA-PGC-PROMOTION-002",
-                    "rule_name": "Should/Could Answer Promotion",
-                    # Source traceability
-                    "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
-                    "actual_source": f"PGC {matched_should_source['priority']}-priority answer ({match_pct}% match)",
-                    # Decision support
-                    "confidence": confidence,
-                    "confidence_rationale": f"{match_pct}% keyword overlap with {source_priority} answer",
-                    # Normalized promotion path
-                    "promotion_path": f"PGC_{source_priority} -> PINNED",
-                    "promotion_legitimacy": "UNAUTHORIZED",
-                    # Promotion impact
-                    "blocks_stabilization": False,
-                    "requires_user_confirmation": True,
-                    # Governance
-                    "governance_ref": "ADR-042 S3.2",
-                    "governance_title": "Constraint Promotion Rules",
-                    # Rationale and guidance
-                    "severity_rationale": f"Non-binding {source_priority}-answer promoted without must-priority justification",
-                    "override_guidance": "If intentional: change PGC question priority to 'must', or add explicit intake constraint",
-                },
+            issues.append(_build_promotion_issue(
+                constraint_id, constraint_text, matched_should_source, best_should_match
             ))
-        elif best_valid_match < 0.5:
-            # No traceable source
-            best_match = max(best_valid_match, best_should_match)
-            match_pct = round(best_match * 100)
-            confidence = "HIGH" if match_pct < 20 else "MEDIUM" if match_pct < 40 else "LOW"
-
-            issues.append(ValidationIssue(
-                severity="warning",
-                check_type="promotion",
-                section="known_constraints",
-                field_id=constraint_id,
-                message="Constraint has no traceable source in intake or must-priority answers",
-                evidence={
-                    "constraint": constraint_text,
-                    "best_match_ratio": round(best_match, 2),
-                    # Rule identification
-                    "rule_id": "QA-PGC-PROMOTION-001",
-                    "rule_name": "Untraceable Constraint",
-                    # Source traceability
-                    "expected_sources": ["PGC answer with priority=must", "Concierge intake hard constraint"],
-                    "actual_source": f"Inferred from document text (best match: {match_pct}%)",
-                    # Decision support
-                    "confidence": confidence,
-                    "confidence_rationale": f"No input source matched above 50% threshold (best: {match_pct}%)",
-                    # Normalized promotion path
-                    "promotion_path": "INFERRED -> PINNED",
-                    "promotion_legitimacy": "UNAUTHORIZED",
-                    # Promotion impact
-                    "blocks_stabilization": False,
-                    "requires_user_confirmation": True,
-                    # Governance
-                    "governance_ref": "ADR-042 S3.1",
-                    "governance_title": "Constraint Binding Requirements",
-                    # Rationale and guidance
-                    "severity_rationale": "Constraint may be correct but lacks binding justification from governed input",
-                    "override_guidance": f"If intentional: add explicit PGC must-priority question or concierge hard constraint for '{constraint_id}'",
-                },
+        else:
+            issues.append(_build_untraceable_issue(
+                constraint_id, constraint_text, best_valid_match, best_should_match
             ))
 
     return issues

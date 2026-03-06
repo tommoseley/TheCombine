@@ -1045,6 +1045,114 @@ async def render_project_binder(
     )
 
 
+async def _resolve_view_docdef(
+    db: AsyncSession,
+    doc_type_id: str,
+) -> tuple:
+    """Resolve view_docdef and package config for a document type.
+
+    Loads from combine-config (authoritative) with DB fallback.
+
+    Returns:
+        (view_docdef, doc_type, pkg_rendering, pkg_ia) tuple.
+    """
+    doc_type_result = await db.execute(
+        select(DocumentType).where(DocumentType.doc_type_id == doc_type_id)
+    )
+    doc_type = doc_type_result.scalar_one_or_none()
+
+    _package = None
+    try:
+        from app.config.package_loader import get_package_loader
+        _package = get_package_loader().get_document_type(doc_type_id)
+    except Exception:
+        pass  # combine-config lookup is best-effort
+
+    if _package:
+        view_docdef = _package.view_docdef
+    else:
+        view_docdef = doc_type.view_docdef if doc_type else None
+
+    pkg_rendering = _package.rendering if _package else None
+    pkg_ia = _package.information_architecture if _package else None
+    return view_docdef, doc_type, pkg_rendering, pkg_ia
+
+
+async def _find_execution_id(
+    db: AsyncSession,
+    project_id,
+    doc_type_id: str,
+    document_id: str,
+    workflow_id: str,
+) -> Optional[int]:
+    """Query execution_id for document metadata from DB.
+
+    Tries three query strategies in order:
+    1. Completed execution matching project + workflow_id
+    2. Any execution matching project + workflow_id
+    3. Execution matching document_id
+
+    Returns the first matching execution_id or None.
+    """
+    for query in [
+        select(WorkflowExecution.execution_id)
+        .where(WorkflowExecution.project_id == project_id)
+        .where(WorkflowExecution.workflow_id == workflow_id)
+        .where(WorkflowExecution.status == "completed")
+        .order_by(WorkflowExecution.execution_id.desc())
+        .limit(1),
+        select(WorkflowExecution.execution_id)
+        .where(WorkflowExecution.project_id == project_id)
+        .where(WorkflowExecution.workflow_id == workflow_id)
+        .order_by(WorkflowExecution.execution_id.desc())
+        .limit(1),
+        select(WorkflowExecution.execution_id)
+        .where(WorkflowExecution.document_id == document_id)
+        .order_by(WorkflowExecution.execution_id.desc())
+        .limit(1),
+    ]:
+        result = await db.execute(query)
+        exec_id = result.scalar_one_or_none()
+        if exec_id:
+            return exec_id
+    return None
+
+
+def _prepare_document_content(doc_type_id: str, raw_content: Any) -> tuple:
+    """Unwrap, transform, and snapshot document content for rendering.
+
+    Returns:
+        (document_data, ia_raw_content) tuple. document_data may be
+        mutated by handler transforms; ia_raw_content is a deep copy
+        preserving schema-canonical field names for IA rendering.
+    """
+    from app.api.v1.services.render_pure import unwrap_raw_envelope
+
+    document_data = unwrap_raw_envelope(raw_content)
+    unwrap_failed = (
+        document_data is raw_content
+        and isinstance(document_data, dict)
+        and document_data.get("raw")
+    )
+    if unwrap_failed:
+        logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
+
+    # Apply handler transform at render time (computed fields like associated_risks)
+    if isinstance(document_data, dict):
+        try:
+            from app.domain.handlers.registry import handler_exists, get_handler
+            if handler_exists(doc_type_id):
+                _handler = get_handler(doc_type_id)
+                document_data = _handler.transform(document_data)
+        except Exception:
+            pass  # Handler transform is best-effort at render time
+
+    # Snapshot for IA-driven rendering (schema-canonical names)
+    ia_raw_content = copy.deepcopy(document_data) if isinstance(document_data, dict) else document_data
+
+    return document_data, ia_raw_content
+
+
 @router.get("/{project_id}/documents/{doc_type_id}/render-model")
 async def get_document_render_model(
     project_id: str,
@@ -1065,6 +1173,15 @@ async def get_document_render_model(
     When instance_id is provided, filters to that specific instance
     (needed for multi-instance doc types like epics).
     """
+    from app.api.v1.services.render_pure import (
+        build_document_metadata_dict,
+        build_fallback_render_model,
+        build_spawned_children,
+        inject_ia_config,
+        normalize_document_keys,
+        resolve_display_title,
+    )
+
     # Get project
     try:
         project_uuid = UUID(project_id)
@@ -1108,133 +1225,58 @@ async def get_document_render_model(
             detail=f"Document '{doc_type_id}' has no content",
         )
 
-    # Get the DocumentType to find view_docdef
-    doc_type_result = await db.execute(
-        select(DocumentType).where(DocumentType.doc_type_id == doc_type_id)
+    # Resolve view_docdef and package config
+    view_docdef, doc_type, _pkg_rendering, _pkg_ia = await _resolve_view_docdef(
+        db, doc_type_id,
     )
-    doc_type = doc_type_result.scalar_one_or_none()
 
-    # Load package from combine-config (authoritative source for rendering config)
-    _package = None
-    try:
-        from app.config.package_loader import get_package_loader
-        _package = get_package_loader().get_document_type(doc_type_id)
-    except Exception:
-        pass  # combine-config lookup is best-effort
+    # Prepare document content (unwrap, transform, snapshot)
+    document_data, ia_raw_content = _prepare_document_content(
+        doc_type_id, document.content,
+    )
 
-    # combine-config is authoritative for view_docdef; DB is legacy fallback
-    if _package:
-        view_docdef = _package.view_docdef
-    else:
-        view_docdef = doc_type.view_docdef if doc_type else None
-
-    # Helper: build common metadata dict for all response paths
-    async def _build_doc_metadata() -> Dict[str, Any]:
-        meta: Dict[str, Any] = {
-            "document_type": doc_type_id,
-            "document_type_name": doc_type.name if doc_type else None,
-            "display_id": getattr(document, 'display_id', None),
-            "version": document.version,
-            "lifecycle_state": document.lifecycle_state,
-            "created_at": document.created_at.isoformat() if document.created_at else None,
-            "updated_at": document.updated_at.isoformat() if document.updated_at else None,
-            "created_by": document.created_by,
-        }
-        # Look up the workflow execution that produced this document
-        exec_id = None
-        for query in [
-            select(WorkflowExecution.execution_id)
-            .where(WorkflowExecution.project_id == project.id)
-            .where(WorkflowExecution.workflow_id == doc_type_id)
-            .where(WorkflowExecution.status == "completed")
-            .order_by(WorkflowExecution.execution_id.desc())
-            .limit(1),
-            select(WorkflowExecution.execution_id)
-            .where(WorkflowExecution.project_id == project.id)
-            .where(WorkflowExecution.workflow_id == doc_type_id)
-            .order_by(WorkflowExecution.execution_id.desc())
-            .limit(1),
-            select(WorkflowExecution.execution_id)
-            .where(WorkflowExecution.document_id == str(document.id))
-            .order_by(WorkflowExecution.execution_id.desc())
-            .limit(1),
-        ]:
-            result = await db.execute(query)
-            exec_id = result.scalar_one_or_none()
-            if exec_id:
-                break
-        if exec_id:
-            meta["execution_id"] = exec_id
-        return meta
-
-    # Helper: inject IA config from package.yaml (ADR-054) into any response dict
-    def _inject_ia_config(response_dict: Dict[str, Any]) -> None:
-        if _package:
-            if _package.rendering:
-                response_dict["rendering_config"] = _package.rendering
-            if _package.information_architecture:
-                response_dict["information_architecture"] = _package.information_architecture
-
-    # Unwrap document content if stored in raw envelope format
-    from app.api.v1.services.render_pure import unwrap_raw_envelope
-    document_data = unwrap_raw_envelope(document.content)
-    if document_data is document.content and isinstance(document_data, dict) and document_data.get("raw"):
-        logger.warning(f"Failed to parse raw content JSON for {doc_type_id}")
-
-    # Apply handler transform at render time (computed fields like associated_risks)
-    if isinstance(document_data, dict):
-        try:
-            from app.domain.handlers.registry import handler_exists, get_handler
-            if handler_exists(doc_type_id):
-                _handler = get_handler(doc_type_id)
-                document_data = _handler.transform(document_data)
-        except Exception:
-            pass  # Handler transform is best-effort at render time
-
-    # Snapshot for IA-driven rendering (schema-canonical names).
-    # The docdef normalization below may reverse field names for the old
-    # RenderModel builder; raw_content must keep canonical names for the
-    # IA block renderer in the SPA.
-    ia_raw_content = copy.deepcopy(document_data) if isinstance(document_data, dict) else document_data
+    # Build document metadata
+    exec_id = await _find_execution_id(
+        db, project.id, doc_type_id, str(document.id), doc_type_id,
+    )
+    doc_meta = build_document_metadata_dict(
+        doc_type_id=doc_type_id,
+        doc_type_name=doc_type.name if doc_type else None,
+        display_id=getattr(document, 'display_id', None),
+        version=document.version,
+        lifecycle_state=document.lifecycle_state,
+        created_at=document.created_at,
+        updated_at=document.updated_at,
+        created_by=document.created_by,
+        execution_id=exec_id,
+    )
 
     if not view_docdef:
-        # No view_docdef configured - return raw content wrapped in basic structure
-        meta = await _build_doc_metadata()
-        meta["fallback"] = True
-        meta["reason"] = "no_view_docdef"
-        result = {
-            "render_model_version": "1.0",
-            "schema_id": "schema:RenderModelV1",
-            "document_id": str(document.id),
-            "document_type": doc_type_id,
-            "title": document.title or doc_type_id,
-            "sections": [],
-            "metadata": meta,
-            "raw_content": ia_raw_content,
-        }
-        _inject_ia_config(result)
+        doc_meta["fallback"] = True
+        doc_meta["reason"] = "no_view_docdef"
+        result = build_fallback_render_model(
+            document_id=str(document.id),
+            doc_type_id=doc_type_id,
+            title=document.title or doc_type_id,
+            metadata=doc_meta,
+            raw_content=ia_raw_content,
+        )
+        inject_ia_config(result, _pkg_rendering, _pkg_ia)
         return result
 
     # Normalize LLM output keys to match docdef source pointers
     if isinstance(document_data, dict):
-        from app.api.v1.services.render_pure import normalize_document_keys
         normalize_document_keys(document_data)
+
+    display_title = resolve_display_title(document.title, document_data)
 
     # Build the RenderModel
     try:
-        docdef_service = DocumentDefinitionService(db)
-        component_service = ComponentRegistryService(db)
-        schema_service = SchemaRegistryService(db)
-
         builder = RenderModelBuilder(
-            docdef_service=docdef_service,
-            component_service=component_service,
-            schema_service=schema_service,
+            docdef_service=DocumentDefinitionService(db),
+            component_service=ComponentRegistryService(db),
+            schema_service=SchemaRegistryService(db),
         )
-
-        # Determine best title
-        from app.api.v1.services.render_pure import resolve_display_title
-        display_title = resolve_display_title(document.title, document_data)
 
         render_model = await builder.build(
             document_def_id=view_docdef,
@@ -1245,16 +1287,9 @@ async def get_document_render_model(
         )
 
         result_dict = render_model.to_dict()
-
-        # Always include raw_content so SPA can use IA-driven rendering
-        # even when DocDef sections are incomplete (e.g. workflows)
         result_dict["raw_content"] = ia_raw_content
+        inject_ia_config(result_dict, _pkg_rendering, _pkg_ia)
 
-        # Inject rendering config from package.yaml (ADR-054)
-        _inject_ia_config(result_dict)
-
-        # Inject document metadata for header display
-        doc_meta = await _build_doc_metadata()
         meta = result_dict.setdefault("metadata", {})
         meta.update(doc_meta)
 
@@ -1266,40 +1301,23 @@ async def get_document_render_model(
         )
         child_docs = child_result.scalars().all()
         if child_docs:
-            meta["spawned_children"] = {
-                "count": len(child_docs),
-                "items": [
-                    {
-                        "instance_id": cd.instance_id,
-                        "epic_id": cd.content.get("epic_id", "") if isinstance(cd.content, dict) else "",
-                        "name": cd.content.get("name", cd.title) if isinstance(cd.content, dict) else cd.title,
-                        "title": cd.title,
-                        "doc_type_id": cd.doc_type_id,
-                    }
-                    for cd in child_docs
-                ],
-            }
+            meta["spawned_children"] = build_spawned_children(child_docs)
 
         return result_dict
 
     except DocDefNotFoundError as e:
         logger.warning(f"DocDef not found for {doc_type_id}: {e}")
-        # Return fallback with raw content (unwrapped) and IA config
-        meta = await _build_doc_metadata()
-        meta["fallback"] = True
-        meta["reason"] = "docdef_not_found"
-        meta["view_docdef"] = view_docdef
-        result = {
-            "render_model_version": "1.0",
-            "schema_id": "schema:RenderModelV1",
-            "document_id": str(document.id),
-            "document_type": doc_type_id,
-            "title": display_title or doc_type_id,
-            "sections": [],
-            "metadata": meta,
-            "raw_content": ia_raw_content,
-        }
-        _inject_ia_config(result)
+        doc_meta["fallback"] = True
+        doc_meta["reason"] = "docdef_not_found"
+        doc_meta["view_docdef"] = view_docdef
+        result = build_fallback_render_model(
+            document_id=str(document.id),
+            doc_type_id=doc_type_id,
+            title=display_title or doc_type_id,
+            metadata=doc_meta,
+            raw_content=ia_raw_content,
+        )
+        inject_ia_config(result, _pkg_rendering, _pkg_ia)
         return result
     except Exception as e:
         logger.error(f"Failed to build RenderModel for {doc_type_id}: {e}")

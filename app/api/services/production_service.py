@@ -213,17 +213,23 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     - blocked_by (if blocked)
     """
     from uuid import UUID
+    from app.api.services.production_pure import (
+        apply_active_execution,
+        build_child_track,
+        build_concierge_track,
+        build_document_type_track,
+    )
 
-    # Get existing documents for this project
+    # Resolve project UUID
     try:
         project_uuid = UUID(project_id)
     except ValueError:
-        # project_id is not a UUID, need to look up the project first
         project = await get_project(db, project_id)
         if not project:
             return []
         project_uuid = project.id
 
+    # Fetch documents and active executions
     result = await db.execute(
         select(Document)
         .where(Document.space_type == "project")
@@ -232,7 +238,6 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     )
     documents = {doc.doc_type_id: doc for doc in result.scalars().all()}
 
-    # Get active workflow executions
     result = await db.execute(
         select(WorkflowExecution)
         .where(WorkflowExecution.project_id == project_uuid)
@@ -240,145 +245,56 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     )
     active_executions = {ex.document_type: ex for ex in result.scalars().all()}
 
-    tracks = []
-    stabilized_types = set()
+    # Station lookup helper (wraps _get_workflow_plan)
+    def _get_stations(doc_type_id: str):
+        plan = _get_workflow_plan(doc_type_id)
+        return plan.get_stations() if plan else None
 
-    # Add concierge_intake as the first track (it's the input source, not produced by workflow)
-    concierge_track = {
-        "document_type": "concierge_intake",
-        "document_name": "Concierge Intake",
-        "state": ProductionState.READY_FOR_PRODUCTION.value,
-        "stations": [],
-        "elapsed_ms": None,
-        "blocked_by": [],
-    }
-    if "concierge_intake" in documents:
-        doc = documents["concierge_intake"]
-        # Document exists - consider it produced unless explicitly incomplete
-        if doc.status not in ["failed", "error", "cancelled"]:
-            concierge_track["state"] = ProductionState.PRODUCED.value
-            stabilized_types.add("concierge_intake")
-            # Show all stations as complete for produced documents
-            # Load workflow plan to get station metadata
-            concierge_plan = _get_workflow_plan("concierge_intake")
-            if concierge_plan:
-                workflow_stations = concierge_plan.get_stations()
-                concierge_track["stations"] = _build_station_sequence_from_workflow(
-                    workflow_stations=workflow_stations,
-                    current_node="end_stabilized",
-                    current_node_station_id="done",
-                    status="completed",
-                    terminal_outcome="stabilized",
-                    pending_user_input=False,
-                )
-    tracks.append(concierge_track)
+    def _get_node_station(doc_type_id: str, node_id: str):
+        plan = _get_workflow_plan(doc_type_id)
+        return plan.get_node_station(node_id) if plan else None
 
-    # Get document types from master workflow definition
+    stabilized_types: set = set()
+
+    # Build concierge track
+    concierge_track = build_concierge_track(documents, stabilized_types, _get_stations)
+    tracks = [concierge_track]
+
+    # Get document types and descriptions
     document_types = get_document_type_dependencies()
-
-    # Fetch document type descriptions from database
     doc_type_ids = [dt["id"] for dt in document_types] + ["concierge_intake"]
     result = await db.execute(
         select(DocumentType).where(DocumentType.doc_type_id.in_(doc_type_ids))
     )
     doc_type_descriptions = {
-        dt.doc_type_id: dt.description 
+        dt.doc_type_id: dt.description
         for dt in result.scalars().all()
     }
 
-    # Update concierge_intake track with description
-    if tracks and tracks[0]["document_type"] == "concierge_intake":
-        tracks[0]["description"] = doc_type_descriptions.get("concierge_intake", "")
+    # Update concierge track with description
+    concierge_track["description"] = doc_type_descriptions.get("concierge_intake", "")
 
+    # Build tracks for each document type
     for doc_type in document_types:
-        type_id = doc_type["id"]
-        requires = doc_type["requires"]
-        scope = doc_type.get("scope", "project")
-
-        # For now, only show project-scoped documents in the production line
-        # Epic and story documents require entity context
-        if scope != "project":
+        track = build_document_type_track(
+            doc_type, documents, stabilized_types, doc_type_descriptions, _get_stations,
+        )
+        if track is None:
             continue
 
-        track = {
-            "document_type": type_id,
-            "document_name": doc_type.get("name", type_id),
-            "description": doc_type_descriptions.get(type_id, ""),
-            "scope": scope,
-            "state": ProductionState.READY_FOR_PRODUCTION.value,
-            "station": None,
-            "stations": [],
-            "elapsed_ms": None,
-            "blocked_by": [],
-            # Parent-child relationship info from workflow definition
-            "may_own": doc_type.get("may_own", []),
-            "child_doc_type": doc_type.get("child_doc_type"),
-            "collection_field": doc_type.get("collection_field"),
-        }
-
-        # Classify track state using pure function
-        from app.api.services.production_pure import classify_execution_state, classify_track_state
-        state, blocked_by, is_stabilized = classify_track_state(
-            type_id, documents, stabilized_types, requires,
-        )
-        track["state"] = state
-        track["blocked_by"] = blocked_by
-        if is_stabilized:
-            stabilized_types.add(type_id)
-            # Show all stations as complete for produced documents
-            workflow_plan = _get_workflow_plan(type_id)
-            if workflow_plan:
-                workflow_stations = workflow_plan.get_stations()
-                track["stations"] = _build_station_sequence_from_workflow(
-                    workflow_stations=workflow_stations,
-                    current_node="end_stabilized",
-                    current_node_station_id="done",
-                    status="completed",
-                    terminal_outcome="stabilized",
-                    pending_user_input=False,
-                )
-
-        # Check if actively running
+        type_id = doc_type["id"]
         if type_id in active_executions:
-            ex = active_executions[type_id]
-            current_node = ex.current_node_id or ""
-
-            # Map execution state to production state + station
-            exec_state = classify_execution_state(ex.status)
-            if exec_state:
-                track["state"] = exec_state
-
-            # Build station sequence from workflow definition
-            workflow_plan = _get_workflow_plan(type_id)
-            if workflow_plan:
-                workflow_stations = workflow_plan.get_stations()
-                # Get station ID for current node
-                current_station_id = None
-                node_station = workflow_plan.get_node_station(current_node)
-                if node_station:
-                    current_station_id = node_station.id
-
-                stations = _build_station_sequence_from_workflow(
-                    workflow_stations=workflow_stations,
-                    current_node=current_node,
-                    current_node_station_id=current_station_id,
-                    status=ex.status,
-                    terminal_outcome=ex.terminal_outcome,
-                    pending_user_input=ex.pending_user_input,
-                )
-                track["stations"] = stations
-                track["active_station_id"] = current_station_id
+            apply_active_execution(
+                track, active_executions[type_id], _get_stations, _get_node_station,
+            )
 
         tracks.append(track)
 
-    # Query spawned child documents for tracks with child_doc_type
-    # These are data snapshots (e.g., epics spawned from implementation_plan)
-    # that appear as L2 children on the production floor
+    # Query spawned child documents
     for track in tracks:
         child_doc_type = track.get("child_doc_type")
         if not child_doc_type:
             continue
-
         parent_doc = documents.get(track["document_type"])
         if not parent_doc:
             continue
@@ -390,18 +306,13 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
                 Document.is_latest == True,
             )
         )
-        child_docs = child_result.scalars().all()
-
-        from app.api.services.production_pure import build_child_track
-
-        for child_doc in child_docs:
-            child_track = build_child_track(
+        for child_doc in child_result.scalars().all():
+            tracks.append(build_child_track(
                 doc_type_id=child_doc.doc_type_id,
                 title=child_doc.title,
                 content=child_doc.content,
                 display_id=child_doc.display_id,
-            )
-            tracks.append(child_track)
+            ))
 
     return tracks
 

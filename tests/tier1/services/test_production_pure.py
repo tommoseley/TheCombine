@@ -3,9 +3,13 @@
 Pure data transformation tests -- no DB, no I/O, no filesystem.
 """
 
+from unittest.mock import MagicMock
 
 from app.api.services.production_pure import (
+    apply_active_execution,
     build_child_track,
+    build_concierge_track,
+    build_document_type_track,
     build_interrupts,
     build_production_summary,
     build_station_sequence,
@@ -393,6 +397,272 @@ class TestBuildChildTrack:
         assert result["identifier"] == ""
         assert result["sequence"] is None
         assert result["display_id"] is None
+
+
+# =========================================================================
+# build_concierge_track
+# =========================================================================
+
+
+class TestBuildConciergeTrack:
+    """Tests for build_concierge_track."""
+
+    def _stations(self):
+        return [
+            {"id": "pgc", "label": "Pre-Gen Check"},
+            {"id": "asm", "label": "Assembly"},
+            {"id": "done", "label": "Complete"},
+        ]
+
+    def test_no_concierge_document(self):
+        stabilized = set()
+        track = build_concierge_track({}, stabilized, lambda dt: None)
+        assert track["document_type"] == "concierge_intake"
+        assert track["state"] == ProductionState.READY_FOR_PRODUCTION.value
+        assert track["stations"] == []
+        assert "concierge_intake" not in stabilized
+
+    def test_concierge_document_produced(self):
+        stabilized = set()
+        docs = {"concierge_intake": _FakeDoc("complete")}
+        track = build_concierge_track(docs, stabilized, lambda dt: self._stations())
+        assert track["state"] == ProductionState.PRODUCED.value
+        assert "concierge_intake" in stabilized
+        assert len(track["stations"]) == 3
+        assert all(s["state"] == "complete" for s in track["stations"])
+
+    def test_concierge_document_failed_not_produced(self):
+        stabilized = set()
+        docs = {"concierge_intake": _FakeDoc("failed")}
+        track = build_concierge_track(docs, stabilized, lambda dt: None)
+        assert track["state"] == ProductionState.READY_FOR_PRODUCTION.value
+        assert "concierge_intake" not in stabilized
+
+    def test_concierge_document_error_not_produced(self):
+        stabilized = set()
+        docs = {"concierge_intake": _FakeDoc("error")}
+        track = build_concierge_track(docs, stabilized, lambda dt: None)
+        assert track["state"] == ProductionState.READY_FOR_PRODUCTION.value
+
+    def test_concierge_document_cancelled_not_produced(self):
+        stabilized = set()
+        docs = {"concierge_intake": _FakeDoc("cancelled")}
+        track = build_concierge_track(docs, stabilized, lambda dt: None)
+        assert track["state"] == ProductionState.READY_FOR_PRODUCTION.value
+
+    def test_concierge_no_workflow_plan(self):
+        stabilized = set()
+        docs = {"concierge_intake": _FakeDoc("complete")}
+        track = build_concierge_track(docs, stabilized, lambda dt: None)
+        assert track["state"] == ProductionState.PRODUCED.value
+        assert track["stations"] == []  # No plan -> no stations
+
+    def test_track_structure(self):
+        track = build_concierge_track({}, set(), lambda dt: None)
+        assert "document_name" in track
+        assert track["document_name"] == "Concierge Intake"
+        assert track["elapsed_ms"] is None
+        assert track["blocked_by"] == []
+
+
+# =========================================================================
+# build_document_type_track
+# =========================================================================
+
+
+class TestBuildDocumentTypeTrack:
+    """Tests for build_document_type_track."""
+
+    def _stations(self):
+        return [
+            {"id": "pgc", "label": "Pre-Gen Check"},
+            {"id": "done", "label": "Complete"},
+        ]
+
+    def test_non_project_scope_returns_none(self):
+        doc_type = {"id": "epic_design", "name": "Epic Design", "requires": [], "scope": "epic"}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result is None
+
+    def test_default_scope_is_project(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result is not None
+        assert result["scope"] == "project"
+
+    def test_ready_for_production_no_doc(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result["state"] == ProductionState.READY_FOR_PRODUCTION.value
+
+    def test_produced_when_doc_exists(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        docs = {"charter": _FakeDoc("complete")}
+        stabilized = set()
+        result = build_document_type_track(
+            doc_type, docs, stabilized, {}, lambda dt: self._stations(),
+        )
+        assert result["state"] == ProductionState.PRODUCED.value
+        assert "charter" in stabilized
+        assert len(result["stations"]) == 2
+
+    def test_requirements_not_met(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": ["intake"]}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result["state"] == ProductionState.REQUIREMENTS_NOT_MET.value
+        assert result["blocked_by"] == ["intake"]
+
+    def test_description_from_lookup(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        descs = {"charter": "Project charter document"}
+        result = build_document_type_track(doc_type, {}, set(), descs, lambda dt: None)
+        assert result["description"] == "Project charter document"
+
+    def test_description_missing_defaults_empty(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result["description"] == ""
+
+    def test_parent_child_fields(self):
+        doc_type = {
+            "id": "impl_plan", "name": "Plan", "requires": [],
+            "may_own": ["epic"], "child_doc_type": "epic",
+            "collection_field": "epics",
+        }
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result["may_own"] == ["epic"]
+        assert result["child_doc_type"] == "epic"
+        assert result["collection_field"] == "epics"
+
+    def test_parent_child_fields_default(self):
+        doc_type = {"id": "charter", "name": "Charter", "requires": []}
+        result = build_document_type_track(doc_type, {}, set(), {}, lambda dt: None)
+        assert result["may_own"] == []
+        assert result["child_doc_type"] is None
+        assert result["collection_field"] is None
+
+
+# =========================================================================
+# apply_active_execution
+# =========================================================================
+
+
+class TestApplyActiveExecution:
+    """Tests for apply_active_execution."""
+
+    def _stations(self):
+        return [
+            {"id": "pgc", "label": "Pre-Gen Check"},
+            {"id": "asm", "label": "Assembly"},
+            {"id": "qa", "label": "Audit"},
+            {"id": "done", "label": "Complete"},
+        ]
+
+    def _mock_execution(self, status="running", current_node_id="asm_node",
+                        terminal_outcome=None, pending_user_input=False):
+        ex = MagicMock()
+        ex.status = status
+        ex.current_node_id = current_node_id
+        ex.terminal_outcome = terminal_outcome
+        ex.pending_user_input = pending_user_input
+        return ex
+
+    def _mock_node_station(self, station_id):
+        ns = MagicMock()
+        ns.id = station_id
+        return ns
+
+    def test_running_updates_state_to_in_production(self):
+        track = {"document_type": "charter", "state": "ready_for_production", "stations": []}
+        ex = self._mock_execution(status="running")
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: self._mock_node_station("asm"),
+        )
+        assert track["state"] == ProductionState.IN_PRODUCTION.value
+
+    def test_paused_updates_state_to_awaiting_operator(self):
+        track = {"document_type": "charter", "state": "ready_for_production", "stations": []}
+        ex = self._mock_execution(status="paused")
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: self._mock_node_station("pgc"),
+        )
+        assert track["state"] == ProductionState.AWAITING_OPERATOR.value
+
+    def test_builds_station_sequence(self):
+        track = {"document_type": "charter", "state": "", "stations": []}
+        ex = self._mock_execution(status="running")
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: self._mock_node_station("asm"),
+        )
+        assert len(track["stations"]) == 4
+        assert track["stations"][0]["state"] == "complete"  # pgc
+        assert track["stations"][1]["state"] == "active"    # asm
+        assert track["stations"][2]["state"] == "pending"   # qa
+        assert track["active_station_id"] == "asm"
+
+    def test_no_workflow_plan_no_stations(self):
+        track = {"document_type": "charter", "state": "", "stations": []}
+        ex = self._mock_execution(status="running")
+        apply_active_execution(
+            track, ex,
+            lambda dt: None,
+            lambda dt, node: None,
+        )
+        assert track["stations"] == []
+        assert "active_station_id" not in track
+
+    def test_no_node_station_mapping(self):
+        track = {"document_type": "charter", "state": "", "stations": []}
+        ex = self._mock_execution(status="running")
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: None,
+        )
+        # current_station_id is None -> all pending
+        assert len(track["stations"]) == 4
+        assert track["active_station_id"] is None
+
+    def test_pending_user_input_passed_through(self):
+        track = {"document_type": "charter", "state": "", "stations": []}
+        ex = self._mock_execution(status="running", pending_user_input=True)
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: self._mock_node_station("asm"),
+        )
+        asm = track["stations"][1]
+        assert asm["state"] == "active"
+        assert asm["needs_input"] is True
+
+    def test_completed_status_not_mapped(self):
+        """classify_execution_state returns None for 'completed', so state is not changed."""
+        track = {"document_type": "charter", "state": "produced", "stations": []}
+        ex = self._mock_execution(status="completed")
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: self._mock_node_station("done"),
+        )
+        # State should remain unchanged because classify_execution_state("completed") returns None
+        assert track["state"] == "produced"
+
+    def test_current_node_id_none_defaults_to_empty(self):
+        track = {"document_type": "charter", "state": "", "stations": []}
+        ex = self._mock_execution(status="running", current_node_id=None)
+        apply_active_execution(
+            track, ex,
+            lambda dt: self._stations(),
+            lambda dt, node: None,
+        )
+        # Should not crash, node_id passed to get_node_station_fn is ""
+        assert len(track["stations"]) == 4
 
 
 # =========================================================================

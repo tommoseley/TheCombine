@@ -152,3 +152,137 @@ def resolve_display_title(
         if display_title and "_" in display_title:
             display_title = display_title.replace("_", " ").replace(" Document", "").title()
     return display_title or ""
+
+
+# ---------------------------------------------------------------------------
+# Helpers extracted from get_document_render_model (CRAP remediation)
+# ---------------------------------------------------------------------------
+
+
+def inject_ia_config(
+    response_dict: Dict[str, Any],
+    rendering: Optional[Dict[str, Any]],
+    information_architecture: Optional[Dict[str, Any]],
+) -> None:
+    """Inject IA config from package.yaml (ADR-054) into a response dict.
+
+    Mutates response_dict in place.
+
+    Args:
+        response_dict: The render model response dict to mutate.
+        rendering: Package rendering config (or None).
+        information_architecture: Package IA config (or None).
+    """
+    if rendering:
+        response_dict["rendering_config"] = rendering
+    if information_architecture:
+        response_dict["information_architecture"] = information_architecture
+
+
+def build_fallback_render_model(
+    document_id: str,
+    doc_type_id: str,
+    title: str,
+    metadata: Dict[str, Any],
+    raw_content: Any,
+) -> Dict[str, Any]:
+    """Build a fallback RenderModel when DocDef is missing or not found.
+
+    Returns a minimal RenderModel with empty sections and raw_content
+    for the SPA to render via IA-driven fallback.
+
+    Args:
+        document_id: String UUID of the document.
+        doc_type_id: Document type identifier.
+        title: Display title for the document.
+        metadata: Pre-built metadata dict (may include fallback reason).
+        raw_content: The unwrapped document content for IA rendering.
+
+    Returns:
+        RenderModel dict with empty sections and raw_content.
+    """
+    return {
+        "render_model_version": "1.0",
+        "schema_id": "schema:RenderModelV1",
+        "document_id": document_id,
+        "document_type": doc_type_id,
+        "title": title,
+        "sections": [],
+        "metadata": metadata,
+        "raw_content": raw_content,
+    }
+
+
+def build_spawned_children(
+    child_docs: List[Any],
+) -> Dict[str, Any]:
+    """Build spawned_children metadata from child document objects.
+
+    Transforms a list of child document objects into a dict with count
+    and items list, suitable for inclusion in render model metadata.
+
+    Args:
+        child_docs: List of document objects with instance_id, content,
+                    title, doc_type_id attributes.
+
+    Returns:
+        Dict with 'count' and 'items' keys.
+    """
+    items = []
+    for cd in child_docs:
+        content = cd.content if isinstance(cd.content, dict) else {}
+        items.append({
+            "instance_id": cd.instance_id,
+            "epic_id": content.get("epic_id", "") if isinstance(cd.content, dict) else "",
+            "name": content.get("name", cd.title) if isinstance(cd.content, dict) else cd.title,
+            "title": cd.title,
+            "doc_type_id": cd.doc_type_id,
+        })
+    return {
+        "count": len(child_docs),
+        "items": items,
+    }
+
+
+def build_document_metadata_dict(
+    doc_type_id: str,
+    doc_type_name: Optional[str],
+    display_id: Optional[str],
+    version: Any,
+    lifecycle_state: Optional[str],
+    created_at: Any,
+    updated_at: Any,
+    created_by: Optional[str],
+    execution_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Build the common metadata dict for render model responses.
+
+    Pure assembly -- takes pre-fetched scalar values, returns a dict.
+
+    Args:
+        doc_type_id: Document type identifier.
+        doc_type_name: Human-readable document type name (or None).
+        display_id: Document display ID (or None).
+        version: Document version number.
+        lifecycle_state: Document lifecycle state string.
+        created_at: Datetime or None; will be iso-formatted if present.
+        updated_at: Datetime or None; will be iso-formatted if present.
+        created_by: Creator identifier string.
+        execution_id: Workflow execution ID (or None).
+
+    Returns:
+        Metadata dict.
+    """
+    meta: Dict[str, Any] = {
+        "document_type": doc_type_id,
+        "document_type_name": doc_type_name,
+        "display_id": display_id,
+        "version": version,
+        "lifecycle_state": lifecycle_state,
+        "created_at": created_at.isoformat() if created_at else None,
+        "updated_at": updated_at.isoformat() if updated_at else None,
+        "created_by": created_by,
+    }
+    if execution_id is not None:
+        meta["execution_id"] = execution_id
+    return meta

@@ -4,7 +4,7 @@ Extracted per WS-CRAP-003 to enable Tier-1 testing of track-building
 and station-sequencing logic without DB or filesystem dependencies.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 def build_station_sequence(
@@ -252,3 +252,182 @@ def build_child_track(
         "sequence": content.get("sequence"),
         "display_id": display_id,
     }
+
+
+# ---------------------------------------------------------------------------
+# Helpers extracted from get_production_tracks (CRAP remediation)
+# ---------------------------------------------------------------------------
+
+
+def _completed_station_sequence(
+    workflow_stations: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build a station sequence where all stations are complete.
+
+    Used when a document is already stabilized/produced.
+
+    Args:
+        workflow_stations: Station list from WorkflowPlan.get_stations()
+
+    Returns:
+        List of station dicts all marked 'complete'.
+    """
+    return build_station_sequence(
+        workflow_stations=workflow_stations,
+        current_node_station_id="done",
+        status="completed",
+        terminal_outcome="stabilized",
+        pending_user_input=False,
+    )
+
+
+def build_concierge_track(
+    documents: Dict[str, Any],
+    stabilized_types: set,
+    get_stations_fn: Callable[[str], Optional[List[Dict[str, Any]]]],
+) -> Dict[str, Any]:
+    """Build the concierge_intake track.
+
+    The concierge_intake is the input source, not produced by a workflow.
+    If the document exists and is not in a failed state, it is considered
+    produced and its stations are all marked complete.
+
+    Args:
+        documents: Dict mapping doc_type_id -> document objects.
+        stabilized_types: Mutable set of stabilized doc type IDs (will be
+            updated if concierge is produced).
+        get_stations_fn: Callable that takes a doc_type_id and returns
+            the workflow station list (or None if no plan exists).
+
+    Returns:
+        Concierge track dict.
+    """
+    from app.domain.workflow.production_state import ProductionState
+
+    track: Dict[str, Any] = {
+        "document_type": "concierge_intake",
+        "document_name": "Concierge Intake",
+        "state": ProductionState.READY_FOR_PRODUCTION.value,
+        "stations": [],
+        "elapsed_ms": None,
+        "blocked_by": [],
+    }
+
+    if "concierge_intake" in documents:
+        doc = documents["concierge_intake"]
+        doc_status = doc.status if hasattr(doc, "status") else doc.get("status", "")
+        if doc_status not in ("failed", "error", "cancelled"):
+            track["state"] = ProductionState.PRODUCED.value
+            stabilized_types.add("concierge_intake")
+            stations = get_stations_fn("concierge_intake")
+            if stations:
+                track["stations"] = _completed_station_sequence(stations)
+
+    return track
+
+
+def build_document_type_track(
+    doc_type: Dict[str, Any],
+    documents: Dict[str, Any],
+    stabilized_types: set,
+    doc_type_descriptions: Dict[str, str],
+    get_stations_fn: Callable[[str], Optional[List[Dict[str, Any]]]],
+) -> Optional[Dict[str, Any]]:
+    """Build a single document type track from workflow definition.
+
+    Classifies track state, builds station sequence for stabilized
+    documents. Does NOT apply active execution overlay (that is
+    handled separately by apply_active_execution).
+
+    Args:
+        doc_type: Dict with id, name, requires, scope, may_own, etc.
+        documents: Dict mapping doc_type_id -> document objects.
+        stabilized_types: Mutable set of stabilized doc type IDs.
+        doc_type_descriptions: Dict mapping doc_type_id -> description.
+        get_stations_fn: Callable that returns workflow stations list.
+
+    Returns:
+        Track dict, or None if the doc type should be skipped (non-project scope).
+    """
+    type_id = doc_type["id"]
+    requires = doc_type["requires"]
+    scope = doc_type.get("scope", "project")
+
+    # Only show project-scoped documents in the production line
+    if scope != "project":
+        return None
+
+    from app.domain.workflow.production_state import ProductionState
+
+    track: Dict[str, Any] = {
+        "document_type": type_id,
+        "document_name": doc_type.get("name", type_id),
+        "description": doc_type_descriptions.get(type_id, ""),
+        "scope": scope,
+        "state": ProductionState.READY_FOR_PRODUCTION.value,
+        "station": None,
+        "stations": [],
+        "elapsed_ms": None,
+        "blocked_by": [],
+        "may_own": doc_type.get("may_own", []),
+        "child_doc_type": doc_type.get("child_doc_type"),
+        "collection_field": doc_type.get("collection_field"),
+    }
+
+    state, blocked_by, is_stabilized = classify_track_state(
+        type_id, documents, stabilized_types, requires,
+    )
+    track["state"] = state
+    track["blocked_by"] = blocked_by
+    if is_stabilized:
+        stabilized_types.add(type_id)
+        stations = get_stations_fn(type_id)
+        if stations:
+            track["stations"] = _completed_station_sequence(stations)
+
+    return track
+
+
+def apply_active_execution(
+    track: Dict[str, Any],
+    execution: Any,
+    get_stations_fn: Callable[[str], Optional[List[Dict[str, Any]]]],
+    get_node_station_fn: Callable[[str, str], Optional[Any]],
+) -> None:
+    """Apply active workflow execution state to a track.
+
+    Overlays execution state onto the track dict by updating
+    state and station sequence. Mutates track in place.
+
+    Args:
+        track: Track dict to update.
+        execution: Workflow execution object with status, current_node_id,
+            terminal_outcome, pending_user_input attributes.
+        get_stations_fn: Returns workflow stations list for a doc type.
+        get_node_station_fn: Takes (doc_type_id, node_id) and returns
+            station object (with .id attr) or None.
+    """
+    type_id = track["document_type"]
+    current_node = execution.current_node_id or ""
+
+    exec_state = classify_execution_state(execution.status)
+    if exec_state:
+        track["state"] = exec_state
+
+    stations = get_stations_fn(type_id)
+    if not stations:
+        return
+
+    current_station_id = None
+    node_station = get_node_station_fn(type_id, current_node)
+    if node_station:
+        current_station_id = node_station.id
+
+    track["stations"] = build_station_sequence(
+        workflow_stations=stations,
+        current_node_station_id=current_station_id,
+        status=execution.status,
+        terminal_outcome=execution.terminal_outcome,
+        pending_user_input=execution.pending_user_input,
+    )
+    track["active_station_id"] = current_station_id

@@ -5,10 +5,12 @@ Tests artifact ID parsing, workspace lifecycle, and state management
 without external dependencies (Git, filesystem).
 """
 
+import json
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock
-from dataclasses import dataclass
+from pathlib import Path
+from unittest.mock import Mock, MagicMock, patch
+from dataclasses import dataclass, field
 
 from app.api.services.workspace_service import (
     WorkspaceService,
@@ -16,6 +18,8 @@ from app.api.services.workspace_service import (
     WorkspaceNotFoundError,
     WorkspaceDirtyError,
     ArtifactIdError,
+    Tier1Result,
+    Tier1Report,
     WORKSPACE_TTL_HOURS,
 )
 
@@ -443,6 +447,369 @@ class TestTier1Validation:
 
         assert report.passed is False
         assert any(r.rule_id == "MANIFEST_INVALID" for r in report.results)
+
+
+class TestTier1ValidationCoverage:
+    """Extended tests for _run_tier1_validation to cover untested branches."""
+
+    # -----------------------------------------------------------------
+    # Doctype validation branches
+    # -----------------------------------------------------------------
+
+    def test_tier1_doctype_valid_package_reports_pass(self, service, mock_validator, mock_git_service, tmp_path):
+        """Tier 1 reports PACKAGE_VALID when validator says valid."""
+        mock_validator.validate_package.return_value = MockValidationReport(valid=True, errors=[])
+
+        # Create the package directory so path.exists() returns True
+        dt_dir = tmp_path / "document_types" / "project_discovery" / "releases" / "1.4.0"
+        dt_dir.mkdir(parents=True)
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["doctype:project_discovery:1.4.0:task_prompt"])
+
+        assert report.passed is True
+        assert any(r.rule_id == "PACKAGE_VALID" and r.status == "pass" for r in report.results)
+        assert any("doctype:project_discovery:1.4.0:manifest" == r.artifact_id for r in report.results)
+
+    def test_tier1_doctype_package_path_not_exists_skipped(self, service, mock_validator, mock_git_service, tmp_path):
+        """Tier 1 skips validation when package path does not exist."""
+        # Point config_path to a real dir, but do NOT create the package subdir
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["doctype:project_discovery:1.4.0:task_prompt"])
+
+        # Validator should not be called since the path doesn't exist
+        mock_validator.validate_package.assert_not_called()
+        # Report should still pass (no errors added)
+        assert report.passed is True
+
+    def test_tier1_doctype_deduplicates_same_package(self, service, mock_validator, mock_git_service, tmp_path):
+        """Two artifacts from the same doctype/version validate package once."""
+        mock_validator.validate_package.return_value = MockValidationReport(valid=True, errors=[])
+
+        dt_dir = tmp_path / "document_types" / "project_discovery" / "releases" / "1.4.0"
+        dt_dir.mkdir(parents=True)
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation([
+            "doctype:project_discovery:1.4.0:task_prompt",
+            "doctype:project_discovery:1.4.0:qa_prompt",
+        ])
+
+        # validate_package called exactly once because both map to same (name, version)
+        assert mock_validator.validate_package.call_count == 1
+        assert report.passed is True
+
+    def test_tier1_invalid_artifact_id_skipped_in_doctype_scan(self, service, mock_git_service):
+        """Invalid artifact IDs are silently skipped during doctype extraction."""
+        # "bad" is not a valid scope -- _parse_artifact_id will raise ArtifactIdError
+        report = service._run_tier1_validation(["bad:id:format"])
+
+        # Should not crash; reports NO_PACKAGES_MODIFIED since nothing valid was found
+        assert report.passed is True
+        assert any(r.rule_id == "NO_PACKAGES_MODIFIED" for r in report.results)
+
+    def test_tier1_non_doctype_artifact_skipped_for_package_validation(self, service, mock_validator, mock_git_service, tmp_path):
+        """Role artifacts do not trigger package validation."""
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["role:technical_architect:1.0.0:role_prompt"])
+
+        mock_validator.validate_package.assert_not_called()
+        # Still passes -- role is not a doctype so no package validation
+        assert report.passed is True
+
+    def test_tier1_doctype_validation_multiple_errors(self, service, mock_validator, mock_git_service, tmp_path):
+        """Multiple validation errors from a single package all appear."""
+        @dataclass
+        class MockError:
+            rule_id: str
+            message: str
+
+        mock_validator.validate_package.return_value = MockValidationReport(
+            valid=False,
+            errors=[
+                MockError(rule_id="MISSING_FIELD", message="Missing required field"),
+                MockError(rule_id="INVALID_VALUE", message="Bad value for field"),
+            ]
+        )
+
+        dt_dir = tmp_path / "document_types" / "test_doc" / "releases" / "2.0.0"
+        dt_dir.mkdir(parents=True)
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["doctype:test_doc:2.0.0:schema"])
+
+        assert report.passed is False
+        fail_ids = [r.rule_id for r in report.results if r.status == "fail"]
+        assert "MISSING_FIELD" in fail_ids
+        assert "INVALID_VALUE" in fail_ids
+        assert len(fail_ids) == 2
+
+    # -----------------------------------------------------------------
+    # Workflow validation branches
+    # -----------------------------------------------------------------
+
+    def test_tier1_workflow_valid_graph_based(self, service, mock_git_service, tmp_path):
+        """Tier 1 validates graph-based workflow and reports WORKFLOW_VALID."""
+        # Create a temporary workflow file
+        wf_dir = tmp_path / "workflows" / "test_wf" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text(json.dumps({
+            "workflow_id": "test_wf",
+            "nodes": [
+                {"id": "start", "type": "intake_gate"},
+                {"id": "end", "type": "end"},
+            ],
+            "edges": [
+                {"source": "start", "target": "end", "kind": "auto"},
+            ],
+            "entry_node_ids": ["start"],
+        }))
+
+        # Point config_path to tmp_path
+        mock_git_service.config_path = tmp_path
+
+        with patch("app.domain.workflow.plan_validator.PlanValidator") as MockPV:
+            mock_pv_instance = Mock()
+            MockPV.return_value = mock_pv_instance
+
+            @dataclass
+            class MockPVResult:
+                valid: bool
+                errors: list = field(default_factory=list)
+
+            mock_pv_instance.validate.return_value = MockPVResult(valid=True)
+
+            report = service._run_tier1_validation(["workflow:test_wf:1.0.0:definition"])
+
+        assert report.passed is True
+        assert any(r.rule_id == "WORKFLOW_VALID" and r.status == "pass" for r in report.results)
+
+    def test_tier1_workflow_invalid_graph_based(self, service, mock_git_service, tmp_path):
+        """Tier 1 reports errors for invalid graph-based workflow."""
+        wf_dir = tmp_path / "workflows" / "bad_wf" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text(json.dumps({
+            "workflow_id": "bad_wf",
+            "nodes": [],
+            "edges": [],
+            "entry_node_ids": ["missing"],
+        }))
+
+        mock_git_service.config_path = tmp_path
+
+        with patch("app.domain.workflow.plan_validator.PlanValidator") as MockPV:
+            mock_pv_instance = Mock()
+            MockPV.return_value = mock_pv_instance
+
+            @dataclass
+            class MockPVError:
+                code: str
+                message: str
+
+            @dataclass
+            class MockPVResult:
+                valid: bool
+                errors: list = field(default_factory=list)
+
+            mock_pv_instance.validate.return_value = MockPVResult(
+                valid=False,
+                errors=[MockPVError(code="ENTRY_NODE_NOT_FOUND", message="Entry node 'missing' not found")]
+            )
+
+            report = service._run_tier1_validation(["workflow:bad_wf:1.0.0:definition"])
+
+        assert report.passed is False
+        assert any(r.rule_id == "ENTRY_NODE_NOT_FOUND" and r.status == "fail" for r in report.results)
+        assert any("workflow:bad_wf:1.0.0:definition" == r.artifact_id for r in report.results)
+
+    def test_tier1_workflow_invalid_graph_error_code_with_value_attr(self, service, mock_git_service, tmp_path):
+        """Tier 1 extracts error.code.value when code has a value attribute (Enum)."""
+        wf_dir = tmp_path / "workflows" / "enum_wf" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text(json.dumps({
+            "workflow_id": "enum_wf",
+            "nodes": [],
+            "edges": [],
+            "entry_node_ids": ["missing"],
+        }))
+
+        mock_git_service.config_path = tmp_path
+
+        with patch("app.domain.workflow.plan_validator.PlanValidator") as MockPV:
+            mock_pv_instance = Mock()
+            MockPV.return_value = mock_pv_instance
+
+            # Simulate Enum-like code with .value attribute
+            mock_code = Mock()
+            mock_code.value = "ORPHAN_NODE"
+
+            @dataclass
+            class MockPVResult:
+                valid: bool
+                errors: list = field(default_factory=list)
+
+            mock_error = Mock()
+            mock_error.code = mock_code
+            mock_error.message = "Orphan node detected"
+
+            mock_pv_instance.validate.return_value = MockPVResult(
+                valid=False,
+                errors=[mock_error]
+            )
+
+            report = service._run_tier1_validation(["workflow:enum_wf:1.0.0:definition"])
+
+        assert report.passed is False
+        assert any(r.rule_id == "ORPHAN_NODE" for r in report.results)
+
+    def test_tier1_workflow_step_based_json_valid(self, service, mock_git_service, tmp_path):
+        """Tier 1 reports WORKFLOW_JSON_VALID for step-based (non-graph) workflows."""
+        wf_dir = tmp_path / "workflows" / "step_wf" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        # Step-based workflow: no "nodes" or "edges" keys
+        wf_file.write_text(json.dumps({
+            "workflow_id": "step_wf",
+            "version": "workflow.v1",
+            "steps": [{"action": "run_task", "task_id": "intake"}],
+        }))
+
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["workflow:step_wf:1.0.0:definition"])
+
+        assert report.passed is True
+        assert any(r.rule_id == "WORKFLOW_JSON_VALID" and r.status == "pass" for r in report.results)
+
+    def test_tier1_workflow_invalid_json(self, service, mock_git_service, tmp_path):
+        """Tier 1 reports INVALID_JSON for malformed workflow JSON."""
+        wf_dir = tmp_path / "workflows" / "broken_wf" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text("{invalid json content!!!")
+
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["workflow:broken_wf:1.0.0:definition"])
+
+        assert report.passed is False
+        assert any(r.rule_id == "INVALID_JSON" and r.status == "fail" for r in report.results)
+        fail_result = [r for r in report.results if r.rule_id == "INVALID_JSON"][0]
+        assert "Invalid JSON" in fail_result.message
+
+    def test_tier1_workflow_path_not_exists_skipped(self, service, mock_git_service, tmp_path):
+        """Tier 1 skips workflow when definition file does not exist."""
+        # Point config_path to tmp_path but do NOT create the workflow file
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation(["workflow:missing_wf:1.0.0:definition"])
+
+        # Should still pass -- no file found means nothing to validate
+        assert report.passed is True
+
+    def test_tier1_invalid_artifact_id_skipped_in_workflow_scan(self, service, mock_git_service):
+        """Invalid artifact IDs are silently skipped during workflow extraction."""
+        report = service._run_tier1_validation(["not:enough:parts"])
+
+        assert report.passed is True
+        assert any(r.rule_id == "NO_PACKAGES_MODIFIED" for r in report.results)
+
+    # -----------------------------------------------------------------
+    # Mixed artifact tests
+    # -----------------------------------------------------------------
+
+    def test_tier1_mix_doctype_and_workflow(self, service, mock_validator, mock_git_service, tmp_path):
+        """Tier 1 validates both doctype packages and workflow definitions."""
+        # Setup doctype validation (pass)
+        mock_validator.validate_package.return_value = MockValidationReport(valid=True, errors=[])
+
+        # Setup workflow file (step-based, valid JSON)
+        wf_dir = tmp_path / "workflows" / "my_wf" / "releases" / "2.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text(json.dumps({"workflow_id": "my_wf", "steps": []}))
+
+        # For doctype, config_path needs to return a mock path with exists()=True
+        # For workflow, config_path needs to be real tmp_path.
+        # The function does config_path / "document_types" / ... for doctype,
+        # and config_path / "workflows" / ... for workflow.
+        # Use tmp_path and create the doctype directory structure too.
+        dt_dir = tmp_path / "document_types" / "test_doc" / "releases" / "1.0.0"
+        dt_dir.mkdir(parents=True)
+
+        mock_git_service.config_path = tmp_path
+
+        with patch("app.domain.workflow.plan_validator.PlanValidator"):
+            report = service._run_tier1_validation([
+                "doctype:test_doc:1.0.0:task_prompt",
+                "workflow:my_wf:2.0.0:definition",
+            ])
+
+        assert report.passed is True
+        rule_ids = [r.rule_id for r in report.results]
+        assert "PACKAGE_VALID" in rule_ids
+        assert "WORKFLOW_JSON_VALID" in rule_ids
+
+    def test_tier1_no_packages_no_workflows_only_role(self, service, mock_validator, mock_git_service, tmp_path):
+        """When only non-doctype/non-workflow artifacts are modified, NO_PACKAGES_MODIFIED is returned."""
+        mock_git_service.config_path = tmp_path
+
+        report = service._run_tier1_validation([
+            "role:technical_architect:1.0.0:role_prompt",
+            "template:document_generator:1.0.0:template",
+        ])
+
+        assert report.passed is True
+        assert any(r.rule_id == "NO_PACKAGES_MODIFIED" for r in report.results)
+
+    def test_tier1_workflow_multiple_errors(self, service, mock_git_service, tmp_path):
+        """Multiple validation errors from a graph workflow all appear in report."""
+        wf_dir = tmp_path / "workflows" / "multi_err" / "releases" / "1.0.0"
+        wf_dir.mkdir(parents=True)
+        wf_file = wf_dir / "definition.json"
+        wf_file.write_text(json.dumps({
+            "workflow_id": "multi_err",
+            "nodes": [],
+            "edges": [{"source": "a", "target": "b"}],
+            "entry_node_ids": ["c"],
+        }))
+
+        mock_git_service.config_path = tmp_path
+
+        with patch("app.domain.workflow.plan_validator.PlanValidator") as MockPV:
+            mock_pv_instance = Mock()
+            MockPV.return_value = mock_pv_instance
+
+            @dataclass
+            class MockPVResult:
+                valid: bool
+                errors: list = field(default_factory=list)
+
+            err1 = Mock()
+            err1.code = "ERR_ONE"
+            err1.message = "First error"
+
+            err2 = Mock()
+            err2.code = "ERR_TWO"
+            err2.message = "Second error"
+
+            mock_pv_instance.validate.return_value = MockPVResult(
+                valid=False,
+                errors=[err1, err2]
+            )
+
+            report = service._run_tier1_validation(["workflow:multi_err:1.0.0:definition"])
+
+        assert report.passed is False
+        fail_ids = [r.rule_id for r in report.results if r.status == "fail"]
+        assert "ERR_ONE" in fail_ids
+        assert "ERR_TWO" in fail_ids
+        assert len(fail_ids) == 2
 
 
 # =============================================================================

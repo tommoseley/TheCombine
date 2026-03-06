@@ -239,6 +239,55 @@ class WorkspaceService:
             "kind": kind,
         }
 
+    # Dispatch tables for _artifact_id_to_path (class-level constants).
+    # Outer key = scope, inner key = kind, value = path template.
+    # Templates use {name} and {version} placeholders.
+    _SCOPE_KIND_PATHS = {
+        "doctype": {
+            "task_prompt": "document_types/{name}/releases/{version}/prompts/task.prompt.txt",
+            "qa_prompt": "document_types/{name}/releases/{version}/prompts/qa.prompt.txt",
+            "reflection_prompt": "document_types/{name}/releases/{version}/prompts/reflection.prompt.txt",
+            "pgc_context": "document_types/{name}/releases/{version}/prompts/pgc_context.prompt.txt",
+            "questions_prompt": "document_types/{name}/releases/{version}/prompts/questions.prompt.txt",
+            "schema": "document_types/{name}/releases/{version}/schemas/output.schema.json",
+            "manifest": "document_types/{name}/releases/{version}/package.yaml",
+            "package": "document_types/{name}/releases/{version}/package.yaml",  # alias for manifest
+        },
+        "role": {
+            "role_prompt": "prompts/roles/{name}/releases/{version}/role.prompt.txt",
+        },
+        "template": {
+            "template": "prompts/templates/{name}/releases/{version}/template.txt",
+            "meta": "prompts/templates/{name}/releases/{version}/meta.yaml",
+        },
+        "workflow": {
+            "definition": "workflows/{name}/releases/{version}/definition.json",
+        },
+        "schema": {
+            "schema": "schemas/{name}/releases/{version}/schema.json",
+        },
+    }
+
+    # Fragment dispatch: keyed by (frag_kind, artifact_kind).
+    # Templates use {frag_id} and {version} placeholders.
+    # frag_kind "doctype_prompt" entries use an extra {frag_kind} placeholder.
+    _FRAGMENT_PATHS = {
+        ("role", "content"): "prompts/roles/{frag_id}/releases/{version}/role.prompt.txt",
+        ("role", "meta"): "prompts/roles/{frag_id}/releases/{version}/meta.yaml",
+    }
+
+    # Doctype-prompt fragment kinds that share the same path pattern.
+    _DOCTYPE_PROMPT_FRAG_KINDS = frozenset({"task", "qa", "pgc", "questions", "reflection"})
+
+    # Maps doctype-prompt frag_kind to its prompt file subpath.
+    _FRAG_KIND_TO_PROMPT_FILE = {
+        "task": "prompts/task.prompt.txt",
+        "qa": "prompts/qa.prompt.txt",
+        "pgc": "prompts/pgc_context.prompt.txt",
+        "questions": "prompts/questions.prompt.txt",
+        "reflection": "prompts/reflection.prompt.txt",
+    }
+
     def _artifact_id_to_path(self, artifact_id: str) -> str:
         """
         Convert artifact ID to file path (relative to combine-config).
@@ -252,86 +301,59 @@ class WorkspaceService:
         version = parsed["version"]
         kind = parsed["kind"]
 
-        if scope == "doctype":
-            # Document type artifacts
-            kind_to_file = {
-                "task_prompt": "prompts/task.prompt.txt",
-                "qa_prompt": "prompts/qa.prompt.txt",
-                "reflection_prompt": "prompts/reflection.prompt.txt",
-                "pgc_context": "prompts/pgc_context.prompt.txt",
-                "questions_prompt": "prompts/questions.prompt.txt",
-                "schema": "schemas/output.schema.json",
-                "manifest": "package.yaml",
-                "package": "package.yaml",  # alias for manifest
-            }
-            if kind not in kind_to_file:
-                raise ArtifactIdError(f"Unknown artifact kind for doctype: {kind}")
-            return f"document_types/{name}/releases/{version}/{kind_to_file[kind]}"
+        # Non-fragment scopes: straight dispatch table lookup.
+        if scope != "fragment":
+            kind_map = self._SCOPE_KIND_PATHS.get(scope)
+            if kind_map is None:
+                raise ArtifactIdError(f"Unknown scope: {scope}")
+            template = kind_map.get(kind)
+            if template is None:
+                raise ArtifactIdError(f"Unknown artifact kind for {scope}: {kind}")
+            return template.format(name=name, version=version)
 
-        elif scope == "role":
-            if kind != "role_prompt":
-                raise ArtifactIdError(f"Unknown artifact kind for role: {kind}")
-            return f"prompts/roles/{name}/releases/{version}/role.prompt.txt"
+        # Fragment scope: name is "{frag_kind}:{frag_id}".
+        return self._resolve_fragment_path(name, version, kind)
 
-        elif scope == "template":
-            if kind == "template":
-                return f"prompts/templates/{name}/releases/{version}/template.txt"
+    def _resolve_fragment_path(self, name: str, version: str, kind: str) -> str:
+        """
+        Resolve file path for a fragment artifact.
+
+        Args:
+            name: Fragment name in format "{frag_kind}:{frag_id}"
+            version: Version string
+            kind: Artifact kind (content, meta, etc.)
+
+        Returns:
+            File path string
+        """
+        frag_parts = name.split(":", 1)
+        if len(frag_parts) != 2:
+            raise ArtifactIdError(
+                f"Invalid fragment name format: {name}. "
+                f"Expected {{kind}}:{{id}} (e.g., role:technical_architect)"
+            )
+        frag_kind, frag_id = frag_parts
+
+        # Check role/meta fragments first.
+        role_template = self._FRAGMENT_PATHS.get((frag_kind, kind))
+        if role_template is not None:
+            return role_template.format(frag_id=frag_id, version=version)
+
+        # Doctype-prompt fragments (task, qa, pgc, questions, reflection).
+        if frag_kind in self._DOCTYPE_PROMPT_FRAG_KINDS:
+            if kind == "content":
+                prompt_file = self._FRAG_KIND_TO_PROMPT_FILE[frag_kind]
+                return f"document_types/{frag_id}/releases/{version}/{prompt_file}"
             elif kind == "meta":
-                return f"prompts/templates/{name}/releases/{version}/meta.yaml"
+                return f"document_types/{frag_id}/releases/{version}/prompts/{frag_kind}.meta.yaml"
             else:
-                raise ArtifactIdError(f"Unknown artifact kind for template: {kind}")
+                raise ArtifactIdError(f"Unknown artifact kind for {frag_kind} fragment: {kind}")
 
-        elif scope == "workflow":
-            if kind != "definition":
-                raise ArtifactIdError(f"Unknown artifact kind for workflow: {kind}")
-            return f"workflows/{name}/releases/{version}/definition.json"
+        # If frag_kind is "role" but kind was not content/meta, it wasn't in _FRAGMENT_PATHS.
+        if frag_kind == "role":
+            raise ArtifactIdError(f"Unknown artifact kind for role fragment: {kind}")
 
-        elif scope == "fragment":
-            # Fragment artifacts - name format: {kind}:{doc_type_or_role_id}
-            # e.g., fragment:role:technical_architect:1.0.0:content
-            #       fragment:task:project_discovery:1.0.0:content
-            frag_parts = name.split(":", 1)
-            if len(frag_parts) != 2:
-                raise ArtifactIdError(
-                    f"Invalid fragment name format: {name}. "
-                    f"Expected {{kind}}:{{id}} (e.g., role:technical_architect)"
-                )
-            frag_kind, frag_id = frag_parts
-
-            if frag_kind == "role":
-                if kind == "content":
-                    return f"prompts/roles/{frag_id}/releases/{version}/role.prompt.txt"
-                elif kind == "meta":
-                    return f"prompts/roles/{frag_id}/releases/{version}/meta.yaml"
-                else:
-                    raise ArtifactIdError(f"Unknown artifact kind for role fragment: {kind}")
-            elif frag_kind in ("task", "qa", "pgc", "questions", "reflection"):
-                # These come from document type packages
-                kind_to_file = {
-                    "task": "prompts/task.prompt.txt",
-                    "qa": "prompts/qa.prompt.txt",
-                    "pgc": "prompts/pgc_context.prompt.txt",
-                    "questions": "prompts/questions.prompt.txt",
-                    "reflection": "prompts/reflection.prompt.txt",
-                }
-                if kind == "content":
-                    return f"document_types/{frag_id}/releases/{version}/{kind_to_file[frag_kind]}"
-                elif kind == "meta":
-                    # Meta for doctype fragments stored alongside the prompt
-                    return f"document_types/{frag_id}/releases/{version}/prompts/{frag_kind}.meta.yaml"
-                else:
-                    raise ArtifactIdError(f"Unknown artifact kind for {frag_kind} fragment: {kind}")
-            else:
-                raise ArtifactIdError(f"Unknown fragment kind: {frag_kind}")
-
-        elif scope == "schema":
-            # Standalone schema artifacts
-            # e.g., schema:project_discovery:1.4.0:schema
-            if kind != "schema":
-                raise ArtifactIdError(f"Unknown artifact kind for schema: {kind}")
-            return f"schemas/{name}/releases/{version}/schema.json"
-
-        raise ArtifactIdError(f"Unknown scope: {scope}")
+        raise ArtifactIdError(f"Unknown fragment kind: {frag_kind}")
 
     def _path_to_artifact_id(self, file_path: str) -> Optional[str]:
         """
