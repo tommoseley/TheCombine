@@ -18,7 +18,9 @@ Week 2 (ADR-010): Integrated LLM execution logging for telemetry and replay.
 
 from typing import Dict, Any, List, Optional, AsyncGenerator, Protocol
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
+import hashlib
 import json
 import asyncio
 import logging
@@ -56,17 +58,17 @@ logger = logging.getLogger(__name__)
 
 class PromptServiceProtocol(Protocol):
     """Interface for prompt service."""
-    
+
     async def get_prompt_for_role_task(
         self,
         role_name: str,
         task_name: str
-    ) -> tuple[str, str, Dict[str, Any]]:
+    ) -> tuple[str, str, Dict[str, Any], str]:
         """
         Get prompt for a role/task combination.
-        
+
         Returns:
-            Tuple of (system_prompt, prompt_id, expected_schema)
+            Tuple of (system_prompt, prompt_id, expected_schema, prompt_version)
         """
         ...
 
@@ -133,6 +135,7 @@ class BuildContext:
     doc_type_id: str
     space_type: str
     space_id: UUID
+    prompt_version: str = "unknown"
 
 # =============================================================================
 # DOCUMENT BUILDER
@@ -221,10 +224,16 @@ class DocumentBuilder:
         if not can_build_now:
             raise DependencyNotMetError(doc_type_id, missing)
         input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
-        system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
+        prompt_result = await self.prompt_service.get_prompt_for_role_task(
             role_name=config["builder_role"],
             task_name=config["builder_task"]
         )
+        # Support both 3-tuple (legacy) and 4-tuple (with prompt_version)
+        if len(prompt_result) == 4:
+            system_prompt, prompt_id, schema, prompt_version = prompt_result
+        else:
+            system_prompt, prompt_id, schema = prompt_result
+            prompt_version = "unknown"
         user_message = self._build_user_message(config, inputs, input_docs)
         model, max_tokens, temperature = resolve_model_params(options, self.model)
 
@@ -234,6 +243,7 @@ class DocumentBuilder:
             user_message=user_message, model=model, max_tokens=max_tokens,
             temperature=temperature, doc_type_id=doc_type_id,
             space_type=space_type, space_id=space_id,
+            prompt_version=prompt_version,
         )
     
     async def _start_llm_logging(self, ctx: BuildContext, input_docs: Optional[Dict[str, Any]] = None) -> Optional[UUID]:
@@ -245,7 +255,7 @@ class DocumentBuilder:
                 project_id=ctx.space_id if ctx.space_type == "project" else None,
                 artifact_type=ctx.doc_type_id, role=ctx.config["builder_role"],
                 model_provider="anthropic", model_name=ctx.model,
-                prompt_id=ctx.prompt_id, prompt_version="1.0.0",
+                prompt_id=ctx.prompt_id, prompt_version=ctx.prompt_version,
                 effective_prompt=ctx.system_prompt,
             )
             await self.llm_logger.add_input(run_id, "system_prompt", ctx.system_prompt)
@@ -293,11 +303,25 @@ class DocumentBuilder:
             logger.warning(f"LLM logging failed at complete: {e}")
     
     async def _persist_document(self, ctx: BuildContext, result: Dict[str, Any], input_tokens: int, output_tokens: int, run_id: Optional[UUID], created_by: Optional[str]):
+        effective_prompt_hash = hashlib.sha256(
+            ctx.system_prompt.encode("utf-8")
+        ).hexdigest()
+
         parent_doc = await self.document_service.create_document(
             space_type=ctx.space_type, space_id=ctx.space_id, doc_type_id=ctx.doc_type_id,
             title=result["title"], content=result["data"], created_by=created_by,
             created_by_type="builder",
-            builder_metadata={"prompt_id": ctx.prompt_id, "model": ctx.model, "input_tokens": input_tokens, "output_tokens": output_tokens, "llm_run_id": str(run_id) if run_id else None},
+            builder_metadata={
+                "prompt_id": ctx.prompt_id,
+                "prompt_version": ctx.prompt_version,
+                "effective_prompt_hash": effective_prompt_hash,
+                "model": ctx.model,
+                "generation_station": ctx.doc_type_id,
+                "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "llm_run_id": str(run_id) if run_id else None,
+            },
             derived_from=ctx.input_ids,
         )
 
@@ -447,20 +471,27 @@ class DocumentBuilder:
             input_docs, input_ids = await self._gather_inputs(config, space_type, space_id)
             
             yield ProgressUpdate("prompts", "Loading prompts...", 25).to_sse()
-            system_prompt, prompt_id, schema = await self.prompt_service.get_prompt_for_role_task(
+            prompt_result = await self.prompt_service.get_prompt_for_role_task(
                 role_name=config["builder_role"], task_name=config["builder_task"]
             )
-            
+            # Support both 3-tuple (legacy) and 4-tuple (with prompt_version)
+            if len(prompt_result) == 4:
+                system_prompt, prompt_id, schema, prompt_version = prompt_result
+            else:
+                system_prompt, prompt_id, schema = prompt_result
+                prompt_version = "unknown"
+
             user_message = self._build_user_message(config, inputs, input_docs)
-            
+
             model, max_tokens, temperature = resolve_model_params(options, self.model)
-            
+
             ctx = BuildContext(
                 config=config, handler=handler, input_docs=input_docs, input_ids=input_ids,
                 system_prompt=system_prompt, prompt_id=prompt_id, schema=schema,
                 user_message=user_message, model=model, max_tokens=max_tokens,
                 temperature=temperature, doc_type_id=doc_type_id,
                 space_type=space_type, space_id=space_id,
+                prompt_version=prompt_version,
             )
             
             run_id = await self._start_llm_logging(ctx, input_docs)

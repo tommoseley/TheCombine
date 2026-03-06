@@ -42,26 +42,27 @@ class PromptServiceAdapter:
     """
     Adapts RolePromptService to DocumentBuilder's PromptServiceProtocol.
     """
-    
+
     def __init__(self, role_prompt_service: RolePromptService):
         self.svc = role_prompt_service
-    
+
     async def get_prompt_for_role_task(
         self,
         role_name: str,
         task_name: str
-    ) -> tuple[str, str, Dict[str, Any]]:
+    ) -> tuple[str, str, Dict[str, Any], str]:
         """Get prompt for a role/task combination."""
         composed = await self.svc.get_role_task(role_name, task_name)
-        
+
         if not composed:
             raise ValueError(f"No prompt found for {role_name}/{task_name}")
-        
+
         prompt_text, prompt_id = await self.svc.build_prompt(role_name, task_name)
-        
+
         schema = composed.expected_schema or {}
-        
-        return prompt_text, str(prompt_id), schema
+        prompt_version = composed.version or "unknown"
+
+        return prompt_text, str(prompt_id), schema, prompt_version
 
 
 # =============================================================================

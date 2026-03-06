@@ -239,9 +239,11 @@
     {
       "edge_id": "qa_circuit_breaker",
       "from_node_id": "qa_gate",
-      "to_node_id": "end_blocked",
+      "to_node_id": null,
       "outcome": "fail",
-      "label": "Circuit breaker - max remediation attempts",
+      "non_advancing": true,
+      "label": "Circuit breaker - escalate to operator",
+      "escalation_options": ["retry", "abandon"],
       "conditions": [
         {
           "type": "retry_count",
@@ -290,7 +292,7 @@
         "qa_gate",
         "remediation"
       ],
-      "on_trip": "end_blocked"
+      "on_trip": "escalate"
     }
   },
   "metadata": {

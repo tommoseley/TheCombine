@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks';
 import ExecutionList from './ExecutionList';
 import ExecutionDetail from './ExecutionDetail';
@@ -10,30 +11,32 @@ import CostDashboard from './CostDashboard';
  * This is separate from AdminWorkbench (prompt/config editing).
  * AdminPanel provides the operational visibility that was previously
  * served by the HTMX admin section.
+ * WS-DEEPLINK-001: Replaced manual pathname matching with React Router hooks.
  */
 export default function AdminPanel() {
     const { isAdmin, loading: authLoading } = useAuth();
+    const { executionId: urlExecutionId } = useParams();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('executions');
     const [selectedExecutionId, setSelectedExecutionId] = useState(null);
 
     // Check URL for deep links:
     //   /admin?execution=xxx (query param)
-    //   /admin/executions/xxx (path param)
+    //   /admin/executions/:executionId (route param via React Router)
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(location.search);
         const executionParam = params.get('execution');
         if (executionParam) {
             setSelectedExecutionId(executionParam);
             setActiveTab('executions');
             return;
         }
-        // Parse /admin/executions/{id} from path
-        const pathMatch = window.location.pathname.match(/^\/admin\/executions\/(.+)$/);
-        if (pathMatch) {
-            setSelectedExecutionId(pathMatch[1]);
+        // Use React Router param instead of manual pathname parsing
+        if (urlExecutionId) {
+            setSelectedExecutionId(urlExecutionId);
             setActiveTab('executions');
         }
-    }, []);
+    }, [urlExecutionId, location.search]);
 
     if (authLoading) {
         return (

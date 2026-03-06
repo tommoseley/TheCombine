@@ -609,12 +609,60 @@ class PlanExecutor:
         if choice == "abandon":
             state.set_completed("abandoned", gate_outcome="escalation_abandon")
         elif choice == "retry":
-            # Reset retry count and continue
-            state.retry_counts[state.current_node_id] = 0
+            # Reset retry count for the GENERATING node (not current QA node).
+            # Retry counts are keyed by generating_node_id per WS-INTAKE-ENGINE-001.
+            retry_key = state.generating_node_id or state.current_node_id
+            state.retry_counts[retry_key] = 0
             state.status = DocumentWorkflowStatus.RUNNING
         else:
             # Other choices may need custom handling
             state.status = DocumentWorkflowStatus.RUNNING
+
+        await self._persistence.save(state)
+        return state
+
+    async def cancel_execution(
+        self,
+        execution_id: str,
+    ) -> DocumentWorkflowState:
+        """Cancel a running or paused workflow execution (WS-RING0-002).
+
+        Args:
+            execution_id: The execution to cancel
+
+        Returns:
+            Updated execution state with status=completed, terminal_outcome=cancelled
+
+        Raises:
+            PlanExecutorError: If execution not found or already in terminal state
+        """
+        state = await self._persistence.load(execution_id)
+        if not state:
+            raise PlanExecutorError(f"Execution not found: {execution_id}")
+
+        # Only running or paused executions can be cancelled
+        if state.status not in (
+            DocumentWorkflowStatus.RUNNING,
+            DocumentWorkflowStatus.PAUSED,
+        ):
+            raise PlanExecutorError(
+                f"Cannot cancel execution in state '{state.status.value}'. "
+                f"Only running or paused executions can be cancelled."
+            )
+
+        # Clear any active escalation or pause state
+        if state.escalation_active:
+            state.clear_escalation()
+        if state.pending_user_input:
+            state.clear_pause()
+
+        # Set terminal state
+        state.set_completed("cancelled", gate_outcome="operator_cancelled")
+        state.record_execution(
+            node_id=state.current_node_id,
+            outcome="cancelled",
+            metadata={"cancelled_by": "operator"},
+        )
 
         await self._persistence.save(state)
         return state

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useParams, useNavigate, useLocation, useMatch } from 'react-router-dom';
 
 import ProjectTree from './components/ProjectTree';
 import Floor from './components/Floor';
@@ -59,20 +59,30 @@ function UserButton({ user, onClick }) {
 
 /**
  * Main app content (shown when authenticated)
- * Reads optional projectId from URL params for deep linking.
+ * Reads optional projectId and displayId from URL params for deep linking.
+ * WS-DEEPLINK-001: Cold-load resolution for all deep link routes.
  */
 function AppContent() {
     const { user } = useAuth();
-    const { projectId: urlProjectId } = useParams();
+    const { projectId: urlProjectId, displayId: urlDisplayId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
+    // Phase 1: Replace pathname.includes with declarative route matching
+    const workBinderMatch = useMatch('/projects/:projectId/work-binder/*');
+    const docsMatch = useMatch('/projects/:projectId/docs/:displayId');
     const [showArchived, setShowArchived] = useState(false);
     const { projects, loading, error, refresh: refreshProjects } = useProjects({ includeArchived: showArchived });
     const [selectedProjectId, setSelectedProjectId] = useState(null);
-    // Auto-expand work_package node when URL contains /work-binder
+    // Auto-expand work_package node when route matches /work-binder
     const [autoExpandNode, setAutoExpandNode] = useState(
-        location.pathname.includes('/work-binder') ? 'work_package' : null
+        workBinderMatch ? 'work_package' : null
     );
+    // Phase 2: Deep-link document resolution state
+    const [deepLinkDocNode, setDeepLinkDocNode] = useState(
+        docsMatch ? urlDisplayId : null
+    );
+    const [projectNotFound, setProjectNotFound] = useState(false);
+    const [docNotFound, setDocNotFound] = useState(false);
     const [showIntakeSidecar, setShowIntakeSidecar] = useState(false);
     const [showUserSidecar, setShowUserSidecar] = useState(false);
     const { theme, setTheme } = useTheme();
@@ -85,15 +95,44 @@ function AppContent() {
             );
             if (entry) {
                 setSelectedProjectId(entry[0]); // internal UUID key
+                setProjectNotFound(false);
+            } else {
+                // Phase 4: Project not found in loaded project list
+                setProjectNotFound(true);
             }
+        } else if (urlProjectId && Object.keys(projects).length === 0 && !loading) {
+            // Projects loaded but empty — project cannot exist
+            setProjectNotFound(true);
         }
-    }, [urlProjectId, projects]);
+    }, [urlProjectId, projects, loading]);
+
+    // Phase 2: Resolve /docs/:displayId to a pipeline node on cold load
+    useEffect(() => {
+        if (!docsMatch || !urlDisplayId || !urlProjectId) return;
+        // Validate the display_id by fetching the document
+        api.getDocumentByDisplayId(urlProjectId, urlDisplayId)
+            .then(doc => {
+                if (doc) {
+                    // Determine the pipeline node from the document type
+                    const docType = doc.document_type || doc.doc_type_id;
+                    if (docType) {
+                        setAutoExpandNode(docType);
+                        setDeepLinkDocNode(docType);
+                    }
+                    setDocNotFound(false);
+                }
+            })
+            .catch(() => {
+                setDocNotFound(true);
+                setDeepLinkDocNode(null);
+            });
+    }, [docsMatch, urlDisplayId, urlProjectId]);
 
     // Select first project when loaded and no URL projectId
     const projectIds = Object.keys(projects);
     const activeProjectId = selectedProjectId && projects[selectedProjectId]
         ? selectedProjectId
-        : projectIds[0] || null;
+        : (urlProjectId ? null : projectIds[0] || null);
 
     // Update document title when project changes
     useEffect(() => {
@@ -108,6 +147,9 @@ function AppContent() {
     const handleSelectProject = (projectId) => {
         setSelectedProjectId(projectId);
         setAutoExpandNode(null);
+        setDeepLinkDocNode(null);
+        setProjectNotFound(false);
+        setDocNotFound(false);
         // Update URL to reflect selected project
         const project = projects[projectId];
         if (project?.projectId) {
@@ -233,6 +275,54 @@ function AppContent() {
         );
     }
 
+    // Phase 4: Project not found — show 404 within the app shell
+    if (projectNotFound && urlProjectId) {
+        return (
+            <div className={`flex h-screen items-center justify-center theme-${theme}`}
+                 style={{ background: 'var(--bg-canvas)' }}>
+                <div className="text-center">
+                    <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>404</h1>
+                    <p className="mb-2" style={{ color: 'var(--text-muted)' }}>
+                        Project not found: <code style={{ color: 'var(--text-secondary)' }}>{urlProjectId}</code>
+                    </p>
+                    <p className="mb-4" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                        The project may have been deleted or the URL may be incorrect.
+                    </p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600"
+                    >
+                        Back to Lobby
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Phase 4: Document not found — show 404 within the app shell
+    if (docNotFound && urlDisplayId) {
+        return (
+            <div className={`flex h-screen items-center justify-center theme-${theme}`}
+                 style={{ background: 'var(--bg-canvas)' }}>
+                <div className="text-center">
+                    <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>404</h1>
+                    <p className="mb-2" style={{ color: 'var(--text-muted)' }}>
+                        Document not found: <code style={{ color: 'var(--text-secondary)' }}>{urlDisplayId}</code>
+                    </p>
+                    <p className="mb-4" style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                        The document may not exist in project <code>{urlProjectId}</code>.
+                    </p>
+                    <button
+                        onClick={() => navigate(urlProjectId ? `/projects/${urlProjectId}` : '/')}
+                        className="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600"
+                    >
+                        Back to Project
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={`flex flex-col h-screen theme-${theme}`}>
             {/* Tier 1 Header - Logged In (48px) */}
@@ -291,7 +381,7 @@ function AppContent() {
                             projectName={projects[activeProjectId]?.name}
                             isArchived={projects[activeProjectId]?.isArchived}
                             savedLayout={projects[activeProjectId]?.metadata?.floor_layout}
-                            autoExpandNodeId={autoExpandNode}
+                            autoExpandNodeId={autoExpandNode || deepLinkDocNode}
                             theme={theme}
                             onThemeChange={setTheme}
                             onProjectUpdate={handleProjectUpdate}
@@ -299,6 +389,21 @@ function AppContent() {
                             onProjectUnarchive={handleProjectUnarchive}
                             onProjectDelete={handleProjectDelete}
                         />
+                    ) : urlProjectId ? (
+                        /* Phase 3: Loading state while resolving project from URL */
+                        <div className="flex items-center justify-center h-full"
+                             style={{ background: 'var(--bg-canvas)' }}>
+                            <div className="text-center">
+                                <img
+                                    src="/logo-light.png"
+                                    alt="The Combine"
+                                    className="h-12 mx-auto mb-4 animate-pulse"
+                                />
+                                <p style={{ color: 'var(--text-muted)' }}>
+                                    Loading project...
+                                </p>
+                            </div>
+                        </div>
                     ) : (
                         <div className="flex items-center justify-center h-full"
                              style={{ background: 'var(--bg-canvas)' }}>

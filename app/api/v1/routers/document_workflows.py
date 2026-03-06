@@ -508,6 +508,59 @@ async def handle_escalation(
         )
 
 
+@router.post(
+    "/executions/{execution_id}/cancel", response_model=ExecuteStepResponse
+)
+async def cancel_execution(
+    execution_id: str,
+    executor: PlanExecutor = Depends(get_executor),
+) -> ExecuteStepResponse:
+    """Cancel a running or paused workflow execution (WS-RING0-002).
+
+    Status validation:
+    - running -> cancellable
+    - paused -> cancellable
+    - completed -> 409 Conflict
+    - cancelled -> 409 Conflict
+    - not found -> 404
+    """
+    try:
+        state = await executor.cancel_execution(execution_id=execution_id)
+
+        return ExecuteStepResponse(
+            execution_id=state.execution_id,
+            status=state.status.value,
+            current_node_id=state.current_node_id,
+            terminal_outcome=state.terminal_outcome,
+            pending_user_input=state.pending_user_input,
+            pending_user_input_rendered=state.pending_user_input_rendered,
+            pending_choices=state.pending_choices,
+            pending_user_input_payload=state.pending_user_input_payload,
+            pending_user_input_schema_ref=state.pending_user_input_schema_ref,
+            escalation_active=state.escalation_active,
+            escalation_options=state.escalation_options,
+        )
+
+    except PlanExecutorError as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_msg,
+            )
+        elif "cannot cancel" in error_msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_msg,
+            )
+        else:
+            logger.error(f"Failed to cancel execution: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg,
+            )
+
+
 @router.get("/plans", response_model=List[WorkflowPlanSummary])
 async def list_workflow_plans() -> List[WorkflowPlanSummary]:
     """List all available workflow plans."""
