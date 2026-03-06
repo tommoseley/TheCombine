@@ -203,6 +203,32 @@ export const api = {
     getDocumentByDisplayId: (projectId, displayId) =>
         request(`/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(displayId)}`),
 
+    // Render document to Markdown (WS-RENDER-001/003/004)
+    renderDocument: (projectId, displayId, { profile = 'standard', mode = 'standard' } = {}) =>
+        fetch(`${API_BASE}/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(displayId)}/render?format=md&profile=${encodeURIComponent(profile)}&mode=${encodeURIComponent(mode)}`, {
+            credentials: 'same-origin',
+        }).then(async r => {
+            if (r.status === 409) {
+                const data = await r.json();
+                throw new ApiError(data.message || 'IA verification failed', 409, data);
+            }
+            if (!r.ok) throw new Error(`Render failed: ${r.status}`);
+            return r.blob();
+        }),
+
+    // Render project binder to Markdown (WS-RENDER-002/003/004)
+    renderProjectBinder: (projectId, { profile = 'print', mode = 'standard' } = {}) =>
+        fetch(`${API_BASE}/projects/${encodeURIComponent(projectId)}/render?scope=project&format=md&profile=${encodeURIComponent(profile)}&mode=${encodeURIComponent(mode)}`, {
+            credentials: 'same-origin',
+        }).then(async r => {
+            if (r.status === 409) {
+                const data = await r.json();
+                throw new ApiError(data.message || 'IA verification failed', 409, data);
+            }
+            if (!r.ok) throw new Error(`Binder render failed: ${r.status}`);
+            return r.blob();
+        }),
+
     // RenderModel (data-driven document display)
     getDocumentRenderModel: (projectId, docTypeId, instanceId) => {
         const qs = instanceId ? `?instance_id=${encodeURIComponent(instanceId)}` : '';

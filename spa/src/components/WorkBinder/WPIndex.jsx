@@ -2,10 +2,12 @@
  * WPIndex -- Vertical Work Package Index (left panel).
  *
  * Lists candidates (from IP) above governed WPs.
+ * WS-WB-030: Nested WS summary rows under selected WP.
  *
- * WS-WB-007, WS-WB-009.
+ * WS-WB-007, WS-WB-009, WS-WB-030.
  */
 import { useState, useCallback } from 'react';
+import { getStateBadge } from './wsUtils';
 
 const STATE_COLORS = {
     PLANNED: 'var(--state-ready-bg)',
@@ -28,6 +30,8 @@ export default function WPIndex({
     wps, selectedWpId, onSelectWp,
     candidates = [], selectedCandidateId, onSelectCandidate,
     importAvailable = false, onImportCandidates,
+    statements = [], selectedWsId, onSelectWs,
+    statementsLoading = false,
 }) {
     const [importing, setImporting] = useState(false);
     const [showPromoted, setShowPromoted] = useState(false);
@@ -125,21 +129,51 @@ export default function WPIndex({
                     const isSelected = wp.id === selectedWpId;
                     const stateColor = getStateColor(wp.state);
                     return (
-                        <button
-                            key={wp.id}
-                            className={`wb-index-item ${isSelected ? 'wb-index-item--selected' : ''}`}
-                            onClick={() => onSelectWp(wp.id)}
-                        >
-                            <div
-                                className="wb-index-state-sliver"
-                                style={{ backgroundColor: stateColor }}
-                                title={wp.state || 'PLANNED'}
-                            />
-                            <div className="wb-index-item-content">
-                                <span className="wb-index-item-id">{formatWpId(wp)}</span>
-                                <span className="wb-index-item-title">{wp.title || 'Untitled'}</span>
-                            </div>
-                        </button>
+                        <div key={wp.id}>
+                            <button
+                                className={`wb-index-item ${isSelected ? 'wb-index-item--selected' : ''}`}
+                                onClick={() => onSelectWp(wp.id)}
+                            >
+                                <div
+                                    className="wb-index-state-sliver"
+                                    style={{ backgroundColor: stateColor }}
+                                    title={wp.state || 'PLANNED'}
+                                />
+                                <div className="wb-index-item-content">
+                                    <span className="wb-index-item-id">{formatWpId(wp)}</span>
+                                    <span className="wb-index-item-title">{wp.title || 'Untitled'}</span>
+                                </div>
+                            </button>
+
+                            {/* WS-WB-030: Nested WS summary rows under selected WP */}
+                            {isSelected && statements.length > 0 && (
+                                <div className="wb-index-ws-list">
+                                    {statements.map((ws) => {
+                                        const badge = getStateBadge(ws.state);
+                                        return (
+                                            <button
+                                                key={ws.ws_id}
+                                                className={`wb-index-ws-row ${ws.ws_id === selectedWsId ? 'wb-index-ws-row--selected' : ''}`}
+                                                onClick={() => onSelectWs(ws.ws_id)}
+                                            >
+                                                <span
+                                                    className="wb-index-ws-pip"
+                                                    style={{ backgroundColor: `var(${badge.cssVar})` }}
+                                                    title={badge.label}
+                                                />
+                                                <span className="wb-index-ws-id wb-mono">{ws.ws_id || 'WS-???'}</span>
+                                                <span className="wb-index-ws-title">{ws.title || ws.objective || 'Untitled'}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            {isSelected && statementsLoading && (
+                                <div className="wb-index-ws-list">
+                                    <span className="wb-index-ws-loading">Loading...</span>
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </div>

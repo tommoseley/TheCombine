@@ -735,6 +735,316 @@ async def get_project_document(
     }
 
 
+@router.get("/{project_id}/documents/{display_id}/render")
+async def render_document_markdown(
+    project_id: str,
+    display_id: str,
+    format: str = Query("md", description="Output format (only 'md' supported)"),
+    profile: str = Query("standard", description="Render profile: standard | print"),
+    mode: str = Query("standard", description="Render mode: standard | evidence"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render a document to Markdown using its IA definitions (WS-RENDER-001/004).
+
+    Resolves the document by display_id, loads IA from package.yaml,
+    and renders to Markdown using the block renderer.
+
+    When mode=evidence, prepends YAML frontmatter with provenance data.
+
+    Returns the rendered Markdown as a downloadable attachment.
+    """
+    # Validate params
+    if format != "md":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported format '{format}'. Only 'md' is supported.",
+        )
+    if mode not in ("standard", "evidence"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported mode '{mode}'. Use 'standard' or 'evidence'.",
+        )
+
+    # Resolve project
+    project = await _resolve_project(project_id, db)
+
+    # Resolve document by display_id
+    if not _DISPLAY_ID_PATTERN.match(display_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid display_id format: {display_id}. Expected format like PD-001.",
+        )
+
+    from app.domain.services.display_id_service import resolve_display_id
+    try:
+        doc_type_id = await resolve_display_id(db, display_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    result = await db.execute(
+        select(Document).where(
+            Document.space_id == project.id,
+            Document.doc_type_id == doc_type_id,
+            Document.display_id == display_id,
+            Document.is_latest == True,
+        )
+    )
+    document = result.scalars().first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {display_id} in project {project_id}",
+        )
+
+    if not document.content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {display_id} has no content",
+        )
+
+    # Load IA definitions from package.yaml
+    ia = None
+    try:
+        from app.config.package_loader import get_package_loader
+        package = get_package_loader().get_document_type(doc_type_id)
+        ia = package.information_architecture
+    except Exception:
+        pass
+
+    # Unwrap document content
+    from app.api.v1.services.render_pure import unwrap_raw_envelope
+    content = unwrap_raw_envelope(document.content)
+
+    # Apply handler transform (computed fields)
+    if isinstance(content, dict):
+        try:
+            from app.domain.handlers.registry import handler_exists, get_handler
+            if handler_exists(doc_type_id):
+                content = get_handler(doc_type_id).transform(content)
+        except Exception:
+            pass
+
+    # IA gate (WS-RENDER-003): verify content before rendering
+    from app.domain.services.ia_gate import verify_document_ia
+    ia_result = verify_document_ia(content, ia)
+    if ia_result["status"] == "FAIL":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "status": "ia_violation",
+                "message": f"Rendering blocked: IA verification failed for {display_id}.",
+                "failures": [
+                    {"display_id": display_id, "summary": f}
+                    for f in ia_result["failures"]
+                ],
+            },
+        )
+
+    # Render to Markdown
+    from app.domain.services.markdown_renderer import render_document_to_markdown
+
+    if ia:
+        markdown = render_document_to_markdown(content, ia)
+    else:
+        # Fallback: render raw content as key-value dump
+        parts = []
+        if isinstance(content, dict):
+            for key, value in content.items():
+                parts.append(f"## {key.replace('_', ' ').title()}\n\n{value}")
+        markdown = "\n\n".join(parts) + "\n" if parts else "No content.\n"
+
+    # Evidence mode (WS-RENDER-004): prepend YAML frontmatter
+    if mode == "evidence":
+        from app.domain.services.evidence_renderer import render_evidence_header
+        evidence_header = render_evidence_header(
+            project_id=project.project_id,
+            display_id=display_id,
+            doc_type_id=doc_type_id,
+            content=content,
+            document_version=getattr(document, "version", None),
+            ia_status=ia_result["status"] if ia_result["status"] != "SKIP" else None,
+        )
+        markdown = evidence_header + "\n" + markdown
+
+    # Build filename
+    suffix = "-evidence" if mode == "evidence" else ""
+    filename = f"{project.project_id}-{display_id}{suffix}.md"
+
+    from fastapi.responses import Response
+    return Response(
+        content=markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@router.get("/{project_id}/render")
+async def render_project_binder(
+    project_id: str,
+    scope: str = Query(..., description="Render scope (only 'project' supported)"),
+    format: str = Query("md", description="Output format (only 'md' supported)"),
+    profile: str = Query("print", description="Render profile: standard | print"),
+    mode: str = Query("standard", description="Render mode: standard | evidence"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Render all project documents as a single Markdown binder (WS-RENDER-002/004).
+
+    Assembles cover, TOC, and all documents in deterministic pipeline order.
+    WPs are ordered by display_id; WSs within WPs follow ws_index order.
+
+    When mode=evidence, includes per-document YAML frontmatter and Evidence Index.
+
+    Returns the rendered Markdown as a downloadable attachment.
+    """
+    # Validate params
+    if scope != "project":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported scope '{scope}'. Only 'project' is supported.",
+        )
+    if format != "md":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported format '{format}'. Only 'md' is supported.",
+        )
+    if mode not in ("standard", "evidence"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported mode '{mode}'. Use 'standard' or 'evidence'.",
+        )
+
+    # Resolve project
+    project = await _resolve_project(project_id, db)
+
+    # Query all latest documents for this project
+    result = await db.execute(
+        select(Document).where(
+            Document.space_type == "project",
+            Document.space_id == project.id,
+            Document.is_latest == True,
+        )
+    )
+    all_docs = result.scalars().all()
+
+    # Build document dicts for the binder renderer
+    from app.config.package_loader import get_package_loader
+    from app.api.v1.services.render_pure import unwrap_raw_envelope
+
+    loader = None
+    try:
+        loader = get_package_loader()
+    except Exception:
+        pass
+
+    binder_docs = []
+    for doc in all_docs:
+        content = unwrap_raw_envelope(doc.content) if doc.content else {}
+
+        # Apply handler transform (computed fields)
+        if isinstance(content, dict):
+            try:
+                from app.domain.handlers.registry import handler_exists, get_handler
+                if handler_exists(doc.doc_type_id):
+                    content = get_handler(doc.doc_type_id).transform(content)
+            except Exception:
+                pass
+
+        # Load IA
+        ia = None
+        if loader:
+            try:
+                pkg = loader.get_document_type(doc.doc_type_id)
+                ia = pkg.information_architecture
+            except Exception:
+                pass
+
+        entry = {
+            "display_id": getattr(doc, "display_id", None) or doc.doc_type_id,
+            "doc_type_id": doc.doc_type_id,
+            "title": doc.title or doc.doc_type_id,
+            "content": content,
+            "ia": ia,
+        }
+
+        # For WPs, include ws_index from content
+        if doc.doc_type_id == "work_package" and isinstance(content, dict):
+            entry["ws_index"] = content.get("ws_index", [])
+
+        binder_docs.append(entry)
+
+    # IA gate (WS-RENDER-003): verify all documents before rendering binder
+    from app.domain.services.ia_gate import verify_document_ia
+    ia_failures = []
+    for entry in binder_docs:
+        ia_result = verify_document_ia(entry.get("content", {}), entry.get("ia"))
+        if ia_result["status"] == "FAIL":
+            ia_failures.append({
+                "display_id": entry.get("display_id", ""),
+                "summary": "; ".join(ia_result["failures"]),
+            })
+
+    if ia_failures:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "status": "ia_violation",
+                "message": f"Binder rendering blocked: IA verification failed for {len(ia_failures)} document(s).",
+                "failures": ia_failures,
+            },
+        )
+
+    # Render binder
+    from app.domain.services.binder_renderer import render_project_binder as _render_binder
+
+    markdown = _render_binder(
+        project_id=project.project_id,
+        project_title=project.name or project.project_id,
+        documents=binder_docs,
+    )
+
+    # Evidence mode (WS-RENDER-004): add per-document frontmatter + Evidence Index
+    if mode == "evidence":
+        from app.domain.services.evidence_renderer import (
+            render_evidence_header, compute_source_hash, render_evidence_index,
+        )
+        # Build evidence index data
+        evidence_entries = []
+        for entry in binder_docs:
+            ia_check = verify_document_ia(entry.get("content", {}), entry.get("ia"))
+            evidence_entries.append({
+                "display_id": entry.get("display_id", ""),
+                "title": entry.get("title", ""),
+                "version": "",  # version not available in binder doc dict
+                "ia_status": ia_check["status"],
+                "source_hash": compute_source_hash(entry.get("content", {})),
+            })
+
+        # Insert Evidence Index after cover + TOC
+        evidence_index = render_evidence_index(evidence_entries)
+        # Find the first "---" separator (after TOC) and insert evidence index
+        parts = markdown.split("\n---\n", 1)
+        if len(parts) == 2:
+            markdown = parts[0] + "\n\n" + evidence_index + "\n\n---\n" + parts[1]
+        else:
+            markdown = evidence_index + "\n\n" + markdown
+
+    suffix = "-evidence" if mode == "evidence" else ""
+    filename = f"{project.project_id}-binder{suffix}.md"
+
+    from fastapi.responses import Response
+    return Response(
+        content=markdown,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
 @router.get("/{project_id}/documents/{doc_type_id}/render-model")
 async def get_document_render_model(
     project_id: str,
@@ -823,6 +1133,7 @@ async def get_document_render_model(
         meta: Dict[str, Any] = {
             "document_type": doc_type_id,
             "document_type_name": doc_type.name if doc_type else None,
+            "display_id": getattr(document, 'display_id', None),
             "version": document.version,
             "lifecycle_state": document.lifecycle_state,
             "created_at": document.created_at.isoformat() if document.created_at else None,

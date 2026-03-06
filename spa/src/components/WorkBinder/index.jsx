@@ -6,10 +6,16 @@
  *
  * WS-WB-007: Dedicated screen replacing the flat WorkBinder.jsx.
  * WS-WB-009: Candidate listing, import, and promotion.
+ * WS-WB-030: Studio layout — WS state lifted to orchestrator.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
+import {
+    fetchWorkStatements, createWorkStatement,
+    stabilizeWorkStatement, reorderWorkStatements,
+    formatWsForClipboard,
+} from './wsUtils';
 import WPIndex from './WPIndex';
 import WPContentArea from './WPContentArea';
 import './WorkBinder.css';
@@ -62,6 +68,11 @@ export default function WorkBinder({ projectId, projectCode }) {
     const [wpDetail, setWpDetail] = useState(null);
     const [initialResolved, setInitialResolved] = useState(!urlDisplayId);
 
+    // WS-WB-030: Lifted WS state
+    const [selectedWsId, setSelectedWsId] = useState(null);
+    const [statements, setStatements] = useState([]);
+    const [statementsLoading, setStatementsLoading] = useState(false);
+
     const refresh = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -105,7 +116,7 @@ export default function WorkBinder({ projectId, projectCode }) {
                 setActiveSubView('WORK');
             }
         } else if (prefix === 'WS') {
-            // WS: find parent WP via API, then select parent and expand
+            // WS: find parent WP via API, then select parent and the WS
             api.getDocumentByDisplayId(projectCode, urlDisplayId)
                 .then(doc => {
                     if (doc?.content?.parent_wp_id) {
@@ -114,6 +125,8 @@ export default function WorkBinder({ projectId, projectCode }) {
                             setSelectedWpId(parentWp.id);
                             setSelectedCandidateId(null);
                             setActiveSubView('WORK');
+                            // Also select the specific WS
+                            setSelectedWsId(doc.content.ws_id || urlDisplayId);
                         }
                     }
                 })
@@ -142,8 +155,8 @@ export default function WorkBinder({ projectId, projectCode }) {
     const handleSelectWp = useCallback((wpId) => {
         setSelectedWpId(wpId);
         setSelectedCandidateId(null);
+        setSelectedWsId(null); // Clear WS selection on WP change
         setActiveSubView('WORK');
-        // Update URL with WP display_id
         const wp = wps.find(w => w.id === wpId);
         if (wp) updateUrlForSelection(wp.display_id || wp.wp_id);
     }, [wps, updateUrlForSelection]);
@@ -151,10 +164,24 @@ export default function WorkBinder({ projectId, projectCode }) {
     const handleSelectCandidate = useCallback((wpcId) => {
         setSelectedCandidateId(wpcId);
         setSelectedWpId(null);
-        // Update URL with WPC display_id
+        setSelectedWsId(null);
         const cand = candidates.find(c => c.wpc_id === wpcId);
         if (cand) updateUrlForSelection(cand.display_id || cand.wpc_id);
     }, [candidates, updateUrlForSelection]);
+
+    // WS-WB-030: WS selection handler
+    const handleSelectWs = useCallback((wsId) => {
+        if (!wsId) {
+            setSelectedWsId(null);
+            // Revert URL to WP display_id
+            const wp = wps.find(w => w.id === selectedWpId);
+            if (wp) updateUrlForSelection(wp.display_id || wp.wp_id);
+            return;
+        }
+        setSelectedWsId(wsId);
+        const ws = statements.find(s => s.ws_id === wsId);
+        if (ws) updateUrlForSelection(ws.ws_id);
+    }, [statements, wps, selectedWpId, updateUrlForSelection]);
 
     const handleImportCandidates = useCallback(async () => {
         if (!sourceIpId) return;
@@ -189,6 +216,7 @@ export default function WorkBinder({ projectId, projectCode }) {
         if (cand) {
             setSelectedCandidateId(wpcId);
             setSelectedWpId(null);
+            setSelectedWsId(null);
         }
     }, [candidates]);
 
@@ -201,24 +229,107 @@ export default function WorkBinder({ projectId, projectCode }) {
         }
     }, [projectId, refresh]);
 
+    // WS-WB-030: Lifted WS action callbacks
+    const loadStatements = useCallback(async (wpContentId) => {
+        setStatementsLoading(true);
+        const data = await fetchWorkStatements(projectId, wpContentId);
+        setStatements(data);
+        setStatementsLoading(false);
+        return data;
+    }, [projectId]);
+
+    const handleCreateWs = useCallback(async (intent) => {
+        const wp = wps.find(w => w.id === selectedWpId);
+        const wpContentId = wp?.wp_id;
+        if (!wpContentId) return;
+        try {
+            await createWorkStatement(wpContentId, intent);
+            await loadStatements(wpContentId);
+        } catch (e) {
+            setError('Create failed: ' + e.message);
+        }
+    }, [wps, selectedWpId, loadStatements]);
+
+    const handleStabilize = useCallback(async (wsId) => {
+        const wp = wps.find(w => w.id === selectedWpId);
+        const wpContentId = wp?.wp_id;
+        if (!wpContentId) return;
+        try {
+            await stabilizeWorkStatement(wsId);
+            await loadStatements(wpContentId);
+        } catch (e) {
+            setError('Stabilize failed: ' + e.message);
+        }
+    }, [wps, selectedWpId, loadStatements]);
+
+    const handleMoveWs = useCallback(async (wsId, direction) => {
+        const idx = statements.findIndex(ws => ws.ws_id === wsId);
+        if (idx < 0) return;
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= statements.length) return;
+        const wp = wps.find(w => w.id === selectedWpId);
+        const wpContentId = wp?.wp_id;
+        if (!wpContentId) return;
+        // Optimistic swap
+        const newOrder = [...statements];
+        [newOrder[idx], newOrder[newIdx]] = [newOrder[newIdx], newOrder[idx]];
+        setStatements(newOrder);
+        try {
+            await reorderWorkStatements(
+                wpContentId,
+                newOrder.map(ws => ({ ws_id: ws.ws_id, order_key: ws.order_key || '' })),
+            );
+        } catch (e) {
+            await loadStatements(wpContentId);
+            setError('Reorder failed: ' + e.message);
+        }
+    }, [statements, wps, selectedWpId, loadStatements]);
+
+    const handleCopyWs = useCallback((ws) => {
+        const text = formatWsForClipboard(ws);
+        navigator.clipboard.writeText(text).catch(() => {
+            console.warn('WorkBinder: clipboard write failed');
+        });
+    }, []);
+
     const selectedWp = wps.find(wp => wp.id === selectedWpId) || null;
     const selectedCandidate = candidates.find(c => c.wpc_id === selectedCandidateId) || null;
 
-    // Fetch full WP content when a WP is selected (list endpoint returns summary only)
+    // Fetch full WP content + WS list when a WP is selected
     useEffect(() => {
-        if (!selectedWpId) { setWpDetail(null); return; }
+        if (!selectedWpId) {
+            setWpDetail(null);
+            setStatements([]);
+            return;
+        }
         const wp = wps.find(w => w.id === selectedWpId);
         const contentWpId = wp?.wp_id;
-        if (!contentWpId) { setWpDetail(null); return; }
+        if (!contentWpId) {
+            setWpDetail(null);
+            setStatements([]);
+            return;
+        }
         let cancelled = false;
-        api.getWorkPackageDetail(contentWpId)
-            .then(detail => { if (!cancelled) setWpDetail(detail); })
-            .catch(e => {
-                console.warn('WP detail fetch failed:', e.message);
-                if (!cancelled) setWpDetail(null);
-            });
+        setStatementsLoading(true);
+        Promise.all([
+            api.getWorkPackageDetail(contentWpId),
+            fetchWorkStatements(projectId, contentWpId),
+        ]).then(([detail, wsList]) => {
+            if (!cancelled) {
+                setWpDetail(detail);
+                setStatements(wsList);
+                setStatementsLoading(false);
+            }
+        }).catch(e => {
+            console.warn('WP/WS fetch failed:', e.message);
+            if (!cancelled) {
+                setWpDetail(null);
+                setStatements([]);
+                setStatementsLoading(false);
+            }
+        });
         return () => { cancelled = true; };
-    }, [selectedWpId, wps]);
+    }, [selectedWpId, wps, projectId]);
 
     if (loading) {
         return (
@@ -246,7 +357,7 @@ export default function WorkBinder({ projectId, projectCode }) {
             )}
 
             <div className="wb-layout">
-                {/* Left Panel: WP Index */}
+                {/* Left Panel: WP Index + nested WS rows */}
                 <WPIndex
                     wps={wps}
                     selectedWpId={selectedWpId}
@@ -256,6 +367,10 @@ export default function WorkBinder({ projectId, projectCode }) {
                     onSelectCandidate={handleSelectCandidate}
                     importAvailable={importAvailable}
                     onImportCandidates={handleImportCandidates}
+                    statements={statements}
+                    selectedWsId={selectedWsId}
+                    onSelectWs={handleSelectWs}
+                    statementsLoading={statementsLoading}
                 />
 
                 {/* Center: WP Content Area or Candidate Detail */}
@@ -269,6 +384,14 @@ export default function WorkBinder({ projectId, projectCode }) {
                     onPromote={handlePromote}
                     onProposeStatements={handleProposeStatements}
                     onViewCandidate={handleViewCandidate}
+                    statements={statements}
+                    selectedWsId={selectedWsId}
+                    onSelectWs={handleSelectWs}
+                    onCreateWs={handleCreateWs}
+                    onStabilize={handleStabilize}
+                    onMoveUp={(wsId) => handleMoveWs(wsId, 'up')}
+                    onMoveDown={(wsId) => handleMoveWs(wsId, 'down')}
+                    onCopyWs={handleCopyWs}
                 />
             </div>
         </div>

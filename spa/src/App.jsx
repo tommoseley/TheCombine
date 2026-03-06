@@ -280,6 +280,7 @@ function AppContent() {
                     showArchived={showArchived}
                     onToggleShowArchived={() => setShowArchived(prev => !prev)}
                     userSection={<UserButton user={user} onClick={() => setShowUserSidecar(true)} />}
+                    autoCollapse={!!activeProjectId}
                 />
                 <div className="flex-1">
                     {activeProjectId ? (

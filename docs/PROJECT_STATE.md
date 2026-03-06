@@ -1,9 +1,25 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-05
-**Updated By:** Claude (WP-ONTOLOGY-CLEANUP + WS-WEB-CLEANUP-001)
+**Last Updated:** 2026-03-06
+**Updated By:** Claude (WS-RENDER-001 through WS-RENDER-004 + Studio Layout Phase 2)
 
 ## Current Focus
+
+**COMPLETE:** Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004, 2026-03-05)
+- WS-RENDER-001: markdown_renderer.py — 7 block renderers (paragraph, list, ordered-list, table, key-value-pairs, nested-object, card-list), pure function
+- WS-RENDER-002: binder_renderer.py — cover block, TOC, pipeline-ordered assembly, WS nesting under WPs
+- WS-RENDER-003: ia_gate.py — verify_document_ia() with 50% coverage threshold, PASS/FAIL/SKIP
+- WS-RENDER-004: evidence_renderer.py — YAML frontmatter (SHA-256 source_hash), Evidence Index table
+- Render endpoints: single doc + binder, format=md, mode=standard|evidence
+- Download dropdowns: FullDocumentViewer, ConfigDrivenDocViewer, Floor.jsx (binder) — all support standard/evidence
+- IA audit: all 4 document types with IA (project_discovery, implementation_plan, technical_architecture, work_package) fully ADR-054 compliant
+- 52 new render pipeline tests, 3883 total passing
+
+**COMPLETE:** Studio Layout Phase 2: ProjectTree Auto-Collapse + Pipeline Breadcrumb (2026-03-05)
+- ProjectTree auto-collapses to 48px icon rail when project active
+- PipelineBreadcrumb replaces 320px vertical PipelineRail in Work Binder mode
+- Reclaims ~530px horizontal space for Work Binder content
+- WorkBinder progressive disclosure: WSDetailView, wsUtils extracted
 
 **COMPLETE:** WS-WEB-CLEANUP-001 -- Remove Dead Jinja2/HTMX Layer (2026-03-05)
 - Deleted entire app/web/ directory (routes, templates, static, BFF, viewmodels)
@@ -135,7 +151,7 @@
 
 ## Test Suite
 
-- **3808 Tier-1 tests** passing as of 2026-03-05 (reduced from 4067 after removing ~260 orphaned Jinja2/web tests)
+- **3883 Tier-1 tests** passing as of 2026-03-06 (52 new render pipeline tests)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -150,6 +166,10 @@
 | document_readiness | app/domain/services/document_readiness.py | Mechanical readiness gate for downstream consumption |
 | task_execution | app/domain/services/task_execution_service.py | Reusable LLM task invocation outside workflow engine |
 | wb_audit_service | app/domain/services/wb_audit_service.py | Structured audit events for Work Binder mutations |
+| markdown_renderer | app/domain/services/markdown_renderer.py | IA-driven Markdown block rendering (7 render_as types) |
+| binder_renderer | app/domain/services/binder_renderer.py | Project binder assembly (cover, TOC, pipeline ordering) |
+| ia_gate | app/domain/services/ia_gate.py | IA coverage verification gate (50% threshold) |
+| evidence_renderer | app/domain/services/evidence_renderer.py | Evidence mode frontmatter + index generation |
 
 ---
 
@@ -244,22 +264,26 @@ All previous decisions (1-46) plus:
 
 56. **RDS-safe DB reset** -- Individual object drops with pg_depend extension filtering instead of DROP SCHEMA CASCADE (RDS users don't own public schema). Schema bootstrap from pg_dump output instead of init_db.py.
 
+57. **IA-driven Markdown rendering** -- Render pipeline walks IA sections and dispatches to block renderers by render_as type. Pure functions, deterministic output. Evidence mode adds YAML frontmatter with SHA-256 source hash for provenance tracing.
+
+58. **IA gate coverage threshold** -- 50% of IA-declared fields must be present for PASS. Missing fields above threshold are warnings (rendered sections omitted gracefully). Below threshold is FAIL (409 Conflict). Catches broken documents while tolerating optional fields.
+
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-05)
-- WS-WEB-CLEANUP-001: Removed entire Jinja2/HTMX layer (app/web/, dead auth router, 13 orphaned test files)
-- WP-ONTOLOGY-CLEANUP: Terminology sweep (slug→project_id) + instance_id→display_id migration
-- Migration 20260305_001: Dropped legacy uniqueness indexes (applied to dev + prod)
-- WP-ROUTE-001 executed: Unified Routing v2 (ADR-056), deployed to production
-- WP-ID-001 executed (2026-03-04): Document Identity Standard (ADR-055)
+### Recent Work (2026-03-06)
+- Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004): 4 new domain services, render endpoints, download dropdowns
+- Studio Layout Phase 2: ProjectTree auto-collapse, PipelineBreadcrumb in Work Binder mode
+- IA gate coverage threshold: 50% (pragmatic balance for optional fields)
+- Full ADR-054 IA audit: all 4 document types with IA fully compliant
+- 52 new tests (3883 total)
 
 ### Next Work
-- work_package IA section authoring
 - Remaining CRAP targets: get_document_render_model (663), get_production_tracks (627), list_operations (318)
 - check_promotion_validity (CC=41, sole remaining F-grade)
 - Zero-coverage files: admin.py, accounts.py, prompt_assembler.py, schema_resolver.py
+- Three download dropdown components could be consolidated into shared component
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052

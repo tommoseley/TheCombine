@@ -1,14 +1,375 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
-import PipelineRail from './PipelineRail';
-import FullDocumentViewer from './FullDocumentViewer';
 import ContentPanel from './ContentPanel';
-import ProjectWorkflow from './ProjectWorkflow';
+import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
-import { api } from '../api/client';
+
+/**
+ * BinderDownloadDropdown — compact download button with standard/evidence options.
+ */
+function BinderDownloadDropdown({ projectId, projectCode }) {
+    const [open, setOpen] = useState(false);
+    const [downloading, setDownloading] = useState(null);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        function close(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [open]);
+
+    const handleDownload = async (mode) => {
+        setDownloading(mode);
+        try {
+            const blob = await api.renderProjectBinder(projectId, { mode });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const suffix = mode === 'evidence' ? '-evidence' : '';
+            a.download = `${projectCode || projectId}-binder${suffix}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            if (err.status === 409) {
+                alert(`Binder render blocked: ${err.data?.message || 'IA verification failed'}`);
+            } else {
+                console.error('Binder download failed:', err);
+            }
+        } finally {
+            setDownloading(null);
+            setOpen(false);
+        }
+    };
+
+    return (
+        <div ref={ref} className="relative flex-shrink-0">
+            <button
+                onClick={() => setOpen(!open)}
+                className="p-1 rounded hover:bg-white/10 transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                title="Download Project Binder"
+            >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+            </button>
+            {open && (
+                <div
+                    className="absolute right-0 top-full mt-1 z-50 rounded-lg border shadow-lg py-1"
+                    style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-panel)', minWidth: 220 }}
+                >
+                    <button
+                        onClick={() => handleDownload('standard')}
+                        disabled={!!downloading}
+                        className="w-full text-left px-3 py-2 text-[10px] hover:bg-white/10 transition-colors"
+                        style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    >
+                        {downloading === 'standard' ? 'Downloading...' : 'Download Binder'}
+                    </button>
+                    <button
+                        onClick={() => handleDownload('evidence')}
+                        disabled={!!downloading}
+                        className="w-full text-left px-3 py-2 text-[10px] hover:bg-white/10 transition-colors"
+                        style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    >
+                        {downloading === 'evidence' ? 'Downloading...' : 'Download Binder (With Evidence)'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
 
 const THEME_LABELS = { industrial: 'Industrial', light: 'Light', blueprint: 'Blueprint' };
+
+/* Shared artifact-state helpers (same logic as PipelineRail) */
+function getArtifactState(rawState) {
+    if (['produced', 'stabilized', 'ready', 'complete'].includes(rawState)) return 'stabilized';
+    if (['requirements_not_met', 'blocked', 'halted', 'failed'].includes(rawState)) return 'blocked';
+    if (['in_production', 'active', 'queued', 'awaiting_operator'].includes(rawState)) return 'in_progress';
+    if (['ready_for_production', 'waiting', 'pending_acceptance'].includes(rawState)) return 'ready';
+    return 'ready';
+}
+
+const ARTIFACT_COLORS = {
+    blocked: 'var(--state-blocked-bg)',
+    in_progress: 'var(--state-active-bg)',
+    ready: 'var(--state-ready-bg)',
+    stabilized: 'var(--state-stabilized-bg)',
+};
+
+const DOC_TYPE_NAMES = {
+    concierge_intake: 'Concierge Intake',
+    project_discovery: 'Project Discovery',
+    implementation_plan: 'Implementation Plan',
+    technical_architecture: 'Technical Architecture',
+    work_package: 'Work Binder',
+};
+
+function docName(id) {
+    return DOC_TYPE_NAMES[id] || id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+const LINE_STATE_LABELS = {
+    active: { text: 'Active', color: '#f59e0b' },
+    stopped: { text: 'Stopped', color: '#ef4444' },
+    complete: { text: 'Complete', color: '#10b981' },
+    idle: { text: 'Idle', color: 'var(--text-muted)' },
+};
+
+/**
+ * ProjectEditPanel — dropdown panel for project management actions.
+ * Appears below the edit button in the breadcrumb bar.
+ */
+function ProjectEditPanel({ projectId, projectName, isArchived, onUpdate, onArchive, onUnarchive, onDelete, onClose }) {
+    const [name, setName] = useState(projectName || '');
+    const [saving, setSaving] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const panelRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (panelRef.current && !panelRef.current.contains(e.target)) onClose();
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose]);
+
+    const handleSave = async () => {
+        if (!name.trim() || name === projectName) return;
+        setSaving(true);
+        try {
+            await onUpdate(projectId, { name: name.trim() });
+            onClose();
+        } catch { setSaving(false); }
+    };
+
+    const handleArchiveToggle = async () => {
+        try {
+            if (isArchived) await onUnarchive(projectId);
+            else await onArchive(projectId);
+            onClose();
+        } catch {}
+    };
+
+    const handleDelete = async () => {
+        try {
+            await onDelete(projectId);
+            onClose();
+        } catch {}
+    };
+
+    return (
+        <div
+            ref={panelRef}
+            className="absolute top-full right-0 mt-1 z-50 rounded-lg border shadow-xl"
+            style={{
+                background: 'var(--bg-panel)',
+                borderColor: 'var(--border-panel)',
+                width: 280,
+            }}
+        >
+            <div className="p-3">
+                <label
+                    className="text-[10px] font-medium uppercase tracking-wider block mb-1"
+                    style={{ color: 'var(--text-muted)' }}
+                >
+                    Project Name
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleSave()}
+                        className="flex-1 text-sm px-2 py-1.5 rounded border"
+                        style={{
+                            background: 'var(--bg-canvas)',
+                            borderColor: 'var(--border-panel)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                        }}
+                    />
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !name.trim() || name === projectName}
+                        className="text-xs px-3 py-1.5 rounded font-medium transition-colors"
+                        style={{
+                            background: name !== projectName && name.trim() ? '#10b981' : 'var(--bg-canvas)',
+                            color: name !== projectName && name.trim() ? 'white' : 'var(--text-muted)',
+                        }}
+                    >
+                        {saving ? '...' : 'Save'}
+                    </button>
+                </div>
+            </div>
+            <div className="border-t px-3 py-2 flex items-center gap-2" style={{ borderColor: 'var(--border-panel)' }}>
+                <button
+                    onClick={handleArchiveToggle}
+                    className="text-xs px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
+                >
+                    {isArchived ? 'Unarchive' : 'Archive'}
+                </button>
+                <div className="flex-1" />
+                {!confirmDelete ? (
+                    <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="text-xs px-3 py-1.5 rounded hover:bg-red-500/10 transition-colors"
+                        style={{ color: '#ef4444' }}
+                    >
+                        Delete
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleDelete}
+                        className="text-xs px-3 py-1.5 rounded font-medium"
+                        style={{ background: '#ef4444', color: 'white' }}
+                    >
+                        Confirm Delete
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * PipelineBreadcrumb — persistent horizontal status bar for the production line.
+ */
+function PipelineBreadcrumb({ data, selectedNodeId, onSelectNode, projectId, projectCode, projectName, isArchived, lineState, theme, onCycleTheme, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
+    const l1Items = data.filter(d => (d.level || 1) === 1);
+    const ls = LINE_STATE_LABELS[lineState] || LINE_STATE_LABELS.idle;
+    const [showEdit, setShowEdit] = useState(false);
+
+    return (
+        <div
+            className="flex items-center gap-4 px-4 border-b flex-shrink-0"
+            style={{
+                height: 40,
+                background: 'var(--bg-canvas)',
+                borderColor: 'var(--border-panel)',
+            }}
+        >
+            {/* Project identity */}
+            <span
+                className="text-xs font-mono flex-shrink-0"
+                style={{ color: 'var(--text-muted)' }}
+            >
+                {projectCode}
+            </span>
+            <span
+                className="text-xs font-semibold truncate flex-shrink-0"
+                style={{ color: 'var(--text-primary)', maxWidth: 240 }}
+            >
+                {projectName || 'Untitled'}
+            </span>
+
+            {/* Edit button */}
+            <div className="relative flex-shrink-0">
+                <button
+                    onClick={() => setShowEdit(!showEdit)}
+                    className="p-1 rounded hover:bg-white/10 transition-colors"
+                    style={{ color: showEdit ? 'var(--text-primary)' : 'var(--text-muted)' }}
+                    title="Edit project"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                </button>
+                {showEdit && (
+                    <ProjectEditPanel
+                        projectId={projectId}
+                        projectName={projectName}
+                        isArchived={isArchived}
+                        onUpdate={onProjectUpdate}
+                        onArchive={onProjectArchive}
+                        onUnarchive={onProjectUnarchive}
+                        onDelete={onProjectDelete}
+                        onClose={() => setShowEdit(false)}
+                    />
+                )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ width: 1, height: 16, background: 'var(--border-panel)', flexShrink: 0 }} />
+
+            {/* Line state */}
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+                <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ background: ls.color }}
+                />
+                <span className="text-[10px] font-medium" style={{ color: ls.color }}>
+                    {ls.text}
+                </span>
+            </span>
+
+            {/* Divider */}
+            <div style={{ width: 1, height: 16, background: 'var(--border-panel)', flexShrink: 0 }} />
+
+            {/* Pipeline stages */}
+            <div className="flex items-center gap-1 flex-1 overflow-x-auto min-w-0">
+                {l1Items.map((item, idx) => {
+                    const state = getArtifactState(item.state || 'ready_for_production');
+                    const color = ARTIFACT_COLORS[state];
+                    const isSelected = item.id === selectedNodeId;
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => onSelectNode(item.id)}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded transition-colors flex-shrink-0"
+                            style={{
+                                background: isSelected ? 'var(--bg-panel)' : 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                            }}
+                            title={docName(item.id)}
+                        >
+                            <span
+                                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                                style={{ background: color }}
+                            />
+                            <span
+                                className="text-[10px] font-medium whitespace-nowrap"
+                                style={{
+                                    color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                                }}
+                            >
+                                {docName(item.id)}
+                            </span>
+                            {idx < l1Items.length - 1 && (
+                                <span
+                                    className="text-[10px] ml-1"
+                                    style={{ color: 'var(--text-muted)', opacity: 0.4 }}
+                                >
+                                    ›
+                                </span>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Download binder */}
+            <BinderDownloadDropdown projectId={projectId} projectCode={projectCode} />
+
+            {/* Theme toggle */}
+            <button
+                onClick={onCycleTheme}
+                className="text-[10px] font-medium px-2 py-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
+                style={{ color: 'var(--text-muted)' }}
+            >
+                {THEME_LABELS[theme]}
+            </button>
+        </div>
+    );
+}
 
 export default function Floor({ projectId, projectCode, projectName, isArchived, savedLayout, autoExpandNodeId, theme, onThemeChange, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
     const {
@@ -16,7 +377,6 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         lineState,
         loading,
         error,
-        connected,
         notification,
         dismissNotification,
         resolveInterrupt,
@@ -25,12 +385,6 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
     const [data, setData] = useState([]);
     const [selectedNodeId, setSelectedNodeId] = useState(null);
-    const [fullViewerDocId, setFullViewerDocId] = useState(null);
-    const [isEditingName, setIsEditingName] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [actionLoading, setActionLoading] = useState(false);
-    const [showWorkflow, setShowWorkflow] = useState(false);
 
     // Update data when productionData changes
     useEffect(() => {
@@ -60,59 +414,6 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         const idx = THEMES.indexOf(theme);
         onThemeChange(THEMES[(idx + 1) % THEMES.length]);
     }, [theme, onThemeChange]);
-
-    const handleStartEdit = useCallback(() => {
-        setEditName(projectName || '');
-        setIsEditingName(true);
-    }, [projectName]);
-
-    const handleSaveName = useCallback(async () => {
-        if (!editName.trim() || editName === projectName) {
-            setIsEditingName(false);
-            return;
-        }
-        setActionLoading(true);
-        try {
-            await onProjectUpdate(projectId, { name: editName.trim() });
-            setIsEditingName(false);
-        } catch (err) {
-            console.error('Failed to update name:', err);
-        } finally {
-            setActionLoading(false);
-        }
-    }, [editName, projectName, projectId, onProjectUpdate]);
-
-    const handleCancelEdit = useCallback(() => {
-        setIsEditingName(false);
-        setEditName('');
-    }, []);
-
-    const handleArchiveToggle = useCallback(async () => {
-        setActionLoading(true);
-        try {
-            if (isArchived) {
-                await onProjectUnarchive(projectId);
-            } else {
-                await onProjectArchive(projectId);
-            }
-        } catch (err) {
-            console.error('Failed to toggle archive:', err);
-        } finally {
-            setActionLoading(false);
-        }
-    }, [projectId, isArchived, onProjectArchive, onProjectUnarchive]);
-
-    const handleDelete = useCallback(async () => {
-        setActionLoading(true);
-        try {
-            await onProjectDelete(projectId);
-            setShowDeleteConfirm(false);
-        } catch (err) {
-            console.error('Failed to delete:', err);
-        } finally {
-            setActionLoading(false);
-        }
-    }, [projectId, onProjectDelete]);
 
     // Production callbacks used by ContentPanel
     const handleStartProduction = useCallback(async (docTypeId) => {
@@ -213,220 +514,35 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     }
 
     return (
-        <div className="w-full h-full flex">
-            {/* Left: Pipeline Rail */}
-            <div
-                className="flex flex-col flex-shrink-0"
-                style={{
-                    width: 320,
-                    borderRight: '1px solid var(--border-panel)',
-                    background: 'var(--bg-canvas)',
-                }}
-            >
-                {/* Header panels */}
-                <div className="space-y-2 p-3" style={{ flexShrink: 0 }}>
-                    {/* Production Line Status */}
-                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Production Line</h1>
-                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    {lineState === 'active' && <span className="text-amber-500">&#9679; Active</span>}
-                                    {lineState === 'stopped' && <span className="text-red-500">&#9679; Stopped</span>}
-                                    {lineState === 'complete' && <span className="text-emerald-500">&#9679; Complete</span>}
-                                    {lineState === 'idle' && <span>&#9679; Idle</span>}
-                                    {!connected && <span className="ml-2 text-red-400">(Disconnected)</span>}
-                                </p>
-                            </div>
-                            <button
-                                onClick={cycleTheme}
-                                className="subway-button px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-                            >
-                                {THEME_LABELS[theme]}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Project Info */}
-                    <div className="subway-panel backdrop-blur rounded-lg px-4 py-3 border">
-                        <div className="flex items-center gap-3">
-                            <div
-                                className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ background: 'var(--state-active-bg)' }}
-                            >
-                                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                </svg>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p
-                                    className="text-xs font-mono"
-                                    style={{ color: 'var(--text-muted)' }}
-                                >
-                                    {projectCode || 'No Project'}
-                                </p>
-                                {isEditingName ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <input
-                                            type="text"
-                                            value={editName}
-                                            onChange={(e) => setEditName(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') handleSaveName();
-                                                if (e.key === 'Escape') handleCancelEdit();
-                                            }}
-                                            className="flex-1 px-2 py-1 text-sm rounded border bg-transparent"
-                                            style={{
-                                                color: 'var(--text-primary)',
-                                                borderColor: 'var(--border-panel)',
-                                            }}
-                                            autoFocus
-                                            disabled={actionLoading}
-                                        />
-                                        <button
-                                            onClick={handleSaveName}
-                                            disabled={actionLoading}
-                                            className="p-1 rounded hover:bg-white/10"
-                                            title="Save"
-                                        >
-                                            <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={handleCancelEdit}
-                                            disabled={actionLoading}
-                                            className="p-1 rounded hover:bg-white/10"
-                                            title="Cancel"
-                                        >
-                                            <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <p
-                                        className="text-sm font-semibold truncate"
-                                        style={{ color: 'var(--text-primary)' }}
-                                    >
-                                        {projectName || 'Untitled Project'}
-                                    </p>
-                                )}
-                            </div>
-                            {!isEditingName && (
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={handleStartEdit}
-                                        className="p-1.5 rounded hover:bg-white/10 transition-colors"
-                                        style={{ color: 'var(--text-muted)' }}
-                                        title="Edit name"
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={handleArchiveToggle}
-                                        disabled={actionLoading}
-                                        className="p-1.5 rounded hover:bg-white/10 transition-colors"
-                                        style={{ color: isArchived ? '#f59e0b' : 'var(--text-muted)' }}
-                                        title={isArchived ? 'Unarchive project' : 'Archive project'}
-                                    >
-                                        <svg className="w-4 h-4 relative" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
-                                            {isArchived && (
-                                                <path d="M4 20L20 4" strokeWidth="2.5" stroke="currentColor" />
-                                            )}
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={() => setShowDeleteConfirm(true)}
-                                        disabled={actionLoading || !isArchived}
-                                        className={`p-1.5 rounded transition-colors ${isArchived ? 'hover:bg-red-500/20' : ''}`}
-                                        style={{
-                                            color: 'var(--text-muted)',
-                                            opacity: isArchived ? 1 : 0.3,
-                                            cursor: isArchived ? 'pointer' : 'not-allowed',
-                                        }}
-                                        title={isArchived ? 'Delete project' : 'Archive project first to delete'}
-                                    >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Workflow Instance (ADR-046) */}
-                    <div className="subway-panel backdrop-blur rounded-lg border overflow-hidden">
-                        <button
-                            onClick={() => setShowWorkflow(!showWorkflow)}
-                            className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold hover:opacity-80"
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            <span>Workflow</span>
-                            <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
-                                {showWorkflow ? '\u25B2' : '\u25BC'}
-                            </span>
-                        </button>
-                        {showWorkflow && (
-                            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                                <ProjectWorkflow projectId={projectId} />
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Pipeline rail — static vertical node list (scrollable) */}
-                <div className="flex-1 overflow-y-auto min-h-0">
-                    <PipelineRail
-                        data={data}
-                        selectedNodeId={selectedNodeId}
-                        onSelectNode={setSelectedNodeId}
-                        theme={theme}
-                    />
-                </div>
-
-                {/* Legend — pinned to bottom of rail */}
-                <div className="subway-panel border-t px-4 py-2" style={{ flexShrink: 0 }}>
-                    <div className="flex flex-wrap gap-3 text-[10px]">
-                        <span style={{ color: 'var(--text-muted)' }} className="font-medium">STATE:</span>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-stabilized-bg)' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>Stabilized</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-ready-bg)' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>Ready</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-active-bg)' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>In Progress</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--state-blocked-bg)' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>Blocked</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right: Detail View (Content Panel) */}
-            <ContentPanel
-                step={selectedStep}
+        <div className="w-full h-full flex flex-col">
+            {/* Production Line — always horizontal, always visible */}
+            <PipelineBreadcrumb
+                data={data}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={setSelectedNodeId}
                 projectId={projectId}
                 projectCode={projectCode}
-                onStartProduction={handleStartProduction}
-                onSubmitQuestions={handleSubmitQuestions}
+                projectName={projectName}
+                isArchived={isArchived}
+                lineState={lineState}
+                theme={theme}
+                onCycleTheme={cycleTheme}
+                onProjectUpdate={onProjectUpdate}
+                onProjectArchive={onProjectArchive}
+                onProjectUnarchive={onProjectUnarchive}
+                onProjectDelete={onProjectDelete}
             />
+
+            {/* Station Workspace — full width below the line */}
+            <div className="flex-1 overflow-hidden">
+                <ContentPanel
+                    step={selectedStep}
+                    projectId={projectId}
+                    projectCode={projectCode}
+                    onStartProduction={handleStartProduction}
+                    onSubmitQuestions={handleSubmitQuestions}
+                />
+            </div>
 
             {/* Notification Toast */}
             {notification && (
@@ -468,51 +584,6 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 </div>
             )}
 
-            {/* Full Document Viewer Modal */}
-            {fullViewerDocId && (
-                <FullDocumentViewer
-                    projectId={projectId}
-                    projectCode={projectCode}
-                    docTypeId={typeof fullViewerDocId === 'object' ? fullViewerDocId.docTypeId : fullViewerDocId}
-                    instanceId={typeof fullViewerDocId === 'object' ? fullViewerDocId.instanceId : undefined}
-                    onClose={() => setFullViewerDocId(null)}
-                />
-            )}
-
-            {/* Delete Confirmation Modal */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div
-                        className="rounded-lg p-6 max-w-sm mx-4"
-                        style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-panel)' }}
-                    >
-                        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                            Delete Project?
-                        </h3>
-                        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                            This will permanently delete <strong>{projectName}</strong> and all its documents.
-                            This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setShowDeleteConfirm(false)}
-                                disabled={actionLoading}
-                                className="px-4 py-2 rounded text-sm font-medium transition-colors"
-                                style={{ color: 'var(--text-muted)' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                disabled={actionLoading}
-                                className="px-4 py-2 rounded text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
-                            >
-                                {actionLoading ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -44,23 +44,21 @@ def _read_dir(dir_path: Path) -> str:
 class TestLayoutStructure:
     """Criteria 1-5: Floor renders master-detail with rail + content."""
 
-    def test_01_floor_renders_two_column_flex_layout(self):
-        """C1: Floor renders a two-column layout (rail + content)."""
+    def test_01_floor_renders_flex_column_layout(self):
+        """C1: Floor renders a flex-column layout (breadcrumb + content)."""
         src = _read(FLOOR_JSX)
-        # Outer flex container
-        assert 'className="w-full h-full flex"' in src
-        # Left column (PipelineRail) with fixed width
-        assert "width: 320" in src or "width: '320'" in src
-        # ContentPanel rendered as sibling
+        # Outer flex-col container (breadcrumb bar above content)
+        assert 'className="w-full h-full flex flex-col"' in src
+        # ContentPanel rendered below breadcrumb
         assert "<ContentPanel" in src
 
-    def test_02_rail_renders_pipeline_nodes(self):
-        """C2: Rail renders one node per pipeline step (via PipelineRail)."""
+    def test_02_breadcrumb_renders_pipeline_nodes(self):
+        """C2: Breadcrumb renders one item per pipeline step."""
         src = _read(FLOOR_JSX)
-        # PipelineRail used for static vertical pipeline
-        assert "import PipelineRail" in src or "PipelineRail" in src
-        assert "<PipelineRail" in src
-        # Data passed to rail for rendering
+        # PipelineBreadcrumb replaces vertical PipelineRail
+        assert "PipelineBreadcrumb" in src
+        assert "<PipelineBreadcrumb" in src
+        # Data passed for rendering
         assert "data={data}" in src
 
     def test_03_clicking_node_updates_selected_state(self):
@@ -194,7 +192,7 @@ class TestWorkBinder:
         """C17: Work statement creation exists via ghost row in WorkView."""
         src = _read_dir(WORK_BINDER_DIR)
         assert "CREATE STATEMENT" in src or "ENTER INTENT" in src
-        assert "work-statements" in src
+        assert "work-statements" in src or "createWs" in src or "onCreateWs" in src
 
     def test_18_wp_provenance_stamping(self):
         """C18: WP displays provenance (source, authorization)."""
@@ -250,14 +248,14 @@ class TestAPIContract:
         assert "list_work_statements" in src
         assert "generate_work_statements" in src
 
-    def test_floor_uses_static_pipeline_rail(self):
-        """Floor uses static PipelineRail (no ReactFlow dependency)."""
+    def test_floor_uses_static_pipeline_breadcrumb(self):
+        """Floor uses static PipelineBreadcrumb (no ReactFlow dependency)."""
         src = _read(FLOOR_JSX)
         # No ReactFlow imports — pure CSS layout
         assert "import ReactFlow" not in src
         assert "useReactFlow" not in src
-        # Uses PipelineRail component
-        assert "<PipelineRail" in src
+        # Uses PipelineBreadcrumb component
+        assert "<PipelineBreadcrumb" in src
 
     def test_full_document_viewer_supports_inline(self):
         """FullDocumentViewer accepts inline prop for embedded rendering."""
