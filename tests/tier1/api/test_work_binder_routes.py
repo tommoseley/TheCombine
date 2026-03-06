@@ -866,7 +866,7 @@ class TestLoadWpcDocumentDuplicateResilience:
     """_load_wpc_document must not crash when duplicate WPCs exist.
 
     Bug: If import-candidates runs twice with different IP document IDs
-    (e.g., IP re-created), duplicate WPC rows with the same instance_id
+    (e.g., IP re-created), duplicate WPC rows with the same display_id
     and is_latest=True are created. scalar_one_or_none() then raises
     MultipleResultsFound, causing a 500 on promote.
 
@@ -877,7 +877,7 @@ class TestLoadWpcDocumentDuplicateResilience:
     async def test_returns_doc_when_duplicates_exist(self):
         """_load_wpc_document returns first doc when duplicates exist."""
         mock_doc = MagicMock()
-        mock_doc.instance_id = "WPC-001"
+        mock_doc.display_id = "WPC-001"
 
         db = AsyncMock()
         result = MagicMock()
@@ -893,7 +893,7 @@ class TestLoadWpcDocumentDuplicateResilience:
         db.execute = AsyncMock(return_value=result)
 
         doc = await _load_wpc_document(db, "WPC-001")
-        assert doc.instance_id == "WPC-001"
+        assert doc.display_id == "WPC-001"
 
     @pytest.mark.asyncio
     async def test_returns_404_when_no_docs(self):

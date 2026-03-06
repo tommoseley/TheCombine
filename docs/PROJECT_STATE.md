@@ -1,20 +1,53 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-04
-**Updated By:** Claude (WP-ID-001 Document Identity Standard)
+**Last Updated:** 2026-03-06
+**Updated By:** Claude (WS-RENDER-001 through WS-RENDER-004 + Studio Layout Phase 2)
 
 ## Current Focus
 
+**COMPLETE:** Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004, 2026-03-05)
+- WS-RENDER-001: markdown_renderer.py — 7 block renderers (paragraph, list, ordered-list, table, key-value-pairs, nested-object, card-list), pure function
+- WS-RENDER-002: binder_renderer.py — cover block, TOC, pipeline-ordered assembly, WS nesting under WPs
+- WS-RENDER-003: ia_gate.py — verify_document_ia() with 50% coverage threshold, PASS/FAIL/SKIP
+- WS-RENDER-004: evidence_renderer.py — YAML frontmatter (SHA-256 source_hash), Evidence Index table
+- Render endpoints: single doc + binder, format=md, mode=standard|evidence
+- Download dropdowns: FullDocumentViewer, ConfigDrivenDocViewer, Floor.jsx (binder) — all support standard/evidence
+- IA audit: all 4 document types with IA (project_discovery, implementation_plan, technical_architecture, work_package) fully ADR-054 compliant
+- 52 new render pipeline tests, 3883 total passing
+
+**COMPLETE:** Studio Layout Phase 2: ProjectTree Auto-Collapse + Pipeline Breadcrumb (2026-03-05)
+- ProjectTree auto-collapses to 48px icon rail when project active
+- PipelineBreadcrumb replaces 320px vertical PipelineRail in Work Binder mode
+- Reclaims ~530px horizontal space for Work Binder content
+- WorkBinder progressive disclosure: WSDetailView, wsUtils extracted
+
+**COMPLETE:** WS-WEB-CLEANUP-001 -- Remove Dead Jinja2/HTMX Layer (2026-03-05)
+- Deleted entire app/web/ directory (routes, templates, static, BFF, viewmodels)
+- Deleted dead magic-link auth router (app/api/routers/auth.py)
+- Removed 13 orphaned test files, removed USE_LEGACY_TEMPLATES config flag
+- Confirmed zero Jinja2 route hits via instrumentation during full PGC flow
+- 3808 tests passing, IA audit 75/75
+
+**COMPLETE:** WP-ONTOLOGY-CLEANUP (2026-03-05)
+- WS-ONTOLOGY-001: "slug" → "project_id" in ADR-055/056/057, ROUTING_CONTRACT, WS docs. Registered `edition` in ADR-057.
+- WS-ONTOLOGY-002: instance_id → display_id in work_binder.py (0 instance_id refs remaining), projects.py, production_pure/service.
+- Migration 20260305_001: Dropped legacy idx_documents_latest_single/multi (superseded by idx_documents_latest_display)
+
+**COMPLETE:** WP-ROUTE-001 -- Unified Routing v2 (ADR-056) (2026-03-05)
+- WS-ROUTE-001 through WS-ROUTE-005 implemented (previous session)
+- Fixed _resolve_project() duplicate function shadow crash (swapped args)
+- Removed INSERT PACKAGE button (no backend POST endpoint)
+- Fixed Concierge Intake rendering: arrays as bullet lists instead of JSON.stringify
+- Fixed white screen on empty Work Binder (stale showInsertForm reference)
+- HTMX admin removal tests updated for SPA catch-all (route table check)
+- Production migration 20260304_001 applied manually
+- Deployed to production, all CI green, smoke test passed
+
 **COMPLETE:** WP-ID-001 -- Document Identity Standard (ADR-055) (2026-03-04)
-- WS-ID-001: Alembic migration 20260304_001 (display_id on documents, display_prefix on document_types, drops instance_key)
-- WS-ID-002: display_id_service.py (parse_display_id, resolve_display_id, mint_display_id)
-- WS-ID-003: Minting wired into project_creation_service, document_service, plan_executor, work_binder, intents (lazy imports)
-- WS-ID-004: Removed derive_wp_id and generate_ws_id legacy functions
-- WS-ID-005: DEV and TEST databases reset from canonical prod schema
-- DB infrastructure: db_dump_schema.sh (new), db_reset.sh (RDS-safe rewrite), db_migrate.sh (schema.sql bootstrap)
-- QA prompt fix: project_discovery_qa v1.2.0 (risks/mvp_guardrails marked optional)
+- WS-ID-001 through WS-ID-005: migration, service, wiring, legacy removal, DB reset
+- DB infrastructure: db_dump_schema.sh, db_reset.sh (RDS-safe), db_migrate.sh (schema.sql bootstrap)
+- QA prompt fix: project_discovery_qa v1.2.0
 - Batch display_id fix: propose_work_statements mints first, increments locally
-- Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
 
 **COMPLETE:** WP-CRAP-002 -- Testability Refactoring: Workflow Engine Top 3 (2026-03-03)
 - WS-CRAP-008: `_handle_result` CC 41→10, CRAP 967→49 (7 sub-methods, 17 tests)
@@ -118,7 +151,7 @@
 
 ## Test Suite
 
-- **4063 Tier-1 tests** passing as of 2026-03-04
+- **3883 Tier-1 tests** passing as of 2026-03-06 (52 new render pipeline tests)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -133,6 +166,10 @@
 | document_readiness | app/domain/services/document_readiness.py | Mechanical readiness gate for downstream consumption |
 | task_execution | app/domain/services/task_execution_service.py | Reusable LLM task invocation outside workflow engine |
 | wb_audit_service | app/domain/services/wb_audit_service.py | Structured audit events for Work Binder mutations |
+| markdown_renderer | app/domain/services/markdown_renderer.py | IA-driven Markdown block rendering (7 render_as types) |
+| binder_renderer | app/domain/services/binder_renderer.py | Project binder assembly (cover, TOC, pipeline ordering) |
+| ia_gate | app/domain/services/ia_gate.py | IA coverage verification gate (50% threshold) |
+| evidence_renderer | app/domain/services/evidence_renderer.py | Evidence mode frontmatter + index generation |
 
 ---
 
@@ -227,25 +264,26 @@ All previous decisions (1-46) plus:
 
 56. **RDS-safe DB reset** -- Individual object drops with pg_depend extension filtering instead of DROP SCHEMA CASCADE (RDS users don't own public schema). Schema bootstrap from pg_dump output instead of init_db.py.
 
+57. **IA-driven Markdown rendering** -- Render pipeline walks IA sections and dispatches to block renderers by render_as type. Pure functions, deterministic output. Evidence mode adds YAML frontmatter with SHA-256 source hash for provenance tracing.
+
+58. **IA gate coverage threshold** -- 50% of IA-declared fields must be present for PASS. Missing fields above threshold are warnings (rendered sections omitted gracefully). Below threshold is FAIL (409 Conflict). Catches broken documents while tolerating optional fields.
+
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-04)
-- WP-ID-001 executed: Document Identity Standard (ADR-055), WS-ID-001 through WS-ID-005
-  - display_id minting service, Alembic migration, lazy import wiring, legacy removal
-  - DB infrastructure hardening: db_dump_schema.sh, db_reset.sh (RDS-safe), db_migrate.sh (schema.sql bootstrap)
-  - QA prompt fix: project_discovery_qa v1.2.0
-  - Batch minting fix: query MAX once, increment locally for remaining items
-  - Branch: feature/wp-id-001-document-identity-standard (pushed, PR pending)
+### Recent Work (2026-03-06)
+- Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004): 4 new domain services, render endpoints, download dropdowns
+- Studio Layout Phase 2: ProjectTree auto-collapse, PipelineBreadcrumb in Work Binder mode
+- IA gate coverage threshold: 50% (pragmatic balance for optional fields)
+- Full ADR-054 IA audit: all 4 document types with IA fully compliant
+- 52 new tests (3883 total)
 
 ### Next Work
-- **WP-ROUTE-001 (Unified Routing v2, ADR-056)** -- WS-ROUTE-001 through WS-ROUTE-005
-- Production migration: 20260304_001 needs to be applied after WP-ID-001 merge
-- work_package IA section authoring
-- Remaining CRAP targets: get_production_tracks (461), compare_runs (342), get_document (276)
+- Remaining CRAP targets: get_document_render_model (663), get_production_tracks (627), list_operations (318)
 - check_promotion_validity (CC=41, sole remaining F-grade)
-- Zero-coverage files: admin.py, accounts.py, auth/routes.py, prompt_assembler.py, schema_resolver.py
+- Zero-coverage files: admin.py, accounts.py, prompt_assembler.py, schema_resolver.py
+- Three download dropdown components could be consolidated into shared component
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052

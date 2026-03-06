@@ -9,7 +9,7 @@ const STATUS_COLORS = {
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 260;
-const COLLAPSED_WIDTH = 48;
+const COLLAPSED_WIDTH = 120;
 
 /**
  * Format ISO date string to short display format
@@ -28,12 +28,19 @@ function formatDate(isoString) {
     }
 }
 
-export default function ProjectTree({ projects, selectedId, onSelectProject, onNewProject, showArchived, onToggleShowArchived, userSection }) {
-    const [collapsed, setCollapsed] = useState(false);
+export default function ProjectTree({ projects, selectedId, onSelectProject, onNewProject, showArchived, onToggleShowArchived, userSection, autoCollapse }) {
+    const [collapsed, setCollapsed] = useState(!!autoCollapse);
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef(null);
     const selectedRef = useRef(null);
+
+    // Auto-collapse once on mount when a project is already active.
+    // After that, user controls collapsed state via the toggle button.
+    useEffect(() => {
+        if (autoCollapse) setCollapsed(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Scroll selected project into view when selection changes
     useEffect(() => {
@@ -230,27 +237,40 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
                 </div>
             )}
 
-            {/* Collapsed project icons */}
+            {/* Collapsed: dot + project ID */}
             {collapsed && (
-                <div className="flex-1 overflow-y-auto py-2">
-                    {sortedProjects.map(project => (
-                        <div
-                            key={project.id}
-                            onClick={() => onSelectProject(project.id)}
-                            className="flex items-center justify-center py-2 cursor-pointer hover:bg-white/5"
-                            title={project.name}
-                        >
+                <div className="flex-1 overflow-y-auto py-1">
+                    {sortedProjects.map(project => {
+                        const isSelected = selectedId === project.id;
+                        return (
                             <div
-                                className="w-3 h-3 rounded-full"
+                                key={project.id}
+                                onClick={() => onSelectProject(project.id)}
+                                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-white/5"
+                                title={project.name}
                                 style={{
-                                    background: STATUS_COLORS[project.status] || STATUS_COLORS.queued,
-                                    boxShadow: selectedId === project.id
-                                        ? '0 0 0 2px var(--bg-panel), 0 0 0 4px var(--border-node)'
-                                        : 'none'
+                                    background: isSelected ? 'var(--state-active-bg)' : 'transparent',
+                                    borderRadius: 6,
+                                    margin: '0 4px 2px',
                                 }}
-                            />
-                        </div>
-                    ))}
+                            >
+                                <div
+                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    style={{
+                                        background: isSelected ? '#ffffff' : (STATUS_COLORS[project.status] || STATUS_COLORS.queued),
+                                    }}
+                                />
+                                <span
+                                    className="text-[10px] font-mono truncate"
+                                    style={{
+                                        color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                                    }}
+                                >
+                                    {project.projectId}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 

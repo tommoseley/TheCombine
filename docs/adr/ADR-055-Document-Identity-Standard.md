@@ -120,27 +120,24 @@ Work Package promotion no longer transforms the ID format. Instead:
 - The WP's `source_candidate_ids` field links back to `["WPC-001"]`
 - No format transformation. No `wp_wb_001`.
 
-### 8. WS Numbering Is Per-WP, Stored in display_id
+### 8. WS Numbering Is Per-Project, Stored in display_id
 
-Work Statements are numbered sequentially per work package:
+WS `display_id` is sequential per `(space_id, doc_type_id)` — the same scoping as all other document types. The first WS created in a project is `WS-001`, the second is `WS-002`, regardless of which WP they belong to.
 
-- First WS under WP-001: `display_id = "WS-001"`
-- Second: `WS-002`
+The parent relationship is captured by `parent_document_id`, not by encoding the parent's ID in the child's display_id. Per-WP ordering is a `ws_index` concern, not an identity concern. `WS-WB-001` format is eliminated.
 
-The parent relationship is captured by `parent_document_id`, not by encoding the parent's ID in the child's display_id. `WS-WB-001` format is eliminated.
-
-### 9. Project Slug (Project-Level Identity)
+### 9. Project Identifier (Project-Level Identity)
 
 The existing `project_id` column on the `projects` table already follows the `{TYPE}-{NNN}` convention (e.g., `HWCA-001`, `APAM-002`). It is unique, immutable after creation, and human-readable. **No new column is needed.**
 
-`project_id` serves as the project-level equivalent of `display_id` and is used in URLs instead of UUIDs (see ADR-056).
+`project_id` serves as the project-level equivalent of `display_id` and is used in URLs instead of UUIDs (see ADR-056). `project_id` is the human-readable project identifier string (e.g., `HWCA-001`); the internal UUID primary key is `project.id`.
 
 ### 10. Fully Qualified Reference (For Cross-Project Use)
 
 When referencing a document across projects, use:
 
 ```
-{PROJECT_SLUG}/{DISPLAY_ID}
+{PROJECT_ID}/{DISPLAY_ID}
 ```
 
 Example: `HWCA-001/WP-001`, `APAM-002/WPC-003`
@@ -165,7 +162,7 @@ This resolution is the binding contract between ADR-055 (identity) and ADR-056 (
 
 - **One format everywhere.** `TYPE-NNN` is the only ID format. No translation needed.
 - **Every document is addressable.** Tier-1 docs get `PD-001`, `TA-001`, `IP-001`.
-- **Deep linking unblocked.** URLs can use `/{project_slug}/{display_id}` to address any document.
+- **Deep linking unblocked.** URLs can use `/{project_id}/{display_id}` to address any document.
 - **Promotion is clean.** WPC-001 stays WPC-001. WP-001 is a new document with lineage, not a renamed candidate.
 - **Speakable.** "Open WP-003" is unambiguous within a project context.
 
@@ -183,7 +180,7 @@ This ADR intentionally changes schema:
 3. Adds unique index `idx_documents_latest_display` on `(space_type, space_id, doc_type_id, display_id) WHERE is_latest = TRUE`
 4. Drops `instance_key` column from `document_types`
 
-`instance_id` is **not modified**. No changes to the `projects` table — `project_id` already serves as the slug.
+`instance_id` is **not modified**. No changes to the `projects` table — `project_id` already serves as the human-readable project identifier.
 
 ### Data Migration
 
@@ -222,7 +219,7 @@ async def mint_display_id(db: AsyncSession, space_id: UUID, doc_type_id: str) ->
 ### URL Pattern (Feeds ADR-056)
 
 ```
-/projects/{project_slug}/docs/{display_id}
+/projects/{project_id}/docs/{display_id}
 ```
 
 Example: `/projects/HWCA-001/docs/WP-001`
@@ -237,7 +234,7 @@ Example: `/projects/HWCA-001/docs/WP-001`
 | Change existing prefix | Yes (breaks references) |
 | Change display_id format | Yes |
 | Change sequence scoping | Yes |
-| Change project slug format | Yes |
+| Change project_id format | Yes |
 
 ---
 

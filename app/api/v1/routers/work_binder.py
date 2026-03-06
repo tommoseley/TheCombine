@@ -250,7 +250,7 @@ async def list_candidates(
         for doc in wpc_docs:
             content = doc.content or {}
             candidates.append(WPCDetail(
-                wpc_id=content.get("wpc_id", doc.instance_id or ""),
+                wpc_id=content.get("wpc_id", doc.display_id or ""),
                 title=content.get("title", doc.title or ""),
                 rationale=content.get("rationale", ""),
                 scope_summary=content.get("scope_summary", []),
@@ -347,7 +347,6 @@ async def import_candidates_from_ip(
             content=wpc_content,
             status="active",
             lifecycle_state="complete",
-            instance_id=wpc_id,
             display_id=wpc_id,
             parent_document_id=ip_doc.id,
             created_by="system",
@@ -445,7 +444,7 @@ async def promote_candidate(
     # Check for existing WP promoted from this WPC (idempotency)
     existing_wp = await _find_wp_by_source_wpc(db, request.wpc_id, wpc_doc.space_id)
     if existing_wp:
-        existing_wp_id = (existing_wp.content or {}).get("wp_id", existing_wp.instance_id or "")
+        existing_wp_id = (existing_wp.content or {}).get("wp_id", existing_wp.display_id or "")
         logger.info(
             f"WP {existing_wp_id} already exists for WPC {request.wpc_id} "
             f"-- returning existing (idempotent)"
@@ -477,7 +476,6 @@ async def promote_candidate(
         content=wp_content,
         status="active",
         lifecycle_state="complete",
-        instance_id=wp_id,
         display_id=wp_id,
         parent_document_id=wpc_doc.parent_document_id,
         created_by="system",
@@ -684,7 +682,6 @@ async def propose_work_statements(
             version=1,
             status="draft",
             lifecycle_state="complete",
-            instance_id=ws_id,
             display_id=ws_id,
             created_by="system",
             created_by_type="llm_proposal",
@@ -795,7 +792,6 @@ async def create_work_statement(
         title=ws_data.get("title", ws_id),
         content=ws_data,
         version=1,
-        instance_id=ws_id,
         display_id=ws_id,
     )
     db.add(ws_doc)
@@ -1258,14 +1254,14 @@ async def _find_existing_wpc(
 ) -> Document | None:
     """Find existing WPC by wpc_id within the same space.
 
-    Checks instance_id + space_id only (not IP provenance). This prevents
+    Checks display_id + space_id only (not IP provenance). This prevents
     duplicate WPCs when import-candidates runs against different IP document
     versions that contain the same candidate IDs.
     """
     result = await db.execute(
         select(Document).where(
             Document.doc_type_id == "work_package_candidate",
-            Document.instance_id == wpc_id,
+            Document.display_id == wpc_id,
             Document.space_id == space_id,
             Document.is_latest == True,  # noqa: E712
         )
@@ -1276,7 +1272,7 @@ async def _find_existing_wpc(
 async def _load_wpc_document(
     db: AsyncSession, wpc_id: str, space_id: UUID | None = None,
 ) -> Document:
-    """Load a WPC document by instance_id, scoped to space_id. 404 if not found.
+    """Load a WPC document by display_id, scoped to space_id. 404 if not found.
 
     Uses scalars().first() instead of scalar_one_or_none() to tolerate
     duplicate WPC rows (created when import-candidates runs against
@@ -1284,7 +1280,7 @@ async def _load_wpc_document(
     """
     query = select(Document).where(
         Document.doc_type_id == "work_package_candidate",
-        Document.instance_id == wpc_id,
+        Document.display_id == wpc_id,
         Document.is_latest == True,  # noqa: E712
     )
     if space_id is not None:
@@ -1306,11 +1302,11 @@ async def _find_existing_wp(
     wp_id: str,
     space_id: UUID,
 ) -> Document | None:
-    """Find existing WP by instance_id within the same space."""
+    """Find existing WP by display_id within the same space."""
     result = await db.execute(
         select(Document).where(
             Document.doc_type_id == "work_package",
-            Document.instance_id == wp_id,
+            Document.display_id == wp_id,
             Document.space_id == space_id,
             Document.is_latest == True,  # noqa: E712
         )

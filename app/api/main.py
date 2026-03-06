@@ -27,7 +27,6 @@ from app.core.dependencies import set_startup_time  # noqa: E402
 
 # Import routers
 from app.api.routers import health  # noqa: E402
-from app.web import routes as web_routes  # noqa: E402
 from app.api.routers.documents import router as document_router  # noqa: E402
 from app.api.routers.document_status_router import router as document_status_router  # noqa: E402
 # Phase 8 (WS-DOCUMENT-SYSTEM-CLEANUP): Admin replay endpoint behind feature flag
@@ -40,8 +39,6 @@ from app.api.routers.config_routes import router as config_router  # noqa: E402
 
 # Phase 8-10 routers (workflows, executions, telemetry, dashboard)
 from app.api.v1 import api_router as v1_router  # noqa: E402
-from app.web.routes.admin.composer_routes import router as composer_router  # noqa: E402
-from app.web.routes.production import router as production_router  # noqa: E402  # ADR-043: Production Line
 # Import middleware
 from app.api.middleware import (  # noqa: E402
     error_handling,
@@ -145,9 +142,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Mount static files from app/web directory
-app.mount("/web", StaticFiles(directory="app/web"), name="web")
-
 # Mount SPA static assets (Vite build output)
 # Only mount if the spa/dist directory exists (after npm run build)
 import pathlib  # noqa: E402
@@ -234,9 +228,6 @@ app.include_router(auth_router)
 # Document-centric API (new system)
 app.include_router(document_router)
 
-# Web UI routes - NO PREFIX (routes at root level: /, /projects/*, /search, etc.)
-app.include_router(web_routes.router)
-
 # Other routes - ALL at root level now
 app.include_router(document_status_router, prefix="/api")
 
@@ -255,8 +246,6 @@ app.include_router(config_router)  # System config API
 
 # Phase 8-10: Workflow execution engine routes
 app.include_router(v1_router)  # /api/v1/workflows, /api/v1/executions
-app.include_router(composer_router)  # ADR-034: Composer preview endpoints
-app.include_router(production_router)  # ADR-043: Production Line UI
 
 
 # ============================================================================

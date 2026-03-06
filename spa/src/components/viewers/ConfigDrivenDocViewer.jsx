@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { api } from '../../api/client';
 import RenderModelViewer from '../RenderModelViewer';
 import IABlockRenderer from '../blocks/IABlockRenderer';
 
@@ -14,6 +15,80 @@ import IABlockRenderer from '../blocks/IABlockRenderer';
  * WS-IA-003: Replaces TechnicalArchitectureViewer. Studio panels removed.
  */
 
+/** Download dropdown for config-driven document viewer. */
+function ConfigDocDownload({ projectId, projectCode, displayId }) {
+    const [open, setOpen] = useState(false);
+    const [downloading, setDownloading] = useState(null);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        function close(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, [open]);
+
+    const handleClick = async (mode) => {
+        setDownloading(mode);
+        try {
+            const blob = await api.renderDocument(projectId, displayId, { mode });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const suffix = mode === 'evidence' ? '-evidence' : '';
+            a.download = `${projectCode || projectId}-${displayId}${suffix}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            if (err.status === 409) {
+                alert(`Render blocked: ${err.data?.message || 'IA verification failed'}`);
+            } else {
+                console.error('Download failed:', err);
+            }
+        } finally { setDownloading(null); setOpen(false); }
+    };
+
+    return (
+        <div ref={ref} className="relative" style={{ flexShrink: 0, marginLeft: 12 }}>
+            <button
+                onClick={() => setOpen(!open)}
+                className="p-2 rounded-lg hover:opacity-80 transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+                title="Download Markdown"
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+            </button>
+            {open && (
+                <div
+                    className="absolute right-0 top-full mt-1 z-50 rounded-lg border shadow-lg py-1"
+                    style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-panel)', minWidth: 220 }}
+                >
+                    <button
+                        onClick={() => handleClick('standard')}
+                        disabled={!!downloading}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors"
+                        style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    >
+                        {downloading === 'standard' ? 'Downloading...' : 'Download Markdown'}
+                    </button>
+                    <button
+                        onClick={() => handleClick('evidence')}
+                        disabled={!!downloading}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors"
+                        style={{ color: 'var(--text-primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                    >
+                        {downloading === 'evidence' ? 'Downloading...' : 'Download Markdown (With Evidence)'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 /** Normalize a bind: string -> {path: str}, object passes through. */
 function normalizeBind(bind) {
     if (typeof bind === 'string') return { path: bind };
@@ -27,7 +102,8 @@ export default function ConfigDrivenDocViewer({
     docTypeId,
     executionId,
     docTypeName,
-    onClose
+    onClose,
+    inline
 }) {
     const [activeTab, setActiveTab] = useState(null);
 
@@ -207,62 +283,74 @@ export default function ConfigDrivenDocViewer({
                 className="px-5 py-3 border-b"
                 style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-panel)' }}
             >
-                <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
-                    {projectCode && (
-                        <a
-                            href={adminUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={executionId ? `View execution ${executionId}` : 'Open Admin Executions'}
-                            style={{
+                <div className="flex items-start justify-between">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 4 }}>
+                            {projectCode && (
+                                <a
+                                    href={adminUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={executionId ? `View execution ${executionId}` : 'Open Admin Executions'}
+                                    style={{
+                                        padding: '2px 8px',
+                                        background: '#10b981',
+                                        color: 'white',
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        borderRadius: 4,
+                                        letterSpacing: '0.05em',
+                                        textDecoration: 'none',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    {projectCode}
+                                </a>
+                            )}
+                            <span style={{
                                 padding: '2px 8px',
-                                background: '#10b981',
-                                color: 'white',
+                                background: '#eef2ff',
+                                color: '#4f46e5',
                                 fontSize: 11,
                                 fontWeight: 600,
                                 borderRadius: 4,
-                                letterSpacing: '0.05em',
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            {projectCode}
-                        </a>
-                    )}
-                    <span style={{
-                        padding: '2px 8px',
-                        background: '#eef2ff',
-                        color: '#4f46e5',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        borderRadius: 4,
-                    }}>
-                        {docTypeName || docTypeId?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Document'}
-                    </span>
-                    {lifecycleState && (
-                        <span style={{
-                            padding: '2px 8px',
-                            background: lifecycleState === 'complete' ? '#dcfce7' : '#fef3c7',
-                            color: lifecycleState === 'complete' ? '#166534' : '#92400e',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                        }}>
-                            {lifecycleState}
-                        </span>
-                    )}
-                </div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                    {displayTitle}
-                </h2>
-                {generatedDate && (
-                    <div style={{ marginTop: 2, fontSize: 12, color: 'var(--text-dim)' }}>
-                        Generated {generatedDate}
-                        {updatedDate && updatedDate !== generatedDate && (
-                            <span> &middot; Updated {updatedDate}</span>
+                            }}>
+                                {docTypeName || docTypeId?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Document'}
+                            </span>
+                            {lifecycleState && (
+                                <span style={{
+                                    padding: '2px 8px',
+                                    background: lifecycleState === 'complete' ? '#dcfce7' : '#fef3c7',
+                                    color: lifecycleState === 'complete' ? '#166534' : '#92400e',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    borderRadius: 4,
+                                }}>
+                                    {lifecycleState}
+                                </span>
+                            )}
+                        </div>
+                        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                            {displayTitle}
+                        </h2>
+                        {generatedDate && (
+                            <div style={{ marginTop: 2, fontSize: 12, color: 'var(--text-dim)' }}>
+                                Generated {generatedDate}
+                                {updatedDate && updatedDate !== generatedDate && (
+                                    <span> &middot; Updated {updatedDate}</span>
+                                )}
+                            </div>
                         )}
                     </div>
-                )}
+                    {/* Download Markdown dropdown */}
+                    {metadata.display_id && projectId && (
+                        <ConfigDocDownload
+                            projectId={projectId}
+                            projectCode={projectCode}
+                            displayId={metadata.display_id}
+                        />
+                    )}
+                </div>
             </div>
 
             {/* Tab bar */}

@@ -527,29 +527,24 @@
     gap: 8px;
 }
 
-/* --- WS Sheet --- */
-.wb-ws-sheet {
+/* --- WS Summary Card (non-expanding, clickable) --- */
+.wb-ws-summary-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
     border: 1px solid var(--border-node);
     border-radius: 6px;
     background: var(--bg-panel);
     cursor: pointer;
-    overflow: hidden;
+    text-align: left;
+    color: var(--text-primary);
 }
 
-.wb-ws-sheet:hover {
+.wb-ws-summary-card:hover {
     border-color: var(--text-dim);
-}
-
-.wb-ws-sheet--focused {
     background: var(--bg-node);
-    border-color: var(--action-primary);
-}
-
-.wb-ws-sheet-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
 }
 
 .wb-ws-id {
@@ -589,10 +584,138 @@
     opacity: 1;
 }
 
-/* --- WS Sheet Body (expanded) --- */
-.wb-ws-sheet-body {
+/* --- WSDetailView --- */
+.wb-ws-detail-view {
+    padding: 16px 24px;
+}
+
+.wb-ws-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-panel);
+}
+
+.wb-ws-detail-back {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    flex-shrink: 0;
+}
+
+.wb-ws-detail-back:hover {
+    color: var(--text-primary);
+}
+
+.wb-ws-detail-id {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.wb-ws-detail-title {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-ws-detail-objective {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+
+.wb-ws-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-panel);
+}
+
+.wb-ws-detail-position {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
+/* --- WS Accordion Sections --- */
+.wb-ws-accordion {
+    border: 1px solid var(--border-node);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: var(--bg-panel);
+    overflow: hidden;
+}
+
+.wb-ws-accordion summary {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wb-ws-accordion summary::-webkit-details-marker {
+    display: none;
+}
+
+.wb-ws-accordion summary::before {
+    content: '\25B6';
+    font-size: 8px;
+    color: var(--text-dim);
+    transition: transform 0.1s;
+}
+
+.wb-ws-accordion[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.wb-ws-accordion-content {
     padding: 0 14px 12px;
     border-top: 1px solid var(--border-node);
+}
+
+.wb-ws-detail-list {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.wb-ws-detail-list li {
+    margin-bottom: 2px;
+}
+
+.wb-ws-detail-sublabel {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+.wb-ws-detail-sublabel:first-child {
+    margin-top: 0;
 }
 
 .wb-ws-objective {
@@ -600,13 +723,6 @@
     color: var(--text-secondary);
     line-height: 1.5;
     margin: 10px 0;
-}
-
-.wb-ws-sheet-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
 }
 
 .wb-ws-reorder {
@@ -1022,4 +1138,64 @@
     font-size: 13px;
     color: var(--text-muted);
     font-style: italic;
+}
+
+/* ============================================================
+   WS-WB-030: Studio Layout — Sidebar WS rows
+   ============================================================ */
+
+.wb-index-ws-list {
+    padding-left: 16px;
+    border-left: 1px solid var(--border-node);
+    margin-left: 20px;
+    margin-bottom: 4px;
+}
+
+.wb-index-ws-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+.wb-index-ws-row:hover {
+    background: var(--bg-node);
+}
+
+.wb-index-ws-row--selected {
+    background: var(--bg-selected, var(--bg-node));
+}
+
+.wb-index-ws-pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.wb-index-ws-id {
+    font-size: 9px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+}
+
+.wb-index-ws-title {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-index-ws-loading {
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 6px 8px;
 }

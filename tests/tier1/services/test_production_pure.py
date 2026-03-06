@@ -352,14 +352,14 @@ class TestBuildChildTrack:
             doc_type_id="epic",
             title="Epic 1",
             content={"intent": "Build it", "epic_id": "E-001", "sequence": 1},
-            instance_id="inst-123",
+            display_id="inst-123",
         )
         assert result["document_type"] == "epic"
         assert result["document_name"] == "Epic 1"
         assert result["description"] == "Build it"
         assert result["identifier"] == "E-001"
         assert result["sequence"] == 1
-        assert result["instance_id"] == "inst-123"
+        assert result["display_id"] == "inst-123"
         assert result["state"] == ProductionState.PRODUCED.value
         assert result["stations"] == []
         assert result["blocked_by"] == []
@@ -369,7 +369,7 @@ class TestBuildChildTrack:
             doc_type_id="epic",
             title=None,
             content={"name": "Epic from content"},
-            instance_id="inst-456",
+            display_id="inst-456",
         )
         assert result["document_name"] == "Epic from content"
 
@@ -378,7 +378,7 @@ class TestBuildChildTrack:
             doc_type_id="epic",
             title=None,
             content={},
-            instance_id="inst-789",
+            display_id="inst-789",
         )
         assert result["document_name"] == "epic"
 
@@ -387,12 +387,12 @@ class TestBuildChildTrack:
             doc_type_id="epic",
             title="Test",
             content={},
-            instance_id=None,
+            display_id=None,
         )
         assert result["intent"] if "intent" in result else result["description"] == ""
         assert result["identifier"] == ""
         assert result["sequence"] is None
-        assert result["instance_id"] is None
+        assert result["display_id"] is None
 
 
 # =========================================================================

@@ -4,13 +4,15 @@
  * Three sub-view tabs: WORK | HISTORY | GOVERNANCE
  * Section header with Binding Block and Provenance Stamp.
  * Also renders candidate detail when a WPC is selected (WS-WB-009).
+ * WS-WB-030: Routes to WSDetailView when a WS is selected.
  *
- * WS-WB-007, WS-WB-009.
+ * WS-WB-007, WS-WB-009, WS-WB-030.
  */
 import { useState } from 'react';
 import WorkView from './WorkView';
 import HistoryView from './HistoryView';
 import GovernanceView from './GovernanceView';
+import WSDetailView from './WSDetailView';
 
 const SUB_VIEWS = ['WORK', 'HISTORY', 'GOVERNANCE'];
 
@@ -117,7 +119,13 @@ function CandidateDetail({ candidate, onPromote }) {
     );
 }
 
-export default function WPContentArea({ wp, candidate, projectId, activeSubView, onChangeSubView, onRefresh, onPromote, onProposeStatements, onViewCandidate }) {
+export default function WPContentArea({
+    wp, candidate, projectId, activeSubView, onChangeSubView,
+    onRefresh, onPromote, onProposeStatements, onViewCandidate,
+    // WS-WB-030: Lifted WS props
+    statements = [], selectedWsId, onSelectWs,
+    onCreateWs, onStabilize, onMoveUp, onMoveDown, onCopyWs,
+}) {
     // Candidate selected — show candidate detail
     if (candidate) {
         return <CandidateDetail candidate={candidate} onPromote={onPromote} />;
@@ -134,7 +142,12 @@ export default function WPContentArea({ wp, candidate, projectId, activeSubView,
         );
     }
 
-    // WP selected — existing sub-view tabs
+    // WS-WB-030: Find selected WS for detail view
+    const selectedWs = selectedWsId
+        ? statements.find(s => s.ws_id === selectedWsId)
+        : null;
+
+    // WP selected — sub-view tabs
     return (
         <div className="wb-content-area">
             {/* Section Header */}
@@ -157,7 +170,11 @@ export default function WPContentArea({ wp, candidate, projectId, activeSubView,
                     <button
                         key={view}
                         className={`wb-tab ${activeSubView === view ? 'wb-tab--active' : ''}`}
-                        onClick={() => onChangeSubView(view)}
+                        onClick={() => {
+                            onChangeSubView(view);
+                            // Clear WS selection when switching tabs
+                            if (view !== 'WORK' && selectedWsId) onSelectWs(null);
+                        }}
                     >
                         {view}
                     </button>
@@ -167,12 +184,23 @@ export default function WPContentArea({ wp, candidate, projectId, activeSubView,
             {/* Active sub-view */}
             <div className="wb-content-body">
                 {activeSubView === 'WORK' && (
-                    <WorkView
-                        wp={wp}
-                        projectId={projectId}
-                        onRefresh={onRefresh}
-                        onProposeStatements={onProposeStatements}
-                    />
+                    selectedWs
+                        ? <WSDetailView
+                            ws={selectedWs}
+                            statements={statements}
+                            onStabilize={onStabilize}
+                            onMoveUp={onMoveUp}
+                            onMoveDown={onMoveDown}
+                            onCopy={onCopyWs}
+                            onBack={() => onSelectWs(null)}
+                          />
+                        : <WorkView
+                            wp={wp}
+                            statements={statements}
+                            onSelectWs={onSelectWs}
+                            onProposeStatements={onProposeStatements}
+                            onCreateWs={onCreateWs}
+                          />
                 )}
                 {activeSubView === 'HISTORY' && (
                     <HistoryView

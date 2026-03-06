@@ -77,7 +77,7 @@ function AppContent() {
     const [showUserSidecar, setShowUserSidecar] = useState(false);
     const { theme, setTheme } = useTheme();
 
-    // Resolve URL projectId (project_id slug like HWCA-001) to internal UUID
+    // Resolve URL projectId (project_id like HWCA-001) to internal UUID
     useEffect(() => {
         if (urlProjectId && Object.keys(projects).length > 0) {
             const entry = Object.entries(projects).find(
@@ -280,6 +280,7 @@ function AppContent() {
                     showArchived={showArchived}
                     onToggleShowArchived={() => setShowArchived(prev => !prev)}
                     userSection={<UserButton user={user} onClick={() => setShowUserSidecar(true)} />}
+                    autoCollapse={!!activeProjectId}
                 />
                 <div className="flex-1">
                     {activeProjectId ? (
