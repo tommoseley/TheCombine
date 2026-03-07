@@ -50,6 +50,8 @@ def render_project_binder(
             - content: dict (canonical JSON body)
             - ia: dict or None (IA definitions from package.yaml)
             - ws_index: list or None (for WP documents only)
+            - id: str or None (database primary key, for parent_document_id fallback)
+            - parent_document_id: str or None (for WS documents, points to parent WP id)
         generated_at: ISO 8601 timestamp (for deterministic output).
             If None, uses current time.
 
@@ -174,10 +176,14 @@ def _get_ordered_ws(
     wp_doc: Dict[str, Any],
     ws_docs: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Get WS documents for a WP, ordered by ws_index."""
+    """Get WS documents for a WP, ordered by ws_index.
+
+    Primary path: match WS docs by content.ws_id against ws_index[].ws_id.
+    Fallback: if ws_index matching produces no results but WS docs exist
+    with parent_document_id matching the WP's id, use those ordered by
+    display_id.
+    """
     ws_index = wp_doc.get("ws_index", [])
-    if not ws_index:
-        return []
 
     # Build lookup: ws_id → WS doc
     ws_by_id: Dict[str, Dict[str, Any]] = {}
@@ -186,14 +192,28 @@ def _get_ordered_ws(
         if ws_id:
             ws_by_id[ws_id] = ws
 
-    # Return WSs in ws_index order
-    ordered = []
-    for entry in ws_index:
-        ws_id = entry.get("ws_id", "")
-        if ws_id in ws_by_id:
-            ordered.append(ws_by_id[ws_id])
+    # Primary path: return WSs in ws_index order
+    if ws_index:
+        ordered = []
+        for entry in ws_index:
+            ws_id = entry.get("ws_id", "")
+            if ws_id in ws_by_id:
+                ordered.append(ws_by_id[ws_id])
+        if ordered:
+            return ordered
 
-    return ordered
+    # Fallback: match by parent_document_id
+    wp_id = wp_doc.get("id")
+    if wp_id is not None:
+        children = [
+            ws for ws in ws_docs
+            if ws.get("parent_document_id") == wp_id
+        ]
+        if children:
+            children.sort(key=lambda d: d.get("display_id", ""))
+            return children
+
+    return []
 
 
 def _make_anchor(display_id: str) -> str:

@@ -967,6 +967,8 @@ async def render_project_binder(
             "title": doc.title or doc.doc_type_id,
             "content": content,
             "ia": ia,
+            "id": str(doc.id) if doc.id else None,
+            "parent_document_id": str(doc.parent_document_id) if doc.parent_document_id else None,
         }
 
         # For WPs, include ws_index from content
