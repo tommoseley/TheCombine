@@ -1,9 +1,32 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-06
-**Updated By:** Claude (WS-RENDER-001 through WS-RENDER-004 + Studio Layout Phase 2)
+**Updated By:** Claude (CRAP audit + WS-GOV-001 + WS-RENDER-005 + parallel WS execution)
 
 ## Current Focus
+
+**COMPLETE:** Three Parallel WSs (2026-03-06)
+- WS-RING0-002: Escalation wiring to QA circuit breaker + cancel endpoint (13 tests)
+- WS-DEEPLINK-001: SPA cold-load deep link resolution
+- WS-PROMPT-PROVENANCE-001: Full prompt provenance on builder_metadata (15 tests)
+
+**COMPLETE:** CRAP Score Audit & Three-Tier Remediation (2026-03-06)
+- Tier 1 (CC reduction): check_promotion_validity CC=41→10, get_document_render_model CC=26→14, get_production_tracks CC=25→14, _artifact_id_to_path CC=20→4
+- Tier 2 (zero-coverage): 81 tests for 7 functions
+- Tier 3 (partial-coverage): 97 tests for 7 functions
+- Max CRAP dropped from 681.9 to 199.7 (-71%), CRAP>500 eliminated entirely
+- New modules: render_pure.py, production_pure.py (extracted pure helpers)
+
+**COMPLETE:** WS-GOV-001 — Governance Policies (2026-03-06)
+- POL-QA-001: Testing & Verification Standard
+- POL-CODE-001: Code Construction Standard
+- POL-ARCH-001: Architectural Integrity Standard
+- 3 new policies in docs/policies/ (pending move to combine-config/policies/ per WS-RENDER-006)
+
+**COMPLETE:** WS-RENDER-005 — Binder WS Inclusion (2026-03-06)
+- Fixed data matching: endpoint passes id/parent_document_id to renderer
+- Added parent_document_id fallback in _get_ordered_ws()
+- 12 new tests for WS nesting in binder output
 
 **COMPLETE:** Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004, 2026-03-05)
 - WS-RENDER-001: markdown_renderer.py — 7 block renderers (paragraph, list, ordered-list, table, key-value-pairs, nested-object, card-list), pure function
@@ -151,7 +174,7 @@
 
 ## Test Suite
 
-- **3883 Tier-1 tests** passing as of 2026-03-06 (52 new render pipeline tests)
+- **4159 Tier-1 tests** passing as of 2026-03-06 (276 new: CRAP coverage + governance + binder WS)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -273,16 +296,15 @@ All previous decisions (1-46) plus:
 ## Handoff Notes
 
 ### Recent Work (2026-03-06)
-- Markdown Render Pipeline (WS-RENDER-001 through WS-RENDER-004): 4 new domain services, render endpoints, download dropdowns
-- Studio Layout Phase 2: ProjectTree auto-collapse, PipelineBreadcrumb in Work Binder mode
-- IA gate coverage threshold: 50% (pragmatic balance for optional fields)
-- Full ADR-054 IA audit: all 4 document types with IA fully compliant
-- 52 new tests (3883 total)
+- Three parallel WSs: WS-RING0-002, WS-DEEPLINK-001, WS-PROMPT-PROVENANCE-001
+- CRAP three-tier remediation: 4 CC reductions + 178 coverage tests, max CRAP 681.9→199.7
+- WS-GOV-001: 3 governance policies (POL-QA-001, POL-CODE-001, POL-ARCH-001)
+- WS-RENDER-005: Binder WS inclusion fix (parent_document_id fallback)
+- WS-RENDER-006 rewritten: pure renderer, policies in combine-config
 
 ### Next Work
-- Remaining CRAP targets: get_document_render_model (663), get_production_tracks (627), list_operations (318)
-- check_promotion_validity (CC=41, sole remaining F-grade)
-- Zero-coverage files: admin.py, accounts.py, prompt_assembler.py, schema_resolver.py
+- WS-RENDER-006 execution: move policies to combine-config/policies/, add governance section to binder
+- Remaining CRAP targets: 18 functions with CRAP>100 (coverage debt, moderate CC 11-14)
 - Three download dropdown components could be consolidated into shared component
 
 ### Open Threads
