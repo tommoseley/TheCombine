@@ -10,7 +10,7 @@
  *
  * WS-PIPELINE-002: Replaces modal document viewing with inline content panel.
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import FullDocumentViewer from './FullDocumentViewer';
 import WorkBinder from './WorkBinder';
 import QuestionTray from './QuestionTray';
@@ -160,6 +160,61 @@ function BlockedState({ step }) {
     );
 }
 
+const PRODUCTION_TIPS = [
+    'Each document passes through a PGC clarification gate before generation to surface unknowns early.',
+    'The QA gate evaluates documents against semantic quality criteria, not just schema compliance.',
+    'If QA fails, the system automatically attempts remediation — up to two cycles before escalating.',
+    'Every LLM call is logged with full provenance: inputs, outputs, tokens, and timing (ADR-010).',
+    'Documents are produced in pipeline order: Intake, Discovery, Implementation Plan, Architecture.',
+    'Work Package Candidates in the Implementation Plan become governed Work Packages after TA review.',
+    'The Combine treats knowledge work like manufacturing — stations, quality gates, and audit trails.',
+    'Bound constraints from the clarification gate follow the document through QA and remediation.',
+    'Each document type has a certified prompt pair: a role prompt (who) and a task prompt (what).',
+    'The Work Binder is where advisory candidates become governed Work Packages with real scope.',
+    'Schema validation catches structural issues; semantic QA catches logical and quality issues.',
+    'All prompt changes require a version bump, re-certification, and manifest regeneration.',
+    'Documents can be downloaded in standard or evidence mode — evidence mode includes SHA-256 provenance.',
+    'The pipeline is idempotent — re-running a step with the same inputs produces the same result.',
+    'Work Statements define exactly what is authorized: scope, procedure, verification, and prohibitions.',
+];
+
+function RotatingTip() {
+    const [index, setIndex] = useState(() => Math.floor(Math.random() * PRODUCTION_TIPS.length));
+    const [fading, setFading] = useState(false);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setFading(true);
+            setTimeout(() => {
+                setIndex(prev => (prev + 1) % PRODUCTION_TIPS.length);
+                setFading(false);
+            }, 400);
+        }, 15000);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div
+            className="rounded-lg border p-4 w-full max-w-md transition-opacity duration-400"
+            style={{
+                background: 'var(--bg-node)',
+                borderColor: 'var(--border-node)',
+                opacity: fading ? 0 : 1,
+            }}
+        >
+            <div
+                className="text-[10px] font-medium uppercase tracking-wider mb-2"
+                style={{ color: 'var(--text-muted)' }}
+            >
+                Did you know?
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                {PRODUCTION_TIPS[index]}
+            </p>
+        </div>
+    );
+}
+
 /**
  * In-progress state — document is being produced
  */
@@ -256,6 +311,9 @@ function InProgressState({ step, onSubmitQuestions }) {
                     <StationDots stations={step.stations} />
                 </div>
             )}
+
+            {/* Rotating tips — shown while LLM is working (not during user input) */}
+            {!needsInput && <RotatingTip />}
 
             {needsInput && hasQuestions && (
                 <div className="w-full max-w-2xl">
