@@ -446,3 +446,45 @@ class TestHandleQaRetryFeedback:
 
         # Feedback untouched
         assert "qa_feedback" in state.context_state
+
+    def test_gate_remapped_fail_stores_feedback(self, executor):
+        """Gate executor remaps QA 'failed' → 'fail'. Feedback must still be stored.
+
+        Bug: _handle_qa_retry_feedback checked outcome == 'failed' but the
+        GateNodeExecutor remaps it to 'fail' before the plan executor sees it.
+        This meant QA feedback was NEVER stored for remediation.
+        """
+        state = FakeState()
+        state.generating_node_id = "gen-1"
+        node = FakeNode(node_type="qa")
+        # This is the ACTUAL outcome after gate remapping
+        result = FakeNodeResult(
+            outcome="fail",
+            metadata={"errors": [{"severity": "error", "message": "Missing section"}]},
+        )
+        executor._extract_qa_feedback = MagicMock(
+            return_value={"issues": [{"message": "Missing section"}]},
+        )
+
+        executor._handle_qa_retry_feedback(result, node, state)
+
+        assert state._retry_counts["gen-1"] == 1, (
+            "Retry count not incremented — outcome 'fail' not recognized"
+        )
+        assert "qa_feedback" in state.context_state, (
+            "QA feedback not stored — remediation will run blind"
+        )
+
+    def test_gate_remapped_pass_clears_feedback(self, executor):
+        """Gate executor remaps QA 'success' → 'pass'. Feedback must still be cleared."""
+        state = FakeState()
+        state.context_state["qa_feedback"] = {"issues": ["Old problem"]}
+        node = FakeNode(node_type="qa")
+        # This is the ACTUAL outcome after gate remapping
+        result = FakeNodeResult(outcome="pass")
+
+        executor._handle_qa_retry_feedback(result, node, state)
+
+        assert "qa_feedback" not in state.context_state, (
+            "QA feedback not cleared on 'pass' outcome"
+        )

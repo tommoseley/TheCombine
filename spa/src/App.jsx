@@ -24,26 +24,13 @@ function UserButton({ user, onClick }) {
         >
             <button
                 onClick={onClick}
-                className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-white/10 transition-colors"
                 style={{ color: 'var(--text-primary)' }}
             >
-                {user?.avatar_url ? (
-                    <img
-                        src={user.avatar_url}
-                        alt={user.name}
-                        className="w-8 h-8 rounded-full"
-                    />
-                ) : (
-                    <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ background: 'var(--bg-canvas)' }}
-                    >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                        </svg>
-                    </div>
-                )}
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                </svg>
                 <div className="flex-1 text-left overflow-hidden">
                     <div className="text-sm font-medium truncate">
                         {user?.name || 'User'}
@@ -163,9 +150,10 @@ function AppContent() {
 
     const handleIntakeComplete = async (project) => {
         await refreshProjects();
-        if (project && project.id) {
+        if (project && project.projectId) {
+            navigate(`/projects/${project.projectId}`, { replace: true });
+        } else if (project && project.id) {
             setSelectedProjectId(project.id);
-            setAutoExpandNode('concierge_intake');
         }
         setShowIntakeSidecar(false);
     };

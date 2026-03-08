@@ -52,7 +52,8 @@ export function formatWsForClipboard(ws) {
 
 export async function fetchWorkStatements(projectId, wpId) {
     try {
-        const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/work-statements`);
+        const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+        const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/work-statements${qs}`);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         return Array.isArray(data) ? data : (data?.work_statements || data?.items || []);
@@ -62,8 +63,9 @@ export async function fetchWorkStatements(projectId, wpId) {
     }
 }
 
-export async function createWorkStatement(wpId, intent) {
-    const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/work-statements`, {
+export async function createWorkStatement(wpId, intent, projectId = null) {
+    const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/work-statements${qs}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: intent }),
@@ -72,16 +74,18 @@ export async function createWorkStatement(wpId, intent) {
     return res.json();
 }
 
-export async function stabilizeWorkStatement(wsId) {
-    const res = await fetch(`/api/v1/work-binder/work-statements/${encodeURIComponent(wsId)}/stabilize`, {
+export async function stabilizeWorkStatement(wsId, projectId = null) {
+    const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/v1/work-binder/work-statements/${encodeURIComponent(wsId)}/stabilize${qs}`, {
         method: 'POST',
     });
     if (!res.ok) throw new Error(`Failed to stabilize WS: ${res.status}`);
     return res.json();
 }
 
-export async function reorderWorkStatements(wpId, wsIndexEntries) {
-    const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/ws-index`, {
+export async function reorderWorkStatements(wpId, wsIndexEntries, projectId = null) {
+    const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/ws-index${qs}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ws_index: wsIndexEntries }),

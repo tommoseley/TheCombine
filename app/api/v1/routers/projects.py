@@ -999,6 +999,9 @@ async def render_project_binder(
             },
         )
 
+    # Load governance policies from combine-config/policies/
+    policy_list = _load_governance_policies()
+
     # Render binder
     from app.domain.services.binder_renderer import render_project_binder as _render_binder
 
@@ -1006,6 +1009,7 @@ async def render_project_binder(
         project_id=project.project_id,
         project_title=project.name or project.project_id,
         documents=binder_docs,
+        policies=policy_list,
     )
 
     # Evidence mode (WS-RENDER-004): add per-document frontmatter + Evidence Index
@@ -1118,6 +1122,32 @@ async def _find_execution_id(
         if exec_id:
             return exec_id
     return None
+
+
+def _load_governance_policies() -> List[Dict[str, str]]:
+    """Read policy files from combine-config/policies/ and return as data.
+
+    Each policy dict has 'title' (parsed from first # heading) and 'content'.
+    Returns empty list if directory doesn't exist or has no .md files.
+    """
+    from pathlib import Path
+
+    policies_dir = Path("combine-config/policies")
+    if not policies_dir.is_dir():
+        return []
+
+    result = []
+    for path in sorted(policies_dir.glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        # Parse title from first # heading
+        title = path.stem
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# ") and not stripped.startswith("## "):
+                title = stripped[2:].strip()
+                break
+        result.append({"title": title, "content": text})
+    return result
 
 
 def _prepare_document_content(doc_type_id: str, raw_content: Any) -> tuple:
@@ -1308,7 +1338,7 @@ async def get_document_render_model(
         return result_dict
 
     except DocDefNotFoundError as e:
-        logger.warning(f"DocDef not found for {doc_type_id}: {e}")
+        logger.debug(f"DocDef not in DB for {doc_type_id} (using IA config fallback): {e}")
         doc_meta["fallback"] = True
         doc_meta["reason"] = "docdef_not_found"
         doc_meta["view_docdef"] = view_docdef

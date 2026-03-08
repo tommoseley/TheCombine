@@ -23,7 +23,7 @@ All relative paths in this document are from this root. When using tools to read
 
 1. This file (`CLAUDE.md`) - in Project Knowledge
 2. **Use the `view` tool** to read `docs/PROJECT_STATE.md` from the filesystem
-3. **Review all policies** in `docs/policies/` - these are mandatory governance constraints
+3. **Review all policies** in `combine-config/policies/` - these are mandatory governance constraints
 4. Optionally scan recent session logs in `docs/session_logs/` (filesystem)
 5. Search Project Knowledge for ADRs as needed
 
@@ -224,7 +224,7 @@ Key implications:
 - Prompts live in `seed/prompts/` - they are **governed inputs**, not documentation
 - Anything in `ops/` is operator-facing and never in the container
 - Docker copies only `app/`, `alembic/`, `alembic.ini` (explicit, not blanket)
-- ADRs go in `docs/adr/`, policies in `docs/policies/`, work statements in `docs/work-statements/`
+- ADRs go in `docs/adr/`, policies in `combine-config/policies/`, work statements in `docs/work-statements/`
 - Session logs go in `docs/session_logs/` with format `YYYY-MM-DD.md`
 
 ---

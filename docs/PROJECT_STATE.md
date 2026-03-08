@@ -1,9 +1,19 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-06
-**Updated By:** Claude (CRAP audit + WS-GOV-001 + WS-RENDER-005 + parallel WS execution)
+**Last Updated:** 2026-03-07
+**Updated By:** Claude (cross-project scoping + IA audit + binder fixes + 42 contract tests)
 
 ## Current Focus
+
+**COMPLETE:** Cross-Project Scoping + IA Audit + UX Tuning (2026-03-07)
+- Cross-project scoping: all 9 work-binder endpoints accept project_id, SPA passes it on all calls
+- QA remediation: outcome mismatch fix (gate remaps failed→fail, was breaking retry loop)
+- IA audit: concierge_intake IA authored (5 sections), WP computed fields removed from IA
+- IA contract tests: 42 tests verifying all package.yaml IA binds match production content
+- Binder render 409 resolved (IA gate now passes all 9 projects, 64 documents)
+- UX: sort by projectId, deep link after intake, collapsed sidebar improvements, user button simplified
+- Startup banner: shows real DB config instead of stale sqlite fallback
+- Binder Audit concept (CBA-1.0) scoped for future WS-RENDER-007 (mode=audit)
 
 **COMPLETE:** Three Parallel WSs (2026-03-06)
 - WS-RING0-002: Escalation wiring to QA circuit breaker + cancel endpoint (13 tests)
@@ -174,7 +184,7 @@
 
 ## Test Suite
 
-- **4159 Tier-1 tests** passing as of 2026-03-06 (276 new: CRAP coverage + governance + binder WS)
+- **4215+ Tier-1 tests** passing as of 2026-03-07 (56+ new: IA contract + scoping + QA remediation)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -295,15 +305,16 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
-### Recent Work (2026-03-06)
-- Three parallel WSs: WS-RING0-002, WS-DEEPLINK-001, WS-PROMPT-PROVENANCE-001
-- CRAP three-tier remediation: 4 CC reductions + 178 coverage tests, max CRAP 681.9→199.7
-- WS-GOV-001: 3 governance policies (POL-QA-001, POL-CODE-001, POL-ARCH-001)
-- WS-RENDER-005: Binder WS inclusion fix (parent_document_id fallback)
-- WS-RENDER-006 rewritten: pure renderer, policies in combine-config
+### Recent Work (2026-03-07)
+- Cross-project scoping fix: all work-binder endpoints + SPA
+- QA remediation outcome mismatch fix (gate remaps failed→fail)
+- IA audit: concierge_intake IA authored, WP computed fields removed, 42 contract tests
+- Binder render 409 resolved across all 9 projects
+- UX tuning: sort, deep link, collapsed sidebar, user button
+- Binder Audit concept (CBA-1.0) accepted as future work
 
 ### Next Work
-- WS-RENDER-006 execution: move policies to combine-config/policies/, add governance section to binder
+- WS-RENDER-007: Binder Audit mode (mode=audit) — mechanical governance/traceability/readiness checks
 - Remaining CRAP targets: 18 functions with CRAP>100 (coverage debt, moderate CC 11-14)
 - Three download dropdown components could be consolidated into shared component
 

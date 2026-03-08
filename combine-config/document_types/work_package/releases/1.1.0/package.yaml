@@ -122,16 +122,6 @@ information_architecture:
             - field: order_key
               label: Order
 
-    - id: progress
-      label: Progress
-      binds:
-        - path: ws_total
-          render_as: paragraph
-        - path: ws_done
-          render_as: paragraph
-        - path: mode_b_count
-          render_as: paragraph
-
     - id: revision
       label: Revision
       binds:
@@ -144,8 +134,6 @@ information_architecture:
               render_as: paragraph
             - path: updated_by
               render_as: paragraph
-        - path: change_summary
-          render_as: list
 
     - id: lineage
       label: Lineage

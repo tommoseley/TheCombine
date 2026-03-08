@@ -32,9 +32,17 @@ def load_env():
 
 def print_config():
     """Print server configuration."""
-    db_url = os.getenv("DATABASE_URL", "sqlite:///./data/workbench_ai.db")
-    
-    print(f"   Database: {db_url}")
+    db_url = os.getenv("DATABASE_URL")
+    env = os.getenv("ENVIRONMENT", "")
+    if db_url:
+        # Mask credentials in URL for display
+        display_url = db_url.split("@")[-1] if "@" in db_url else db_url
+        print(f"   Database: ...@{display_url}")
+    elif env.endswith("_aws"):
+        print(f"   Database: AWS Secrets Manager ({env})")
+    else:
+        print(f"   Database: NOT CONFIGURED (set DATABASE_URL or ENVIRONMENT)")
+    print(f"   Environment: {env or 'not set'}")
     print(f"   API docs: http://localhost:8000/docs")
     print(f"   Health: http://localhost:8000/health")
     print()

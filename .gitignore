@@ -38,7 +38,7 @@ seed.py
 !**/secret_ingress*
 !**/secret_governance*
 !combine-config/governance/tier0/*secret*
-!docs/policies/*ecret*
+!combine-config/policies/*ecret*
 !docs/work-statements/*SEC*
 *credentials*
 *.tfvars

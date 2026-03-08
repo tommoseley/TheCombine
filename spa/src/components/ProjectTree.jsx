@@ -49,11 +49,9 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
         }
     }, [selectedId]);
 
-    // Sort projects by name, then by projectId
+    // Sort projects by projectId (e.g. HWCA-001, HWCA-002, HWCP-001)
     const sortedProjects = useMemo(() => {
         return Object.values(projects).sort((a, b) => {
-            const nameCompare = (a.name || '').localeCompare(b.name || '');
-            if (nameCompare !== 0) return nameCompare;
             return (a.projectId || '').localeCompare(b.projectId || '');
         });
     }, [projects]);
@@ -117,33 +115,31 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
                 className="p-3 border-b flex items-center justify-between"
                 style={{ borderColor: 'var(--border-panel)' }}
             >
-                {!collapsed && (
-                    <div className="flex items-center gap-2">
-                        <h2
-                            className="text-sm font-semibold"
-                            style={{ color: 'var(--text-primary)' }}
+                <div className="flex items-center gap-2">
+                    <h2
+                        className="text-sm font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                    >
+                        {collapsed ? 'Projects' : 'Projects'}
+                    </h2>
+                    <button
+                        onClick={onToggleShowArchived}
+                        className="p-1 rounded hover:bg-white/10 transition-colors"
+                        style={{ color: showArchived ? '#f59e0b' : 'var(--text-muted)' }}
+                        title={showArchived ? 'Hide archived' : 'Show archived'}
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
                         >
-                            Projects
-                        </h2>
-                        <button
-                            onClick={onToggleShowArchived}
-                            className="p-1 rounded hover:bg-white/10 transition-colors"
-                            style={{ color: showArchived ? '#f59e0b' : 'var(--text-muted)' }}
-                            title={showArchived ? 'Hide archived' : 'Show archived'}
-                        >
-                            <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                            >
-                                <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
+                            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4" />
+                        </svg>
+                    </button>
+                </div>
                 <button
                     onClick={() => setCollapsed(!collapsed)}
                     className="p-1.5 rounded hover:bg-white/10 transition-colors"
@@ -294,16 +290,17 @@ export default function ProjectTree({ projects, selectedId, onSelectProject, onN
             {/* Collapsed new project button */}
             {collapsed && (
                 <div
-                    className="p-2 border-t flex justify-center"
+                    className="p-2 border-t"
                     style={{ borderColor: 'var(--border-panel)' }}
                 >
                     <button
                         onClick={handleNewProject}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        className="w-full py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
                         style={{ background: '#10b981', color: 'white' }}
                         title="New Project"
                     >
-                        <span style={{ fontSize: 18, lineHeight: 1 }}>+</span>
+                        <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+                        <span>New</span>
                     </button>
                 </div>
             )}

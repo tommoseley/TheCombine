@@ -35,6 +35,7 @@ def render_project_binder(
     project_id: str,
     project_title: str,
     documents: List[Dict[str, Any]],
+    policies: Optional[List[Dict[str, str]]] = None,
     generated_at: Optional[str] = None,
 ) -> str:
     """
@@ -52,6 +53,9 @@ def render_project_binder(
             - ws_index: list or None (for WP documents only)
             - id: str or None (database primary key, for parent_document_id fallback)
             - parent_document_id: str or None (for WS documents, points to parent WP id)
+        policies: Optional list of policy dicts for the governance section.
+            Each dict: {"title": "POL-XXX — Name", "content": "markdown body"}.
+            If None or empty, governance section is omitted.
         generated_at: ISO 8601 timestamp (for deterministic output).
             If None, uses current time.
 
@@ -60,6 +64,9 @@ def render_project_binder(
     """
     if generated_at is None:
         generated_at = datetime.now(timezone.utc).isoformat()
+
+    # Sort policies alphabetically by title
+    sorted_policies = sorted(policies, key=lambda p: p.get("title", "")) if policies else []
 
     # Separate documents by type
     by_type: Dict[str, List[Dict[str, Any]]] = {}
@@ -97,8 +104,12 @@ def render_project_binder(
         parts.append("*No documents produced yet.*")
         return "\n\n".join(parts) + "\n"
 
-    # Table of Contents
-    parts.append(_render_toc(ordered))
+    # Table of Contents (governance + pipeline)
+    parts.append(_render_toc(ordered, sorted_policies))
+
+    # Governance section (before pipeline documents)
+    if sorted_policies:
+        parts.append(_render_governance_section(sorted_policies))
 
     # Document sections
     for doc in ordered:
@@ -125,9 +136,25 @@ def _render_cover(
     return "\n".join(lines)
 
 
-def _render_toc(documents: List[Dict[str, Any]]) -> str:
+def _render_toc(
+    documents: List[Dict[str, Any]],
+    policies: Optional[List[Dict[str, str]]] = None,
+) -> str:
     """Render a Table of Contents with anchor links."""
     lines = ["## Table of Contents", ""]
+
+    # Governance TOC group
+    if policies:
+        lines.append("### Project Governance")
+        for pol in policies:
+            title = pol.get("title", "")
+            # Extract policy ID (first word) for anchor
+            pol_id = title.split()[0] if title else ""
+            anchor = _make_anchor(pol_id)
+            lines.append(f"  - [{title}](#{anchor})")
+        lines.append("")
+        lines.append("### Pipeline Documents")
+
     for doc in documents:
         display_id = doc.get("display_id", "")
         title = doc.get("title", "")
@@ -141,6 +168,28 @@ def _render_toc(documents: List[Dict[str, Any]]) -> str:
             lines.append(f"- [{display_id} — {title}](#{anchor})")
 
     return "\n".join(lines)
+
+
+def _render_governance_section(policies: List[Dict[str, str]]) -> str:
+    """Render the Project Governance section with all policy documents."""
+    parts = [
+        "---",
+        "",
+        "# Project Governance",
+        "",
+        "These standards apply to all work in this project.",
+    ]
+    for pol in policies:
+        title = pol.get("title", "")
+        content = pol.get("content", "")
+        parts.append("")
+        parts.append("---")
+        parts.append("")
+        parts.append(f"## {title}")
+        parts.append("")
+        parts.append(content)
+
+    return "\n".join(parts)
 
 
 def _render_document_section(doc: Dict[str, Any]) -> str:

@@ -6,6 +6,7 @@ parent_document_id as a fallback.
 
 No DB, no HTTP, no side effects.
 """
+# ruff: noqa: E501
 
 import pytest
 
@@ -450,3 +451,131 @@ class TestDocumentCount:
         )
         # 2 documents: WP-001 + WS-001
         assert "Documents: 2" in md
+
+
+# ---------------------------------------------------------------------------
+# Production data shape (mirrors real DB state)
+# ---------------------------------------------------------------------------
+
+class TestProductionDataShape:
+    """Tests using the exact data shape from production.
+
+    In production:
+    - ws_index[].ws_id uses display_id format (e.g., "WS-001")
+    - WS content.ws_id also uses display_id format (e.g., "WS-001")
+    - parent_document_id on WSs is NULL (not set during proposal)
+    - WP content has ws_index populated by the propose-ws endpoint
+    """
+
+    def _wp_with_5_ws(self):
+        """Build documents matching HWCP-002 production data."""
+        ws_index = [
+            {"ws_id": "WS-001", "order_key": "a0"},
+            {"ws_id": "WS-002", "order_key": "a1"},
+            {"ws_id": "WS-003", "order_key": "a2"},
+            {"ws_id": "WS-004", "order_key": "a3"},
+            {"ws_id": "WS-005", "order_key": "a4"},
+        ]
+        docs = [
+            _doc("CI-001", "concierge_intake", "Concierge Intake",
+                 {"title": "CI"}, ia=_SIMPLE_IA),
+            _doc("PD-001", "project_discovery", "Project Discovery",
+                 {"title": "PD"}, ia=_SIMPLE_IA),
+            _doc("IP-001", "implementation_plan", "Implementation Plan",
+                 {"title": "IP"}, ia=_SIMPLE_IA),
+            _doc("TA-001", "technical_architecture", "Technical Architecture",
+                 {"title": "TA"}, ia=_SIMPLE_IA),
+            _doc("WP-001", "work_package", "Core Hello World CLI Implementation",
+                 {"title": "Core CLI", "ws_index": ws_index},
+                 ia=_SIMPLE_IA,
+                 ws_index=ws_index,
+                 id="a0b67816-4d9e-461d-9025-fd2afb26db08"),
+            # WSs: parent_document_id is None (production reality)
+            _doc("WS-001", "work_statement", "Create Python Script File Structure",
+                 {"ws_id": "WS-001", "title": "Create Script", "parent_wp_id": "WP-001",
+                  "state": "draft", "objective": "Set up file structure"},
+                 ia=_SIMPLE_IA),
+            _doc("WS-002", "work_statement", "Implement Main Entry Point Function",
+                 {"ws_id": "WS-002", "title": "Main Entry", "parent_wp_id": "WP-001",
+                  "state": "draft", "objective": "Implement main()"},
+                 ia=_SIMPLE_IA),
+            _doc("WS-003", "work_statement", "Implement Hello World Output Generation",
+                 {"ws_id": "WS-003", "title": "Output", "parent_wp_id": "WP-001",
+                  "state": "draft", "objective": "Print output"},
+                 ia=_SIMPLE_IA),
+            _doc("WS-004", "work_statement", "Verify Windows Platform Compatibility",
+                 {"ws_id": "WS-004", "title": "Windows", "parent_wp_id": "WP-001",
+                  "state": "draft", "objective": "Platform compat"},
+                 ia=_SIMPLE_IA),
+            _doc("WS-005", "work_statement", "Create Basic Usage Documentation",
+                 {"ws_id": "WS-005", "title": "Docs", "parent_wp_id": "WP-001",
+                  "state": "draft", "objective": "Usage docs"},
+                 ia=_SIMPLE_IA),
+        ]
+        return docs
+
+    def test_all_5_ws_appear_in_binder(self):
+        """All 5 WSs appear in the binder output."""
+        docs = self._wp_with_5_ws()
+        md = render_project_binder("HWCP-002", "Hello World CLI", docs, generated_at=FIXED_TS)
+        for ws_id in ["WS-001", "WS-002", "WS-003", "WS-004", "WS-005"]:
+            assert ws_id in md, f"{ws_id} not found in binder output"
+
+    def test_ws_nested_under_wp_in_output(self):
+        """WSs appear after WP-001, before end of document."""
+        docs = self._wp_with_5_ws()
+        md = render_project_binder("HWCP-002", "Hello World CLI", docs, generated_at=FIXED_TS)
+        pos_wp = md.find("# WP-001")
+        pos_ws1 = md.find("### WS-001")
+        pos_ws5 = md.find("### WS-005")
+        assert pos_wp != -1, "WP-001 not found"
+        assert pos_ws1 != -1, "WS-001 not found"
+        assert pos_ws5 != -1, "WS-005 not found"
+        assert pos_wp < pos_ws1 < pos_ws5
+
+    def test_ws_in_toc_indented(self):
+        """WS entries appear in TOC indented under WP-001."""
+        docs = self._wp_with_5_ws()
+        md = render_project_binder("HWCP-002", "Hello World CLI", docs, generated_at=FIXED_TS)
+        toc_start = md.index("## Table of Contents")
+        toc_end = md.index("---", toc_start)
+        toc = md[toc_start:toc_end]
+        assert "- [WP-001" in toc
+        for ws_id in ["WS-001", "WS-002", "WS-003", "WS-004", "WS-005"]:
+            assert f"  - [{ws_id}" in toc, f"{ws_id} not indented in TOC"
+
+    def test_ws_order_follows_ws_index(self):
+        """WSs appear in ws_index order (a0 through a4)."""
+        docs = self._wp_with_5_ws()
+        md = render_project_binder("HWCP-002", "Hello World CLI", docs, generated_at=FIXED_TS)
+        positions = []
+        for ws_id in ["WS-001", "WS-002", "WS-003", "WS-004", "WS-005"]:
+            pos = md.find(f"### {ws_id}")
+            assert pos != -1, f"### {ws_id} not found"
+            positions.append(pos)
+        assert positions == sorted(positions), f"WSs not in order: {positions}"
+
+    def test_document_count_includes_all_ws(self):
+        """Document count is 10 (5 pipeline + 5 WS)."""
+        docs = self._wp_with_5_ws()
+        md = render_project_binder("HWCP-002", "Hello World CLI", docs, generated_at=FIXED_TS)
+        assert "> Documents: 10" in md
+
+    def test_ws_with_no_parent_document_id_matches_via_ws_index(self):
+        """WSs with parent_document_id=None are matched via ws_index primary path."""
+        docs = [
+            _doc("WP-001", "work_package", "CLI Package",
+                 {"title": "CLI", "ws_index": [{"ws_id": "WS-001", "order_key": "a0"}]},
+                 ia=_SIMPLE_IA,
+                 ws_index=[{"ws_id": "WS-001", "order_key": "a0"}],
+                 id="some-wp-uuid"),
+            # No parent_document_id, no id — only ws_id for matching
+            _doc("WS-001", "work_statement", "Create Script",
+                 {"ws_id": "WS-001", "title": "Script", "parent_wp_id": "WP-001"},
+                 ia=_SIMPLE_IA),
+        ]
+        md = render_project_binder("TEST", "Test", docs, generated_at=FIXED_TS)
+        assert "### WS-001" in md, "WS-001 should appear via ws_index matching"
+        pos_wp = md.find("# WP-001")
+        pos_ws = md.find("### WS-001")
+        assert pos_wp < pos_ws, "WS should appear after WP"

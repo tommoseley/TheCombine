@@ -7,9 +7,10 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 
-async function fetchHistory(wpId) {
+async function fetchHistory(wpId, projectId = null) {
     try {
-        const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/history`);
+        const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+        const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/history${qs}`);
         if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         return Array.isArray(data) ? data : (data?.editions || []);
@@ -70,7 +71,7 @@ export default function HistoryView({ wp, projectId }) {
 
     const load = useCallback(async () => {
         setLoading(true);
-        const data = await fetchHistory(wpContentId);
+        const data = await fetchHistory(wpContentId, projectId);
         setEditions(data);
         setLoading(false);
     }, [wpContentId]);

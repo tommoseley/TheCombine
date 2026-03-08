@@ -275,8 +275,10 @@ export const api = {
             }),
         }),
 
-    getWorkPackageDetail: (wpId) =>
-        request(`/work-binder/wp/${encodeURIComponent(wpId)}`),
+    getWorkPackageDetail: (wpId, projectId = null) => {
+        const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+        return request(`/work-binder/wp/${encodeURIComponent(wpId)}${qs}`);
+    },
 
     proposeWorkStatements: (projectId, wpId) =>
         request('/work-binder/propose-ws', {

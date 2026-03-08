@@ -51,6 +51,72 @@ gating_rules:
   acceptance_required: false
   accepted_by: []
 
+# Information Architecture (ADR-054)
+# Note: LLM output uses nested objects (summary.description, outcome.status, etc.)
+# IA binds to top-level keys; nested rendering handled by SPA block components.
+information_architecture:
+  version: 2
+
+  sections:
+    - id: overview.summary
+      label: Project Summary
+      binds:
+        - path: summary
+          render_as: nested-object
+          fields:
+            - path: description
+              render_as: paragraph
+            - path: user_statement
+              render_as: paragraph
+
+    - id: overview.project_type
+      label: Project Type
+      binds:
+        - path: project_type
+          render_as: nested-object
+          fields:
+            - path: category
+              render_as: paragraph
+            - path: rationale
+              render_as: paragraph
+
+    - id: details.constraints
+      label: Constraints
+      binds:
+        - path: constraints
+          render_as: nested-object
+          fields:
+            - path: explicit
+              render_as: string-list
+            - path: inferred
+              render_as: string-list
+
+    - id: details.open_gaps
+      label: Open Gaps
+      binds:
+        - path: open_gaps
+          render_as: nested-object
+          fields:
+            - path: questions
+              render_as: string-list
+            - path: missing_context
+              render_as: string-list
+            - path: assumptions_made
+              render_as: string-list
+
+    - id: outcome.gate
+      label: Intake Outcome
+      binds:
+        - path: outcome
+          render_as: nested-object
+          fields:
+            - path: status
+              render_as: paragraph
+            - path: rationale
+              render_as: paragraph
+            - path: next_action
+              render_as: paragraph
+
 # UI configuration
 ui:
   icon: message-circle

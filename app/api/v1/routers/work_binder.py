@@ -24,7 +24,7 @@ import logging
 from typing import Any, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -535,12 +535,14 @@ async def propose_work_statements(
     Gates: TA must be ready, WP ws_index must be empty.
     Produces DRAFT-only WS artifacts, validated before persistence.
     """
-    # --- Resolve WP ---
-    wp_doc = await _load_wp_document(db, request.wp_id)
+    # --- Resolve project FIRST (scoping) ---
+    project = await _resolve_project(db, request.project_id)
+
+    # --- Resolve WP (scoped to project) ---
+    wp_doc = await _load_wp_document(db, request.wp_id, space_id=str(project.id))
     wp_content = dict(wp_doc.content or {})
 
     # --- Resolve TA ---
-    project = await _resolve_project(db, request.project_id)
     ta_doc = await _find_ta_for_project(db, project.id)
 
     # --- Gate checks (mechanical) ---
@@ -750,6 +752,7 @@ async def create_work_statement(
     wp_id: str,
     body: CreateWSRequest,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> WSResponse:
     """Create a new WS under the given WP."""
     # --- Governance: provenance check (WS-WB-008) ---
@@ -760,7 +763,8 @@ async def create_work_statement(
             detail="; ".join(prov_errors),
         )
 
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
 
     # --- Governance: cannot create WS when ta_version_id is pending (WS-WB-008) ---
     ws_create_errors = validate_can_create_ws(wp_doc.content or {})
@@ -830,6 +834,7 @@ async def update_work_statement(
     ws_id: str,
     body: UpdateWSRequest,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> WSResponse:
     """Update WS content fields. Rejects WP-level fields."""
     # --- Governance: provenance check (WS-WB-008) ---
@@ -849,7 +854,8 @@ async def update_work_statement(
             detail={"error_code": "PLANE_VIOLATION", "errors": errors},
         )
 
-    ws_doc = await _load_ws_document(db, ws_id)
+    space_id = await _resolve_space_id(db, project_id)
+    ws_doc = await _load_ws_document(db, ws_id, space_id=space_id)
     ws_content = dict(ws_doc.content or {})
 
     for key, value in update_data.items():
@@ -894,6 +900,7 @@ async def reorder_work_statements(
     wp_id: str,
     body: ReorderWSRequest,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> dict[str, Any]:
     """Reorder WSs in a WP. Bumps WP edition."""
     # --- Governance: provenance check (WS-WB-008) ---
@@ -904,7 +911,8 @@ async def reorder_work_statements(
             detail="; ".join(prov_errors),
         )
 
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
 
     # --- Governance: cannot reorder on DONE WP (WS-WB-008) ---
     reorder_errors = validate_can_reorder(wp_doc.content or {})
@@ -956,6 +964,7 @@ async def update_work_package(
     wp_id: str,
     body: UpdateWPRequest,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> dict[str, Any]:
     """Update WP fields. Rejects WS content fields."""
     # --- Governance: provenance check (WS-WB-008) ---
@@ -975,7 +984,8 @@ async def update_work_package(
             detail={"error_code": "PLANE_VIOLATION", "errors": errors},
         )
 
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
     old_content = copy.deepcopy(wp_doc.content or {})
     wp_content = dict(wp_doc.content or {})
 
@@ -1016,6 +1026,7 @@ async def update_work_package(
 async def get_work_package_detail(
     wp_id: str,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> dict[str, Any]:
     """Return full WP content for the Work Binder detail view.
 
@@ -1023,7 +1034,8 @@ async def get_work_package_detail(
     projection.  This endpoint returns the complete document content so
     sub-views (Governance, History, Work) can render all fields.
     """
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
     content = dict(wp_doc.content or {})
     # Merge DB-level metadata the SPA expects
     content["id"] = str(wp_doc.id)
@@ -1045,9 +1057,11 @@ async def get_work_package_detail(
 async def list_work_statements(
     wp_id: str,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> WSListResponse:
     """List WSs under a WP in ws_index order."""
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
     wp_content = wp_doc.content or {}
     ws_index = wp_content.get("ws_index", [])
 
@@ -1057,6 +1071,7 @@ async def list_work_statements(
         select(Document).where(
             Document.doc_type_id == "work_statement",
             Document.content["parent_wp_id"].astext == wp_id,
+            Document.space_id == wp_doc.space_id,
         )
     )
     ws_docs = {
@@ -1090,9 +1105,11 @@ async def list_work_statements(
 async def get_work_statement(
     ws_id: str,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> WSResponse:
     """Get a single WS by ID."""
-    ws_doc = await _load_ws_document(db, ws_id)
+    space_id = await _resolve_space_id(db, project_id)
+    ws_doc = await _load_ws_document(db, ws_id, space_id=space_id)
     return WSResponse(**(ws_doc.content or {}))
 
 
@@ -1105,9 +1122,11 @@ async def get_work_statement(
 async def get_wp_history(
     wp_id: str,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> dict[str, Any]:
     """Get WP edition history."""
-    wp_doc = await _load_wp_document(db, wp_id)
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
     wp_content = wp_doc.content or {}
 
     revision = wp_content.get("revision", {})
@@ -1141,6 +1160,7 @@ async def get_wp_history(
 async def stabilize_work_statement(
     ws_id: str,
     db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
 ) -> WSResponse:
     """Stabilize a WS: DRAFT -> READY with field validation."""
     # --- Governance: provenance check (WS-WB-008) ---
@@ -1151,7 +1171,8 @@ async def stabilize_work_statement(
             detail="; ".join(prov_errors),
         )
 
-    ws_doc = await _load_ws_document(db, ws_id)
+    space_id = await _resolve_space_id(db, project_id)
+    ws_doc = await _load_ws_document(db, ws_id, space_id=space_id)
     ws_content = dict(ws_doc.content or {})
 
     current_state = ws_content.get("state", "DRAFT")
@@ -1336,15 +1357,20 @@ async def _find_wp_by_source_wpc(
 
 
 async def _load_wp_document(
-    db: AsyncSession, wp_id: str,
+    db: AsyncSession, wp_id: str, *, space_id: str | None = None,
 ) -> Document:
-    """Load a WP document by wp_id content field. 404 if not found."""
-    result = await db.execute(
-        select(Document).where(
-            Document.doc_type_id == "work_package",
-            Document.content["wp_id"].astext == wp_id,
-        )
-    )
+    """Load a WP document by wp_id content field. 404 if not found.
+
+    When *space_id* is provided the query is scoped to that project,
+    preventing cross-project collisions on display-ids like "WP-001".
+    """
+    filters = [
+        Document.doc_type_id == "work_package",
+        Document.content["wp_id"].astext == wp_id,
+    ]
+    if space_id is not None:
+        filters.append(Document.space_id == space_id)
+    result = await db.execute(select(Document).where(*filters))
     doc = result.scalars().first()
     if doc is None:
         raise HTTPException(
@@ -1355,15 +1381,19 @@ async def _load_wp_document(
 
 
 async def _load_ws_document(
-    db: AsyncSession, ws_id: str,
+    db: AsyncSession, ws_id: str, *, space_id: str | None = None,
 ) -> Document:
-    """Load a WS document by ws_id content field. 404 if not found."""
-    result = await db.execute(
-        select(Document).where(
-            Document.doc_type_id == "work_statement",
-            Document.content["ws_id"].astext == ws_id,
-        )
-    )
+    """Load a WS document by ws_id content field. 404 if not found.
+
+    When *space_id* is provided the query is scoped to that project.
+    """
+    filters = [
+        Document.doc_type_id == "work_statement",
+        Document.content["ws_id"].astext == ws_id,
+    ]
+    if space_id is not None:
+        filters.append(Document.space_id == space_id)
+    result = await db.execute(select(Document).where(*filters))
     doc = result.scalars().first()
     if doc is None:
         raise HTTPException(
@@ -1399,6 +1429,16 @@ async def _resolve_project(
             detail=f"Project '{project_id}' not found",
         )
     return project
+
+
+async def _resolve_space_id(
+    db: AsyncSession, project_id: str | None,
+) -> str | None:
+    """Resolve optional project_id to space_id string. Returns None if unset."""
+    if project_id is None:
+        return None
+    project = await _resolve_project(db, project_id)
+    return str(project.id)
 
 
 async def _find_ip_for_project(

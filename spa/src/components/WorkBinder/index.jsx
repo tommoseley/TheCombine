@@ -243,7 +243,7 @@ export default function WorkBinder({ projectId, projectCode }) {
         const wpContentId = wp?.wp_id;
         if (!wpContentId) return;
         try {
-            await createWorkStatement(wpContentId, intent);
+            await createWorkStatement(wpContentId, intent, projectId);
             await loadStatements(wpContentId);
         } catch (e) {
             setError('Create failed: ' + e.message);
@@ -255,7 +255,7 @@ export default function WorkBinder({ projectId, projectCode }) {
         const wpContentId = wp?.wp_id;
         if (!wpContentId) return;
         try {
-            await stabilizeWorkStatement(wsId);
+            await stabilizeWorkStatement(wsId, projectId);
             await loadStatements(wpContentId);
         } catch (e) {
             setError('Stabilize failed: ' + e.message);
@@ -278,6 +278,7 @@ export default function WorkBinder({ projectId, projectCode }) {
             await reorderWorkStatements(
                 wpContentId,
                 newOrder.map(ws => ({ ws_id: ws.ws_id, order_key: ws.order_key || '' })),
+                projectId,
             );
         } catch (e) {
             await loadStatements(wpContentId);
@@ -312,7 +313,7 @@ export default function WorkBinder({ projectId, projectCode }) {
         let cancelled = false;
         setStatementsLoading(true);
         Promise.all([
-            api.getWorkPackageDetail(contentWpId),
+            api.getWorkPackageDetail(contentWpId, projectId),
             fetchWorkStatements(projectId, contentWpId),
         ]).then(([detail, wsList]) => {
             if (!cancelled) {

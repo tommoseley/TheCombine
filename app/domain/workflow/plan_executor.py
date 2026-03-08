@@ -1170,8 +1170,11 @@ class PlanExecutor:
         state: DocumentWorkflowState,
         plan: WorkflowPlan,
     ) -> None:
-        """Set generating_node_id on state if QA failed (needed by EdgeRouter)."""
-        if not current_node.is_qa_gate() or result.outcome != "failed":
+        """Set generating_node_id on state if QA failed (needed by EdgeRouter).
+
+        Note: GateNodeExecutor remaps "failed" → "fail".  Accept both forms.
+        """
+        if not current_node.is_qa_gate() or result.outcome not in ("failed", "fail"):
             return
         generating_node_id = self._find_generating_node(state, plan)
         if generating_node_id:
@@ -1207,10 +1210,16 @@ class PlanExecutor:
         current_node: Node,
         state: DocumentWorkflowState,
     ) -> None:
-        """Handle QA retry counting and feedback storage/clearing."""
+        """Handle QA retry counting and feedback storage/clearing.
+
+        Note: GateNodeExecutor remaps outcomes before the plan executor sees
+        them: "failed" → "fail", "success" → "pass".  We accept both forms
+        so this works regardless of whether the QA runs as a bare QA node or
+        wrapped in a gate.
+        """
         if (
             current_node.is_qa_gate()
-            and result.outcome == "failed"
+            and result.outcome in ("failed", "fail")
             and state.generating_node_id
         ):
             retry_count = state.increment_retry(state.generating_node_id)
@@ -1227,7 +1236,7 @@ class PlanExecutor:
                     f"{len(qa_feedback.get('issues', []))} issues"
                 )
 
-        elif current_node.is_qa_gate() and result.outcome == "success":
+        elif current_node.is_qa_gate() and result.outcome in ("success", "pass"):
             if state.context_state.get("qa_feedback"):
                 state.context_state.pop("qa_feedback", None)
                 logger.debug("Cleared QA feedback after successful validation")

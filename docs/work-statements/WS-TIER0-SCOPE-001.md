@@ -12,7 +12,7 @@
 
 - ops/scripts/
 - tests/infrastructure/
-- docs/policies/
+- combine-config/policies/
 - CLAUDE.md
 
 ---
