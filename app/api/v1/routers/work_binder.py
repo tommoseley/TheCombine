@@ -35,6 +35,7 @@ from app.api.models.document import Document
 from app.api.models.project import Project
 from app.core.database import get_db
 from app.domain.services.candidate_import_service import import_candidates
+from app.api.v1.services.render_pure import unwrap_raw_envelope
 from app.domain.services.wp_promotion_service import (
     build_audit_event,
     build_promoted_wp,
@@ -309,8 +310,9 @@ async def import_candidates_from_ip(
     ip_doc = await _load_ip_document(db, request.ip_document_id)
 
     source_ip_version = str(ip_doc.version)
+    ip_content = unwrap_raw_envelope(ip_doc.content)
     wpc_documents = import_candidates(
-        ip_content=ip_doc.content,
+        ip_content=ip_content,
         source_ip_id=request.ip_document_id,
         source_ip_version=source_ip_version,
     )
