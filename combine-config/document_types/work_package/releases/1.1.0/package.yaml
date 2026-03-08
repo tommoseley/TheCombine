@@ -179,7 +179,6 @@ rendering:
         label: Execution
         sections:
           - work_statements
-          - progress
           - revision
 
       - id: lineage
@@ -194,7 +193,6 @@ rendering:
       - dependencies
       - governance
       - work_statements
-      - progress
       - revision
       - lineage
     toc: true
