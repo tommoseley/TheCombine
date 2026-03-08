@@ -1,9 +1,15 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-07
-**Updated By:** Claude (cross-project scoping + IA audit + binder fixes + 42 contract tests)
+**Last Updated:** 2026-03-08
+**Updated By:** Claude (WS-WB-040 stabilization + Produce Next + breadcrumb pulse + Work Binder auto-import)
 
 ## Current Focus
+
+**COMPLETE:** WS-WB-040 + Production UX Flow (2026-03-08)
+- WP-level atomic stabilization: single "STABILIZE PACKAGE" replaces per-WS buttons (6 tests)
+- "Produce Next" button on frontier completed documents (inline in header badge row)
+- Pipeline breadcrumb pulsing animation for in-progress stages
+- "Produce Work Binder" flow: TA complete → navigate to Work Binder + auto-import candidates
 
 **COMPLETE:** Cross-Project Scoping + IA Audit + UX Tuning (2026-03-07)
 - Cross-project scoping: all 9 work-binder endpoints accept project_id, SPA passes it on all calls
@@ -305,15 +311,15 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
-### Recent Work (2026-03-07)
-- Cross-project scoping fix: all work-binder endpoints + SPA
-- QA remediation outcome mismatch fix (gate remaps failed→fail)
-- IA audit: concierge_intake IA authored, WP computed fields removed, 42 contract tests
-- Binder render 409 resolved across all 9 projects
-- UX tuning: sort, deep link, collapsed sidebar, user button
-- Binder Audit concept (CBA-1.0) accepted as future work
+### Recent Work (2026-03-08)
+- WS-WB-040: WP-level atomic stabilization (backend endpoint + frontend button, 6 tests)
+- "Produce Next" button: frontier-only, inline in document header badge row
+- Pipeline breadcrumb pulsing for in-progress stages
+- "Produce Work Binder" button on TA complete → auto-import candidates
+- All changes uncommitted
 
 ### Next Work
+- Commit session changes (WS-WB-040 + production UX flow)
 - WS-RENDER-007: Binder Audit mode (mode=audit) — mechanical governance/traceability/readiness checks
 - Remaining CRAP targets: 18 functions with CRAP>100 (coverage debt, moderate CC 11-14)
 - Three download dropdown components could be consolidated into shared component

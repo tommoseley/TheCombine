@@ -124,7 +124,7 @@ export default function WPContentArea({
     onRefresh, onPromote, onProposeStatements, onViewCandidate,
     // WS-WB-030: Lifted WS props
     statements = [], selectedWsId, onSelectWs,
-    onCreateWs, onStabilize, onMoveUp, onMoveDown, onCopyWs,
+    onCreateWs, onStabilizePackage, onMoveUp, onMoveDown, onCopyWs,
 }) {
     // Candidate selected — show candidate detail
     if (candidate) {
@@ -188,7 +188,6 @@ export default function WPContentArea({
                         ? <WSDetailView
                             ws={selectedWs}
                             statements={statements}
-                            onStabilize={onStabilize}
                             onMoveUp={onMoveUp}
                             onMoveDown={onMoveDown}
                             onCopy={onCopyWs}
@@ -200,6 +199,7 @@ export default function WPContentArea({
                             onSelectWs={onSelectWs}
                             onProposeStatements={onProposeStatements}
                             onCreateWs={onCreateWs}
+                            onStabilizePackage={onStabilizePackage}
                           />
                 )}
                 {activeSubView === 'HISTORY' && (

@@ -27,6 +27,7 @@ SUPPORTED_EVENT_TYPES = {
     "ws_updated",
     "ws_reordered",
     "ws_stabilized",
+    "wp_stabilized",
     "ws_proposal_requested",
     "ws_proposal_rejected",
     "ws_proposed",

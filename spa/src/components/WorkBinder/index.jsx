@@ -13,7 +13,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../api/client';
 import {
     fetchWorkStatements, createWorkStatement,
-    stabilizeWorkStatement, reorderWorkStatements,
+    stabilizeWorkPackage, reorderWorkStatements,
     formatWsForClipboard,
 } from './wsUtils';
 import WPIndex from './WPIndex';
@@ -52,7 +52,7 @@ async function fetchCandidates(projectId) {
     }
 }
 
-export default function WorkBinder({ projectId, projectCode }) {
+export default function WorkBinder({ projectId, projectCode, autoImport }) {
     const { displayId: urlDisplayId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -193,6 +193,34 @@ export default function WorkBinder({ projectId, projectCode }) {
         }
     }, [sourceIpId, refresh]);
 
+    // Auto-import candidates when navigated from "Produce Work Binder" button
+    const [didAutoImport, setDidAutoImport] = useState(false);
+    useEffect(() => {
+        if (autoImport && !didAutoImport && !loading && importAvailable && sourceIpId) {
+            setDidAutoImport(true);
+            handleImportCandidates();
+        }
+    }, [autoImport, didAutoImport, loading, importAvailable, sourceIpId, handleImportCandidates]);
+
+    const handlePromoteAll = useCallback(async () => {
+        const unpromoted = candidates.filter(c => !c.promoted);
+        if (unpromoted.length === 0) return;
+        try {
+            for (const cand of unpromoted) {
+                await api.promoteCandidate(cand.wpc_id, projectId, 'kept', 'Promoted as-is from IP candidate.');
+            }
+            const freshWps = await refresh();
+            // Auto-select first WP if none selected
+            if (freshWps && freshWps.length > 0 && !selectedWpId) {
+                setSelectedWpId(freshWps[0].id);
+                setSelectedCandidateId(null);
+                setActiveSubView('WORK');
+            }
+        } catch (e) {
+            setError('Failed to promote all candidates: ' + e.message);
+        }
+    }, [candidates, projectId, refresh, selectedWpId]);
+
     const handlePromote = useCallback(async (wpcId) => {
         try {
             const result = await api.promoteCandidate(wpcId, projectId, 'kept', 'Promoted as-is from IP candidate.');
@@ -250,17 +278,15 @@ export default function WorkBinder({ projectId, projectCode }) {
         }
     }, [wps, selectedWpId, loadStatements]);
 
-    const handleStabilize = useCallback(async (wsId) => {
-        const wp = wps.find(w => w.id === selectedWpId);
-        const wpContentId = wp?.wp_id;
+    const handleStabilizePackage = useCallback(async (wpContentId) => {
         if (!wpContentId) return;
         try {
-            await stabilizeWorkStatement(wsId, projectId);
+            await stabilizeWorkPackage(wpContentId, projectId);
             await loadStatements(wpContentId);
         } catch (e) {
             setError('Stabilize failed: ' + e.message);
         }
-    }, [wps, selectedWpId, loadStatements]);
+    }, [projectId, loadStatements]);
 
     const handleMoveWs = useCallback(async (wsId, direction) => {
         const idx = statements.findIndex(ws => ws.ws_id === wsId);
@@ -368,6 +394,7 @@ export default function WorkBinder({ projectId, projectCode }) {
                     onSelectCandidate={handleSelectCandidate}
                     importAvailable={importAvailable}
                     onImportCandidates={handleImportCandidates}
+                    onPromoteAll={handlePromoteAll}
                     statements={statements}
                     selectedWsId={selectedWsId}
                     onSelectWs={handleSelectWs}
@@ -389,7 +416,7 @@ export default function WorkBinder({ projectId, projectCode }) {
                     selectedWsId={selectedWsId}
                     onSelectWs={handleSelectWs}
                     onCreateWs={handleCreateWs}
-                    onStabilize={handleStabilize}
+                    onStabilizePackage={handleStabilizePackage}
                     onMoveUp={(wsId) => handleMoveWs(wsId, 'up')}
                     onMoveDown={(wsId) => handleMoveWs(wsId, 'down')}
                     onCopyWs={handleCopyWs}

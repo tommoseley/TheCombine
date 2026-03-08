@@ -214,6 +214,11 @@ body {
     0%, 100% { box-shadow: 0 0 0 0 rgba(246, 173, 85, 0.3); }
     50% { box-shadow: var(--glow-station); }
 }
+.breadcrumb-pulse { animation: breadcrumbPulse 1.5s ease-in-out infinite; }
+@keyframes breadcrumbPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.6); opacity: 0.6; }
+}
 
 .amber-pulse { animation: amberBlink 1.5s ease-in-out infinite; }
 @keyframes amberBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }

@@ -83,6 +83,20 @@ export async function stabilizeWorkStatement(wsId, projectId = null) {
     return res.json();
 }
 
+export async function stabilizeWorkPackage(wpId, projectId = null) {
+    const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/stabilize${qs}`, {
+        method: 'POST',
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail = body.detail;
+        const msg = typeof detail === 'string' ? detail : detail?.message || `Stabilize failed: ${res.status}`;
+        throw new Error(msg);
+    }
+    return res.json();
+}
+
 export async function reorderWorkStatements(wpId, wsIndexEntries, projectId = null) {
     const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
     const res = await fetch(`/api/v1/work-binder/wp/${encodeURIComponent(wpId)}/ws-index${qs}`, {

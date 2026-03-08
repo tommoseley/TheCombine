@@ -229,7 +229,30 @@ export default function ContentPanel({
     projectCode,
     onStartProduction,
     onSubmitQuestions,
+    pipelineData = [],
+    onProduceNext,
+    autoImport,
 }) {
+    // Show "Produce Next" only on the frontier — the last completed doc
+    // whose immediate next producible step is ready (not already complete).
+    const nextStep = (() => {
+        if (!step || !pipelineData.length) return null;
+        const currentIdx = pipelineData.findIndex(d => d.id === step.id);
+        if (currentIdx < 0) return null;
+        // Walk forward: find the next step (including Work Binder)
+        for (let i = currentIdx + 1; i < pipelineData.length; i++) {
+            const s = pipelineData[i];
+            // Work Binder is always a valid "next" if we reach it
+            if (s.id === 'work_package') return s;
+            const state = getArtifactState(s.state || 'ready_for_production');
+            // If next step is already done or in-progress, no button needed
+            if (state === 'stabilized' || state === 'in_progress') return null;
+            if (state === 'ready') return s;
+            return null; // blocked or unknown — don't show
+        }
+        return null;
+    })();
+
     // No step selected
     if (!step) {
         return (
@@ -248,7 +271,7 @@ export default function ContentPanel({
     if (step.isWorkBinder || step.id === 'work_package') {
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
-                <WorkBinder projectId={projectId} projectCode={projectCode} />
+                <WorkBinder projectId={projectId} projectCode={projectCode} autoImport={autoImport} />
             </div>
         );
     }
@@ -267,6 +290,8 @@ export default function ContentPanel({
                     instanceId={step.instanceId}
                     onClose={() => {}}
                     inline
+                    nextStepLabel={nextStep ? (nextStep.id === 'work_package' ? 'Work Binder' : formatDocTypeName(nextStep.id)) : null}
+                    onProduceNext={nextStep && onProduceNext ? () => onProduceNext(nextStep.id) : null}
                 />
             </div>
         );

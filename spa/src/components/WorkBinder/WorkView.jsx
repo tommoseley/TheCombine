@@ -50,8 +50,9 @@ function GhostRow({ onSubmit }) {
     );
 }
 
-export default function WorkView({ wp, statements = [], onSelectWs, onProposeStatements, onCreateWs }) {
+export default function WorkView({ wp, statements = [], onSelectWs, onProposeStatements, onCreateWs, onStabilizePackage }) {
     const [proposing, setProposing] = useState(false);
+    const [stabilizing, setStabilizing] = useState(false);
     const [error, setError] = useState(null);
 
     const wpContentId = wp.wp_id || wp.id;
@@ -69,6 +70,20 @@ export default function WorkView({ wp, statements = [], onSelectWs, onProposeSta
         }
     }, [onProposeStatements, wpContentId]);
 
+    const handleStabilizePackage = useCallback(async () => {
+        if (!onStabilizePackage) return;
+        setStabilizing(true);
+        setError(null);
+        try {
+            await onStabilizePackage(wpContentId);
+        } catch (e) {
+            setError('Stabilize failed: ' + e.message);
+        } finally {
+            setStabilizing(false);
+        }
+    }, [onStabilizePackage, wpContentId]);
+
+    const hasDrafts = statements.some(ws => (ws.state || 'DRAFT') === 'DRAFT');
     const hasContent = wp.rationale || (wp.scope_in && wp.scope_in.length > 0);
 
     return (
@@ -177,6 +192,19 @@ export default function WorkView({ wp, statements = [], onSelectWs, onProposeSta
                     );
                 })}
             </div>
+
+            {/* WP-level stabilize: visible when DRAFT WSs exist (WS-WB-040) */}
+            {statements.length > 0 && hasDrafts && onStabilizePackage && (
+                <div className="wb-wp-stabilize">
+                    <button
+                        className="wb-btn wb-btn--primary"
+                        onClick={handleStabilizePackage}
+                        disabled={stabilizing}
+                    >
+                        {stabilizing ? 'STABILIZING...' : 'STABILIZE PACKAGE'}
+                    </button>
+                </div>
+            )}
 
             {/* Ghost row for creating new WS */}
             <GhostRow onSubmit={onCreateWs} />

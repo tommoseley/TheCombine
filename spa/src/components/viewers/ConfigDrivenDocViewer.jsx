@@ -103,7 +103,9 @@ export default function ConfigDrivenDocViewer({
     executionId,
     docTypeName,
     onClose,
-    inline
+    inline,
+    nextStepLabel,
+    onProduceNext,
 }) {
     const [activeTab, setActiveTab] = useState(null);
 
@@ -342,14 +344,31 @@ export default function ConfigDrivenDocViewer({
                             </div>
                         )}
                     </div>
-                    {/* Download Markdown dropdown */}
-                    {metadata.display_id && projectId && (
-                        <ConfigDocDownload
-                            projectId={projectId}
-                            projectCode={projectCode}
-                            displayId={metadata.display_id}
-                        />
-                    )}
+                    <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                        {/* Produce next document CTA */}
+                        {nextStepLabel && onProduceNext && (
+                            <button
+                                className="px-3 py-1.5 rounded-lg font-semibold transition-all hover:brightness-110"
+                                style={{
+                                    fontSize: 11,
+                                    backgroundColor: 'var(--state-ready-bg)',
+                                    color: 'white',
+                                    whiteSpace: 'nowrap',
+                                }}
+                                onClick={onProduceNext}
+                            >
+                                Produce {nextStepLabel} &rarr;
+                            </button>
+                        )}
+                        {/* Download Markdown dropdown */}
+                        {metadata.display_id && projectId && (
+                            <ConfigDocDownload
+                                projectId={projectId}
+                                projectCode={projectCode}
+                                displayId={metadata.display_id}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
 

@@ -29,11 +29,12 @@ function formatWpId(wp) {
 export default function WPIndex({
     wps, selectedWpId, onSelectWp,
     candidates = [], selectedCandidateId, onSelectCandidate,
-    importAvailable = false, onImportCandidates,
+    importAvailable = false, onImportCandidates, onPromoteAll,
     statements = [], selectedWsId, onSelectWs,
     statementsLoading = false,
 }) {
     const [importing, setImporting] = useState(false);
+    const [promotingAll, setPromotingAll] = useState(false);
     const [showPromoted, setShowPromoted] = useState(false);
 
     const promotedCount = candidates.filter(c => c.promoted).length;
@@ -47,6 +48,15 @@ export default function WPIndex({
             setImporting(false);
         }
     }, [onImportCandidates]);
+
+    const handlePromoteAll = useCallback(async () => {
+        setPromotingAll(true);
+        try {
+            await onPromoteAll();
+        } finally {
+            setPromotingAll(false);
+        }
+    }, [onPromoteAll]);
 
     const showCandidatesSection = candidates.length > 0 || importAvailable;
 
@@ -108,6 +118,19 @@ export default function WPIndex({
                                 </button>
                             );
                         })}
+
+                        {/* Promote All — visible when unpromoted candidates exist */}
+                        {candidates.some(c => !c.promoted) && (
+                            <div className="wb-index-import">
+                                <button
+                                    className="wb-btn wb-btn--primary wb-promote-all-btn"
+                                    onClick={handlePromoteAll}
+                                    disabled={promotingAll}
+                                >
+                                    {promotingAll ? 'PROMOTING...' : 'PROMOTE ALL CANDIDATES'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </>
             )}

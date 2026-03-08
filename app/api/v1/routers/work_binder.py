@@ -13,6 +13,7 @@ Provides endpoints for Work Binder operations:
 - GET /work-statements/{ws_id} — Get single WS
 - GET /wp/{wp_id}/history — WP edition history
 - POST /work-statements/{ws_id}/stabilize — DRAFT -> READY
+- POST /wp/{wp_id}/stabilize — Stabilize all DRAFT WSs atomically (WS-WB-040)
 
 Business logic lives in pure service modules.
 This router handles DB access, idempotency, HTTP concerns,
@@ -1067,10 +1068,20 @@ async def list_work_statements(
 
     ordered_ws_ids = [e.get("ws_id") for e in ws_index]
 
+    # Use the WP's content wp_id for WS lookup (may differ from URL wp_id
+    # for WPs created before the promotion flow standardized naming)
+    content_wp_id = wp_content.get("wp_id", wp_id)
+
+    # Match WSs by either the content wp_id or the URL wp_id
+    from sqlalchemy import or_
+    wp_id_filters = [Document.content["parent_wp_id"].astext == content_wp_id]
+    if content_wp_id != wp_id:
+        wp_id_filters.append(Document.content["parent_wp_id"].astext == wp_id)
+
     result = await db.execute(
         select(Document).where(
             Document.doc_type_id == "work_statement",
-            Document.content["parent_wp_id"].astext == wp_id,
+            or_(*wp_id_filters),
             Document.space_id == wp_doc.space_id,
         )
     )
@@ -1225,6 +1236,126 @@ async def stabilize_work_statement(
 
 
 # ===========================================================================
+# WS-WB-040: Stabilize Work Package (all DRAFT WSs -> READY atomically)
+# ===========================================================================
+
+
+class WPStabilizeResponse(BaseModel):
+    """Response from WP-level stabilize."""
+    wp_id: str
+    stabilized: list[str]
+    count: int
+
+
+@router.post(
+    "/wp/{wp_id}/stabilize",
+    response_model=WPStabilizeResponse,
+    summary="Stabilize all DRAFT work statements in a Work Package",
+)
+async def stabilize_work_package(
+    wp_id: str,
+    db: AsyncSession = Depends(get_db),
+    project_id: str | None = Query(None, description="Project scope"),
+) -> WPStabilizeResponse:
+    """Atomically stabilize all DRAFT WSs under a WP.
+
+    Validates all DRAFT WSs first. If any fail validation, none are transitioned.
+    """
+    # --- Governance: provenance check ---
+    prov_errors = validate_provenance("system")
+    if prov_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="; ".join(prov_errors),
+        )
+
+    space_id = await _resolve_space_id(db, project_id)
+    wp_doc = await _load_wp_document(db, wp_id, space_id=space_id)
+    wp_content = wp_doc.content or {}
+
+    # Load all WSs under this WP (same query as list_work_statements)
+    content_wp_id = wp_content.get("wp_id", wp_id)
+    from sqlalchemy import or_
+    wp_id_filters = [Document.content["parent_wp_id"].astext == content_wp_id]
+    if content_wp_id != wp_id:
+        wp_id_filters.append(Document.content["parent_wp_id"].astext == wp_id)
+
+    result = await db.execute(
+        select(Document).where(
+            Document.doc_type_id == "work_statement",
+            or_(*wp_id_filters),
+            Document.space_id == wp_doc.space_id,
+        )
+    )
+    ws_docs = [doc for doc in result.scalars().all() if doc.content]
+
+    # Filter to DRAFT WSs only
+    draft_docs = [doc for doc in ws_docs if (doc.content or {}).get("state", "DRAFT") == "DRAFT"]
+
+    if not draft_docs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "NO_DRAFT_STATEMENTS",
+                "message": "No DRAFT work statements to stabilize",
+            },
+        )
+
+    # Validate ALL drafts before transitioning any (all-or-nothing)
+    all_errors: dict[str, list[str]] = {}
+    for doc in draft_docs:
+        ws_content = doc.content or {}
+        ws_id_val = ws_content.get("ws_id", str(doc.id))
+        errors = validate_stabilization(ws_content)
+        if errors:
+            all_errors[ws_id_val] = errors
+
+    if all_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "STABILIZATION_FAILED",
+                "errors": all_errors,
+            },
+        )
+
+    # Transition all DRAFT WSs to READY
+    stabilized_ids: list[str] = []
+    for doc in draft_docs:
+        ws_content = dict(doc.content)
+        ws_content["state"] = "READY"
+        rev = ws_content.get("revision", {})
+        if isinstance(rev, int):
+            rev = {"edition": rev}
+        rev["edition"] = rev.get("edition", 0) + 1
+        ws_content["revision"] = rev
+        doc.content = ws_content
+        stabilized_ids.append(ws_content.get("ws_id", str(doc.id)))
+
+    await db.flush()
+
+    # --- Audit trail ---
+    audit_evt = build_wb_audit_event(
+        event_type="wp_stabilized",
+        entity_id=wp_id,
+        entity_type="work_package",
+        mutation_data={
+            "stabilized_ws_ids": stabilized_ids,
+            "count": len(stabilized_ids),
+        },
+        actor="system",
+    )
+    logger.info("AUDIT: %s", audit_evt)
+    logger.info("Stabilized WP %s: %d WSs DRAFT -> READY", wp_id, len(stabilized_ids))
+
+    return WPStabilizeResponse(
+        wp_id=wp_id,
+        stabilized=stabilized_ids,
+        count=len(stabilized_ids),
+    )
+
+
+# ===========================================================================
 # Internal Helpers
 # ===========================================================================
 
@@ -1359,11 +1490,12 @@ async def _find_wp_by_source_wpc(
 async def _load_wp_document(
     db: AsyncSession, wp_id: str, *, space_id: str | None = None,
 ) -> Document:
-    """Load a WP document by wp_id content field. 404 if not found.
+    """Load a WP document by wp_id content field or display_id. 404 if not found.
 
     When *space_id* is provided the query is scoped to that project,
     preventing cross-project collisions on display-ids like "WP-001".
     """
+    # Try content.wp_id first (canonical for promoted WPs)
     filters = [
         Document.doc_type_id == "work_package",
         Document.content["wp_id"].astext == wp_id,
@@ -1371,6 +1503,18 @@ async def _load_wp_document(
     if space_id is not None:
         filters.append(Document.space_id == space_id)
     result = await db.execute(select(Document).where(*filters))
+    doc = result.scalars().first()
+    if doc is not None:
+        return doc
+
+    # Fallback: try display_id (WPs created outside promotion flow)
+    fallback_filters = [
+        Document.doc_type_id == "work_package",
+        Document.display_id == wp_id,
+    ]
+    if space_id is not None:
+        fallback_filters.append(Document.space_id == space_id)
+    result = await db.execute(select(Document).where(*fallback_filters))
     doc = result.scalars().first()
     if doc is None:
         raise HTTPException(

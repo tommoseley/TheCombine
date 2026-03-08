@@ -332,7 +332,7 @@ function PipelineBreadcrumb({ data, selectedNodeId, onSelectNode, projectId, pro
                             title={docName(item.id)}
                         >
                             <span
-                                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                                className={`inline-block w-2 h-2 rounded-full flex-shrink-0${state === 'in_progress' ? ' breadcrumb-pulse' : ''}`}
                                 style={{ background: color }}
                             />
                             <span
@@ -476,6 +476,21 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [data, resolveInterrupt]);
 
+    // Auto-import flag for Work Binder (set when navigating from "Produce Next")
+    const [autoImport, setAutoImport] = useState(false);
+
+    // Navigate to a step and immediately start production (or import for Work Binder)
+    const handleProduceNext = useCallback(async (docTypeId) => {
+        setSelectedNodeId(docTypeId);
+        if (docTypeId === 'work_package') {
+            // Work Binder: navigate + trigger auto-import (no startProduction)
+            setAutoImport(true);
+        } else {
+            // Document: navigate + start production
+            setTimeout(() => handleStartProduction(docTypeId), 100);
+        }
+    }, [handleStartProduction]);
+
     // Find the selected step data for ContentPanel
     const selectedStep = useMemo(() => {
         if (!selectedNodeId) return null;
@@ -541,6 +556,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     projectCode={projectCode}
                     onStartProduction={handleStartProduction}
                     onSubmitQuestions={handleSubmitQuestions}
+                    pipelineData={data}
+                    onProduceNext={handleProduceNext}
+                    autoImport={autoImport}
                 />
             </div>
 

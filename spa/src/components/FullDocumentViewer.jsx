@@ -66,7 +66,7 @@ function DownloadDropdown({ onDownload, options }) {
  * RenderModelViewer component. Falls back to raw JSON display
  * if RenderModel is not available.
  */
-export default function FullDocumentViewer({ projectId, projectCode, docTypeId, instanceId, onClose, inline }) {
+export default function FullDocumentViewer({ projectId, projectCode, docTypeId, instanceId, onClose, inline, nextStepLabel, onProduceNext }) {
     const [renderModel, setRenderModel] = useState(null);
     const [rawContent, setRawContent] = useState(null);
     const [docMetadata, setDocMetadata] = useState({});
@@ -178,6 +178,8 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 docTypeName={metadata.document_type_name}
                 onClose={onClose}
                 inline={inline}
+                nextStepLabel={nextStepLabel}
+                onProduceNext={onProduceNext}
             />
         );
         if (inline) {
@@ -224,6 +226,8 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 executionId={executionId}
                 metadata={metadata}
                 onClose={inline ? undefined : onClose}
+                nextStepLabel={nextStepLabel}
+                onProduceNext={onProduceNext}
             />
 
             {/* Spawned children panel */}
@@ -296,7 +300,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
  * Document header with title, project badge, metadata, and close button.
  * Used by both generic and specialized document viewers.
  */
-function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, metadata, onClose }) {
+function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, metadata, onClose, nextStepLabel, onProduceNext }) {
     const displayTitle = (() => {
         if (!title) return 'Document';
         const colonIndex = title.indexOf(': ');
@@ -411,7 +415,22 @@ function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, 
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1" style={{ flexShrink: 0, marginLeft: 12 }}>
+                <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
+                    {/* Produce next document CTA */}
+                    {nextStepLabel && onProduceNext && (
+                        <button
+                            className="px-3 py-1.5 rounded-lg font-semibold transition-all hover:brightness-110"
+                            style={{
+                                fontSize: 11,
+                                backgroundColor: 'var(--state-ready-bg)',
+                                color: 'white',
+                                whiteSpace: 'nowrap',
+                            }}
+                            onClick={onProduceNext}
+                        >
+                            Produce {nextStepLabel} &rarr;
+                        </button>
+                    )}
                     {/* Download Markdown dropdown */}
                     {metadata?.display_id && projectId && (
                         <DownloadDropdown

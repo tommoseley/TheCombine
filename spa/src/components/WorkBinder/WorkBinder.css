@@ -1090,6 +1090,17 @@
     background: rgba(245, 158, 11, 0.08) !important;
 }
 
+.wb-promote-all-btn {
+    width: 100%;
+}
+
+/* --- WP-level stabilize (WS-WB-040) --- */
+.wb-wp-stabilize {
+    padding: 12px 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
 /* --- Candidate detail view --- */
 .wb-candidate-detail {
     padding: 20px;

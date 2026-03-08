@@ -34,7 +34,7 @@ function SubLabel({ text }) {
 }
 
 export default function WSDetailView({
-    ws, statements = [], onStabilize, onMoveUp, onMoveDown, onCopy, onBack,
+    ws, statements = [], onMoveUp, onMoveDown, onCopy, onBack,
 }) {
     const badge = getStateBadge(ws.state);
     const wsId = formatWsId(ws);
@@ -163,14 +163,6 @@ export default function WSDetailView({
 
             {/* Action bar */}
             <div className="wb-ws-detail-actions">
-                {ws.state === 'DRAFT' && (
-                    <button
-                        className="wb-btn wb-btn--primary wb-btn--sm"
-                        onClick={() => onStabilize(ws.ws_id)}
-                    >
-                        STABILIZE STATEMENT
-                    </button>
-                )}
                 <div className="wb-ws-reorder">
                     <button
                         className="wb-btn wb-btn--ghost wb-btn--sm"
