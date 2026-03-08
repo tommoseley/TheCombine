@@ -167,6 +167,22 @@ function InProgressState({ step, onSubmitQuestions }) {
     const hasQuestions = step.questions?.length > 0;
     const needsInput = step.stations?.some(s => s.state === 'active' && s.needs_input);
 
+    // Pull the active station's current step for prominent display
+    const activeStation = step.stations?.find(s => s.state === 'active');
+    const currentStep = activeStation?.currentStep;
+    const stationLabel = activeStation?.label;
+
+    // Build a dynamic status line from the current step
+    const statusLine = needsInput
+        ? 'Production is waiting for your input.'
+        : currentStep?.name
+            ? currentStep.name
+            : 'Stations are executing.';
+
+    // Step type indicator (LLM/UI/MECH)
+    const stepType = currentStep?.type;
+    const typeLabel = stepType === 'LLM' ? 'LLM' : stepType === 'UI' ? 'Input' : stepType === 'MECH' ? 'Processing' : null;
+
     return (
         <div className="flex flex-col items-center justify-center h-full gap-4">
             <div className="text-center max-w-md">
@@ -174,7 +190,7 @@ function InProgressState({ step, onSubmitQuestions }) {
                     className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center relative"
                 >
                     <div
-                        className="absolute inset-0 rounded-full"
+                        className="absolute inset-0 rounded-full station-active"
                         style={{ background: 'var(--state-active-bg)', opacity: 0.15 }}
                     />
                     <svg className="w-8 h-8 relative" viewBox="0 0 24 24" fill="none" stroke="var(--state-active-bg)" strokeWidth="2">
@@ -188,11 +204,42 @@ function InProgressState({ step, onSubmitQuestions }) {
                 >
                     {formatDocTypeName(step.id)}
                 </h2>
-                <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    {needsInput
-                        ? 'Production is waiting for your input.'
-                        : 'Production is in progress. Stations are executing.'}
+
+                {/* Dynamic status line — shows current step name */}
+                <p
+                    className="amber-pulse"
+                    style={{ fontSize: 14, color: 'var(--state-active-text)', lineHeight: 1.6, fontWeight: 500 }}
+                >
+                    {statusLine}
                 </p>
+
+                {/* Step type + progress indicator */}
+                {currentStep && (
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                        {typeLabel && (
+                            <span
+                                className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded"
+                                style={{
+                                    background: 'var(--state-active-bg)',
+                                    color: 'white',
+                                    opacity: 0.8,
+                                }}
+                            >
+                                {typeLabel}
+                            </span>
+                        )}
+                        {stationLabel && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                {stationLabel}
+                            </span>
+                        )}
+                        {currentStep.total > 1 && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                step {currentStep.number}/{currentStep.total}
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
 
             {step.stations?.length > 0 && (
