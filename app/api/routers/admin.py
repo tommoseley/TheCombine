@@ -46,6 +46,35 @@ class ReplayResponse(BaseModel):
     comparison: ReplayComparison
 
 
+class ReplayOverridesRequest(BaseModel):
+    """Optional overrides for replay experiments (WS-PI-0B)."""
+    system_prompt_override: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+
+
+class LLMRunSummary(BaseModel):
+    """Summary of an LLM run for query results."""
+    id: str
+    artifact_type: Optional[str]
+    prompt_id: str
+    prompt_version: str
+    status: str
+    project_id: Optional[str]
+    started_at: Optional[str]
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    total_tokens: Optional[int]
+
+
+class LLMRunQueryResponse(BaseModel):
+    """Response from LLM run query endpoint."""
+    runs: list[LLMRunSummary]
+    total: int
+    limit: int
+    offset: int
+
+
 # ================================================================================
 # Helper Functions
 # ===============================================================================
@@ -227,6 +256,40 @@ def compare_runs(
     )
 
 
+def apply_overrides(
+    inputs: Dict[str, str],
+    overrides: Optional[ReplayOverridesRequest],
+) -> Dict[str, str]:
+    """Apply override values to reconstructed inputs. Returns a new dict."""
+    result = dict(inputs)
+    if overrides and overrides.system_prompt_override is not None:
+        result["system_prompt"] = overrides.system_prompt_override
+    return result
+
+
+def build_overrides_metadata(
+    original_inputs: Dict[str, str],
+    overrides: Optional[ReplayOverridesRequest],
+) -> Dict[str, str]:
+    """Build audit metadata recording what was overridden."""
+    if not overrides:
+        return {}
+    meta = {}
+    if overrides.system_prompt_override is not None:
+        orig_hash = hashlib.sha256(
+            original_inputs.get("system_prompt", "").encode()
+        ).hexdigest()[:16]
+        new_hash = hashlib.sha256(
+            overrides.system_prompt_override.encode()
+        ).hexdigest()[:16]
+        meta["system_prompt"] = f"{orig_hash} -> {new_hash}"
+    if overrides.temperature is not None:
+        meta["temperature"] = f"default -> {overrides.temperature}"
+    if overrides.max_tokens is not None:
+        meta["max_tokens"] = f"default -> {overrides.max_tokens}"
+    return meta
+
+
 # ================================================================================
 # Replay Endpoint
 # ===============================================================================
@@ -234,16 +297,20 @@ def compare_runs(
 @router.post("/llm-runs/{run_id}/replay", response_model=ReplayResponse)
 async def replay_llm_run(
     run_id: UUID,
+    overrides: Optional[ReplayOverridesRequest] = None,
     db: AsyncSession = Depends(get_db),
     # TODO: Add admin authentication
     # current_user: User = Depends(require_admin)
 ):
     """
-    Replay an LLM run with identical inputs.
-    
+    Replay an LLM run, optionally with overrides for A/B testing.
+
     Creates new llm_run with is_replay=true metadata.
     Returns comparison of original vs replay.
-    
+
+    Supports optional overrides: system_prompt_override, temperature, max_tokens.
+    When no body is provided, behaves identically to the original replay endpoint.
+
     **Admin only** (authentication to be added).
     """
     logger.info(f"[ADR-010] Replay requested for run {run_id}")
@@ -254,9 +321,15 @@ async def replay_llm_run(
         logger.info(f"[ADR-010] Loaded original run: {original['artifact_type']}, model={original['model_name']}")
         
         # 2. Reconstruct inputs
-        inputs = await reconstruct_inputs(db, run_id)
-        logger.info(f"[ADR-010] Reconstructed inputs: {list(inputs.keys())}")
-        
+        original_inputs = await reconstruct_inputs(db, run_id)
+        logger.info(f"[ADR-010] Reconstructed inputs: {list(original_inputs.keys())}")
+
+        # 2b. Apply overrides if provided (WS-PI-0B)
+        inputs = apply_overrides(original_inputs, overrides)
+        overrides_meta = build_overrides_metadata(original_inputs, overrides)
+        if overrides_meta:
+            logger.info(f"[ADR-010] Overrides applied: {list(overrides_meta.keys())}")
+
         # 3. Get original output for comparison
         original_output = await get_run_output(db, run_id)
         
@@ -298,21 +371,25 @@ async def replay_llm_run(
             existing_meta = run_record.metadata or {}
             existing_meta["is_replay"] = True
             existing_meta["original_run_id"] = str(run_id)
+            if overrides_meta:
+                existing_meta["overrides_applied"] = overrides_meta
             run_record.metadata = existing_meta
         await db.commit()
         
         # 9. Execute LLM call
         anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        
+
         system_prompt = inputs.get("system_prompt", "")
         user_prompt = inputs.get("user_prompt", "")
-        
-        logger.info(f"[ADR-010] Executing replay LLM call: model={original['model_name']}")
-        
+        replay_temperature = (overrides.temperature if overrides and overrides.temperature is not None else 0.5)
+        replay_max_tokens = (overrides.max_tokens if overrides and overrides.max_tokens is not None else 16384)
+
+        logger.info(f"[ADR-010] Executing replay LLM call: model={original['model_name']}, temp={replay_temperature}, max_tokens={replay_max_tokens}")
+
         response = anthropic_client.messages.create(
             model=original["model_name"],
-            max_tokens=16384,
-            temperature=0.5,
+            max_tokens=replay_max_tokens,
+            temperature=replay_temperature,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}]
         )
@@ -358,6 +435,318 @@ async def replay_llm_run(
     except Exception as e:
         logger.error(f"[ADR-010] Replay error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Replay failed: {str(e)}")
+
+
+# ================================================================================
+# Run Query Endpoint (WS-PI-0B)
+# ===============================================================================
+
+@router.get("/llm-runs", response_model=LLMRunQueryResponse)
+async def query_llm_runs(
+    project_id: Optional[UUID] = None,
+    artifact_type: Optional[str] = None,
+    prompt_id: Optional[str] = None,
+    prompt_version: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Query LLM runs with filtering (WS-PI-0B Step 3).
+
+    Prompt filters apply where prompt_id/prompt_version are present in logged data;
+    runs lacking these fields are excluded from prompt-filtered queries.
+    """
+    from sqlalchemy import select, func
+    from app.api.models.llm_log import LLMRun
+
+    limit = min(limit, 200)
+
+    query = select(LLMRun)
+    count_query = select(func.count(LLMRun.id))
+
+    if project_id is not None:
+        query = query.where(LLMRun.project_id == project_id)
+        count_query = count_query.where(LLMRun.project_id == project_id)
+    if artifact_type is not None:
+        query = query.where(LLMRun.artifact_type == artifact_type)
+        count_query = count_query.where(LLMRun.artifact_type == artifact_type)
+    if prompt_id is not None:
+        query = query.where(LLMRun.prompt_id == prompt_id)
+        count_query = count_query.where(LLMRun.prompt_id == prompt_id)
+    if prompt_version is not None:
+        query = query.where(LLMRun.prompt_version == prompt_version)
+        count_query = count_query.where(LLMRun.prompt_version == prompt_version)
+    if status is not None:
+        query = query.where(LLMRun.status == status)
+        count_query = count_query.where(LLMRun.status == status)
+
+    query = query.order_by(LLMRun.started_at.desc()).offset(offset).limit(limit)
+
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    count_result = await db.execute(count_query)
+    total = count_result.scalar() or 0
+
+    runs = [
+        LLMRunSummary(
+            id=str(row.id),
+            artifact_type=row.artifact_type,
+            prompt_id=row.prompt_id,
+            prompt_version=row.prompt_version,
+            status=row.status,
+            project_id=str(row.project_id) if row.project_id else None,
+            started_at=row.started_at.isoformat() if row.started_at else None,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            total_tokens=row.total_tokens,
+        )
+        for row in rows
+    ]
+
+    return LLMRunQueryResponse(runs=runs, total=total, limit=limit, offset=offset)
+
+
+# ================================================================================
+# Evaluate Endpoint (WS-PI-0B Step 5)
+# ===============================================================================
+
+class EvaluationCheckResponse(BaseModel):
+    check_id: str
+    status: str
+    evidence: str
+    notes: str
+
+class EvaluationReportResponse(BaseModel):
+    artifact_type: str
+    evaluator_version: str
+    checks: list[EvaluationCheckResponse]
+    summary: Dict[str, int]
+
+class EvaluateResponse(BaseModel):
+    status: str
+    run_id: str
+    evaluation: EvaluationReportResponse
+
+
+@router.post("/llm-runs/{run_id}/evaluate", response_model=EvaluateResponse)
+async def evaluate_llm_run(
+    run_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Evaluate a stored LLM run output against WS defect categories (WS-PI-0B).
+
+    No LLM call — evaluates the stored output only.
+    """
+    import json
+    from app.domain.services.ws_defect_evaluator import evaluate_ws
+
+    try:
+        output_text = await get_run_output(db, run_id)
+        if not output_text:
+            raise ValueError(f"No output found for run {run_id}")
+
+        # Parse JSON from output (may be wrapped in markdown code blocks)
+        try:
+            ws_data = json.loads(output_text)
+        except json.JSONDecodeError:
+            # Try extracting from ```json ... ``` blocks
+            import re
+            match = re.search(r"```(?:json)?\s*\n(.*?)```", output_text, re.DOTALL)
+            if match:
+                ws_data = json.loads(match.group(1))
+            else:
+                raise ValueError("Output is not valid JSON and no JSON code block found")
+
+        report = evaluate_ws(ws_data)
+
+        return EvaluateResponse(
+            status="success",
+            run_id=str(run_id),
+            evaluation=EvaluationReportResponse(
+                artifact_type=report.artifact_type,
+                evaluator_version=report.evaluator_version,
+                checks=[
+                    EvaluationCheckResponse(**c) for c in report.checks
+                ],
+                summary=report.summary,
+            ),
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"[WS-PI-0B] Evaluate error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
+
+
+# ================================================================================
+# Batch Replay Endpoint (WS-PI-0B Step 6)
+# ===============================================================================
+
+class BatchReplayRequest(BaseModel):
+    run_ids: list[UUID]
+    overrides: Optional[ReplayOverridesRequest] = None
+
+class BatchRunResult(BaseModel):
+    run_id: str
+    status: str
+    comparison: Optional[ReplayComparison] = None
+    evaluation: Optional[EvaluationReportResponse] = None
+    error: Optional[str] = None
+
+class BatchReplayResponse(BaseModel):
+    status: str
+    results: list[BatchRunResult]
+    aggregate: Dict[str, Dict[str, int]]
+
+
+@router.post("/llm-runs/batch-replay", response_model=BatchReplayResponse)
+async def batch_replay_llm_runs(
+    request: BatchReplayRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Replay multiple LLM runs with the same overrides (WS-PI-0B).
+
+    Executes sequentially to avoid rate limits.
+    Returns per-run comparisons + evaluations + aggregate defect counts.
+    """
+    import json
+    from app.domain.services.ws_defect_evaluator import evaluate_ws
+
+    results = []
+    # Aggregate counts by check_id
+    agg: Dict[str, Dict[str, int]] = {}
+
+    for rid in request.run_ids:
+        try:
+            # Replay
+            original = await get_original_run(db, rid)
+            original_inputs = await reconstruct_inputs(db, rid)
+            inputs = apply_overrides(original_inputs, request.overrides)
+            overrides_meta = build_overrides_metadata(original_inputs, request.overrides)
+            original_output = await get_run_output(db, rid)
+
+            replay_correlation_id = uuid4()
+            llm_repo = PostgresLLMLogRepository(db)
+            llm_logger = LLMExecutionLogger(llm_repo)
+
+            replay_run_id = await llm_logger.start_run(
+                correlation_id=replay_correlation_id,
+                project_id=original.get("project_id"),
+                artifact_type=original.get("artifact_type"),
+                role=original["role"],
+                model_provider=original["model_provider"],
+                model_name=original["model_name"],
+                prompt_id=original["prompt_id"],
+                prompt_version=original["prompt_version"],
+                effective_prompt=inputs.get("system_prompt", ""),
+            )
+
+            for kind, content in inputs.items():
+                await llm_logger.add_input(replay_run_id, kind, content)
+
+            # Tag metadata
+            from sqlalchemy import select as sel
+            from app.api.models.llm_log import LLMRun
+            result = await db.execute(sel(LLMRun).where(LLMRun.id == replay_run_id))
+            run_record = result.scalar_one_or_none()
+            if run_record:
+                existing_meta = run_record.metadata or {}
+                existing_meta["is_replay"] = True
+                existing_meta["original_run_id"] = str(rid)
+                existing_meta["batch_replay"] = True
+                if overrides_meta:
+                    existing_meta["overrides_applied"] = overrides_meta
+                run_record.metadata = existing_meta
+            await db.commit()
+
+            # Execute LLM call
+            anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            system_prompt = inputs.get("system_prompt", "")
+            user_prompt = inputs.get("user_prompt", "")
+            replay_temperature = (
+                request.overrides.temperature
+                if request.overrides and request.overrides.temperature is not None
+                else 0.5
+            )
+            replay_max_tokens = (
+                request.overrides.max_tokens
+                if request.overrides and request.overrides.max_tokens is not None
+                else 16384
+            )
+
+            response = anthropic_client.messages.create(
+                model=original["model_name"],
+                max_tokens=replay_max_tokens,
+                temperature=replay_temperature,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+
+            replay_output = response.content[0].text
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+
+            await llm_logger.add_output(replay_run_id, "raw_text", replay_output)
+            await llm_logger.complete_run(
+                replay_run_id,
+                status="SUCCESS",
+                usage={
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": input_tokens + output_tokens,
+                },
+            )
+
+            replay_data = await get_original_run(db, replay_run_id)
+            comparison = compare_runs(original, replay_data, original_output, replay_output)
+
+            # Evaluate replay output
+            eval_report = None
+            try:
+                ws_data = json.loads(replay_output)
+                report = evaluate_ws(ws_data)
+                eval_report = EvaluationReportResponse(
+                    artifact_type=report.artifact_type,
+                    evaluator_version=report.evaluator_version,
+                    checks=[EvaluationCheckResponse(**c) for c in report.checks],
+                    summary=report.summary,
+                )
+                # Aggregate
+                for c in report.checks:
+                    if c["check_id"] not in agg:
+                        agg[c["check_id"]] = {"passed": 0, "failed": 0, "advisory": 0, "not_evaluable": 0}
+                    status_key = "passed" if c["status"] == "pass" else c["status"]
+                    if status_key in agg[c["check_id"]]:
+                        agg[c["check_id"]][status_key] += 1
+            except (json.JSONDecodeError, Exception):
+                pass  # Evaluation is best-effort on batch
+
+            results.append(BatchRunResult(
+                run_id=str(rid),
+                status="success",
+                comparison=comparison,
+                evaluation=eval_report,
+            ))
+
+        except Exception as e:
+            logger.error(f"[WS-PI-0B] Batch replay error for {rid}: {e}", exc_info=True)
+            results.append(BatchRunResult(
+                run_id=str(rid),
+                status="error",
+                error=str(e),
+            ))
+
+    return BatchReplayResponse(
+        status="success",
+        results=results,
+        aggregate=agg,
+    )
 
 
 # ================================================================================
