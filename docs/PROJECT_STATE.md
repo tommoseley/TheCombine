@@ -1,9 +1,19 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-18
-**Updated By:** Claude (Stabilization spine + prompt activation + WP evaluator)
+**Updated By:** Claude (Prompt tuning loop + semantic evaluators + CRAP audit)
 
 ## Current Focus
+
+**COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
+- WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
+- WS-PI-3B: Semantic presence checks (ABSENT/EMPTY/WEAK/MEANINGFUL) for WP + WS evaluators
+- WS-PI-3C: WP prompt v1.1.1 — ambiguous scope resolution (20% → 0% fail rate)
+- Shared field_classifier.py extracted for both evaluators
+- PROC-PROMPT-TUNING-001: governed prompt improvement process
+- prompt-tuning CC skill created
+- CRAP audit: 99 functions, 48 critical (>30), total debt 4,268, 8 F-grade
+- 2847 total tests passing
 
 **COMPLETE:** Stabilization Spine + WP Evaluator (2026-03-18, session 2)
 - WS-PI-1D: v1.1.0 prompts activated in runtime via active_releases.json
@@ -215,7 +225,7 @@
 
 ## Test Suite
 
-- **2817 Tier-1/2 tests** passing as of 2026-03-18 (111+ new: governance floor, evaluators, stabilization gates, replay overrides)
+- **2847 Tier-1/2 tests** passing as of 2026-03-18 (141+ new: governance floor, evaluators, stabilization gates, semantic checks, replay overrides)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -345,22 +355,24 @@ All previous decisions (1-46) plus:
 ## Handoff Notes
 
 ### Recent Work (2026-03-18)
-- Stabilization spine: 4 ordered gates (certification, referential integrity, parent WP, field validation)
-- Structured failure reporting: StabilizationFinding dataclass with rule_id, artifact_id, field_path, message, remediation_hint
-- v1.1.0 prompts activated in runtime (filesystem/PackageLoader path, not DB)
-- WP defect evaluator: 5 structural checks for upstream measurement
-- IA audit found and closed 3 governance floor bypass paths in work_binder.py
-- ADR-058 + governance floor wiring (DocumentBuilder + work_binder)
-- WS prompt v1.1.0 validated: 7 defects → 0 via replay harness
-- 2817 tests passing (up from 2772)
+- First measured prompt tuning cycle: WP v1.1.1 eliminated semantic_scope WEAK defect (20% → 0%)
+- WP baseline established: 5 synthetic scenarios (simple, moderate, complex, ambiguous, constrained)
+- Semantic presence checks added to both WP and WS evaluators (v1.1)
+- Shared field_classifier.py: ABSENT/EMPTY/WEAK/MEANINGFUL classification
+- PROC-PROMPT-TUNING-001 governance document + prompt-tuning CC skill
+- CRAP audit: 8 F-grade functions, 48 critical total, 4,268 total debt
+- Stabilization spine: 4 gates, structured failure reporting
+- 2847 tests passing (up from 2772)
 
 ### Next Work
-- WP prompt v1.1.0 replay experiment using WP evaluator against real WP generation run (b3225599)
-- Fix get_run_output kind mismatch (raw_text vs response) for evaluate endpoint against real data
-- Wire inherit_governance_pins() into WS creation handler path (mechanical governance inheritance)
-- validate_stabilization() upgrade to StabilizationFinding (deferred — different error shape)
+- Activate WP prompt v1.1.1 in runtime (validated but not yet promoted)
+- Run WS baseline with semantic checks to identify WS-layer defects
+- CRAP remediation: 6 quick-win coverage targets (tests only, no refactoring)
+- CRAP remediation: render_project_binder CC=26 needs structural extraction
+- Investigate dead code: auth/routes.py callback, tasks/document_builder.py run_workflow_build
+- Wire inherit_governance_pins() into WS creation handler path
+- validate_stabilization() upgrade to StabilizationFinding
 - WS-RENDER-007: Binder Audit mode (mode=audit)
-- Remaining CRAP targets: 18 functions with CRAP>100
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
