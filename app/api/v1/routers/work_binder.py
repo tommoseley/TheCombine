@@ -66,6 +66,7 @@ from app.domain.services.ws_proposal_service import (
     build_ws_index_entries,
     validate_proposal_gates,
 )
+from app.domain.services.document_builder_pure import apply_post_processing
 from app.domain.services.task_execution_service import (
     TaskExecutionError,
     TaskOutputParseError,
@@ -470,6 +471,7 @@ async def promote_candidate(
         rationale_override=request.rationale_override,
     )
 
+    apply_post_processing(wp_content, "work_package")
     wp_doc = Document(
         space_type="project",
         space_id=wpc_doc.space_id,
@@ -678,6 +680,7 @@ async def propose_work_statements(
     ws_ids = []
     for ws_data in ws_docs_data:
         ws_id = ws_data["ws_id"]
+        apply_post_processing(ws_data, "work_statement")
         ws_doc = Document(
             space_type=wp_doc.space_type,
             space_id=wp_doc.space_id,
@@ -788,6 +791,7 @@ async def create_work_statement(
     order_key = generate_order_key(existing_keys)
 
     ws_data = build_new_ws(wp_id, ws_id, order_key, body.model_dump())
+    apply_post_processing(ws_data, "work_statement")
 
     wp_content = add_ws_to_wp_index(wp_content, ws_id, order_key)
     wp_content = apply_edition_bump(wp_content, old_content, "system")
