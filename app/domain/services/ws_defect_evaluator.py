@@ -10,6 +10,9 @@ Scoped to work_statement artifact type only.
 
 import re
 from dataclasses import dataclass, field
+from typing import Any
+
+from app.domain.services.field_classifier import classify_field_content
 
 
 # Grounding cue patterns — references to upstream artifacts
@@ -54,7 +57,7 @@ _REQUIRED_SECTIONS = [
 class EvaluationReport:
     """Structured evaluation report for a WS output."""
     artifact_type: str = "work_statement"
-    evaluator_version: str = "1.0"
+    evaluator_version: str = "1.1"
     checks: list = field(default_factory=list)
     summary: dict = field(default_factory=dict)
 
@@ -265,6 +268,56 @@ def _check_contradiction_disclosure(ws: dict) -> dict:
     )
 
 
+# Semantic check configuration for WS fields
+_WS_SEMANTIC_FIELDS = {
+    "objective": ("semantic_objective", 15, "Provide a substantive objective describing what this WS achieves"),
+    "scope": ("semantic_scope", 20, "Provide specific, actionable scope items"),
+    "procedure": ("semantic_procedure", 30, "Provide detailed procedure steps with actionable instructions"),
+    "verification_criteria": ("semantic_verification_criteria", 20, "Provide specific, verifiable acceptance criteria"),
+}
+
+
+def _get_ws_scope_value(ws: dict) -> Any:
+    """Get WS scope value, accepting scope, scope_in, or scope_out."""
+    if "scope" in ws:
+        return ws["scope"]
+    scope_in = ws.get("scope_in")
+    scope_out = ws.get("scope_out")
+    if scope_in is not None or scope_out is not None:
+        combined = []
+        if isinstance(scope_in, list):
+            combined.extend(scope_in)
+        if isinstance(scope_out, list):
+            combined.extend(scope_out)
+        return combined if combined else scope_in
+    return None
+
+
+def _check_semantic_presence(ws: dict) -> list:
+    """Run semantic presence checks on key WS fields."""
+    checks = []
+
+    for field_key, (check_id, min_len, hint) in _WS_SEMANTIC_FIELDS.items():
+        if field_key == "scope":
+            value = _get_ws_scope_value(ws)
+        else:
+            value = ws.get(field_key)
+
+        classification = classify_field_content(value, min_length=min_len)
+
+        if classification == "MEANINGFUL":
+            evidence = f"{classification}: content meets minimum quality threshold"
+            checks.append(_check(check_id, "pass", evidence, ""))
+        else:
+            checks.append(_check(
+                check_id, "fail",
+                f"{classification}: field is {classification.lower()}",
+                hint,
+            ))
+
+    return checks
+
+
 def evaluate_ws(ws: dict) -> EvaluationReport:
     """
     Evaluate a parsed WS JSON against defect categories.
@@ -277,6 +330,7 @@ def evaluate_ws(ws: dict) -> EvaluationReport:
         _check_tests_before_implementation(ws),
         _check_step_grounding(ws),
         _check_contradiction_disclosure(ws),
+        *_check_semantic_presence(ws),
     ]
 
     summary = {"passed": 0, "failed": 0, "advisory": 0, "not_evaluable": 0}

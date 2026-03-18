@@ -110,7 +110,7 @@ class TestEvaluationReportStructure:
         report = evaluate_ws(_good_ws())
         assert isinstance(report, EvaluationReport)
         assert report.artifact_type == "work_statement"
-        assert report.evaluator_version == "1.0"
+        assert report.evaluator_version == "1.1"
         assert isinstance(report.checks, list)
         assert len(report.checks) > 0
         assert hasattr(report, "summary")

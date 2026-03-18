@@ -4,10 +4,8 @@ Tests classify_field_content() and semantic_presence_checks().
 Pure unit tests — no DB, no LLM calls.
 """
 
-from app.domain.services.wp_defect_evaluator import (
-    classify_field_content,
-    evaluate_wp,
-)
+from app.domain.services.field_classifier import classify_field_content
+from app.domain.services.wp_defect_evaluator import evaluate_wp
 
 
 # =========================================================================
