@@ -1,12 +1,12 @@
 {
   "meta": {
-    "date": "2026-03-18T17:09:50.030952+00:00",
+    "date": "2026-03-18T17:18:23.770607+00:00",
     "scenario_count": 5,
     "successful_runs": 5,
     "failed_runs": 0,
-    "total_input_tokens": 14744,
-    "total_output_tokens": 1751,
-    "prompt_version": "1.1.0",
+    "total_input_tokens": 16689,
+    "total_output_tokens": 1814,
+    "prompt_version": "1.1.1",
     "model": "claude-sonnet-4-20250514"
   },
   "results": [
@@ -18,9 +18,9 @@
         "title": "User Authentication Module",
         "rationale": "The system requires basic username/password authentication before any other features can be used.",
         "scope_in": [
-          "Login form",
-          "Password hashing",
-          "Session management"
+          "Implement login form with username and password fields",
+          "Integrate bcrypt password hashing for secure credential storage",
+          "Establish JWT-based session management with persistence across page refreshes"
         ],
         "scope_out": [
           "OAuth integration",
@@ -105,8 +105,8 @@
         }
       },
       "tokens": {
-        "input": 2865,
-        "output": 272
+        "input": 3254,
+        "output": 298
       },
       "error": null
     },
@@ -153,9 +153,6 @@
             "POL-QA-001"
           ]
         },
-        "source_candidate_ids": [
-          "WPC-002"
-        ],
         "contradiction_notes": []
       },
       "evaluation": {
@@ -217,8 +214,8 @@
         }
       },
       "tokens": {
-        "input": 2989,
-        "output": 380
+        "input": 3378,
+        "output": 359
       },
       "error": null
     },
@@ -226,7 +223,7 @@
       "scenario_id": "WP-COMPLEX-003",
       "label": "Complex multi-phase",
       "wp_data": {
-        "wp_id": "database_migration_and_schema_evolution",
+        "wp_id": "database_migration_schema_evolution",
         "title": "Database Migration and Schema Evolution",
         "rationale": "Legacy SQLite database must be migrated to PostgreSQL with schema changes to support multi-tenancy, audit logging, and document versioning.",
         "scope_in": [
@@ -326,8 +323,8 @@
         }
       },
       "tokens": {
-        "input": 3007,
-        "output": 390
+        "input": 3396,
+        "output": 388
       },
       "error": null
     },
@@ -339,7 +336,10 @@
         "title": "Improve User Experience",
         "rationale": "Users have reported the interface is confusing. Need to make it better.",
         "scope_in": [
-          "UI improvements"
+          "Conduct user feedback analysis to identify specific interface confusion points",
+          "Define measurable usability improvement criteria based on current user behavior patterns",
+          "Document current UI pain points through systematic interface review",
+          "Establish baseline user satisfaction metrics for improvement measurement"
         ],
         "scope_out": [],
         "dependencies": [],
@@ -354,9 +354,7 @@
           ]
         },
         "contradiction_notes": [
-          "IPF work package candidate lacks governance_pins - established from TA context",
-          "Scope definition 'UI improvements' is vague and may create execution ambiguity",
-          "Definition of done 'Users report improved satisfaction' lacks measurable criteria"
+          "IPF candidate WPC-004 provides vague scope_in item 'UI improvements' which lacks specificity required for downstream Work Statement decomposition. Scope decomposed into investigation and discovery activities to establish concrete improvement targets."
         ]
       },
       "evaluation": {
@@ -382,8 +380,8 @@
           {
             "check_id": "contradiction_disclosure_present",
             "status": "pass",
-            "evidence": "3 contradiction(s) disclosed",
-            "notes": "IPF work package candidate lacks governance_pins - established from TA context; Scope definition 'UI improvements' is vague and may create execution ambiguity; Definition of done 'Users report improved satisfaction' lacks measurable criteria"
+            "evidence": "1 contradiction(s) disclosed",
+            "notes": "IPF candidate WPC-004 provides vague scope_in item 'UI improvements' which lacks specificity require"
           },
           {
             "check_id": "ws_index_present",
@@ -399,9 +397,9 @@
           },
           {
             "check_id": "semantic_scope",
-            "status": "fail",
-            "evidence": "WEAK: field is weak",
-            "notes": "Provide specific, actionable scope items"
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           },
           {
             "check_id": "semantic_definition_of_done",
@@ -411,15 +409,15 @@
           }
         ],
         "summary": {
-          "passed": 6,
-          "failed": 1,
+          "passed": 7,
+          "failed": 0,
           "advisory": 1,
           "not_evaluable": 0
         }
       },
       "tokens": {
-        "input": 2792,
-        "output": 245
+        "input": 3181,
+        "output": 282
       },
       "error": null
     },
@@ -427,15 +425,15 @@
       "scenario_id": "WP-CONSTRAINED-005",
       "label": "Highly constrained",
       "wp_data": {
-        "wp_id": "secret_management_governance_controls",
+        "wp_id": "secret_management_governance",
         "title": "Secret Management and Governance Controls",
         "rationale": "System handles API keys, database credentials, and user tokens. Current implementation stores secrets in environment variables without rotation, audit, or access control. Must comply with SOC-2 Type II requirements.",
         "scope_in": [
-          "AWS Secrets Manager integration",
-          "Secret rotation automation",
-          "Access audit logging",
-          "Tier-0 secret detection gate",
-          "Credential injection at runtime only"
+          "AWS Secrets Manager integration for credential storage",
+          "Secret rotation automation with zero-downtime deployment",
+          "Access audit logging for every secret retrieval operation",
+          "Tier-0 secret detection gate implementation in pre-commit and CI",
+          "Runtime credential injection via ECS task definition configuration"
         ],
         "scope_out": [
           "Hardware security modules (HSM)",
@@ -534,8 +532,8 @@
         }
       },
       "tokens": {
-        "input": 3091,
-        "output": 464
+        "input": 3480,
+        "output": 487
       },
       "error": null
     }
@@ -579,8 +577,8 @@
         "not_evaluable": 0
       },
       "semantic_scope": {
-        "pass": 4,
-        "fail": 1,
+        "pass": 5,
+        "fail": 0,
         "advisory": 0,
         "not_evaluable": 0
       },
@@ -591,7 +589,7 @@
         "not_evaluable": 0
       }
     },
-    "avg_defects_per_wp": 0.2,
-    "total_defects": 1
+    "avg_defects_per_wp": 0.0,
+    "total_defects": 0
   }
 }

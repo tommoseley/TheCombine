@@ -168,8 +168,12 @@ SCENARIOS = [
 # Prompt Assembly
 # ===========================================================================
 
-def load_prompts():
-    """Load the v1.1.0 WP role and task prompts.
+def load_prompts(task_version: str = None):
+    """Load WP role and task prompts.
+
+    Args:
+        task_version: Explicit task prompt version (e.g., "1.1.1").
+                     If None, uses active release.
 
     Uses importlib to bypass the circular import in app.domain.workflow.__init__.
     """
@@ -183,7 +187,11 @@ def load_prompts():
 
     loader = mod.PromptLoader()
     role_prompt = loader.load_role("project_manager")
-    task_prompt = loader.load_task("work_package")
+
+    if task_version:
+        task_prompt = loader.load_task(f"prompt:task:work_package:{task_version}")
+    else:
+        task_prompt = loader.load_task("work_package")
     return role_prompt, task_prompt
 
 
@@ -276,10 +284,12 @@ async def run_baseline():
     print(f"Scenarios: {len(SCENARIOS)}")
     print("=" * 70)
 
-    # Load prompts
-    role_prompt, task_prompt = load_prompts()
+    # Load prompts (accept version override via CLI arg)
+    task_version = sys.argv[1] if len(sys.argv) > 1 else None
+    role_prompt, task_prompt = load_prompts(task_version)
     system_prompt = f"{role_prompt}\n\n{task_prompt}"
-    print(f"\nPrompt loaded: {len(system_prompt)} chars")
+    version_label = task_version or "active"
+    print(f"\nPrompt loaded (task version: {version_label}): {len(system_prompt)} chars")
 
     results = []
     total_input_tokens = 0
@@ -378,7 +388,7 @@ async def run_baseline():
                 "failed_runs": len(failed_runs),
                 "total_input_tokens": total_input_tokens,
                 "total_output_tokens": total_output_tokens,
-                "prompt_version": "1.1.0",
+                "prompt_version": version_label,
                 "model": "claude-sonnet-4-20250514",
             },
             "results": results,
