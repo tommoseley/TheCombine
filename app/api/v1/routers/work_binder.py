@@ -40,6 +40,7 @@ from app.domain.services.wp_promotion_service import (
     build_audit_event,
     build_promoted_wp,
     validate_promotion_request,
+    validate_ta_for_promotion,
 )
 from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
@@ -448,6 +449,28 @@ async def promote_candidate(
     project = await _resolve_project(db, request.project_id)
     wpc_doc = await _load_wpc_document(db, request.wpc_id, project.id)
 
+    # --- TA version gate: resolve ta_version_id from TA document ---
+    ta_result = await db.execute(
+        select(Document).where(
+            Document.doc_type_id == "technical_architecture",
+            Document.space_id == wpc_doc.space_id,
+            Document.space_type == "project",
+        ).order_by(Document.created_at.desc()).limit(1)
+    )
+    ta_doc_row = ta_result.scalars().first()
+    ta_version_id = validate_ta_for_promotion(
+        {"display_id": ta_doc_row.display_id, "content": ta_doc_row.content} if ta_doc_row else None
+    )
+    if ta_version_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "TA_VERSION_REQUIRED",
+                "message": "Cannot promote WPC to WP: no Technical Architecture document found for this project. "
+                           "A TA must exist before WP promotion to establish governance lineage.",
+            },
+        )
+
     # Check for existing WP promoted from this WPC (idempotency)
     existing_wp = await _find_wp_by_source_wpc(db, request.wpc_id, wpc_doc.space_id)
     if existing_wp:
@@ -472,6 +495,7 @@ async def promote_candidate(
         transformation_notes=request.transformation_notes,
         title_override=request.title_override,
         rationale_override=request.rationale_override,
+        ta_version_id=ta_version_id,
     )
 
     apply_post_processing(wp_content, "work_package")

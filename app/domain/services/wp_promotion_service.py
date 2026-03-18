@@ -23,6 +23,23 @@ VALID_TRANSFORMATIONS = {"kept", "split", "merged", "added"}
 # ---------------------------------------------------------------------------
 
 
+def validate_ta_for_promotion(ta_doc: dict | None) -> str | None:
+    """Validate that a TA document exists and extract its version ID.
+
+    Args:
+        ta_doc: The TA document (dict with display_id), or None if not found.
+
+    Returns:
+        The TA version ID (display_id) if valid, None if TA is missing or invalid.
+    """
+    if ta_doc is None:
+        return None
+    display_id = ta_doc.get("display_id")
+    if not display_id or not str(display_id).strip():
+        return None
+    return str(display_id)
+
+
 def validate_promotion_request(transformation: str) -> list[str]:
     """Validate the promotion request.
 
@@ -49,10 +66,11 @@ def build_promoted_wp(
     title_override: str | None = None,
     rationale_override: str | None = None,
     wp_id: str | None = None,
+    ta_version_id: str | None = None,
 ) -> dict:
     """Build a governed WP document from a WPC candidate.
 
-    Returns a dict conforming to work_package v1.1.0 schema:
+    Returns a dict conforming to work_package v1.1.1 schema:
     - wp_id: pre-minted display ID (e.g., WP-001) or derived from wpc_id
     - state: PLANNED
     - ws_index: [] (empty)
@@ -60,7 +78,7 @@ def build_promoted_wp(
     - source_candidate_ids: [wpc_id]
     - transformation + transformation_notes
     - _lineage: full provenance chain
-    - governance_pins: { ta_version_id: "pending" }
+    - governance_pins: { ta_version_id: resolved from TA document }
 
     Does not mutate the input candidate dict.
     """
@@ -83,7 +101,7 @@ def build_promoted_wp(
         "dependencies": [],
         "definition_of_done": ["All work statements executed and verified"],
         "governance_pins": {
-            "ta_version_id": "pending",
+            "ta_version_id": ta_version_id or "pending",
         },
         "state": "PLANNED",
         "ws_index": [],
