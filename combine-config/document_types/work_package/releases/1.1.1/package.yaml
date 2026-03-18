@@ -1,0 +1,204 @@
+# Work Package Document Type Package
+# Version 1.1.1 - Scope quality requirements for ambiguous input resolution
+
+doc_type_id: work_package
+display_name: "Work Package"
+version: "1.1.1"
+description: >
+  Unit of planned work produced from committed IPF output.
+  Tracks scope, dependencies, governance pins, state, and child
+  Work Statement references. v1.1.0 adds ws_index for structured
+  ordering, revision metadata for edition tracking, and mechanical
+  change_summary computation.
+
+# Classification
+authority_level: constructive  # Derived from upstream decision artifacts (IP + TA)
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+cardinality: multi
+display_prefix: WP
+
+# Dependencies
+required_inputs:
+  - implementation_plan
+  - technical_architecture
+optional_inputs: []
+creates_children:
+  - work_statement
+parent_doc_type: null
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:work_package:1.1.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: true
+  accepted_by:
+    - stakeholder
+    - technical_lead
+
+# Rendering — IA-driven (ADR-054), no legacy docdef
+view_docdef: null
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 2
+
+  sections:
+    - id: overview
+      label: Overview
+      binds:
+        - path: wp_id
+          render_as: paragraph
+        - path: title
+          render_as: paragraph
+        - path: rationale
+          render_as: paragraph
+        - path: state
+          render_as: paragraph
+
+    - id: scope
+      label: Scope
+      binds:
+        - path: scope_in
+          render_as: list
+        - path: scope_out
+          render_as: list
+        - path: definition_of_done
+          render_as: ordered-list
+
+    - id: dependencies
+      label: Dependencies
+      binds:
+        - path: dependencies
+          render_as: table
+          columns:
+            - field: wp_id
+              label: Work Package
+            - field: dependency_type
+              label: Type
+            - field: notes
+              label: Notes
+
+    - id: governance
+      label: Governance
+      binds:
+        - path: governance_pins
+          render_as: nested-object
+          fields:
+            - path: ta_version_id
+              render_as: paragraph
+            - path: adr_refs
+              render_as: list
+            - path: policy_refs
+              render_as: list
+
+    - id: work_statements
+      label: Work Statements
+      binds:
+        - path: ws_index
+          render_as: table
+          columns:
+            - field: ws_id
+              label: Statement ID
+            - field: order_key
+              label: Order
+
+    - id: revision
+      label: Revision
+      binds:
+        - path: revision
+          render_as: nested-object
+          fields:
+            - path: edition
+              render_as: paragraph
+            - path: updated_at
+              render_as: paragraph
+            - path: updated_by
+              render_as: paragraph
+
+    - id: lineage
+      label: Lineage
+      binds:
+        - path: source_candidate_ids
+          render_as: list
+        - path: transformation
+          render_as: paragraph
+        - path: transformation_notes
+          render_as: paragraph
+        - path: _lineage
+          render_as: nested-object
+          fields:
+            - path: parent_document_type
+              render_as: paragraph
+            - path: parent_execution_id
+              render_as: paragraph
+            - path: source_candidate_ids
+              render_as: list
+            - path: transformation
+              render_as: paragraph
+            - path: transformation_notes
+              render_as: paragraph
+
+# Rendering targets (ADR-054)
+rendering:
+  detail_html:
+    layout: tabs
+    tabs:
+      - id: overview
+        label: Overview
+        sections:
+          - overview
+          - scope
+
+      - id: governance
+        label: Governance
+        sections:
+          - governance
+          - dependencies
+
+      - id: execution
+        label: Execution
+        sections:
+          - work_statements
+          - revision
+
+      - id: lineage
+        label: Lineage
+        sections:
+          - lineage
+
+  pdf:
+    linear_order:
+      - overview
+      - scope
+      - dependencies
+      - governance
+      - work_statements
+      - revision
+      - lineage
+    toc: true
+
+# UI configuration
+ui:
+  icon: package
+  category: planning
+  display_order: 38
