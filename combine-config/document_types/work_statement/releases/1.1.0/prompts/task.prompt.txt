@@ -46,7 +46,34 @@ Each Work Statement document must contain:
 * governance_pins - governance references from the parent WP and TA:
   * ta_version_id - Technical Architecture version (required, non-empty)
   * adr_refs - applicable ADR IDs (may be empty array)
-  * policy_refs - applicable policy IDs (may be empty array)
+  * policy_refs - applicable policy IDs (required, non-empty - see Governance Pin Requirements)
+* contradiction_notes - array of noted contradictions between inputs (empty array if none found)
+
+## Procedure Ordering (Mandatory)
+
+Every Work Statement procedure MUST follow tests-before-implementation ordering:
+
+1. Write failing tests that define the expected behavior
+2. Implement the code to make tests pass
+3. Verify all tests pass
+
+Test and verification steps (write tests, verify, validate, assert, check) MUST precede
+implementation steps (create, build, develop, add, write code, modify, configure, deploy).
+
+This ordering is required by POL-WS-001. A procedure that places implementation
+before tests is always invalid.
+
+## Step Grounding (Mandatory)
+
+Every procedure step MUST reference the upstream artifact that authorizes or informs it.
+Each step should include a grounding cue such as:
+
+* "Per WP-XXX requirement..."
+* "As specified in the Technical Architecture..."
+* "Per policy POL-WS-001..."
+* "From section N of the parent Work Package..."
+
+A step without a grounding cue is not traceable to its authorization source.
 
 ## Parent Reference Requirements
 
@@ -71,10 +98,24 @@ Every Work Statement MUST carry governance_pins:
 
 1. ta_version_id MUST be non-empty - it identifies which Technical Architecture
    version informed this Work Statement's constraints
-2. adr_refs SHOULD reference any ADRs that constrain or govern this WS's execution
-3. policy_refs SHOULD reference any policies that constrain this WS's execution
+2. policy_refs MUST be non-empty - at minimum include ["POL-WS-001"] since all
+   Work Statements are governed by this policy. Propagate any additional policy_refs
+   from the parent Work Package.
+3. adr_refs SHOULD reference any ADRs that constrain or govern this WS's execution.
+   Propagate adr_refs from the parent Work Package.
 
 These pins create traceability from execution back to architectural decisions.
+Empty policy_refs is a governance failure.
+
+## Contradiction Disclosure
+
+If any instruction in the parent Work Package contradicts:
+* The output schema
+* Another Work Statement being produced
+* A referenced policy or ADR
+
+Include the contradiction in the contradiction_notes array with a brief description.
+If no contradictions are found, output an empty array: "contradiction_notes": []
 
 ## Decomposition Rules
 
@@ -96,6 +137,7 @@ When decomposing a Work Package into Work Statements:
 * Do not create circular dependencies between Work Statements
 * Do not reference prior executions, time, or external state
 * Do not combine unrelated concerns into a single WS
+* Do not leave policy_refs empty - every WS is governed by at least POL-WS-001
 
 ## Output Rules
 
@@ -110,6 +152,7 @@ When decomposing a Work Package into Work Statements:
 
 * Each WS must be traceable to its parent WP via parent_wp_id
 * governance_pins.ta_version_id must be populated
+* governance_pins.policy_refs must be populated (minimum: ["POL-WS-001"])
 * No implicit decisions or silent interpretations
 * Output must be fully loggable and replayable per ADR-010
 * No bypassing of audit, QA, or traceability mechanisms per ADR-009
@@ -129,18 +172,23 @@ Given identical inputs, the task should:
 2. All required fields present on every WS
 3. Every WS has parent_wp_id matching the input WP's wp_id
 4. governance_pins.ta_version_id is non-empty on every WS
-5. procedure has at least one step per WS
-6. verification_criteria has at least one criterion per WS
-7. scope_in and scope_out are arrays (may be empty)
-8. allowed_paths is an array (may be empty)
-9. No WS exceeds the parent WP's scope
+5. governance_pins.policy_refs is non-empty on every WS
+6. procedure follows tests-before-implementation ordering
+7. procedure steps contain grounding cues referencing upstream artifacts
+8. contradiction_notes array is present (empty if no contradictions)
+9. verification_criteria has at least one criterion per WS
+10. scope_in and scope_out are arrays (may be empty)
+11. allowed_paths is an array (may be empty)
+12. No WS exceeds the parent WP's scope
 
 ## Failure Conditions (Automatic Reject)
 
 This task fails if:
 * Any WS is missing parent_wp_id
 * governance_pins.ta_version_id is empty or missing on any WS
+* governance_pins.policy_refs is empty or missing on any WS
 * procedure is empty on any WS
+* procedure places implementation steps before test steps
 * verification_criteria is empty on any WS
 * A WS's scope exceeds the parent WP's scope_in
 * Role identity or authority is restated or altered

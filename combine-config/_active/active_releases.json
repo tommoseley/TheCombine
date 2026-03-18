@@ -76,8 +76,8 @@
     "pm_discovery_generation": "1.0.0",
     "project_discovery_qa": "1.2.0",
     "implementation_plan": "1.0.0",
-    "work_package": "1.0.0",
-    "work_statement": "1.0.0",
+    "work_package": "1.1.0",
+    "work_statement": "1.1.0",
     "propose_work_statements": "1.0.0"
   },
   "pgc": {
