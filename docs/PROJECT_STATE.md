@@ -355,23 +355,21 @@ All previous decisions (1-46) plus:
 ## Handoff Notes
 
 ### Recent Work (2026-03-18)
-- First measured prompt tuning cycle: WP v1.1.1 eliminated semantic_scope WEAK defect (20% → 0%)
-- WP baseline established: 5 synthetic scenarios (simple, moderate, complex, ambiguous, constrained)
-- Semantic presence checks added to both WP and WS evaluators (v1.1)
-- Shared field_classifier.py: ABSENT/EMPTY/WEAK/MEANINGFUL classification
-- PROC-PROMPT-TUNING-001 governance document + prompt-tuning CC skill
-- CRAP audit: 8 F-grade functions, 48 critical total, 4,268 total debt
-- Stabilization spine: 4 gates, structured failure reporting
-- 2847 tests passing (up from 2772)
+- APAM-001 full pipeline re-run with v1.1.0/v1.1.1 prompts — binder critique identified 5 remaining defect classes
+- WP v1.1.1 activated: scope quality requirements, ambiguous inputs decomposed into investigation activities
+- First measured prompt tuning cycle: semantic_scope WEAK 20% → 0% across 5 synthetic scenarios
+- Semantic presence checks in both evaluators (v1.1): ABSENT/EMPTY/WEAK/MEANINGFUL
+- PROC-PROMPT-TUNING-001 + prompt-tuning CC skill
+- CRAP audit: 8 F-grade, 48 critical, 4,268 total debt
+- 2847 tests passing
 
 ### Next Work
-- Activate WP prompt v1.1.1 in runtime (validated but not yet promoted)
-- Run WS baseline with semantic checks to identify WS-layer defects
-- CRAP remediation: 6 quick-win coverage targets (tests only, no refactoring)
-- CRAP remediation: render_project_binder CC=26 needs structural extraction
-- Investigate dead code: auth/routes.py callback, tasks/document_builder.py run_workflow_build
-- Wire inherit_governance_pins() into WS creation handler path
-- validate_stabilization() upgrade to StabilizationFinding
+- ta_version_id promotion gate: block WPC→WP promotion until TA version resolved (highest priority)
+- Unknown-handling policy: classify PD unknowns as advisory/blocking, gate on blocking unknowns
+- Ontology enforcement: mechanical check for vocabulary consistency across artifact chain
+- PD prompt tuning: secret solicitation compliance with GOV-SEC-T0-002
+- WS IA expansion: define IA for WS documents (deferred but tracked)
+- CRAP remediation: 6 quick-win coverage targets + render_project_binder CC=26
 - WS-RENDER-007: Binder Audit mode (mode=audit)
 
 ### Open Threads
