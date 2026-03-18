@@ -1,9 +1,19 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-18
-**Updated By:** Claude (Governance floor wiring + ADR-058 + TOC iteration 1b)
+**Updated By:** Claude (Stabilization spine + prompt activation + WP evaluator)
 
 ## Current Focus
+
+**COMPLETE:** Stabilization Spine + WP Evaluator (2026-03-18, session 2)
+- WS-PI-1D: v1.1.0 prompts activated in runtime via active_releases.json
+- WS-PI-2A: Certification gate at stabilization (completeness + governance)
+- WS-PI-2B: Referential integrity gate (ws_index → persisted docs)
+- WS-PI-2C: Parent WP invariant (every WS points to correct parent)
+- WS-PI-2D: Structured failure reporting (StabilizationFinding with rule_id, artifact_id, remediation_hint)
+- WS-PI-3A: WP defect evaluator (5 checks, same pattern as WS evaluator)
+- IA audit: found and closed 3 governance floor bypass paths in work_binder.py
+- 45 new tests, 2817 total passing
 
 **COMPLETE:** Governance Floor Mechanical Enforcement + ADR-058 (2026-03-18)
 - ensure_governance_floor() wired into DocumentBuilder at 3 call sites (sync build, stream build, child documents)
@@ -205,7 +215,7 @@
 
 ## Test Suite
 
-- **2772 Tier-1/2 tests** passing as of 2026-03-18 (66+ new: governance floor, defect evaluator, replay overrides, post-processing)
+- **2817 Tier-1/2 tests** passing as of 2026-03-18 (111+ new: governance floor, evaluators, stabilization gates, replay overrides)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -225,7 +235,9 @@
 | ia_gate | app/domain/services/ia_gate.py | IA coverage verification gate (50% threshold) |
 | evidence_renderer | app/domain/services/evidence_renderer.py | Evidence mode frontmatter + index generation |
 | ws_defect_evaluator | app/domain/services/ws_defect_evaluator.py | 5-check structural defect evaluation for WS artifacts |
+| wp_defect_evaluator | app/domain/services/wp_defect_evaluator.py | 5-check structural defect evaluation for WP artifacts |
 | governance_floor | app/domain/services/work_statement_registration.py | Artifact-type-aware mechanical governance floor enforcement |
+| stabilization_gate | app/domain/services/ws_crud_service.py | 4-gate certification spine at WP stabilization |
 
 ---
 
@@ -333,18 +345,20 @@ All previous decisions (1-46) plus:
 ## Handoff Notes
 
 ### Recent Work (2026-03-18)
-- Governance floor mechanical enforcement: ensure_governance_floor() wired into DocumentBuilder (3 call sites, 0 bypass)
-- ADR-058: Governance Lineage — two-layer enforcement architecture
+- Stabilization spine: 4 ordered gates (certification, referential integrity, parent WP, field validation)
+- Structured failure reporting: StabilizationFinding dataclass with rule_id, artifact_id, field_path, message, remediation_hint
+- v1.1.0 prompts activated in runtime (filesystem/PackageLoader path, not DB)
+- WP defect evaluator: 5 structural checks for upstream measurement
+- IA audit found and closed 3 governance floor bypass paths in work_binder.py
+- ADR-058 + governance floor wiring (DocumentBuilder + work_binder)
 - WS prompt v1.1.0 validated: 7 defects → 0 via replay harness
-- Replay/evaluate harness: query, override, batch replay, evaluate endpoints
-- WS defect evaluator: 5 structural checks for WS quality measurement
+- 2817 tests passing (up from 2772)
 
 ### Next Work
-- TOC Iteration 1a: Context wiring inspection — verify WP→WS handoff completeness (policy_refs propagation)
-- Wire inherit_governance_pins() into WS creation handler path
-- WP prompt v1.1.0 replay experiment against real WP generation run
-- Fix get_run_output kind mismatch (raw_text vs response) for evaluate endpoint
-- Prompt certification + manifest regeneration for v1.1.0 prompts
+- WP prompt v1.1.0 replay experiment using WP evaluator against real WP generation run (b3225599)
+- Fix get_run_output kind mismatch (raw_text vs response) for evaluate endpoint against real data
+- Wire inherit_governance_pins() into WS creation handler path (mechanical governance inheritance)
+- validate_stabilization() upgrade to StabilizationFinding (deferred — different error shape)
 - WS-RENDER-007: Binder Audit mode (mode=audit)
 - Remaining CRAP targets: 18 functions with CRAP>100
 
