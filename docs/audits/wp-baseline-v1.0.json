@@ -1,11 +1,11 @@
 {
   "meta": {
-    "date": "2026-03-18T17:02:04.349983+00:00",
+    "date": "2026-03-18T17:09:50.030952+00:00",
     "scenario_count": 5,
     "successful_runs": 5,
     "failed_runs": 0,
     "total_input_tokens": 14744,
-    "total_output_tokens": 1710,
+    "total_output_tokens": 1751,
     "prompt_version": "1.1.0",
     "model": "claude-sonnet-4-20250514"
   },
@@ -77,10 +77,28 @@
             "status": "advisory",
             "evidence": "ws_index not present",
             "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           }
         ],
         "summary": {
-          "passed": 3,
+          "passed": 6,
           "failed": 0,
           "advisory": 1,
           "not_evaluable": 1
@@ -171,10 +189,28 @@
             "status": "advisory",
             "evidence": "ws_index not present",
             "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           }
         ],
         "summary": {
-          "passed": 3,
+          "passed": 6,
           "failed": 0,
           "advisory": 1,
           "not_evaluable": 1
@@ -182,7 +218,7 @@
       },
       "tokens": {
         "input": 2989,
-        "output": 382
+        "output": 380
       },
       "error": null
     },
@@ -190,7 +226,7 @@
       "scenario_id": "WP-COMPLEX-003",
       "label": "Complex multi-phase",
       "wp_data": {
-        "wp_id": "database_migration_schema_evolution",
+        "wp_id": "database_migration_and_schema_evolution",
         "title": "Database Migration and Schema Evolution",
         "rationale": "Legacy SQLite database must be migrated to PostgreSQL with schema changes to support multi-tenancy, audit logging, and document versioning.",
         "scope_in": [
@@ -262,10 +298,28 @@
             "status": "advisory",
             "evidence": "ws_index not present",
             "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           }
         ],
         "summary": {
-          "passed": 3,
+          "passed": 6,
           "failed": 0,
           "advisory": 1,
           "not_evaluable": 1
@@ -273,7 +327,7 @@
       },
       "tokens": {
         "input": 3007,
-        "output": 388
+        "output": 390
       },
       "error": null
     },
@@ -299,10 +353,11 @@
             "POL-ADR-EXEC-001"
           ]
         },
-        "source_candidate_ids": [
-          "WPC-004"
-        ],
-        "contradiction_notes": []
+        "contradiction_notes": [
+          "IPF work package candidate lacks governance_pins - established from TA context",
+          "Scope definition 'UI improvements' is vague and may create execution ambiguity",
+          "Definition of done 'Users report improved satisfaction' lacks measurable criteria"
+        ]
       },
       "evaluation": {
         "checks": [
@@ -326,27 +381,45 @@
           },
           {
             "check_id": "contradiction_disclosure_present",
-            "status": "not_evaluable",
-            "evidence": "No contradiction/conflict disclosure fields found",
-            "notes": "Cannot confirm absence of contradictions from output alone"
+            "status": "pass",
+            "evidence": "3 contradiction(s) disclosed",
+            "notes": "IPF work package candidate lacks governance_pins - established from TA context; Scope definition 'UI improvements' is vague and may create execution ambiguity; Definition of done 'Users report improved satisfaction' lacks measurable criteria"
           },
           {
             "check_id": "ws_index_present",
             "status": "advisory",
             "evidence": "ws_index not present",
             "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "fail",
+            "evidence": "WEAK: field is weak",
+            "notes": "Provide specific, actionable scope items"
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           }
         ],
         "summary": {
-          "passed": 3,
-          "failed": 0,
+          "passed": 6,
+          "failed": 1,
           "advisory": 1,
-          "not_evaluable": 1
+          "not_evaluable": 0
         }
       },
       "tokens": {
         "input": 2792,
-        "output": 204
+        "output": 245
       },
       "error": null
     },
@@ -433,10 +506,28 @@
             "status": "advisory",
             "evidence": "ws_index not present",
             "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
           }
         ],
         "summary": {
-          "passed": 3,
+          "passed": 6,
           "failed": 0,
           "advisory": 1,
           "not_evaluable": 1
@@ -470,19 +561,37 @@
         "not_evaluable": 0
       },
       "contradiction_disclosure_present": {
-        "pass": 0,
+        "pass": 1,
         "fail": 0,
         "advisory": 0,
-        "not_evaluable": 5
+        "not_evaluable": 4
       },
       "ws_index_present": {
         "pass": 0,
         "fail": 0,
         "advisory": 5,
         "not_evaluable": 0
+      },
+      "semantic_rationale": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "semantic_scope": {
+        "pass": 4,
+        "fail": 1,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "semantic_definition_of_done": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
       }
     },
-    "avg_defects_per_wp": 0.0,
-    "total_defects": 0
+    "avg_defects_per_wp": 0.2,
+    "total_defects": 1
   }
 }

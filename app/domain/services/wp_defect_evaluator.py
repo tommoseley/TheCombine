@@ -9,7 +9,118 @@ Scoped to work_package artifact type only.
 Same pattern as ws_defect_evaluator.py.
 """
 
+import re
 from dataclasses import dataclass, field
+from typing import Any, Optional
+
+
+# ===========================================================================
+# Semantic presence classification (WS-PI-3B)
+# ===========================================================================
+
+_PLACEHOLDERS = re.compile(
+    r"^(tbd|t\.b\.d\.?|n/?a|none|todo|do the work|placeholder|pending|unknown)$",
+    re.IGNORECASE,
+)
+
+
+def classify_field_content(
+    value: Any,
+    min_length: int = 10,
+) -> str:
+    """
+    Classify a field value as ABSENT, EMPTY, WEAK, or MEANINGFUL.
+
+    Args:
+        value: The field value (str, list, or None)
+        min_length: Minimum character length for string content to be meaningful
+
+    Returns:
+        One of: "ABSENT", "EMPTY", "WEAK", "MEANINGFUL"
+    """
+    if value is None:
+        return "ABSENT"
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return "EMPTY"
+        if _PLACEHOLDERS.match(stripped):
+            return "WEAK"
+        if len(stripped) < min_length:
+            return "WEAK"
+        return "MEANINGFUL"
+
+    if isinstance(value, list):
+        if len(value) == 0:
+            return "EMPTY"
+        # Check if all items are placeholders or trivial
+        meaningful_items = 0
+        for item in value:
+            if isinstance(item, str):
+                s = item.strip()
+                if s and not _PLACEHOLDERS.match(s) and len(s) >= min_length:
+                    meaningful_items += 1
+            elif isinstance(item, dict):
+                # Dict items (e.g., procedure steps) count as meaningful if non-empty
+                if item:
+                    meaningful_items += 1
+        if meaningful_items == 0:
+            return "WEAK"
+        return "MEANINGFUL"
+
+    # Non-str, non-list, non-None — treat as meaningful if truthy
+    return "MEANINGFUL" if value else "EMPTY"
+
+
+# Semantic check configuration: field_key -> (check_id, min_length, remediation)
+_SEMANTIC_FIELDS = {
+    "rationale": ("semantic_rationale", 15, "Provide a substantive rationale explaining why this WP exists"),
+    "scope": ("semantic_scope", 20, "Provide specific, actionable scope items"),
+    "definition_of_done": ("semantic_definition_of_done", 20, "Provide specific, verifiable completion criteria"),
+}
+
+
+def _get_scope_value(wp: dict) -> Any:
+    """Get the scope value, accepting scope, scope_in, or scope_out."""
+    if "scope" in wp:
+        return wp["scope"]
+    scope_in = wp.get("scope_in")
+    scope_out = wp.get("scope_out")
+    if scope_in is not None or scope_out is not None:
+        # Combine for evaluation — either list is enough
+        combined = []
+        if isinstance(scope_in, list):
+            combined.extend(scope_in)
+        if isinstance(scope_out, list):
+            combined.extend(scope_out)
+        return combined if combined else scope_in
+    return None
+
+
+def _check_semantic_presence(wp: dict) -> list:
+    """Run semantic presence checks on key WP fields."""
+    checks = []
+
+    for field_key, (check_id, min_len, hint) in _SEMANTIC_FIELDS.items():
+        if field_key == "scope":
+            value = _get_scope_value(wp)
+        else:
+            value = wp.get(field_key)
+
+        classification = classify_field_content(value, min_length=min_len)
+
+        if classification == "MEANINGFUL":
+            evidence = f"{classification}: content meets minimum quality threshold"
+            checks.append(_check(check_id, "pass", evidence, ""))
+        else:
+            checks.append(_check(
+                check_id, "fail",
+                f"{classification}: field is {classification.lower()}",
+                hint,
+            ))
+
+    return checks
 
 
 # Required top-level sections in a WP
@@ -28,7 +139,7 @@ _SCOPE_FIELDS = ["scope_in", "scope_out", "scope"]
 class WPEvaluationReport:
     """Structured evaluation report for a WP output."""
     artifact_type: str = "work_package"
-    evaluator_version: str = "1.0"
+    evaluator_version: str = "1.1"
     checks: list = field(default_factory=list)
     summary: dict = field(default_factory=dict)
 
@@ -185,6 +296,7 @@ def evaluate_wp(wp: dict) -> WPEvaluationReport:
         _check_policy_floor(wp),
         _check_contradiction_disclosure(wp),
         _check_ws_index_present(wp),
+        *_check_semantic_presence(wp),
     ]
 
     summary = {"passed": 0, "failed": 0, "advisory": 0, "not_evaluable": 0}

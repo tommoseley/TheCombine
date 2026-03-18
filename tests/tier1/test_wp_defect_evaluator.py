@@ -14,9 +14,10 @@ def _good_wp():
     return {
         "wp_id": "WP-001",
         "title": "Test Work Package",
-        "rationale": "Because we need it",
-        "scope_in": ["Feature A", "Feature B"],
-        "scope_out": ["Feature C"],
+        "rationale": "Critical authentication module required before downstream features can proceed",
+        "scope_in": ["Login form implementation with validation", "Password hashing using bcrypt"],
+        "scope_out": ["OAuth integration deferred to phase 2"],
+        "definition_of_done": ["Users can log in with username and password", "Sessions persist across refreshes"],
         "governance_pins": {
             "ta_version_id": "TA-v1.0-baseline",
             "policy_refs": ["POL-ADR-EXEC-001"],
@@ -193,7 +194,7 @@ class TestReportStructure:
         report = evaluate_wp(_good_wp())
         assert isinstance(report, WPEvaluationReport)
         assert report.artifact_type == "work_package"
-        assert len(report.checks) == 5
+        assert len(report.checks) == 8  # 5 structural + 3 semantic
         assert report.summary["failed"] == 0
 
     def test_bad_wp_report_counts(self):
