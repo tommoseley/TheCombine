@@ -45,6 +45,7 @@ from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
     build_new_ws,
     certify_wp_for_stabilization,
+    check_parent_wp_invariant,
     check_ws_referential_integrity,
     generate_order_key,
     reorder_ws_index,
@@ -1321,6 +1322,20 @@ async def stabilize_work_package(
             detail={
                 "error_code": "REFERENTIAL_INTEGRITY_FAILED",
                 "errors": ref_errors,
+            },
+        )
+
+    # --- Parent WP invariant (WS-PI-2C) ---
+    content_wp_id = wp_content.get("wp_id", wp_id)
+    parent_errors = check_parent_wp_invariant(
+        content_wp_id, [doc.content for doc in ws_docs]
+    )
+    if parent_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "PARENT_WP_MISMATCH",
+                "errors": parent_errors,
             },
         )
 

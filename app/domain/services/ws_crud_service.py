@@ -251,6 +251,39 @@ def certify_wp_for_stabilization(
 
 
 # ===========================================================================
+# Parent WP invariant (WS-PI-2C)
+# ===========================================================================
+
+def check_parent_wp_invariant(
+    wp_id: str,
+    ws_contents: list[dict[str, Any]],
+) -> list[str]:
+    """
+    Check that every WS claims the correct parent WP.
+
+    Args:
+        wp_id: The WP's wp_id being stabilized
+        ws_contents: List of WS document content dicts
+
+    Returns:
+        List of error messages. Empty means all WSs point to the correct parent.
+    """
+    errors: list[str] = []
+    for ws in ws_contents:
+        ws_id = ws.get("ws_id", "unknown")
+        parent = ws.get("parent_wp_id")
+        if parent is None:
+            errors.append(
+                f"WS {ws_id} has no parent_wp_id field"
+            )
+        elif parent != wp_id:
+            errors.append(
+                f"WS {ws_id} claims parent_wp_id={parent}, expected {wp_id}"
+            )
+    return errors
+
+
+# ===========================================================================
 # Referential integrity gate (WS-PI-2B)
 # ===========================================================================
 
