@@ -1299,15 +1299,15 @@ async def stabilize_work_package(
     ws_docs = [doc for doc in result.scalars().all() if doc.content]
 
     # --- Certification gate: completeness + governance (WS-PI-2A) ---
-    cert_errors = certify_wp_for_stabilization(
+    cert_findings = certify_wp_for_stabilization(
         wp_content, [doc.content for doc in ws_docs]
     )
-    if cert_errors:
+    if cert_findings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error_code": "CERTIFICATION_FAILED",
-                "errors": cert_errors,
+                "findings": [f.to_dict() for f in cert_findings],
             },
         )
 
@@ -1315,27 +1315,27 @@ async def stabilize_work_package(
     persisted_ws_ids = [
         (doc.content or {}).get("ws_id", str(doc.id)) for doc in ws_docs
     ]
-    ref_errors = check_ws_referential_integrity(wp_content, persisted_ws_ids)
-    if ref_errors:
+    ref_findings = check_ws_referential_integrity(wp_content, persisted_ws_ids)
+    if ref_findings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error_code": "REFERENTIAL_INTEGRITY_FAILED",
-                "errors": ref_errors,
+                "findings": [f.to_dict() for f in ref_findings],
             },
         )
 
     # --- Parent WP invariant (WS-PI-2C) ---
     content_wp_id = wp_content.get("wp_id", wp_id)
-    parent_errors = check_parent_wp_invariant(
+    parent_findings = check_parent_wp_invariant(
         content_wp_id, [doc.content for doc in ws_docs]
     )
-    if parent_errors:
+    if parent_findings:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error_code": "PARENT_WP_MISMATCH",
-                "errors": parent_errors,
+                "findings": [f.to_dict() for f in parent_findings],
             },
         )
 

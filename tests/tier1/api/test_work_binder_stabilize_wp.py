@@ -270,6 +270,8 @@ class TestStabilizeWorkPackage:
                 assert resp.status_code == 400
                 body = resp.json()
                 assert body["detail"]["error_code"] == "CERTIFICATION_FAILED"
+                assert "findings" in body["detail"]
+                assert isinstance(body["detail"]["findings"], list)
         finally:
             _app.dependency_overrides = {}
 

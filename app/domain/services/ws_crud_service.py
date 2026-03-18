@@ -9,7 +9,25 @@ Tier 1 testability.
 WS-WB-006.
 """
 
-from typing import Any
+from dataclasses import dataclass, asdict
+from typing import Any, Optional
+
+
+# ===========================================================================
+# Structured stabilization findings (WS-PI-2D)
+# ===========================================================================
+
+@dataclass(frozen=True)
+class StabilizationFinding:
+    """A structured failure from a stabilization gate check."""
+    rule_id: str
+    artifact_id: str
+    field_path: Optional[str]
+    message: str
+    remediation_hint: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 # ===========================================================================
@@ -205,7 +223,7 @@ def validate_stabilization(ws_content: dict[str, Any]) -> list[str]:
 def certify_wp_for_stabilization(
     wp_content: dict[str, Any],
     ws_contents: list[dict[str, Any]],
-) -> list[str]:
+) -> list[StabilizationFinding]:
     """
     Certify a WP artifact set for stabilization.
 
@@ -219,22 +237,32 @@ def certify_wp_for_stabilization(
         ws_contents: List of WS document content dicts
 
     Returns:
-        List of error messages. Empty means certified.
+        List of StabilizationFinding objects. Empty means certified.
     """
-    errors: list[str] = []
+    findings: list[StabilizationFinding] = []
+    wp_id = wp_content.get("wp_id", "unknown")
 
     # 1. Completeness: at least one WS
     if not ws_contents:
-        errors.append("WP has no Work Statements — cannot stabilize an empty package")
+        findings.append(StabilizationFinding(
+            rule_id="CERT-001",
+            artifact_id=wp_id,
+            field_path=None,
+            message="WP has no Work Statements — cannot stabilize an empty package",
+            remediation_hint="Create at least one Work Statement before stabilizing",
+        ))
 
     # 2. WP governance floor
     wp_pins = wp_content.get("governance_pins") or {}
     wp_policies = wp_pins.get("policy_refs") or []
     if "POL-ADR-EXEC-001" not in wp_policies:
-        errors.append(
-            "WP missing required governance floor: POL-ADR-EXEC-001 "
-            "not in governance_pins.policy_refs"
-        )
+        findings.append(StabilizationFinding(
+            rule_id="CERT-002",
+            artifact_id=wp_id,
+            field_path="governance_pins.policy_refs",
+            message="WP missing required governance floor: POL-ADR-EXEC-001",
+            remediation_hint="Re-run post-processing or manually add POL-ADR-EXEC-001 to policy_refs",
+        ))
 
     # 3. WS governance floor (per WS)
     for ws in ws_contents:
@@ -242,12 +270,15 @@ def certify_wp_for_stabilization(
         ws_pins = ws.get("governance_pins") or {}
         ws_policies = ws_pins.get("policy_refs") or []
         if "POL-WS-001" not in ws_policies:
-            errors.append(
-                f"WS {ws_id} missing required governance floor: POL-WS-001 "
-                f"not in governance_pins.policy_refs"
-            )
+            findings.append(StabilizationFinding(
+                rule_id="CERT-003",
+                artifact_id=ws_id,
+                field_path="governance_pins.policy_refs",
+                message=f"WS {ws_id} missing required governance floor: POL-WS-001",
+                remediation_hint="Re-run post-processing or manually add POL-WS-001 to policy_refs",
+            ))
 
-    return errors
+    return findings
 
 
 # ===========================================================================
@@ -257,7 +288,7 @@ def certify_wp_for_stabilization(
 def check_parent_wp_invariant(
     wp_id: str,
     ws_contents: list[dict[str, Any]],
-) -> list[str]:
+) -> list[StabilizationFinding]:
     """
     Check that every WS claims the correct parent WP.
 
@@ -266,21 +297,29 @@ def check_parent_wp_invariant(
         ws_contents: List of WS document content dicts
 
     Returns:
-        List of error messages. Empty means all WSs point to the correct parent.
+        List of StabilizationFinding objects. Empty means all WSs point to the correct parent.
     """
-    errors: list[str] = []
+    findings: list[StabilizationFinding] = []
     for ws in ws_contents:
         ws_id = ws.get("ws_id", "unknown")
         parent = ws.get("parent_wp_id")
         if parent is None:
-            errors.append(
-                f"WS {ws_id} has no parent_wp_id field"
-            )
+            findings.append(StabilizationFinding(
+                rule_id="PARENT-001",
+                artifact_id=ws_id,
+                field_path="parent_wp_id",
+                message=f"WS {ws_id} has no parent_wp_id field",
+                remediation_hint=f"Set parent_wp_id to '{wp_id}'",
+            ))
         elif parent != wp_id:
-            errors.append(
-                f"WS {ws_id} claims parent_wp_id={parent}, expected {wp_id}"
-            )
-    return errors
+            findings.append(StabilizationFinding(
+                rule_id="PARENT-002",
+                artifact_id=ws_id,
+                field_path="parent_wp_id",
+                message=f"WS {ws_id} claims parent_wp_id={parent}, expected {wp_id}",
+                remediation_hint=f"Update parent_wp_id from '{parent}' to '{wp_id}'",
+            ))
+    return findings
 
 
 # ===========================================================================
@@ -290,7 +329,7 @@ def check_parent_wp_invariant(
 def check_ws_referential_integrity(
     wp_content: dict[str, Any],
     persisted_ws_ids: list[str],
-) -> list[str]:
+) -> list[StabilizationFinding]:
     """
     Check that every WS referenced in WP ws_index exists as a persisted document.
 
@@ -299,18 +338,22 @@ def check_ws_referential_integrity(
         persisted_ws_ids: List of ws_id values from actually persisted WS documents
 
     Returns:
-        List of error messages. Empty means all references resolve.
+        List of StabilizationFinding objects. Empty means all references resolve.
     """
+    wp_id = wp_content.get("wp_id", "unknown")
     ws_index = wp_content.get("ws_index") or []
     referenced_ids = {entry.get("ws_id") for entry in ws_index if entry.get("ws_id")}
     persisted_set = set(persisted_ws_ids)
 
     missing = sorted(referenced_ids - persisted_set)
     if missing:
-        return [
-            f"WP ws_index references {len(missing)} WS(s) that do not exist: "
-            f"{', '.join(missing)}"
-        ]
+        return [StabilizationFinding(
+            rule_id="REF-001",
+            artifact_id=wp_id,
+            field_path="ws_index",
+            message=f"ws_index references {len(missing)} WS(s) that do not exist: {', '.join(missing)}",
+            remediation_hint="Remove stale ws_index entries or create the missing WS documents",
+        )]
     return []
 
 
