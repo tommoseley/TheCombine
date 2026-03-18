@@ -17,6 +17,8 @@ streaming). The extractable pure logic is limited to:
 import json
 from typing import Dict, Any
 
+from app.domain.services.work_statement_registration import ensure_governance_floor
+
 
 # ---------------------------------------------------------------------------
 # resolve_model_params  (extracted from _prepare_build and build_stream)
@@ -143,3 +145,29 @@ def should_emit_stream_update(
         True if a progress update should be emitted
     """
     return (accumulated_length % 100) < chunk_length
+
+
+# ---------------------------------------------------------------------------
+# apply_post_processing  (governance floor enforcement on handler output)
+# ---------------------------------------------------------------------------
+
+def apply_post_processing(
+    data: Dict[str, Any],
+    doc_type_id: str,
+) -> Dict[str, Any]:
+    """
+    Apply deterministic post-processing to handler output before persistence.
+
+    Currently enforces the governance floor for artifact types that require it.
+    This is the mechanical guarantee layer — if the LLM omitted required
+    governance pins, this function injects the minimum floor.
+
+    Args:
+        data: Parsed document dict from handler.process()
+        doc_type_id: The document type identifier (e.g., "work_package")
+
+    Returns:
+        Modified data with post-processing applied (same dict, mutated)
+    """
+    ensure_governance_floor(data, doc_type_id)
+    return data

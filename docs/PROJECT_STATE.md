@@ -1,9 +1,24 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-08
-**Updated By:** Claude (WS-WB-040 stabilization + Produce Next + breadcrumb pulse + Work Binder auto-import)
+**Last Updated:** 2026-03-18
+**Updated By:** Claude (Governance floor wiring + ADR-058 + TOC iteration 1b)
 
 ## Current Focus
+
+**COMPLETE:** Governance Floor Mechanical Enforcement + ADR-058 (2026-03-18)
+- ensure_governance_floor() wired into DocumentBuilder at 3 call sites (sync build, stream build, child documents)
+- Zero bypass paths: every WP gets POL-ADR-EXEC-001, every WS gets POL-WS-001
+- apply_post_processing() pure function in document_builder_pure.py (Tier 1 testable)
+- ADR-058: Governance Lineage architectural principle — two-layer enforcement (prompt + mechanical)
+- 8 new tests for post-processing wiring
+
+**COMPLETE:** TOC Iteration 0b/1b — WS Prompt Improvement Experiment (2026-03-18)
+- WS defect evaluator: 5 structural checks, 18 tests
+- Replay override harness: batch replay, overrides, query, evaluate endpoints, 14 tests
+- WS prompt v1.1.0: governance supplement reduced defects from 7 to 0 against APAM-002
+- WP prompt v1.1.0: governance supplement created (pending replay experiment)
+- IVR governance documents for both prompt promotions
+- 26 tests for ensure_governance_floor() pure function
 
 **COMPLETE:** WS-WB-040 + Production UX Flow (2026-03-08)
 - WP-level atomic stabilization: single "STABILIZE PACKAGE" replaces per-WS buttons (6 tests)
@@ -190,7 +205,7 @@
 
 ## Test Suite
 
-- **4215+ Tier-1 tests** passing as of 2026-03-07 (56+ new: IA contract + scoping + QA remediation)
+- **2772 Tier-1/2 tests** passing as of 2026-03-18 (66+ new: governance floor, defect evaluator, replay overrides, post-processing)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -209,6 +224,8 @@
 | binder_renderer | app/domain/services/binder_renderer.py | Project binder assembly (cover, TOC, pipeline ordering) |
 | ia_gate | app/domain/services/ia_gate.py | IA coverage verification gate (50% threshold) |
 | evidence_renderer | app/domain/services/evidence_renderer.py | Evidence mode frontmatter + index generation |
+| ws_defect_evaluator | app/domain/services/ws_defect_evaluator.py | 5-check structural defect evaluation for WS artifacts |
+| governance_floor | app/domain/services/work_statement_registration.py | Artifact-type-aware mechanical governance floor enforcement |
 
 ---
 
@@ -307,22 +324,29 @@ All previous decisions (1-46) plus:
 
 58. **IA gate coverage threshold** -- 50% of IA-declared fields must be present for PASS. Missing fields above threshold are warnings (rendered sections omitted gracefully). Below threshold is FAIL (409 Conflict). Catches broken documents while tolerating optional fields.
 
+59. **Two-layer governance enforcement (ADR-058)** -- Layer 1 (prompt) instructs the LLM to populate governance pins correctly. Layer 2 (mechanical) runs ensure_governance_floor() deterministically after handler output. Prompt is primary, floor is safety net. Governance floors are artifact-type-specific: WP gets POL-ADR-EXEC-001, WS gets POL-WS-001.
+
+60. **Theory of Constraints optimization discipline** -- Station-level improvements validated via measured replay experiments, not broad redesign. Replay harness + defect evaluator + override mechanism enables controlled A/B testing of prompt changes against real LLM run data.
+
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-08)
-- WS-WB-040: WP-level atomic stabilization (backend endpoint + frontend button, 6 tests)
-- "Produce Next" button: frontier-only, inline in document header badge row
-- Pipeline breadcrumb pulsing for in-progress stages
-- "Produce Work Binder" button on TA complete → auto-import candidates
-- All changes uncommitted
+### Recent Work (2026-03-18)
+- Governance floor mechanical enforcement: ensure_governance_floor() wired into DocumentBuilder (3 call sites, 0 bypass)
+- ADR-058: Governance Lineage — two-layer enforcement architecture
+- WS prompt v1.1.0 validated: 7 defects → 0 via replay harness
+- Replay/evaluate harness: query, override, batch replay, evaluate endpoints
+- WS defect evaluator: 5 structural checks for WS quality measurement
 
 ### Next Work
-- Commit session changes (WS-WB-040 + production UX flow)
-- WS-RENDER-007: Binder Audit mode (mode=audit) — mechanical governance/traceability/readiness checks
-- Remaining CRAP targets: 18 functions with CRAP>100 (coverage debt, moderate CC 11-14)
-- Three download dropdown components could be consolidated into shared component
+- TOC Iteration 1a: Context wiring inspection — verify WP→WS handoff completeness (policy_refs propagation)
+- Wire inherit_governance_pins() into WS creation handler path
+- WP prompt v1.1.0 replay experiment against real WP generation run
+- Fix get_run_output kind mismatch (raw_text vs response) for evaluate endpoint
+- Prompt certification + manifest regeneration for v1.1.0 prompts
+- WS-RENDER-007: Binder Audit mode (mode=audit)
+- Remaining CRAP targets: 18 functions with CRAP>100
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052

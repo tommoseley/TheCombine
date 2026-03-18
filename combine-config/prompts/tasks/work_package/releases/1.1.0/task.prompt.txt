@@ -1,0 +1,167 @@
+# Task: Work Package Production
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Produce a single Work Package document from a committed Work Package entry in the
+Final Implementation Plan (IPF). The Work Package is a governed unit of planned work
+that defines scope, dependencies, governance pins, and completion criteria.
+
+This document is the authoritative record for one unit of deliverable work.
+Each Work Package will subsequently be decomposed into Work Statements for execution.
+
+## Inputs Provided
+
+You will receive:
+
+* Implementation Plan (Final) - the committed plan containing this Work Package
+  in its work_packages[] array. The specific WP entry to produce is identified
+  by wp_id.
+
+* Technical Architecture - the governing TA document that provides structural
+  constraints, ADR references, and policy context.
+
+The Implementation Plan and Technical Architecture are the ONLY sources of requirements.
+No other context may be assumed.
+
+## Work Package Structure
+
+The Work Package document must faithfully represent the committed WP entry from the IPF,
+enriched with governance traceability derived from the TA and governing policies.
+You must preserve:
+
+* wp_id - the unique identifier (snake_case, e.g., "document_registry")
+* title - human-readable Work Package title
+* rationale - why this Work Package is needed
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* dependencies - references to other wp_ids with dependency_type and optional notes
+* definition_of_done - measurable completion criteria (array of strings, minimum 1)
+* governance_pins - governance references established at WP production time:
+  * ta_version_id - Technical Architecture version (required, non-empty)
+  * adr_refs - applicable ADR IDs (required, non-empty - see Governance Pin Requirements)
+  * policy_refs - applicable policy IDs (required, non-empty - see Governance Pin Requirements)
+* contradiction_notes - array of noted contradictions between inputs (empty array if none found)
+
+## Governance Pin Requirements
+
+Every Work Package MUST carry governance_pins. The WP is the first point in the
+production chain where governance traceability is established. Downstream Work
+Statements inherit these pins, so completeness here is critical.
+
+1. ta_version_id MUST be non-empty - it identifies which Technical Architecture
+   version informed this Work Package's scope and constraints.
+
+2. policy_refs MUST be non-empty. Work Packages are governed by the ADR execution
+   authorization process. At minimum, include:
+   - POL-ADR-EXEC-001 (all WPs exist because of the ADR execution authorization chain)
+   If the TA or IPF references additional policies (e.g., POL-QA-001, POL-ARCH-001),
+   include those as well.
+
+3. adr_refs MUST reference any ADRs that constrain or govern this WP's implementation.
+   If the TA or IPF references specific ADRs (e.g., ADR-009, ADR-010), propagate them.
+   If the IPF does not explicitly list ADRs but the TA does, derive them from the TA.
+
+These pins create traceability from planned work back to architectural decisions.
+Empty policy_refs or adr_refs on a Work Package is a governance gap that propagates
+to all downstream Work Statements.
+
+## Governance Pin Establishment (Not Just Copying)
+
+The IPF may not carry governance_pins on its work package candidates. When governance_pins
+are absent or incomplete in the IPF entry:
+
+1. Establish ta_version_id from the Technical Architecture input
+2. Derive policy_refs from the governing context (POL-ADR-EXEC-001 at minimum)
+3. Derive adr_refs from the TA's referenced ADRs that are relevant to this WP's scope
+
+This is not invention — it is establishing the governance chain that the IPF left implicit.
+
+## Contradiction Disclosure
+
+If any instruction in the IPF entry contradicts:
+* The Technical Architecture
+* The output schema
+* A referenced policy or ADR
+
+Include the contradiction in the contradiction_notes array with a brief description.
+If no contradictions are found, output an empty array: "contradiction_notes": []
+
+If the IPF entry lacks governance_pins entirely, note this as a gap (not a contradiction)
+in contradiction_notes.
+
+## Dependency Rules
+
+Dependencies reference other wp_ids within the same Implementation Plan:
+
+* dependency_type must be one of: must_complete_first, can_start_after, soft
+* Each dependency references a valid wp_id from the same plan
+* Circular dependencies are prohibited
+
+## What You MUST NOT Do
+
+* Do not decompose the Work Package into Work Statements, tasks, stories, or features
+* Do not assign estimates, timelines, or ownership
+* Do not add scope items not present in the IPF entry
+* Do not remove scope items present in the IPF entry
+* Do not invent dependencies not present in the IPF
+* Do not reference prior executions, time, or external state
+* Do not leave policy_refs empty - every WP is governed by at least POL-ADR-EXEC-001
+
+## Output Rules
+
+* Output valid JSON only
+* Follow the Work Package schema exactly
+* All arrays must be present even if empty
+* Never output null
+* No commentary, markdown, or explanation outside JSON
+* additionalProperties constraints must be respected at every level
+
+## Governance & Audit Constraints
+
+* The WP must be traceable to its IPF source via source_candidate_ids
+* governance_pins.ta_version_id must be populated
+* governance_pins.policy_refs must be populated (minimum: ["POL-ADR-EXEC-001"])
+* governance_pins.adr_refs should be populated from TA context
+* No implicit decisions or silent interpretations
+* Output must be fully loggable and replayable per ADR-010
+* No bypassing of audit, QA, or traceability mechanisms per ADR-009
+
+## Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+* Produce equivalent output with equivalent scope and intent
+* Preserve semantic meaning across runs
+* Maintain stable wp_id and field values
+* Avoid stylistic variance that alters interpretation
+* Contain no references to time, prior executions, or external state
+
+## Final Self-Check Before Output
+
+1. JSON parses correctly
+2. All required fields present
+3. wp_id is valid snake_case
+4. governance_pins.ta_version_id is non-empty
+5. governance_pins.policy_refs is non-empty (minimum: ["POL-ADR-EXEC-001"])
+6. governance_pins.adr_refs is populated from TA context
+7. contradiction_notes array is present (empty if no contradictions)
+8. definition_of_done has at least one entry
+9. Dependencies reference valid wp_ids only
+10. scope_in and scope_out are arrays (may be empty)
+11. No additional properties at any level
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* governance_pins.ta_version_id is empty or missing
+* governance_pins.policy_refs is empty or missing
+* definition_of_done is empty
+* wp_id is not valid snake_case
+* Work Statements, tasks, or features appear in the output
+* Role identity or authority is restated or altered
+* Output depends on unstated context or prior runs

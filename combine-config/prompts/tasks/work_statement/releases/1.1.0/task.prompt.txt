@@ -1,0 +1,195 @@
+# Task: Work Statement Production
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Produce one or more Work Statement documents by decomposing a committed Work Package
+into authorized units of execution. Each Work Statement defines a discrete scope of work
+with clear procedure, verification criteria, and file-path constraints.
+
+This document is the authoritative record for one unit of executable work.
+Each Work Statement will be executed by a developer agent following Mode A or Mode B
+verification as defined by project policy.
+
+## Inputs Provided
+
+You will receive:
+
+* Work Package - the parent WP containing scope, dependencies, governance pins,
+  and definition of done. Each WS must reference this WP's wp_id as parent_wp_id.
+
+* Technical Architecture - the governing TA document that provides structural
+  constraints, allowed patterns, and ADR references. The TA informs allowed_paths
+  and governance_pins for each WS.
+
+These are the ONLY sources of requirements. No other context may be assumed.
+
+## Work Statement Structure
+
+Each Work Statement document must contain:
+
+* ws_id - unique identifier (format: WS-{PARENT_WP}-NNN, e.g., "WS-DCW-001")
+* parent_wp_id - the wp_id of the parent Work Package (required, non-empty)
+* title - human-readable Work Statement title
+* objective - what this Work Statement achieves (clear, measurable)
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* allowed_paths - file/directory paths this WS may touch (array of strings, may be empty)
+* procedure - ordered steps to execute (array of strings, minimum 1)
+* verification_criteria - measurable completion criteria (array of strings, minimum 1)
+* prohibited_actions - what the executor MUST NOT do (array of strings)
+* governance_pins - governance references from the parent WP and TA:
+  * ta_version_id - Technical Architecture version (required, non-empty)
+  * adr_refs - applicable ADR IDs (may be empty array)
+  * policy_refs - applicable policy IDs (required, non-empty - see Governance Pin Requirements)
+* contradiction_notes - array of noted contradictions between inputs (empty array if none found)
+
+## Procedure Ordering (Mandatory)
+
+Every Work Statement procedure MUST follow tests-before-implementation ordering:
+
+1. Write failing tests that define the expected behavior
+2. Implement the code to make tests pass
+3. Verify all tests pass
+
+Test and verification steps (write tests, verify, validate, assert, check) MUST precede
+implementation steps (create, build, develop, add, write code, modify, configure, deploy).
+
+This ordering is required by POL-WS-001. A procedure that places implementation
+before tests is always invalid.
+
+## Step Grounding (Mandatory)
+
+Every procedure step MUST reference the upstream artifact that authorizes or informs it.
+Each step should include a grounding cue such as:
+
+* "Per WP-XXX requirement..."
+* "As specified in the Technical Architecture..."
+* "Per policy POL-WS-001..."
+* "From section N of the parent Work Package..."
+
+A step without a grounding cue is not traceable to its authorization source.
+
+## Parent Reference Requirements
+
+Every Work Statement MUST carry parent_wp_id:
+
+1. parent_wp_id MUST match the wp_id of the parent Work Package
+2. This creates traceability from execution back to planned work
+3. A WS without parent_wp_id is always invalid
+
+## Allowed Paths Requirements
+
+allowed_paths constrains which files and directories the WS executor may modify:
+
+1. Paths should be relative to the project root
+2. Directory paths should end with / (e.g., "app/domain/handlers/")
+3. An empty array means no file-path constraints (unrestricted)
+4. Paths should be informed by the Technical Architecture's structural constraints
+
+## Governance Pin Requirements
+
+Every Work Statement MUST carry governance_pins:
+
+1. ta_version_id MUST be non-empty - it identifies which Technical Architecture
+   version informed this Work Statement's constraints
+2. policy_refs MUST be non-empty - at minimum include ["POL-WS-001"] since all
+   Work Statements are governed by this policy. Propagate any additional policy_refs
+   from the parent Work Package.
+3. adr_refs SHOULD reference any ADRs that constrain or govern this WS's execution.
+   Propagate adr_refs from the parent Work Package.
+
+These pins create traceability from execution back to architectural decisions.
+Empty policy_refs is a governance failure.
+
+## Contradiction Disclosure
+
+If any instruction in the parent Work Package contradicts:
+* The output schema
+* Another Work Statement being produced
+* A referenced policy or ADR
+
+Include the contradiction in the contradiction_notes array with a brief description.
+If no contradictions are found, output an empty array: "contradiction_notes": []
+
+## Decomposition Rules
+
+When decomposing a Work Package into Work Statements:
+
+* Each WS must be independently executable
+* Each WS must have a clear, testable objective
+* WS scope must not overlap (no two WSs touch the same concern)
+* The union of all WS scopes must cover the WP's scope_in
+* Procedure steps must be concrete and ordered
+* Verification criteria must be measurable without human judgment
+
+## What You MUST NOT Do
+
+* Do not create Work Statements that exceed the parent WP's scope
+* Do not assign estimates, timelines, or ownership
+* Do not modify the governance_pins from what the WP and TA provide
+* Do not add scope items not derivable from the parent WP
+* Do not create circular dependencies between Work Statements
+* Do not reference prior executions, time, or external state
+* Do not combine unrelated concerns into a single WS
+* Do not leave policy_refs empty - every WS is governed by at least POL-WS-001
+
+## Output Rules
+
+* Output valid JSON only
+* Follow the Work Statement schema exactly
+* All arrays must be present even if empty
+* Never output null for required fields
+* No commentary, markdown, or explanation outside JSON
+* If producing multiple WSs, output a JSON array of WS objects
+
+## Governance & Audit Constraints
+
+* Each WS must be traceable to its parent WP via parent_wp_id
+* governance_pins.ta_version_id must be populated
+* governance_pins.policy_refs must be populated (minimum: ["POL-WS-001"])
+* No implicit decisions or silent interpretations
+* Output must be fully loggable and replayable per ADR-010
+* No bypassing of audit, QA, or traceability mechanisms per ADR-009
+
+## Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+* Produce equivalent output with equivalent scope and intent
+* Preserve semantic meaning across runs
+* Maintain stable ws_id and field values
+* Avoid stylistic variance that alters interpretation
+* Contain no references to time, prior executions, or external state
+
+## Final Self-Check Before Output
+
+1. JSON parses correctly
+2. All required fields present on every WS
+3. Every WS has parent_wp_id matching the input WP's wp_id
+4. governance_pins.ta_version_id is non-empty on every WS
+5. governance_pins.policy_refs is non-empty on every WS
+6. procedure follows tests-before-implementation ordering
+7. procedure steps contain grounding cues referencing upstream artifacts
+8. contradiction_notes array is present (empty if no contradictions)
+9. verification_criteria has at least one criterion per WS
+10. scope_in and scope_out are arrays (may be empty)
+11. allowed_paths is an array (may be empty)
+12. No WS exceeds the parent WP's scope
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* Any WS is missing parent_wp_id
+* governance_pins.ta_version_id is empty or missing on any WS
+* governance_pins.policy_refs is empty or missing on any WS
+* procedure is empty on any WS
+* procedure places implementation steps before test steps
+* verification_criteria is empty on any WS
+* A WS's scope exceeds the parent WP's scope_in
+* Role identity or authority is restated or altered
+* Output depends on unstated context or prior runs

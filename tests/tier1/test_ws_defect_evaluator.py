@@ -196,6 +196,25 @@ class TestRequiredSectionsPresent:
         # Evidence should mention what's missing
         assert "missing" in check["evidence"].lower() or "verification" in check["evidence"].lower()
 
+    def test_pass_with_scope_in_scope_out(self):
+        """Accept scope_in/scope_out as equivalent to nested scope."""
+        ws = _good_ws()
+        del ws["scope"]
+        ws["scope_in"] = ["OAuth2 integration"]
+        ws["scope_out"] = ["Social login"]
+        report = evaluate_ws(ws)
+        check = _find_check(report, "required_sections_present")
+        assert check["status"] == "pass"
+
+    def test_pass_with_only_scope_in(self):
+        """Accept scope_in alone as satisfying scope requirement."""
+        ws = _good_ws()
+        del ws["scope"]
+        ws["scope_in"] = ["OAuth2 integration"]
+        report = evaluate_ws(ws)
+        check = _find_check(report, "required_sections_present")
+        assert check["status"] == "pass"
+
 
 # =========================================================================
 # tests_before_implementation

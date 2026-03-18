@@ -101,9 +101,29 @@ def _check_governance_pins(ws: dict) -> dict:
     )
 
 
+def _has_scope(ws: dict) -> bool:
+    """Check if WS has scope in any accepted form.
+
+    Accepts either:
+    - "scope" key (nested dict with in_scope/out_of_scope)
+    - "scope_in" + "scope_out" keys (flat legacy shape)
+    """
+    if "scope" in ws:
+        return True
+    if "scope_in" in ws or "scope_out" in ws:
+        return True
+    return False
+
+
 def _check_required_sections(ws: dict) -> dict:
     """Check all required WS sections are present."""
-    missing = [s for s in _REQUIRED_SECTIONS if s not in ws]
+    missing = []
+    for s in _REQUIRED_SECTIONS:
+        if s == "scope":
+            if not _has_scope(ws):
+                missing.append(s)
+        elif s not in ws:
+            missing.append(s)
 
     if missing:
         return _check(

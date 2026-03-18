@@ -46,6 +46,51 @@ def inherit_governance_pins(
     return ws_data
 
 
+# Artifact-type-aware governance floor policies.
+# Each artifact type has a minimum required policy that MUST be present.
+_GOVERNANCE_FLOORS: Dict[str, list[str]] = {
+    "work_package": ["POL-ADR-EXEC-001"],
+    "work_statement": ["POL-WS-001"],
+}
+
+
+def ensure_governance_floor(
+    data: Dict[str, Any], artifact_type: str
+) -> Dict[str, Any]:
+    """
+    Ensure governance_pins.policy_refs meets the minimum floor for this artifact type.
+
+    Mechanical enforcement: if the LLM omitted the floor policy, inject it.
+    Preserves existing refs. Does not touch adr_refs (that's derivation, not a floor).
+
+    Args:
+        data: Document dict (modified in place and returned)
+        artifact_type: The document type (e.g., "work_package", "work_statement")
+
+    Returns:
+        Modified data with governance floor applied
+    """
+    floor_policies = _GOVERNANCE_FLOORS.get(artifact_type)
+    if not floor_policies:
+        return data
+
+    pins = data.get("governance_pins")
+    if pins is None:
+        pins = {}
+        data["governance_pins"] = pins
+
+    policy_refs = pins.get("policy_refs")
+    if policy_refs is None:
+        policy_refs = []
+        pins["policy_refs"] = policy_refs
+
+    for policy in floor_policies:
+        if policy not in policy_refs:
+            policy_refs.append(policy)
+
+    return data
+
+
 def register_ws_on_wp(wp_data: Dict[str, Any], ws_id: str) -> Dict[str, Any]:
     """
     Register a Work Statement on its parent Work Package.

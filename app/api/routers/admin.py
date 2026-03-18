@@ -20,6 +20,18 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Model alias resolution (matches app.llm.providers.anthropic.MODELS)
+_MODEL_ALIASES = {
+    "sonnet": "claude-sonnet-4-20250514",
+    "haiku": "claude-haiku-4-20250514",
+    "opus": "claude-opus-4-20250514",
+}
+
+
+def _resolve_model(model: str) -> str:
+    """Resolve model alias to full Anthropic model ID."""
+    return _MODEL_ALIASES.get(model, model)
+
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
@@ -49,6 +61,7 @@ class ReplayResponse(BaseModel):
 class ReplayOverridesRequest(BaseModel):
     """Optional overrides for replay experiments (WS-PI-0B)."""
     system_prompt_override: Optional[str] = None
+    prompt_append: Optional[str] = None
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
 
@@ -86,7 +99,7 @@ async def reconstruct_inputs(db: AsyncSession, run_id: UUID) -> Dict[str, str]:
     Returns dict mapping input kind -> content text.
     """
     from sqlalchemy import select
-    from app.api.models.llm_log import LLMRunInputRef, LLMContent
+    from app.domain.models.llm_logging import LLMRunInputRef, LLMContent
     
     # Join input refs with content
     result = await db.execute(
@@ -117,7 +130,7 @@ async def reconstruct_inputs(db: AsyncSession, run_id: UUID) -> Dict[str, str]:
 async def get_original_run(db: AsyncSession, run_id: UUID) -> Dict[str, Any]:
     """Load original run record via ORM."""
     from sqlalchemy import select
-    from app.api.models.llm_log import LLMRun
+    from app.domain.models.llm_logging import LLMRun
     
     result = await db.execute(
         select(LLMRun).where(LLMRun.id == run_id)
@@ -145,28 +158,34 @@ async def get_original_run(db: AsyncSession, run_id: UUID) -> Dict[str, Any]:
         "output_tokens": row.output_tokens,
         "total_tokens": row.total_tokens,
         "cost_usd": row.cost_usd,
-        "metadata": row.metadata or {},
+        "metadata": row.run_metadata or {},
     }
 
 
 async def get_run_output(db: AsyncSession, run_id: UUID) -> Optional[str]:
-    """Get the raw output text for a run via ORM."""
-    from sqlalchemy import select, and_
-    from app.api.models.llm_log import LLMRunOutputRef, LLMContent
-    
+    """Get the raw output text for a run via ORM.
+
+    Tries 'raw_text' first (replay outputs), then 'response' (production outputs).
+    """
+    from sqlalchemy import select, and_, or_
+    from app.domain.models.llm_logging import LLMRunOutputRef, LLMContent
+
     result = await db.execute(
-        select(LLMContent.content_text)
+        select(LLMContent.content_text, LLMRunOutputRef.kind)
         .join(LLMRunOutputRef, LLMRunOutputRef.content_hash == LLMContent.content_hash)
         .where(
             and_(
                 LLMRunOutputRef.llm_run_id == run_id,
-                LLMRunOutputRef.kind == 'raw_text'
+                or_(
+                    LLMRunOutputRef.kind == 'raw_text',
+                    LLMRunOutputRef.kind == 'response',
+                )
             )
         )
         .limit(1)
     )
     row = result.first()
-    
+
     return row[0] if row else None
 
 def compare_runs(
@@ -256,6 +275,65 @@ def compare_runs(
     )
 
 
+def extract_api_params(inputs: Dict[str, str]) -> Dict[str, Any]:
+    """Extract Anthropic API params from reconstructed input keys.
+
+    Production data stores inputs as message_N_user / message_N_system kinds.
+    Replay data uses system_prompt / user_prompt keys.
+    This normalizes both shapes into {system_prompt, user_messages}.
+    """
+    # Collect message_N_user / message_N_system keys (production runs)
+    system_parts = []
+    user_parts = []
+    for key in sorted(inputs.keys()):
+        if key.endswith("_system") and key.startswith("message_"):
+            system_parts.append(inputs[key])
+        elif key.endswith("_user") and key.startswith("message_"):
+            user_parts.append(inputs[key])
+
+    # If message_N keys found, use them (possibly with injected system_prompt
+    # from apply_overrides — takes priority over message_N_system parts)
+    if system_parts or user_parts:
+        sys_prompt = inputs.get("system_prompt", "\n\n".join(system_parts))
+        return {
+            "system_prompt": sys_prompt,
+            "user_messages": user_parts if user_parts else [""],
+        }
+
+    # Shape: explicit system_prompt / user_prompt keys (replay-originated runs)
+    if "system_prompt" in inputs or "user_prompt" in inputs:
+        return {
+            "system_prompt": inputs.get("system_prompt", ""),
+            "user_messages": [inputs.get("user_prompt", "")],
+        }
+
+    # Fallback: treat all content as a single user message
+    all_content = "\n\n".join(inputs.values())
+    return {
+        "system_prompt": "",
+        "user_messages": [all_content],
+    }
+
+
+def _find_system_prompt_key(inputs: Dict[str, str]) -> str:
+    """Find the key that holds the system prompt in reconstructed inputs."""
+    if "system_prompt" in inputs:
+        return "system_prompt"
+    # In production data, the role+template prompt is typically in the last
+    # _user message (message_1_user). But system prompt content would be in
+    # a _system key if present.
+    for key in sorted(inputs.keys()):
+        if key.endswith("_system"):
+            return key
+    return "system_prompt"
+
+
+def _find_last_user_key(inputs: Dict[str, str]) -> Optional[str]:
+    """Find the last message_N_user key (typically the role+task prompt)."""
+    user_keys = sorted(k for k in inputs if k.endswith("_user"))
+    return user_keys[-1] if user_keys else None
+
+
 def apply_overrides(
     inputs: Dict[str, str],
     overrides: Optional[ReplayOverridesRequest],
@@ -263,7 +341,12 @@ def apply_overrides(
     """Apply override values to reconstructed inputs. Returns a new dict."""
     result = dict(inputs)
     if overrides and overrides.system_prompt_override is not None:
-        result["system_prompt"] = overrides.system_prompt_override
+        sp_key = _find_system_prompt_key(inputs)
+        result[sp_key] = overrides.system_prompt_override
+    if overrides and overrides.prompt_append is not None:
+        # Append to the last user message (the role+task prompt in production data)
+        target_key = _find_last_user_key(inputs) or _find_system_prompt_key(inputs)
+        result[target_key] = result.get(target_key, "") + "\n\n" + overrides.prompt_append
     return result
 
 
@@ -276,13 +359,19 @@ def build_overrides_metadata(
         return {}
     meta = {}
     if overrides.system_prompt_override is not None:
+        sp_key = _find_system_prompt_key(original_inputs)
         orig_hash = hashlib.sha256(
-            original_inputs.get("system_prompt", "").encode()
+            original_inputs.get(sp_key, "").encode()
         ).hexdigest()[:16]
         new_hash = hashlib.sha256(
             overrides.system_prompt_override.encode()
         ).hexdigest()[:16]
         meta["system_prompt"] = f"{orig_hash} -> {new_hash}"
+    if overrides.prompt_append is not None:
+        append_hash = hashlib.sha256(
+            overrides.prompt_append.encode()
+        ).hexdigest()[:16]
+        meta["prompt_append"] = f"appended {len(overrides.prompt_append)} chars (hash: {append_hash})"
     if overrides.temperature is not None:
         meta["temperature"] = f"default -> {overrides.temperature}"
     if overrides.max_tokens is not None:
@@ -351,53 +440,56 @@ async def replay_llm_run(
             model_name=original["model_name"],
             prompt_id=original["prompt_id"],
             prompt_version=original["prompt_version"],
-            effective_prompt=inputs.get("system_prompt", ""),
+            effective_prompt=extract_api_params(inputs)["system_prompt"],
         )
         logger.info(f"[ADR-010] Created replay run: {replay_run_id}")
-        
+
         # 7. Log reconstructed inputs
         for kind, content in inputs.items():
             await llm_logger.add_input(replay_run_id, kind, content)
         
         # 8. Mark as replay in metadata via ORM
         from sqlalchemy import select as sel
-        from app.api.models.llm_log import LLMRun
+        from app.domain.models.llm_logging import LLMRun
         
         result = await db.execute(
             sel(LLMRun).where(LLMRun.id == replay_run_id)
         )
         run_record = result.scalar_one_or_none()
         if run_record:
-            existing_meta = run_record.metadata or {}
+            existing_meta = run_record.run_metadata or {}
             existing_meta["is_replay"] = True
             existing_meta["original_run_id"] = str(run_id)
             if overrides_meta:
                 existing_meta["overrides_applied"] = overrides_meta
-            run_record.metadata = existing_meta
+            run_record.run_metadata = existing_meta
         await db.commit()
         
         # 9. Execute LLM call
         anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
-        system_prompt = inputs.get("system_prompt", "")
-        user_prompt = inputs.get("user_prompt", "")
+        api_params = extract_api_params(inputs)
+        system_prompt = api_params["system_prompt"]
+        user_messages = api_params["user_messages"]
         replay_temperature = (overrides.temperature if overrides and overrides.temperature is not None else 0.5)
         replay_max_tokens = (overrides.max_tokens if overrides and overrides.max_tokens is not None else 16384)
 
-        logger.info(f"[ADR-010] Executing replay LLM call: model={original['model_name']}, temp={replay_temperature}, max_tokens={replay_max_tokens}")
+        logger.info(f"[ADR-010] Executing replay LLM call: model={original['model_name']}, temp={replay_temperature}, max_tokens={replay_max_tokens}, user_msgs={len(user_messages)}")
 
+        resolved_model = _resolve_model(original["model_name"])
+        messages = [{"role": "user", "content": msg} for msg in user_messages]
         response = anthropic_client.messages.create(
-            model=original["model_name"],
+            model=resolved_model,
             max_tokens=replay_max_tokens,
             temperature=replay_temperature,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}]
+            messages=messages,
         )
-        
+
         replay_output = response.content[0].text
         input_tokens = response.usage.input_tokens
         output_tokens = response.usage.output_tokens
-        
+
         logger.info(f"[ADR-010] Replay LLM call complete: {input_tokens} in, {output_tokens} out")
         
         # 10. Log output
@@ -459,7 +551,7 @@ async def query_llm_runs(
     runs lacking these fields are excluded from prompt-filtered queries.
     """
     from sqlalchemy import select, func
-    from app.api.models.llm_log import LLMRun
+    from app.domain.models.llm_logging import LLMRun
 
     limit = min(limit, 200)
 
@@ -528,7 +620,66 @@ class EvaluationReportResponse(BaseModel):
 class EvaluateResponse(BaseModel):
     status: str
     run_id: str
-    evaluation: EvaluationReportResponse
+    evaluation: Optional[EvaluationReportResponse] = None
+    evaluations: Optional[list[EvaluationReportResponse]] = None
+    aggregate_summary: Optional[Dict[str, int]] = None
+
+
+def _parse_ws_json(text: str):
+    """Parse WS JSON from LLM output, handling common formatting issues.
+
+    Handles:
+    - Raw JSON
+    - ```json ... ``` code blocks
+    - Array followed by extra top-level fields (wraps in object)
+    - Truncated JSON (best-effort)
+    """
+    import json
+    import re
+
+    # Extract from code blocks if present
+    match = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+    raw = match.group(1) if match else text
+
+    # Try direct parse
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        pass
+
+    # If it starts with '[', try to find the matching ']' and parse just the array
+    stripped = raw.strip()
+    if stripped.startswith("["):
+        bracket_depth = 0
+        for i, ch in enumerate(stripped):
+            if ch == "[":
+                bracket_depth += 1
+            elif ch == "]":
+                bracket_depth -= 1
+                if bracket_depth == 0:
+                    array_text = stripped[: i + 1]
+                    try:
+                        arr = json.loads(array_text)
+                        # Check if there's extra content after the array
+                        remainder = stripped[i + 1 :].strip().lstrip(",").strip()
+                        if remainder:
+                            # Try to wrap array + remainder as object
+                            try:
+                                wrapped = json.loads(
+                                    '{"work_statements": '
+                                    + array_text
+                                    + ", "
+                                    + remainder
+                                    + "}"
+                                )
+                                return wrapped
+                            except json.JSONDecodeError:
+                                pass
+                        return arr
+                    except json.JSONDecodeError:
+                        break
+
+    raise ValueError("Output is not valid JSON and no parseable JSON found")
 
 
 @router.post("/llm-runs/{run_id}/evaluate", response_model=EvaluateResponse)
@@ -550,31 +701,49 @@ async def evaluate_llm_run(
             raise ValueError(f"No output found for run {run_id}")
 
         # Parse JSON from output (may be wrapped in markdown code blocks)
-        try:
-            ws_data = json.loads(output_text)
-        except json.JSONDecodeError:
-            # Try extracting from ```json ... ``` blocks
-            import re
-            match = re.search(r"```(?:json)?\s*\n(.*?)```", output_text, re.DOTALL)
-            if match:
-                ws_data = json.loads(match.group(1))
-            else:
-                raise ValueError("Output is not valid JSON and no JSON code block found")
+        import re
+        ws_data = _parse_ws_json(output_text)
 
-        report = evaluate_ws(ws_data)
+        # Unwrap if parser wrapped array + extra fields in an object
+        ws_list = ws_data
+        if isinstance(ws_data, dict) and "work_statements" in ws_data:
+            ws_list = ws_data["work_statements"]
 
-        return EvaluateResponse(
-            status="success",
-            run_id=str(run_id),
-            evaluation=EvaluationReportResponse(
-                artifact_type=report.artifact_type,
-                evaluator_version=report.evaluator_version,
-                checks=[
-                    EvaluationCheckResponse(**c) for c in report.checks
-                ],
-                summary=report.summary,
-            ),
-        )
+        # Handle both single WS dict and array of WSs
+        if isinstance(ws_list, list):
+            evaluations = []
+            agg = {"passed": 0, "failed": 0, "advisory": 0, "not_evaluable": 0}
+            for ws_item in ws_list:
+                if not isinstance(ws_item, dict):
+                    continue
+                report = evaluate_ws(ws_item)
+                evaluations.append(EvaluationReportResponse(
+                    artifact_type=report.artifact_type,
+                    evaluator_version=report.evaluator_version,
+                    checks=[EvaluationCheckResponse(**c) for c in report.checks],
+                    summary=report.summary,
+                ))
+                for k in agg:
+                    agg[k] += report.summary.get(k, 0)
+
+            return EvaluateResponse(
+                status="success",
+                run_id=str(run_id),
+                evaluations=evaluations,
+                aggregate_summary=agg,
+            )
+        else:
+            report = evaluate_ws(ws_data)
+            return EvaluateResponse(
+                status="success",
+                run_id=str(run_id),
+                evaluation=EvaluationReportResponse(
+                    artifact_type=report.artifact_type,
+                    evaluator_version=report.evaluator_version,
+                    checks=[EvaluationCheckResponse(**c) for c in report.checks],
+                    summary=report.summary,
+                ),
+            )
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -644,7 +813,7 @@ async def batch_replay_llm_runs(
                 model_name=original["model_name"],
                 prompt_id=original["prompt_id"],
                 prompt_version=original["prompt_version"],
-                effective_prompt=inputs.get("system_prompt", ""),
+                effective_prompt=extract_api_params(inputs)["system_prompt"],
             )
 
             for kind, content in inputs.items():
@@ -652,23 +821,24 @@ async def batch_replay_llm_runs(
 
             # Tag metadata
             from sqlalchemy import select as sel
-            from app.api.models.llm_log import LLMRun
+            from app.domain.models.llm_logging import LLMRun
             result = await db.execute(sel(LLMRun).where(LLMRun.id == replay_run_id))
             run_record = result.scalar_one_or_none()
             if run_record:
-                existing_meta = run_record.metadata or {}
+                existing_meta = run_record.run_metadata or {}
                 existing_meta["is_replay"] = True
                 existing_meta["original_run_id"] = str(rid)
                 existing_meta["batch_replay"] = True
                 if overrides_meta:
                     existing_meta["overrides_applied"] = overrides_meta
-                run_record.metadata = existing_meta
+                run_record.run_metadata = existing_meta
             await db.commit()
 
             # Execute LLM call
             anthropic_client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-            system_prompt = inputs.get("system_prompt", "")
-            user_prompt = inputs.get("user_prompt", "")
+            api_params = extract_api_params(inputs)
+            system_prompt = api_params["system_prompt"]
+            user_messages = api_params["user_messages"]
             replay_temperature = (
                 request.overrides.temperature
                 if request.overrides and request.overrides.temperature is not None
@@ -680,12 +850,14 @@ async def batch_replay_llm_runs(
                 else 16384
             )
 
+            resolved_model = _resolve_model(original["model_name"])
+            messages = [{"role": "user", "content": msg} for msg in user_messages]
             response = anthropic_client.messages.create(
-                model=original["model_name"],
+                model=resolved_model,
                 max_tokens=replay_max_tokens,
                 temperature=replay_temperature,
                 system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=messages,
             )
 
             replay_output = response.content[0].text
