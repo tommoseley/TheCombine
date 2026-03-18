@@ -44,6 +44,7 @@ from app.domain.services.wp_promotion_service import (
 from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
     build_new_ws,
+    certify_wp_for_stabilization,
     generate_order_key,
     reorder_ws_index,
     validate_stabilization,
@@ -1294,6 +1295,19 @@ async def stabilize_work_package(
         )
     )
     ws_docs = [doc for doc in result.scalars().all() if doc.content]
+
+    # --- Certification gate: completeness + governance (WS-PI-2A) ---
+    cert_errors = certify_wp_for_stabilization(
+        wp_content, [doc.content for doc in ws_docs]
+    )
+    if cert_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "CERTIFICATION_FAILED",
+                "errors": cert_errors,
+            },
+        )
 
     # Filter to DRAFT WSs only
     draft_docs = [doc for doc in ws_docs if (doc.content or {}).get("state", "DRAFT") == "DRAFT"]

@@ -199,6 +199,58 @@ def validate_stabilization(ws_content: dict[str, Any]) -> list[str]:
 
 
 # ===========================================================================
+# Stabilization certification gate (WS-PI-2A)
+# ===========================================================================
+
+def certify_wp_for_stabilization(
+    wp_content: dict[str, Any],
+    ws_contents: list[dict[str, Any]],
+) -> list[str]:
+    """
+    Certify a WP artifact set for stabilization.
+
+    Checks:
+    1. At least one WS exists
+    2. WP governance_pins.policy_refs contains POL-ADR-EXEC-001
+    3. Each WS governance_pins.policy_refs contains POL-WS-001
+
+    Args:
+        wp_content: The WP document content dict
+        ws_contents: List of WS document content dicts
+
+    Returns:
+        List of error messages. Empty means certified.
+    """
+    errors: list[str] = []
+
+    # 1. Completeness: at least one WS
+    if not ws_contents:
+        errors.append("WP has no Work Statements — cannot stabilize an empty package")
+
+    # 2. WP governance floor
+    wp_pins = wp_content.get("governance_pins") or {}
+    wp_policies = wp_pins.get("policy_refs") or []
+    if "POL-ADR-EXEC-001" not in wp_policies:
+        errors.append(
+            "WP missing required governance floor: POL-ADR-EXEC-001 "
+            "not in governance_pins.policy_refs"
+        )
+
+    # 3. WS governance floor (per WS)
+    for ws in ws_contents:
+        ws_id = ws.get("ws_id", "unknown")
+        ws_pins = ws.get("governance_pins") or {}
+        ws_policies = ws_pins.get("policy_refs") or []
+        if "POL-WS-001" not in ws_policies:
+            errors.append(
+                f"WS {ws_id} missing required governance floor: POL-WS-001 "
+                f"not in governance_pins.policy_refs"
+            )
+
+    return errors
+
+
+# ===========================================================================
 # ws_index manipulation
 # ===========================================================================
 
