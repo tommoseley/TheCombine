@@ -251,6 +251,37 @@ def certify_wp_for_stabilization(
 
 
 # ===========================================================================
+# Referential integrity gate (WS-PI-2B)
+# ===========================================================================
+
+def check_ws_referential_integrity(
+    wp_content: dict[str, Any],
+    persisted_ws_ids: list[str],
+) -> list[str]:
+    """
+    Check that every WS referenced in WP ws_index exists as a persisted document.
+
+    Args:
+        wp_content: The WP document content dict
+        persisted_ws_ids: List of ws_id values from actually persisted WS documents
+
+    Returns:
+        List of error messages. Empty means all references resolve.
+    """
+    ws_index = wp_content.get("ws_index") or []
+    referenced_ids = {entry.get("ws_id") for entry in ws_index if entry.get("ws_id")}
+    persisted_set = set(persisted_ws_ids)
+
+    missing = sorted(referenced_ids - persisted_set)
+    if missing:
+        return [
+            f"WP ws_index references {len(missing)} WS(s) that do not exist: "
+            f"{', '.join(missing)}"
+        ]
+    return []
+
+
+# ===========================================================================
 # ws_index manipulation
 # ===========================================================================
 
