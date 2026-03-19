@@ -5,22 +5,24 @@
 
 ## Current Focus
 
-**COMPLETE:** Full Hardening Wave (2026-03-19)
-- WS-PI-UNK: Blocking unknowns gate at WP stabilization (8 tests)
-- ADR-059: Project Ontology Layers and Translation Boundaries
-- Ontology evaluator: cross-layer vocabulary leakage detection (29 tests)
-- APAM ontology definition: decision/execution layers declared
-- WP overlap evaluator: component name, WS title, scope phrase overlap (24 tests)
-- Both evaluators wired into binder render path (binder now shows evaluation sections)
-- PD prompt v1.5: secret-handling compliance (GOV-SEC-T0-002) + blocking unknown classification
-- Lint cleanup: 60 pre-existing issues fixed across codebase
-- 61 new tests this session, Tier 0: PASS
-- APAM binder reruns validated: ta_version_id populated, policy floors present, governance visible
+**COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
+- Blocking unknowns gate at WP stabilization (8 tests)
+- ADR-059: Project Ontology Layers — ontology evaluator (32 tests) + APAM ontology v1.1
+- ADR-060: Governance Runtime Modes — portable mode strips Combine-internal refs (14 tests)
+- ADR-061: Cross-Layer Contradiction Detection — TA vs WS mismatch evaluator (17 tests)
+- ADR-062: Duplicate Work Detection — WS objective/scope overlap (22 tests)
+- WP overlap evaluator: component name, WS title, scope phrase (24 tests)
+- PD prompt v1.5: secret-handling + blocking unknown classification
+- Five evaluation sections now render in every binder
+- External CC critique: 6/11 findings now mechanically detectable
+- ~130 new tests this session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Rerun APAM binder with v1.5 PD prompt — validate secret-handling + blocking unknowns + evaluator sections
-2. WS IA expansion (deferred)
-3. UX backlog: "Propose All WSs" button, "Rewind pipeline to here" button
+1. Rerun APAM binder — validate all 5 evaluation sections with real data
+2. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
+3. Ontology artifact_layers refinement (per-artifact, not per-doc-type)
+4. WS IA expansion (deferred)
+5. UX backlog: "Propose All WSs" button, "Rewind pipeline to here" button
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
