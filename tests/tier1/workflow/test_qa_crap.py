@@ -13,7 +13,7 @@ import sys
 import types
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 # Stub the workflow package to avoid circular import through __init__.py
 # (pre-existing circular: workflow.__init__ -> plan_executor -> api routers -> plan_executor)
@@ -26,7 +26,7 @@ if "app.domain.workflow" not in sys.modules:
     sys.modules["app.domain.workflow"] = _stub
 
 from app.domain.workflow.nodes.qa import QANodeExecutor  # noqa: E402
-from app.domain.workflow.nodes.base import DocumentWorkflowContext, NodeResult  # noqa: E402
+from app.domain.workflow.nodes.base import DocumentWorkflowContext  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

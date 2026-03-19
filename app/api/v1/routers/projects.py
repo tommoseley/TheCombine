@@ -1015,7 +1015,7 @@ async def render_project_binder(
     # Evidence mode (WS-RENDER-004): add per-document frontmatter + Evidence Index
     if mode == "evidence":
         from app.domain.services.evidence_renderer import (
-            render_evidence_header, compute_source_hash, render_evidence_index,
+            compute_source_hash, render_evidence_index,
         )
         # Build evidence index data
         evidence_entries = []

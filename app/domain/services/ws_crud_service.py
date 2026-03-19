@@ -358,6 +358,50 @@ def check_ws_referential_integrity(
 
 
 # ===========================================================================
+# Blocking unknowns gate (WS-PI-UNK)
+# ===========================================================================
+
+def check_blocking_unknowns(
+    pd_content: dict[str, Any] | None,
+) -> list[StabilizationFinding]:
+    """
+    Check that the project's PD has no unresolved blocking unknowns.
+
+    Unknowns with ``blocking: true`` indicate that downstream work packages
+    should not stabilize until the unknown is resolved.  Resolution is
+    signalled by the presence of a ``resolved: true`` field.
+
+    Args:
+        pd_content: The Project Discovery document content dict, or None
+                    if no PD exists for the project.
+
+    Returns:
+        List of StabilizationFinding objects. Empty means no blocking unknowns.
+    """
+    if pd_content is None:
+        return []
+
+    unknowns = pd_content.get("unknowns") or []
+    findings: list[StabilizationFinding] = []
+
+    for unk in unknowns:
+        if not unk.get("blocking"):
+            continue
+        if unk.get("resolved"):
+            continue
+        unk_id = unk.get("id", "unknown")
+        findings.append(StabilizationFinding(
+            rule_id="UNK-BLOCK-001",
+            artifact_id=unk_id,
+            field_path=f"unknowns[{unk_id}].blocking",
+            message=f"Blocking unknown {unk_id} is unresolved: {unk.get('question', '?')}",
+            remediation_hint="Resolve this unknown in the PD document or reclassify as non-blocking",
+        ))
+
+    return findings
+
+
+# ===========================================================================
 # ws_index manipulation
 # ===========================================================================
 

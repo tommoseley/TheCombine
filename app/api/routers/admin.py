@@ -644,7 +644,7 @@ def _parse_ws_json(text: str):
     # Try direct parse
     try:
         return json.loads(raw)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         pass
 
     # If it starts with '[', try to find the matching ']' and parse just the array
@@ -692,7 +692,6 @@ async def evaluate_llm_run(
 
     No LLM call — evaluates the stored output only.
     """
-    import json
     from app.domain.services.ws_defect_evaluator import evaluate_ws
 
     try:
@@ -701,7 +700,6 @@ async def evaluate_llm_run(
             raise ValueError(f"No output found for run {run_id}")
 
         # Parse JSON from output (may be wrapped in markdown code blocks)
-        import re
         ws_data = _parse_ws_json(output_text)
 
         # Unwrap if parser wrapped array + extra fields in an object

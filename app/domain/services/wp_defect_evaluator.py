@@ -10,7 +10,7 @@ Same pattern as ws_defect_evaluator.py.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.domain.services.field_classifier import classify_field_content
 

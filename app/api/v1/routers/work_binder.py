@@ -46,6 +46,7 @@ from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
     build_new_ws,
     certify_wp_for_stabilization,
+    check_blocking_unknowns,
     check_parent_wp_invariant,
     check_ws_referential_integrity,
     generate_order_key,
@@ -1362,6 +1363,26 @@ async def stabilize_work_package(
                 "findings": [f.to_dict() for f in parent_findings],
             },
         )
+
+    # --- Blocking unknowns gate (WS-PI-UNK) ---
+    if project_id:
+        pd_result = await db.execute(
+            select(Document).where(
+                Document.doc_type_id == "project_discovery",
+                Document.project_id == project_id,
+            ).order_by(Document.updated_at.desc()).limit(1)
+        )
+        pd_doc = pd_result.scalar_one_or_none()
+        pd_content = pd_doc.content if pd_doc else None
+        unk_findings = check_blocking_unknowns(pd_content)
+        if unk_findings:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "BLOCKING_UNKNOWNS",
+                    "findings": [f.to_dict() for f in unk_findings],
+                },
+            )
 
     # Filter to DRAFT WSs only
     draft_docs = [doc for doc in ws_docs if (doc.content or {}).get("state", "DRAFT") == "DRAFT"]

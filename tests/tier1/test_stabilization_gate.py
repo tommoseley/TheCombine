@@ -12,6 +12,7 @@ Pure unit tests — no DB, no LLM calls.
 from app.domain.services.ws_crud_service import (
     StabilizationFinding,
     certify_wp_for_stabilization,
+    check_blocking_unknowns,
 )
 
 
@@ -157,3 +158,91 @@ class TestFindingShape:
             _wp(), [_ws("WS-001"), _ws("WS-002")]
         )
         assert findings == []
+
+
+# =========================================================================
+# Blocking unknowns gate (WS-PI-UNK)
+# =========================================================================
+
+
+def _pd(unknowns=None):
+    """Build a minimal PD content dict with unknowns."""
+    return {
+        "project_name": "Test Project",
+        "unknowns": unknowns or [],
+    }
+
+
+def _unk(unk_id="UNK-1", blocking=False, resolved=False, question="Some question?"):
+    """Build a single unknown entry."""
+    entry = {
+        "id": unk_id,
+        "question": question,
+        "why_it_matters": "Matters for testing",
+        "impact_if_unresolved": "Tests may fail",
+        "blocking": blocking,
+    }
+    if resolved:
+        entry["resolved"] = True
+    return entry
+
+
+class TestBlockingUnknowns:
+    """WP stabilization must be blocked by unresolved blocking unknowns in PD."""
+
+    def test_no_pd_passes(self):
+        """No PD document at all — no findings."""
+        assert check_blocking_unknowns(None) == []
+
+    def test_empty_unknowns_passes(self):
+        findings = check_blocking_unknowns(_pd([]))
+        assert findings == []
+
+    def test_advisory_unknowns_pass(self):
+        """Non-blocking unknowns do not block stabilization."""
+        pd = _pd([_unk("UNK-1", blocking=False)])
+        assert check_blocking_unknowns(pd) == []
+
+    def test_blocking_unknown_fails(self):
+        """Unresolved blocking unknown blocks stabilization."""
+        pd = _pd([_unk("UNK-1", blocking=True)])
+        findings = check_blocking_unknowns(pd)
+        assert len(findings) == 1
+        assert findings[0].rule_id == "UNK-BLOCK-001"
+        assert findings[0].artifact_id == "UNK-1"
+
+    def test_resolved_blocking_unknown_passes(self):
+        """Blocking unknown that is resolved does not block."""
+        pd = _pd([_unk("UNK-1", blocking=True, resolved=True)])
+        assert check_blocking_unknowns(pd) == []
+
+    def test_mixed_unknowns(self):
+        """Only unresolved blocking unknowns produce findings."""
+        pd = _pd([
+            _unk("UNK-1", blocking=False),
+            _unk("UNK-2", blocking=True),
+            _unk("UNK-3", blocking=True, resolved=True),
+            _unk("UNK-4", blocking=True),
+        ])
+        findings = check_blocking_unknowns(pd)
+        assert len(findings) == 2
+        ids = {f.artifact_id for f in findings}
+        assert ids == {"UNK-2", "UNK-4"}
+
+    def test_finding_includes_question(self):
+        """Finding message includes the unknown's question text."""
+        pd = _pd([_unk("UNK-1", blocking=True, question="What is the API version?")])
+        findings = check_blocking_unknowns(pd)
+        assert "What is the API version?" in findings[0].message
+
+    def test_finding_shape(self):
+        """Finding has all required StabilizationFinding fields."""
+        pd = _pd([_unk("UNK-1", blocking=True)])
+        f = check_blocking_unknowns(pd)[0]
+        assert isinstance(f, StabilizationFinding)
+        d = f.to_dict()
+        assert "rule_id" in d
+        assert "artifact_id" in d
+        assert "field_path" in d
+        assert "message" in d
+        assert "remediation_hint" in d

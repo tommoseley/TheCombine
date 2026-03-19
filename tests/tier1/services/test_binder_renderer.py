@@ -5,8 +5,6 @@ into a single Markdown file with cover, TOC, and ordered sections.
 No DB, no HTTP, no side effects.
 """
 
-import pytest
-from datetime import datetime, timezone
 
 from app.domain.services.binder_renderer import render_project_binder
 

@@ -11,12 +11,10 @@ Covers the branching logic in list_operations (CC=18):
 """
 
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.api.services.mechanical_ops_service import (
     MechanicalOpsService,

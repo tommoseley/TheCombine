@@ -16,7 +16,6 @@ from app.api.models.document import Document
 from app.api.models.document_type import DocumentType
 from app.api.models.project import Project
 from app.api.models.workflow_execution import WorkflowExecution
-from app.domain.workflow.production_state import ProductionState
 from app.domain.workflow.plan_registry import get_plan_registry
 from app.domain.workflow.plan_loader import PlanLoader
 

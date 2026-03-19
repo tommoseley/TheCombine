@@ -1,9 +1,23 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-18
-**Updated By:** Claude (Prompt tuning loop + semantic evaluators + CRAP audit)
+**Last Updated:** 2026-03-19
+**Updated By:** Claude (Blocking unknowns gate + lint cleanup + binder validation)
 
 ## Current Focus
+
+**COMPLETE:** Blocking Unknowns Gate + Binder Validation (2026-03-19)
+- WS-PI-UNK: PD unknowns now have `blocking: boolean` classification (following STQ precedent)
+- check_blocking_unknowns() gate at WP stabilization — blocks if parent PD has unresolved blocking unknowns
+- 8 new tests for blocking unknowns gate
+- Full APAM-002 binder rerun: ta_version_id now populated (TA-001), policy floors present, governance visible
+- Lint cleanup: 60 pre-existing F401/F841/E741 issues fixed across codebase
+- Tier 0: PASS
+
+**Next priorities (adjusted sequence):**
+1. Ontology enforcement — mechanical check for vocabulary consistency across artifact chain
+2. WP boundary overlap detection — IP decomposition quality
+3. PD secret-handling phrasing — boundary hygiene (low priority)
+4. WS IA expansion (deferred)
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0

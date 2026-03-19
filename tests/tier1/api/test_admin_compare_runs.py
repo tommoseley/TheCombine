@@ -9,10 +9,9 @@ Covers the branching logic (CC=18):
 - Full ReplayComparison construction
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from uuid import uuid4
 
-import pytest
 
 from app.api.routers.admin import compare_runs, ReplayComparison
 

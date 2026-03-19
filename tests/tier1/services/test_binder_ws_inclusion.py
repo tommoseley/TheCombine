@@ -8,7 +8,6 @@ No DB, no HTTP, no side effects.
 """
 # ruff: noqa: E501
 
-import pytest
 
 from app.domain.services.binder_renderer import render_project_binder
 

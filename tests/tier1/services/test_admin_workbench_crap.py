@@ -18,18 +18,14 @@ Covers branching logic for three methods:
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
-import pytest
 
 from app.api.services.admin_workbench_service import AdminWorkbenchService
 from app.config.package_loader import PackageLoaderError
 from app.config.package_model import (
     ActiveReleases,
     DocumentTypePackage,
-    PackageArtifacts,
-    PromptFragment,
-    PromptFragmentKind,
     RolePrompt,
 )
 

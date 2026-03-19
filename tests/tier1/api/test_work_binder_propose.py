@@ -9,7 +9,6 @@ Covers the branching logic (CC=17):
 - Successful proposal with WS creation, display ID minting, ws_index update
 """
 
-import copy
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 

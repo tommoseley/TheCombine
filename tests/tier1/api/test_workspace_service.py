@@ -18,8 +18,6 @@ from app.api.services.workspace_service import (
     WorkspaceNotFoundError,
     WorkspaceDirtyError,
     ArtifactIdError,
-    Tier1Result,
-    Tier1Report,
     WORKSPACE_TTL_HOURS,
 )
 
@@ -381,7 +379,6 @@ class TestWorkspaceState:
         )
 
         # Mock Path operations for validation
-        from pathlib import Path
         mock_path = MagicMock(spec=Path)
         mock_path.__truediv__ = lambda self, other: mock_path
         mock_path.exists.return_value = False  # Skip validation by pretending path doesn't exist

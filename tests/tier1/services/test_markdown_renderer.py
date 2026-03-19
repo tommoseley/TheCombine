@@ -4,7 +4,6 @@ Tier-1 tests for the Markdown block renderer (WS-RENDER-001).
 Tests the pure function that converts document content + IA definitions
 into Markdown output. No DB, no HTTP, no side effects.
 """
-import pytest
 
 # Import will fail until the module exists — that's the failing test.
 from app.domain.services.markdown_renderer import render_document_to_markdown
