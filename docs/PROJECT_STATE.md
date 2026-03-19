@@ -1,23 +1,26 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-19
-**Updated By:** Claude (Blocking unknowns gate + lint cleanup + binder validation)
+**Updated By:** Claude (Full hardening wave: ontology + overlap + PD phrasing + blocking unknowns)
 
 ## Current Focus
 
-**COMPLETE:** Blocking Unknowns Gate + Binder Validation (2026-03-19)
-- WS-PI-UNK: PD unknowns now have `blocking: boolean` classification (following STQ precedent)
-- check_blocking_unknowns() gate at WP stabilization — blocks if parent PD has unresolved blocking unknowns
-- 8 new tests for blocking unknowns gate
-- Full APAM-002 binder rerun: ta_version_id now populated (TA-001), policy floors present, governance visible
-- Lint cleanup: 60 pre-existing F401/F841/E741 issues fixed across codebase
-- Tier 0: PASS
+**COMPLETE:** Full Hardening Wave (2026-03-19)
+- WS-PI-UNK: Blocking unknowns gate at WP stabilization (8 tests)
+- ADR-059: Project Ontology Layers and Translation Boundaries
+- Ontology evaluator: cross-layer vocabulary leakage detection (29 tests)
+- APAM ontology definition: decision/execution layers declared
+- WP overlap evaluator: component name, WS title, scope phrase overlap (24 tests)
+- Both evaluators wired into binder render path (binder now shows evaluation sections)
+- PD prompt v1.5: secret-handling compliance (GOV-SEC-T0-002) + blocking unknown classification
+- Lint cleanup: 60 pre-existing issues fixed across codebase
+- 61 new tests this session, Tier 0: PASS
+- APAM binder reruns validated: ta_version_id populated, policy floors present, governance visible
 
-**Next priorities (adjusted sequence):**
-1. Ontology enforcement — mechanical check for vocabulary consistency across artifact chain
-2. WP boundary overlap detection — IP decomposition quality
-3. PD secret-handling phrasing — boundary hygiene (low priority)
-4. WS IA expansion (deferred)
+**Next priorities:**
+1. Rerun APAM binder with v1.5 PD prompt — validate secret-handling + blocking unknowns + evaluator sections
+2. WS IA expansion (deferred)
+3. UX backlog: "Propose All WSs" button, "Rewind pipeline to here" button
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
