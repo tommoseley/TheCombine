@@ -1058,6 +1058,11 @@ async def render_project_binder(
     if overlap_section:
         markdown += "\n\n" + overlap_section
 
+    # Cross-layer contradiction evaluation (ADR-061): append summary
+    contradiction_section = _render_contradiction_summary(binder_docs)
+    if contradiction_section:
+        markdown += "\n\n" + contradiction_section
+
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"
 
@@ -1243,6 +1248,53 @@ def _render_overlap_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
             sections.append(
                 f"| {f.rule_id} | {', '.join(f.wp_ids)} "
                 f"| {f.overlap_type} | {f.evidence} |"
+            )
+
+    return "\n".join(sections)
+
+
+def _render_contradiction_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run cross-layer contradiction evaluator and render a summary section.
+
+    Finds the TA document, compares WS content against TA authority surfaces.
+
+    Returns:
+        Markdown section string, or None if no TA exists.
+    """
+    from app.domain.services.cross_layer_evaluator import evaluate_cross_layer
+
+    ta_docs = [d for d in binder_docs if d.get("doc_type_id") == "technical_architecture"]
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if not ta_docs:
+        return None
+
+    ta_doc = ta_docs[0]  # Use first TA
+    report = evaluate_cross_layer(ta_doc, ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Cross-Layer Contradiction Evaluation (ADR-061)")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**No contradictions detected** — {report.artifacts_checked} WSs "
+            f"checked against TA authority surfaces"
+        )
+    else:
+        sections.append(
+            f"**Contradiction findings: {len(report.findings)}** "
+            f"({report.artifacts_checked} WSs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | WS | Type | TA Authority | WS Claim |")
+        sections.append("| --- | --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {f.artifact_id} | {f.contradiction_type} "
+                f"| {f.ta_authority} | {f.ws_claim} |"
             )
 
     return "\n".join(sections)
