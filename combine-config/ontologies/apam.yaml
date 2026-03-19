@@ -1,0 +1,50 @@
+# Project Ontology: AI Portfolio Agent MVP (APAM)
+# Per ADR-059 — Project Ontology Layers and Translation Boundaries
+#
+# This file declares the semantic layers and vocabulary ownership
+# for APAM project artifacts. The ontology evaluator uses this
+# definition to detect cross-layer vocabulary leakage.
+
+ontology:
+  project_id: apam
+  version: "1.0"
+
+  layers:
+    decision:
+      description: "Portfolio intent — what trading action to take"
+      vocabulary:
+        - ADD_20
+        - REMOVE_ALL
+        - HOLD
+        - TRIM_10
+        - SELL_ALL
+
+    execution:
+      description: "Order mechanics — how the trade is submitted"
+      vocabulary:
+        - buy
+        - sell
+        - market
+        - limit
+
+  translations:
+    - from: decision
+      to: execution
+      mappings:
+        ADD_20: buy
+        REMOVE_ALL: sell
+        TRIM_10: sell
+        SELL_ALL: sell
+      notes: "Translation occurs in OrderExecutor. Quantity and order type are computed at translation time."
+
+  # Artifact-layer bindings: which doc types operate at which semantic layer
+  artifact_layers:
+    decision:
+      - project_discovery
+      - implementation_plan
+      - work_package
+      - work_statement    # WS under decision WPs (WP-001, WP-002)
+    execution:
+      - work_statement    # WS under execution WPs (WP-003)
+    mixed:
+      - technical_architecture  # TA defines both layers and the translation
