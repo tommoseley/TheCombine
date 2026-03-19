@@ -31,7 +31,7 @@ def _apam_ontology():
                 },
                 "execution": {
                     "description": "Order mechanics",
-                    "vocabulary": ["buy", "sell", "market"],
+                    "vocabulary": ["buy", "sell", "market order", "limit order"],
                 },
             },
             "translations": [
@@ -254,13 +254,13 @@ class TestLeakageDetection:
             _apam_ontology(),
             [_decision_ws(
                 objective="buy and sell based on ADD_20",
-                procedure=["Submit market order"],
+                procedure=["Submit market order for shares"],
             )],
         )
         terms = {f.offending_term for f in report.findings}
         assert "buy" in terms
         assert "sell" in terms
-        assert "market" in terms
+        assert "market order" in terms
 
     def test_leakage_in_procedure_field(self):
         """Foreign term in procedure list detected."""
@@ -280,6 +280,31 @@ class TestLeakageDetection:
         )
         assert len(report.findings) == 1
         assert report.findings[0].offending_term == "buy"
+
+    def test_no_false_positive_on_bare_market(self):
+        """'market data' should NOT trigger — only 'market order' is execution vocab."""
+        report = evaluate_ontology(
+            _apam_ontology(),
+            [_decision_ws(objective="Fetch market data and compute indicators")],
+        )
+        assert len(report.findings) == 0
+
+    def test_no_false_positive_on_bare_limit(self):
+        """'rate limit' should NOT trigger — only 'limit order' is execution vocab."""
+        report = evaluate_ontology(
+            _apam_ontology(),
+            [_decision_ws(objective="Handle API rate limits gracefully")],
+        )
+        assert len(report.findings) == 0
+
+    def test_limit_order_does_trigger(self):
+        """'limit order' in decision layer IS a real finding."""
+        report = evaluate_ontology(
+            _apam_ontology(),
+            [_decision_ws(objective="Submit limit order for shares")],
+        )
+        assert len(report.findings) == 1
+        assert report.findings[0].offending_term == "limit order"
 
     def test_multiple_artifacts(self):
         """Findings across multiple artifacts."""

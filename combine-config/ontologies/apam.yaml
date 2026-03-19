@@ -7,7 +7,7 @@
 
 ontology:
   project_id: apam
-  version: "1.0"
+  version: "1.1"
 
   layers:
     decision:
@@ -24,8 +24,9 @@ ontology:
       vocabulary:
         - buy
         - sell
-        - market
-        - limit
+        # Multi-word phrases: only match these exact phrases, not bare "market" or "limit"
+        - market order
+        - limit order
 
   translations:
     - from: decision
