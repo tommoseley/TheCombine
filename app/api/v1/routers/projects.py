@@ -1043,6 +1043,11 @@ async def render_project_binder(
     if ontology_section:
         markdown += "\n\n" + ontology_section
 
+    # WP boundary overlap evaluation: append summary
+    overlap_section = _render_overlap_summary(binder_docs)
+    if overlap_section:
+        markdown += "\n\n" + overlap_section
+
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"
 
@@ -1185,6 +1190,50 @@ def _render_ontology_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
                     f"| {f.artifact_id} | {f.field_path} | `{f.offending_term}` "
                     f"| {f.expected_layer} | {f.actual_layer} |"
                 )
+
+    return "\n".join(sections)
+
+
+def _render_overlap_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run WP boundary overlap evaluator and render a summary section.
+
+    Returns:
+        Markdown section string, or None if fewer than 2 WPs exist.
+    """
+    from app.domain.services.wp_overlap_evaluator import evaluate_wp_overlap
+
+    wp_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_package"]
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if len(wp_docs) < 2:
+        return None
+
+    report = evaluate_wp_overlap(wp_docs, ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## WP Boundary Overlap Evaluation")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**Boundaries clean** — {report.wp_count} WPs checked, "
+            f"0 overlap findings"
+        )
+    else:
+        sections.append(
+            f"**Overlap findings: {len(report.findings)}** "
+            f"({report.wp_count} WPs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | WPs | Type | Evidence |")
+        sections.append("| --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {', '.join(f.wp_ids)} "
+                f"| {f.overlap_type} | {f.evidence} |"
+            )
 
     return "\n".join(sections)
 
