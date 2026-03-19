@@ -1038,6 +1038,11 @@ async def render_project_binder(
         else:
             markdown = evidence_index + "\n\n" + markdown
 
+    # Ontology evaluation (ADR-059): append summary if ontology is declared
+    ontology_section = _render_ontology_summary(binder_docs)
+    if ontology_section:
+        markdown += "\n\n" + ontology_section
+
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"
 
@@ -1122,6 +1127,66 @@ async def _find_execution_id(
         if exec_id:
             return exec_id
     return None
+
+
+def _render_ontology_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run ontology evaluator against binder docs and render a summary section.
+
+    Loads all ontology YAML files from combine-config/ontologies/.
+    If no ontology is declared, returns None (skip with notice).
+
+    Returns:
+        Markdown section string, or None if no ontology files exist.
+    """
+    import pathlib
+    import yaml
+    from app.domain.services.ontology_evaluator import evaluate_ontology
+
+    ontology_dir = pathlib.Path("combine-config/ontologies")
+    if not ontology_dir.exists():
+        return None
+
+    yaml_files = sorted(ontology_dir.glob("*.yaml"))
+    if not yaml_files:
+        return None
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Ontology Evaluation (ADR-059)")
+    sections.append("")
+
+    for yaml_file in yaml_files:
+        with open(yaml_file) as f:
+            ontology_config = yaml.safe_load(f) or {}
+
+        report = evaluate_ontology(ontology_config, binder_docs)
+
+        if report.skipped:
+            sections.append(f"**{yaml_file.stem}**: {report.skip_reason}")
+            continue
+
+        if not report.findings:
+            sections.append(
+                f"**{report.project_id} (v{report.ontology_version})**: "
+                f"ontology clean — {report.artifact_count} artifacts checked, "
+                f"0 cross-layer leakage findings"
+            )
+        else:
+            sections.append(
+                f"**{report.project_id} (v{report.ontology_version})**: "
+                f"ontology leakage findings: {len(report.findings)}"
+            )
+            sections.append("")
+            sections.append("| Artifact | Field | Term | Expected Layer | Actual Layer |")
+            sections.append("| --- | --- | --- | --- | --- |")
+            for f in report.findings:
+                sections.append(
+                    f"| {f.artifact_id} | {f.field_path} | `{f.offending_term}` "
+                    f"| {f.expected_layer} | {f.actual_layer} |"
+                )
+
+    return "\n".join(sections)
 
 
 def _load_governance_policies() -> List[Dict[str, str]]:
