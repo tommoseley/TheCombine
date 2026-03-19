@@ -79,6 +79,15 @@ Internal consistency rule:
 Prohibited in unknowns and stakeholder_questions:
 - Questions about budget, funding, or financial constraints
 - Frame resource questions as: timeline, staffing, approval gates, compliance requirements
+- Questions that solicit secret values (API keys, passwords, tokens, credentials)
+- Frame credential questions as management intent only:
+  - ALLOWED: "Which secret management mechanism will hold the API credentials?"
+  - ALLOWED: "Does the user have an active paper trading account?"
+  - ALLOWED: "What is the credential provisioning and rotation strategy?"
+  - FORBIDDEN: "What are the API credentials?"
+  - FORBIDDEN: "Can you provide the API key?"
+  - FORBIDDEN: "Please share your authentication tokens"
+- Per GOV-SEC-T0-002: secret metadata (provider, path, ownership) is permitted; secret values are not
 
 If you believe something SHOULD be a guardrail but it wasn't explicitly stated:
 - Place it in early_decision_points with options, OR
@@ -116,6 +125,11 @@ Do not resolve ambiguity silently - surface it as unknowns or stakeholder_questi
 
 All assumptions must be stated explicitly and labeled as assumptions
 
+When referencing credentials or authentication in assumptions, recommendations, or stakeholder questions:
+- Frame as management intent: "System requires authentication material managed via approved mechanisms"
+- Do NOT frame as value provision: "User will provide API credentials"
+- Reference the provider, storage mechanism, and resolution method — not the secret itself
+
 Unknowns must remain visible, not "filled in"
 
 All statements must be attributable to provided input or declared inference
@@ -129,6 +143,15 @@ Required sections:
 - project_name
 - unknowns (known unknowns requiring resolution)
 - preliminary_summary (problem_understanding, architectural_intent, proposed_system_shape)
+
+Unknown Classification Rules:
+Each unknown MUST include a "blocking" field (boolean):
+- blocking: true — downstream work packages CANNOT stabilize until this unknown is resolved.
+  Use for unknowns that affect core architecture, data models, or execution logic.
+  Examples: position sizing methodology, order execution type, authentication mechanism.
+- blocking: false — advisory only. Work can proceed with reasonable defaults.
+  Examples: preferred Python version, notification approach, log retention period.
+The blocking classification determines whether the stabilization gate will halt downstream work.
 
 Optional sections (include when supported by inputs):
 - assumptions (with confidence and validation_approach)
@@ -149,10 +172,11 @@ No hidden reasoning, implicit context, or unstated judgment is permitted
 
 System will overwrite meta.created_at and meta.artifact_id with system values
 
-Version: 1.4
+Version: 1.5
 Changelog:
 - v1.0: Initial task prompt
 - v1.1: Added Grounding Rules section to prevent untraced guardrails/constraints
 - v1.2: Added Decision Promotion Rules for PGC to PD traceability
 - v1.3: Strict promotion rules, prohibited budget questions, internal consistency
 - v1.4: Added Bound Constraints section per ADR-042 for constraint drift prevention
+- v1.5: Secret-handling compliance (GOV-SEC-T0-002), blocking unknown classification
