@@ -888,6 +888,7 @@ async def render_project_binder(
     format: str = Query("md", description="Output format (only 'md' supported)"),
     profile: str = Query("print", description="Render profile: standard | print"),
     mode: str = Query("standard", description="Render mode: standard | evidence"),
+    governance: str = Query("native", description="Governance mode: native | portable (ADR-060)"),
     db: AsyncSession = Depends(get_db),
 ):
     """Render all project documents as a single Markdown binder (WS-RENDER-002/004).
@@ -896,6 +897,8 @@ async def render_project_binder(
     WPs are ordered by display_id; WSs within WPs follow ws_index order.
 
     When mode=evidence, includes per-document YAML frontmatter and Evidence Index.
+    When governance=portable, policies are rendered as declarative constraints
+    without references to Combine-internal infrastructure (ADR-060).
 
     Returns the rendered Markdown as a downloadable attachment.
     """
@@ -1002,6 +1005,12 @@ async def render_project_binder(
     # Load governance policies from combine-config/policies/
     policy_list = _load_governance_policies()
 
+    # Portable mode (ADR-060): convert policies to declarative constraints
+    is_portable = governance.lower() == "portable"
+    if is_portable:
+        from app.domain.services.governance_portable import convert_policies_to_portable
+        policy_list = convert_policies_to_portable(policy_list)
+
     # Render binder
     from app.domain.services.binder_renderer import render_project_binder as _render_binder
 
@@ -1010,6 +1019,7 @@ async def render_project_binder(
         project_title=project.name or project.project_id,
         documents=binder_docs,
         policies=policy_list,
+        governance_mode="portable" if is_portable else "native",
     )
 
     # Evidence mode (WS-RENDER-004): add per-document frontmatter + Evidence Index
