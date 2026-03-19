@@ -1063,6 +1063,11 @@ async def render_project_binder(
     if contradiction_section:
         markdown += "\n\n" + contradiction_section
 
+    # Duplicate WS objective detection (ADR-062): append summary
+    duplicate_section = _render_duplicate_summary(binder_docs)
+    if duplicate_section:
+        markdown += "\n\n" + duplicate_section
+
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"
 
@@ -1295,6 +1300,49 @@ def _render_contradiction_summary(binder_docs: List[Dict[str, Any]]) -> str | No
             sections.append(
                 f"| {f.rule_id} | {f.artifact_id} | {f.contradiction_type} "
                 f"| {f.ta_authority} | {f.ws_claim} |"
+            )
+
+    return "\n".join(sections)
+
+
+def _render_duplicate_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run WS duplicate objective evaluator and render a summary section.
+
+    Returns:
+        Markdown section string, or None if fewer than 2 WSs exist.
+    """
+    from app.domain.services.ws_duplicate_evaluator import evaluate_ws_duplicates
+
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if len(ws_docs) < 2:
+        return None
+
+    report = evaluate_ws_duplicates(ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Duplicate WS Objective Detection (ADR-062)")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**No duplicates detected** — {report.ws_count} WSs checked"
+        )
+    else:
+        sections.append(
+            f"**Potential duplicates: {len(report.findings)}** "
+            f"({report.ws_count} WSs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | Work Statements | WPs | Type | Evidence |")
+        sections.append("| --- | --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {', '.join(f.ws_ids)} "
+                f"| {', '.join(f.parent_wp_ids)} "
+                f"| {f.duplicate_type} | {f.evidence[:100]} |"
             )
 
     return "\n".join(sections)
