@@ -76,7 +76,13 @@ class PgStatePersistence:
             existing.pending_user_input_payload = state.pending_user_input_payload
             existing.pending_user_input_schema_ref = state.pending_user_input_schema_ref
             existing.thread_id = state.thread_id
-            existing.context_state = state.context_state
+            # CRITICAL: Copy context_state to ensure SQLAlchemy detects JSONB mutation.
+            # In-place dict mutations (via .update()) are not tracked by SQLAlchemy's
+            # change detection for JSONB columns. Without this, produced documents
+            # stored via update_context_state() may silently fail to persist.
+            existing.context_state = dict(state.context_state) if state.context_state else {}
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(existing, "context_state")
             # Update project_id if not set
             if not existing.project_id and project_uuid:
                 existing.project_id = project_uuid
