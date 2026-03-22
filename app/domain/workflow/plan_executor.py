@@ -45,7 +45,7 @@ from app.domain.workflow.nodes.base import (
 )
 from app.domain.workflow.thread_manager import ThreadManager
 from app.domain.workflow.outcome_recorder import OutcomeRecorder
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import publish_event for station events (WS-STATION-DATA-001 Phase 2)
