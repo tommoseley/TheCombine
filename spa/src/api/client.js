@@ -342,6 +342,33 @@ export const api = {
 
     getIntent: (intentId) =>
         request(`/intents/${intentId}`),
+
+    // ---- Pipeline Rewind (ADR-063) ----
+
+    rewindPipeline: (projectId, stage, reason, actor = 'user') =>
+        requestWithCsrf(`/projects/${projectId}/rewind`, {
+            method: 'POST',
+            body: JSON.stringify({
+                rewind_to_stage: stage,
+                reason,
+                actor,
+            }),
+        }),
+
+    validateRegeneration: (projectId, fromStage, actor = 'user') =>
+        requestWithCsrf(`/projects/${projectId}/regenerate/validate`, {
+            method: 'POST',
+            body: JSON.stringify({
+                from_stage: fromStage,
+                actor,
+            }),
+        }),
+
+    getLineage: (projectId, eventType = null) =>
+        request(`/projects/${projectId}/lineage${eventType ? `?event_type=${eventType}` : ''}`),
+
+    getPipelineStatus: (projectId) =>
+        request(`/projects/${projectId}/pipeline-status`),
 };
 
 /**
