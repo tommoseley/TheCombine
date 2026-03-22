@@ -52,12 +52,13 @@ class TestPreconditionValidation:
 
     @pytest.mark.asyncio
     async def test_valid_preconditions_pass(self, service, doc_repo, project_id):
-        # CI and PD are current, TA is stale → regenerate from TA
+        # CI, PD, IP are current, TA is stale → regenerate from TA
         ci = _make_doc(project_id, "concierge_intake")
         pd = _make_doc(project_id, "project_discovery")
+        ip = _make_doc(project_id, "implementation_plan")
         ta = _make_doc(project_id, "technical_architecture", DocumentStatus.STALE)
         ta.is_latest = False
-        for doc in [ci, pd, ta]:
+        for doc in [ci, pd, ip, ta]:
             await doc_repo.save(doc)
 
         result = await service.validate_preconditions(

@@ -13,10 +13,10 @@ from app.domain.services.rewind_impact_evaluator import (
 class TestEvaluateRewindImpact:
     """Core impact evaluation using linear model."""
 
-    def test_rewind_at_ta_affects_ta_ip_wp_ws(self):
+    def test_rewind_at_ta_affects_ta_wp_ws(self):
         result = evaluate_rewind_impact(PipelineStage.TA)
         names = [s.name for s in result]
-        assert names == ["TA", "IP", "WP", "WS"]
+        assert names == ["TA", "WP", "WS"]
 
     def test_rewind_at_ci_affects_full_pipeline(self):
         result = evaluate_rewind_impact(PipelineStage.CI)
@@ -31,17 +31,17 @@ class TestEvaluateRewindImpact:
     def test_rewind_at_pd_affects_pd_through_ws(self):
         result = evaluate_rewind_impact(PipelineStage.PD)
         names = [s.name for s in result]
-        assert names == ["PD", "TA", "IP", "WP", "WS"]
+        assert names == ["PD", "IP", "TA", "WP", "WS"]
 
     def test_rewind_at_wp_affects_wp_and_ws(self):
         result = evaluate_rewind_impact(PipelineStage.WP)
         names = [s.name for s in result]
         assert names == ["WP", "WS"]
 
-    def test_rewind_at_ip_affects_ip_wp_ws(self):
+    def test_rewind_at_ip_affects_ip_ta_wp_ws(self):
         result = evaluate_rewind_impact(PipelineStage.IP)
         names = [s.name for s in result]
-        assert names == ["IP", "WP", "WS"]
+        assert names == ["IP", "TA", "WP", "WS"]
 
     def test_result_is_in_pipeline_order(self):
         result = evaluate_rewind_impact(PipelineStage.PD)
@@ -55,17 +55,17 @@ class TestEvaluateRewindImpactSafe:
     def test_valid_stage_name(self):
         result = evaluate_rewind_impact_safe("TA")
         names = [s.name for s in result]
-        assert names == ["TA", "IP", "WP", "WS"]
+        assert names == ["TA", "WP", "WS"]
 
     def test_lowercase_stage_name(self):
         result = evaluate_rewind_impact_safe("ta")
         names = [s.name for s in result]
-        assert names == ["TA", "IP", "WP", "WS"]
+        assert names == ["TA", "WP", "WS"]
 
     def test_valid_doc_type_id(self):
         result = evaluate_rewind_impact_safe("technical_architecture")
         names = [s.name for s in result]
-        assert names == ["TA", "IP", "WP", "WS"]
+        assert names == ["TA", "WP", "WS"]
 
     def test_invalid_stage_conservative_default(self):
         result = evaluate_rewind_impact_safe("nonexistent")
@@ -83,7 +83,6 @@ class TestGetAffectedDocTypeIds:
         result = get_affected_doc_type_ids(PipelineStage.TA)
         assert result == [
             "technical_architecture",
-            "implementation_plan",
             "work_package",
             "work_statement",
         ]

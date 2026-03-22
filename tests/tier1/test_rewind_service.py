@@ -84,9 +84,9 @@ class TestRewindAtTA:
         )
 
         assert result.success
-        assert result.affected_document_count == 4  # TA, IP, WP, WS
+        assert result.affected_document_count == 3  # TA, WP, WS (IP is upstream of TA)
         assert result.rewind_to_stage == "TA"
-        assert set(result.affected_stages) == {"TA", "IP", "WP", "WS"}
+        assert set(result.affected_stages) == {"TA", "WP", "WS"}
 
     @pytest.mark.asyncio
     async def test_preserves_upstream_documents(self, service, doc_repo, project_id):

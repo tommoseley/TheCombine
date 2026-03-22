@@ -23,8 +23,8 @@ class PipelineStage(Enum):
 
     CI = (0, "concierge_intake", "Concierge Intake")
     PD = (1, "project_discovery", "Product Discovery")
-    TA = (2, "technical_architecture", "Technical Architecture")
-    IP = (3, "implementation_plan", "Implementation Plan")
+    IP = (2, "implementation_plan", "Implementation Plan")
+    TA = (3, "technical_architecture", "Technical Architecture")
     WP = (4, "work_package", "Work Package")
     WS = (5, "work_statement", "Work Statement")
 

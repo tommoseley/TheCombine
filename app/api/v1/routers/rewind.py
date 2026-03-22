@@ -16,23 +16,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.domain.models.pipeline_stage import PipelineStage
-from app.domain.models.rewind_errors import RewindBlockedError
-from app.domain.services.lineage_service import (
-    InMemoryLineageRepository,
-    LineageService,
-)
-from app.domain.services.rewind_service import (
-    RewindRequest,
-    RewindResult,
-    RewindService,
-)
-from app.domain.services.regeneration_service import (
-    RegenerationRequest,
-    RegenerationResult,
-    RegenerationService,
-)
-from app.persistence.repositories import InMemoryDocumentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +119,9 @@ async def rewind_pipeline(
     db: AsyncSession = Depends(get_db),
 ):
     """Rewind pipeline to a specific stage, marking downstream artifacts stale."""
+    from app.domain.models.pipeline_stage import PipelineStage
+    from app.domain.services.rewind_service import RewindRequest
+
     # Validate stage — accept both short name (IP) and doc_type_id (implementation_plan)
     stage = None
     try:
@@ -185,6 +171,9 @@ async def validate_regeneration(
     db: AsyncSession = Depends(get_db),
 ):
     """Validate preconditions for regeneration from a stage."""
+    from app.domain.models.pipeline_stage import PipelineStage
+    from app.domain.services.regeneration_service import RegenerationRequest
+
     stage = None
     try:
         stage = PipelineStage[body.from_stage.upper()]
@@ -254,6 +243,7 @@ async def get_pipeline_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Get pipeline status showing current/stale state per stage."""
+    from app.domain.models.pipeline_stage import PipelineStage
     from app.api.models.document import Document
     from sqlalchemy import select, and_, func
 

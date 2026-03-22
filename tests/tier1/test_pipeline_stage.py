@@ -17,7 +17,7 @@ class TestStageOrdering:
     def test_canonical_order(self):
         ordered = PipelineStage.all_stages_ordered()
         names = [s.name for s in ordered]
-        assert names == ["CI", "PD", "TA", "IP", "WP", "WS"]
+        assert names == ["CI", "PD", "IP", "TA", "WP", "WS"]
 
     def test_exactly_six_stages(self):
         assert len(list(PipelineStage)) == 6
@@ -56,7 +56,7 @@ class TestDownstreamStages:
 
     def test_ta_downstream_stages(self):
         result = PipelineStage.TA.downstream_stages()
-        assert [s.name for s in result] == ["IP", "WP", "WS"]
+        assert [s.name for s in result] == ["WP", "WS"]
 
     def test_ws_has_no_downstream(self):
         assert PipelineStage.WS.downstream_stages() == []
@@ -73,7 +73,7 @@ class TestStagesAtAndAfter:
 
     def test_ta_invalidation_set(self):
         result = PipelineStage.TA.stages_at_and_after()
-        assert [s.name for s in result] == ["TA", "IP", "WP", "WS"]
+        assert [s.name for s in result] == ["TA", "WP", "WS"]
 
     def test_ci_invalidation_set_is_full_pipeline(self):
         result = PipelineStage.CI.stages_at_and_after()
