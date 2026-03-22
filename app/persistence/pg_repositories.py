@@ -129,24 +129,45 @@ class PostgresDocumentRepository:
         document_type: str,
         version: Optional[int] = None,
     ) -> Optional[StoredDocument]:
-        """Get document by scope and type. None version = latest."""
+        """Get document by scope and type.
+
+        Resolution (ADR-063):
+        - version specified: exact version match
+        - version=None: max version where status not stale/archived,
+          fallback to is_latest for backward compat
+        """
         async with self._session_factory() as session:
-            query = select(Document).where(
-                and_(
-                    Document.space_type == scope_type,
-                    Document.space_id == UUID(scope_id),
-                    Document.doc_type_id == document_type,
-                )
+            base = and_(
+                Document.space_type == scope_type,
+                Document.space_id == UUID(scope_id),
+                Document.doc_type_id == document_type,
             )
-            
+
             if version is not None:
-                query = query.where(Document.version == version)
+                query = select(Document).where(base).where(
+                    Document.version == version
+                )
             else:
-                query = query.where(Document.is_latest == True)
-            
+                # Primary: version-aware resolution
+                query = (
+                    select(Document)
+                    .where(base)
+                    .where(Document.status.notin_(["stale", "archived"]))
+                    .order_by(Document.version.desc())
+                    .limit(1)
+                )
+
             result = await session.execute(query)
             orm_doc = result.scalar_one_or_none()
-            
+
+            # Fallback: is_latest (backward compat for pre-rewind data)
+            if orm_doc is None and version is None:
+                query_fallback = (
+                    select(Document).where(base).where(Document.is_latest == True)
+                )
+                result_fallback = await session.execute(query_fallback)
+                orm_doc = result_fallback.scalar_one_or_none()
+
             if orm_doc is None:
                 return None
             return _orm_to_stored_document(orm_doc)

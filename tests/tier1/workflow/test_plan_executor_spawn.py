@@ -35,6 +35,8 @@ class FakeDocument:
         self.title = f"Old title: {instance_id}"
         self.version = version
         self.is_latest = True
+        self.status = "draft"
+        self.display_id = f"DOC-{instance_id}"
         self.lifecycle_state = "complete"
 
     def update_revision_hash(self):
@@ -76,8 +78,8 @@ def executor():
 
 class TestUpsertChildDocument:
     @pytest.mark.asyncio
-    async def test_existing_child_is_updated(self, executor):
-        """Existing child → version incremented, content/title updated."""
+    async def test_existing_child_is_versioned(self, executor):
+        """Existing child → ADR-063: new version created, old marked superseded."""
         state = FakeState()
         parent_id = uuid4()
         existing_doc = FakeDocument("alpha", version=2)
@@ -94,10 +96,13 @@ class TestUpsertChildDocument:
             spec, existing_children, state, parent_id,
         )
 
-        assert result == "updated"
-        assert existing_doc.version == 3
-        assert existing_doc.content == {"data": "new"}
-        assert existing_doc.title == "Updated Title"
+        # ADR-063: non-destructive versioning
+        assert result == "versioned"
+        # Old doc marked superseded
+        assert existing_doc.is_latest == False
+        assert existing_doc.status == "superseded"
+        # New doc added to session
+        executor._db_session.add.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_new_child_is_created(self, executor):

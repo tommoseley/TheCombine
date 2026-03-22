@@ -31,6 +31,8 @@ class FakeDocument:
         self.title = f"Work Package: {wp_id}"
         self.version = version
         self.is_latest = is_latest
+        self.status = "draft"
+        self.display_id = f"WP-{wp_id}"
         self.lifecycle_state = lifecycle_state
         self.doc_type_id = "work_package"
         self.instance_id = wp_id
@@ -154,8 +156,8 @@ class TestSpawnChildDocuments:
         assert created_doc.content["_lineage"]["parent_execution_id"] == "exec-injected"
 
     @pytest.mark.asyncio
-    async def test_updates_existing_child_instead_of_duplicating(self, executor):
-        """Idempotency: existing child is updated, not duplicated."""
+    async def test_versions_existing_child_instead_of_duplicating(self, executor):
+        """ADR-063: existing child creates new version, old marked superseded."""
         state = FakeState()
         parent_id = uuid4()
 
@@ -175,12 +177,11 @@ class TestSpawnChildDocuments:
                 state, {}, parent_id, "Test Plan", execution_id="exec-002"
             )
 
-        # Should NOT have called add (update in place)
-        assert executor._db_session.add.call_count == 0
-        # Existing doc should be updated
-        assert existing_doc.content["intent"] == "Updated intent"
-        assert existing_doc.version == 2
-        assert existing_doc.title == "Work Package: alpha"
+        # ADR-063: new version added to session (non-destructive)
+        assert executor._db_session.add.call_count == 1
+        # Old doc marked superseded
+        assert existing_doc.is_latest == False
+        assert existing_doc.status == "superseded"
 
     @pytest.mark.asyncio
     async def test_supersedes_removed_children(self, executor):
@@ -205,11 +206,13 @@ class TestSpawnChildDocuments:
                 state, {}, parent_id, "Test Plan", execution_id="exec-003"
             )
 
-        # Beta should be superseded
+        # Beta should be marked stale (removed from spec)
         assert existing_beta.is_latest is False
         assert existing_beta.lifecycle_state == "stale"
-        # Alpha should still be current
-        assert existing_alpha.is_latest is True
+        # ADR-063: Alpha was versioned — old alpha is superseded,
+        # new version was added to session
+        assert existing_alpha.is_latest is False
+        assert existing_alpha.status == "superseded"
 
     @pytest.mark.asyncio
     async def test_no_handler_does_nothing(self, executor):
@@ -241,8 +244,8 @@ class TestSpawnChildDocuments:
         executor._db_session.commit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_mixed_create_update_supersede(self, executor):
-        """All three operations in one run."""
+    async def test_mixed_create_version_supersede(self, executor):
+        """ADR-063: all three operations in one run — version, create, stale."""
         state = FakeState()
         parent_id = uuid4()
 
@@ -250,7 +253,7 @@ class TestSpawnChildDocuments:
         existing_alpha = FakeDocument("alpha")
         existing_beta = FakeDocument("beta")
 
-        # New spec: alpha (update), gamma (create) - beta removed
+        # New spec: alpha (version), gamma (create) - beta removed
         specs = _make_child_specs(["alpha", "gamma"])
 
         mock_result = MagicMock()
@@ -266,13 +269,14 @@ class TestSpawnChildDocuments:
                 state, {}, parent_id, "Test Plan", execution_id="exec-004"
             )
 
-        # alpha: updated (version bumped)
-        assert existing_alpha.version == 2
-        # beta: superseded
+        # ADR-063: alpha versioned — old alpha superseded, new version added
+        assert existing_alpha.is_latest is False
+        assert existing_alpha.status == "superseded"
+        # beta: marked stale (removed from spec)
         assert existing_beta.is_latest is False
         assert existing_beta.lifecycle_state == "stale"
-        # gamma: created (add called once)
-        assert executor._db_session.add.call_count == 1
+        # Two adds: new alpha version + new gamma
+        assert executor._db_session.add.call_count == 2
         # commit called
         assert executor._db_session.commit.called
 

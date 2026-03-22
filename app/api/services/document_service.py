@@ -192,39 +192,77 @@ class DocumentService:
         space_id: UUID,
         doc_type_id: str
     ) -> Optional[Document]:
-        """Get the latest version of a document type in a space."""
+        """Get the current version of a document type in a space.
+
+        Resolution order (ADR-063):
+        1. Max version where status is NOT stale/archived (version-aware)
+        2. Fallback: is_latest == True (backward compat)
+        """
+        # Primary: version-aware resolution — max version that's current
         query = (
+            select(Document)
+            .where(Document.space_type == space_type)
+            .where(Document.space_id == space_id)
+            .where(Document.doc_type_id == doc_type_id)
+            .where(Document.status.notin_(["stale", "archived"]))
+            .order_by(Document.version.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(query)
+        doc = result.scalar_one_or_none()
+        if doc is not None:
+            return doc
+
+        # Fallback: is_latest flag (backward compat for pre-rewind data)
+        query_fallback = (
             select(Document)
             .where(Document.space_type == space_type)
             .where(Document.space_id == space_id)
             .where(Document.doc_type_id == doc_type_id)
             .where(Document.is_latest == True)
         )
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        result_fallback = await self.db.execute(query_fallback)
+        return result_fallback.scalar_one_or_none()
     
     async def list_by_space(
         self,
         space_type: str,
         space_id: UUID,
         status: Optional[str] = None,
-        latest_only: bool = True
+        latest_only: bool = True,
+        include_historical: bool = False,
     ) -> List[Document]:
-        """List documents in a space."""
+        """List documents in a space.
+
+        Args:
+            space_type: Space type (project, organization, etc.)
+            space_id: Space identifier
+            status: Filter by specific status
+            latest_only: Only return is_latest documents (default True)
+            include_historical: If True, return all versions including
+                stale/superseded (ADR-063 audit mode). Overrides latest_only.
+        """
         query = (
             select(Document)
             .where(Document.space_type == space_type)
             .where(Document.space_id == space_id)
         )
-        
-        if latest_only:
+
+        if include_historical:
+            # Audit mode: return everything, no filtering
+            pass
+        elif latest_only:
+            # Default: only current/latest documents
             query = query.where(Document.is_latest == True)
-        
+            # Also exclude stale — stale docs may still have is_latest
+            # temporarily during rewind processing
+            query = query.where(Document.status.notin_(["stale", "archived"]))
+
         if status:
             query = query.where(Document.status == status)
-        
+
         query = query.order_by(Document.created_at.desc())
-        
+
         result = await self.db.execute(query)
         return list(result.scalars().all())
     

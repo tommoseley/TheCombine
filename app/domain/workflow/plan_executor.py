@@ -1832,6 +1832,33 @@ class PlanExecutor:
             from app.domain.services.display_id_service import mint_display_id
             did = await mint_display_id(self._db_session, UUID(state.project_id), state.document_type)
 
+            # ADR-063: Query max existing version for this doc type, increment
+            from sqlalchemy import func as sa_func
+            max_version_result = await self._db_session.execute(
+                select(sa_func.max(Document.version)).where(
+                    Document.space_type == "project",
+                    Document.space_id == UUID(state.project_id),
+                    Document.doc_type_id == state.document_type,
+                    Document.display_id == did,
+                )
+            )
+            max_version = max_version_result.scalar() or 0
+            new_version = max_version + 1
+
+            # If prior version exists and is current, mark it superseded
+            if max_version > 0:
+                await self._db_session.execute(
+                    update(Document)
+                    .where(
+                        Document.space_type == "project",
+                        Document.space_id == UUID(state.project_id),
+                        Document.doc_type_id == state.document_type,
+                        Document.display_id == did,
+                        Document.is_latest == True,
+                    )
+                    .values(is_latest=False, status="superseded")
+                )
+
             # Create the document record (I/O)
             document = Document(
                 space_type="project",
@@ -1839,7 +1866,7 @@ class PlanExecutor:
                 doc_type_id=state.document_type,
                 title=doc_title,
                 content=doc_content,
-                version=1,
+                version=new_version,
                 is_latest=True,
                 status="draft",
                 created_by=None,
@@ -1948,12 +1975,32 @@ class PlanExecutor:
 
         existing = existing_children.get(identifier)
         if existing:
-            existing.content = spec["content"]
-            existing.title = spec["title"]
-            existing.version += 1
-            existing.update_revision_hash()
-            logger.debug(f"Updated existing child: {identifier}")
-            return "updated"
+            # ADR-063: Create new version instead of mutating in place
+            new_version = existing.version + 1
+            # Mark old version as superseded
+            existing.is_latest = False
+            existing.status = "superseded"
+
+            from app.domain.services.display_id_service import mint_display_id
+            # Reuse existing display_id for the new version
+            child_doc = Document(
+                space_type="project",
+                space_id=UUID(state.project_id),
+                doc_type_id=spec["doc_type_id"],
+                title=spec["title"],
+                content=spec["content"],
+                version=new_version,
+                is_latest=True,
+                status="draft",
+                created_by=None,
+                parent_document_id=parent_id,
+                instance_id=identifier,
+                display_id=existing.display_id,
+            )
+            child_doc.update_revision_hash()
+            self._db_session.add(child_doc)
+            logger.debug(f"Created new version {new_version} for child: {identifier}")
+            return "versioned"
         else:
             # Mint a human-readable display_id for the child (ADR-055)
             from app.domain.services.display_id_service import mint_display_id
