@@ -5,19 +5,16 @@
 
 ## Current Focus
 
-**IN PROGRESS:** Pipeline Rewind Implementation (ADR-063)
-- WP-REWIND-001: Core Semantics — WS-000 through WS-003 complete (59 new tests)
-  - Do No Harm audit: blast radius HIGH but concentrated (25 query sites, 2 persistence paths)
-  - PipelineStage enum: 6 canonical stages (CI→PD→TA→IP→WP→WS), 26 tests
-  - ArtifactStatus model: current/stale/superseded with transition guards, 18 tests
-  - Rewind impact evaluator: linear model, conservative default, 15 tests
-- WS-REWIND-004 (rewind service) and WS-REWIND-006 (lineage) — next
-- 4 WPs, 19 WSs written and accepted in docs/work-statements/
-
-**COMPLETE:** TA Prompt v1.1.0 + Persistence Fix (2026-03-21)
-- SQLAlchemy JSONB mutation tracking fix in pg_state_persistence (MSTC-001 root cause)
-- TA prompt v1.1.0: component registry authority + data model authority + governance pins
-- ADR-063: Pipeline Rewind, Invalidation, and Regeneration Semantics (Draft)
+**COMPLETE:** Pipeline Rewind — Full Implementation (ADR-063, 2026-03-21)
+- All 4 WPs executed, 19 WSs complete
+- WP-REWIND-001: Core semantics — stage model, status model, impact evaluator, rewind service, lineage (81 tests)
+- WP-REWIND-002: Versioned storage — schema migration, version-aware resolution, non-destructive persistence, stale filtering
+- WP-REWIND-003: Enforcement — progression guard, destabilization, regeneration validation, error model (23 tests)
+- WP-REWIND-004: Minimal UX — StatusBadge, RewindControl, RewindSummary, LineageHistory + 4 API endpoints
+- TA prompt v1.1.0: component registry authority + governance pins
+- SQLAlchemy JSONB mutation tracking fix (MSTC-001 root cause)
+- ADR-063: Pipeline Rewind, Invalidation, and Regeneration Semantics
+- 3057 tests passing, 127 new rewind tests
 
 **COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
 - Blocking unknowns gate at WP stabilization (8 tests)
@@ -32,12 +29,12 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Complete WP-REWIND-001: WS-004 (rewind service) + WS-006 (lineage)
-2. WP-REWIND-002: Versioned document storage (schema migration, current resolution)
-3. WP-REWIND-003: Enforcement gates (destabilization, progression guard, QA rejection)
-4. WP-REWIND-004: Minimal rewind UX
-5. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
-6. UX backlog: "Propose All WSs" button
+1. Re-run MSTC-001 with TA prompt v1.1.0 — validate component registry improvement
+2. Wire PostgresLineageRepository for persistent lineage events
+3. Wire regeneration into plan_executor (full pipeline trigger from rewind point)
+4. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
+5. UX: "Propose All WSs" button
+6. UX: Wire projectId into PipelineRail from Floor.jsx
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
