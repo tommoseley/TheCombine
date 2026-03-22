@@ -222,6 +222,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                 title={renderModel?.title || docTitle}
                 projectId={projectId}
                 projectCode={projectCode}
+                docTypeId={docTypeId}
                 adminUrl={adminUrl}
                 executionId={executionId}
                 metadata={metadata}
@@ -300,7 +301,7 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
  * Document header with title, project badge, metadata, and close button.
  * Used by both generic and specialized document viewers.
  */
-function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, metadata, onClose, nextStepLabel, onProduceNext }) {
+function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, metadata, onClose, nextStepLabel, onProduceNext, docTypeId }) {
     const displayTitle = (() => {
         if (!title) return 'Document';
         const colonIndex = title.indexOf(': ');
@@ -417,13 +418,12 @@ function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, 
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
                     {/* ADR-063: Rewind control — inline button */}
-                    {projectId && metadata?.doc_type_id && (
+                    {projectId && docTypeId && (
                         <button
                             onClick={() => {
-                                const docType = metadata.doc_type_id;
-                                const reason = prompt(`Rewind pipeline to ${docType}?\n\nEnter reason:`);
+                                const reason = prompt(`Rewind pipeline to ${docTypeId}?\n\nEnter reason:`);
                                 if (!reason) return;
-                                api.rewindPipeline(projectId, docType, reason)
+                                api.rewindPipeline(projectId, docTypeId, reason)
                                     .then(r => { alert(`Rewound to ${r.rewind_to_stage}. ${r.affected_document_count} documents marked stale.`); window.location.reload(); })
                                     .catch(e => alert(`Rewind failed: ${e.message}`));
                             }}
