@@ -416,13 +416,14 @@ function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, 
                     )}
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
-                    {/* ADR-063: Rewind control — inline button (no separate component to avoid import issues) */}
-                    {projectId && docTypeId && (
+                    {/* ADR-063: Rewind control — inline button */}
+                    {projectId && metadata?.doc_type_id && (
                         <button
                             onClick={() => {
-                                const reason = prompt(`Rewind pipeline to ${docTypeId}?\n\nEnter reason:`);
+                                const docType = metadata.doc_type_id;
+                                const reason = prompt(`Rewind pipeline to ${docType}?\n\nEnter reason:`);
                                 if (!reason) return;
-                                api.rewindPipeline(projectId, docTypeId, reason)
+                                api.rewindPipeline(projectId, docType, reason)
                                     .then(r => { alert(`Rewound to ${r.rewind_to_stage}. ${r.affected_document_count} documents marked stale.`); window.location.reload(); })
                                     .catch(e => alert(`Rewind failed: ${e.message}`));
                             }}
@@ -431,7 +432,7 @@ function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, 
                                 color: 'var(--text-secondary)',
                                 border: '1px solid var(--border-primary, #d1d5db)',
                             }}
-                            title={`Rewind pipeline to this stage`}
+                            title="Rewind pipeline to this stage"
                         >
                             ↩ Rewind
                         </button>
