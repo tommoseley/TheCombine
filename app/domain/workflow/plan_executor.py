@@ -1828,36 +1828,42 @@ class PlanExecutor:
                 doc_type_display_name=doc_type_name,
             )
 
-            # Mint a human-readable display_id (ADR-055)
-            from app.domain.services.display_id_service import mint_display_id
-            did = await mint_display_id(self._db_session, UUID(state.project_id), state.document_type)
-
-            # ADR-063: Query max existing version for this doc type, increment
+            # ADR-063: Check for existing document of this type (even stale)
+            # If found, reuse its display_id and increment version
             from sqlalchemy import func as sa_func
-            max_version_result = await self._db_session.execute(
-                select(sa_func.max(Document.version)).where(
+            existing_result = await self._db_session.execute(
+                select(Document.display_id, sa_func.max(Document.version))
+                .where(
                     Document.space_type == "project",
                     Document.space_id == UUID(state.project_id),
                     Document.doc_type_id == state.document_type,
-                    Document.display_id == did,
                 )
+                .group_by(Document.display_id)
+                .order_by(sa_func.max(Document.version).desc())
+                .limit(1)
             )
-            max_version = max_version_result.scalar() or 0
-            new_version = max_version + 1
+            existing = existing_result.first()
 
-            # If prior version exists and is current, mark it superseded
-            if max_version > 0:
+            if existing:
+                # Reuse existing display_id, increment version
+                did = existing[0]
+                new_version = existing[1] + 1
+                # Mark any current/latest docs as superseded
                 await self._db_session.execute(
                     update(Document)
                     .where(
                         Document.space_type == "project",
                         Document.space_id == UUID(state.project_id),
                         Document.doc_type_id == state.document_type,
-                        Document.display_id == did,
                         Document.is_latest == True,
                     )
                     .values(is_latest=False, status="superseded")
                 )
+            else:
+                # First document of this type — mint new display_id
+                from app.domain.services.display_id_service import mint_display_id
+                did = await mint_display_id(self._db_session, UUID(state.project_id), state.document_type)
+                new_version = 1
 
             # Create the document record (I/O)
             document = Document(
