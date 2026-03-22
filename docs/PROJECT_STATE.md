@@ -1,9 +1,23 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-19
-**Updated By:** Claude (Full hardening wave: ontology + overlap + PD phrasing + blocking unknowns)
+**Last Updated:** 2026-03-21
+**Updated By:** Claude (Pipeline rewind foundations + TA prompt v1.1.0 + persistence fix)
 
 ## Current Focus
+
+**IN PROGRESS:** Pipeline Rewind Implementation (ADR-063)
+- WP-REWIND-001: Core Semantics — WS-000 through WS-003 complete (59 new tests)
+  - Do No Harm audit: blast radius HIGH but concentrated (25 query sites, 2 persistence paths)
+  - PipelineStage enum: 6 canonical stages (CI→PD→TA→IP→WP→WS), 26 tests
+  - ArtifactStatus model: current/stale/superseded with transition guards, 18 tests
+  - Rewind impact evaluator: linear model, conservative default, 15 tests
+- WS-REWIND-004 (rewind service) and WS-REWIND-006 (lineage) — next
+- 4 WPs, 19 WSs written and accepted in docs/work-statements/
+
+**COMPLETE:** TA Prompt v1.1.0 + Persistence Fix (2026-03-21)
+- SQLAlchemy JSONB mutation tracking fix in pg_state_persistence (MSTC-001 root cause)
+- TA prompt v1.1.0: component registry authority + data model authority + governance pins
+- ADR-063: Pipeline Rewind, Invalidation, and Regeneration Semantics (Draft)
 
 **COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
 - Blocking unknowns gate at WP stabilization (8 tests)
@@ -15,14 +29,15 @@
 - PD prompt v1.5: secret-handling + blocking unknown classification
 - Five evaluation sections now render in every binder
 - External CC critique: 6/11 findings now mechanically detectable
-- ~130 new tests this session, 2953 total passing, Tier 0: PASS
+- ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Rerun APAM binder — validate all 5 evaluation sections with real data
-2. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
-3. Ontology artifact_layers refinement (per-artifact, not per-doc-type)
-4. WS IA expansion (deferred)
-5. UX backlog: "Propose All WSs" button, "Rewind pipeline to here" button
+1. Complete WP-REWIND-001: WS-004 (rewind service) + WS-006 (lineage)
+2. WP-REWIND-002: Versioned document storage (schema migration, current resolution)
+3. WP-REWIND-003: Enforcement gates (destabilization, progression guard, QA rejection)
+4. WP-REWIND-004: Minimal rewind UX
+5. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
+6. UX backlog: "Propose All WSs" button
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
