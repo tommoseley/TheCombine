@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import RenderModelViewer from './RenderModelViewer';
 import ConfigDrivenDocViewer from './viewers/ConfigDrivenDocViewer';
+import RewindControl from './RewindControl';
 
 /**
  * DownloadDropdown — small button with dropdown for standard/evidence download.
@@ -416,6 +417,15 @@ function DocumentHeader({ title, projectId, projectCode, adminUrl, executionId, 
                     )}
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
+                    {/* ADR-063: Rewind control */}
+                    {projectId && docTypeId && (
+                        <RewindControl
+                            projectId={projectId}
+                            stageName={docTypeId}
+                            displayName={displayTitle || docTypeId}
+                            onRewindComplete={() => window.location.reload()}
+                        />
+                    )}
                     {/* Produce next document CTA */}
                     {nextStepLabel && onProduceNext && (
                         <button
