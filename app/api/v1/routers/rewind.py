@@ -136,15 +136,19 @@ async def rewind_pipeline(
     db: AsyncSession = Depends(get_db),
 ):
     """Rewind pipeline to a specific stage, marking downstream artifacts stale."""
-    # Validate stage
+    # Validate stage — accept both short name (IP) and doc_type_id (implementation_plan)
+    stage = None
     try:
         stage = PipelineStage[body.rewind_to_stage.upper()]
     except KeyError:
-        valid = [s.name for s in PipelineStage]
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid stage '{body.rewind_to_stage}'. Valid: {valid}",
-        )
+        try:
+            stage = PipelineStage.from_doc_type_id(body.rewind_to_stage)
+        except ValueError:
+            valid = [f"{s.name} ({s.doc_type_id})" for s in PipelineStage]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid stage '{body.rewind_to_stage}'. Valid: {valid}",
+            )
 
     # Build services with DB-backed repositories
     # For now, use a lightweight adapter pattern
@@ -181,14 +185,18 @@ async def validate_regeneration(
     db: AsyncSession = Depends(get_db),
 ):
     """Validate preconditions for regeneration from a stage."""
+    stage = None
     try:
         stage = PipelineStage[body.from_stage.upper()]
     except KeyError:
-        valid = [s.name for s in PipelineStage]
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid stage '{body.from_stage}'. Valid: {valid}",
-        )
+        try:
+            stage = PipelineStage.from_doc_type_id(body.from_stage)
+        except ValueError:
+            valid = [f"{s.name} ({s.doc_type_id})" for s in PipelineStage]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid stage '{body.from_stage}'. Valid: {valid}",
+            )
 
     from app.api.v1.routers._rewind_wiring import build_regeneration_service
 
