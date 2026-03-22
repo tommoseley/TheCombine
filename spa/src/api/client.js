@@ -346,7 +346,7 @@ export const api = {
     // ---- Pipeline Rewind (ADR-063) ----
 
     rewindPipeline: (projectId, stage, reason, actor = 'user') =>
-        requestWithCsrf(`/projects/${projectId}/rewind`, {
+        request(`/projects/${projectId}/rewind`, {
             method: 'POST',
             body: JSON.stringify({
                 rewind_to_stage: stage,
@@ -356,7 +356,7 @@ export const api = {
         }),
 
     validateRegeneration: (projectId, fromStage, actor = 'user') =>
-        requestWithCsrf(`/projects/${projectId}/regenerate/validate`, {
+        request(`/projects/${projectId}/regenerate/validate`, {
             method: 'POST',
             body: JSON.stringify({
                 from_stage: fromStage,
