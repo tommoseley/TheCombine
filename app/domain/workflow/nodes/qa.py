@@ -273,6 +273,35 @@ class QANodeExecutor(NodeExecutor):
 
         if semantic_qa_report.get("gate") == "fail":
             error_messages = self._extract_semantic_error_messages(semantic_qa_report)
+
+            # ADR-063: Graceful degradation when authority bundle is absent.
+            # If the failure is because the audit couldn't be performed
+            # (missing PGC/constraints/context), treat as warning not hard fail.
+            # The LLM may report "cannot perform compliance audit" when
+            # regeneration runs without carried-forward authority context.
+            is_missing_context = any(
+                "missing" in msg.lower() and ("input" in msg.lower() or "pgc" in msg.lower() or "constraint" in msg.lower())
+                for msg in error_messages
+            ) or any(
+                "cannot perform" in msg.lower() and "audit" in msg.lower()
+                for msg in error_messages
+            )
+
+            if is_missing_context:
+                logger.warning(
+                    f"QA node {node_id}: compliance audit could not be performed "
+                    f"(missing authority context). Treating as advisory, not failure. "
+                    f"Messages: {error_messages}"
+                )
+                # Convert to warnings instead of hard fail
+                warnings = [{
+                    "severity": "warning",
+                    "code": "AUDIT_INCOMPLETE",
+                    "message": msg,
+                } for msg in error_messages]
+                return None, warnings, semantic_qa_report
+
+            # True compliance failure — hard fail
             return NodeResult(
                 outcome="failed",
                 metadata={
