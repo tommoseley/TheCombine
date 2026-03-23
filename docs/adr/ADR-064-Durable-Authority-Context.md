@@ -100,19 +100,34 @@ authority_record:
   key: str (question_id, constraint_id, or override key)
   value: any (the user's answer or constraint value)
   source_execution_id: UUID (which execution produced this)
-  lineage_event_id: UUID (which lineage path this belongs to)
+  lineage_path_id: UUID (identifies which accepted lineage path this belongs to)
   status: "current" | "superseded" | "historical"
   superseded_by: Optional[UUID] (points to the replacing record)
   created_at: datetime
   actor: str
 ```
 
+**Status definitions (precise):**
+
+| Status | Meaning | When |
+|--------|---------|------|
+| **current** | Active governing authority for this project | Record is on the accepted path and has not been re-answered |
+| **superseded** | Replaced by a newer answer on the same accepted path | User re-answered the same question after rewind; old answer explicitly replaced |
+| **historical** | Belongs to a path that is no longer the accepted path | The entire lineage path this record belonged to was abandoned via rewind |
+
+**Key distinction:** `superseded` means replaced on the active path (explicit re-answer). `historical` means the path itself was abandoned (rewind without re-traversal of that stage). A `superseded` record has a `superseded_by` pointer. A `historical` record does not — it simply belongs to a lineage path that is no longer current.
+
+**`lineage_path_id`** identifies which accepted lineage path a record belongs to. This is not a single event — it represents the path/branch through the pipeline. When a rewind creates a new path, new authority records on that path share a new `lineage_path_id`. This enables resolution: current authority = records on the currently accepted path.
+
 ### 4.3 Resolution Rules
 
 1. **Current authority** = records where `status == "current"` for the project
-2. **On rewind**: authority records from the abandoned path remain with `status: "historical"`
-3. **On re-answer**: old record becomes `status: "superseded"`, new record becomes `status: "current"` with `superseded_by` link
+2. **On rewind**: authority records are NOT automatically demoted. Authority only changes when:
+   - The user provides new answers on the regenerated path (old answer becomes `superseded`)
+   - A prior path is no longer the accepted path (records become `historical`)
+3. **On re-answer after rewind**: old record becomes `status: "superseded"`, new record becomes `status: "current"` with `superseded_by` link
 4. **On regeneration without re-answer**: current authority is inherited — PGC phase is skipped
+5. **Rewind alone does not flip authority states.** Authority changes only when new accepted authority is recorded or when the active path changes.
 
 ---
 
@@ -129,6 +144,8 @@ Together:
 | **Regeneration (same answers)** | New artifacts created | Authority inherited, PGC skipped |
 | **Regeneration (new answers)** | New artifacts created | Old answers superseded, new answers current |
 | **Full re-run** | All artifacts regenerated | All PGC phases re-execute, authority refreshed |
+
+**Cross-ADR rule:** Artifact rewind (ADR-063) does NOT automatically demote authority (ADR-064). Authority only changes when new accepted authority is recorded or when the active lineage path changes. Artifacts and authority have independent lifecycles — artifacts are causally dependent on upstream artifacts, but authority is causally dependent on user decisions.
 
 ---
 
@@ -165,7 +182,7 @@ Together:
 1. Create `authority_records` table with the structure in 4.2
 2. On PGC answer acceptance, persist as authority record
 3. On stage execution start, hydrate authority bundle from current records
-4. On rewind, mark authority on abandoned path as historical
+4. On path abandonment (rewind followed by divergent regeneration), mark authority on the abandoned path as historical
 5. On re-answer after rewind, supersede old record
 6. QA receives authority bundle and can cite it
 

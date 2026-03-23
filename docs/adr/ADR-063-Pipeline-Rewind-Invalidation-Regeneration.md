@@ -114,6 +114,8 @@ The Combine shall support rewind as a governed architectural behavior.
 
 The pipeline is strictly linear. Rewinding to stage N invalidates all artifacts at stage N and beyond.
 
+MVP invalidation is stage-wide: even when only one document instance at a stage is affected, all document instances at that stage and downstream stages are invalidated. Fine-grained per-instance invalidation is deferred to future dependency graph work.
+
 ### 7.3 Non-destructive regeneration
 
 Rewind shall not overwrite existing artifacts. New artifacts are created; prior artifacts are preserved.
@@ -239,6 +241,11 @@ The system shall support the following statuses:
 - "Historical" is represented by superseded artifacts
 - "Regenerating" and "blocked" are execution-layer states, not document statuses
 - Status transitions must be deterministic and auditable
+
+**Uniqueness of "current":**
+- For single-instance document types (CI, PD, IP, TA): at most ONE current document per `(project_id, doc_type_id)`
+- For multi-instance document types (WP, WS): at most ONE current document per `(project_id, doc_type_id, instance_id)`
+- This uniqueness rule is enforced by the `is_latest` partial unique index and version-aware resolution
 
 ---
 
