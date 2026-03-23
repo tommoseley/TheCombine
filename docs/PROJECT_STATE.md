@@ -1,9 +1,23 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-22
-**Updated By:** Claude (Rewind UX + bug fixes + ADR-064 authority context)
+**Last Updated:** 2026-03-23
+**Updated By:** Claude (WP-AUTH-001: Durable Authority Context implementation)
 
 ## Current Focus
+
+**COMPLETE:** WP-AUTH-001 — Durable Authority Context (ADR-064 MVP, 2026-03-23)
+- Authority records are now the **primary path** for PGC answer lineage, hydration, and QA depth
+- `authority_records` table + ORM model + Alembic migration (20260323_001)
+- AuthorityRepository (Protocol + InMemory + Postgres) with type-scoped supersession
+- AuthorityService: record_authority(), get_authority_bundle(), mark_path_historical()
+- PGC answer dual-write: every accepted PGC answer persists as a durable authority record
+- Regeneration hydration: plan_executor loads from authority store first, falls back to execution-scoped pgc_answers
+- QA authority-aware depth: `authority_source` ("durable_store" | "execution_scoped" | "none") replaces heuristic as primary path; WS-REWIND-020 heuristic preserved as tertiary fallback
+- Supersession type-scoped: `(project_id, authority_type, key)` — pgc_answer never collides with future bound_constraint
+- Authority bundle canonical keys: pgc_answers, pgc_questions, authority_record_ids, authority_source
+- execution_id used as MVP surrogate for lineage_path_id (documented limitation)
+- WS-REWIND-021 superseded (absorbed into WS-AUTH-005)
+- 66 new tests, 4690 total passing
 
 **COMPLETE:** Pipeline Rewind — Full Stack (ADR-063 + ADR-064, 2026-03-21/22)
 - All 4 rewind WPs executed + UX wiring + live testing
@@ -14,13 +28,6 @@
 - ADR-064: Durable Authority Context — PGC answers as project-level governed inputs
 - Both ADRs pressure-tested and tightened (uniqueness scope, path semantics, cross-ADR rule)
 - 3060 tests passing
-
-**DISCOVERED:** Authority Context is the missing half of the system
-- PGC answers stored in execution state → lost on regeneration
-- Users re-asked settled questions after rewind
-- QA can't audit without authority bundle
-- ADR-064 defines the fix: durable, path-aware authority records
-- Implementation is next priority
 
 **COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
 - Blocking unknowns gate at WP stabilization (8 tests)
@@ -35,13 +42,12 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. **ADR-064 implementation**: authority_records table + PGC answer persistence (highest priority)
-2. **WS-REWIND-021**: authority context carry-forward during regeneration
-3. Fix repeated PGC questions: check authority store before asking
-4. QA gate: reference authority records explicitly in compliance audit
-5. Wire PostgresLineageRepository for persistent lineage events
-6. Verify display_id reuse works on fresh regeneration run
-7. UX: "Propose All WSs" button
+1. Run Alembic migration (20260323_001) on DEV database
+2. Wire PostgresLineageRepository for persistent lineage events (enables true lineage_path_id, replaces MVP surrogate)
+3. Verify display_id reuse + authority hydration work on fresh regeneration run after deploy
+4. Bound constraint authority type: promote intake/discovery constraints to authority records
+5. UX: "Propose All WSs" button
+6. Authority dashboard: user-facing view of all binding decisions for a project
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -263,7 +269,7 @@
 
 ## Test Suite
 
-- **2847 Tier-1/2 tests** passing as of 2026-03-18 (141+ new: governance floor, evaluators, stabilization gates, semantic checks, replay overrides)
+- **4690 Tier-1/2 tests** passing as of 2026-03-23 (66 new: authority records, repository, service, PGC ingress, hydration, QA bundle)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -286,6 +292,8 @@
 | wp_defect_evaluator | app/domain/services/wp_defect_evaluator.py | 5-check structural defect evaluation for WP artifacts |
 | governance_floor | app/domain/services/work_statement_registration.py | Artifact-type-aware mechanical governance floor enforcement |
 | stabilization_gate | app/domain/services/ws_crud_service.py | 4-gate certification spine at WP stabilization |
+| authority_service | app/domain/services/authority_service.py | Durable authority records: type-scoped supersession, bundle hydration, path-historical (ADR-064) |
+| authority_repository | app/domain/repositories/authority_repository.py | Protocol + InMemory + Postgres for authority record persistence |
 
 ---
 
@@ -388,9 +396,18 @@ All previous decisions (1-46) plus:
 
 60. **Theory of Constraints optimization discipline** -- Station-level improvements validated via measured replay experiments, not broad redesign. Replay harness + defect evaluator + override mechanism enables controlled A/B testing of prompt changes against real LLM run data.
 
+61. **Durable authority records (ADR-064)** -- PGC answers are project authority, not execution state. Persisted to authority_records table with type-scoped supersession `(project_id, authority_type, key)`. Dual-write alongside existing pgc_answers table. Plan executor loads from authority store first (durable_store), falls back to execution-scoped, then to "none". QA uses `authority_source` field for validation depth instead of heuristic message matching. execution_id is MVP surrogate for lineage_path_id until PostgresLineageRepository exists.
+
 ---
 
 ## Handoff Notes
+
+### Recent Work (2026-03-23)
+- WP-AUTH-001 executed: 6 WSs (table, repo, service, PGC ingress, hydration, QA bundle)
+- Authority records are now the primary path for PGC lineage, regeneration hydration, and QA validation depth
+- 66 new tests, 4690 total passing
+- Alembic migration 20260323_001 created (not yet applied to DEV)
+- WS-REWIND-021 superseded by WS-AUTH-005
 
 ### Recent Work (2026-03-18)
 - APAM-001 full pipeline re-run with v1.1.0/v1.1.1 prompts — binder critique identified 5 remaining defect classes
@@ -402,7 +419,9 @@ All previous decisions (1-46) plus:
 - 2847 tests passing
 
 ### Next Work
-- ta_version_id promotion gate: block WPC→WP promotion until TA version resolved (highest priority)
+- Apply Alembic migration 20260323_001 on DEV database
+- Wire PostgresLineageRepository (enables true lineage_path_id, replaces execution_id surrogate)
+- ta_version_id promotion gate: block WPC→WP promotion until TA version resolved
 - Unknown-handling policy: classify PD unknowns as advisory/blocking, gate on blocking unknowns
 - Ontology enforcement: mechanical check for vocabulary consistency across artifact chain
 - PD prompt tuning: secret solicitation compliance with GOV-SEC-T0-002

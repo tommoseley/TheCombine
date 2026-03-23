@@ -274,18 +274,22 @@ class QANodeExecutor(NodeExecutor):
         if semantic_qa_report.get("gate") == "fail":
             error_messages = self._extract_semantic_error_messages(semantic_qa_report)
 
-            # ADR-063: Graceful degradation when authority bundle is absent.
-            # If the failure is because the audit couldn't be performed
-            # (missing PGC/constraints/context), treat as warning not hard fail.
-            # The LLM may report "cannot perform compliance audit" when
-            # regeneration runs without carried-forward authority context.
-            is_missing_context = any(
-                "missing" in msg.lower() and ("input" in msg.lower() or "pgc" in msg.lower() or "constraint" in msg.lower())
-                for msg in error_messages
-            ) or any(
-                "cannot perform" in msg.lower() and "audit" in msg.lower()
-                for msg in error_messages
-            )
+            # ADR-064: Authority-aware validation depth.
+            # Check authority_source to determine if this is a true failure
+            # or an incomplete audit due to missing authority context.
+            authority_source = context.context_state.get("authority_source", "none") if hasattr(context, "context_state") and context.context_state else "none"
+
+            # If authority source is "none", treat failures from missing
+            # context as advisory (backward compatible with WS-REWIND-020)
+            is_missing_context = False
+            if authority_source == "none":
+                is_missing_context = any(
+                    "missing" in msg.lower() and ("input" in msg.lower() or "pgc" in msg.lower() or "constraint" in msg.lower())
+                    for msg in error_messages
+                ) or any(
+                    "cannot perform" in msg.lower() and "audit" in msg.lower()
+                    for msg in error_messages
+                )
 
             if is_missing_context:
                 logger.warning(

@@ -780,18 +780,20 @@ class PlanExecutor:
         state: DocumentWorkflowState,
         context: DocumentWorkflowContext,
     ) -> None:
-        """Load PGC answers from database for QA validation.
+        """Load PGC answers for QA validation.
 
-        Per WS-PGC-VALIDATION-001 Phase 2: When executing a QA node,
-        load persisted PGC answers to enable code-based validation.
-
-        Per ADR-042: Also loads merged clarifications if not already in context.
+        ADR-064 resolution order:
+        1. If authority already hydrated (authority_source=durable_store), skip
+        2. Try durable authority store (ADR-064)
+        3. Fall back to execution-scoped pgc_answers table (ADR-042)
 
         Args:
             state: Current execution state
             context: Execution context to update
         """
-        if not self._db_session:
+        # Already hydrated from authority store (WS-AUTH-005)
+        if context.context_state.get("authority_source") == "durable_store":
+            logger.debug("ADR-064: Authority already hydrated from durable store, skipping")
             return
 
         # Check if clarifications already in context (normal flow)
@@ -799,58 +801,97 @@ class PlanExecutor:
             logger.debug("ADR-042: Clarifications already in context, skipping DB load")
             return
 
+        if not self._db_session:
+            return
+
+        # ADR-064: Try durable authority store first
+        authority_loaded = False
         try:
-            from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+            from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+            from app.domain.services.authority_service import AuthorityService
+            from uuid import UUID
 
-            repo = PGCAnswerRepository(self._db_session)
-            pgc_answer = await repo.get_by_execution(state.execution_id)
+            auth_repo = PostgresAuthorityRepository(self._db_session)
+            auth_service = AuthorityService(auth_repo)
+            project_id = UUID(state.project_id) if isinstance(state.project_id, str) else state.project_id
 
-            if pgc_answer:
-                # Add to context_state for validation
-                context.context_state["pgc_questions"] = pgc_answer.questions
-                context.context_state["pgc_answers"] = pgc_answer.answers
+            bundle = await auth_service.get_authority_bundle(project_id)
 
-                # ADR-042/ADR-047: Also merge clarifications if not present
-                if not context.context_state.get("pgc_clarifications"):
-                    from app.api.services.mech_handlers import execute_operation
-
-                    op = self._ops_service.get_operation("pgc_clarification_processor")
-                    if op:
-                        result = await execute_operation(
-                            operation=op,
-                            inputs={"questions": pgc_answer.questions, "answers": pgc_answer.answers},
-                        )
-                        if result.success:
-                            clarifications = result.output.get("clarifications", [])
-                            invariants = result.output.get("invariants", [])
-                        else:
-                            logger.warning(f"Clarification merge failed: {result.error}, using fallback")
-                            from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                            clarifications = merge_clarifications(pgc_answer.questions, pgc_answer.answers)
-                            invariants = extract_invariants(clarifications)
-                    else:
-                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                        clarifications = merge_clarifications(pgc_answer.questions, pgc_answer.answers)
-                        invariants = extract_invariants(clarifications)
-
-                    context.context_state["pgc_clarifications"] = clarifications
-                    context.context_state["pgc_invariants"] = invariants
-
-                    logger.info(
-                        f"ADR-042: Merged {len(clarifications)} clarifications "
-                        f"({len(invariants)} binding) from DB for QA"
-                    )
-
+            if bundle["authority_source"] == "durable_store":
+                context.context_state["pgc_answers"] = bundle["pgc_answers"]
+                context.context_state["pgc_questions"] = bundle["pgc_questions"]
+                context.context_state["authority_record_ids"] = bundle["authority_record_ids"]
+                context.context_state["authority_source"] = "durable_store"
+                authority_loaded = True
                 logger.info(
-                    f"Loaded PGC answers for QA validation: "
-                    f"{len(pgc_answer.questions)} questions"
-                )
-            else:
-                logger.debug(
-                    f"No PGC answers found for execution {state.execution_id}"
+                    f"ADR-064: Loaded {len(bundle['pgc_answers'])} authority records "
+                    f"from durable store for project {state.project_id}",
+                    extra={"authority_record_ids": [str(rid) for rid in bundle["authority_record_ids"]]},
                 )
         except Exception as e:
-            logger.warning(f"Failed to load PGC answers for QA: {e}")
+            logger.warning(f"ADR-064: Durable authority load failed, falling back: {e}")
+
+        # Fall back to execution-scoped pgc_answers table
+        if not authority_loaded:
+            try:
+                from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
+
+                repo = PGCAnswerRepository(self._db_session)
+                pgc_answer = await repo.get_by_execution(state.execution_id)
+
+                if pgc_answer:
+                    context.context_state["pgc_questions"] = pgc_answer.questions
+                    context.context_state["pgc_answers"] = pgc_answer.answers
+                    context.context_state["authority_source"] = "execution_scoped"
+
+                    logger.info(
+                        f"Loaded PGC answers for QA validation (execution-scoped): "
+                        f"{len(pgc_answer.questions)} questions"
+                    )
+                else:
+                    context.context_state["authority_source"] = "none"
+                    logger.debug(
+                        f"No PGC answers found for execution {state.execution_id}"
+                    )
+            except Exception as e:
+                context.context_state["authority_source"] = "none"
+                logger.warning(f"Failed to load PGC answers for QA: {e}")
+
+        # ADR-042/ADR-047: Merge clarifications if answers loaded but clarifications not
+        pgc_answers_dict = context.context_state.get("pgc_answers")
+        pgc_questions_list = context.context_state.get("pgc_questions")
+        if pgc_answers_dict and pgc_questions_list and not context.context_state.get("pgc_clarifications"):
+            try:
+                from app.api.services.mech_handlers import execute_operation
+
+                op = self._ops_service.get_operation("pgc_clarification_processor") if self._ops_service else None
+                if op:
+                    result = await execute_operation(
+                        operation=op,
+                        inputs={"questions": pgc_questions_list, "answers": pgc_answers_dict},
+                    )
+                    if result.success:
+                        clarifications = result.output.get("clarifications", [])
+                        invariants = result.output.get("invariants", [])
+                    else:
+                        logger.warning(f"Clarification merge failed: {result.error}, using fallback")
+                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                        clarifications = merge_clarifications(pgc_questions_list, pgc_answers_dict)
+                        invariants = extract_invariants(clarifications)
+                else:
+                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
+                    clarifications = merge_clarifications(pgc_questions_list, pgc_answers_dict)
+                    invariants = extract_invariants(clarifications)
+
+                context.context_state["pgc_clarifications"] = clarifications
+                context.context_state["pgc_invariants"] = invariants
+
+                logger.info(
+                    f"ADR-042: Merged {len(clarifications)} clarifications "
+                    f"({len(invariants)} binding) for QA"
+                )
+            except Exception as e:
+                logger.warning(f"ADR-042: Clarification merge failed: {e}")
 
     async def _execute_node(
         self,

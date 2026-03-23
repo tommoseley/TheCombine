@@ -437,6 +437,43 @@ async def submit_user_input(
                     f"Persisted PGC answers for execution {execution_id}: "
                     f"{len(payload.get('questions', []))} questions"
                 )
+
+                # ADR-064: Also persist as durable authority records
+                try:
+                    from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+                    from app.domain.services.authority_service import AuthorityService
+
+                    auth_repo = PostgresAuthorityRepository(db)
+                    auth_service = AuthorityService(auth_repo)
+                    project_id_uuid = UUID(current_state.get("project_id"))
+                    exec_id_uuid = UUID(execution_id) if not isinstance(execution_id, UUID) else execution_id
+                    stage = current_state.get("document_type", "unknown")
+                    questions_list = payload.get("questions", [])
+
+                    for question in questions_list:
+                        q_id = question.get("id") or question.get("question_id", "")
+                        if q_id and q_id in request.user_input:
+                            await auth_service.record_authority(
+                                project_id=project_id_uuid,
+                                authority_type="pgc_answer",
+                                stage=stage,
+                                key=q_id,
+                                value=request.user_input[q_id],
+                                source_execution_id=exec_id_uuid,
+                                lineage_path_id=exec_id_uuid,  # MVP surrogate for lineage_path_id
+                                actor="user",
+                            )
+
+                    logger.info(
+                        f"ADR-064: Persisted {len(questions_list)} PGC answers as authority records "
+                        f"for project {current_state.get('project_id')}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"ADR-064: Authority record persistence failed (PGC flow continues): {e}",
+                        extra={"authority_fallback": True},
+                    )
+
                 # Note: commit happens with state save in executor
 
         state = await executor.submit_user_input(
