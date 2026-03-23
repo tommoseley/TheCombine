@@ -1,20 +1,26 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-21
-**Updated By:** Claude (Pipeline rewind foundations + TA prompt v1.1.0 + persistence fix)
+**Last Updated:** 2026-03-22
+**Updated By:** Claude (Rewind UX + bug fixes + ADR-064 authority context)
 
 ## Current Focus
 
-**COMPLETE:** Pipeline Rewind — Full Implementation (ADR-063, 2026-03-21)
-- All 4 WPs executed, 19 WSs complete
-- WP-REWIND-001: Core semantics — stage model, status model, impact evaluator, rewind service, lineage (81 tests)
-- WP-REWIND-002: Versioned storage — schema migration, version-aware resolution, non-destructive persistence, stale filtering
-- WP-REWIND-003: Enforcement — progression guard, destabilization, regeneration validation, error model (23 tests)
-- WP-REWIND-004: Minimal UX — StatusBadge, RewindControl, RewindSummary, LineageHistory + 4 API endpoints
-- TA prompt v1.1.0: component registry authority + governance pins
-- SQLAlchemy JSONB mutation tracking fix (MSTC-001 root cause)
-- ADR-063: Pipeline Rewind, Invalidation, and Regeneration Semantics
-- 3057 tests passing, 127 new rewind tests
+**COMPLETE:** Pipeline Rewind — Full Stack (ADR-063 + ADR-064, 2026-03-21/22)
+- All 4 rewind WPs executed + UX wiring + live testing
+- Rewind button in both document viewer paths (legacy + config-driven)
+- Pipeline order corrected: CI → PD → IP → TA → WP → WS
+- Display_id reuse on regeneration (prevents broken render model lookups)
+- QA graceful degradation when authority bundle absent (WS-REWIND-020)
+- ADR-064: Durable Authority Context — PGC answers as project-level governed inputs
+- Both ADRs pressure-tested and tightened (uniqueness scope, path semantics, cross-ADR rule)
+- 3060 tests passing
+
+**DISCOVERED:** Authority Context is the missing half of the system
+- PGC answers stored in execution state → lost on regeneration
+- Users re-asked settled questions after rewind
+- QA can't audit without authority bundle
+- ADR-064 defines the fix: durable, path-aware authority records
+- Implementation is next priority
 
 **COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
 - Blocking unknowns gate at WP stabilization (8 tests)
@@ -29,12 +35,13 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Re-run MSTC-001 with TA prompt v1.1.0 — validate component registry improvement
-2. Wire PostgresLineageRepository for persistent lineage events
-3. Wire regeneration into plan_executor (full pipeline trigger from rewind point)
-4. Evaluator severity levels (ERROR/WARNING/INFO) + optional gate enforcement
-5. UX: "Propose All WSs" button
-6. UX: Wire projectId into PipelineRail from Floor.jsx
+1. **ADR-064 implementation**: authority_records table + PGC answer persistence (highest priority)
+2. **WS-REWIND-021**: authority context carry-forward during regeneration
+3. Fix repeated PGC questions: check authority store before asking
+4. QA gate: reference authority records explicitly in compliance audit
+5. Wire PostgresLineageRepository for persistent lineage events
+6. Verify display_id reuse works on fresh regeneration run
+7. UX: "Propose All WSs" button
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
