@@ -1,23 +1,31 @@
 # PROJECT_STATE.md
 
 **Last Updated:** 2026-03-23
-**Updated By:** Claude (WP-AUTH-001: Durable Authority Context implementation)
+**Updated By:** Claude (WP-AUTH-001 + WP-EVAL-001 + prompt tuning + APAM-005 binder convergence)
 
 ## Current Focus
 
+**COMPLETE:** APAM-005 Binder Convergence (2026-03-23)
+- IP prompt v1.1.0 cross-cutting concern isolation rule eliminated WPC duplication (7 → 1 duplicate findings)
+- TA prompt v1.3.0 mandatory `owns` with example (LLM still not populating — needs output validation gate)
+- 4 binder regeneration cycles to reach coherent decomposition
+- First binder with clean WP boundaries, single-ownership decomposition, centralized infrastructure
+- Architectural decision: workflow definitions pin explicit prompt versions (correct per ADR-049)
+- Active versions: IP workflow v2.0.0, TA workflow v4.0.0, IP prompt v1.1.0, TA prompt v1.3.0
+
+**COMPLETE:** WP-EVAL-001 — Evaluator Calibration + TA Registry + PGC Authority (2026-03-23)
+- CLDR-003 stopword prefix filter: strips procedure verbs, articles, prepositions
+- TA schema `owns` field added (optional array per component)
+- PGC context enriched for PD and TA: decision parameter capture as durable authority
+- 23 new tests
+
 **COMPLETE:** WP-AUTH-001 — Durable Authority Context (ADR-064 MVP, 2026-03-23)
-- Authority records are now the **primary path** for PGC answer lineage, hydration, and QA depth
-- `authority_records` table + ORM model + Alembic migration (20260323_001)
-- AuthorityRepository (Protocol + InMemory + Postgres) with type-scoped supersession
-- AuthorityService: record_authority(), get_authority_bundle(), mark_path_historical()
-- PGC answer dual-write: every accepted PGC answer persists as a durable authority record
-- Regeneration hydration: plan_executor loads from authority store first, falls back to execution-scoped pgc_answers
-- QA authority-aware depth: `authority_source` ("durable_store" | "execution_scoped" | "none") replaces heuristic as primary path; WS-REWIND-020 heuristic preserved as tertiary fallback
-- Supersession type-scoped: `(project_id, authority_type, key)` — pgc_answer never collides with future bound_constraint
-- Authority bundle canonical keys: pgc_answers, pgc_questions, authority_record_ids, authority_source
-- execution_id used as MVP surrogate for lineage_path_id (documented limitation)
-- WS-REWIND-021 superseded (absorbed into WS-AUTH-005)
-- 66 new tests, 4690 total passing
+- Authority records are the **primary path** for PGC answer lineage, hydration, and QA depth
+- authority_records table + ORM + Alembic migration (20260323_001, applied to DEV)
+- AuthorityRepository + AuthorityService with type-scoped supersession
+- PGC dual-write, regeneration hydration, QA authority-aware depth
+- execution_id as MVP surrogate for lineage_path_id
+- 66 new tests, 4713 total passing
 
 **COMPLETE:** Pipeline Rewind — Full Stack (ADR-063 + ADR-064, 2026-03-21/22)
 - All 4 rewind WPs executed + UX wiring + live testing
@@ -42,12 +50,12 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Run Alembic migration (20260323_001) on DEV database
-2. Wire PostgresLineageRepository for persistent lineage events (enables true lineage_path_id, replaces MVP surrogate)
-3. Verify display_id reuse + authority hydration work on fresh regeneration run after deploy
-4. Bound constraint authority type: promote intake/discovery constraints to authority records
-5. UX: "Propose All WSs" button
-6. Authority dashboard: user-facing view of all binding decisions for a project
+1. Fix order type contradiction in APAM-005 binder: IP/PD say market orders, WP-024 says limit orders — add mechanical certification check
+2. Add cancel/abandon UI for stuck workflow executions (currently requires DB surgery)
+3. Mechanical enforcement: WP promotion duplicate-scope check (prevent cross-WP recreation of same responsibility)
+4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
+5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
+6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -269,7 +277,7 @@
 
 ## Test Suite
 
-- **4690 Tier-1/2 tests** passing as of 2026-03-23 (66 new: authority records, repository, service, PGC ingress, hydration, QA bundle)
+- **4713 Tier-1/2 tests** passing as of 2026-03-23 (89 new: authority records, evaluator calibration, TA schema, PGC decision authority)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -403,11 +411,15 @@ All previous decisions (1-46) plus:
 ## Handoff Notes
 
 ### Recent Work (2026-03-23)
-- WP-AUTH-001 executed: 6 WSs (table, repo, service, PGC ingress, hydration, QA bundle)
-- Authority records are now the primary path for PGC lineage, regeneration hydration, and QA validation depth
-- 66 new tests, 4690 total passing
-- Alembic migration 20260323_001 created (not yet applied to DEV)
-- WS-REWIND-021 superseded by WS-AUTH-005
+- WP-AUTH-001: 6 WSs — authority records as primary path for PGC lineage, hydration, QA depth
+- WP-EVAL-001: 3 WSs — CLDR-003 calibration, TA schema owns field, PGC decision parameter capture
+- IP prompt v1.1.0: cross-cutting concern isolation rule (eliminated WPC duplication)
+- TA prompt v1.3.0: mandatory owns with concrete JSON example
+- TA workflow v4.0.0, IP workflow v2.0.0: explicit prompt version pinning
+- APAM-005: 4 binder regeneration cycles → first coherent decomposition with clean WP boundaries
+- Alembic migration 20260323_001 applied to DEV
+- 89 new tests, 4713 total passing
+- Architectural decision: workflow definitions are the binding composition contract for prompt versions
 
 ### Recent Work (2026-03-18)
 - APAM-001 full pipeline re-run with v1.1.0/v1.1.1 prompts — binder critique identified 5 remaining defect classes
