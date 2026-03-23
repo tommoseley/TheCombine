@@ -1,0 +1,6 @@
+name: "Implementation Plan"
+version: "1.1.0"
+intent: "Add cross-cutting concern isolation rule to prevent WPC duplication"
+parent_version: "1.0.0"
+defect_targeted: "DUP-OBJ-001/DUP-SCOPE-001: config, logging, error handling duplicated across WPCs"
+tags: [governance, decomposition-discipline, prompt-tuning]
