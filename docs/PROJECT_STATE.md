@@ -441,6 +441,17 @@ All previous decisions (1-46) plus:
 - CRAP remediation: 6 quick-win coverage targets + render_project_binder CC=26
 - WS-RENDER-007: Binder Audit mode (mode=audit)
 
+### UX Backlog (prioritized)
+
+| Priority | Feature | Status |
+|----------|---------|--------|
+| Tier 1 | Rewind history viewer — timeline of pipeline steps, branch nodes, what changed | Open |
+| Tier 1 | Cancel/abandon stuck execution — Andon cord for stuck workflows | Open |
+| Tier 2 | "Propose All WSs" button — batch WS generation in Work Binder | Open |
+| Tier 2 | File upload for mockups/documents — governed project artifacts with lineage | Open |
+| Tier 3 | File viewer — inline rendering of uploaded files (images, PDFs, text) | Open |
+| Done | Pipeline rewind button | Complete (ADR-063, 2026-03-22) |
+
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
 - MCP connector -- read-only document query layer
