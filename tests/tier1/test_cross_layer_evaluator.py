@@ -235,6 +235,88 @@ class TestReportStructure:
 
 
 # ---------------------------------------------------------------------------
+# CLDR-003 false positive elimination (WS-EVAL-001)
+# ---------------------------------------------------------------------------
+
+class TestComponentExtractionCalibration:
+    """WS-EVAL-001: procedure verbs and articles must not produce false components."""
+
+    def _run(self, ws_text, ta_components=None):
+        """Helper: evaluate a single WS against TA with given components."""
+        comps = ta_components or [_ta_component("Real Engine")]
+        ta = _ta(components=comps)
+        ws = _ws("WS-TEST", scope_in=[ws_text] if isinstance(ws_text, str) else ws_text)
+        report = evaluate_cross_layer(ta, [ws])
+        return [f for f in report.findings if f.rule_id == "CLDR-003"]
+
+    def test_procedure_verb_create_stripped(self):
+        """'Create scoring module' should not produce 'create_scoring_module'."""
+        findings = self._run("Create scoring module structure in src/")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("create_scoring" in c for c in comp_names)
+
+    def test_procedure_verb_implement_stripped(self):
+        """'Implement Email Notification Service' should match 'email_notification_service'."""
+        findings = self._run("Implement Email Notification Service to alert users")
+        comp_names = [f.ws_claim for f in findings]
+        # Should find email_notification_service, NOT implement_email_notification_service
+        assert not any("implement_" in c for c in comp_names)
+
+    def test_article_a_stripped(self):
+        """'a validation service' should not produce 'a_validation_service'."""
+        findings = self._run("Create a validation service for input checking")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("a_validation" in c for c in comp_names)
+
+    def test_preposition_in_stripped(self):
+        """'in the service layer' should not produce 'in_the_service'."""
+        findings = self._run("Work in the service layer architecture")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("in_the_service" in c for c in comp_names)
+
+    def test_apam005_importing_each_module(self):
+        """'importing each module' should not be a component reference."""
+        findings = self._run("Verify all packages by importing each module")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("importing_each_module" in c or "importing_each" in c for c in comp_names)
+
+    def test_apam005_names_configuration_module(self):
+        """'names configuration module' should not be a component reference."""
+        findings = self._run("Environment variable names configuration module loads")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("names_configuration" in c for c in comp_names)
+
+    def test_apam005_all_decision_engine(self):
+        """'all decision engine' should not be a component reference."""
+        findings = self._run("Integrate all decision engine components")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("all_decision" in c for c in comp_names)
+
+    def test_apam005_for_api_client(self):
+        """'for API client' should not be a component reference."""
+        findings = self._run("Write unit tests for API client initialization")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("for_api" in c for c in comp_names)
+
+    def test_apam005_and_500_service(self):
+        """'and 500 service' should not be a component reference."""
+        findings = self._run("Error handling for 403, 429, and 500 Service Error")
+        comp_names = [f.ws_claim for f in findings]
+        assert not any("and_500" in c or "500_service" in c for c in comp_names)
+
+    def test_true_positive_preserved(self):
+        """Genuine undeclared component still detected."""
+        ta = _ta(components=[_ta_component("Daily Indicator Engine")])
+        ws = _ws("WS-023", objective="The Email Notification Service handles alerts")
+        report = evaluate_cross_layer(ta, [ws])
+        comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
+        assert len(comp_findings) >= 1
+        assert any("notification_service" in f.ws_claim.lower() or
+                    "email_notification" in f.ws_claim.lower()
+                    for f in comp_findings)
+
+
+# ---------------------------------------------------------------------------
 # APAM-like scenario
 # ---------------------------------------------------------------------------
 

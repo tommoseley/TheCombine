@@ -256,22 +256,77 @@ def _check_persistence_contradictions(
     return findings
 
 
+# Stopwords stripped from component-reference extraction (WS-EVAL-001).
+# These appear as leading words in procedure text and are not part of
+# the actual component name.
+_COMPONENT_STOPWORDS = frozenset({
+    # Articles
+    "a", "an", "the",
+    # Procedure verbs
+    "create", "implement", "add", "build", "configure", "set", "establish",
+    "write", "use", "integrate", "design", "install", "import", "importing",
+    "verify", "test", "run", "check", "deploy", "update", "remove", "work",
+    # Prepositions / conjunctions / determiners
+    "in", "for", "from", "with", "and", "of", "all", "each", "every",
+    "by", "on", "to", "at", "as", "or", "not", "no",
+    "this", "that", "its", "their", "our", "your",
+    # Generic qualifiers / nouns that appear before suffixes in procedure text
+    "names", "main", "basic", "new", "existing", "specific", "appropriate",
+    "variable", "tests", "packages", "function", "functions",
+    "configuration", "handling",
+    # Numbers (e.g., "500 service error")
+    "100", "200", "201", "204", "400", "401", "403", "404", "429", "500",
+})
+
+# Component suffix terms that signal a named component
+_COMPONENT_SUFFIXES = frozenset({
+    "engine", "service", "module", "manager", "validator", "handler",
+    "client", "calculator", "executor", "store",
+})
+
+
+def _clean_component_match(raw_match: str) -> str | None:
+    """Strip leading stopwords from a regex match and validate remainder.
+
+    Returns the cleaned component name, or None if the match is noise.
+    """
+    words = raw_match.strip().lower().split()
+
+    # Strip leading stopwords
+    while words and words[0] in _COMPONENT_STOPWORDS:
+        words = words[1:]
+
+    # Must have at least 2 words: qualifier + suffix
+    if len(words) < 2:
+        return None
+
+    # Last word must be a component suffix
+    if words[-1] not in _COMPONENT_SUFFIXES:
+        return None
+
+    # Must have at least one non-suffix word remaining
+    non_suffix = [w for w in words[:-1] if w not in _COMPONENT_SUFFIXES]
+    if not non_suffix:
+        return None
+
+    return "_".join(words)
+
+
 def _check_component_mismatches(
     ta_surfaces: dict[str, Any],
     ws_artifacts: list[dict[str, Any]],
 ) -> list[ContradictionFinding]:
     """Check if WS creates components not declared in TA."""
-    # This is a lighter check — just flag WS that reference major components
-    # not in the TA component list
     findings: list[ContradictionFinding] = []
     ta_components = ta_surfaces.get("component_names") or set()
 
     if not ta_components:
         return findings
 
-    # Component suffix pattern for extraction
+    # Component suffix pattern — captures multi-word phrases ending in a
+    # component suffix. We capture generously and clean up afterward.
     component_pattern = re.compile(
-        r'\b(\w+(?:\s+\w+)?\s+'
+        r'\b((?:\w+\s+){0,3}'
         r'(?:engine|service|module|manager|validator|handler|client|calculator|executor|store))\b',
         re.IGNORECASE,
     )
@@ -283,13 +338,14 @@ def _check_component_mismatches(
         text = _extract_ws_text(content)
         matches = component_pattern.findall(text)
         for match in matches:
-            normalized = _normalize(match)
-            ws_components[normalized].append(ws_id)
+            cleaned = _clean_component_match(match)
+            if cleaned is None:
+                continue
+            ws_components[cleaned].append(ws_id)
 
     for comp_name, ws_ids in ws_components.items():
         if comp_name not in ta_components:
-            # Only flag if it looks like a new component being created, not just referenced
-            # Heuristic: skip very common patterns
+            # Skip very common generic patterns
             if any(skip in comp_name for skip in ("error_handler", "file_manager", "log")):
                 continue
             findings.append(ContradictionFinding(

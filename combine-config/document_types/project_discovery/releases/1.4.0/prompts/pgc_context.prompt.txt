@@ -22,3 +22,10 @@ Questions Asked Here Must:
 * Affect how discovery is run
 * Change what discovery needs to explore
 * Or determine whether discovery should proceed as planned
+
+If the project involves algorithms, scoring logic, decision rules, or configurable thresholds:
+
+* Ask for the specific parameters, thresholds, and rules that govern those decisions
+* Ask for concrete values, not "configurable" — these answers become binding project authority
+* Examples: indicator periods (RSI 14-day), scoring thresholds (buy > 0.6), position limits (30% cap), allocation rules (20% per name)
+* These parameters will be persisted as durable authority records and referenced by downstream Work Statements

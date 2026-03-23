@@ -1,0 +1,6 @@
+name: "Technical Architecture"
+version: "1.2.0"
+intent: "Add component ownership paths (owns field) for downstream WS allowed_paths validation"
+parent_version: "1.1.0"
+defect_targeted: "CLDR-003 cannot validate WS allowed_paths against component boundaries without ownership mapping"
+tags: [governance, component-authority, ownership-paths]
