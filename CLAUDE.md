@@ -232,14 +232,15 @@ Key implications:
 ## Deployment Reality (Current)
 
 - **Compute**: AWS ECS Fargate (cluster: `the-combine-cluster`)
-- **Networking**: Route 53 A record -> direct task public IP (no ALB)
-- **DNS**: `thecombine.ai` (port 8000, HTTP only)
-- **IP changes**: Handled via `ops/aws/fixip.ps1` after redeployment
-- **CI/CD**: GitHub Actions -> ECR -> ECS task definition update -> Route 53 update
-- **Secrets**: Anthropic API key in AWS Secrets Manager, injected at runtime
-- **Database**: RDS PostgreSQL (publicly accessible for dev)
+- **Networking**: Route 53 A record (alias) -> ALB (`the-combine-alb`) -> ECS target group (port 8000)
+- **DNS**: `thecombine.ai` / `www.thecombine.ai` (HTTPS via ALB, wildcard ACM cert)
+- **DNS on deploy**: No update needed — ALB target group auto-registers new tasks
+- **CI/CD**: GitHub Actions (OIDC) -> ECR -> ECS task definition update -> rolling deploy
+- **Secrets**: Anthropic API key + DATABASE_URL in AWS Secrets Manager, injected at runtime
+- **Database**: RDS PostgreSQL `combine-devtest` instance (dev/test/prod databases)
+- **Full details**: `docs/infrastructure/AWS-INFRASTRUCTURE.md`
 
-No blue/green. No canary. IP changes on every deploy.
+No blue/green. No canary. Rolling deploy with single Fargate task.
 
 ---
 

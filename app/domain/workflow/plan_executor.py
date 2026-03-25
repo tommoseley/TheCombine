@@ -813,7 +813,11 @@ class PlanExecutor:
 
             auth_repo = PostgresAuthorityRepository(self._db_session)
             auth_service = AuthorityService(auth_repo)
-            project_id = UUID(state.project_id) if isinstance(state.project_id, str) else state.project_id
+            try:
+                project_id = UUID(state.project_id) if isinstance(state.project_id, str) else state.project_id
+            except (ValueError, AttributeError):
+                logger.debug(f"ADR-064: project_id '{state.project_id}' is not a valid UUID, skipping authority load")
+                raise  # fall through to outer except → execution-scoped fallback
 
             bundle = await auth_service.get_authority_bundle(project_id)
 
