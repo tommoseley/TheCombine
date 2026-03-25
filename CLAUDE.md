@@ -76,13 +76,12 @@ Per POL-WS-001, AI agents MUST:
 The following constraints apply to all work on this project:
 
 
-- **HTML Encoding Compliance Check (Mandatory)**
-  - Before recognizing any HTML file as ready for delivery, verify:
+- **HTML Encoding Compliance Check**
+  - If generating or modifying HTML files, verify:
     1. No BOM (Byte Order Mark) at file start
     2. No non-ASCII characters (all chars must be 0x00-0x7F)
-    3. No corrupted UTF-8 sequences (e.g., multi-byte chars displaying as garbage)
-  - If issues found, fix by stripping non-ASCII and writing with UTF8 no-BOM encoding
-  - Batch fix script available at: ops/scripts/fix_html_encoding.ps1
+    3. No corrupted UTF-8 sequences
+  - Note: SPA is the primary UI (Jinja2 templates removed). This mainly applies to binder markdown rendering.
 
 - **Regarding File not found errors**
   - You may encounter File not found errors for files that do in fact exist.
@@ -176,35 +175,44 @@ app/                    # Runtime application code (always deployed)
   auth/                 # Authentication (OAuth, session management)
   core/                 # Configuration, database, shared utilities
   domain/               # Domain models, repositories, services
-  web/                  # Web UI routes, templates, BFF layer
   llm/                  # LLM client and integration
   tasks/                # Background task infrastructure
 
 alembic/                # Database migrations
   versions/             # Migration scripts
 
-seed/                   # Governed inputs (optionally deployed)
-  prompts/              # Role and task prompts (versioned, certified)
-  question_packs/       # Concierge question templates
-  reference_data/       # Static reference data
+combine-config/         # Authoritative governed configuration
+  _active/              # active_releases.json (what versions are live)
+  document_types/       # Document type packages (package.yaml, schemas, prompts, IA)
+  prompts/              # Governed prompts (roles, tasks, templates, PGC context)
   schemas/              # JSON schemas for validation
-  workflows/            # Workflow definitions
+  workflows/            # Workflow definitions (versioned, explicit prompt pins)
+  ontologies/           # Domain ontology definitions
+  policies/             # Governance policies (POL-*)
+  governance/           # Tier-0 governance clauses
+
+seed/                   # Legacy governed inputs (parity copies, being migrated)
+  prompts/              # Role and task prompts (mirrored from combine-config)
+  schemas/              # JSON schemas (mirrored from combine-config)
+
+spa/                    # React SPA (Vite + React)
+  src/                  # SPA source code
+  dist/                 # Built SPA (served by FastAPI)
 
 ops/                    # Operator tooling (never in runtime image)
-  aws/                  # ECS, Route53, IAM scripts
+  aws/                  # AWS infrastructure scripts
   db/                   # Database seed/setup scripts
-  scripts/              # Dev/debug utilities (including fix_html_encoding.ps1)
-  testing/              # Test infrastructure scripts
+  scripts/              # Dev/debug utilities
 
 docs/                   # Human documentation
   adr/                  # Architecture Decision Records
-  policies/             # Governance policies (POL-*)
-  work-statements/      # Work Statement documents (WS-*)
+  infrastructure/       # AWS infrastructure documentation
+  work-statements/      # Work Statement documents (WS-*, WP-*)
   implementation-plans/ # Multi-commit implementation plans
   session_logs/         # AI session summaries (YYYY-MM-DD.md)
+  audits/               # Conformance audit reports
   governance/           # Governance documentation
   archive/              # Superseded/historical docs
-  project/              # Project-level documentation
 
 tests/                  # Test suite (CI only)
   tier1/                # In-memory, no DB (fast unit tests)
@@ -216,12 +224,12 @@ tests/                  # Test suite (CI only)
 
 data/                   # Runtime data (gitignored)
   workflow_state/       # Workflow execution state
-
-recycle/                # Deprecated code pending deletion
 ```
 
 Key implications:
-- Prompts live in `seed/prompts/` - they are **governed inputs**, not documentation
+- `combine-config/` is the **authoritative source** for workflows, prompts, schemas, and document type packages
+- `seed/` is a legacy mirror — `combine-config/` takes precedence
+- `spa/` is the primary UI — Jinja2 templates were removed (WS-WEB-CLEANUP-001)
 - Anything in `ops/` is operator-facing and never in the container
 - Docker copies only `app/`, `alembic/`, `alembic.ini` (explicit, not blanket)
 - ADRs go in `docs/adr/`, policies in `combine-config/policies/`, work statements in `docs/work-statements/`
@@ -271,21 +279,55 @@ Handlers:
 
 ---
 
-## Seed Governance
+## Prompt & Workflow Governance
 
-`seed/` contains governed inputs. Prompts are:
-- **Versioned** (filename includes version)
+Prompts and workflows live in `combine-config/` and are governed artifacts:
+- **Versioned** (directory-based: `releases/1.0.0/`, `releases/1.1.0/`)
 - **Certified** (auditor prompts validate structure)
-- **Hashed** (`seed/manifest.json` contains SHA-256 checksums)
 - **Logged** (prompt content recorded on every LLM execution per ADR-010)
 
 Prompts are **not edited casually**. Changes require:
 1. Explicit intent
-2. Version bump
+2. Version bump (new release directory)
 3. Re-certification
-4. Manifest regeneration
+4. Workflow definition update (if the workflow references the prompt)
+5. `active_releases.json` update
+
+### Prompt Version Chain (Critical)
+
+Workflow definitions pin **explicit prompt versions** (correct per ADR-049). `active_releases.json` governs which **workflow version** is active, not which prompt a workflow uses internally.
+
+The full chain for a prompt change:
+```
+prompt v1.2.0 created
+  → workflow definition updated to reference v1.2.0
+  → workflow bumped to v3.0.0
+  → active_releases.json points to workflow v3.0.0
+```
+
+Each step is explicit, auditable, and reproducible. **Bumping a prompt version in active_releases.json alone does NOT change what the workflow uses** — the workflow definition is the binding composition contract.
 
 > **Skill:** For version bump procedures, certification steps, ADR-040 examples, and ADR-049 composition patterns, see `.claude/skills/config-governance/SKILL.md`
+
+---
+
+## Authority Records (ADR-064)
+
+PGC answers are **project authority**, not execution state. They persist across pipeline rewinds and regenerations via the `authority_records` table.
+
+**How it works:**
+- Every PGC answer is dual-written: to `pgc_answers` (execution-scoped) AND `authority_records` (project-scoped)
+- On regeneration, the plan executor loads from authority store first, falls back to execution-scoped
+- QA uses `authority_source` field ("durable_store" | "execution_scoped" | "none") for validation depth
+- Supersession is type-scoped: `(project_id, authority_type, key)` — a pgc_answer never collides with a future bound_constraint
+
+**PGC authority-first question generation:**
+- Before PGC generates questions, existing authority is injected into the LLM context
+- An explicit suppression rule names already-answered question IDs
+- Mechanical post-generation filter strips any questions whose IDs match existing authority
+- This prevents downstream stages from re-asking what upstream already answered
+
+**MVP limitation:** `execution_id` is used as a surrogate for `lineage_path_id` until PostgresLineageRepository is implemented.
 
 ---
 
@@ -490,11 +532,20 @@ If something goes wrong during execution, **STOP and re-plan**. Do not push thro
 
 | ADR | Status | Summary |
 |-----|--------|---------|
-| ADR-009 |  Complete | Project Audit - all state changes explicit and traceable |
-| ADR-010 |  Complete | LLM Execution Logging - inputs, outputs, replay capability |
-| ADR-011 |  In Progress | Project/Epic organization (draft exists) |
-| ADR-045 |  Accepted | System Ontology - Primitives (Prompt Fragment, Schema), Composites (Role, Task, DCW, POW), Configuration Taxonomy |
-| ADR-054 |  Accepted | Governed Information Architecture - coverage levels, block rendering, no-guessing rule |
+| ADR-009 | Complete | Project Audit - all state changes explicit and traceable |
+| ADR-010 | Complete | LLM Execution Logging - inputs, outputs, replay capability |
+| ADR-040 | Complete | Stateless LLM Execution - no transcript replay, structured context_state only |
+| ADR-045 | Accepted | System Ontology - Primitives (Prompt Fragment, Schema), Composites (Role, Task, DCW, POW) |
+| ADR-049 | Complete | No Black Boxes - explicit DCW composition, no opaque "Generate" steps |
+| ADR-054 | Accepted | Governed Information Architecture - coverage levels, block rendering, no-guessing rule |
+| ADR-055 | Complete | Document Identity Standard - human-readable display_id ({PREFIX}-{NNN}) |
+| ADR-058 | Complete | Governance Lineage - two-layer enforcement (prompt + mechanical floor) |
+| ADR-059 | Complete | Project Ontology Layers - ontology evaluator, vocabulary consistency |
+| ADR-060 | Complete | Governance Runtime Modes - portable mode strips Combine-internal refs |
+| ADR-061 | Complete | Cross-Layer Contradiction Detection - TA vs WS mismatch evaluator |
+| ADR-062 | Complete | Duplicate Work Detection - WS objective/scope overlap evaluator |
+| ADR-063 | Complete | Pipeline Rewind - invalidation, regeneration, versioned document storage |
+| ADR-064 | Complete | Durable Authority Context - PGC answers as project-level governed inputs |
 
 > **Skill:** For IA authoring rules, coverage level examples, and render_as templates, see `.claude/skills/ia-validation/SKILL.md`
 > **Skill:** For running, extending, and debugging IA golden contract tests, see `.claude/skills/ia-golden-tests/SKILL.md`
@@ -767,7 +818,7 @@ If database connections fail:
 
 ---
 
-_Last reviewed: 2026-02-19_
+_Last reviewed: 2026-03-25_
 
 
 
