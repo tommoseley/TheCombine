@@ -6,7 +6,7 @@ isolating the data path from DB query through to render call.
 Mocks the DB layer to provide exact production document shapes.
 """
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

@@ -487,7 +487,7 @@ class TestBinderIAGateIntegration:
                 )
 
         assert not failures, (
-            f"Binder IA gate would return 409. Failures:\n" +
+            "Binder IA gate would return 409. Failures:\n" +
             "\n".join(f"  - {f}" for f in failures)
         )
 

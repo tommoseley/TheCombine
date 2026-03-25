@@ -84,7 +84,7 @@ def test_governance_toc_entries_indented():
     """Individual policy TOC entries are indented (sub-items under governance group)."""
     md = render_project_binder("P-001", "Test", _sample_docs(), policies=_sample_policies(), generated_at="2026-01-01T00:00:00Z")
     lines = md.split("\n")
-    policy_toc_lines = [l for l in lines if "POL-" in l and l.strip().startswith("-")]
+    policy_toc_lines = [ln for ln in lines if "POL-" in ln and ln.strip().startswith("-")]
     assert len(policy_toc_lines) >= 3, f"Expected 3+ policy TOC entries, found {len(policy_toc_lines)}"
     for line in policy_toc_lines:
         assert line.startswith("  -") or line.startswith("- "), f"Policy TOC entry not properly formatted: {line!r}"

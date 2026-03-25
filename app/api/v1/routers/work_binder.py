@@ -40,10 +40,15 @@ from app.domain.services.wp_promotion_service import (
     build_audit_event,
     build_promoted_wp,
     validate_promotion_request,
+    validate_ta_for_promotion,
 )
 from app.domain.services.ws_crud_service import (
     add_ws_to_wp_index,
     build_new_ws,
+    certify_wp_for_stabilization,
+    check_blocking_unknowns,
+    check_parent_wp_invariant,
+    check_ws_referential_integrity,
     generate_order_key,
     reorder_ws_index,
     validate_stabilization,
@@ -66,6 +71,7 @@ from app.domain.services.ws_proposal_service import (
     build_ws_index_entries,
     validate_proposal_gates,
 )
+from app.domain.services.document_builder_pure import apply_post_processing
 from app.domain.services.task_execution_service import (
     TaskExecutionError,
     TaskOutputParseError,
@@ -444,6 +450,28 @@ async def promote_candidate(
     project = await _resolve_project(db, request.project_id)
     wpc_doc = await _load_wpc_document(db, request.wpc_id, project.id)
 
+    # --- TA version gate: resolve ta_version_id from TA document ---
+    ta_result = await db.execute(
+        select(Document).where(
+            Document.doc_type_id == "technical_architecture",
+            Document.space_id == wpc_doc.space_id,
+            Document.space_type == "project",
+        ).order_by(Document.created_at.desc()).limit(1)
+    )
+    ta_doc_row = ta_result.scalars().first()
+    ta_version_id = validate_ta_for_promotion(
+        {"display_id": ta_doc_row.display_id, "content": ta_doc_row.content} if ta_doc_row else None
+    )
+    if ta_version_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "TA_VERSION_REQUIRED",
+                "message": "Cannot promote WPC to WP: no Technical Architecture document found for this project. "
+                           "A TA must exist before WP promotion to establish governance lineage.",
+            },
+        )
+
     # Check for existing WP promoted from this WPC (idempotency)
     existing_wp = await _find_wp_by_source_wpc(db, request.wpc_id, wpc_doc.space_id)
     if existing_wp:
@@ -468,8 +496,10 @@ async def promote_candidate(
         transformation_notes=request.transformation_notes,
         title_override=request.title_override,
         rationale_override=request.rationale_override,
+        ta_version_id=ta_version_id,
     )
 
+    apply_post_processing(wp_content, "work_package")
     wp_doc = Document(
         space_type="project",
         space_id=wpc_doc.space_id,
@@ -678,6 +708,7 @@ async def propose_work_statements(
     ws_ids = []
     for ws_data in ws_docs_data:
         ws_id = ws_data["ws_id"]
+        apply_post_processing(ws_data, "work_statement")
         ws_doc = Document(
             space_type=wp_doc.space_type,
             space_id=wp_doc.space_id,
@@ -788,6 +819,7 @@ async def create_work_statement(
     order_key = generate_order_key(existing_keys)
 
     ws_data = build_new_ws(wp_id, ws_id, order_key, body.model_dump())
+    apply_post_processing(ws_data, "work_statement")
 
     wp_content = add_ws_to_wp_index(wp_content, ws_id, order_key)
     wp_content = apply_edition_bump(wp_content, old_content, "system")
@@ -1290,6 +1322,67 @@ async def stabilize_work_package(
         )
     )
     ws_docs = [doc for doc in result.scalars().all() if doc.content]
+
+    # --- Certification gate: completeness + governance (WS-PI-2A) ---
+    cert_findings = certify_wp_for_stabilization(
+        wp_content, [doc.content for doc in ws_docs]
+    )
+    if cert_findings:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "CERTIFICATION_FAILED",
+                "findings": [f.to_dict() for f in cert_findings],
+            },
+        )
+
+    # --- Referential integrity gate (WS-PI-2B) ---
+    persisted_ws_ids = [
+        (doc.content or {}).get("ws_id", str(doc.id)) for doc in ws_docs
+    ]
+    ref_findings = check_ws_referential_integrity(wp_content, persisted_ws_ids)
+    if ref_findings:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "REFERENTIAL_INTEGRITY_FAILED",
+                "findings": [f.to_dict() for f in ref_findings],
+            },
+        )
+
+    # --- Parent WP invariant (WS-PI-2C) ---
+    content_wp_id = wp_content.get("wp_id", wp_id)
+    parent_findings = check_parent_wp_invariant(
+        content_wp_id, [doc.content for doc in ws_docs]
+    )
+    if parent_findings:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": "PARENT_WP_MISMATCH",
+                "findings": [f.to_dict() for f in parent_findings],
+            },
+        )
+
+    # --- Blocking unknowns gate (WS-PI-UNK) ---
+    if project_id:
+        pd_result = await db.execute(
+            select(Document).where(
+                Document.doc_type_id == "project_discovery",
+                Document.project_id == project_id,
+            ).order_by(Document.updated_at.desc()).limit(1)
+        )
+        pd_doc = pd_result.scalar_one_or_none()
+        pd_content = pd_doc.content if pd_doc else None
+        unk_findings = check_blocking_unknowns(pd_content)
+        if unk_findings:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": "BLOCKING_UNKNOWNS",
+                    "findings": [f.to_dict() for f in unk_findings],
+                },
+            )
 
     # Filter to DRAFT WSs only
     draft_docs = [doc for doc in ws_docs if (doc.content or {}).get("state", "DRAFT") == "DRAFT"]

@@ -47,6 +47,7 @@ from app.domain.services.document_builder_pure import (
     build_user_message as pure_build_user_message,
     compute_stream_progress,
     should_emit_stream_update,
+    apply_post_processing,
 )
 
 logger = logging.getLogger(__name__)
@@ -352,6 +353,7 @@ class DocumentBuilder:
         created_ids = []
         for spec in child_specs:
             try:
+                apply_post_processing(spec["content"], spec["doc_type_id"])
                 child_doc = await self.document_service.create_document(
                     space_type=ctx.space_type,
                     space_id=ctx.space_id,
@@ -409,6 +411,7 @@ class DocumentBuilder:
             
             await self._log_llm_output(run_id, raw_content)
             result = ctx.handler.process(raw_content, ctx.config.get("schema_definition"))
+            apply_post_processing(result["data"], ctx.doc_type_id)
             doc = await self._persist_document(ctx, result, input_tokens, output_tokens, run_id, created_by)
             html = ctx.handler.render(result["data"])
             await self._complete_llm_logging(run_id, input_tokens, output_tokens, str(doc.id))
@@ -527,6 +530,7 @@ class DocumentBuilder:
             
             try:
                 result = handler.process(accumulated_text, config.get("schema_definition"))
+                apply_post_processing(result["data"], doc_type_id)
                 parse_status = "PARSED"
                 validation_status = "PASSED"
             except DocumentParseError as e:
@@ -535,7 +539,7 @@ class DocumentBuilder:
             except DocumentValidationError as e:
                 await self._log_llm_error(run_id, "VALIDATE", "VALIDATION_ERROR", str(e))
                 raise
-            
+
             yield ProgressUpdate("saving", "Saving document...", 85).to_sse()
             doc = await self._persist_document(ctx, result, input_tokens, output_tokens, run_id, created_by)
             

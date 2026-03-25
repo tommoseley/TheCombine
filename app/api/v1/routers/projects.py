@@ -888,6 +888,7 @@ async def render_project_binder(
     format: str = Query("md", description="Output format (only 'md' supported)"),
     profile: str = Query("print", description="Render profile: standard | print"),
     mode: str = Query("standard", description="Render mode: standard | evidence"),
+    governance: str = Query("native", description="Governance mode: native | portable (ADR-060)"),
     db: AsyncSession = Depends(get_db),
 ):
     """Render all project documents as a single Markdown binder (WS-RENDER-002/004).
@@ -896,6 +897,8 @@ async def render_project_binder(
     WPs are ordered by display_id; WSs within WPs follow ws_index order.
 
     When mode=evidence, includes per-document YAML frontmatter and Evidence Index.
+    When governance=portable, policies are rendered as declarative constraints
+    without references to Combine-internal infrastructure (ADR-060).
 
     Returns the rendered Markdown as a downloadable attachment.
     """
@@ -1002,6 +1005,12 @@ async def render_project_binder(
     # Load governance policies from combine-config/policies/
     policy_list = _load_governance_policies()
 
+    # Portable mode (ADR-060): convert policies to declarative constraints
+    is_portable = governance.lower() == "portable"
+    if is_portable:
+        from app.domain.services.governance_portable import convert_policies_to_portable
+        policy_list = convert_policies_to_portable(policy_list)
+
     # Render binder
     from app.domain.services.binder_renderer import render_project_binder as _render_binder
 
@@ -1010,12 +1019,13 @@ async def render_project_binder(
         project_title=project.name or project.project_id,
         documents=binder_docs,
         policies=policy_list,
+        governance_mode="portable" if is_portable else "native",
     )
 
     # Evidence mode (WS-RENDER-004): add per-document frontmatter + Evidence Index
     if mode == "evidence":
         from app.domain.services.evidence_renderer import (
-            render_evidence_header, compute_source_hash, render_evidence_index,
+            compute_source_hash, render_evidence_index,
         )
         # Build evidence index data
         evidence_entries = []
@@ -1037,6 +1047,26 @@ async def render_project_binder(
             markdown = parts[0] + "\n\n" + evidence_index + "\n\n---\n" + parts[1]
         else:
             markdown = evidence_index + "\n\n" + markdown
+
+    # Ontology evaluation (ADR-059): append summary if ontology is declared
+    ontology_section = _render_ontology_summary(binder_docs)
+    if ontology_section:
+        markdown += "\n\n" + ontology_section
+
+    # WP boundary overlap evaluation: append summary
+    overlap_section = _render_overlap_summary(binder_docs)
+    if overlap_section:
+        markdown += "\n\n" + overlap_section
+
+    # Cross-layer contradiction evaluation (ADR-061): append summary
+    contradiction_section = _render_contradiction_summary(binder_docs)
+    if contradiction_section:
+        markdown += "\n\n" + contradiction_section
+
+    # Duplicate WS objective detection (ADR-062): append summary
+    duplicate_section = _render_duplicate_summary(binder_docs)
+    if duplicate_section:
+        markdown += "\n\n" + duplicate_section
 
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"
@@ -1122,6 +1152,200 @@ async def _find_execution_id(
         if exec_id:
             return exec_id
     return None
+
+
+def _render_ontology_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run ontology evaluator against binder docs and render a summary section.
+
+    Loads all ontology YAML files from combine-config/ontologies/.
+    If no ontology is declared, returns None (skip with notice).
+
+    Returns:
+        Markdown section string, or None if no ontology files exist.
+    """
+    import pathlib
+    import yaml
+    from app.domain.services.ontology_evaluator import evaluate_ontology
+
+    ontology_dir = pathlib.Path("combine-config/ontologies")
+    if not ontology_dir.exists():
+        return None
+
+    yaml_files = sorted(ontology_dir.glob("*.yaml"))
+    if not yaml_files:
+        return None
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Ontology Evaluation (ADR-059)")
+    sections.append("")
+
+    for yaml_file in yaml_files:
+        with open(yaml_file) as f:
+            ontology_config = yaml.safe_load(f) or {}
+
+        report = evaluate_ontology(ontology_config, binder_docs)
+
+        if report.skipped:
+            sections.append(f"**{yaml_file.stem}**: {report.skip_reason}")
+            continue
+
+        if not report.findings:
+            sections.append(
+                f"**{report.project_id} (v{report.ontology_version})**: "
+                f"ontology clean — {report.artifact_count} artifacts checked, "
+                f"0 cross-layer leakage findings"
+            )
+        else:
+            sections.append(
+                f"**{report.project_id} (v{report.ontology_version})**: "
+                f"ontology leakage findings: {len(report.findings)}"
+            )
+            sections.append("")
+            sections.append("| Artifact | Field | Term | Expected Layer | Actual Layer |")
+            sections.append("| --- | --- | --- | --- | --- |")
+            for f in report.findings:
+                sections.append(
+                    f"| {f.artifact_id} | {f.field_path} | `{f.offending_term}` "
+                    f"| {f.expected_layer} | {f.actual_layer} |"
+                )
+
+    return "\n".join(sections)
+
+
+def _render_overlap_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run WP boundary overlap evaluator and render a summary section.
+
+    Returns:
+        Markdown section string, or None if fewer than 2 WPs exist.
+    """
+    from app.domain.services.wp_overlap_evaluator import evaluate_wp_overlap
+
+    wp_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_package"]
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if len(wp_docs) < 2:
+        return None
+
+    report = evaluate_wp_overlap(wp_docs, ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## WP Boundary Overlap Evaluation")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**Boundaries clean** — {report.wp_count} WPs checked, "
+            f"0 overlap findings"
+        )
+    else:
+        sections.append(
+            f"**Overlap findings: {len(report.findings)}** "
+            f"({report.wp_count} WPs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | WPs | Type | Evidence |")
+        sections.append("| --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {', '.join(f.wp_ids)} "
+                f"| {f.overlap_type} | {f.evidence} |"
+            )
+
+    return "\n".join(sections)
+
+
+def _render_contradiction_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run cross-layer contradiction evaluator and render a summary section.
+
+    Finds the TA document, compares WS content against TA authority surfaces.
+
+    Returns:
+        Markdown section string, or None if no TA exists.
+    """
+    from app.domain.services.cross_layer_evaluator import evaluate_cross_layer
+
+    ta_docs = [d for d in binder_docs if d.get("doc_type_id") == "technical_architecture"]
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if not ta_docs:
+        return None
+
+    ta_doc = ta_docs[0]  # Use first TA
+    report = evaluate_cross_layer(ta_doc, ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Cross-Layer Contradiction Evaluation (ADR-061)")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**No contradictions detected** — {report.artifacts_checked} WSs "
+            f"checked against TA authority surfaces"
+        )
+    else:
+        sections.append(
+            f"**Contradiction findings: {len(report.findings)}** "
+            f"({report.artifacts_checked} WSs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | WS | Type | TA Authority | WS Claim |")
+        sections.append("| --- | --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {f.artifact_id} | {f.contradiction_type} "
+                f"| {f.ta_authority} | {f.ws_claim} |"
+            )
+
+    return "\n".join(sections)
+
+
+def _render_duplicate_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run WS duplicate objective evaluator and render a summary section.
+
+    Returns:
+        Markdown section string, or None if fewer than 2 WSs exist.
+    """
+    from app.domain.services.ws_duplicate_evaluator import evaluate_ws_duplicates
+
+    ws_docs = [d for d in binder_docs if d.get("doc_type_id") == "work_statement"]
+
+    if len(ws_docs) < 2:
+        return None
+
+    report = evaluate_ws_duplicates(ws_docs)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## Duplicate WS Objective Detection (ADR-062)")
+    sections.append("")
+
+    if not report.findings:
+        sections.append(
+            f"**No duplicates detected** — {report.ws_count} WSs checked"
+        )
+    else:
+        sections.append(
+            f"**Potential duplicates: {len(report.findings)}** "
+            f"({report.ws_count} WSs checked)"
+        )
+        sections.append("")
+        sections.append("| Rule | Work Statements | WPs | Type | Evidence |")
+        sections.append("| --- | --- | --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.rule_id} | {', '.join(f.ws_ids)} "
+                f"| {', '.join(f.parent_wp_ids)} "
+                f"| {f.duplicate_type} | {f.evidence[:100]} |"
+            )
+
+    return "\n".join(sections)
 
 
 def _load_governance_policies() -> List[Dict[str, str]]:

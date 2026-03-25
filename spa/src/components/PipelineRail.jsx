@@ -8,6 +8,8 @@
  * WS-PIPELINE-002: Persistent left-aligned pipeline rail.
  */
 import StationDots from './StationDots';
+import StatusBadge from './StatusBadge';
+import RewindControl from './RewindControl';
 
 const DEFAULT_STATIONS = [
     { id: 'pgc', label: 'PGC', state: 'queued' },
@@ -54,7 +56,7 @@ function formatDocTypeName(docType) {
 /**
  * Single rail node — a card in the vertical pipeline.
  */
-function RailNode({ item, isSelected, onClick }) {
+function RailNode({ item, isSelected, onClick, projectId, onRewindComplete }) {
     const rawState = item.state || 'ready_for_production';
     const artifactState = getArtifactState(rawState);
     const colors = ARTIFACT_COLORS[artifactState];
@@ -113,6 +115,21 @@ function RailNode({ item, isSelected, onClick }) {
                         dormant={isBlocked || !(item.stations?.length > 0)}
                     />
                 )}
+
+                {/* ADR-063: Status badge + Rewind control */}
+                {!isWorkBinder && item.documentStatus && (
+                    <div className="flex items-center gap-2 mt-1">
+                        <StatusBadge status={item.documentStatus} />
+                    </div>
+                )}
+                {!isWorkBinder && projectId && artifactState === 'stabilized' && (
+                    <RewindControl
+                        projectId={projectId}
+                        stageName={item.id}
+                        displayName={formatDocTypeName(item.id)}
+                        onRewindComplete={onRewindComplete}
+                    />
+                )}
             </div>
         </div>
     );
@@ -136,7 +153,7 @@ function Connector({ sourceState, targetState, theme }) {
     );
 }
 
-export default function PipelineRail({ data, selectedNodeId, onSelectNode, theme }) {
+export default function PipelineRail({ data, selectedNodeId, onSelectNode, theme, projectId, onRewindComplete }) {
     // Filter to L1 items only
     const l1Items = data.filter(d => (d.level || 1) === 1);
 
@@ -150,6 +167,8 @@ export default function PipelineRail({ data, selectedNodeId, onSelectNode, theme
                         item={item}
                         isSelected={selectedNodeId === item.id}
                         onClick={() => onSelectNode(item.id)}
+                        projectId={projectId}
+                        onRewindComplete={onRewindComplete}
                     />
                     {idx < l1Items.length - 1 && (
                         <Connector

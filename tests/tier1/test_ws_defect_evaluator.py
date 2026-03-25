@@ -110,7 +110,7 @@ class TestEvaluationReportStructure:
         report = evaluate_ws(_good_ws())
         assert isinstance(report, EvaluationReport)
         assert report.artifact_type == "work_statement"
-        assert report.evaluator_version == "1.0"
+        assert report.evaluator_version == "1.1"
         assert isinstance(report.checks, list)
         assert len(report.checks) > 0
         assert hasattr(report, "summary")
@@ -195,6 +195,25 @@ class TestRequiredSectionsPresent:
         assert check["status"] == "fail"
         # Evidence should mention what's missing
         assert "missing" in check["evidence"].lower() or "verification" in check["evidence"].lower()
+
+    def test_pass_with_scope_in_scope_out(self):
+        """Accept scope_in/scope_out as equivalent to nested scope."""
+        ws = _good_ws()
+        del ws["scope"]
+        ws["scope_in"] = ["OAuth2 integration"]
+        ws["scope_out"] = ["Social login"]
+        report = evaluate_ws(ws)
+        check = _find_check(report, "required_sections_present")
+        assert check["status"] == "pass"
+
+    def test_pass_with_only_scope_in(self):
+        """Accept scope_in alone as satisfying scope requirement."""
+        ws = _good_ws()
+        del ws["scope"]
+        ws["scope_in"] = ["OAuth2 integration"]
+        report = evaluate_ws(ws)
+        check = _find_check(report, "required_sections_present")
+        assert check["status"] == "pass"
 
 
 # =========================================================================

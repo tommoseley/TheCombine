@@ -1,0 +1,6 @@
+name: "Technical Architecture"
+version: "1.1.0"
+intent: "Add component registry authority rules, data model authority rules, and governance pins"
+parent_version: "1.0.0"
+defect_targeted: "CLDR-003 undeclared component references (18 findings in MSTC-001)"
+tags: [governance, component-authority, prompt-tuning]

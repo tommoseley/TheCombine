@@ -37,6 +37,7 @@ def render_project_binder(
     documents: List[Dict[str, Any]],
     policies: Optional[List[Dict[str, str]]] = None,
     generated_at: Optional[str] = None,
+    governance_mode: str = "native",
 ) -> str:
     """
     Render a project binder to Markdown.
@@ -98,7 +99,7 @@ def render_project_binder(
 
     # Cover block
     parts: List[str] = []
-    parts.append(_render_cover(project_id, project_title, generated_at, len(ordered)))
+    parts.append(_render_cover(project_id, project_title, generated_at, len(ordered), governance_mode))
 
     if not ordered:
         parts.append("*No documents produced yet.*")
@@ -124,6 +125,7 @@ def _render_cover(
     project_title: str,
     generated_at: str,
     document_count: int,
+    governance_mode: str = "native",
 ) -> str:
     """Render the binder cover block."""
     lines = [
@@ -132,7 +134,10 @@ def _render_cover(
         f"> Generated: {generated_at}",
         f"> Renderer: {_RENDERER_VERSION}",
         f"> Documents: {document_count}",
+        f"> Governance: {governance_mode}",
     ]
+    if governance_mode == "portable":
+        lines.append("> Note: Governance rendered as declarative constraints (ADR-060)")
     return "\n".join(lines)
 
 

@@ -1,0 +1,95 @@
+# Task: Technical Architecture (Implementation-Ready)
+
+You are producing the Technical Architecture document for The Combine.
+
+Purpose:
+Transform validated planning artifacts into an implementation-ready architecture specification.
+This document is used by BA, Dev, and QA to build correctly without requiring additional design decisions.
+
+Inputs:
+- Product Discovery document (PM-facing discovery output)
+- PM Epic definition (project_name, epic_id, epic_summary, goals, constraints, non-goals, MVP scope notes)
+These are the ONLY sources of requirements.
+
+Scope rules:
+- Do not invent features or expand scope beyond the inputs.
+- Convert requirements into technical mechanisms (components, interfaces, data model, workflows).
+- Where the inputs are ambiguous, record open_questions and make explicit assumptions (clearly marked).
+- Distinguish MVP vs later-phase explicitly.
+
+Use subordinate worker perspectives internally:
+- Worker A (API & Boundary): endpoints/contracts, module boundaries, trust boundaries, idempotency, auth
+- Worker B (Data & Persistence): entities, fields, validation, persistence strategy, consistency
+- Worker C (Integration & Ops): external dependencies, observability, error handling, runbook-level concerns
+
+What "implementation-ready" means here:
+- Clear components with responsibilities and dependencies
+- Clear interfaces (internal/external) with endpoint contracts and error cases
+- Clear data model (entities, relationships, validation rules)
+- Clear workflows (step-by-step, triggers, outputs)
+- Explicit quality attributes and acceptance criteria
+- Risks with mitigations and current status
+- Open questions explicitly listed
+
+## Component Registry Rules (Governance)
+
+The components array in this document is the AUTHORITATIVE component dictionary for all downstream artifacts (Work Packages, Work Statements).
+
+Rules:
+1. EXHAUSTIVE COVERAGE: Every capability the system needs must have a named component. Anticipate what downstream Work Statements will need to build. If a feature requires a service, handler, engine, manager, or adapter, it must appear as a named component here.
+
+2. GRANULARITY: Include sub-components and internal services, not just top-level modules. If a component contains distinct responsibilities that could be assigned to different Work Statements, decompose it into named sub-components.
+
+3. AUTHORITATIVE NAMING: The component names you declare here are binding. Downstream Work Packages and Work Statements MUST use these exact names. Do not use generic names like "utils" or "helpers" — use specific, descriptive names that identify what the component does.
+
+4. DEPENDENCY COMPLETENESS: Every component's dependencies array must reference other components by their exact declared name. No dangling references.
+
+5. INTERFACE COVERAGE: If a component exposes capabilities to other components, declare those interfaces explicitly. Internal service boundaries matter as much as external API boundaries.
+
+6. OWNERSHIP PATHS: Each component should declare an `owns` array listing the directory or file paths it is responsible for (e.g., `["src/trading/", "src/orders/"]`). This enables downstream validation that Work Statements' allowed_paths align with component boundaries. Every source directory should be owned by exactly one component.
+
+Before finalizing the components array, perform this self-check:
+- Walk through each workflow step. Does every action reference a declared component?
+- Walk through the data model. Does every entity have a component responsible for its persistence and business logic?
+- Walk through the quality attributes. Does every observability, security, or performance concern map to a specific component?
+- Walk through the `owns` paths. Does every source directory appear in exactly one component's ownership?
+- If any workflow step, data entity, or quality concern has no owning component, ADD one.
+
+## Data Model Authority Rules (Governance)
+
+The data_models array is the AUTHORITATIVE schema definition for all downstream artifacts.
+
+Rules:
+1. Every entity that will be persisted, transmitted, or validated must be declared here with complete field definitions.
+2. Field names declared here are binding for downstream implementation.
+3. If a workflow produces or consumes structured data, the corresponding data model must exist.
+4. Relationships between entities must be explicitly declared.
+
+## Governance Pins
+
+This document must include governance_pins in the output:
+- ta_version_id: Use the format "TA-{version}" (e.g., "TA-001")
+- adr_refs: Reference any applicable ADRs from the project context
+- policy_refs: Include at minimum ["POL-ADR-EXEC-001"]
+
+If governance context is incomplete or missing from inputs, explicitly note this in a contradiction_notes field rather than omitting governance_pins entirely.
+
+Output rules:
+- Output valid JSON only.
+- Follow the Technical Architecture Canon schema exactly.
+- Echo project_name and epic_id exactly as provided in the PM Epic.
+- All arrays must be present even if empty.
+- Never output null.
+- No commentary, markdown, or explanation outside JSON.
+- Be concrete and specific; avoid vague phrases like "handle errors appropriately".
+
+Final self-check before output:
+- JSON parses.
+- No keys outside schema.
+- All required keys present and non-null.
+- No scope additions beyond inputs.
+- MVP vs later-phase is clearly distinguished in all relevant sections.
+- Component registry covers every workflow action and data entity.
+- No workflow step references a component that doesn't exist in the components array.
+- Every source directory is owned by exactly one component.
+- Governance pins are populated with at minimum policy_refs and ta_version_id.

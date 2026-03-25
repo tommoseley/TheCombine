@@ -5,10 +5,7 @@ with provenance and verification data for rendered documents.
 No DB, no HTTP, no side effects.
 """
 
-import hashlib
-import json
 
-import pytest
 
 from app.domain.services.evidence_renderer import (
     render_evidence_header,

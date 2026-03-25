@@ -1,0 +1,595 @@
+{
+  "meta": {
+    "date": "2026-03-18T17:18:23.770607+00:00",
+    "scenario_count": 5,
+    "successful_runs": 5,
+    "failed_runs": 0,
+    "total_input_tokens": 16689,
+    "total_output_tokens": 1814,
+    "prompt_version": "1.1.1",
+    "model": "claude-sonnet-4-20250514"
+  },
+  "results": [
+    {
+      "scenario_id": "WP-SIMPLE-001",
+      "label": "Simple single-feature",
+      "wp_data": {
+        "wp_id": "user_authentication_module",
+        "title": "User Authentication Module",
+        "rationale": "The system requires basic username/password authentication before any other features can be used.",
+        "scope_in": [
+          "Implement login form with username and password fields",
+          "Integrate bcrypt password hashing for secure credential storage",
+          "Establish JWT-based session management with persistence across page refreshes"
+        ],
+        "scope_out": [
+          "OAuth integration",
+          "Two-factor authentication"
+        ],
+        "dependencies": [],
+        "definition_of_done": [
+          "Users can log in with username and password",
+          "Sessions persist across page refreshes"
+        ],
+        "governance_pins": {
+          "ta_version_id": "TA-v1.0-auth-baseline",
+          "adr_refs": [
+            "ADR-010"
+          ],
+          "policy_refs": [
+            "POL-ADR-EXEC-001",
+            "POL-QA-001"
+          ]
+        },
+        "source_candidate_ids": [
+          "WPC-001"
+        ],
+        "contradiction_notes": []
+      },
+      "evaluation": {
+        "checks": [
+          {
+            "check_id": "governance_pins_populated",
+            "status": "pass",
+            "evidence": "ta_version_id=TA-v1.0-auth-baseline, policy_refs=['POL-ADR-EXEC-001', 'POL-QA-001']",
+            "notes": ""
+          },
+          {
+            "check_id": "required_sections_present",
+            "status": "pass",
+            "evidence": "All 5 required sections present",
+            "notes": ""
+          },
+          {
+            "check_id": "policy_floor_present",
+            "status": "pass",
+            "evidence": "POL-ADR-EXEC-001 found in policy_refs (2 total)",
+            "notes": ""
+          },
+          {
+            "check_id": "contradiction_disclosure_present",
+            "status": "not_evaluable",
+            "evidence": "No contradiction/conflict disclosure fields found",
+            "notes": "Cannot confirm absence of contradictions from output alone"
+          },
+          {
+            "check_id": "ws_index_present",
+            "status": "advisory",
+            "evidence": "ws_index not present",
+            "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          }
+        ],
+        "summary": {
+          "passed": 6,
+          "failed": 0,
+          "advisory": 1,
+          "not_evaluable": 1
+        }
+      },
+      "tokens": {
+        "input": 3254,
+        "output": 298
+      },
+      "error": null
+    },
+    {
+      "scenario_id": "WP-MODERATE-002",
+      "label": "Moderate multi-WS",
+      "wp_data": {
+        "wp_id": "restful_api_layer",
+        "title": "RESTful API Layer",
+        "rationale": "Core API endpoints for CRUD operations on projects, documents, and users. Must be complete before frontend can consume.",
+        "scope_in": [
+          "Project CRUD endpoints",
+          "Document CRUD endpoints",
+          "User management endpoints",
+          "Input validation",
+          "Error handling"
+        ],
+        "scope_out": [
+          "WebSocket endpoints",
+          "File upload",
+          "Batch operations"
+        ],
+        "dependencies": [
+          {
+            "wp_id": "user_authentication",
+            "dependency_type": "must_complete_first",
+            "notes": "Auth middleware required for all endpoints"
+          }
+        ],
+        "definition_of_done": [
+          "All endpoints return correct status codes",
+          "Input validation rejects malformed requests",
+          "Integration tests pass for all routes"
+        ],
+        "governance_pins": {
+          "ta_version_id": "TA-v1.1-api-layer",
+          "adr_refs": [
+            "ADR-010",
+            "ADR-040"
+          ],
+          "policy_refs": [
+            "POL-ADR-EXEC-001",
+            "POL-CODE-001",
+            "POL-QA-001"
+          ]
+        },
+        "contradiction_notes": []
+      },
+      "evaluation": {
+        "checks": [
+          {
+            "check_id": "governance_pins_populated",
+            "status": "pass",
+            "evidence": "ta_version_id=TA-v1.1-api-layer, policy_refs=['POL-ADR-EXEC-001', 'POL-CODE-001', 'POL-QA-001']",
+            "notes": ""
+          },
+          {
+            "check_id": "required_sections_present",
+            "status": "pass",
+            "evidence": "All 5 required sections present",
+            "notes": ""
+          },
+          {
+            "check_id": "policy_floor_present",
+            "status": "pass",
+            "evidence": "POL-ADR-EXEC-001 found in policy_refs (3 total)",
+            "notes": ""
+          },
+          {
+            "check_id": "contradiction_disclosure_present",
+            "status": "not_evaluable",
+            "evidence": "No contradiction/conflict disclosure fields found",
+            "notes": "Cannot confirm absence of contradictions from output alone"
+          },
+          {
+            "check_id": "ws_index_present",
+            "status": "advisory",
+            "evidence": "ws_index not present",
+            "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          }
+        ],
+        "summary": {
+          "passed": 6,
+          "failed": 0,
+          "advisory": 1,
+          "not_evaluable": 1
+        }
+      },
+      "tokens": {
+        "input": 3378,
+        "output": 359
+      },
+      "error": null
+    },
+    {
+      "scenario_id": "WP-COMPLEX-003",
+      "label": "Complex multi-phase",
+      "wp_data": {
+        "wp_id": "database_migration_schema_evolution",
+        "title": "Database Migration and Schema Evolution",
+        "rationale": "Legacy SQLite database must be migrated to PostgreSQL with schema changes to support multi-tenancy, audit logging, and document versioning.",
+        "scope_in": [
+          "Alembic migration framework setup",
+          "Schema redesign for multi-tenancy",
+          "Data migration scripts",
+          "Audit trail tables (ADR-010)",
+          "Document versioning with revision hash",
+          "Rollback procedures"
+        ],
+        "scope_out": [
+          "Read replicas",
+          "Sharding",
+          "NoSQL alternatives"
+        ],
+        "dependencies": [],
+        "definition_of_done": [
+          "All existing data migrated without loss",
+          "Multi-tenant queries filter by tenant_id",
+          "Audit trail captures all mutations",
+          "Rollback tested and documented"
+        ],
+        "governance_pins": {
+          "ta_version_id": "TA-v2.0-rds-migration",
+          "adr_refs": [
+            "ADR-009",
+            "ADR-010",
+            "ADR-055"
+          ],
+          "policy_refs": [
+            "POL-ADR-EXEC-001",
+            "POL-ARCH-001",
+            "POL-QA-001"
+          ]
+        },
+        "source_candidate_ids": [
+          "WPC-003"
+        ],
+        "contradiction_notes": []
+      },
+      "evaluation": {
+        "checks": [
+          {
+            "check_id": "governance_pins_populated",
+            "status": "pass",
+            "evidence": "ta_version_id=TA-v2.0-rds-migration, policy_refs=['POL-ADR-EXEC-001', 'POL-ARCH-001', 'POL-QA-001']",
+            "notes": ""
+          },
+          {
+            "check_id": "required_sections_present",
+            "status": "pass",
+            "evidence": "All 5 required sections present",
+            "notes": ""
+          },
+          {
+            "check_id": "policy_floor_present",
+            "status": "pass",
+            "evidence": "POL-ADR-EXEC-001 found in policy_refs (3 total)",
+            "notes": ""
+          },
+          {
+            "check_id": "contradiction_disclosure_present",
+            "status": "not_evaluable",
+            "evidence": "No contradiction/conflict disclosure fields found",
+            "notes": "Cannot confirm absence of contradictions from output alone"
+          },
+          {
+            "check_id": "ws_index_present",
+            "status": "advisory",
+            "evidence": "ws_index not present",
+            "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          }
+        ],
+        "summary": {
+          "passed": 6,
+          "failed": 0,
+          "advisory": 1,
+          "not_evaluable": 1
+        }
+      },
+      "tokens": {
+        "input": 3396,
+        "output": 388
+      },
+      "error": null
+    },
+    {
+      "scenario_id": "WP-AMBIGUOUS-004",
+      "label": "Ambiguous requirements",
+      "wp_data": {
+        "wp_id": "improve_user_experience",
+        "title": "Improve User Experience",
+        "rationale": "Users have reported the interface is confusing. Need to make it better.",
+        "scope_in": [
+          "Conduct user feedback analysis to identify specific interface confusion points",
+          "Define measurable usability improvement criteria based on current user behavior patterns",
+          "Document current UI pain points through systematic interface review",
+          "Establish baseline user satisfaction metrics for improvement measurement"
+        ],
+        "scope_out": [],
+        "dependencies": [],
+        "definition_of_done": [
+          "Users report improved satisfaction"
+        ],
+        "governance_pins": {
+          "ta_version_id": "TA-v0.1-draft",
+          "adr_refs": [],
+          "policy_refs": [
+            "POL-ADR-EXEC-001"
+          ]
+        },
+        "contradiction_notes": [
+          "IPF candidate WPC-004 provides vague scope_in item 'UI improvements' which lacks specificity required for downstream Work Statement decomposition. Scope decomposed into investigation and discovery activities to establish concrete improvement targets."
+        ]
+      },
+      "evaluation": {
+        "checks": [
+          {
+            "check_id": "governance_pins_populated",
+            "status": "pass",
+            "evidence": "ta_version_id=TA-v0.1-draft, policy_refs=['POL-ADR-EXEC-001']",
+            "notes": ""
+          },
+          {
+            "check_id": "required_sections_present",
+            "status": "pass",
+            "evidence": "All 5 required sections present",
+            "notes": ""
+          },
+          {
+            "check_id": "policy_floor_present",
+            "status": "pass",
+            "evidence": "POL-ADR-EXEC-001 found in policy_refs (1 total)",
+            "notes": ""
+          },
+          {
+            "check_id": "contradiction_disclosure_present",
+            "status": "pass",
+            "evidence": "1 contradiction(s) disclosed",
+            "notes": "IPF candidate WPC-004 provides vague scope_in item 'UI improvements' which lacks specificity require"
+          },
+          {
+            "check_id": "ws_index_present",
+            "status": "advisory",
+            "evidence": "ws_index not present",
+            "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          }
+        ],
+        "summary": {
+          "passed": 7,
+          "failed": 0,
+          "advisory": 1,
+          "not_evaluable": 0
+        }
+      },
+      "tokens": {
+        "input": 3181,
+        "output": 282
+      },
+      "error": null
+    },
+    {
+      "scenario_id": "WP-CONSTRAINED-005",
+      "label": "Highly constrained",
+      "wp_data": {
+        "wp_id": "secret_management_governance",
+        "title": "Secret Management and Governance Controls",
+        "rationale": "System handles API keys, database credentials, and user tokens. Current implementation stores secrets in environment variables without rotation, audit, or access control. Must comply with SOC-2 Type II requirements.",
+        "scope_in": [
+          "AWS Secrets Manager integration for credential storage",
+          "Secret rotation automation with zero-downtime deployment",
+          "Access audit logging for every secret retrieval operation",
+          "Tier-0 secret detection gate implementation in pre-commit and CI",
+          "Runtime credential injection via ECS task definition configuration"
+        ],
+        "scope_out": [
+          "Hardware security modules (HSM)",
+          "Client-side encryption",
+          "Key ceremony procedures"
+        ],
+        "dependencies": [
+          {
+            "wp_id": "database_migration",
+            "dependency_type": "must_complete_first",
+            "notes": "Audit tables required"
+          }
+        ],
+        "definition_of_done": [
+          "No secrets in source code or environment variables",
+          "All secrets retrieved from Secrets Manager at runtime",
+          "Rotation triggers no downtime",
+          "Access audit trail for every secret read",
+          "Tier-0 gate blocks commits containing secret patterns"
+        ],
+        "governance_pins": {
+          "ta_version_id": "TA-v1.5-security-hardened",
+          "adr_refs": [
+            "ADR-009",
+            "ADR-010",
+            "ADR-050"
+          ],
+          "policy_refs": [
+            "POL-ADR-EXEC-001",
+            "GOV-SEC-T0-002",
+            "POL-QA-001",
+            "POL-ARCH-001"
+          ]
+        },
+        "source_candidate_ids": [
+          "WPC-005"
+        ],
+        "contradiction_notes": []
+      },
+      "evaluation": {
+        "checks": [
+          {
+            "check_id": "governance_pins_populated",
+            "status": "pass",
+            "evidence": "ta_version_id=TA-v1.5-security-hardened, policy_refs=['POL-ADR-EXEC-001', 'GOV-SEC-T0-002', 'POL-QA-001', 'POL-ARCH-001']",
+            "notes": ""
+          },
+          {
+            "check_id": "required_sections_present",
+            "status": "pass",
+            "evidence": "All 5 required sections present",
+            "notes": ""
+          },
+          {
+            "check_id": "policy_floor_present",
+            "status": "pass",
+            "evidence": "POL-ADR-EXEC-001 found in policy_refs (4 total)",
+            "notes": ""
+          },
+          {
+            "check_id": "contradiction_disclosure_present",
+            "status": "not_evaluable",
+            "evidence": "No contradiction/conflict disclosure fields found",
+            "notes": "Cannot confirm absence of contradictions from output alone"
+          },
+          {
+            "check_id": "ws_index_present",
+            "status": "advisory",
+            "evidence": "ws_index not present",
+            "notes": "WP may not yet have Work Statements assigned"
+          },
+          {
+            "check_id": "semantic_rationale",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_scope",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          },
+          {
+            "check_id": "semantic_definition_of_done",
+            "status": "pass",
+            "evidence": "MEANINGFUL: content meets minimum quality threshold",
+            "notes": ""
+          }
+        ],
+        "summary": {
+          "passed": 6,
+          "failed": 0,
+          "advisory": 1,
+          "not_evaluable": 1
+        }
+      },
+      "tokens": {
+        "input": 3480,
+        "output": 487
+      },
+      "error": null
+    }
+  ],
+  "aggregate": {
+    "check_distribution": {
+      "governance_pins_populated": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "required_sections_present": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "policy_floor_present": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "contradiction_disclosure_present": {
+        "pass": 1,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 4
+      },
+      "ws_index_present": {
+        "pass": 0,
+        "fail": 0,
+        "advisory": 5,
+        "not_evaluable": 0
+      },
+      "semantic_rationale": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "semantic_scope": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      },
+      "semantic_definition_of_done": {
+        "pass": 5,
+        "fail": 0,
+        "advisory": 0,
+        "not_evaluable": 0
+      }
+    },
+    "avg_defects_per_wp": 0.0,
+    "total_defects": 0
+  }
+}

@@ -319,12 +319,25 @@ class Document(Base):
         # Composite index for space lookups
         Index("idx_documents_space", "space_type", "space_id"),
 
-        # Unique display_id per doc type per space (ADR-055)
+        # Unique display_id per doc type per space — ONE latest per display_id (ADR-055)
         Index(
             "idx_documents_latest_display",
             "space_type", "space_id", "doc_type_id", "display_id",
             unique=True,
             postgresql_where=(is_latest == True)
+        ),
+
+        # Version uniqueness — no duplicate versions per display_id (ADR-063)
+        Index(
+            "idx_documents_version_unique",
+            "space_type", "space_id", "doc_type_id", "display_id", "version",
+            unique=True,
+        ),
+
+        # Status index for rewind queries (ADR-063)
+        Index(
+            "idx_documents_status",
+            "space_type", "space_id", "doc_type_id", "status",
         ),
 
         # Full-text search

@@ -54,7 +54,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "question", "why_it_matters", "impact_if_unresolved"],
+        "required": ["id", "question", "why_it_matters", "impact_if_unresolved", "blocking"],
         "properties": {
           "id": {
             "type": "string",
@@ -75,6 +75,10 @@
             "type": "string",
             "minLength": 5,
             "description": "Consequence if this remains unresolved during discovery."
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "If true, downstream work packages cannot stabilize until this unknown is resolved."
           }
         }
       },

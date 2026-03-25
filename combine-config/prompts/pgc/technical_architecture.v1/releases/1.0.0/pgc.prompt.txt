@@ -56,6 +56,16 @@ Unknowns that affect how the system is operated:
 - Deployment frequency expectations
 - Support model (on-call, managed service)
 
+### 7. Decision Logic and Algorithm Parameters
+
+If the system involves decision logic, scoring algorithms, or configurable parameters:
+- What are the exact algorithm parameters (periods, weights, thresholds)?
+- What are the decision rules and their concrete threshold values?
+- What scoring methodology is used and what are the score boundaries?
+- What safety limits or guardrails constrain the decision logic?
+
+These answers become binding technical authority for downstream Work Statements. Do not leave algorithmic parameters as "configurable" — pin them here so Work Statements can implement deterministically.
+
 ## Question Generation Guidelines
 
 1. **Ask only what blocks architecture decisions** - Don't ask about implementation details that can be deferred
@@ -63,6 +73,7 @@ Unknowns that affect how the system is operated:
 3. **Surface constraints, not preferences** - Focus on what MUST be true, not what would be nice
 4. **Reference upstream documents** - Use Project Discovery and Primary Implementation Plan as context
 5. **Flag assumptions explicitly** - If proceeding without an answer, state the assumption clearly
+6. **Pin decision parameters as authority** - If the system has algorithms or scoring logic, ask for concrete values, not "configurable"
 
 ## Input Context
 

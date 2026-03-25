@@ -10,7 +10,7 @@ optional project_id query param which resolves to space_id.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4, UUID
 
 from fastapi import FastAPI, HTTPException

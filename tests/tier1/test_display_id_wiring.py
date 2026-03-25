@@ -200,7 +200,9 @@ class TestPlanExecutorChildMinting:
                 spec, existing_children, state, parent_id,
             )
 
-        assert result == "updated"
+        # ADR-063: existing child creates a new version (non-destructive)
+        assert result == "versioned"
+        # display_id is reused from existing, not re-minted
         mock_mint.assert_not_awaited()
 
 

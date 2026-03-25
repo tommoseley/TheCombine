@@ -10,11 +10,9 @@ No I/O, no DB - uses mocks for document_service and prompt_service.
 
 import hashlib
 import re
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 

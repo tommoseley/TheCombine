@@ -140,7 +140,7 @@ class TestSchemaMetaValidation:
 
 class TestActiveReleasesVersions:
     def test_document_types_wp_version(self, active_releases):
-        assert active_releases["document_types"]["work_package"] == "1.1.0"
+        assert active_releases["document_types"]["work_package"] == "1.1.1"
 
     def test_document_types_ws_version(self, active_releases):
         assert active_releases["document_types"]["work_statement"] == "1.1.0"

@@ -12,9 +12,8 @@ import types
 
 import pytest
 from dataclasses import dataclass
-from typing import Optional
 from uuid import UUID, uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 # Stub the workflow package to avoid circular import through __init__.py
 if "app.domain.workflow" not in sys.modules:
@@ -26,7 +25,6 @@ if "app.domain.workflow" not in sys.modules:
     sys.modules["app.domain.workflow"] = _stub
 
 from app.domain.workflow.nodes.llm_executors import LoggingLLMService  # noqa: E402
-from app.llm.models import LLMResponse, Message, MessageRole  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

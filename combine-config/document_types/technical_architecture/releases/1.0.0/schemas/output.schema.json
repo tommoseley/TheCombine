@@ -70,6 +70,13 @@
             "items": {
               "type": "string"
             }
+          },
+          "owns": {
+            "type": "array",
+            "description": "Directory or file paths this component is responsible for (e.g., src/trading/, src/orders/). Enables downstream validation that Work Statements' allowed_paths align with component boundaries.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

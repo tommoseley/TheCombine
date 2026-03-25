@@ -48,6 +48,11 @@ def _make_wp_doc(wp_id="wp_test_001", ws_index=None, space_id="00000000-0000-000
         "title": "Test WP",
         "ws_index": ws_index or [],
         "edition": 0,
+        "governance_pins": {
+            "ta_version_id": "TA-v1.0",
+            "policy_refs": ["POL-ADR-EXEC-001"],
+            "adr_refs": [],
+        },
     }
     return doc
 
@@ -70,7 +75,11 @@ def _make_ws_doc(ws_id, parent_wp_id="wp_test_001", state="DRAFT", title="Test W
         "scope_out": [],
         "allowed_paths": [],
         "prohibited_actions": [],
-        "governance_pins": {},
+        "governance_pins": {
+            "ta_version_id": "TA-v1.0",
+            "policy_refs": ["POL-WS-001"],
+            "adr_refs": [],
+        },
     }
     return doc
 
@@ -244,7 +253,7 @@ class TestStabilizeWorkPackage:
 
     @pytest.mark.asyncio
     async def test_empty_wp_no_ws_returns_400(self):
-        """WP with zero WSs -> 400."""
+        """WP with zero WSs -> 400 (certification gate: no Work Statements)."""
         wp = _make_wp_doc()
         db = _mock_db(wp, [])
 
@@ -260,7 +269,9 @@ class TestStabilizeWorkPackage:
                 resp = await client.post("/api/v1/work-binder/wp/wp_test_001/stabilize")
                 assert resp.status_code == 400
                 body = resp.json()
-                assert body["detail"]["error_code"] == "NO_DRAFT_STATEMENTS"
+                assert body["detail"]["error_code"] == "CERTIFICATION_FAILED"
+                assert "findings" in body["detail"]
+                assert isinstance(body["detail"]["findings"], list)
         finally:
             _app.dependency_overrides = {}
 

@@ -1,9 +1,96 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-08
-**Updated By:** Claude (WS-WB-040 stabilization + Produce Next + breadcrumb pulse + Work Binder auto-import)
+**Last Updated:** 2026-03-23
+**Updated By:** Claude (WP-AUTH-001 + WP-EVAL-001 + prompt tuning + APAM-005 binder convergence)
 
 ## Current Focus
+
+**COMPLETE:** APAM-005 Binder Convergence (2026-03-23)
+- IP prompt v1.1.0 cross-cutting concern isolation rule eliminated WPC duplication (7 → 1 duplicate findings)
+- TA prompt v1.3.0 mandatory `owns` with example (LLM still not populating — needs output validation gate)
+- 4 binder regeneration cycles to reach coherent decomposition
+- First binder with clean WP boundaries, single-ownership decomposition, centralized infrastructure
+- Architectural decision: workflow definitions pin explicit prompt versions (correct per ADR-049)
+- Active versions: IP workflow v2.0.0, TA workflow v4.0.0, IP prompt v1.1.0, TA prompt v1.3.0
+
+**COMPLETE:** WP-EVAL-001 — Evaluator Calibration + TA Registry + PGC Authority (2026-03-23)
+- CLDR-003 stopword prefix filter: strips procedure verbs, articles, prepositions
+- TA schema `owns` field added (optional array per component)
+- PGC context enriched for PD and TA: decision parameter capture as durable authority
+- 23 new tests
+
+**COMPLETE:** WP-AUTH-001 — Durable Authority Context (ADR-064 MVP, 2026-03-23)
+- Authority records are the **primary path** for PGC answer lineage, hydration, and QA depth
+- authority_records table + ORM + Alembic migration (20260323_001, applied to DEV)
+- AuthorityRepository + AuthorityService with type-scoped supersession
+- PGC dual-write, regeneration hydration, QA authority-aware depth
+- execution_id as MVP surrogate for lineage_path_id
+- 66 new tests, 4713 total passing
+
+**COMPLETE:** Pipeline Rewind — Full Stack (ADR-063 + ADR-064, 2026-03-21/22)
+- All 4 rewind WPs executed + UX wiring + live testing
+- Rewind button in both document viewer paths (legacy + config-driven)
+- Pipeline order corrected: CI → PD → IP → TA → WP → WS
+- Display_id reuse on regeneration (prevents broken render model lookups)
+- QA graceful degradation when authority bundle absent (WS-REWIND-020)
+- ADR-064: Durable Authority Context — PGC answers as project-level governed inputs
+- Both ADRs pressure-tested and tightened (uniqueness scope, path semantics, cross-ADR rule)
+- 3060 tests passing
+
+**COMPLETE:** Full System Hardening + Evaluator Suite (2026-03-19)
+- Blocking unknowns gate at WP stabilization (8 tests)
+- ADR-059: Project Ontology Layers — ontology evaluator (32 tests) + APAM ontology v1.1
+- ADR-060: Governance Runtime Modes — portable mode strips Combine-internal refs (14 tests)
+- ADR-061: Cross-Layer Contradiction Detection — TA vs WS mismatch evaluator (17 tests)
+- ADR-062: Duplicate Work Detection — WS objective/scope overlap (22 tests)
+- WP overlap evaluator: component name, WS title, scope phrase (24 tests)
+- PD prompt v1.5: secret-handling + blocking unknown classification
+- Five evaluation sections now render in every binder
+- External CC critique: 6/11 findings now mechanically detectable
+- ~130 new tests that session, 2953 total passing, Tier 0: PASS
+
+**Next priorities:**
+1. Fix order type contradiction in APAM-005 binder: IP/PD say market orders, WP-024 says limit orders — add mechanical certification check
+2. Add cancel/abandon UI for stuck workflow executions (currently requires DB surgery)
+3. Mechanical enforcement: WP promotion duplicate-scope check (prevent cross-WP recreation of same responsibility)
+4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
+5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
+6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
+
+**COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
+- WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
+- WS-PI-3B: Semantic presence checks (ABSENT/EMPTY/WEAK/MEANINGFUL) for WP + WS evaluators
+- WS-PI-3C: WP prompt v1.1.1 — ambiguous scope resolution (20% → 0% fail rate)
+- Shared field_classifier.py extracted for both evaluators
+- PROC-PROMPT-TUNING-001: governed prompt improvement process
+- prompt-tuning CC skill created
+- CRAP audit: 99 functions, 48 critical (>30), total debt 4,268, 8 F-grade
+- 2847 total tests passing
+
+**COMPLETE:** Stabilization Spine + WP Evaluator (2026-03-18, session 2)
+- WS-PI-1D: v1.1.0 prompts activated in runtime via active_releases.json
+- WS-PI-2A: Certification gate at stabilization (completeness + governance)
+- WS-PI-2B: Referential integrity gate (ws_index → persisted docs)
+- WS-PI-2C: Parent WP invariant (every WS points to correct parent)
+- WS-PI-2D: Structured failure reporting (StabilizationFinding with rule_id, artifact_id, remediation_hint)
+- WS-PI-3A: WP defect evaluator (5 checks, same pattern as WS evaluator)
+- IA audit: found and closed 3 governance floor bypass paths in work_binder.py
+- 45 new tests, 2817 total passing
+
+**COMPLETE:** Governance Floor Mechanical Enforcement + ADR-058 (2026-03-18)
+- ensure_governance_floor() wired into DocumentBuilder at 3 call sites (sync build, stream build, child documents)
+- Zero bypass paths: every WP gets POL-ADR-EXEC-001, every WS gets POL-WS-001
+- apply_post_processing() pure function in document_builder_pure.py (Tier 1 testable)
+- ADR-058: Governance Lineage architectural principle — two-layer enforcement (prompt + mechanical)
+- 8 new tests for post-processing wiring
+
+**COMPLETE:** TOC Iteration 0b/1b — WS Prompt Improvement Experiment (2026-03-18)
+- WS defect evaluator: 5 structural checks, 18 tests
+- Replay override harness: batch replay, overrides, query, evaluate endpoints, 14 tests
+- WS prompt v1.1.0: governance supplement reduced defects from 7 to 0 against APAM-002
+- WP prompt v1.1.0: governance supplement created (pending replay experiment)
+- IVR governance documents for both prompt promotions
+- 26 tests for ensure_governance_floor() pure function
 
 **COMPLETE:** WS-WB-040 + Production UX Flow (2026-03-08)
 - WP-level atomic stabilization: single "STABILIZE PACKAGE" replaces per-WS buttons (6 tests)
@@ -190,7 +277,7 @@
 
 ## Test Suite
 
-- **4215+ Tier-1 tests** passing as of 2026-03-07 (56+ new: IA contract + scoping + QA remediation)
+- **4713 Tier-1/2 tests** passing as of 2026-03-23 (89 new: authority records, evaluator calibration, TA schema, PGC decision authority)
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -209,6 +296,12 @@
 | binder_renderer | app/domain/services/binder_renderer.py | Project binder assembly (cover, TOC, pipeline ordering) |
 | ia_gate | app/domain/services/ia_gate.py | IA coverage verification gate (50% threshold) |
 | evidence_renderer | app/domain/services/evidence_renderer.py | Evidence mode frontmatter + index generation |
+| ws_defect_evaluator | app/domain/services/ws_defect_evaluator.py | 5-check structural defect evaluation for WS artifacts |
+| wp_defect_evaluator | app/domain/services/wp_defect_evaluator.py | 5-check structural defect evaluation for WP artifacts |
+| governance_floor | app/domain/services/work_statement_registration.py | Artifact-type-aware mechanical governance floor enforcement |
+| stabilization_gate | app/domain/services/ws_crud_service.py | 4-gate certification spine at WP stabilization |
+| authority_service | app/domain/services/authority_service.py | Durable authority records: type-scoped supersession, bundle hydration, path-historical (ADR-064) |
+| authority_repository | app/domain/repositories/authority_repository.py | Protocol + InMemory + Postgres for authority record persistence |
 
 ---
 
@@ -307,22 +400,57 @@ All previous decisions (1-46) plus:
 
 58. **IA gate coverage threshold** -- 50% of IA-declared fields must be present for PASS. Missing fields above threshold are warnings (rendered sections omitted gracefully). Below threshold is FAIL (409 Conflict). Catches broken documents while tolerating optional fields.
 
+59. **Two-layer governance enforcement (ADR-058)** -- Layer 1 (prompt) instructs the LLM to populate governance pins correctly. Layer 2 (mechanical) runs ensure_governance_floor() deterministically after handler output. Prompt is primary, floor is safety net. Governance floors are artifact-type-specific: WP gets POL-ADR-EXEC-001, WS gets POL-WS-001.
+
+60. **Theory of Constraints optimization discipline** -- Station-level improvements validated via measured replay experiments, not broad redesign. Replay harness + defect evaluator + override mechanism enables controlled A/B testing of prompt changes against real LLM run data.
+
+61. **Durable authority records (ADR-064)** -- PGC answers are project authority, not execution state. Persisted to authority_records table with type-scoped supersession `(project_id, authority_type, key)`. Dual-write alongside existing pgc_answers table. Plan executor loads from authority store first (durable_store), falls back to execution-scoped, then to "none". QA uses `authority_source` field for validation depth instead of heuristic message matching. execution_id is MVP surrogate for lineage_path_id until PostgresLineageRepository exists.
+
 ---
 
 ## Handoff Notes
 
-### Recent Work (2026-03-08)
-- WS-WB-040: WP-level atomic stabilization (backend endpoint + frontend button, 6 tests)
-- "Produce Next" button: frontier-only, inline in document header badge row
-- Pipeline breadcrumb pulsing for in-progress stages
-- "Produce Work Binder" button on TA complete → auto-import candidates
-- All changes uncommitted
+### Recent Work (2026-03-23)
+- WP-AUTH-001: 6 WSs — authority records as primary path for PGC lineage, hydration, QA depth
+- WP-EVAL-001: 3 WSs — CLDR-003 calibration, TA schema owns field, PGC decision parameter capture
+- IP prompt v1.1.0: cross-cutting concern isolation rule (eliminated WPC duplication)
+- TA prompt v1.3.0: mandatory owns with concrete JSON example
+- TA workflow v4.0.0, IP workflow v2.0.0: explicit prompt version pinning
+- APAM-005: 4 binder regeneration cycles → first coherent decomposition with clean WP boundaries
+- Alembic migration 20260323_001 applied to DEV
+- 89 new tests, 4713 total passing
+- Architectural decision: workflow definitions are the binding composition contract for prompt versions
+
+### Recent Work (2026-03-18)
+- APAM-001 full pipeline re-run with v1.1.0/v1.1.1 prompts — binder critique identified 5 remaining defect classes
+- WP v1.1.1 activated: scope quality requirements, ambiguous inputs decomposed into investigation activities
+- First measured prompt tuning cycle: semantic_scope WEAK 20% → 0% across 5 synthetic scenarios
+- Semantic presence checks in both evaluators (v1.1): ABSENT/EMPTY/WEAK/MEANINGFUL
+- PROC-PROMPT-TUNING-001 + prompt-tuning CC skill
+- CRAP audit: 8 F-grade, 48 critical, 4,268 total debt
+- 2847 tests passing
 
 ### Next Work
-- Commit session changes (WS-WB-040 + production UX flow)
-- WS-RENDER-007: Binder Audit mode (mode=audit) — mechanical governance/traceability/readiness checks
-- Remaining CRAP targets: 18 functions with CRAP>100 (coverage debt, moderate CC 11-14)
-- Three download dropdown components could be consolidated into shared component
+- Apply Alembic migration 20260323_001 on DEV database
+- Wire PostgresLineageRepository (enables true lineage_path_id, replaces execution_id surrogate)
+- ta_version_id promotion gate: block WPC→WP promotion until TA version resolved
+- Unknown-handling policy: classify PD unknowns as advisory/blocking, gate on blocking unknowns
+- Ontology enforcement: mechanical check for vocabulary consistency across artifact chain
+- PD prompt tuning: secret solicitation compliance with GOV-SEC-T0-002
+- WS IA expansion: define IA for WS documents (deferred but tracked)
+- CRAP remediation: 6 quick-win coverage targets + render_project_binder CC=26
+- WS-RENDER-007: Binder Audit mode (mode=audit)
+
+### UX Backlog (prioritized)
+
+| Priority | Feature | Status |
+|----------|---------|--------|
+| Tier 1 | Rewind history viewer — timeline of pipeline steps, branch nodes, what changed | Open |
+| Tier 1 | Cancel/abandon stuck execution — Andon cord for stuck workflows | Open |
+| Tier 2 | "Propose All WSs" button — batch WS generation in Work Binder | Open |
+| Tier 2 | File upload for mockups/documents — governed project artifacts with lineage | Open |
+| Tier 3 | File viewer — inline rendering of uploaded files (images, PDFs, text) | Open |
+| Done | Pipeline rewind button | Complete (ADR-063, 2026-03-22) |
 
 ### Open Threads
 - TA emitting ADR candidates -- future work pinned in ADR-052
