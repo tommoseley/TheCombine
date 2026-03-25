@@ -3,124 +3,120 @@
   "title": "Concierge Intake Document",
   "description": "Structured intake document produced by the Concierge workflow. Contains synthesized intent, constraints, and outcomes from the intake conversation.",
   "type": "object",
-  "additionalProperties": false,
   "required": [
-    "schema_version",
-    "document_id",
-    "captured_intent",
+    "summary",
     "project_type",
-    "gate_outcome",
-    "conversation_summary"
+    "outcome"
   ],
   "properties": {
-    "schema_version": {
+    "version": {
       "type": "string",
-      "const": "concierge_intake_document.v1",
-      "description": "Schema version identifier"
+      "description": "Schema version"
     },
-    "document_id": {
+    "document_type": {
       "type": "string",
-      "format": "uuid",
-      "description": "Unique document identifier"
+      "description": "Document type identifier"
     },
-    "workflow_execution_id": {
+    "project_name": {
       "type": "string",
-      "description": "Reference to the workflow execution that produced this document"
+      "description": "User-provided or derived project name"
     },
-    "captured_intent": {
-      "type": "string",
-      "minLength": 10,
-      "maxLength": 2000,
-      "description": "Synthesized description of what the user wants to accomplish"
-    },
-    "constraints": {
-      "type": "array",
-      "description": "Known constraints mentioned during intake conversation",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 500
-      },
-      "default": []
-    },
-    "known_unknowns": {
-      "type": "array",
-      "description": "Identified gaps or uncertainties that need resolution in Discovery",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 500
-      },
-      "default": []
+    "summary": {
+      "type": "object",
+      "description": "Synthesized project summary from intake conversation",
+      "required": ["description", "user_statement"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "LLM-synthesized description of what the user wants to accomplish"
+        },
+        "user_statement": {
+          "type": "string",
+          "description": "The user's own statement of intent, preserved as-is"
+        }
+      }
     },
     "project_type": {
-      "type": "string",
-      "enum": ["greenfield", "enhancement", "migration", "integration", "replacement", "unknown"],
-      "description": "Categorization of the project type based on intake conversation"
-    },
-    "gate_outcome": {
-      "type": "string",
-      "enum": ["qualified", "not_ready", "out_of_scope", "redirect"],
-      "description": "Intake Gate outcome per ADR-025 governance boundary"
-    },
-    "conversation_summary": {
-      "type": "string",
-      "minLength": 20,
-      "maxLength": 3000,
-      "description": "LLM-synthesized summary of the intake conversation. INVARIANT: Must be derived, not copied verbatim from transcript."
-    },
-    "routing_rationale": {
-      "type": "string",
-      "minLength": 10,
-      "maxLength": 1000,
-      "description": "Explanation of why this gate outcome was determined"
-    },
-    "ready_for": {
-      "type": ["string", "null"],
-      "enum": ["pm_discovery", null],
-      "description": "Next station if qualified, null otherwise"
-    },
-    "thread_id": {
-      "type": "string",
-      "description": "Reference to the durable conversation thread"
-    },
-    "created_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Document creation timestamp"
-    },
-    "metadata": {
       "type": "object",
-      "description": "Additional metadata",
+      "description": "Project type classification",
+      "required": ["category"],
       "properties": {
-        "conversation_turn_count": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of conversation turns"
-        },
-        "workflow_id": {
+        "category": {
           "type": "string",
-          "description": "Workflow plan identifier"
+          "enum": ["produce_output", "greenfield", "enhancement", "migration", "integration", "replacement", "unknown"],
+          "description": "Project type category"
         },
-        "workflow_version": {
+        "rationale": {
           "type": "string",
-          "description": "Workflow plan version"
+          "description": "Explanation of why this category was chosen"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Confidence in the classification"
         }
-      },
-      "additionalProperties": true
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": { "gate_outcome": { "const": "qualified" } }
-      },
-      "then": {
-        "properties": { "ready_for": { "const": "pm_discovery" } }
-      },
-      "else": {
-        "properties": { "ready_for": { "type": "null" } }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Known constraints from intake conversation",
+      "properties": {
+        "explicit": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Constraints explicitly stated by the user"
+        },
+        "inferred": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Constraints inferred from the user's description"
+        },
+        "none_stated": {
+          "type": "boolean",
+          "description": "Whether no constraints were mentioned"
+        }
+      }
+    },
+    "open_gaps": {
+      "type": "object",
+      "description": "Identified gaps and unknowns requiring resolution",
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Questions that need answers before proceeding"
+        },
+        "missing_context": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Context that was not provided but may be needed"
+        },
+        "assumptions_made": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Assumptions made during intake that should be validated"
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "description": "Intake gate outcome",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["qualified", "not_ready", "out_of_scope", "redirect"],
+          "description": "Gate outcome status"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this outcome was determined"
+        },
+        "next_action": {
+          "type": "string",
+          "description": "Recommended next action based on outcome"
+        }
       }
     }
-  ]
+  }
 }
