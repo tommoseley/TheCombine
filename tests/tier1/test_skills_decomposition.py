@@ -547,19 +547,13 @@ class TestC13ProgressiveDisclosure:
             "Session Management missing skill pointer"
         )
 
-    def test_backfilling_section_present(self):
+    def test_prompt_governance_has_skill_pointer(self):
         content = _read_claude_md()
-        assert "## Backfilling Session Logs" in content, (
-            "Backfilling Session Logs section missing from CLAUDE.md"
-        )
-
-    def test_seed_governance_has_skill_pointer(self):
-        content = _read_claude_md()
-        assert "## Seed Governance" in content, (
-            "Seed Governance section missing from CLAUDE.md"
+        assert "## Prompt & Workflow Governance" in content, (
+            "Prompt & Workflow Governance section missing from CLAUDE.md"
         )
         assert "config-governance" in content, (
-            "Seed Governance missing skill pointer"
+            "Prompt & Workflow Governance missing skill pointer"
         )
 
     def test_planning_discipline_has_skill_pointer(self):

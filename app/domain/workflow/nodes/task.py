@@ -198,7 +198,28 @@ class TaskNodeExecutor(NodeExecutor):
         if bound_summary:
             context_parts.append(bound_summary)
 
-        # 2b. QA feedback from previous failed attempt (if any)
+        # 2b. Authority suppression (ADR-064) - prominent section for PGC dedup
+        authority_rule = context.context_state.get("authority_suppression_rule")
+        if authority_rule:
+            answered = context.context_state.get("answered_authority", {})
+            keys = context.context_state.get("answered_authority_keys", [])
+            authority_section = (
+                "## EXISTING AUTHORITY — DO NOT RE-ASK\n\n"
+                f"**MANDATORY RULE:** {authority_rule}\n\n"
+                "### Already-Answered Authority Records\n"
+            )
+            for key in keys:
+                value = answered.get(key, "")
+                # Truncate long values for readability
+                display = str(value)[:200] + "..." if len(str(value)) > 200 else str(value)
+                authority_section += f"- **{key}**: {display}\n"
+            authority_section += (
+                "\nYou MUST NOT generate any question whose ID matches the keys above. "
+                "Only ask about parameters NOT already covered."
+            )
+            context_parts.append(authority_section)
+
+        # 2c. QA feedback from previous failed attempt (if any)
         qa_feedback = context.context_state.get("qa_feedback")
         if qa_feedback:
             feedback_text = self._render_qa_feedback(qa_feedback)
@@ -206,9 +227,15 @@ class TaskNodeExecutor(NodeExecutor):
                 context_parts.append(feedback_text)
 
         # 3. Structured context state (intake summary, project type, etc.)
+        # Exclude authority fields (already rendered prominently above)
+        _authority_keys = {
+            "answered_authority", "answered_authority_keys",
+            "authority_suppression_rule", "authority_source",
+        }
         if context.context_state:
             relevant_state = {k: v for k, v in context.context_state.items()
-                           if not k.startswith("document_") and k != "last_produced_document"}
+                           if not k.startswith("document_") and k != "last_produced_document"
+                           and k not in _authority_keys}
             if relevant_state:
                 import json
                 context_parts.append(f"## Extracted Context\n{json.dumps(relevant_state, indent=2)}")
