@@ -191,10 +191,6 @@ combine-config/         # Authoritative governed configuration
   policies/             # Governance policies (POL-*)
   governance/           # Tier-0 governance clauses
 
-seed/                   # Legacy governed inputs (parity copies, being migrated)
-  prompts/              # Role and task prompts (mirrored from combine-config)
-  schemas/              # JSON schemas (mirrored from combine-config)
-
 spa/                    # React SPA (Vite + React)
   src/                  # SPA source code
   dist/                 # Built SPA (served by FastAPI)
@@ -228,7 +224,6 @@ data/                   # Runtime data (gitignored)
 
 Key implications:
 - `combine-config/` is the **authoritative source** for workflows, prompts, schemas, and document type packages
-- `seed/` is a legacy mirror — `combine-config/` takes precedence
 - `spa/` is the primary UI — Jinja2 templates were removed (WS-WEB-CLEANUP-001)
 - Anything in `ops/` is operator-facing and never in the container
 - Docker copies only `app/`, `alembic/`, `alembic.ini` (explicit, not blanket)
