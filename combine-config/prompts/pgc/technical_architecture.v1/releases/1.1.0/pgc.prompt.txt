@@ -1,0 +1,107 @@
+# PGC Context: Technical Architecture
+
+## Purpose
+
+This Pre-Generation Clarification context guides question generation before producing a Technical Architecture document. The goal is to surface architectural unknowns that, if left implicit, would force speculative design decisions.
+
+## Ask vs Infer Rule (TA-Specific)
+
+For each potential clarification question, apply this test:
+
+**Ask ONLY if:**
+- Multiple reasonable answers would produce materially different system behavior
+- The decision affects runtime behavior, safety rails, or external contracts
+- The decision affects algorithmic correctness where multiple valid interpretations exist
+- Leaving it to inference would create unacceptable inconsistency or drift
+
+**Infer (do not ask) if:**
+- The detail is an internal design choice (data models, class structure, module decomposition)
+- Multiple reasonable implementations would be functionally equivalent
+- The TA can safely define it without user input
+- It concerns file formats, CSV columns, or internal schemas (unless externally mandated)
+
+**The TA LLM should design freely where reasonable. PGC should only ask for details where design freedom would create the wrong kind of variation.**
+
+## Stage Appropriateness Rule
+
+You are generating questions for Technical Architecture, not intake or planning.
+
+**Allowed to ask:**
+- Algorithmic parameters ONLY if genuinely ambiguous and consequential
+- External-facing data contracts ONLY if required by external systems
+- Runtime behavior choices not already pinned by upstream authority
+- Technology constraints that block architectural decisions
+
+**Do NOT ask:**
+- Internal data model shapes (classes, structs, DTOs)
+- File formats or CSV column definitions (unless externally mandated)
+- Module/service decomposition details
+- Helper function or implementation structure
+- Any detail that the TA can reasonably design
+
+## Clarification Domains
+
+### 1. Hosting & Infrastructure Constraints
+
+Unknowns that affect where and how the system runs:
+- Cloud provider requirements or restrictions
+- Containerization requirements
+- Region/locality constraints
+- Existing infrastructure that must be integrated or avoided
+
+### 2. Technology Stack Constraints
+
+Unknowns that affect implementation choices:
+- Mandated languages, frameworks, or platforms
+- Prohibited technologies
+- Existing systems that dictate protocol or format choices
+
+### 3. Integration Boundaries
+
+Unknowns about external system interactions:
+- Required integrations with existing systems
+- API contracts or protocols that must be honored
+- Data format requirements from upstream/downstream systems (external only)
+- Authentication/authorization integration points
+
+### 4. Security & Compliance Requirements
+
+Unknowns that constrain architectural options:
+- Regulatory frameworks
+- Data classification requirements
+- Encryption requirements
+- Audit logging and retention requirements
+
+### 5. Non-Functional Requirement Priorities
+
+Unknowns about quality attribute tradeoffs:
+- Performance targets
+- Availability requirements
+- Scalability expectations
+- Recovery requirements
+
+### 6. Consequential Algorithm Parameters
+
+If the system involves decision logic, scoring algorithms, or configurable parameters:
+- Ask for exact values ONLY when multiple plausible interpretations exist AND the difference is consequential
+- If a house-standard or obvious interpretation exists, infer it
+- If upstream authority already pins the values, do NOT re-ask
+
+**Important:** Do not ask for every technical parameter. Only ask when ambiguity would cause material behavioral divergence.
+
+## Question Generation Guidelines
+
+1. **Ask only what blocks architecture decisions** — Not implementation details deferrable to WS execution
+2. **Prefer bounded choices over open-ended questions** — Concrete options, not vague asks
+3. **Surface constraints, not preferences** — Focus on what MUST be true
+4. **Reference upstream documents** — Use PD and IP as context; do NOT re-ask what they already answer
+5. **Respect upstream authority** — If a decision is already in the authority bundle, use it
+6. **Default to inference** — When unsure whether to ask or infer, infer unless ambiguity would cause meaningful divergence
+
+## Input Context
+
+The following documents should inform question generation:
+- **Project Discovery**: Problem space, stakeholders, high-level constraints
+- **Implementation Plan**: Scope, WPC candidates, sequencing, MVP boundaries
+
+Questions should NOT re-ask what these documents already answer. Focus on architectural gaps where inference would be unsafe.
