@@ -444,6 +444,49 @@ class GateNodeExecutor(NodeExecutor):
         # Phase 1: pass_a - generate questions
         logger.info(f"PGC Gate {node_id}: Phase 1 (pass_a) - generating questions")
 
+        # ADR-064: Inject existing authority into context so question generator
+        # knows what's already answered and can suppress duplicate questions.
+        if context.context_state.get("authority_source") != "durable_store":
+            try:
+                from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+                from app.domain.services.authority_service import AuthorityService
+                from uuid import UUID
+
+                db_session = getattr(self, '_db_session', None) or context.extra.get("db_session")
+                project_id_str = context.extra.get("project_id") or context.context_state.get("project_id")
+
+                if db_session and project_id_str:
+                    try:
+                        project_uuid = UUID(project_id_str) if isinstance(project_id_str, str) else project_id_str
+                    except (ValueError, AttributeError):
+                        project_uuid = None
+
+                    if project_uuid:
+                        auth_repo = PostgresAuthorityRepository(db_session)
+                        auth_service = AuthorityService(auth_repo)
+                        bundle = await auth_service.get_authority_bundle(project_uuid)
+
+                        if bundle["authority_source"] == "durable_store":
+                            answered_keys = list(bundle["pgc_answers"].keys())
+                            context.context_state["answered_authority"] = bundle["pgc_answers"]
+                            context.context_state["answered_authority_keys"] = answered_keys
+                            context.context_state["authority_suppression_rule"] = (
+                                "The following questions have ALREADY been answered in a prior "
+                                "pipeline stage and MUST NOT be re-asked: "
+                                + ", ".join(answered_keys)
+                                + ". Only generate questions for parameters not already covered. "
+                                "If all required parameters are already answered, generate only "
+                                "questions about implementation-specific details not covered by "
+                                "existing authority."
+                            )
+                            context.context_state["authority_source"] = "durable_store"
+                            logger.info(
+                                f"PGC Gate {node_id}: Injected {len(answered_keys)} "
+                                f"existing authority keys into question generation context: {answered_keys}"
+                            )
+            except Exception as e:
+                logger.debug(f"PGC Gate {node_id}: Authority injection skipped: {e}")
+
         # Pure: build task config
         task_node_config = build_pgc_task_config(
             pass_a, produces, resolve_urn_fn=self._resolve_urn,
@@ -466,6 +509,27 @@ class GateNodeExecutor(NodeExecutor):
 
         logger.info(f"PGC Gate {node_id}: result.outcome={result.outcome}, has_produced_doc={result.produced_document is not None}")
         if result.outcome == "needs_user_input" and result.produced_document:
+            # ADR-064: Mechanical deduplication — strip questions already answered
+            # by upstream authority, even if the LLM re-generated them.
+            answered_keys = set(context.context_state.get("answered_authority_keys", []))
+            if answered_keys and isinstance(result.produced_document, dict):
+                original_questions = result.produced_document.get("questions", [])
+                filtered = [q for q in original_questions if q.get("id") not in answered_keys]
+                suppressed = len(original_questions) - len(filtered)
+                if suppressed > 0:
+                    result.produced_document["questions"] = filtered
+                    # Also update must_answer_before_proceeding_ids
+                    must_answer = result.produced_document.get("must_answer_before_proceeding_ids", [])
+                    if must_answer:
+                        result.produced_document["must_answer_before_proceeding_ids"] = [
+                            mid for mid in must_answer if mid not in answered_keys
+                        ]
+                    logger.info(
+                        f"PGC Gate {node_id}: Suppressed {suppressed} duplicate questions "
+                        f"already answered by upstream authority: "
+                        f"{answered_keys & {q.get('id') for q in original_questions}}"
+                    )
+
             context.context_state["pgc_questions"] = result.produced_document
             logger.info(f"PGC Gate {node_id}: Stored {len(result.produced_document.get('questions', []))} questions in context_state")
 

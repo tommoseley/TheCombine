@@ -689,8 +689,12 @@ class PlanExecutor:
         extra = {
             "execution_id": state.execution_id,
             "workflow_id": state.workflow_id,
+            "project_id": state.project_id,
             "retry_count": state.get_retry_count(state.current_node_id),
         }
+        # Pass db_session for authority lookups in PGC gates (ADR-064)
+        if self._db_session:
+            extra["db_session"] = self._db_session
         if user_input:
             extra["user_input"] = user_input
         if user_choice:
