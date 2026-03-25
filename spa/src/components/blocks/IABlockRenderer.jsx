@@ -26,6 +26,7 @@ export default function IABlockRenderer({ bind, data, label }) {
         case 'paragraph':
             return <ParagraphRenderer data={data} />;
         case 'list':
+        case 'string-list':
             return <ListRenderer data={data} />;
         case 'ordered-list':
             return <OrderedListRenderer data={data} />;

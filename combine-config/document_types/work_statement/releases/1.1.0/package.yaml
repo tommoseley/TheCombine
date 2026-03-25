@@ -54,6 +54,81 @@ gating_rules:
     - stakeholder
     - technical_lead
 
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 2
+
+  sections:
+    - id: header
+      label: Work Statement
+      binds:
+        - path: ws_id
+          render_as: paragraph
+        - path: title
+          render_as: paragraph
+        - path: state
+          render_as: paragraph
+        - path: order_key
+          render_as: paragraph
+
+    - id: objective
+      label: Objective
+      binds:
+        - path: objective
+          render_as: paragraph
+
+    - id: scope
+      label: Scope
+      binds:
+        - path: scope_in
+          render_as: list
+        - path: scope_out
+          render_as: list
+        - path: allowed_paths
+          render_as: list
+
+    - id: procedure
+      label: Procedure
+      binds:
+        - path: procedure
+          render_as: ordered-list
+
+    - id: verification
+      label: Verification Criteria
+      binds:
+        - path: verification_criteria
+          render_as: ordered-list
+
+    - id: prohibited
+      label: Prohibited Actions
+      binds:
+        - path: prohibited_actions
+          render_as: list
+
+    - id: governance
+      label: Governance
+      binds:
+        - path: governance_pins
+          render_as: nested-object
+          fields:
+            - path: ta_version_id
+              render_as: paragraph
+            - path: adr_refs
+              render_as: list
+            - path: policy_refs
+              render_as: list
+        - path: parent_wp_id
+          render_as: paragraph
+
+    - id: revision
+      label: Revision
+      binds:
+        - path: revision
+          render_as: nested-object
+          fields:
+            - path: edition
+              render_as: paragraph
+
 # UI configuration
 ui:
   icon: file-check
