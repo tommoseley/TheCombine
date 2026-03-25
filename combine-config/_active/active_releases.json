@@ -55,7 +55,7 @@
     "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
     "technical_architecture": "4.0.0",
-    "implementation_plan": "2.0.0",
+    "implementation_plan": "3.0.0",
     "work_package": "1.0.0",
     "work_statement": "1.0.0"
   },
@@ -75,7 +75,7 @@
     "qa_semantic_compliance": "1.1.0",
     "pm_discovery_generation": "1.0.0",
     "project_discovery_qa": "1.2.0",
-    "implementation_plan": "1.1.0",
+    "implementation_plan": "1.2.0",
     "work_package": "1.1.1",
     "work_statement": "1.1.0",
     "propose_work_statements": "1.0.0"
