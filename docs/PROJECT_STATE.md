@@ -1,18 +1,25 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-25
-**Updated By:** Claude (production deployment, PGC dedup, IA audit, IP v1.2.0 boundary precision)
+**Last Updated:** 2026-03-26
+**Updated By:** Claude (PGC ask-vs-infer, rewind fixes, JSON repair, admin workbench)
 
 ## Current Focus
 
+**COMPLETE:** PGC Ask-vs-Infer + Production Fixes (2026-03-26)
+- PGC prompt v1.1.0 for IP and TA: ask-vs-infer rule, stage appropriateness
+- Authority suppression promoted to prominent "DO NOT RE-ASK" section (was buried in JSON)
+- Rewind now cancels paused/running executions (stale PGC questions fix)
+- Resilient JSON parser: stack-based repair for truncated LLM responses
+- Admin workbench exempt from secret ingress scanning (false positive on workflow definitions)
+- Active versions: IP workflow v4.0.0, TA workflow v5.0.0, PGC prompts v1.1.0
+- 9 PRs merged (#62-#69), all deployed to production
+
 **COMPLETE:** Production Deployment + PGC Dedup + IA Audit + IP v1.2.0 (2026-03-25)
-- 7 PRs merged (#62-#67), all deployed to production
 - PGC authority-first question generation: two-layer dedup (LLM instruction + mechanical filter)
 - LLM overloaded → 503 with friendly message, ALB timeout 60s → 120s, UUID parsing fix
 - IA audit: concierge_intake schema rewritten, string-list renderer, work_statement IA authored
-- IP prompt v1.2.0: adjacent WPC boundary precision rule (fixes WP-007/008, WP-009/010 overlap)
+- IP prompt v1.2.0: adjacent WPC boundary precision rule
 - AWS infrastructure fully documented
-- Active versions: IP workflow v3.0.0, TA workflow v4.0.0, IP prompt v1.2.0, TA prompt v1.3.0
 
 **COMPLETE:** APAM-005 Binder Convergence (2026-03-23)
 - IP prompt v1.1.0 cross-cutting concern isolation rule eliminated WPC duplication (7 → 1 duplicate findings)
@@ -56,12 +63,9 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Rerun APAM-003 with IP v1.2.0 to verify adjacent boundary precision fixes WP overlap
-2. Resolve APAM-003 holiday handling contradiction (PD says "alert and wait", WS-035 says "silent skip")
-3. Add cancel/abandon UI for stuck workflow executions
-4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical check
-5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex
-6. Wire PostgresLineageRepository (replace execution_id surrogate)
+1. **Admin Workbench: full DCW visibility** — PGC prompt bindings must be visible/editable in workflow nodes (ADR-049 black box violation)
+2. Rerun APAM-003 with PGC v1.1.0 to verify ask-vs-infer reduces question duplication
+3. Resolve APAM-003 holiday handling contradiction (PD says "alert and wait", WS-035 says "silent skip")
 4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
 5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
 6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
@@ -286,7 +290,7 @@
 
 ## Test Suite
 
-- **4713 Tier-1/2 tests** passing as of 2026-03-25
+- **4712 Tier-1/2 tests** passing as of 2026-03-26
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -419,14 +423,21 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
+### Recent Work (2026-03-26)
+- PGC prompt v1.1.0: ask-vs-infer rule prevents IP from asking implementation details, TA infers by default
+- Authority suppression promoted from buried JSON to first-class "DO NOT RE-ASK" section
+- Rewind cancels paused executions (fixes stale PGC questions in SPA)
+- JSON parser handles truncated LLM output (stack-based delimiter repair)
+- Admin workbench exempt from secret ingress scanning (false positive on workflow JSON)
+- 9 PRs total merged (#62-#69), 5 production deployments
+- Admin Workbench identified as needing full DCW node visualization (PGC bindings invisible)
+
 ### Recent Work (2026-03-25)
-- 7 PRs merged to production (#62-#67)
 - PGC authority-first question generation (two-layer dedup)
 - LLM overloaded → 503, ALB timeout 60s → 120s, UUID parsing fix
 - IA audit: 3 findings fixed (concierge_intake schema, string-list, work_statement IA)
 - IP prompt v1.2.0: adjacent WPC boundary precision rule
 - AWS infrastructure fully documented
-- APAM-003 binder tested — improvement from PGC dedup, remaining WP overlap targeted by IP v1.2.0
 
 ### Recent Work (2026-03-23)
 - WP-AUTH-001: 6 WSs — authority records as primary path for PGC lineage, hydration, QA depth
