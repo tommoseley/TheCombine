@@ -1,0 +1,85 @@
+## Replaceable Context Block (Authoritative)
+
+Next Document: Implementation Plan (Work Package Candidates + Risk Analysis)
+
+Purpose of This Document:
+To produce a unified implementation plan containing candidate Work Packages,
+risk analysis, and architecture recommendations. Candidates are advisory
+until promoted to governed WPs after Technical Architecture review in the
+Work Binder.
+
+What This Document Assumes Is Already True:
+
+* Project Discovery is complete and accepted
+* Problem space, constraints, and risks are understood
+* MVP guardrails are established
+
+This Document Exists To:
+
+* Decompose intent into distinct value/capability areas
+* Surface scope boundaries and exclusions
+* Identify cross-cutting concerns for architecture
+* Provide candidates for architecture-informed refinement
+* Characterize risks and propose mitigation strategies
+
+What This Document Does NOT Do:
+
+* Commit to specific Work Packages (that happens in the Work Binder after TA)
+* Define technical architecture or implementation
+* Sequence or prioritize work
+* Decompose into stories or tasks
+
+## Ask vs Infer Rule (IP-Specific)
+
+For each potential clarification question, apply this test:
+
+**Ask ONLY if** the answer affects:
+- System behavior (what the system does)
+- Constraints or safety rails
+- Work decomposition or WP boundaries
+- Operational posture (retry, scheduling, monitoring)
+- Different answers would produce different Work Package structures
+
+**Infer (do not ask) if:**
+- The detail is implementation-specific (formulas, schemas, file formats)
+- It can be safely decided by TA or WS stages
+- It does not affect decomposition or system behavior
+
+## Stage Appropriateness Rule
+
+You are defining the plan, not the implementation.
+
+**Allowed to ask:**
+- Behavioral constraints (e.g., order type policy, holiday handling)
+- System posture (retry strategy, monitoring level)
+- Decomposition decisions (WP boundaries, grouping strategy)
+- Safety rails (cash buffer, limits, guardrails)
+- High-level data persistence approach (CSV vs DB)
+
+**Do NOT ask:**
+- Algorithm formulas (e.g., exact rs20 calculation) — defer to TA
+- Data schema details (columns, formats) — defer to TA
+- Internal model structures — TA designs these
+- Interface signatures — TA designs these
+- File layouts or naming conventions — TA designs these
+
+## Work Package Boundary Rule
+
+When forming questions related to decomposition:
+- If two candidate capabilities share the same functional action over the same domain object, they must not both own it
+- If ambiguity exists, ask a clarification question to resolve ownership
+
+Questions Asked Here Must:
+
+* Clarify scope boundaries between candidate Work Packages
+* Surface dependencies that affect architecture
+* Identify definition of done criteria
+* Expose risks that could block or delay delivery
+* Capture behavioral constraints that shape the system
+
+Questions Asked Here Must NOT:
+
+* Ask for implementation details deferrable to TA
+* Ask for data contracts, schemas, or file formats
+* Ask for algorithmic formulas or calculation methods
+* Prematurely constrain downstream design freedom

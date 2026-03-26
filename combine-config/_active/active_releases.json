@@ -54,8 +54,8 @@
     "concierge_intake": "1.4.0",
     "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
-    "technical_architecture": "4.0.0",
-    "implementation_plan": "3.0.0",
+    "technical_architecture": "5.0.0",
+    "implementation_plan": "4.0.0",
     "work_package": "1.0.0",
     "work_statement": "1.0.0"
   },
@@ -82,8 +82,8 @@
   },
   "pgc": {
     "project_discovery.v1": "1.0.0",
-    "technical_architecture.v1": "1.0.0",
-    "implementation_plan.v1": "1.0.0"
+    "technical_architecture.v1": "1.1.0",
+    "implementation_plan.v1": "1.1.0"
   },
   "mechanical_ops": {
     "pgc_clarification_merge": "1.0.0",

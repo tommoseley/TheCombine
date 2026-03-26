@@ -1,17 +1,23 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-23
-**Updated By:** Claude (WP-AUTH-001 + WP-EVAL-001 + prompt tuning + APAM-005 binder convergence)
+**Last Updated:** 2026-03-25
+**Updated By:** Claude (production deployment, PGC dedup, IA audit, IP v1.2.0 boundary precision)
 
 ## Current Focus
 
+**COMPLETE:** Production Deployment + PGC Dedup + IA Audit + IP v1.2.0 (2026-03-25)
+- 7 PRs merged (#62-#67), all deployed to production
+- PGC authority-first question generation: two-layer dedup (LLM instruction + mechanical filter)
+- LLM overloaded → 503 with friendly message, ALB timeout 60s → 120s, UUID parsing fix
+- IA audit: concierge_intake schema rewritten, string-list renderer, work_statement IA authored
+- IP prompt v1.2.0: adjacent WPC boundary precision rule (fixes WP-007/008, WP-009/010 overlap)
+- AWS infrastructure fully documented
+- Active versions: IP workflow v3.0.0, TA workflow v4.0.0, IP prompt v1.2.0, TA prompt v1.3.0
+
 **COMPLETE:** APAM-005 Binder Convergence (2026-03-23)
 - IP prompt v1.1.0 cross-cutting concern isolation rule eliminated WPC duplication (7 → 1 duplicate findings)
-- TA prompt v1.3.0 mandatory `owns` with example (LLM still not populating — needs output validation gate)
-- 4 binder regeneration cycles to reach coherent decomposition
 - First binder with clean WP boundaries, single-ownership decomposition, centralized infrastructure
 - Architectural decision: workflow definitions pin explicit prompt versions (correct per ADR-049)
-- Active versions: IP workflow v2.0.0, TA workflow v4.0.0, IP prompt v1.1.0, TA prompt v1.3.0
 
 **COMPLETE:** WP-EVAL-001 — Evaluator Calibration + TA Registry + PGC Authority (2026-03-23)
 - CLDR-003 stopword prefix filter: strips procedure verbs, articles, prepositions
@@ -50,9 +56,12 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. Fix order type contradiction in APAM-005 binder: IP/PD say market orders, WP-024 says limit orders — add mechanical certification check
-2. Add cancel/abandon UI for stuck workflow executions (currently requires DB surgery)
-3. Mechanical enforcement: WP promotion duplicate-scope check (prevent cross-WP recreation of same responsibility)
+1. Rerun APAM-003 with IP v1.2.0 to verify adjacent boundary precision fixes WP overlap
+2. Resolve APAM-003 holiday handling contradiction (PD says "alert and wait", WS-035 says "silent skip")
+3. Add cancel/abandon UI for stuck workflow executions
+4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical check
+5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex
+6. Wire PostgresLineageRepository (replace execution_id surrogate)
 4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
 5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
 6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
@@ -277,7 +286,7 @@
 
 ## Test Suite
 
-- **4713 Tier-1/2 tests** passing as of 2026-03-23 (89 new: authority records, evaluator calibration, TA schema, PGC decision authority)
+- **4713 Tier-1/2 tests** passing as of 2026-03-25
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -410,14 +419,21 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
+### Recent Work (2026-03-25)
+- 7 PRs merged to production (#62-#67)
+- PGC authority-first question generation (two-layer dedup)
+- LLM overloaded → 503, ALB timeout 60s → 120s, UUID parsing fix
+- IA audit: 3 findings fixed (concierge_intake schema, string-list, work_statement IA)
+- IP prompt v1.2.0: adjacent WPC boundary precision rule
+- AWS infrastructure fully documented
+- APAM-003 binder tested — improvement from PGC dedup, remaining WP overlap targeted by IP v1.2.0
+
 ### Recent Work (2026-03-23)
 - WP-AUTH-001: 6 WSs — authority records as primary path for PGC lineage, hydration, QA depth
 - WP-EVAL-001: 3 WSs — CLDR-003 calibration, TA schema owns field, PGC decision parameter capture
-- IP prompt v1.1.0: cross-cutting concern isolation rule (eliminated WPC duplication)
+- IP prompt v1.1.0 → v1.2.0: cross-cutting isolation + adjacent boundary precision
 - TA prompt v1.3.0: mandatory owns with concrete JSON example
-- TA workflow v4.0.0, IP workflow v2.0.0: explicit prompt version pinning
 - APAM-005: 4 binder regeneration cycles → first coherent decomposition with clean WP boundaries
-- Alembic migration 20260323_001 applied to DEV
 - 89 new tests, 4713 total passing
 - Architectural decision: workflow definitions are the binding composition contract for prompt versions
 
