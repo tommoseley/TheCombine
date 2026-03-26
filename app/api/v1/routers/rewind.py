@@ -151,6 +151,38 @@ async def rewind_pipeline(
 
     result = await service.execute_rewind(request)
 
+    # Cancel any paused/running executions for affected document types
+    # (prevents stale PGC questions from appearing after rewind)
+    from app.api.models.workflow_execution import WorkflowExecution
+    from app.domain.services.rewind_impact_evaluator import get_affected_doc_type_ids
+    from sqlalchemy import update, and_
+
+    affected_doc_types = get_affected_doc_type_ids(stage)
+    if affected_doc_types:
+        cancel_result = await db.execute(
+            update(WorkflowExecution)
+            .where(
+                and_(
+                    WorkflowExecution.project_id == project_id,
+                    WorkflowExecution.workflow_id.in_(affected_doc_types),
+                    WorkflowExecution.status.in_(["paused", "running"]),
+                )
+            )
+            .values(
+                status="failed",
+                pending_user_input=False,
+                terminal_outcome="cancelled_by_rewind",
+            )
+        )
+        cancelled_count = cancel_result.rowcount
+        if cancelled_count > 0:
+            logger.info(
+                "Rewind cancelled %d in-progress executions for project %s",
+                cancelled_count,
+                project_id,
+            )
+        await db.commit()
+
     return RewindResponseBody(
         success=result.success,
         rewind_to_stage=result.rewind_to_stage,
