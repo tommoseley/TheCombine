@@ -20,7 +20,8 @@ from app.core.secret_detector import scan_text, scan_dict, redact_for_logging, S
 
 logger = logging.getLogger(__name__)
 
-# Paths that should NOT be scanned (health checks, static assets, auth flows)
+# Paths that should NOT be scanned (health checks, static assets, auth flows,
+# admin workbench — operator-controlled governed configuration)
 _SKIP_PATHS = frozenset([
     "/health",
     "/healthz",
@@ -28,6 +29,10 @@ _SKIP_PATHS = frozenset([
     "/redoc",
     "/openapi.json",
 ])
+
+_SKIP_PREFIXES = (
+    "/api/v1/admin/workspaces/",   # Admin workbench: governed config, not user input
+)
 
 
 class SecretIngressMiddleware(BaseHTTPMiddleware):
@@ -43,9 +48,11 @@ class SecretIngressMiddleware(BaseHTTPMiddleware):
         if request.method not in ("POST", "PUT", "PATCH"):
             return await call_next(request)
 
-        # Skip non-API paths
+        # Skip non-API paths and admin config paths
         path = request.url.path
         if any(path.startswith(skip) for skip in _SKIP_PATHS):
+            return await call_next(request)
+        if any(path.startswith(prefix) for prefix in _SKIP_PREFIXES):
             return await call_next(request)
 
         # Read body (may already be cached by BodySizeMiddleware)
