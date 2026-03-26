@@ -447,13 +447,40 @@ class TaskNodeExecutor(NodeExecutor):
             # Look for JSON block in response
             if "```json" in response:
                 start = response.index("```json") + 7
-                end = response.index("```", start)
+                # Find closing fence; if missing (truncated), use end of string
+                try:
+                    end = response.index("```", start)
+                except ValueError:
+                    logger.warning("JSON code fence not closed (likely truncated). Using remainder of response.")
+                    end = len(response)
                 json_str = response[start:end].strip()
+                # If truncated JSON, try to repair by closing open braces/brackets
+                if json_str and not json_str.endswith("}"):
+                    json_str = self._repair_truncated_json(json_str)
                 logger.debug(f"Parsing JSON block: {json_str[:200]}...")
                 return json.loads(json_str)
-            elif response.strip().startswith("{"):
-                logger.debug(f"Parsing raw JSON: {response[:200]}...")
-                return json.loads(response)
+            elif "```" in response and "{" in response:
+                # Handle other code fence variants (```, ```JSON, etc.)
+                fence_start = response.index("```")
+                # Skip the fence line
+                newline_after = response.index("\n", fence_start)
+                json_start = newline_after + 1
+                try:
+                    end = response.index("```", json_start)
+                except ValueError:
+                    end = len(response)
+                json_str = response[json_start:end].strip()
+                if json_str.startswith("{"):
+                    if not json_str.endswith("}"):
+                        json_str = self._repair_truncated_json(json_str)
+                    return json.loads(json_str)
+
+            if response.strip().startswith("{"):
+                clean = response.strip()
+                if not clean.endswith("}"):
+                    clean = self._repair_truncated_json(clean)
+                logger.debug(f"Parsing raw JSON: {clean[:200]}...")
+                return json.loads(clean)
             else:
                 logger.warning(f"Response doesn't contain JSON. First 200 chars: {response[:200]}...")
         except (json.JSONDecodeError, ValueError) as e:
@@ -466,3 +493,92 @@ class TaskNodeExecutor(NodeExecutor):
             "content": response,
             "raw": True,
         }
+
+    @staticmethod
+    def _repair_truncated_json(json_str: str) -> str:
+        """Attempt to repair truncated JSON by closing open delimiters.
+
+        When LLM output is truncated by token limits, the JSON may be
+        missing closing delimiters. Uses stack-based tracking to close
+        braces and brackets in the correct nesting order.
+        """
+        cleaned = json_str.rstrip()
+
+        # Track string state and delimiter stack
+        in_string = False
+        escaped = False
+        stack = []
+
+        for ch in cleaned:
+            if escaped:
+                escaped = False
+                continue
+            if ch == '\\':
+                escaped = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch in ('{', '['):
+                stack.append(ch)
+            elif ch == '}' and stack and stack[-1] == '{':
+                stack.pop()
+            elif ch == ']' and stack and stack[-1] == '[':
+                stack.pop()
+
+        # If truncated inside a string, close it and try to salvage
+        if in_string:
+            cleaned += '"'
+            # Try closing just the string — if that doesn't parse,
+            # drop the incomplete key-value pair
+            import json as _json
+            closers = {'[': ']', '{': '}'}
+            test_suffix = ''.join(closers[c] for c in reversed(stack))
+            try:
+                _json.loads(cleaned + test_suffix)
+            except _json.JSONDecodeError:
+                # Strip back to last comma or opening delimiter
+                last_comma = cleaned.rfind(",")
+                if last_comma > 0:
+                    cleaned = cleaned[:last_comma]
+                    # Rebuild stack for the shortened string
+                    stack = []
+                    in_string = False
+                    escaped = False
+                    for ch in cleaned:
+                        if escaped:
+                            escaped = False
+                            continue
+                        if ch == '\\':
+                            escaped = True
+                            continue
+                        if ch == '"':
+                            in_string = not in_string
+                            continue
+                        if in_string:
+                            continue
+                        if ch in ('{', '['):
+                            stack.append(ch)
+                        elif ch == '}' and stack and stack[-1] == '{':
+                            stack.pop()
+                        elif ch == ']' and stack and stack[-1] == '[':
+                            stack.pop()
+
+        # Strip trailing commas
+        cleaned = cleaned.rstrip()
+        while cleaned and cleaned[-1] == ",":
+            cleaned = cleaned[:-1].rstrip()
+
+        # Close open delimiters in correct nesting order
+        closers = {'[': ']', '{': '}'}
+        suffix = ''.join(closers[c] for c in reversed(stack))
+
+        if suffix:
+            import logging
+            logging.getLogger(__name__).info(
+                f"Repaired truncated JSON: closing {len(stack)} open delimiters"
+            )
+
+        return cleaned + suffix
