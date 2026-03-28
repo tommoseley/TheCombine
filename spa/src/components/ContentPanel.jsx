@@ -218,7 +218,7 @@ function RotatingTip() {
 /**
  * In-progress state — document is being produced
  */
-function InProgressState({ step, onSubmitQuestions }) {
+function InProgressState({ step, onSubmitQuestions, onCancelProduction }) {
     const hasQuestions = step.questions?.length > 0;
     const needsInput = step.stations?.some(s => s.state === 'active' && s.needs_input);
 
@@ -312,6 +312,25 @@ function InProgressState({ step, onSubmitQuestions }) {
                 </div>
             )}
 
+            {/* Cancel button */}
+            {onCancelProduction && (
+                <button
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors hover:opacity-90"
+                    style={{
+                        background: 'transparent',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border-node)',
+                    }}
+                    onClick={() => {
+                        if (window.confirm(`Cancel production for ${formatDocTypeName(step.id)}?`)) {
+                            onCancelProduction(step.id);
+                        }
+                    }}
+                >
+                    Cancel Production
+                </button>
+            )}
+
             {/* Rotating tips — shown while LLM is working (not during user input) */}
             {!needsInput && <RotatingTip />}
 
@@ -333,6 +352,7 @@ export default function ContentPanel({
     projectId,
     projectCode,
     onStartProduction,
+    onCancelProduction,
     onSubmitQuestions,
     pipelineData = [],
     onProduceNext,
@@ -406,7 +426,7 @@ export default function ContentPanel({
     if (artifactState === 'in_progress') {
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
-                <InProgressState step={step} onSubmitQuestions={onSubmitQuestions} />
+                <InProgressState step={step} onSubmitQuestions={onSubmitQuestions} onCancelProduction={onCancelProduction} />
             </div>
         );
     }

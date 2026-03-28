@@ -134,7 +134,7 @@ def classify_execution_state(
 
     if exec_status == "paused":
         return ProductionState.AWAITING_OPERATOR.value
-    elif exec_status in ("running", "in_progress"):
+    elif exec_status in ("pending", "running", "in_progress"):
         return ProductionState.IN_PRODUCTION.value
     return None
 

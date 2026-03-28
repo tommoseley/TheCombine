@@ -52,7 +52,7 @@
         }
       },
       "_position": {
-        "x": 50,
+        "x": 40,
         "y": 40
       },
       "station": {
@@ -243,7 +243,10 @@
       "outcome": "fail",
       "non_advancing": true,
       "label": "Circuit breaker - escalate to operator",
-      "escalation_options": ["retry", "abandon"],
+      "escalation_options": [
+        "retry",
+        "abandon"
+      ],
       "conditions": [
         {
           "type": "retry_count",

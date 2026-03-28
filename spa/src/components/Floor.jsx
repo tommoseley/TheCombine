@@ -381,6 +381,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         dismissNotification,
         resolveInterrupt,
         startProduction,
+        cancelProduction,
     } = useProductionStatus(projectId);
 
     const [data, setData] = useState([]);
@@ -442,6 +443,15 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             ));
         }
     }, [startProduction]);
+
+    const handleCancelProduction = useCallback(async (docTypeId) => {
+        console.log('Cancelling production for:', docTypeId);
+        try {
+            await cancelProduction(docTypeId);
+        } catch (err) {
+            // Error handled by hook notification
+        }
+    }, [cancelProduction]);
 
     const handleSubmitQuestions = useCallback(async (id, answers) => {
         console.log('Submitted:', id, answers);
@@ -555,6 +565,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     projectId={projectId}
                     projectCode={projectCode}
                     onStartProduction={handleStartProduction}
+                    onCancelProduction={handleCancelProduction}
                     onSubmitQuestions={handleSubmitQuestions}
                     pipelineData={data}
                     onProduceNext={handleProduceNext}

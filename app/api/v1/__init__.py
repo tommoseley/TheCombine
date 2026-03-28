@@ -24,6 +24,7 @@ from app.api.v1.routers.intents import router as intents_router
 from app.api.v1.routers.metrics import router as metrics_router
 from app.api.v1.routers.work_binder import router as work_binder_router
 from app.api.v1.routers.rewind import router as rewind_router
+from app.api.v1.routers.repair import router as repair_router
 
 
 # Create main v1 router
@@ -50,6 +51,7 @@ api_router.include_router(admin_workspaces_router)  # ADR-044 WS-044-03: Prompt 
 api_router.include_router(metrics_router)  # WS-METRICS-001: Execution Metrics
 api_router.include_router(work_binder_router)  # WP-WB-001: Work Binder
 api_router.include_router(rewind_router)  # ADR-063: Pipeline Rewind
+api_router.include_router(repair_router)  # ADR-065: Component-Scoped Repair
 
 
 __all__ = ["api_router"]

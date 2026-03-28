@@ -347,11 +347,22 @@ async def import_candidates_from_ip(
             ))
             continue
 
+        # Determine next version — may be >1 if stale versions exist from prior rewinds
+        max_version_result = await db.execute(
+            select(Document.version).where(
+                Document.doc_type_id == "work_package_candidate",
+                Document.display_id == wpc_id,
+                Document.space_id == ip_doc.space_id,
+            ).order_by(Document.version.desc()).limit(1)
+        )
+        max_version = max_version_result.scalar_one_or_none() or 0
+        next_version = max_version + 1
+
         doc = Document(
             space_type="project",
             space_id=ip_doc.space_id,
             doc_type_id="work_package_candidate",
-            version=1,
+            version=next_version,
             title=wpc_content["title"],
             content=wpc_content,
             status="active",
@@ -626,6 +637,12 @@ async def propose_work_statements(
     wp_json = _json.dumps(wp_content, indent=2, default=str)
     ta_json = _json.dumps(ta_doc.content or {}, indent=2, default=str)
 
+    # --- Build sibling WP summaries for upstream awareness (v1.1.0) ---
+    sibling_summaries = await _get_sibling_wp_summaries(
+        db, project.id, wp_doc.display_id,
+    )
+    siblings_json = _json.dumps(sibling_summaries, indent=2, default=str)
+
     # Wire up LLM client
     from app.llm.providers.anthropic import AnthropicProvider
     from app.domain.workflow.nodes.llm_executors import LoggingLLMService
@@ -644,8 +661,12 @@ async def propose_work_statements(
     try:
         result = await execute_task(
             task_id="propose_work_statements",
-            version="1.0.0",
-            inputs={"work_package": wp_json, "technical_architecture": ta_json},
+            version="1.1.0",
+            inputs={
+                "work_package": wp_json,
+                "technical_architecture": ta_json,
+                "sibling_work_packages": siblings_json,
+            },
             expected_schema_id="work_statement",
             llm_client=llm_client,
         )
@@ -1732,3 +1753,34 @@ async def _collect_promoted_wpc_ids(
         src_ids = (wp_doc.content or {}).get("source_candidate_ids", [])
         promoted_ids.update(src_ids)
     return promoted_ids
+
+
+async def _get_sibling_wp_summaries(
+    db: AsyncSession,
+    project_id,
+    exclude_display_id: str,
+) -> list[dict]:
+    """Get summaries of sibling WPs for upstream awareness in WS proposal.
+
+    Returns list of {wp_id, title, scope_in} for all WPs in the project
+    except the one being proposed for.
+    """
+    result = await db.execute(
+        select(Document).where(
+            Document.space_type == "project",
+            Document.space_id == project_id,
+            Document.doc_type_id == "work_package",
+            Document.is_latest == True,  # noqa: E712
+        )
+    )
+    summaries = []
+    for sibling in result.scalars().all():
+        if sibling.display_id == exclude_display_id:
+            continue
+        s_content = sibling.content or {}
+        summaries.append({
+            "wp_id": s_content.get("wp_id", sibling.display_id),
+            "title": sibling.title or s_content.get("title", ""),
+            "scope_in": s_content.get("scope_in", []),
+        })
+    return summaries

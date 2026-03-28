@@ -1,0 +1,7 @@
+name: Repair TA Component
+intent: Fix a specific defect in a single TA component without regenerating the full document
+tags:
+  - repair
+  - ta
+  - component-scoped
+  - adr-065

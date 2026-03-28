@@ -242,6 +242,10 @@ class TestProposeWSLLMErrors:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -293,6 +297,10 @@ class TestProposeWSLLMErrors:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -344,6 +352,10 @@ class TestProposeWSLLMErrors:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -395,6 +407,10 @@ class TestProposeWSLLMErrors:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -453,6 +469,10 @@ class TestProposeWSOutputParsing:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -502,6 +522,10 @@ class TestProposeWSOutputParsing:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -553,6 +577,10 @@ class TestProposeWSOutputParsing:
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
+            patch(
+                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
+                new_callable=AsyncMock, return_value=[],
+            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),

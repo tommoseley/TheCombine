@@ -2,12 +2,34 @@ import React, { memo } from 'react';
 import { Handle, Position } from 'reactflow';
 
 /**
+ * Count prompt bindings across top-level includes and gate internals.
+ */
+function countBindings(data) {
+    let count = 0;
+    // Top-level includes (task/generation nodes)
+    if (data.includes) {
+        count += Object.keys(data.includes).length;
+    }
+    // Gate internals (PGC pass_a, QA evaluate)
+    if (data.internals) {
+        if (data.internals.pass_a?.includes) {
+            count += Object.keys(data.internals.pass_a.includes).length;
+        }
+        if (data.internals.evaluate?.includes) {
+            count += Object.keys(data.internals.evaluate.includes).length;
+        }
+    }
+    return count;
+}
+
+/**
  * Custom React Flow node for workflow graph editor.
  * Displays node type, ID, description, and metadata badges.
  */
 function WorkflowNode({ data, selected }) {
     const { config, isEntry } = data;
     const isEnd = data.type === 'end';
+    const bindingCount = countBindings(data);
 
     return (
         <div
@@ -145,6 +167,17 @@ function WorkflowNode({ data, selected }) {
                         color: '#8b5cf6',
                     }}>
                         {data.qa_mode}
+                    </span>
+                )}
+                {bindingCount > 0 && (
+                    <span style={{
+                        fontSize: 8,
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        background: 'rgba(234,179,8,0.2)',
+                        color: '#eab308',
+                    }}>
+                        {bindingCount} {bindingCount === 1 ? 'binding' : 'bindings'}
                     </span>
                 )}
             </div>

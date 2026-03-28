@@ -1,9 +1,25 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-26
-**Updated By:** Claude (PGC ask-vs-infer, rewind fixes, JSON repair, admin workbench)
+**Last Updated:** 2026-03-28
+**Updated By:** Claude (evaluator gates, repair system, ADR-066 TA→IP, pipeline integrity, propose_ws v1.1.0)
 
 ## Current Focus
+
+**COMPLETE:** Pipeline Integrity + Repair System + WS Dedup (2026-03-27/28)
+- ADR-065: Component-Scoped LLM Repair Proposals — full WP implemented (persistence, LLM interaction, review UI, mutation)
+- ADR-066: TA Consumes IP as Authoritative Input — TA prompt v1.4.0 + workflow v6.0.0
+- WS-EVAL-003: validate_ta_owns() mechanical gate
+- WS-EVAL-004: CLDR-003 regex extraction eliminated, vocabulary-based (dormant until components_touched field)
+- WS-EVAL-005A: TA ownership findings in binder evaluation
+- PostgresLineageRepository wired (migration applied to DEV)
+- RepairProposal table + migration applied to DEV
+- Cancel/abandon UI for stuck executions
+- "Propose All WSs" batch button with per-WP spinners
+- Rewind cascade: IP rewind now invalidates WPCs
+- WPC import: version-bumps after rewind (unique constraint fix)
+- propose_work_statements v1.1.0: sibling WP awareness eliminates infrastructure duplication
+- Active versions: TA workflow v6.0.0, TA task v1.4.0, propose_ws v1.1.0
+- 4766 tests passing
 
 **COMPLETE:** PGC Ask-vs-Infer + Production Fixes (2026-03-26)
 - PGC prompt v1.1.0 for IP and TA: ask-vs-infer rule, stage appropriateness
@@ -63,12 +79,11 @@
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
 **Next priorities:**
-1. **Admin Workbench: full DCW visibility** — PGC prompt bindings must be visible/editable in workflow nodes (ADR-049 black box violation)
-2. Rerun APAM-003 with PGC v1.1.0 to verify ask-vs-infer reduces question duplication
-3. Resolve APAM-003 holiday handling contradiction (PD says "alert and wait", WS-035 says "silent skip")
-4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
-5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
-6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
+1. **Run APAM-003 "Propose All WSs" with v1.1.0** — WSs cleared, ready for re-proposal with sibling awareness
+2. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
+3. Add cross-stage PGC contradiction check (TA DATA_STORAGE="sqlite" vs IP out_of_scope "no databases")
+4. Rewind history viewer (Tier 1 UX)
+5. Replace execution_id surrogate with true lineage_path_id in authority_service
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -290,7 +305,7 @@
 
 ## Test Suite
 
-- **4712 Tier-1/2 tests** passing as of 2026-03-26
+- **4766 Tier-1/2 tests** passing as of 2026-03-28
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -315,6 +330,11 @@
 | stabilization_gate | app/domain/services/ws_crud_service.py | 4-gate certification spine at WP stabilization |
 | authority_service | app/domain/services/authority_service.py | Durable authority records: type-scoped supersession, bundle hydration, path-historical (ADR-064) |
 | authority_repository | app/domain/repositories/authority_repository.py | Protocol + InMemory + Postgres for authority record persistence |
+| lineage_repository | app/domain/services/lineage_service.py | Protocol + InMemory + Postgres for lineage event persistence (ADR-063) |
+| repair_service | app/domain/services/repair_service.py | Component-scoped LLM repair proposal generation (ADR-065) |
+| repair_mutation | app/domain/services/repair_mutation.py | Pre-stabilization component replacement + reevaluation |
+| repair_repository | app/domain/repositories/repair_proposal_repository.py | Protocol + InMemory + Postgres for repair proposals |
+| validate_ta_owns | app/domain/services/cross_layer_evaluator.py | Mechanical TA component ownership validation (WS-EVAL-003) |
 
 ---
 
@@ -423,6 +443,20 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
+### Recent Work (2026-03-27/28)
+- ADR-065 (Repair Proposals) + ADR-066 (TA→IP) filed and implemented
+- Full repair system: proposal persistence, LLM repair interaction, review UI, mutation + reevaluation
+- Pipeline integrity: rewind cascade includes WPCs, WPC import version-bumps after rewind
+- TA v1.4.0 + workflow v6.0.0: TA consumes IP as authoritative decomposition context
+- propose_work_statements v1.1.0: sibling WP awareness, ownership transfer test, upstream_dependencies field
+- Cancel/abandon UI for stuck executions (SSE + SPA)
+- "Propose All WSs" batch button with per-WP spinners
+- validate_ta_owns() mechanical gate + binder rendering
+- CLDR-003 regex eliminated, vocabulary-based (dormant)
+- PostgresLineageRepository wired + migrated to DEV
+- APAM-003 WSs cleared for fresh re-proposal
+- 54 new tests, 4766 total
+
 ### Recent Work (2026-03-26)
 - PGC prompt v1.1.0: ask-vs-infer rule prevents IP from asking implementation details, TA infers by default
 - Authority suppression promoted from buried JSON to first-class "DO NOT RE-ASK" section
@@ -473,8 +507,8 @@ All previous decisions (1-46) plus:
 | Priority | Feature | Status |
 |----------|---------|--------|
 | Tier 1 | Rewind history viewer — timeline of pipeline steps, branch nodes, what changed | Open |
-| Tier 1 | Cancel/abandon stuck execution — Andon cord for stuck workflows | Open |
-| Tier 2 | "Propose All WSs" button — batch WS generation in Work Binder | Open |
+| Done | Cancel/abandon stuck execution — Andon cord for stuck workflows | Complete (2026-03-27) |
+| Done | "Propose All WSs" button — batch WS generation in Work Binder | Complete (2026-03-27) |
 | Tier 2 | File upload for mockups/documents — governed project artifacts with lineage | Open |
 | Tier 3 | File viewer — inline rendering of uploaded files (images, PDFs, text) | Open |
 | Done | Pipeline rewind button | Complete (ADR-063, 2026-03-22) |

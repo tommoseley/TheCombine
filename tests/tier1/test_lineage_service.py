@@ -1,4 +1,4 @@
-"""Tests for Lineage Service (WS-REWIND-006)."""
+"""Tests for Lineage Service (WS-REWIND-006, WS-LINEAGE-001)."""
 
 import pytest
 from uuid import uuid4
@@ -7,6 +7,7 @@ from app.domain.models.lineage_event import LineageEvent
 from app.domain.services.lineage_service import (
     InMemoryLineageRepository,
     LineageService,
+    PostgresLineageRepository,
 )
 
 
@@ -208,6 +209,37 @@ class TestGetEvent:
     async def test_get_nonexistent_event(self, service):
         retrieved = await service.get_event(uuid4())
         assert retrieved is None
+
+
+class TestPostgresLineageRepositoryContract:
+    """WS-LINEAGE-001: verify PostgresLineageRepository exists and follows Protocol."""
+
+    def test_class_exists(self):
+        """PostgresLineageRepository is importable."""
+        assert PostgresLineageRepository is not None
+
+    def test_has_save_method(self):
+        """Repository has save() method."""
+        assert hasattr(PostgresLineageRepository, "save")
+        assert callable(getattr(PostgresLineageRepository, "save"))
+
+    def test_has_get_by_project_method(self):
+        """Repository has get_by_project() method."""
+        assert hasattr(PostgresLineageRepository, "get_by_project")
+
+    def test_has_get_by_id_method(self):
+        """Repository has get_by_id() method."""
+        assert hasattr(PostgresLineageRepository, "get_by_id")
+
+    def test_constructor_accepts_db_session(self):
+        """Constructor takes a db session parameter."""
+        # Verify it can be instantiated with a mock db
+        repo = PostgresLineageRepository(db=None)
+        assert repo._db is None
+
+    def test_to_domain_static_method_exists(self):
+        """_to_domain helper for ORM → domain conversion."""
+        assert hasattr(PostgresLineageRepository, "_to_domain")
 
 
 class TestLineageEventModel:

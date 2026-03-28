@@ -127,6 +127,16 @@ export function useProductionStatus(projectId) {
             }
         });
 
+        eventSource.addEventListener('track_cancelled', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Track cancelled:', data);
+                fetchStatus();
+            } catch (err) {
+                console.error('Failed to parse track_cancelled:', err);
+            }
+        });
+
         // WS-EPIC-SPAWN-001 Phase 2: Handle children_updated event
         // Refresh floor when child documents are spawned/updated/superseded
         eventSource.addEventListener('children_updated', (event) => {
@@ -279,7 +289,10 @@ export function useProductionStatus(projectId) {
             setNotification(null);
             await api.startProduction(projectId, documentType);
             setLineState('active');
-            // Don't fetch immediately - SSE will provide updates as production progresses
+            // Fetch status after production call returns — the execution may have
+            // paused for PGC input, creating an interrupt that needs to be picked up.
+            // SSE events update station data but don't signal new interrupts.
+            fetchStatus();
         } catch (err) {
             console.error('Failed to start production:', err);
             // Show user-friendly notification
@@ -297,6 +310,21 @@ export function useProductionStatus(projectId) {
             setLineState('idle');
             // Also fetch full status for accuracy
             fetchStatus();
+            throw err;
+        }
+    }, [projectId, fetchStatus]);
+
+    // Cancel production for a document type
+    const cancelProduction = useCallback(async (documentType) => {
+        try {
+            setNotification(null);
+            await api.cancelProduction(projectId, documentType);
+            // SSE track_cancelled will update state; also fetch for accuracy
+            fetchStatus();
+        } catch (err) {
+            console.error('Failed to cancel production:', err);
+            const message = err.data?.message || err.message || 'Failed to cancel production';
+            setNotification({ type: 'error', message });
             throw err;
         }
     }, [projectId, fetchStatus]);
@@ -325,5 +353,6 @@ export function useProductionStatus(projectId) {
         refresh: fetchStatus,
         resolveInterrupt,
         startProduction,
+        cancelProduction,
     };
 }

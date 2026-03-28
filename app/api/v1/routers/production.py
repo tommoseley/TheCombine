@@ -288,6 +288,17 @@ async def start_production(
                 initial_context=initial_context,
             )
 
+            # Emit track_started BEFORE the LLM run so the UI shows "Active"
+            # immediately, not "Idle" during the entire generation phase
+            await publish_event(
+                project_id,
+                "track_started",
+                {
+                    "document_type": document_type,
+                    "execution_id": state.execution_id,
+                },
+            )
+
             # Run to first pause point (gate requiring input or completion)
             state = await executor.run_to_completion_or_pause(state.execution_id)
 
@@ -307,16 +318,6 @@ async def start_production(
                         "message": "The AI service may be temporarily busy. Please try again in a minute.",
                     },
                 )
-
-            # Emit event for UI
-            await publish_event(
-                project_id,
-                "track_started",
-                {
-                    "document_type": document_type,
-                    "execution_id": state.execution_id,
-                },
-            )
 
             return JSONResponse({
                 "status": "started",
@@ -376,3 +377,82 @@ async def start_production(
                     "message": str(e),
                 },
             )
+
+
+@router.post("/cancel")
+async def cancel_production(
+    project_id: str = Query(..., description="Project ID"),
+    document_type: str = Query(..., description="Document type to cancel"),
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Cancel a running or paused execution for a document type.
+
+    Finds the active execution by project_id + document_type and cancels it.
+    Emits track_cancelled SSE event on success.
+
+    Returns:
+        Cancellation result with execution_id.
+    """
+    from sqlalchemy import select
+    from app.api.models.workflow_execution import WorkflowExecution
+
+    logger.info(f"Cancel requested for {document_type} in project {project_id}")
+
+    # Find the active execution for this project + document_type
+    result = await db.execute(
+        select(WorkflowExecution).where(
+            WorkflowExecution.project_id == project_id,
+            WorkflowExecution.document_type == document_type,
+            WorkflowExecution.status.in_(["running", "paused", "pending"]),
+        )
+    )
+    execution = result.scalar_one_or_none()
+
+    if not execution:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "message": f"No active execution found for {document_type}",
+            },
+        )
+
+    # Cancel via plan executor
+    from app.domain.workflow.plan_executor import PlanExecutor
+    from app.domain.workflow.pg_state_persistence import PgStatePersistence
+
+    executor = PlanExecutor(
+        persistence=PgStatePersistence(db),
+        db_session=db,
+    )
+
+    try:
+        state = await executor.cancel_execution(execution.execution_id)
+        await db.commit()
+    except Exception as e:
+        logger.error(f"Failed to cancel execution {execution.execution_id}: {e}")
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "message": str(e),
+            },
+        )
+
+    # Emit SSE event
+    await publish_event(
+        project_id,
+        "track_cancelled",
+        {
+            "document_type": document_type,
+            "execution_id": execution.execution_id,
+        },
+    )
+
+    return JSONResponse({
+        "status": "cancelled",
+        "project_id": project_id,
+        "document_type": document_type,
+        "execution_id": execution.execution_id,
+        "message": f"Production cancelled for {document_type}",
+    })

@@ -57,6 +57,78 @@ class InMemoryLineageRepository:
         return None
 
 
+class PostgresLineageRepository:
+    """PostgreSQL implementation for runtime persistence.
+
+    Does NOT commit internally — caller owns transaction.
+    """
+
+    def __init__(self, db) -> None:
+        self._db = db
+
+    async def save(self, event: LineageEvent) -> None:
+        from app.api.models.lineage_event import LineageEventModel
+
+        orm = LineageEventModel(
+            id=event.id,
+            project_id=event.project_id,
+            event_type=event.event_type,
+            rewind_to_stage=event.rewind_to_stage,
+            reason=event.reason,
+            actor=event.actor,
+            affected_document_ids=[str(uid) for uid in event.affected_document_ids],
+            regeneration_event_id=event.regeneration_event_id,
+            created_at=event.created_at,
+        )
+        self._db.add(orm)
+        logger.info(f"Persisted lineage event {event.id} ({event.event_type})")
+
+    async def get_by_project(
+        self, project_id: UUID, event_type: Optional[str] = None
+    ) -> List[LineageEvent]:
+        from app.api.models.lineage_event import LineageEventModel
+        from sqlalchemy import select
+
+        stmt = select(LineageEventModel).where(
+            LineageEventModel.project_id == project_id,
+        )
+        if event_type:
+            stmt = stmt.where(LineageEventModel.event_type == event_type)
+        stmt = stmt.order_by(LineageEventModel.created_at.desc())
+
+        result = await self._db.execute(stmt)
+        return [self._to_domain(orm) for orm in result.scalars().all()]
+
+    async def get_by_id(self, event_id: UUID) -> Optional[LineageEvent]:
+        from app.api.models.lineage_event import LineageEventModel
+        from sqlalchemy import select
+
+        result = await self._db.execute(
+            select(LineageEventModel).where(LineageEventModel.id == event_id)
+        )
+        orm = result.scalar_one_or_none()
+        return self._to_domain(orm) if orm else None
+
+    @staticmethod
+    def _to_domain(orm) -> LineageEvent:
+        """Convert ORM model to domain object."""
+        doc_ids = [
+            UUID(uid) if isinstance(uid, str) else uid
+            for uid in (orm.affected_document_ids or [])
+        ]
+        return LineageEvent(
+            id=orm.id,
+            project_id=orm.project_id,
+            event_type=orm.event_type,
+            rewind_to_stage=orm.rewind_to_stage,
+            reason=orm.reason,
+            actor=orm.actor,
+            affected_document_ids=doc_ids,
+            created_at=orm.created_at,
+            regeneration_event_id=orm.regeneration_event_id,
+        )
+
+
 class LineageService:
     """
     Application service for lineage event recording and retrieval.

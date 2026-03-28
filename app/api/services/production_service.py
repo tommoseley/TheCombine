@@ -240,7 +240,7 @@ async def get_production_tracks(db: AsyncSession, project_id: str) -> List[Dict[
     result = await db.execute(
         select(WorkflowExecution)
         .where(WorkflowExecution.project_id == project_uuid)
-        .where(WorkflowExecution.status.in_(["running", "in_progress", "paused"]))
+        .where(WorkflowExecution.status.in_(["pending", "running", "in_progress", "paused"]))
     )
     active_executions = {ex.document_type: ex for ex in result.scalars().all()}
 

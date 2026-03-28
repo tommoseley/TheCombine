@@ -94,6 +94,8 @@ async def init_database():
     from app.api.models.pgc_answer import PGCAnswer  # noqa: F401
     from app.api.models.governance_outcome import GovernanceOutcome  # noqa: F401
     from app.api.models.authority_record import AuthorityRecord  # noqa: F401
+    from app.api.models.lineage_event import LineageEventModel  # noqa: F401
+    from app.api.models.repair_proposal import RepairProposal as RepairProposalModel  # noqa: F401
 
     # LLM logging models (canonical location: domain/models)
     from app.domain.models.llm_logging import (  # noqa: F401

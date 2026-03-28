@@ -16,7 +16,7 @@ production_mode: generate
 scope: project
 
 # Rendering
-view_docdef: ConciergeIntakeView
+view_docdef: null  # Rendering uses IA config (ADR-054), not DB-backed docdef
 
 # Dependencies
 required_inputs: []  # No dependencies - this is the entry point

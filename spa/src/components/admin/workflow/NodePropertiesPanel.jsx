@@ -286,28 +286,51 @@ export default function NodePropertiesPanel({
         onChange(updated);
     };
 
-    const updateQuestionGeneration = (field, value) => {
+    const updatePassA = (field, value) => {
         const internals = localData.internals || getDefaultPgcInternals();
-        const questionGeneration = { ...internals.question_generation, [field]: value };
-        updateInternals({ ...internals, question_generation: questionGeneration });
+        const passA = { ...internals.pass_a, [field]: value };
+        updateInternals({ ...internals, pass_a: passA });
     };
 
-    const updateQuestionGenIncludes = (key, value) => {
+    const updatePassAIncludes = (key, value) => {
         const internals = localData.internals || getDefaultPgcInternals();
-        const includes = { ...internals.question_generation.includes, [key]: value };
-        const questionGeneration = { ...internals.question_generation, includes };
-        updateInternals({ ...internals, question_generation: questionGeneration });
+        const includes = { ...internals.pass_a.includes, [key]: value };
+        const passA = { ...internals.pass_a, includes };
+        updateInternals({ ...internals, pass_a: passA });
     };
 
-    const updateClarificationMerge = (field, value) => {
+    const updateMerge = (field, value) => {
         const internals = localData.internals || getDefaultPgcInternals();
-        const clarificationMerge = { ...internals.clarification_merge, [field]: value };
-        updateInternals({ ...internals, clarification_merge: clarificationMerge });
+        const merge = { ...internals.merge, [field]: value };
+        updateInternals({ ...internals, merge: merge });
     };
 
-    // Get default PGC internals structure
+    // QA gate internals update helpers
+    const updateEvaluate = (field, value) => {
+        const internals = localData.internals || getDefaultQaInternals();
+        const evaluate = { ...internals.evaluate, [field]: value };
+        updateInternals({ ...internals, evaluate });
+    };
+
+    const updateEvaluateIncludes = (key, value) => {
+        const internals = localData.internals || getDefaultQaInternals();
+        const includes = { ...internals.evaluate.includes, [key]: value };
+        const evaluate = { ...internals.evaluate, includes };
+        updateInternals({ ...internals, evaluate });
+    };
+
+    const updateRemediation = (field, value) => {
+        const remediation = { ...(localData.remediation || {}), [field]: value };
+        const updated = { ...localData, remediation };
+        setLocalData(updated);
+        onChange(updated);
+    };
+
+    // Get default PGC internals structure (matches definition.json schema)
     const getDefaultPgcInternals = () => ({
-        question_generation: {
+        pass_a: {
+            internal_type: 'LLM',
+            name: 'Question Generation',
             template_ref: '',
             includes: {
                 ROLE_PROMPT: '',
@@ -316,19 +339,36 @@ export default function NodePropertiesPanel({
             },
             output_schema_ref: 'schema:clarification_question_set:2.0.0',
         },
-        operator_entry: {
-            renders: 'question_set',
-            captures: 'pgc_answers',
+        entry: {
+            internal_type: 'UI',
+            name: 'Operator Answers',
+            op_ref: '',
         },
-        clarification_merge: {
-            template_ref: '',
-            output_schema_ref: 'schema:pgc_clarifications:1.0.0',
+        merge: {
+            internal_type: 'MECH',
+            name: 'Merge Clarifications',
+            op_ref: '',
+        },
+    });
+
+    // Get default QA gate internals structure
+    const getDefaultQaInternals = () => ({
+        evaluate: {
+            internal_type: 'LLM',
+            name: 'QA Evaluation',
+            task_ref: '',
+            includes: {
+                ROLE_PROMPT: '',
+            },
+            qa_mode: 'semantic',
         },
     });
 
     if (!localData) return null;
 
-    const isPgcNode = localData.type === 'pgc';
+    // Gate subtypes: definitions use type:'gate' + gate_kind:'pgc'|'qa'
+    const isPgcNode = localData.type === 'pgc' || (localData.type === 'gate' && localData.gate_kind === 'pgc');
+    const isQaGate = localData.type === 'qa' || (localData.type === 'gate' && localData.gate_kind === 'qa');
 
     // For non-PGC nodes: Get current template_id from task_ref
     const currentTemplateId = parseTemplateRef(localData.task_ref);
@@ -349,15 +389,23 @@ export default function NodePropertiesPanel({
         ([key]) => !['ROLE_PROMPT', 'TASK_PROMPT', 'OUTPUT_SCHEMA', 'PGC_CONTEXT'].includes(key)
     );
 
-    // For PGC nodes: Get internals
-    const internals = localData.internals || getDefaultPgcInternals();
-    const qgTemplateId = parseTemplateRef(internals.question_generation?.template_ref);
-    const qgRoleId = parseFragmentRef(internals.question_generation?.includes?.ROLE_PROMPT);
-    const qgTaskId = parseFragmentRef(internals.question_generation?.includes?.TASK_PROMPT);
-    const qgPgcId = parseFragmentRef(internals.question_generation?.includes?.PGC_CONTEXT);
-    const qgSchemaId = parseSchemaRef(internals.question_generation?.output_schema_ref);
-    const cmTemplateId = parseTemplateRef(internals.clarification_merge?.template_ref);
-    const cmSchemaId = parseSchemaRef(internals.clarification_merge?.output_schema_ref);
+    // For PGC nodes: Get internals (definition schema uses pass_a/entry/merge)
+    const internals = isPgcNode
+        ? (localData.internals || getDefaultPgcInternals())
+        : isQaGate
+            ? (localData.internals || getDefaultQaInternals())
+            : (localData.internals || {});
+    const qgTemplateId = parseTemplateRef(internals.pass_a?.template_ref);
+    const qgRoleId = parseFragmentRef(internals.pass_a?.includes?.ROLE_PROMPT);
+    const qgTaskId = parseFragmentRef(internals.pass_a?.includes?.TASK_PROMPT);
+    const qgPgcId = parseFragmentRef(internals.pass_a?.includes?.PGC_CONTEXT);
+    const qgSchemaId = parseSchemaRef(internals.pass_a?.output_schema_ref);
+    const cmTemplateId = parseTemplateRef(internals.merge?.template_ref);
+    const cmSchemaId = parseSchemaRef(internals.merge?.output_schema_ref);
+    // For QA gate nodes: Get evaluate internals
+    const evalTaskId = parseTemplateRef(internals.evaluate?.task_ref);
+    const evalRoleId = parseFragmentRef(internals.evaluate?.includes?.ROLE_PROMPT);
+    const evalQaMode = internals.evaluate?.qa_mode || 'semantic';
 
     // Handle template selection (for non-PGC nodes)
     const handleTemplateChange = (e) => {
@@ -444,90 +492,119 @@ export default function NodePropertiesPanel({
     const handleQgTemplateChange = (e) => {
         const templateId = e.target.value;
         if (!templateId) {
-            updateQuestionGeneration('template_ref', '');
+            updatePassA('template_ref', '');
             return;
         }
         const template = templates.find(t => t.template_id === templateId);
         if (template) {
-            updateQuestionGeneration('template_ref', buildTemplateRef(template));
+            updatePassA('template_ref', buildTemplateRef(template));
         }
     };
 
     const handleQgRoleChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
-            updateQuestionGenIncludes('ROLE_PROMPT', '');
+            updatePassAIncludes('ROLE_PROMPT', '');
             return;
         }
         const fragment = roleFragments.find(f =>
             f.fragment_id === `role:${fragmentId}` || f.id === fragmentId
         );
         if (fragment) {
-            updateQuestionGenIncludes('ROLE_PROMPT', buildFragmentRef(fragment));
+            updatePassAIncludes('ROLE_PROMPT', buildFragmentRef(fragment));
         }
     };
 
     const handleQgTaskChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
-            updateQuestionGenIncludes('TASK_PROMPT', '');
+            updatePassAIncludes('TASK_PROMPT', '');
             return;
         }
         const fragment = taskFragments.find(f =>
             f.fragment_id === `task:${fragmentId}` || f.id === fragmentId
         );
         if (fragment) {
-            updateQuestionGenIncludes('TASK_PROMPT', buildFragmentRef(fragment));
+            updatePassAIncludes('TASK_PROMPT', buildFragmentRef(fragment));
         }
     };
 
     const handleQgPgcChange = (e) => {
         const fragmentId = e.target.value;
         if (!fragmentId) {
-            updateQuestionGenIncludes('PGC_CONTEXT', '');
+            updatePassAIncludes('PGC_CONTEXT', '');
             return;
         }
         const fragment = pgcFragments.find(f =>
             f.fragment_id === `pgc:${fragmentId}` || f.id === fragmentId
         );
         if (fragment) {
-            updateQuestionGenIncludes('PGC_CONTEXT', buildFragmentRef(fragment));
+            updatePassAIncludes('PGC_CONTEXT', buildFragmentRef(fragment));
         }
     };
 
     const handleQgSchemaChange = (e) => {
         const schemaId = e.target.value;
         if (!schemaId) {
-            updateQuestionGeneration('output_schema_ref', '');
+            updatePassA('output_schema_ref', '');
             return;
         }
         const schema = schemas.find(s => s.schema_id === schemaId);
         if (schema) {
-            updateQuestionGeneration('output_schema_ref', buildSchemaRef(schema));
+            updatePassA('output_schema_ref', buildSchemaRef(schema));
         }
     };
 
     const handleCmTemplateChange = (e) => {
         const templateId = e.target.value;
         if (!templateId) {
-            updateClarificationMerge('template_ref', '');
+            updateMerge('template_ref', '');
             return;
         }
         const template = templates.find(t => t.template_id === templateId);
         if (template) {
-            updateClarificationMerge('template_ref', buildTemplateRef(template));
+            updateMerge('template_ref', buildTemplateRef(template));
         }
     };
 
     const handleCmSchemaChange = (e) => {
         const schemaId = e.target.value;
         if (!schemaId) {
-            updateClarificationMerge('output_schema_ref', '');
+            updateMerge('output_schema_ref', '');
             return;
         }
         const schema = schemas.find(s => s.schema_id === schemaId);
         if (schema) {
-            updateClarificationMerge('output_schema_ref', buildSchemaRef(schema));
+            updateMerge('output_schema_ref', buildSchemaRef(schema));
+        }
+    };
+
+    // QA gate-specific handlers
+    const handleEvalTaskChange = (e) => {
+        const templateId = e.target.value;
+        if (!templateId) {
+            updateEvaluate('task_ref', '');
+            return;
+        }
+        const fragment = taskFragments.find(f =>
+            f.fragment_id === `task:${templateId}` || f.id === templateId
+        );
+        if (fragment) {
+            updateEvaluate('task_ref', buildFragmentRef(fragment));
+        }
+    };
+
+    const handleEvalRoleChange = (e) => {
+        const fragmentId = e.target.value;
+        if (!fragmentId) {
+            updateEvaluateIncludes('ROLE_PROMPT', '');
+            return;
+        }
+        const fragment = roleFragments.find(f =>
+            f.fragment_id === `role:${fragmentId}` || f.id === fragmentId
+        );
+        if (fragment) {
+            updateEvaluateIncludes('ROLE_PROMPT', buildFragmentRef(fragment));
         }
     };
 
@@ -548,7 +625,7 @@ export default function NodePropertiesPanel({
                     className="text-xs font-semibold uppercase tracking-wide"
                     style={{ color: 'var(--text-muted)' }}
                 >
-                    {isPgcNode ? 'PGC Gate Properties' : 'Node Properties'}
+                    {isPgcNode ? 'PGC Gate Properties' : isQaGate ? 'QA Gate Properties' : 'Node Properties'}
                 </span>
                 <button
                     onClick={() => onDelete(localData.node_id)}
@@ -659,6 +736,11 @@ export default function NodePropertiesPanel({
                                             </option>
                                         ))}
                                     </select>
+                                    {internals.pass_a?.template_ref && (
+                                        <div className="mt-1 text-xs font-mono truncate" style={{ color: 'var(--text-muted)' }} title={internals.pass_a.template_ref}>
+                                            {internals.pass_a.template_ref}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Role Prompt */}
@@ -681,6 +763,11 @@ export default function NodePropertiesPanel({
                                             );
                                         })}
                                     </select>
+                                    {internals.pass_a?.includes?.ROLE_PROMPT && (
+                                        <div className="mt-1 text-xs font-mono truncate" style={{ color: 'var(--text-muted)' }} title={internals.pass_a.includes.ROLE_PROMPT}>
+                                            {internals.pass_a.includes.ROLE_PROMPT}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Task Prompt */}
@@ -703,6 +790,11 @@ export default function NodePropertiesPanel({
                                             );
                                         })}
                                     </select>
+                                    {internals.pass_a?.includes?.TASK_PROMPT && (
+                                        <div className="mt-1 text-xs font-mono truncate" style={{ color: 'var(--text-muted)' }} title={internals.pass_a.includes.TASK_PROMPT}>
+                                            {internals.pass_a.includes.TASK_PROMPT}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* PGC Context */}
@@ -725,6 +817,11 @@ export default function NodePropertiesPanel({
                                             );
                                         })}
                                     </select>
+                                    {internals.pass_a?.includes?.PGC_CONTEXT && (
+                                        <div className="mt-1 text-xs font-mono truncate" style={{ color: 'var(--text-muted)' }} title={internals.pass_a.includes.PGC_CONTEXT}>
+                                            {internals.pass_a.includes.PGC_CONTEXT}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Output Schema */}
@@ -744,6 +841,11 @@ export default function NodePropertiesPanel({
                                             </option>
                                         ))}
                                     </select>
+                                    {internals.pass_a?.output_schema_ref && (
+                                        <div className="mt-1 text-xs font-mono truncate" style={{ color: 'var(--text-muted)' }} title={internals.pass_a.output_schema_ref}>
+                                            {internals.pass_a.output_schema_ref}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </CollapsibleSection>
@@ -752,13 +854,21 @@ export default function NodePropertiesPanel({
                         <div className="mt-2">
                             <CollapsibleSection title="Entry: Operator Answers" badge="UI">
                                 <div className="space-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {internals.entry?.op_ref && (
+                                        <div className="flex justify-between">
+                                            <span>Op Ref:</span>
+                                            <span className="font-mono truncate ml-2" title={internals.entry.op_ref}>
+                                                {internals.entry.op_ref}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between">
                                         <span>Renders:</span>
-                                        <span className="font-mono">{internals.operator_entry?.renders || 'question_set'}</span>
+                                        <span className="font-mono">{internals.entry?.renders || 'question_set'}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Captures:</span>
-                                        <span className="font-mono">{internals.operator_entry?.captures || 'pgc_answers'}</span>
+                                        <span className="font-mono">{internals.entry?.captures || 'pgc_answers'}</span>
                                     </div>
                                     <div
                                         className="text-[10px] mt-2 p-2 rounded"
@@ -777,7 +887,7 @@ export default function NodePropertiesPanel({
                                 title="Pass B: Clarification Merge"
                                 isOpen={expandedPass === 'B'}
                                 onToggle={() => setExpandedPass(expandedPass === 'B' ? null : 'B')}
-                                badge={internals.clarification_merge?.internal_type || 'LLM'}
+                                badge={internals.merge?.internal_type || 'LLM'}
                             >
                                 <div className="space-y-2">
                                     {/* Internal Type selector for Pass B */}
@@ -786,8 +896,8 @@ export default function NodePropertiesPanel({
                                             Internal Type
                                         </label>
                                         <select
-                                            value={internals.clarification_merge?.internal_type || 'LLM'}
-                                            onChange={e => updateClarificationMerge('internal_type', e.target.value)}
+                                            value={internals.merge?.internal_type || 'LLM'}
+                                            onChange={e => updateMerge('internal_type', e.target.value)}
                                             style={{ ...fieldStyle, fontSize: 11 }}
                                         >
                                             <option value="LLM">LLM</option>
@@ -796,7 +906,7 @@ export default function NodePropertiesPanel({
                                     </div>
 
                                     {/* LLM Configuration */}
-                                    {(internals.clarification_merge?.internal_type || 'LLM') === 'LLM' && (
+                                    {(internals.merge?.internal_type || 'LLM') === 'LLM' && (
                                         <>
                                             <div>
                                                 <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
@@ -837,23 +947,23 @@ export default function NodePropertiesPanel({
                                     )}
 
                                     {/* MECH Configuration (ADR-047) */}
-                                    {internals.clarification_merge?.internal_type === 'MECH' && (
+                                    {internals.merge?.internal_type === 'MECH' && (
                                         <>
                                             <div>
                                                 <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
                                                     Operation
                                                 </label>
                                                 <select
-                                                    value={parseMechOpRef(internals.clarification_merge?.op_ref) || ''}
+                                                    value={parseMechOpRef(internals.merge?.op_ref) || ''}
                                                     onChange={e => {
                                                         const opId = e.target.value;
                                                         if (!opId) {
-                                                            updateClarificationMerge('op_ref', '');
+                                                            updateMerge('op_ref', '');
                                                             return;
                                                         }
                                                         const op = mechanicalOps.find(o => o.op_id === opId);
                                                         if (op) {
-                                                            updateClarificationMerge('op_ref', buildMechOpRef(op));
+                                                            updateMerge('op_ref', buildMechOpRef(op));
                                                         }
                                                     }}
                                                     style={{ ...fieldStyle, fontSize: 11 }}
@@ -867,8 +977,8 @@ export default function NodePropertiesPanel({
                                                 </select>
                                             </div>
 
-                                            {internals.clarification_merge?.op_ref && (() => {
-                                                const opId = parseMechOpRef(internals.clarification_merge.op_ref);
+                                            {internals.merge?.op_ref && (() => {
+                                                const opId = parseMechOpRef(internals.merge.op_ref);
                                                 const op = mechanicalOps.find(o => o.op_id === opId);
                                                 if (!op) return null;
                                                 return (
@@ -932,7 +1042,138 @@ export default function NodePropertiesPanel({
                     </div>
                 )}
 
-                {/* === Non-PGC Node Properties === */}
+                {/* === QA Gate Internals === */}
+                {isQaGate && (
+                    <div className="mt-4">
+                        <div style={sectionHeaderStyle}>Gate Internals</div>
+
+                        {/* Evaluate Pass */}
+                        <CollapsibleSection title="Evaluate" defaultOpen badge="LLM">
+                            <div className="space-y-2">
+                                {/* QA Task Prompt */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        TASK_REF (QA Prompt)
+                                    </label>
+                                    <select
+                                        value={evalTaskId || ''}
+                                        onChange={handleEvalTaskChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Task --</option>
+                                        {taskFragments.map(f => {
+                                            const id = f.fragment_id?.replace('task:', '') || f.id;
+                                            return (
+                                                <option key={f.fragment_id || f.id} value={id}>
+                                                    {f.name || id?.replace(/_/g, ' ')}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {internals.evaluate?.task_ref && (
+                                        <div
+                                            className="mt-1 text-xs font-mono truncate"
+                                            style={{ color: 'var(--text-muted)' }}
+                                            title={internals.evaluate.task_ref}
+                                        >
+                                            {internals.evaluate.task_ref}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Role Prompt */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        ROLE_PROMPT
+                                    </label>
+                                    <select
+                                        value={evalRoleId || ''}
+                                        onChange={handleEvalRoleChange}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        <option value="">-- Select Role --</option>
+                                        {roleFragments.map(f => {
+                                            const id = f.fragment_id?.replace('role:', '') || f.id;
+                                            return (
+                                                <option key={f.fragment_id || f.id} value={id}>
+                                                    {f.name || id?.replace(/_/g, ' ')}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {internals.evaluate?.includes?.ROLE_PROMPT && (
+                                        <div
+                                            className="mt-1 text-xs font-mono truncate"
+                                            style={{ color: 'var(--text-muted)' }}
+                                            title={internals.evaluate.includes.ROLE_PROMPT}
+                                        >
+                                            {internals.evaluate.includes.ROLE_PROMPT}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* QA Mode */}
+                                <div>
+                                    <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                        QA Mode
+                                    </label>
+                                    <select
+                                        value={evalQaMode}
+                                        onChange={e => updateEvaluate('qa_mode', e.target.value)}
+                                        style={{ ...fieldStyle, fontSize: 11 }}
+                                    >
+                                        {QA_MODES.map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </CollapsibleSection>
+
+                        {/* Remediation Settings */}
+                        <div className="mt-2">
+                            <CollapsibleSection title="Remediation">
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={localData.remediation?.enabled ?? true}
+                                            onChange={e => updateRemediation('enabled', e.target.checked)}
+                                        />
+                                        Enabled
+                                    </label>
+                                    <div>
+                                        <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                            Max Attempts
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="5"
+                                            value={localData.remediation?.max_attempts ?? 2}
+                                            onChange={e => updateRemediation('max_attempts', parseInt(e.target.value, 10))}
+                                            style={{ ...fieldStyle, fontSize: 11, width: '60px' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                                            Feedback To
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={localData.remediation?.feedback_to || ''}
+                                            onChange={e => updateRemediation('feedback_to', e.target.value)}
+                                            placeholder="remediation node ID"
+                                            style={{ ...fieldStyle, fontSize: 11 }}
+                                        />
+                                    </div>
+                                </div>
+                            </CollapsibleSection>
+                        </div>
+                    </div>
+                )}
+
+                {/* === Non-PGC/QA Node Properties === */}
 
                 {/* Internal Type selector - for task nodes (ADR-047) */}
                 {localData.type === 'task' && (
@@ -957,8 +1198,8 @@ export default function NodePropertiesPanel({
                 )}
 
                 {/* === LLM Configuration (default) === */}
-                {/* Interaction Template - for task, qa, intake_gate when internal_type is LLM or not set */}
-                {['task', 'qa', 'intake_gate'].includes(localData.type) &&
+                {/* Interaction Template - for task/intake_gate (not gate subtypes, which use internals) */}
+                {!isPgcNode && !isQaGate && ['task', 'intake_gate'].includes(localData.type) &&
                  (localData.internal_type || 'LLM') === 'LLM' && (
                     <div>
                         <label style={labelStyle}>Interaction Template</label>
@@ -1236,22 +1477,6 @@ export default function NodePropertiesPanel({
                     </div>
                 )}
 
-                {/* QA Mode */}
-                {localData.type === 'qa' && (
-                    <div>
-                        <label style={labelStyle}>QA Mode</label>
-                        <select
-                            value={localData.qa_mode || 'semantic'}
-                            onChange={e => updateField('qa_mode', e.target.value)}
-                            style={fieldStyle}
-                        >
-                            {QA_MODES.map(m => (
-                                <option key={m} value={m}>{m}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
                 {/* Terminal Outcome - for end nodes */}
                 {localData.type === 'end' && (
                     <>
@@ -1282,7 +1507,7 @@ export default function NodePropertiesPanel({
 
                 {/* Flags */}
                 <div className="flex gap-4">
-                    {localData.type === 'qa' && (
+                    {(localData.type === 'qa' || isQaGate) && (
                         <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                             <input
                                 type="checkbox"
@@ -1302,8 +1527,9 @@ export default function NodePropertiesPanel({
                     </label>
                 </div>
 
-                {/* Includes (for task nodes with LLM internal_type - not pgc) */}
-                {localData.type === 'task' && (localData.internal_type || 'LLM') === 'LLM' && (
+                {/* Includes (for LLM task/intake_gate nodes — PGC/QA gates handle includes in their internals) */}
+                {!isPgcNode && !isQaGate && ['task', 'intake_gate'].includes(localData.type) &&
+                 (localData.internal_type || 'LLM') === 'LLM' && (
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label style={labelStyle}>Includes</label>

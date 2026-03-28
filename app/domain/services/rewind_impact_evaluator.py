@@ -73,11 +73,21 @@ def get_affected_doc_type_ids(rewind_stage: PipelineStage) -> List[str]:
     """
     Get the document type IDs that would be affected by a rewind.
 
+    Includes non-stage artifact types that are derived from affected stages:
+    - work_package_candidate: derived from IP, must be invalidated when IP is affected.
+
     Args:
         rewind_stage: The stage to rewind to.
 
     Returns:
-        List of doc_type_id strings for affected stages.
+        List of doc_type_id strings for affected stages + derived types.
     """
     affected_stages = evaluate_rewind_impact(rewind_stage)
-    return [stage.doc_type_id for stage in affected_stages]
+    doc_type_ids = [stage.doc_type_id for stage in affected_stages]
+
+    # WPCs are derived from IP — invalidate them when IP is in the affected set
+    if any(s == PipelineStage.IP for s in affected_stages):
+        if "work_package_candidate" not in doc_type_ids:
+            doc_type_ids.append("work_package_candidate")
+
+    return doc_type_ids

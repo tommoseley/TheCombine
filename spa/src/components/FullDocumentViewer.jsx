@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import RenderModelViewer from './RenderModelViewer';
 import ConfigDrivenDocViewer from './viewers/ConfigDrivenDocViewer';
+import RepairPanel from './RepairPanel';
 
 /**
  * DownloadDropdown — small button with dropdown for standard/evidence download.
@@ -268,6 +269,15 @@ export default function FullDocumentViewer({ projectId, projectCode, docTypeId, 
                     {/* PGC Context section - shown for any document that went through PGC */}
                     {pgcContext && pgcContext.clarifications?.length > 0 && (
                         <PgcContextSection pgcContext={pgcContext} />
+                    )}
+
+                    {/* Repair panel — shown for TA documents with ownership findings */}
+                    {metadata?.ownership_findings?.length > 0 && (
+                        <RepairPanel
+                            artifactId={renderModel?.document_id || metadata?.document_id}
+                            findings={metadata.ownership_findings}
+                            components={metadata.ownership_components}
+                        />
                     )}
                 </div>
         </>

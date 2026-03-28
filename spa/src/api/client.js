@@ -138,6 +138,11 @@ export const api = {
         return request(`/production/start?${query}`, { method: 'POST' });
     },
 
+    cancelProduction: (projectId, documentType) => {
+        const query = new URLSearchParams({ project_id: projectId, document_type: documentType });
+        return request(`/production/cancel?${query}`, { method: 'POST' });
+    },
+
     // Interrupts (operator questions)
     getProjectInterrupts: (projectId) =>
         request(`/projects/${projectId}/interrupts`),
@@ -147,6 +152,23 @@ export const api = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    // Repair proposals (ADR-065)
+    getRepairProposals: (artifactId, status = null) => {
+        const query = new URLSearchParams({ artifact_id: artifactId });
+        if (status) query.set('status', status);
+        return request(`/repair/proposals?${query}`);
+    },
+
+    requestRepair: (artifactId, componentName) => {
+        const query = new URLSearchParams({ artifact_id: artifactId, component_name: componentName });
+        return request(`/repair/request?${query}`, { method: 'POST' });
+    },
+
+    decideProposal: (proposalId, decision) => {
+        const query = new URLSearchParams({ decision });
+        return request(`/repair/proposals/${proposalId}/decide?${query}`, { method: 'POST' });
+    },
 
     // Executions (admin monitoring)
     getExecutions: () =>

@@ -52,7 +52,7 @@
         }
       },
       "_position": {
-        "x": 50,
+        "x": 40,
         "y": 40
       },
       "station": {
@@ -285,7 +285,7 @@
     ],
     "design_principles": [
       "No Black Boxes - all gates explicitly composed (ADR-049)",
-      "PGC Gate: question_generation (LLM) \u2192 entry (UI) \u2192 merge (MECH)",
+      "PGC Gate: question_generation (LLM) → entry (UI) → merge (MECH)",
       "QA Gate: evaluate (LLM) with remediation loop",
       "Uses project_discovery as upstream input"
     ],

@@ -1063,6 +1063,11 @@ async def render_project_binder(
     if contradiction_section:
         markdown += "\n\n" + contradiction_section
 
+    # TA ownership validation (WS-EVAL-003): append summary
+    ta_owns_section = _render_ta_owns_summary(binder_docs)
+    if ta_owns_section:
+        markdown += "\n\n" + ta_owns_section
+
     # Duplicate WS objective detection (ADR-062): append summary
     duplicate_section = _render_duplicate_summary(binder_docs)
     if duplicate_section:
@@ -1300,6 +1305,48 @@ def _render_contradiction_summary(binder_docs: List[Dict[str, Any]]) -> str | No
             sections.append(
                 f"| {f.rule_id} | {f.artifact_id} | {f.contradiction_type} "
                 f"| {f.ta_authority} | {f.ws_claim} |"
+            )
+
+    return "\n".join(sections)
+
+
+def _render_ta_owns_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
+    """Run TA ownership validation and render a summary section.
+
+    Returns:
+        Markdown section string, or None if no TA exists.
+    """
+    from app.domain.services.cross_layer_evaluator import validate_ta_owns
+
+    ta_docs = [d for d in binder_docs if d.get("doc_type_id") == "technical_architecture"]
+    if not ta_docs:
+        return None
+
+    ta_content = ta_docs[0].get("content") or {}
+    report = validate_ta_owns(ta_content)
+
+    sections: list[str] = []
+    sections.append("---")
+    sections.append("")
+    sections.append("## TA Component Ownership Validation (WS-EVAL-003)")
+    sections.append("")
+
+    if report.all_valid:
+        sections.append(
+            f"**All components have ownership paths** — "
+            f"{report.components_checked} components checked"
+        )
+    else:
+        sections.append(
+            f"**Ownership gaps: {len(report.findings)}** "
+            f"({report.components_checked} components checked, advisory)"
+        )
+        sections.append("")
+        sections.append("| Component | Issue | Severity |")
+        sections.append("| --- | --- | --- |")
+        for f in report.findings:
+            sections.append(
+                f"| {f.component_name} | {f.issue_type} | {f.severity} |"
             )
 
     return "\n".join(sections)
@@ -1548,6 +1595,15 @@ async def get_document_render_model(
 
         meta = result_dict.setdefault("metadata", {})
         meta.update(doc_meta)
+
+        # TA ownership validation (ADR-065) — inject findings for repair UI
+        if doc_type_id == "technical_architecture":
+            from app.domain.services.cross_layer_evaluator import validate_ta_owns
+            ta_content = document.content or {}
+            owns_report = validate_ta_owns(ta_content)
+            if not owns_report.all_valid:
+                meta["ownership_findings"] = [f.to_dict() for f in owns_report.findings]
+                meta["ownership_components"] = ta_content.get("components", [])
 
         # Query spawned child documents for this document
         child_result = await db.execute(

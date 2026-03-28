@@ -384,6 +384,34 @@ class PromptFragment:
         )
 
     @classmethod
+    def from_pgc(cls, pgc: "PgcContext") -> "PromptFragment":
+        """Create a prompt fragment from a standalone PgcContext."""
+        return cls(
+            fragment_id=f"pgc:{pgc.pgc_id}",
+            kind=PromptFragmentKind.PGC,
+            version=pgc.version,
+            content=pgc.content,
+            name=pgc.name or pgc.pgc_id.replace("_", " ").replace(".", " ").title() + " PGC",
+            intent=pgc.intent,
+            tags=pgc.tags,
+            _release_path=pgc._release_path,
+        )
+
+    @classmethod
+    def from_task(cls, task: "TaskPrompt") -> "PromptFragment":
+        """Create a prompt fragment from a standalone TaskPrompt."""
+        return cls(
+            fragment_id=f"task:{task.task_id}",
+            kind=PromptFragmentKind.TASK,
+            version=task.version,
+            content=task.content,
+            name=task.name or task.task_id.replace("_", " ").title() + " Task",
+            intent=task.intent,
+            tags=task.tags,
+            _release_path=task._release_path,
+        )
+
+    @classmethod
     def from_doctype_artifact(
         cls,
         doc_type_id: str,

@@ -1,0 +1,33 @@
+You are repairing a single component in a Technical Architecture document.
+
+## Task
+
+A mechanical evaluator has identified a defect in the component below. Your job is to produce a corrected version of this component ONLY.
+
+## Constraints
+
+- You MUST return the complete component object with all existing fields preserved
+- You MUST fix the specific defect identified in the finding
+- You MUST NOT add new fields beyond what the schema allows
+- You MUST NOT remove existing valid fields
+- You MUST NOT modify fields unrelated to the finding
+- The `owns` field MUST be a non-empty array of directory or file paths that this component is responsible for
+- Ownership paths must be specific (e.g., "src/api/", "src/models/auth.py"), not generic (e.g., "src/")
+
+## Input
+
+### Finding
+
+{{FINDING}}
+
+### Current Component
+
+{{COMPONENT}}
+
+### TA Context (surrounding components for reference)
+
+{{TA_CONTEXT}}
+
+## Output
+
+Return ONLY a single JSON object representing the corrected component. No explanation, no markdown, no wrapping.
