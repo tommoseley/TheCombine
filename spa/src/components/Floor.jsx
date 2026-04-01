@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import ContentPanel from './ContentPanel';
+import TimelineViewer from './TimelineViewer';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -241,7 +242,7 @@ function ProjectEditPanel({ projectId, projectName, isArchived, onUpdate, onArch
 /**
  * PipelineBreadcrumb — persistent horizontal status bar for the production line.
  */
-function PipelineBreadcrumb({ data, selectedNodeId, onSelectNode, projectId, projectCode, projectName, isArchived, lineState, theme, onCycleTheme, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete }) {
+function PipelineBreadcrumb({ data, selectedNodeId, onSelectNode, projectId, projectCode, projectName, isArchived, lineState, theme, onCycleTheme, onProjectUpdate, onProjectArchive, onProjectUnarchive, onProjectDelete, timelineOpen, onToggleTimeline }) {
     const l1Items = data.filter(d => (d.level || 1) === 1);
     const ls = LINE_STATE_LABELS[lineState] || LINE_STATE_LABELS.idle;
     const [showEdit, setShowEdit] = useState(false);
@@ -358,6 +359,19 @@ function PipelineBreadcrumb({ data, selectedNodeId, onSelectNode, projectId, pro
 
             {/* Download binder */}
             <BinderDownloadDropdown projectId={projectId} projectCode={projectCode} />
+
+            {/* Timeline toggle (ADR-067) */}
+            <button
+                onClick={onToggleTimeline}
+                className="p-1 rounded hover:bg-white/10 transition-colors"
+                style={{ color: timelineOpen ? 'var(--state-active-bg)' : 'var(--text-muted)' }}
+                title="Project History"
+            >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                </svg>
+            </button>
 
             {/* Theme toggle */}
             <button
@@ -486,6 +500,10 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [data, resolveInterrupt]);
 
+    // Timeline viewer state (ADR-067)
+    const [timelineOpen, setTimelineOpen] = useState(false);
+    const toggleTimeline = useCallback(() => setTimelineOpen(prev => !prev), []);
+
     // Auto-import flag for Work Binder (set when navigating from "Produce Next")
     const [autoImport, setAutoImport] = useState(false);
 
@@ -556,21 +574,55 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                 onProjectArchive={onProjectArchive}
                 onProjectUnarchive={onProjectUnarchive}
                 onProjectDelete={onProjectDelete}
+                timelineOpen={timelineOpen}
+                onToggleTimeline={toggleTimeline}
             />
 
-            {/* Station Workspace — full width below the line */}
-            <div className="flex-1 overflow-hidden">
-                <ContentPanel
-                    step={selectedStep}
-                    projectId={projectId}
-                    projectCode={projectCode}
-                    onStartProduction={handleStartProduction}
-                    onCancelProduction={handleCancelProduction}
-                    onSubmitQuestions={handleSubmitQuestions}
-                    pipelineData={data}
-                    onProduceNext={handleProduceNext}
-                    autoImport={autoImport}
-                />
+            {/* Station Workspace + Timeline Panel */}
+            <div className="flex-1 overflow-hidden flex">
+                <div className={`${timelineOpen ? 'flex-1' : 'w-full'} overflow-hidden`}>
+                    <ContentPanel
+                        step={selectedStep}
+                        projectId={projectId}
+                        projectCode={projectCode}
+                        onStartProduction={handleStartProduction}
+                        onCancelProduction={handleCancelProduction}
+                        onSubmitQuestions={handleSubmitQuestions}
+                        pipelineData={data}
+                        onProduceNext={handleProduceNext}
+                        autoImport={autoImport}
+                    />
+                </div>
+
+                {/* Timeline Panel (ADR-067) */}
+                {timelineOpen && (
+                    <div
+                        className="w-80 flex-shrink-0 border-l overflow-hidden"
+                        style={{ background: 'var(--bg-panel)', borderColor: 'var(--border-node)' }}
+                    >
+                        <TimelineViewer
+                            projectId={projectId}
+                            onRestore={async (checkpointId) => {
+                                if (!window.confirm('Restore this checkpoint as the active lineage path? Current documents will be demoted.')) return;
+                                try {
+                                    await api.restoreCheckpoint(projectId, checkpointId, 'Operator restore from timeline');
+                                    window.location.reload();
+                                } catch (err) {
+                                    alert(err.data?.detail || err.message || 'Restore failed');
+                                }
+                            }}
+                            onArchive={async (eventId) => {
+                                if (!window.confirm('Archive this thread? Its documents will be hidden from the timeline.')) return;
+                                try {
+                                    await api.archiveThread(projectId, eventId, 'Operator archive from timeline');
+                                    window.location.reload();
+                                } catch (err) {
+                                    alert(err.data?.detail || err.message || 'Archive failed');
+                                }
+                            }}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Notification Toast */}

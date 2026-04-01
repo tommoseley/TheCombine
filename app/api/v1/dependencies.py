@@ -81,3 +81,37 @@ def clear_caches() -> None:
     get_settings.cache_clear()
     get_workflow_registry.cache_clear()
     get_prompt_loader.cache_clear()
+
+
+async def resolve_project(project_id: str, db) -> "Project":
+    """Resolve a project by UUID or project_id slug. Raises 404 if not found.
+
+    Shared dependency — use this instead of router-local _resolve_project().
+    """
+    from uuid import UUID
+    from fastapi import HTTPException, status
+    from sqlalchemy import select
+    from app.api.models.project import Project
+
+    try:
+        project_uuid = UUID(project_id)
+        result = await db.execute(
+            select(Project).where(
+                Project.id == project_uuid,
+                Project.deleted_at.is_(None),
+            )
+        )
+    except ValueError:
+        result = await db.execute(
+            select(Project).where(
+                Project.project_id == project_id,
+                Project.deleted_at.is_(None),
+            )
+        )
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project '{project_id}' not found",
+        )
+    return project

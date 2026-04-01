@@ -365,6 +365,23 @@ export const api = {
     getIntent: (intentId) =>
         request(`/intents/${intentId}`),
 
+    // ---- Timeline & Lineage (ADR-067) ----
+
+    getProjectTimeline: (projectId) =>
+        request(`/projects/${projectId}/timeline`),
+
+    restoreCheckpoint: (projectId, checkpointId, reason) =>
+        request(`/projects/${projectId}/restore`, {
+            method: 'POST',
+            body: JSON.stringify({ checkpoint_id: checkpointId, reason }),
+        }),
+
+    archiveThread: (projectId, threadEventId, reason) =>
+        request(`/projects/${projectId}/archive-thread`, {
+            method: 'POST',
+            body: JSON.stringify({ event_id: threadEventId, reason }),
+        }),
+
     // ---- Pipeline Rewind (ADR-063) ----
 
     rewindPipeline: (projectId, stage, reason, actor = 'user') =>

@@ -576,7 +576,7 @@ class ProjectOrchestrator:
             event_type: Type of event (track_started, track_stabilized, etc.)
             data: Event payload
         """
-        from app.api.v1.routers.production import publish_event
+        from app.domain.events import publish_event
 
         if not self._state:
             return

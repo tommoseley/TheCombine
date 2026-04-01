@@ -78,12 +78,18 @@
 - External CC critique: 6/11 findings now mechanically detectable
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
-**Next priorities:**
-1. **Run APAM-003 "Propose All WSs" with v1.1.0** — WSs cleared, ready for re-proposal with sibling awareness
-2. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
-3. Add cross-stage PGC contradiction check (TA DATA_STORAGE="sqlite" vs IP out_of_scope "no databases")
-4. Rewind history viewer (Tier 1 UX)
-5. Replace execution_id surrogate with true lineage_path_id in authority_service
+**Next priorities (CRAP remediation sequence per Codex):**
+1. **`_complete_llm_logging`** (CRAP 59.2, CC=8, 7% cov) — add tests, cheapest risk reduction
+2. **`_calculate_final_status`** (CRAP 49.2, CC=9, 21% cov) — add tests
+3. **`_repair_truncated_json`** (CRAP 446.5, CC=33, 28% cov) — add tests to drop below 100
+4. **PlanExecutor helper extraction** — extract `_load_pgc_answers_for_qa` (CRAP 83.1) and add tests
+5. **Domain/API boundary cleanup** — extract `publish_event` to domain event bus, kill circular import
+
+**Next priorities (feature):**
+6. propose_ws prompt tuning — binder 6 is baseline (3 duplicates), add retry rule next
+7. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
+8. Cross-stage PGC contradiction check (TA answers vs IP out_of_scope)
+9. Replace execution_id surrogate with true lineage_path_id
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -509,6 +515,7 @@ All previous decisions (1-46) plus:
 | Tier 1 | Rewind history viewer — timeline of pipeline steps, branch nodes, what changed | Open |
 | Done | Cancel/abandon stuck execution — Andon cord for stuck workflows | Complete (2026-03-27) |
 | Done | "Propose All WSs" button — batch WS generation in Work Binder | Complete (2026-03-27) |
+| Done | Rewind history viewer — timeline with threads, restore, archive | Complete (2026-03-28, ADR-067) |
 | Tier 2 | File upload for mockups/documents — governed project artifacts with lineage | Open |
 | Tier 3 | File viewer — inline rendering of uploaded files (images, PDFs, text) | Open |
 | Done | Pipeline rewind button | Complete (ADR-063, 2026-03-22) |

@@ -48,8 +48,8 @@ from app.domain.workflow.outcome_recorder import OutcomeRecorder
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Import publish_event for station events (WS-STATION-DATA-001 Phase 2)
-from app.api.v1.routers.production import publish_event
+# Domain event bus — no API layer import (breaks circular dependency)
+from app.domain.events import publish_event
 
 # Type hint only - actual import is lazy to avoid circular imports
 from typing import TYPE_CHECKING

@@ -92,6 +92,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Database initialization failed: {e}")
         raise
 
+    # Register SSE event handler on domain event bus (breaks circular import)
+    from app.domain.events import register_event_handler
+    from app.api.v1.routers.production import publish_event as sse_publish
+    register_event_handler("sse_broadcast", sse_publish)
+    logger.info("Domain event bus: SSE handler registered")
+
     # Set up signal handler to close SSE connections before uvicorn waits
     original_sigint = signal.getsignal(signal.SIGINT)
     original_sigterm = signal.getsignal(signal.SIGTERM)
