@@ -1060,8 +1060,12 @@ class TestFilterExcludedTopics:
     @pytest.fixture
     def executor(self):
         """Create executor for testing transformation methods."""
+        from app.api.services.mechanical_ops_adapter import create_default_exclusion_filter
         persistence = InMemoryStatePersistence()
-        return PlanExecutor(persistence=persistence)
+        return PlanExecutor(
+            persistence=persistence,
+            exclusion_filter=create_default_exclusion_filter(),
+        )
 
     @pytest.fixture
     def mock_state(self):

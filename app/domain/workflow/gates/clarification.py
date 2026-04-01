@@ -57,7 +57,7 @@ class ClarificationGate:
         if result.needs_clarification:
             # Pause execution and get answers
             for q in result.questions:
-                print(f"{q.id}: {q.text}")
+                ...  # process q.id, q.text
     """
     
     # Markers that indicate clarification questions in response

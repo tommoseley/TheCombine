@@ -98,6 +98,19 @@ async def lifespan(app: FastAPI):
     register_event_handler("sse_broadcast", sse_publish)
     logger.info("Domain event bus: SSE handler registered")
 
+    # Register default operation protocol factories (WS-CLEANUP-003)
+    from app.domain.workflow.operations import register_default_factories
+    from app.api.services.mechanical_ops_adapter import (
+        create_default_operation_provider,
+        create_default_operation_executor,
+        create_default_exclusion_filter,
+    )
+    register_default_factories(
+        provider_factory=create_default_operation_provider,
+        executor_factory=create_default_operation_executor,
+        filter_factory=create_default_exclusion_filter,
+    )
+
     # Set up signal handler to close SSE connections before uvicorn waits
     original_sigint = signal.getsignal(signal.SIGINT)
     original_sigterm = signal.getsignal(signal.SIGTERM)

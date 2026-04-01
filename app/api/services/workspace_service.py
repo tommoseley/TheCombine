@@ -6,13 +6,31 @@ for configuration artifacts with Git-integrated workflow.
 """
 
 import logging
-import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from threading import Lock
 from typing import Dict, List, Optional
 
+from app.api.services.artifact_id_resolver import (
+    ArtifactIdError,
+    parse_artifact_id,
+    artifact_id_to_path,
+    path_to_artifact_id,
+)
+from app.api.services.release_manager import ReleaseUpdateError
+from app.api.services.workspace_scaffolders import (
+    ScaffoldError,
+    ScaffoldNotFoundError,
+    create_orchestration_workflow as _scaffold_create_orchestration_workflow,
+    delete_orchestration_workflow as _scaffold_delete_orchestration_workflow,
+    create_document_type as _scaffold_create_document_type,
+    delete_document_type as _scaffold_delete_document_type,
+    create_dcw_workflow as _scaffold_create_dcw_workflow,
+    create_role_prompt as _scaffold_create_role_prompt,
+    create_template as _scaffold_create_template,
+    create_standalone_schema as _scaffold_create_standalone_schema,
+)
 from app.api.services.git_service import (
     GitService,
     GitServiceError,
@@ -61,9 +79,9 @@ class ArtifactNotFoundError(ArtifactError):
     pass
 
 
-class ArtifactIdError(ArtifactError):
-    """Invalid artifact ID format."""
-    pass
+# Re-export ArtifactIdError from the resolver module so existing
+# imports from workspace_service continue to work.
+ArtifactIdError = ArtifactIdError
 
 
 @dataclass
@@ -186,273 +204,12 @@ class WorkspaceService:
         self._lock = Lock()
 
     # =========================================================================
-    # Artifact ID Parsing
+    # Artifact ID Parsing — delegates to artifact_id_resolver
     # =========================================================================
 
-    def _parse_artifact_id(self, artifact_id: str) -> Dict[str, str]:
-        """
-        Parse artifact ID into components.
-
-        Format: {scope}:{name}:{version}:{kind}
-
-        Special case for fragments:
-        Format: fragment:{frag_kind}:{frag_id}:{version}:{kind}
-        Example: fragment:role:technical_architect:1.0.0:content
-        The name becomes "{frag_kind}:{frag_id}" (e.g., "role:technical_architect")
-
-        Examples:
-        - doctype:project_discovery:1.4.0:task_prompt
-        - role:technical_architect:1.0.0:role_prompt
-        - template:document_generator:1.0.0:template
-        - fragment:role:technical_architect:1.0.0:content
-
-        Returns:
-            Dict with scope, name, version, kind
-        """
-        parts = artifact_id.split(":")
-
-        # Handle fragment scope specially - it has 5 parts
-        # fragment:{frag_kind}:{frag_id}:{version}:{kind}
-        if len(parts) == 5 and parts[0] == "fragment":
-            scope = parts[0]
-            name = f"{parts[1]}:{parts[2]}"  # e.g., "role:technical_architect"
-            version = parts[3]
-            kind = parts[4]
-        elif len(parts) == 4:
-            scope, name, version, kind = parts
-        else:
-            raise ArtifactIdError(
-                f"Invalid artifact ID format: {artifact_id}. "
-                f"Expected {{scope}}:{{name}}:{{version}}:{{kind}}"
-            )
-
-        if scope not in ("doctype", "role", "template", "workflow", "fragment", "schema"):
-            raise ArtifactIdError(
-                f"Invalid scope '{scope}' in artifact ID. "
-                f"Expected: doctype, role, template, workflow, fragment, or schema"
-            )
-
-        return {
-            "scope": scope,
-            "name": name,
-            "version": version,
-            "kind": kind,
-        }
-
-    # Dispatch tables for _artifact_id_to_path (class-level constants).
-    # Outer key = scope, inner key = kind, value = path template.
-    # Templates use {name} and {version} placeholders.
-    _SCOPE_KIND_PATHS = {
-        "doctype": {
-            "task_prompt": "document_types/{name}/releases/{version}/prompts/task.prompt.txt",
-            "qa_prompt": "document_types/{name}/releases/{version}/prompts/qa.prompt.txt",
-            "reflection_prompt": "document_types/{name}/releases/{version}/prompts/reflection.prompt.txt",
-            "pgc_context": "document_types/{name}/releases/{version}/prompts/pgc_context.prompt.txt",
-            "questions_prompt": "document_types/{name}/releases/{version}/prompts/questions.prompt.txt",
-            "schema": "document_types/{name}/releases/{version}/schemas/output.schema.json",
-            "manifest": "document_types/{name}/releases/{version}/package.yaml",
-            "package": "document_types/{name}/releases/{version}/package.yaml",  # alias for manifest
-        },
-        "role": {
-            "role_prompt": "prompts/roles/{name}/releases/{version}/role.prompt.txt",
-        },
-        "template": {
-            "template": "prompts/templates/{name}/releases/{version}/template.txt",
-            "meta": "prompts/templates/{name}/releases/{version}/meta.yaml",
-        },
-        "workflow": {
-            "definition": "workflows/{name}/releases/{version}/definition.json",
-        },
-        "schema": {
-            "schema": "schemas/{name}/releases/{version}/schema.json",
-        },
-    }
-
-    # Fragment dispatch: keyed by (frag_kind, artifact_kind).
-    # Templates use {frag_id} and {version} placeholders.
-    # frag_kind "doctype_prompt" entries use an extra {frag_kind} placeholder.
-    _FRAGMENT_PATHS = {
-        ("role", "content"): "prompts/roles/{frag_id}/releases/{version}/role.prompt.txt",
-        ("role", "meta"): "prompts/roles/{frag_id}/releases/{version}/meta.yaml",
-    }
-
-    # Doctype-prompt fragment kinds that share the same path pattern.
-    _DOCTYPE_PROMPT_FRAG_KINDS = frozenset({"task", "qa", "pgc", "questions", "reflection"})
-
-    # Maps doctype-prompt frag_kind to its prompt file subpath.
-    _FRAG_KIND_TO_PROMPT_FILE = {
-        "task": "prompts/task.prompt.txt",
-        "qa": "prompts/qa.prompt.txt",
-        "pgc": "prompts/pgc_context.prompt.txt",
-        "questions": "prompts/questions.prompt.txt",
-        "reflection": "prompts/reflection.prompt.txt",
-    }
-
-    def _artifact_id_to_path(self, artifact_id: str) -> str:
-        """
-        Convert artifact ID to file path (relative to combine-config).
-
-        Returns:
-            File path string
-        """
-        parsed = self._parse_artifact_id(artifact_id)
-        scope = parsed["scope"]
-        name = parsed["name"]
-        version = parsed["version"]
-        kind = parsed["kind"]
-
-        # Non-fragment scopes: straight dispatch table lookup.
-        if scope != "fragment":
-            kind_map = self._SCOPE_KIND_PATHS.get(scope)
-            if kind_map is None:
-                raise ArtifactIdError(f"Unknown scope: {scope}")
-            template = kind_map.get(kind)
-            if template is None:
-                raise ArtifactIdError(f"Unknown artifact kind for {scope}: {kind}")
-            return template.format(name=name, version=version)
-
-        # Fragment scope: name is "{frag_kind}:{frag_id}".
-        return self._resolve_fragment_path(name, version, kind)
-
-    def _resolve_fragment_path(self, name: str, version: str, kind: str) -> str:
-        """
-        Resolve file path for a fragment artifact.
-
-        Args:
-            name: Fragment name in format "{frag_kind}:{frag_id}"
-            version: Version string
-            kind: Artifact kind (content, meta, etc.)
-
-        Returns:
-            File path string
-        """
-        frag_parts = name.split(":", 1)
-        if len(frag_parts) != 2:
-            raise ArtifactIdError(
-                f"Invalid fragment name format: {name}. "
-                f"Expected {{kind}}:{{id}} (e.g., role:technical_architect)"
-            )
-        frag_kind, frag_id = frag_parts
-
-        # Check role/meta fragments first.
-        role_template = self._FRAGMENT_PATHS.get((frag_kind, kind))
-        if role_template is not None:
-            return role_template.format(frag_id=frag_id, version=version)
-
-        # Doctype-prompt fragments (task, qa, pgc, questions, reflection).
-        if frag_kind in self._DOCTYPE_PROMPT_FRAG_KINDS:
-            if kind == "content":
-                prompt_file = self._FRAG_KIND_TO_PROMPT_FILE[frag_kind]
-                return f"document_types/{frag_id}/releases/{version}/{prompt_file}"
-            elif kind == "meta":
-                return f"document_types/{frag_id}/releases/{version}/prompts/{frag_kind}.meta.yaml"
-            else:
-                raise ArtifactIdError(f"Unknown artifact kind for {frag_kind} fragment: {kind}")
-
-        # If frag_kind is "role" but kind was not content/meta, it wasn't in _FRAGMENT_PATHS.
-        if frag_kind == "role":
-            raise ArtifactIdError(f"Unknown artifact kind for role fragment: {kind}")
-
-        raise ArtifactIdError(f"Unknown fragment kind: {frag_kind}")
-
-    def _path_to_artifact_id(self, file_path: str) -> Optional[str]:
-        """
-        Convert file path to artifact ID.
-
-        Returns:
-            Artifact ID or None if not mappable
-        """
-        # Document type artifacts
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/prompts/task\.prompt\.txt$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:task_prompt"
-
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/prompts/qa\.prompt\.txt$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:qa_prompt"
-
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/prompts/reflection\.prompt\.txt$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:reflection_prompt"
-
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/prompts/pgc_context\.prompt\.txt$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:pgc_context"
-
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/schemas/output\.schema\.json$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:schema"
-
-        match = re.match(
-            r"document_types/([^/]+)/releases/([^/]+)/package\.yaml$",
-            file_path
-        )
-        if match:
-            return f"doctype:{match.group(1)}:{match.group(2)}:manifest"
-
-        # Role prompts (both role: and fragment: formats)
-        match = re.match(
-            r"prompts/roles/([^/]+)/releases/([^/]+)/role\.prompt\.txt$",
-            file_path
-        )
-        if match:
-            return f"role:{match.group(1)}:{match.group(2)}:role_prompt"
-
-        # Role meta.yaml
-        match = re.match(
-            r"prompts/roles/([^/]+)/releases/([^/]+)/meta\.yaml$",
-            file_path
-        )
-        if match:
-            return f"fragment:role:{match.group(1)}:{match.group(2)}:meta"
-
-        # Templates
-        match = re.match(
-            r"prompts/templates/([^/]+)/releases/([^/]+)/template\.txt$",
-            file_path
-        )
-        if match:
-            return f"template:{match.group(1)}:{match.group(2)}:template"
-
-        match = re.match(
-            r"prompts/templates/([^/]+)/releases/([^/]+)/meta\.yaml$",
-            file_path
-        )
-        if match:
-            return f"template:{match.group(1)}:{match.group(2)}:meta"
-
-        # Workflow definitions
-        match = re.match(
-            r"workflows/([^/]+)/releases/([^/]+)/definition\.json$",
-            file_path
-        )
-        if match:
-            return f"workflow:{match.group(1)}:{match.group(2)}:definition"
-
-        # Standalone schemas
-        match = re.match(
-            r"schemas/([^/]+)/releases/([^/]+)/schema\.json$",
-            file_path
-        )
-        if match:
-            return f"schema:{match.group(1)}:{match.group(2)}:schema"
-
-        return None
+    _parse_artifact_id = staticmethod(parse_artifact_id)
+    _artifact_id_to_path = staticmethod(artifact_id_to_path)
+    _path_to_artifact_id = staticmethod(path_to_artifact_id)
 
     # =========================================================================
     # Workspace Lifecycle
@@ -639,9 +396,9 @@ class WorkspaceService:
         )
         modified_artifacts = []
         for file_path in all_modified_files:
-            artifact_id = self._path_to_artifact_id(file_path)
-            if artifact_id:
-                modified_artifacts.append(artifact_id)
+            aid = path_to_artifact_id(file_path)
+            if aid:
+                modified_artifacts.append(aid)
 
         # Run tier1 validation
         tier1 = self._run_tier1_validation(modified_artifacts)
@@ -676,9 +433,9 @@ class WorkspaceService:
 
         # Get unique doc types from modified artifacts
         doc_types_to_validate = set()
-        for artifact_id in modified_artifacts:
+        for aid in modified_artifacts:
             try:
-                parsed = self._parse_artifact_id(artifact_id)
+                parsed = parse_artifact_id(aid)
                 if parsed["scope"] == "doctype":
                     doc_types_to_validate.add((parsed["name"], parsed["version"]))
             except ArtifactIdError:
@@ -715,9 +472,9 @@ class WorkspaceService:
 
         # Validate workflow artifacts
         workflows_to_validate = set()
-        for artifact_id in modified_artifacts:
+        for aid in modified_artifacts:
             try:
-                parsed = self._parse_artifact_id(artifact_id)
+                parsed = parse_artifact_id(aid)
                 if parsed["scope"] == "workflow":
                     workflows_to_validate.add((parsed["name"], parsed["version"]))
             except ArtifactIdError:
@@ -808,7 +565,7 @@ class WorkspaceService:
 
         # Convert artifact ID to path
         try:
-            file_path = self._artifact_id_to_path(artifact_id)
+            file_path = artifact_id_to_path(artifact_id)
         except ArtifactIdError as e:
             raise ArtifactError(str(e))
 
@@ -818,7 +575,7 @@ class WorkspaceService:
             raise ArtifactNotFoundError(f"Artifact not found: {artifact_id}")
 
         content = full_path.read_text(encoding="utf-8")
-        parsed = self._parse_artifact_id(artifact_id)
+        parsed = parse_artifact_id(artifact_id)
 
         return ArtifactContent(
             artifact_id=artifact_id,
@@ -853,7 +610,7 @@ class WorkspaceService:
 
         # Convert artifact ID to path
         try:
-            file_path = self._artifact_id_to_path(artifact_id)
+            file_path = artifact_id_to_path(artifact_id)
         except ArtifactIdError as e:
             raise ArtifactError(str(e))
 
@@ -893,7 +650,7 @@ class WorkspaceService:
         file_path = None
         if artifact_id:
             try:
-                file_path = self._artifact_id_to_path(artifact_id)
+                file_path = artifact_id_to_path(artifact_id)
             except ArtifactIdError as e:
                 raise ArtifactError(str(e))
 
@@ -904,7 +661,7 @@ class WorkspaceService:
         result = []
         for git_diff in git_diffs:
             # Try to map file path back to artifact ID
-            mapped_artifact_id = self._path_to_artifact_id(git_diff.file_path)
+            mapped_artifact_id = path_to_artifact_id(git_diff.file_path)
             if artifact_id and mapped_artifact_id != artifact_id:
                 continue
 
@@ -956,7 +713,7 @@ class WorkspaceService:
 
         # Parse artifact ID
         try:
-            parsed = self._parse_artifact_id(artifact_id)
+            parsed = parse_artifact_id(artifact_id)
         except ArtifactIdError as e:
             raise ArtifactError(str(e))
 
@@ -1095,8 +852,15 @@ class WorkspaceService:
             raise WorkspaceError(f"Discard failed: {e}")
 
     # =========================================================================
-    # Orchestration Workflow Lifecycle
+    # Scaffolding Operations — delegates to workspace_scaffolders
     # =========================================================================
+
+    def _require_workspace(self, workspace_id: str) -> None:
+        """Verify workspace exists and touch it."""
+        with self._lock:
+            if workspace_id not in self._workspaces:
+                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
+        self._touch_workspace(workspace_id)
 
     def create_orchestration_workflow(
         self,
@@ -1109,170 +873,38 @@ class WorkspaceService:
         source_version: Optional[str] = None,
         tags: Optional[List[str]] = None,
     ) -> str:
-        """
-        Create a new orchestration workflow definition.
-
-        Creates the directory structure, skeleton definition.json,
-        and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            workflow_id: Workflow ID (snake_case)
-            name: Display name (auto-generated from workflow_id if None)
-            version: Initial version
-            pow_class: Classification (reference, template, instance)
-            derived_from: Source workflow reference {workflow_id, version}
-            source_version: Version of source at fork time
-            tags: Free-form classification tags
-
-        Returns:
-            Artifact ID for the new workflow
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate workflow_id
-        if not re.match(r'^[a-z][a-z0-9_]*$', workflow_id):
-            raise ArtifactError(
-                f"Invalid workflow_id: '{workflow_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a new orchestration workflow definition."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_orchestration_workflow(
+                config_path=self._git.config_path,
+                workflow_id=workflow_id,
+                name=name,
+                version=version,
+                pow_class=pow_class,
+                derived_from=derived_from,
+                source_version=source_version,
+                tags=tags,
             )
-
-        # Check if workflow already exists
-        workflow_dir = self._git.config_path / "workflows" / workflow_id
-        if workflow_dir.exists():
-            raise ArtifactError(f"Workflow already exists: {workflow_id}")
-
-        # Auto-generate display name
-        if not name:
-            name = workflow_id.replace('_', ' ').title()
-
-        # Create directory structure and definition.json
-        import json as _json
-        from datetime import date
-
-        release_dir = workflow_dir / "releases" / version
-        release_dir.mkdir(parents=True, exist_ok=True)
-
-        skeleton = {
-            "schema_version": "workflow.v2",
-            "workflow_id": workflow_id,
-            "revision": f"wfrev_{date.today().isoformat().replace('-', '_')}_a",
-            "effective_date": date.today().isoformat(),
-            "name": name,
-            "description": "",
-            "pow_class": pow_class,
-            "derived_from": derived_from,
-            "source_version": source_version,
-            "tags": tags or [],
-            "scopes": {
-                "project": {"parent": None}
-            },
-            "document_types": {},
-            "entity_types": {},
-            "steps": []
-        }
-
-        definition_path = release_dir / "definition.json"
-        definition_path.write_text(
-            _json.dumps(skeleton, indent=2),
-            encoding="utf-8",
-        )
-
-        # Update active_releases.json
-        self._update_active_releases(workflow_id, version)
-
-        return f"workflow:{workflow_id}:{version}:definition"
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def delete_orchestration_workflow(
         self,
         workspace_id: str,
         workflow_id: str,
     ) -> None:
-        """
-        Delete an orchestration workflow.
-
-        Removes the workflow directory and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            workflow_id: Workflow ID to delete
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Verify workflow exists
-        workflow_dir = self._git.config_path / "workflows" / workflow_id
-        if not workflow_dir.exists():
-            raise ArtifactNotFoundError(f"Workflow not found: {workflow_id}")
-
-        # Verify it's step-based (not graph-based)
-        import json as _json
-        import shutil
-
-        # Find any definition.json to check format
-        for def_file in workflow_dir.rglob("definition.json"):
-            try:
-                with open(def_file, "r", encoding="utf-8-sig") as f:
-                    raw = _json.load(f)
-                if "nodes" in raw and "edges" in raw:
-                    raise ArtifactError(
-                        f"Cannot delete graph-based workflow '{workflow_id}' "
-                        f"via this endpoint. Use the document type workflow editor."
-                    )
-            except _json.JSONDecodeError:
-                pass
-            break
-
-        # Remove directory tree
-        shutil.rmtree(workflow_dir)
-
-        # Update active_releases.json
-        self._update_active_releases(workflow_id, None)
-
-    def _update_active_releases(
-        self,
-        workflow_id: str,
-        version: Optional[str],
-    ) -> None:
-        """
-        Update active_releases.json for a workflow.
-
-        Args:
-            workflow_id: Workflow ID
-            version: Version to set, or None to remove
-        """
-        import json as _json
-
-        releases_path = self._git.config_path / "_active" / "active_releases.json"
-        if not releases_path.exists():
-            raise ArtifactError("active_releases.json not found")
-
-        with open(releases_path, "r", encoding="utf-8-sig") as f:
-            releases = _json.load(f)
-
-        if "workflows" not in releases:
-            releases["workflows"] = {}
-
-        if version is None:
-            releases["workflows"].pop(workflow_id, None)
-        else:
-            releases["workflows"][workflow_id] = version
-
-        releases_path.write_text(
-            _json.dumps(releases, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-    # =========================================================================
-    # Document Type Lifecycle
-    # =========================================================================
+        """Delete an orchestration workflow."""
+        self._require_workspace(workspace_id)
+        try:
+            _scaffold_delete_orchestration_workflow(
+                config_path=self._git.config_path,
+                workflow_id=workflow_id,
+            )
+        except ScaffoldNotFoundError as e:
+            raise ArtifactNotFoundError(str(e))
+        except (ScaffoldError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def create_document_type(
         self,
@@ -1283,240 +915,36 @@ class WorkspaceService:
         scope: str = "project",
         role_ref: str = "prompt:role:technical_architect:1.0.0",
     ) -> str:
-        """
-        Create a new document type definition (DCW).
-
-        Creates the directory structure, skeleton package.yaml,
-        empty prompt files, and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            doc_type_id: Document type ID (snake_case)
-            display_name: Display name (auto-generated from doc_type_id if None)
-            version: Initial version
-            scope: Scope level (project, epic, etc.)
-            role_ref: Reference to role prompt
-
-        Returns:
-            Artifact ID for the new document type
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate doc_type_id
-        if not re.match(r'^[a-z][a-z0-9_]*$', doc_type_id):
-            raise ArtifactError(
-                f"Invalid doc_type_id: '{doc_type_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a new document type definition (DCW)."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_document_type(
+                config_path=self._git.config_path,
+                doc_type_id=doc_type_id,
+                display_name=display_name,
+                version=version,
+                scope=scope,
+                role_ref=role_ref,
             )
-
-        # Check if document type already exists
-        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
-        if doc_type_dir.exists():
-            raise ArtifactError(f"Document type already exists: {doc_type_id}")
-
-        # Auto-generate display name
-        if not display_name:
-            display_name = doc_type_id.replace('_', ' ').title()
-
-        # Create directory structure
-        import json as _json
-
-        release_dir = doc_type_dir / "releases" / version
-        prompts_dir = release_dir / "prompts"
-        schemas_dir = release_dir / "schemas"
-        prompts_dir.mkdir(parents=True, exist_ok=True)
-        schemas_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create package.yaml skeleton
-        package_yaml = f"""# Document Type Package Manifest
-# Schema: ../../../schemas/registry/package.schema.json
-
-doc_type_id: {doc_type_id}
-display_name: {display_name}
-version: {version}
-
-description: >
-  TODO: Add description for this document type.
-
-# Classification (per ADR-044)
-authority_level: descriptive
-creation_mode: llm_generated
-production_mode: generate
-scope: {scope}
-
-# Dependencies
-required_inputs: []
-optional_inputs: []
-
-# Shared artifact references
-role_prompt_ref: "{role_ref}"
-template_ref: "prompt:template:document_generator:1.0.0"
-qa_template_ref: "prompt:template:qa_evaluator:1.0.0"
-pgc_template_ref: "prompt:template:pgc_clarifier:1.0.0"
-schema_ref: "schema:{doc_type_id}:{version}"
-
-# Packaged artifacts (relative paths)
-artifacts:
-  task_prompt: prompts/task.prompt.txt
-  qa_prompt: prompts/qa.prompt.txt
-  pgc_context: prompts/pgc_context.prompt.txt
-  schema: schemas/output.schema.json
-
-# Test artifacts
-tests:
-  fixtures: []
-  golden_traces: []
-
-# UI configuration
-ui:
-  icon: document
-  category: general
-  display_order: 100
-"""
-        (release_dir / "package.yaml").write_text(package_yaml, encoding="utf-8")
-
-        # Create skeleton prompt files
-        task_prompt = f"""# Task Prompt for {display_name}
-
-You are producing a {display_name} document.
-
-## Instructions
-
-TODO: Add task instructions here.
-
-## Output Requirements
-
-Produce a structured JSON document following the output schema.
-"""
-        (prompts_dir / "task.prompt.txt").write_text(task_prompt, encoding="utf-8")
-
-        qa_prompt = f"""# QA Prompt for {display_name}
-
-Evaluate the {display_name} document for quality and completeness.
-
-## Evaluation Criteria
-
-TODO: Add evaluation criteria here.
-"""
-        (prompts_dir / "qa.prompt.txt").write_text(qa_prompt, encoding="utf-8")
-
-        pgc_prompt = f"""# PGC Context for {display_name}
-
-Context for pre-generation clarification.
-
-## Areas to Clarify
-
-TODO: Add clarification areas here.
-"""
-        (prompts_dir / "pgc_context.prompt.txt").write_text(pgc_prompt, encoding="utf-8")
-
-        # Create skeleton schema
-        schema = {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": f"schema:{doc_type_id}:{version}",
-            "title": display_name,
-            "description": f"Output schema for {display_name}",
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Document title"
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Main content"
-                }
-            },
-            "required": ["title", "content"]
-        }
-        (schemas_dir / "output.schema.json").write_text(
-            _json.dumps(schema, indent=2),
-            encoding="utf-8",
-        )
-
-        # Update active_releases.json
-        self._update_active_releases_for_doc_type(doc_type_id, version)
-
-        return f"doctype:{doc_type_id}:{version}:package"
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def delete_document_type(
         self,
         workspace_id: str,
         doc_type_id: str,
     ) -> None:
-        """
-        Delete a document type definition.
-
-        Removes the document type directory and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            doc_type_id: Document type ID to delete
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Verify document type exists
-        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
-        if not doc_type_dir.exists():
-            raise ArtifactNotFoundError(f"Document type not found: {doc_type_id}")
-
-        import shutil
-
-        # Remove directory tree
-        shutil.rmtree(doc_type_dir)
-
-        # Update active_releases.json
-        self._update_active_releases_for_doc_type(doc_type_id, None)
-
-    def _update_active_releases_for_doc_type(
-        self,
-        doc_type_id: str,
-        version: Optional[str],
-    ) -> None:
-        """
-        Update active_releases.json for a document type.
-
-        Args:
-            doc_type_id: Document type ID
-            version: Version to set, or None to remove
-        """
-        import json as _json
-
-        releases_path = self._git.config_path / "_active" / "active_releases.json"
-        if not releases_path.exists():
-            raise ArtifactError("active_releases.json not found")
-
-        with open(releases_path, "r", encoding="utf-8-sig") as f:
-            releases = _json.load(f)
-
-        if "document_types" not in releases:
-            releases["document_types"] = {}
-        if "schemas" not in releases:
-            releases["schemas"] = {}
-
-        if version is None:
-            releases["document_types"].pop(doc_type_id, None)
-            releases["schemas"].pop(doc_type_id, None)
-        else:
-            releases["document_types"][doc_type_id] = version
-            releases["schemas"][doc_type_id] = version
-
-        releases_path.write_text(
-            _json.dumps(releases, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-    # =========================================================================
-    # DCW Workflow Lifecycle (Graph-based workflows for document types)
-    # =========================================================================
+        """Delete a document type definition."""
+        self._require_workspace(workspace_id)
+        try:
+            _scaffold_delete_document_type(
+                config_path=self._git.config_path,
+                doc_type_id=doc_type_id,
+            )
+        except ScaffoldNotFoundError as e:
+            raise ArtifactNotFoundError(str(e))
+        except (ScaffoldError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def create_dcw_workflow(
         self,
@@ -1524,230 +952,16 @@ TODO: Add clarification areas here.
         doc_type_id: str,
         version: str = "1.0.0",
     ) -> str:
-        """
-        Create a graph-based workflow definition for a document type.
-
-        Creates the workflow directory structure with a skeleton definition.json
-        containing PGC, generation, QA, remediation nodes and standard edges.
-
-        Args:
-            workspace_id: Workspace identifier
-            doc_type_id: Document type ID (must exist)
-            version: Initial version
-
-        Returns:
-            Artifact ID for the new workflow
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate doc_type_id format
-        if not re.match(r'^[a-z][a-z0-9_]*$', doc_type_id):
-            raise ArtifactError(
-                f"Invalid doc_type_id: '{doc_type_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a graph-based workflow definition for a document type."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_dcw_workflow(
+                config_path=self._git.config_path,
+                doc_type_id=doc_type_id,
+                version=version,
             )
-
-        # Verify document type exists
-        doc_type_dir = self._git.config_path / "document_types" / doc_type_id
-        if not doc_type_dir.exists():
-            raise ArtifactError(f"Document type not found: {doc_type_id}")
-
-        # Check if workflow already exists
-        workflow_dir = self._git.config_path / "workflows" / doc_type_id
-        if workflow_dir.exists():
-            raise ArtifactError(f"Workflow already exists: {doc_type_id}")
-
-        # Create display name
-        display_name = doc_type_id.replace('_', ' ').title()
-
-        # Create directory structure and definition.json
-        import json as _json
-        from datetime import date
-
-        release_dir = workflow_dir / "releases" / version
-        release_dir.mkdir(parents=True, exist_ok=True)
-
-        skeleton = {
-            "$schema": "https://thecombine.ai/schemas/workflow-plan.v1.json",
-            "workflow_id": doc_type_id,
-            "version": version,
-            "name": f"{display_name} Workflow",
-            "description": f"Document creation workflow for {display_name}",
-            "scope_type": "document",
-            "document_type": doc_type_id,
-            "thread_ownership": {
-                "owns_thread": False,
-                "thread_purpose": None
-            },
-            "entry_node_ids": ["pgc"],
-            "nodes": [
-                {
-                    "node_id": "pgc",
-                    "type": "pgc",
-                    "description": f"Pre-generation clarification for {display_name}",
-                    "task_ref": "clarification_questions_generator",
-                    "includes": {},
-                    "_position": {"x": 50, "y": 40}
-                },
-                {
-                    "node_id": "generation",
-                    "type": "task",
-                    "description": f"Generate {display_name} document",
-                    "task_ref": "document_generator",
-                    "includes": {},
-                    "produces": doc_type_id,
-                    "_position": {"x": -220, "y": 235}
-                },
-                {
-                    "node_id": "qa",
-                    "type": "qa",
-                    "description": f"QA evaluation for {display_name}",
-                    "task_ref": f"tasks/{display_name} QA v1.0",
-                    "requires_qa": True,
-                    "qa_mode": "semantic",
-                    "_position": {"x": 65, "y": 390}
-                },
-                {
-                    "node_id": "remediation",
-                    "type": "task",
-                    "description": f"Rework {display_name} based on QA feedback",
-                    "task_ref": "document_generator",
-                    "includes": {},
-                    "produces": doc_type_id,
-                    "_position": {"x": 50, "y": 200}
-                },
-                {
-                    "node_id": "end_complete",
-                    "type": "end",
-                    "description": f"{display_name} document ready",
-                    "terminal_outcome": "stabilized",
-                    "gate_outcome": "complete",
-                    "_position": {"x": -160, "y": 800}
-                },
-                {
-                    "node_id": "end_failed",
-                    "type": "end",
-                    "description": "Generation failed",
-                    "terminal_outcome": "blocked",
-                    "gate_outcome": "failed",
-                    "_position": {"x": 190, "y": 800}
-                }
-            ],
-            "edges": [
-                {
-                    "edge_id": "pgc_to_generation",
-                    "from_node_id": "pgc",
-                    "to_node_id": "generation",
-                    "outcome": "success",
-                    "label": "Clarification complete, proceed to generation",
-                    "kind": "auto"
-                },
-                {
-                    "edge_id": "pgc_needs_answers",
-                    "from_node_id": "pgc",
-                    "to_node_id": None,
-                    "outcome": "needs_user_input",
-                    "label": "User must answer clarification questions",
-                    "kind": "auto",
-                    "non_advancing": True
-                },
-                {
-                    "edge_id": "generation_to_qa",
-                    "from_node_id": "generation",
-                    "to_node_id": "qa",
-                    "outcome": "success",
-                    "label": "Document generated, run QA",
-                    "kind": "auto"
-                },
-                {
-                    "edge_id": "generation_failed",
-                    "from_node_id": "generation",
-                    "to_node_id": "end_failed",
-                    "outcome": "failed",
-                    "label": "Document generation failed",
-                    "kind": "auto"
-                },
-                {
-                    "edge_id": "qa_pass",
-                    "from_node_id": "qa",
-                    "to_node_id": "end_complete",
-                    "outcome": "success",
-                    "label": "QA passed - document complete",
-                    "kind": "auto"
-                },
-                {
-                    "edge_id": "qa_fail_remediate",
-                    "from_node_id": "qa",
-                    "to_node_id": "remediation",
-                    "outcome": "failed",
-                    "label": "QA failed, remediate",
-                    "kind": "auto",
-                    "conditions": [{"type": "retry_count", "operator": "lt", "value": 2}]
-                },
-                {
-                    "edge_id": "qa_fail_circuit_breaker",
-                    "from_node_id": "qa",
-                    "to_node_id": "end_failed",
-                    "outcome": "failed",
-                    "label": "QA failed, circuit breaker",
-                    "kind": "auto",
-                    "conditions": [{"type": "retry_count", "operator": "gte", "value": 2}]
-                },
-                {
-                    "edge_id": "remediation_to_qa",
-                    "from_node_id": "remediation",
-                    "to_node_id": "qa",
-                    "outcome": "success",
-                    "label": "Remediation complete, re-run QA",
-                    "kind": "auto"
-                },
-                {
-                    "edge_id": "remediation_failed",
-                    "from_node_id": "remediation",
-                    "to_node_id": "end_failed",
-                    "outcome": "failed",
-                    "label": "Remediation failed",
-                    "kind": "auto"
-                }
-            ],
-            "governance": {
-                "adr_references": [],
-                "design_principles": [
-                    "Auto-complete on QA pass",
-                    "PGC clarification before generation"
-                ],
-                "circuit_breaker": {
-                    "max_retries": 2,
-                    "applies_to": ["qa", "remediation"],
-                    "on_trip": "end_failed with internal error flag"
-                }
-            },
-            "metadata": {
-                "created_date": date.today().isoformat(),
-                "updated_date": date.today().isoformat(),
-                "changelog": [f"v{version}: Initial workflow created"]
-            },
-            "requires_inputs": []
-        }
-
-        definition_path = release_dir / "definition.json"
-        definition_path.write_text(
-            _json.dumps(skeleton, indent=2),
-            encoding="utf-8",
-        )
-
-        # Update active_releases.json
-        self._update_active_releases(doc_type_id, version)
-
-        return f"workflow:{doc_type_id}:{version}:definition"
-
-    # =========================================================================
-    # Prompt Fragment Lifecycle (Role prompts)
-    # =========================================================================
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def create_role_prompt(
         self,
@@ -1756,112 +970,17 @@ TODO: Add clarification areas here.
         name: Optional[str] = None,
         version: str = "1.0.0",
     ) -> str:
-        """
-        Create a new role prompt.
-
-        Creates the directory structure, skeleton role.prompt.txt,
-        meta.yaml, and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            role_id: Role ID (snake_case)
-            name: Display name (auto-generated if None)
-            version: Initial version
-
-        Returns:
-            Artifact ID for the new role
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate role_id
-        if not re.match(r'^[a-z][a-z0-9_]*$', role_id):
-            raise ArtifactError(
-                f"Invalid role_id: '{role_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a new role prompt."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_role_prompt(
+                config_path=self._git.config_path,
+                role_id=role_id,
+                name=name,
+                version=version,
             )
-
-        # Check if role already exists
-        role_dir = self._git.config_path / "prompts" / "roles" / role_id
-        if role_dir.exists():
-            raise ArtifactError(f"Role already exists: {role_id}")
-
-        # Auto-generate display name
-        if not name:
-            name = role_id.replace('_', ' ').title()
-
-        # Create directory structure
-        import yaml as _yaml
-
-        release_dir = role_dir / "releases" / version
-        release_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create skeleton role prompt
-        role_prompt = f"""# {name} Role Prompt
-
-You are a {name.lower()}.
-
-## Responsibilities
-
-TODO: Define the role's responsibilities.
-
-## Constraints
-
-TODO: Define any constraints or guidelines.
-
-## Output Style
-
-TODO: Define the expected output style.
-"""
-        (release_dir / "role.prompt.txt").write_text(role_prompt, encoding="utf-8")
-
-        # Create meta.yaml
-        meta_content = _yaml.dump({
-            "name": name,
-            "intent": None,
-            "tags": [],
-        }, default_flow_style=False)
-        (release_dir / "meta.yaml").write_text(meta_content, encoding="utf-8")
-
-        # Update active_releases.json
-        self._update_active_releases_for_role(role_id, version)
-
-        return f"role:{role_id}:{version}:role_prompt"
-
-    def _update_active_releases_for_role(
-        self,
-        role_id: str,
-        version: Optional[str],
-    ) -> None:
-        """Update active_releases.json for a role."""
-        import json as _json
-
-        releases_path = self._git.config_path / "_active" / "active_releases.json"
-        if not releases_path.exists():
-            raise ArtifactError("active_releases.json not found")
-
-        with open(releases_path, "r", encoding="utf-8-sig") as f:
-            releases = _json.load(f)
-
-        if "roles" not in releases:
-            releases["roles"] = {}
-
-        if version is None:
-            releases["roles"].pop(role_id, None)
-        else:
-            releases["roles"][role_id] = version
-
-        releases_path.write_text(
-            _json.dumps(releases, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-    # =========================================================================
-    # Template Lifecycle
-    # =========================================================================
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def create_template(
         self,
@@ -1871,115 +990,18 @@ TODO: Define the expected output style.
         purpose: str = "general",
         version: str = "1.0.0",
     ) -> str:
-        """
-        Create a new template.
-
-        Creates the directory structure, skeleton template.txt,
-        meta.yaml, and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            template_id: Template ID (snake_case)
-            name: Display name (auto-generated if None)
-            purpose: Template purpose (document, qa, pgc, general)
-            version: Initial version
-
-        Returns:
-            Artifact ID for the new template
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate template_id
-        if not re.match(r'^[a-z][a-z0-9_]*$', template_id):
-            raise ArtifactError(
-                f"Invalid template_id: '{template_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a new template."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_template(
+                config_path=self._git.config_path,
+                template_id=template_id,
+                name=name,
+                purpose=purpose,
+                version=version,
             )
-
-        # Check if template already exists
-        template_dir = self._git.config_path / "prompts" / "templates" / template_id
-        if template_dir.exists():
-            raise ArtifactError(f"Template already exists: {template_id}")
-
-        # Auto-generate display name
-        if not name:
-            name = template_id.replace('_', ' ').title()
-
-        # Create directory structure
-        import yaml as _yaml
-
-        release_dir = template_dir / "releases" / version
-        release_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create skeleton template
-        template_content = f"""# {name} Template
-
-$$ROLE_PROMPT
-
----
-
-$$TASK_PROMPT
-
----
-
-## Output Schema
-
-$$OUTPUT_SCHEMA
-
----
-
-Please produce a response conforming to the output schema.
-"""
-        (release_dir / "template.txt").write_text(template_content, encoding="utf-8")
-
-        # Create meta.yaml
-        meta_content = _yaml.dump({
-            "name": name,
-            "purpose": purpose,
-            "use_case": None,
-        }, default_flow_style=False)
-        (release_dir / "meta.yaml").write_text(meta_content, encoding="utf-8")
-
-        # Update active_releases.json
-        self._update_active_releases_for_template(template_id, version)
-
-        return f"template:{template_id}:{version}:template"
-
-    def _update_active_releases_for_template(
-        self,
-        template_id: str,
-        version: Optional[str],
-    ) -> None:
-        """Update active_releases.json for a template."""
-        import json as _json
-
-        releases_path = self._git.config_path / "_active" / "active_releases.json"
-        if not releases_path.exists():
-            raise ArtifactError("active_releases.json not found")
-
-        with open(releases_path, "r", encoding="utf-8-sig") as f:
-            releases = _json.load(f)
-
-        if "templates" not in releases:
-            releases["templates"] = {}
-
-        if version is None:
-            releases["templates"].pop(template_id, None)
-        else:
-            releases["templates"][template_id] = version
-
-        releases_path.write_text(
-            _json.dumps(releases, indent=2) + "\n",
-            encoding="utf-8",
-        )
-
-    # =========================================================================
-    # Standalone Schema Lifecycle
-    # =========================================================================
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     def create_standalone_schema(
         self,
@@ -1988,101 +1010,17 @@ Please produce a response conforming to the output schema.
         title: Optional[str] = None,
         version: str = "1.0.0",
     ) -> str:
-        """
-        Create a new standalone schema.
-
-        Creates the directory structure, skeleton schema.json,
-        and updates active_releases.json.
-
-        Args:
-            workspace_id: Workspace identifier
-            schema_id: Schema ID (snake_case)
-            title: Schema title (auto-generated if None)
-            version: Initial version
-
-        Returns:
-            Artifact ID for the new schema
-        """
-        with self._lock:
-            if workspace_id not in self._workspaces:
-                raise WorkspaceNotFoundError(f"Workspace not found: {workspace_id}")
-
-        self._touch_workspace(workspace_id)
-
-        # Validate schema_id
-        if not re.match(r'^[a-z][a-z0-9_]*$', schema_id):
-            raise ArtifactError(
-                f"Invalid schema_id: '{schema_id}'. "
-                f"Must match pattern: ^[a-z][a-z0-9_]*$"
+        """Create a new standalone schema."""
+        self._require_workspace(workspace_id)
+        try:
+            return _scaffold_create_standalone_schema(
+                config_path=self._git.config_path,
+                schema_id=schema_id,
+                title=title,
+                version=version,
             )
-
-        # Check if schema already exists
-        schema_dir = self._git.config_path / "schemas" / schema_id
-        if schema_dir.exists():
-            raise ArtifactError(f"Schema already exists: {schema_id}")
-
-        # Auto-generate title
-        if not title:
-            title = schema_id.replace('_', ' ').title()
-
-        # Create directory structure
-        import json as _json
-
-        release_dir = schema_dir / "releases" / version
-        release_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create skeleton schema
-        schema_content = {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": f"schema:{schema_id}:{version}",
-            "title": title,
-            "description": f"Schema for {title}",
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string",
-                    "description": "Main content"
-                }
-            },
-            "required": ["content"]
-        }
-        (release_dir / "schema.json").write_text(
-            _json.dumps(schema_content, indent=2),
-            encoding="utf-8",
-        )
-
-        # Update active_releases.json
-        self._update_active_releases_for_schema(schema_id, version)
-
-        return f"schema:{schema_id}:{version}:schema"
-
-    def _update_active_releases_for_schema(
-        self,
-        schema_id: str,
-        version: Optional[str],
-    ) -> None:
-        """Update active_releases.json for a standalone schema."""
-        import json as _json
-
-        releases_path = self._git.config_path / "_active" / "active_releases.json"
-        if not releases_path.exists():
-            raise ArtifactError("active_releases.json not found")
-
-        with open(releases_path, "r", encoding="utf-8-sig") as f:
-            releases = _json.load(f)
-
-        if "schemas" not in releases:
-            releases["schemas"] = {}
-
-        if version is None:
-            releases["schemas"].pop(schema_id, None)
-        else:
-            releases["schemas"][schema_id] = version
-
-        releases_path.write_text(
-            _json.dumps(releases, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        except (ScaffoldError, ScaffoldNotFoundError, ReleaseUpdateError) as e:
+            raise ArtifactError(str(e))
 
     # =========================================================================
     # TTL Cleanup

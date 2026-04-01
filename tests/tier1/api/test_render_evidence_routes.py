@@ -111,7 +111,7 @@ class TestSingleDocEvidenceMode:
         mock_db = _setup_single_doc_db(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
@@ -136,7 +136,7 @@ class TestSingleDocEvidenceMode:
         mock_db = _setup_single_doc_db(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
@@ -158,7 +158,7 @@ class TestSingleDocEvidenceMode:
         mock_db = _setup_single_doc_db(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
@@ -176,7 +176,7 @@ class TestSingleDocEvidenceMode:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/documents/PD-001/render?format=md&mode=full"
@@ -201,7 +201,7 @@ class TestBinderEvidenceMode:
         mock_db = _setup_binder_db([doc])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -222,7 +222,7 @@ class TestBinderEvidenceMode:
         mock_db = _setup_binder_db([doc])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -243,7 +243,7 @@ class TestBinderEvidenceMode:
         mock_db = _setup_binder_db([doc])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = package
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -260,7 +260,7 @@ class TestBinderEvidenceMode:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=project&format=md&mode=full"

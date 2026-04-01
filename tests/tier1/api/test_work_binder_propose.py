@@ -82,23 +82,23 @@ class TestProposeWSGateRejection:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=["HARD_STOP: TA not stabilized"],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
         ):
@@ -122,23 +122,23 @@ class TestProposeWSGateRejection:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=["HARD_STOP: Work Package already has Work Statements. "],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
         ):
@@ -171,23 +171,23 @@ class TestProposeWSLLMErrors:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {}, clear=True),
@@ -215,37 +215,33 @@ class TestProposeWSLLMErrors:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 side_effect=TaskPromptNotFoundError("not found"),
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -270,37 +266,33 @@ class TestProposeWSLLMErrors:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 side_effect=TaskOutputParseError("bad json"),
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -325,37 +317,33 @@ class TestProposeWSLLMErrors:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 side_effect=TaskOutputValidationError("schema fail"),
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -380,37 +368,33 @@ class TestProposeWSLLMErrors:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 side_effect=TaskExecutionError("llm broke"),
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -442,37 +426,33 @@ class TestProposeWSOutputParsing:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 return_value={"output": "just a string"},
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -495,37 +475,33 @@ class TestProposeWSOutputParsing:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 return_value={"output": []},
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -550,37 +526,33 @@ class TestProposeWSOutputParsing:
 
         with (
             patch(
-                "app.api.v1.routers.work_binder._load_wp_document",
+                "app.api.v1.routers.work_binder_proposals._load_wp_document",
                 new_callable=AsyncMock, return_value=wp_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder._resolve_project",
+                "app.api.v1.routers.work_binder_proposals._resolve_project",
                 new_callable=AsyncMock, return_value=project,
             ),
             patch(
-                "app.api.v1.routers.work_binder._find_ta_for_project",
+                "app.api.v1.routers.work_binder_proposals._find_ta_for_project",
                 new_callable=AsyncMock, return_value=ta_doc,
             ),
             patch(
-                "app.api.v1.routers.work_binder.validate_proposal_gates",
+                "app.api.v1.routers.work_binder_proposals.validate_proposal_gates",
                 return_value=[],
             ),
             patch(
-                "app.api.v1.routers.work_binder.build_wb_audit_event",
+                "app.api.v1.routers.work_binder_proposals.build_wb_audit_event",
                 return_value={"event": "mock"},
             ),
             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
             patch(
-                "app.api.v1.routers.work_binder.execute_task",
+                "app.api.v1.routers.work_binder_proposals.execute_task",
                 new_callable=AsyncMock,
                 return_value={"output": 42},
             ),
             patch("app.llm.providers.anthropic.AnthropicProvider"),
             patch("app.domain.workflow.nodes.llm_executors.LoggingLLMService"),
-            patch(
-                "app.api.v1.routers.work_binder._get_sibling_wp_summaries",
-                new_callable=AsyncMock, return_value=[],
-            ),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),

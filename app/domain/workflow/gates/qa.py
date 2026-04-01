@@ -31,7 +31,7 @@ class QAGate:
         
         if not result.passed:
             for finding in result.findings:
-                print(f"{finding.severity}: {finding.message}")
+                ...  # process finding.severity, finding.message
     """
     
     # Mapping of document types to their schema names (for PackageLoader lookup)

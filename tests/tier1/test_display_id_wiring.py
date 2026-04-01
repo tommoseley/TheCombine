@@ -54,32 +54,27 @@ class TestPlanExecutorParentMintsCalled:
         mock_production.publish_event = AsyncMock()
         sys.modules.setdefault("app.api.v1.routers.production", mock_production)
 
-        from app.domain.workflow.plan_executor import PlanExecutor
-        source = inspect.getsource(PlanExecutor._persist_produced_documents)
+        from app.domain.workflow import document_persistence
+        source = inspect.getsource(document_persistence.persist_produced_documents)
         assert 'mint_display_id' in source, (
-            "_persist_produced_documents must call mint_display_id"
+            "persist_produced_documents must call mint_display_id"
         )
         assert 'display_id=did' in source or 'display_id=' in source, (
-            "_persist_produced_documents must pass display_id to Document constructor"
+            "persist_produced_documents must pass display_id to Document constructor"
         )
 
 
 class TestPlanExecutorParentDisplayId:
     """Verify the mint_display_id import and Document constructor wiring."""
 
-    def test_mint_display_id_imported_in_plan_executor(self):
-        """plan_executor.py source imports mint_display_id (lazy)."""
+    def test_mint_display_id_imported_in_document_persistence(self):
+        """document_persistence.py source imports mint_display_id (lazy)."""
         import inspect
-        import sys
 
-        mock_production = MagicMock()
-        mock_production.publish_event = AsyncMock()
-        sys.modules.setdefault("app.api.v1.routers.production", mock_production)
-
-        import app.domain.workflow.plan_executor as pe_mod
-        source = inspect.getsource(pe_mod)
+        import app.domain.workflow.document_persistence as dp_mod
+        source = inspect.getsource(dp_mod)
         assert 'from app.domain.services.display_id_service import mint_display_id' in source, (
-            "plan_executor must import mint_display_id"
+            "document_persistence must import mint_display_id"
         )
 
     def test_parent_document_constructor_includes_display_id(self):
@@ -91,14 +86,14 @@ class TestPlanExecutorParentDisplayId:
         mock_production.publish_event = AsyncMock()
         sys.modules.setdefault("app.api.v1.routers.production", mock_production)
 
-        from app.domain.workflow.plan_executor import PlanExecutor
-        source = inspect.getsource(PlanExecutor._persist_produced_documents)
+        from app.domain.workflow import document_persistence
+        source = inspect.getsource(document_persistence.persist_produced_documents)
         assert 'display_id=did' in source or 'display_id=' in source, (
-            "_persist_produced_documents must set display_id on parent Document"
+            "persist_produced_documents must set display_id on parent Document"
         )
 
     def test_child_document_constructor_includes_display_id(self):
-        """Verify plan_executor source includes display_id= in child Document()."""
+        """Verify child_document_manager source includes display_id= in child Document()."""
         import inspect
         import sys
 
@@ -106,10 +101,10 @@ class TestPlanExecutorParentDisplayId:
         mock_production.publish_event = AsyncMock()
         sys.modules.setdefault("app.api.v1.routers.production", mock_production)
 
-        from app.domain.workflow.plan_executor import PlanExecutor
-        source = inspect.getsource(PlanExecutor._upsert_child_document)
+        from app.domain.workflow import child_document_manager
+        source = inspect.getsource(child_document_manager.upsert_child_document)
         assert 'display_id=did' in source or 'display_id=' in source, (
-            "_upsert_child_document must set display_id on child Document"
+            "upsert_child_document must set display_id on child Document"
         )
 
 

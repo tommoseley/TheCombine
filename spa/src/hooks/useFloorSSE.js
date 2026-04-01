@@ -25,7 +25,6 @@ export function useFloorSSE(projectId, onUpdate) {
         eventSource.onopen = () => {
             setConnected(true);
             setError(null);
-            console.log(`SSE connected for project ${projectId}`);
         };
 
         eventSource.onmessage = (event) => {
@@ -63,7 +62,6 @@ export function useFloorSSE(projectId, onUpdate) {
 
             // Auto-reconnect after 3 seconds
             reconnectTimeoutRef.current = setTimeout(() => {
-                console.log('Attempting SSE reconnect...');
                 connect();
             }, 3000);
         };

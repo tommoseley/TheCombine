@@ -1,4 +1,4 @@
-"""Authentication middleware for protecting routes."""
+"""Authentication middleware decorators for protecting routes."""
 
 from functools import wraps
 from typing import Callable, List, Optional
@@ -7,80 +7,6 @@ from fastapi import HTTPException, Request, status
 
 from app.auth.models import AuthContext
 from app.auth.permissions import Permission, has_permission
-from app.auth.services import SessionService
-from app.auth.pat_service import PATService
-
-
-class AuthMiddleware:
-    """
-    Middleware for authenticating requests via session cookie or PAT.
-    
-    Attaches user to request.state.user if authenticated.
-    """
-    
-    def __init__(
-        self,
-        session_service: SessionService,
-        pat_service: PATService,
-        session_cookie_name: str = "session",
-    ):
-        self._session_service = session_service
-        self._pat_service = pat_service
-        self._cookie_name = session_cookie_name
-    
-    async def authenticate(self, request: Request) -> Optional[AuthContext]:
-        """
-        Attempt to authenticate the request.
-        
-        Checks:
-        1. Authorization header for PAT (Bearer token)
-        2. Session cookie for browser auth
-        
-        Returns:
-            AuthContext if authenticated, None otherwise
-        """
-        # Check for PAT in Authorization header
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:]  # Strip "Bearer "
-            if token.startswith("pat_"):
-                return await self._authenticate_pat(token)
-        
-        # Check for session cookie
-        session_token = request.cookies.get(self._cookie_name)
-        if session_token:
-            return await self._authenticate_session(session_token)
-        
-        return None
-    
-    async def _authenticate_session(self, token: str) -> Optional[AuthContext]:
-        """Authenticate via session token."""
-        result = await self._session_service.validate_session(token)
-        if not result:
-            return None
-        
-        user, session = result
-        return AuthContext(
-            user=user,
-            session_id=session.session_id,
-            token_id=None,
-            csrf_token=None,
-        )
-    
-    async def _authenticate_pat(self, token: str) -> Optional[AuthContext]:
-        """Authenticate via PAT."""
-        pat = await self._pat_service.validate_token(token)
-        if not pat:
-            return None
-        
-        # Need to look up the user - for now create minimal user context
-        # In production, PAT validation would include user lookup
-        return AuthContext(
-            user=None,  # Would be populated from user lookup
-            session_id=None,
-            token_id=pat.token_id,
-            csrf_token=None,
-        )
 
 
 def _get_request_from_args(args, kwargs) -> Optional[Request]:

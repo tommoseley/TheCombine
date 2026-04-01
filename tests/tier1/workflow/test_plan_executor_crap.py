@@ -175,6 +175,11 @@ def pe_module():
     # Also patch publish_event on the loaded module to our controllable mock
     mod.publish_event = _mock_publish_event
 
+    # Patch publish_event on the execution_event_emitter sub-module too,
+    # since station events are now delegated there.
+    import app.domain.workflow.execution_event_emitter as _emitter_mod
+    _emitter_mod.publish_event = _mock_publish_event
+
     return mod
 
 

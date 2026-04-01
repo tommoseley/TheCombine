@@ -20,14 +20,6 @@ from .repositories import (
     UserAlreadyExistsError,
     SessionNotFoundError,
 )
-from .services import (
-    SessionService,
-    UserService,
-    generate_user_id,
-    generate_session_id,
-    generate_session_token,
-    hash_token,
-)
 from .pat_service import (
     PATService,
     InMemoryPATRepository,
@@ -46,7 +38,6 @@ from .permissions import (
     has_all_permissions,
 )
 from .middleware import (
-    AuthMiddleware,
     require_auth,
     require_permission,
     require_any_permission,
@@ -71,13 +62,6 @@ __all__ = [
     "UserNotFoundError",
     "UserAlreadyExistsError",
     "SessionNotFoundError",
-    # Session Services
-    "SessionService",
-    "UserService",
-    "generate_user_id",
-    "generate_session_id",
-    "generate_session_token",
-    "hash_token",
     # PAT Services
     "PATService",
     "InMemoryPATRepository",
@@ -94,7 +78,6 @@ __all__ = [
     "has_any_permission",
     "has_all_permissions",
     # Middleware
-    "AuthMiddleware",
     "require_auth",
     "require_permission",
     "require_any_permission",

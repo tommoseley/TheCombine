@@ -241,7 +241,9 @@ class TestAPIContract:
 
     def test_backend_has_work_package_routes(self):
         """Backend router has work package endpoints."""
-        src = _read(PROJECTS_ROUTER_PY)
+        # Work package routes live in the projects_workpackages sub-router
+        wp_router = PROJECTS_ROUTER_PY.parent / "projects_workpackages.py"
+        src = _read(wp_router)
         assert "work-packages" in src
         assert "list_work_packages" in src
         assert "generate_work_packages" in src

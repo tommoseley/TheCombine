@@ -48,13 +48,23 @@ from app.domain.workflow.outcome_recorder import OutcomeRecorder
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Domain event bus — no API layer import (breaks circular dependency)
-from app.domain.events import publish_event
+# Extracted sub-modules
+from app.domain.workflow import qa_retry_handler
+from app.domain.workflow import invariant_processor
+from app.domain.workflow import child_document_manager
+from app.domain.workflow import execution_event_emitter
+from app.domain.workflow import execution_recorder
+from app.domain.workflow import pgc_processor
+from app.domain.workflow import document_persistence
+from app.domain.workflow import execution_context_builder
+from app.domain.workflow import execution_queries
 
-# Type hint only - actual import is lazy to avoid circular imports
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from app.api.services.mechanical_ops_service import MechanicalOpsService
+# Domain-level protocols for mechanical operations (WS-CLEANUP-003)
+from app.domain.workflow.operations import (
+    OperationProvider,
+    OperationExecutor,
+    ExclusionFilter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +165,10 @@ class PlanExecutor:
         thread_manager: Optional[ThreadManager] = None,
         outcome_recorder: Optional[OutcomeRecorder] = None,
         db_session: Optional[AsyncSession] = None,
-        ops_service: Optional["MechanicalOpsService"] = None,
+        ops_service: Optional["OperationProvider"] = None,
+        operation_provider: Optional[OperationProvider] = None,
+        operation_executor: Optional[OperationExecutor] = None,
+        exclusion_filter: Optional[ExclusionFilter] = None,
     ):
         """Initialize the executor.
 
@@ -168,8 +181,10 @@ class PlanExecutor:
                            If provided, enables thread ownership for workflows.
             outcome_recorder: Optional outcome recorder for governance audit.
                              If provided, records dual outcomes on completion.
-            ops_service: Optional mechanical ops service for operation dispatch.
-                        If not provided, creates a default instance.
+            ops_service: Deprecated alias for operation_provider (backward compat).
+            operation_provider: Protocol for fetching operation definitions.
+            operation_executor: Protocol for executing mechanical operations.
+            exclusion_filter: Protocol for filtering excluded topics.
         """
         self._persistence = persistence
         self._plan_registry = plan_registry or get_plan_registry()
@@ -177,11 +192,14 @@ class PlanExecutor:
         self._outcome_recorder = outcome_recorder
         self._db_session = db_session
 
-        # Lazy import to avoid circular dependency
-        if ops_service is None:
-            from app.api.services.mechanical_ops_service import MechanicalOpsService
-            ops_service = MechanicalOpsService()
-        self._ops_service = ops_service
+        # Domain-level protocols (WS-CLEANUP-003)
+        self._ops_service = operation_provider or ops_service
+        self._operation_executor = operation_executor
+        self._exclusion_filter = exclusion_filter
+
+        # Lazy-create default adapters if not injected
+        if self._ops_service is None or self._operation_executor is None or self._exclusion_filter is None:
+            self._ensure_default_operations()
 
         # Node executors by type - injectable for testing
         if executors:
@@ -190,6 +208,20 @@ class PlanExecutor:
             # Default to minimal stub executors
             # In production, inject properly configured executors
             self._executors: Dict[NodeType, NodeExecutor] = {}
+
+    def _ensure_default_operations(self):
+        """Populate unset operation protocols from the default factory registry."""
+        from app.domain.workflow.operations import (
+            get_default_provider,
+            get_default_executor,
+            get_default_filter,
+        )
+        if self._ops_service is None:
+            self._ops_service = get_default_provider()
+        if self._operation_executor is None:
+            self._operation_executor = get_default_executor()
+        if self._exclusion_filter is None:
+            self._exclusion_filter = get_default_filter()
 
     async def start_execution(
         self,
@@ -385,99 +417,6 @@ class PlanExecutor:
 
         return state
 
-    async def _handle_pgc_user_answers(
-        self,
-        execution_id: str,
-        current_node: Node,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-        user_input: Any,
-    ) -> DocumentWorkflowState:
-        """Handle PGC node user answer submission.
-
-        Merges user answers with PGC questions, extracts invariants,
-        stores in context_state, then routes to next node.
-
-        Args:
-            execution_id: The workflow execution ID
-            current_node: The PGC node
-            state: Current execution state
-            plan: Workflow plan
-            user_input: User-provided answers
-
-        Returns:
-            Updated execution state
-        """
-        logger.info(
-            f"PGC node {current_node.node_id} received user answers "
-            f"- merging clarifications (ADR-042)"
-        )
-
-        # Emit internal_step for merge phase
-        if current_node.internals and "merge" in current_node.internals:
-            await self._emit_internal_step(plan, state, current_node, "merge")
-
-        # ADR-042: Get questions (with DB fallback for restart scenarios)
-        questions = await self._get_pgc_questions_for_merge(state)
-
-        # ADR-042/ADR-047: Merge questions with answers via mechanical operation
-        from app.api.services.mech_handlers import execute_operation
-
-        op = self._ops_service.get_operation("pgc_clarification_processor")
-        if op:
-            result = await execute_operation(
-                operation=op,
-                inputs={"questions": questions, "answers": user_input},
-            )
-            if result.success:
-                clarifications = result.output.get("clarifications", [])
-                invariants = result.output.get("invariants", [])
-            else:
-                logger.warning(
-                    f"Clarification merge failed: {result.error}, using fallback"
-                )
-                from app.domain.workflow.clarification_merger import (
-                    merge_clarifications,
-                    extract_invariants,
-                )
-                clarifications = merge_clarifications(questions, user_input)
-                invariants = extract_invariants(clarifications)
-        else:
-            from app.domain.workflow.clarification_merger import (
-                merge_clarifications,
-                extract_invariants,
-            )
-            clarifications = merge_clarifications(questions, user_input)
-            invariants = extract_invariants(clarifications)
-
-        state.update_context_state({
-            "pgc_answers": user_input,
-            "pgc_clarifications": clarifications,
-            "pgc_invariants": invariants,
-        })
-
-        logger.info(
-            f"ADR-042: Merged {len(clarifications)} clarifications, "
-            f"{len(invariants)} binding invariants"
-        )
-
-        # Route to next node using "success" outcome
-        router = EdgeRouter(plan)
-        next_node_id, edge = router.get_next_node(
-            current_node_id=current_node.node_id,
-            outcome="success",
-            state=state,
-        )
-        if next_node_id:
-            state.current_node_id = next_node_id
-            state.status = DocumentWorkflowStatus.RUNNING
-            await self._persistence.save(state)
-            return await self.execute_step(execution_id)
-        else:
-            raise PlanExecutorError(
-                f"No edge from PGC node {current_node.node_id} with outcome 'success'"
-            )
-
     async def run_to_completion_or_pause(
         self,
         execution_id: str,
@@ -667,239 +606,10 @@ class PlanExecutor:
         await self._persistence.save(state)
         return state
 
-    async def _build_context(
-        self,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-        user_input: Optional[Any],
-        user_choice: Optional[str],
-    ) -> DocumentWorkflowContext:
-        """Build execution context for a node.
-
-        Args:
-            state: Current execution state
-            plan: Workflow plan
-            user_input: Optional user input
-            user_choice: Optional user choice
-
-        Returns:
-            DocumentWorkflowContext for node execution
-        """
-        # Build extra context with execution metadata
-        extra = {
-            "execution_id": state.execution_id,
-            "workflow_id": state.workflow_id,
-            "project_id": state.project_id,
-            "retry_count": state.get_retry_count(state.current_node_id),
-        }
-        # Pass db_session for authority lookups in PGC gates (ADR-064)
-        if self._db_session:
-            extra["db_session"] = self._db_session
-        if user_input:
-            extra["user_input"] = user_input
-        if user_choice:
-            extra["user_choice"] = user_choice
-
-        # Load conversation history from thread if available
-        conversation_history = []
-        if state.thread_id and self._thread_manager:
-            try:
-                conversation_history = await self._thread_manager.load_conversation_history(
-                    state.thread_id
-                )
-                logger.debug(
-                    f"Loaded {len(conversation_history)} messages from thread {state.thread_id}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to load conversation history: {e}")
-
-        # Load produced documents from context_state
-        document_content = {}
-        for key, value in state.context_state.items():
-            if key.startswith("document_") and isinstance(value, dict):
-                # Extract document type from key (e.g., "document_discovery" -> "discovery")
-                doc_type = key[len("document_"):]
-                document_content[doc_type] = value
-
-        # Also include last_produced_document for easy access
-        if state.context_state.get("last_produced_document"):
-            document_content["_last"] = state.context_state["last_produced_document"]
-
-        logger.debug(f"Loaded {len(document_content)} documents from context_state")
-
-        return DocumentWorkflowContext(
-            project_id=state.project_id,
-            document_type=state.document_type,
-            thread_id=state.thread_id,
-            document_content=document_content,
-            conversation_history=conversation_history,
-            input_documents=state.context_state.get("input_documents", {}),
-            user_responses={},
-            extra=extra,
-            context_state=state.context_state,
+    async def _build_context(self, state, plan, user_input, user_choice):
+        return await execution_context_builder.build_context(
+            state, plan, user_input, user_choice, self._db_session, self._thread_manager,
         )
-
-    async def _get_pgc_questions_for_merge(
-        self,
-        state: DocumentWorkflowState,
-    ) -> list:
-        """Get PGC questions for merging with answers (ADR-042).
-
-        Questions come from state.pending_user_input_payload first,
-        with DB fallback for restart scenarios.
-
-        Args:
-            state: Current execution state
-
-        Returns:
-            List of PGC question objects
-        """
-        # Try in-memory first (normal case)
-        if state.pending_user_input_payload:
-            questions = state.pending_user_input_payload.get("questions", [])
-            if questions:
-                logger.debug(f"ADR-042: Got {len(questions)} questions from pending payload")
-                return questions
-
-        # Fallback: load from DB (handles restart scenario)
-        if self._db_session:
-            try:
-                from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
-
-                repo = PGCAnswerRepository(self._db_session)
-                pgc_record = await repo.get_by_execution(state.execution_id)
-                if pgc_record and pgc_record.questions:
-                    logger.info(
-                        f"ADR-042: Loaded {len(pgc_record.questions)} questions from DB fallback"
-                    )
-                    return pgc_record.questions
-            except Exception as e:
-                logger.warning(f"ADR-042: Failed to load questions from DB: {e}")
-
-        logger.warning("ADR-042: No questions available for merge")
-        return []
-
-    async def _load_pgc_answers_for_qa(
-        self,
-        state: DocumentWorkflowState,
-        context: DocumentWorkflowContext,
-    ) -> None:
-        """Load PGC answers for QA validation.
-
-        ADR-064 resolution order:
-        1. If authority already hydrated (authority_source=durable_store), skip
-        2. Try durable authority store (ADR-064)
-        3. Fall back to execution-scoped pgc_answers table (ADR-042)
-
-        Args:
-            state: Current execution state
-            context: Execution context to update
-        """
-        # Already hydrated from authority store (WS-AUTH-005)
-        if context.context_state.get("authority_source") == "durable_store":
-            logger.debug("ADR-064: Authority already hydrated from durable store, skipping")
-            return
-
-        # Check if clarifications already in context (normal flow)
-        if context.context_state.get("pgc_clarifications"):
-            logger.debug("ADR-042: Clarifications already in context, skipping DB load")
-            return
-
-        if not self._db_session:
-            return
-
-        # ADR-064: Try durable authority store first
-        authority_loaded = False
-        try:
-            from app.domain.repositories.authority_repository import PostgresAuthorityRepository
-            from app.domain.services.authority_service import AuthorityService
-            from uuid import UUID
-
-            auth_repo = PostgresAuthorityRepository(self._db_session)
-            auth_service = AuthorityService(auth_repo)
-            try:
-                project_id = UUID(state.project_id) if isinstance(state.project_id, str) else state.project_id
-            except (ValueError, AttributeError):
-                logger.debug(f"ADR-064: project_id '{state.project_id}' is not a valid UUID, skipping authority load")
-                raise  # fall through to outer except → execution-scoped fallback
-
-            bundle = await auth_service.get_authority_bundle(project_id)
-
-            if bundle["authority_source"] == "durable_store":
-                context.context_state["pgc_answers"] = bundle["pgc_answers"]
-                context.context_state["pgc_questions"] = bundle["pgc_questions"]
-                context.context_state["authority_record_ids"] = bundle["authority_record_ids"]
-                context.context_state["authority_source"] = "durable_store"
-                authority_loaded = True
-                logger.info(
-                    f"ADR-064: Loaded {len(bundle['pgc_answers'])} authority records "
-                    f"from durable store for project {state.project_id}",
-                    extra={"authority_record_ids": [str(rid) for rid in bundle["authority_record_ids"]]},
-                )
-        except Exception as e:
-            logger.warning(f"ADR-064: Durable authority load failed, falling back: {e}")
-
-        # Fall back to execution-scoped pgc_answers table
-        if not authority_loaded:
-            try:
-                from app.domain.repositories.pgc_answer_repository import PGCAnswerRepository
-
-                repo = PGCAnswerRepository(self._db_session)
-                pgc_answer = await repo.get_by_execution(state.execution_id)
-
-                if pgc_answer:
-                    context.context_state["pgc_questions"] = pgc_answer.questions
-                    context.context_state["pgc_answers"] = pgc_answer.answers
-                    context.context_state["authority_source"] = "execution_scoped"
-
-                    logger.info(
-                        f"Loaded PGC answers for QA validation (execution-scoped): "
-                        f"{len(pgc_answer.questions)} questions"
-                    )
-                else:
-                    context.context_state["authority_source"] = "none"
-                    logger.debug(
-                        f"No PGC answers found for execution {state.execution_id}"
-                    )
-            except Exception as e:
-                context.context_state["authority_source"] = "none"
-                logger.warning(f"Failed to load PGC answers for QA: {e}")
-
-        # ADR-042/ADR-047: Merge clarifications if answers loaded but clarifications not
-        pgc_answers_dict = context.context_state.get("pgc_answers")
-        pgc_questions_list = context.context_state.get("pgc_questions")
-        if pgc_answers_dict and pgc_questions_list and not context.context_state.get("pgc_clarifications"):
-            try:
-                from app.api.services.mech_handlers import execute_operation
-
-                op = self._ops_service.get_operation("pgc_clarification_processor") if self._ops_service else None
-                if op:
-                    result = await execute_operation(
-                        operation=op,
-                        inputs={"questions": pgc_questions_list, "answers": pgc_answers_dict},
-                    )
-                    if result.success:
-                        clarifications = result.output.get("clarifications", [])
-                        invariants = result.output.get("invariants", [])
-                    else:
-                        logger.warning(f"Clarification merge failed: {result.error}, using fallback")
-                        from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                        clarifications = merge_clarifications(pgc_questions_list, pgc_answers_dict)
-                        invariants = extract_invariants(clarifications)
-                else:
-                    from app.domain.workflow.clarification_merger import merge_clarifications, extract_invariants
-                    clarifications = merge_clarifications(pgc_questions_list, pgc_answers_dict)
-                    invariants = extract_invariants(clarifications)
-
-                context.context_state["pgc_clarifications"] = clarifications
-                context.context_state["pgc_invariants"] = invariants
-
-                logger.info(
-                    f"ADR-042: Merged {len(clarifications)} clarifications "
-                    f"({len(invariants)} binding) for QA"
-                )
-            except Exception as e:
-                logger.warning(f"ADR-042: Clarification merge failed: {e}")
 
     async def _execute_node(
         self,
@@ -907,16 +617,7 @@ class PlanExecutor:
         context: DocumentWorkflowContext,
         state: DocumentWorkflowState,
     ) -> NodeResult:
-        """Execute a node using the appropriate executor.
-
-        Args:
-            node: The node to execute
-            context: Execution context
-            state: Current state (for snapshot)
-
-        Returns:
-            NodeResult from executor
-        """
+        """Execute a node using the appropriate executor."""
         executor = self._executors.get(node.type)
         if not executor:
             raise PlanExecutorError(f"No executor for node type: {node.type}")
@@ -969,12 +670,6 @@ class PlanExecutor:
         4. Handles intake gate pause-for-review
         5. Routes to next node (terminal, non-advancing, or advance)
         6. Manages QA retry feedback
-
-        Args:
-            result: The node execution result
-            current_node: The node that was executed
-            state: Current execution state
-            plan: Workflow plan
         """
         # 1. Record execution in history
         execution_metadata = dict(result.metadata) if result.metadata else {}
@@ -1019,7 +714,7 @@ class PlanExecutor:
                 )
             return
 
-        # 8. No matching edge → error
+        # 8. No matching edge -> error
         if next_node_id is None:
             logger.error(
                 f"No matching edge from {current_node.node_id} "
@@ -1048,7 +743,7 @@ class PlanExecutor:
         self._handle_qa_retry_feedback(result, current_node, state)
 
     # =========================================================================
-    # WS-CRAP-008: Sub-methods extracted from _handle_result
+    # Sub-methods extracted from _handle_result (WS-CRAP-008)
     # =========================================================================
 
     async def _handle_user_input_pause(
@@ -1081,79 +776,16 @@ class PlanExecutor:
         )
         return True
 
-    async def _store_produced_document(
-        self,
-        result: NodeResult,
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Store produced document in context_state after invariant pinning."""
-        if not result.produced_document:
-            return
-
-        produces_key = result.metadata.get("produces", "last_produced")
-
-        # ADR-042/ADR-047: Pin invariants into known_constraints BEFORE storing
-        pinned_document = await self._pin_invariants_via_operation(
-            result.produced_document, state
+    async def _store_produced_document(self, result, state):
+        await document_persistence.store_produced_document(
+            result.produced_document, result.metadata, state,
+            self._pin_invariants_via_operation, self._filter_excluded_via_operation,
         )
 
-        # ADR-042/ADR-047: Filter excluded topics from recommendations
-        filtered_document = await self._filter_excluded_via_operation(
-            pinned_document, state
+    async def _handle_intake_gate_result(self, result, current_node, state, plan):
+        return await document_persistence.handle_intake_gate_result(
+            result.outcome, result.metadata, current_node, state, plan, self._persistence,
         )
-
-        state.update_context_state({
-            f"document_{produces_key}": filtered_document,
-            "last_produced_document": pinned_document,
-        })
-        logger.info(f"Stored produced document as document_{produces_key}")
-
-    async def _handle_intake_gate_result(
-        self,
-        result: NodeResult,
-        current_node: Node,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-    ) -> bool:
-        """Handle intake gate metadata + pause-for-review. Returns True if paused."""
-        is_intake_gate = (
-            current_node.type == NodeType.INTAKE_GATE or
-            (current_node.type == NodeType.GATE and current_node.internals)
-        )
-        if not is_intake_gate or result.outcome != "qualified":
-            return False
-
-        from app.domain.workflow.result_handling import (
-            extract_metadata_by_keys, INTAKE_METADATA_KEYS, should_pause_for_intake_review,
-        )
-
-        intake_metadata = extract_metadata_by_keys(result.metadata, INTAKE_METADATA_KEYS)
-        if intake_metadata:
-            state.update_context_state(intake_metadata)
-            logger.info(f"Stored intake gate metadata: {list(intake_metadata.keys())}")
-
-        if should_pause_for_intake_review(
-            current_node.type == NodeType.INTAKE_GATE,
-            result.metadata.get("phase"),
-            state.context_state.get("phase"),
-        ):
-            # Advance to next node BEFORE pausing (so resume starts at generation)
-            router = EdgeRouter(plan)
-            next_node_id, _ = router.get_next_node(
-                current_node_id=current_node.node_id,
-                outcome=result.outcome,
-                state=state,
-            )
-            if next_node_id:
-                state.current_node_id = next_node_id
-                logger.info(f"Advanced to {next_node_id} before pausing for review")
-
-            state.set_paused(prompt=None, choices=None)
-            await self._persistence.save(state)
-            logger.info("Intake qualified - pausing for user review")
-            return True
-
-        return False
 
     async def _handle_terminal_node(
         self,
@@ -1212,28 +844,6 @@ class PlanExecutor:
             f"{terminal_outcome} (gate: {gate_outcome})"
         )
 
-    def _prepare_qa_retry_tracking(
-        self,
-        result: NodeResult,
-        current_node: Node,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-    ) -> None:
-        """Set generating_node_id on state if QA failed (needed by EdgeRouter).
-
-        Note: GateNodeExecutor remaps "failed" → "fail".  Accept both forms.
-        """
-        if not current_node.is_qa_gate() or result.outcome not in ("failed", "fail"):
-            return
-        generating_node_id = self._find_generating_node(state, plan)
-        if generating_node_id:
-            state.generating_node_id = generating_node_id
-            current_retries = state.get_retry_count(generating_node_id)
-            logger.info(
-                f"Circuit breaker check: {generating_node_id} has {current_retries} retries "
-                f"(threshold: 2)"
-            )
-
     async def _advance_to_next_node(
         self,
         current_node: Node,
@@ -1253,1171 +863,143 @@ class PlanExecutor:
         if next_station and (not current_station or next_station.id != current_station.id):
             await self._emit_station_changed(plan, state, next_node_id, "active")
 
-    def _handle_qa_retry_feedback(
-        self,
-        result: NodeResult,
-        current_node: Node,
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Handle QA retry counting and feedback storage/clearing.
+    # =========================================================================
+    # Delegation to extracted sub-modules
+    # =========================================================================
 
-        Note: GateNodeExecutor remaps outcomes before the plan executor sees
-        them: "failed" → "fail", "success" → "pass".  We accept both forms
-        so this works regardless of whether the QA runs as a bare QA node or
-        wrapped in a gate.
-        """
-        if (
-            current_node.is_qa_gate()
-            and result.outcome in ("failed", "fail")
-            and state.generating_node_id
-        ):
-            retry_count = state.increment_retry(state.generating_node_id)
-            logger.info(
-                f"QA failed, incremented retry for {state.generating_node_id} "
-                f"to {retry_count}"
-            )
+    # -- QA retry handler --
+    def _prepare_qa_retry_tracking(self, result, current_node, state, plan):
+        qa_retry_handler.prepare_qa_retry_tracking(result, current_node, state, plan)
 
-            qa_feedback = self._extract_qa_feedback(result)
-            if qa_feedback:
-                state.update_context_state({"qa_feedback": qa_feedback})
-                logger.info(
-                    f"Stored QA feedback for remediation: "
-                    f"{len(qa_feedback.get('issues', []))} issues"
-                )
+    def _handle_qa_retry_feedback(self, result, current_node, state):
+        qa_retry_handler.handle_qa_retry_feedback(result, current_node, state)
 
-        elif current_node.is_qa_gate() and result.outcome in ("success", "pass"):
-            if state.context_state.get("qa_feedback"):
-                state.context_state.pop("qa_feedback", None)
-                logger.debug("Cleared QA feedback after successful validation")
+    def _extract_qa_feedback(self, result):
+        return qa_retry_handler.extract_qa_feedback(result)
 
-    def _extract_qa_feedback(self, result: NodeResult) -> Optional[Dict[str, Any]]:
-        """Extract actionable QA feedback from failed result.
+    def _find_generating_node(self, state, plan):
+        return qa_retry_handler.find_generating_node(state, plan)
 
-        Delegates to result_handling.extract_qa_feedback pure function.
-
-        Args:
-            result: The failed QA NodeResult
-
-        Returns:
-            Dict with issues, summary, and remediation hints, or None
-        """
-        from app.domain.workflow.result_handling import extract_qa_feedback
-
-        return extract_qa_feedback(result.metadata)
-
-    def _find_generating_node(
-        self,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-    ) -> Optional[str]:
-        """Find the generating node for QA retry tracking.
-
-        Returns a STABLE identifier for the QA loop to track retries correctly.
-
-        FIX: Previously returned the "last task node" which changed from
-        "generation" to "remediation" after each retry, resetting the counter.
-        Now returns the FIRST task node that produces the document being QA'd,
-        giving a stable ID for the entire QA loop.
-
-        Args:
-            state: Current execution state
-            plan: Workflow plan
-
-        Returns:
-            Node ID of generating node or None
-        """
-        # Find the FIRST task node that produces content (stable for retry tracking)
-        # This ensures retries are counted correctly across generation -> remediation cycles
-        for execution in state.node_history:  # Forward order, not reversed
-            node = plan.get_node(execution.node_id)
-            if node and node.type == NodeType.TASK:
-                # Check if this node produces something (is a generating node)
-                if hasattr(node, 'produces') and node.produces:
-                    return execution.node_id
-
-        # Fallback: return first task node
-        for execution in state.node_history:
-            node = plan.get_node(execution.node_id)
-            if node and node.type == NodeType.TASK:
-                return execution.node_id
-        return None
-
-    async def _persist_conversation(
-        self,
-        result: NodeResult,
-        node: Node,
-        state: DocumentWorkflowState,
-        context: DocumentWorkflowContext,
-    ) -> None:
-        """Persist conversation turns to thread.
-
-        Records user input and assistant responses to the thread ledger
-        for conversation continuity.
-
-        Args:
-            result: The node execution result
-            node: The executed node
-            state: Current execution state
-            context: Execution context with user input
-        """
-        if not state.thread_id or not self._thread_manager:
-            return
-
-        try:
-            # Record user input if present
-            user_input = context.extra.get("user_input")
-            if user_input:
-                # Convert dict to JSON string for thread recording
-                import json
-                content = json.dumps(user_input, indent=2) if isinstance(user_input, dict) else user_input
-                await self._thread_manager.record_conversation_turn(
-                    thread_id=state.thread_id,
-                    role="user",
-                    content=content,
-                    node_id=node.node_id,
-                )
-
-            # Record assistant response if produced
-            if result.produced_document:
-                # For concierge nodes, the response might be in the document
-                response_content = result.produced_document.get("response")
-                if response_content:
-                    await self._thread_manager.record_conversation_turn(
-                        thread_id=state.thread_id,
-                        role="assistant",
-                        content=response_content,
-                        node_id=node.node_id,
-                    )
-
-            # Record user prompt for paused states
-            if result.requires_user_input and result.user_prompt:
-                await self._thread_manager.record_conversation_turn(
-                    thread_id=state.thread_id,
-                    role="assistant",
-                    content=result.user_prompt,
-                    node_id=node.node_id,
-                )
-
-        except Exception as e:
-            logger.warning(f"Failed to persist conversation to thread: {e}")
-
-    async def _sync_thread_status(
-        self,
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Sync thread status with workflow status.
-
-        Updates thread status to match workflow completion/failure.
-
-        Args:
-            state: Current execution state
-        """
-        if not state.thread_id or not self._thread_manager:
-            return
-
-        try:
-            if state.status == DocumentWorkflowStatus.RUNNING:
-                await self._thread_manager.start_thread(state.thread_id)
-            elif state.status == DocumentWorkflowStatus.COMPLETED:
-                await self._thread_manager.complete_thread(state.thread_id)
-            elif state.status == DocumentWorkflowStatus.FAILED:
-                await self._thread_manager.fail_thread(state.thread_id)
-        except Exception as e:
-            logger.warning(f"Failed to sync thread status: {e}")
-
-    async def _record_governance_outcome(
-        self,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-        result: NodeResult,
-    ) -> None:
-        """Record governance outcome for audit (ADR-037).
-
-        Records both gate outcome (governance vocabulary) and terminal outcome
-        (execution vocabulary) to the governance_outcomes table.
-
-        Args:
-            state: The completed workflow state
-            plan: The workflow plan
-            result: The final node result
-        """
-        if not self._outcome_recorder:
-            return
-
-        if not state.gate_outcome or not state.terminal_outcome:
-            logger.debug("Skipping outcome recording: no outcomes set")
-            return
-
-        try:
-            # Extract options offered from result metadata if available
-            options_offered = result.metadata.get("options_offered")
-            option_selected = result.metadata.get("option_selected")
-            selection_method = result.metadata.get("selection_method")
-
-            await self._outcome_recorder.record_outcome(
-                state=state,
-                plan=plan,
-                gate_type="intake_gate",  # Default for concierge intake
-                options_offered=options_offered,
-                option_selected=option_selected,
-                selection_method=selection_method,
-                recorded_by="workflow_engine",
-            )
-        except Exception as e:
-            logger.warning(f"Failed to record governance outcome: {e}")
-
-    async def _pin_invariants_via_operation(
-        self,
-        document: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> Dict[str, Any]:
-        """Pin binding invariants via mechanical operation.
-
-        ADR-047: Dispatches to discovery_invariant_pinner operation.
-        Falls back to inline method if operation not available.
-
-        Args:
-            document: The produced document
-            state: Workflow state containing pgc_invariants
-
-        Returns:
-            Document with pinned constraints
-        """
-        invariants = state.context_state.get("pgc_invariants", [])
-        if not invariants:
-            return document
-
-        from app.api.services.mech_handlers import execute_operation
-
-        op = self._ops_service.get_operation("discovery_invariant_pinner")
-        if op:
-            result = await execute_operation(
-                operation=op,
-                inputs={"document": document, "invariants": invariants},
-            )
-            if result.success and result.output:
-                return result.output
-            else:
-                logger.warning(f"Invariant pinning operation failed: {result.error}, using fallback")
-
-        # Fallback to existing method
-        return self._pin_invariants_to_known_constraints(document, state)
-
-    async def _filter_excluded_via_operation(
-        self,
-        document: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> Dict[str, Any]:
-        """Filter excluded topics via mechanical operation.
-
-        ADR-047: Dispatches to discovery_exclusion_filter operation.
-        Falls back to inline method if operation not available.
-
-        Args:
-            document: The document to filter
-            state: Workflow state containing pgc_invariants
-
-        Returns:
-            Document with excluded topics filtered
-        """
-        invariants = state.context_state.get("pgc_invariants", [])
-        if not invariants:
-            return document
-
-        from app.api.services.mech_handlers import execute_operation
-
-        op = self._ops_service.get_operation("discovery_exclusion_filter")
-        if op:
-            result = await execute_operation(
-                operation=op,
-                inputs={"document": document, "invariants": invariants},
-            )
-            if result.success and result.output:
-                return result.output
-            else:
-                logger.warning(f"Exclusion filter operation failed: {result.error}, using fallback")
-
-        # Fallback to existing method
-        return self._filter_excluded_topics(document, state)
-
-    def _pin_invariants_to_known_constraints(
-        self,
-        document: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> Dict[str, Any]:
-        """Pin binding invariants into document's known_constraints[].
-
-        .. deprecated::
-            Use `_pin_invariants_via_operation` instead, which dispatches to
-            the `discovery_invariant_pinner` mechanical operation (ADR-047).
-            This method is kept as a fallback and will be removed in a future release.
-
-        Delegates to pure function pin_invariants_to_constraints() for testability.
-        """
-        from app.domain.workflow.constraint_matching import (
-            pin_invariants_to_constraints,
+    # -- Invariant processor --
+    async def _pin_invariants_via_operation(self, document, state):
+        return await invariant_processor.pin_invariants_via_operation(
+            document, state, self._ops_service, self._operation_executor
         )
 
-        invariants = state.context_state.get("pgc_invariants", [])
-        result = pin_invariants_to_constraints(document, invariants)
-
-        # Log summary (I/O concern stays in the thin wrapper)
-        pinned_count = len(invariants)
-        orig_count = len(document.get("known_constraints", []))
-        final_count = len(result.get("known_constraints", []))
-        removed = pinned_count + orig_count - final_count
-        logger.info(
-            f"ADR-042: Pinned {pinned_count} binding invariants, "
-            f"removed {max(0, removed)} duplicates "
-            f"(total: {final_count})"
+    async def _filter_excluded_via_operation(self, document, state):
+        return await invariant_processor.filter_excluded_via_operation(
+            document, state, self._ops_service, self._operation_executor
         )
 
-        return result
+    def _pin_invariants_to_known_constraints(self, document, state):
+        return invariant_processor.pin_invariants_to_known_constraints(document, state)
 
-    def _filter_excluded_topics(
-        self,
-        document: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> Dict[str, Any]:
-        """Filter recommendations and decision points mentioning excluded topics.
+    def _filter_excluded_topics(self, document, state):
+        return invariant_processor.filter_excluded_topics(document, state, self._exclusion_filter)
 
-        .. deprecated::
-            Use `_filter_excluded_via_operation` instead, which dispatches to
-            the `discovery_exclusion_filter` mechanical operation (ADR-047).
-            This method is kept as a fallback and will be removed in a future release.
-
-        Delegates to apply_exclusion_filter pure function (WS-CRAP-001).
-
-        Args:
-            document: The produced document (will be copied, not mutated)
-            state: Workflow state containing pgc_invariants
-
-        Returns:
-            Document with excluded topics filtered out
-        """
-        from app.api.services.mech_handlers.exclusion_filter import apply_exclusion_filter
-
-        invariants = state.context_state.get("pgc_invariants", [])
-        filtered, removed_count = apply_exclusion_filter(document, invariants)
-
-        if removed_count > 0:
-            logger.info(f"ADR-042: Filtered {removed_count} items mentioning excluded topics")
-
-        return filtered
-
-    def _promote_pgc_invariants_to_document(
-        self,
-        doc_content: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Promote PGC invariants into document structure.
-
-        Per ADR-042: At document completion, mechanically transform binding
-        constraints from context_state into a structured pgc_invariants[]
-        section in the output document.
-
-        This makes binding constraints explicit and traceable in the artifact,
-        separate from known_constraints (which may include non-PGC items).
-
-        Args:
-            doc_content: The document content dict (mutated in place)
-            state: The workflow state containing pgc_invariants
-        """
-        context_invariants = state.context_state.get("pgc_invariants", [])
-        if not context_invariants:
-            return
-
-        # Get existing known_constraints for cross-referencing
-        known_constraints = doc_content.get("known_constraints", [])
-
-        # Build structured invariants
-        pgc_invariants = []
-        for idx, inv in enumerate(context_invariants, start=1):
-            constraint_id = inv.get("id", f"UNKNOWN-{idx}")
-            answer_label = inv.get("user_answer_label") or str(inv.get("user_answer", ""))
-            binding_source = inv.get("binding_source", "priority")
-
-            # Generate invariant ID
-            invariant_id = f"INV-{constraint_id}"
-
-            # Find matching constraint ID in known_constraints (if present)
-            source_constraint_id = None
-            for i, kc in enumerate(known_constraints):
-                kc_text = kc if isinstance(kc, str) else kc.get("text", "")
-                if answer_label.lower() in kc_text.lower():
-                    source_constraint_id = f"CNS-{i + 1}"
-                    break
-
-            # Derive domain from constraint ID (heuristic)
-            domain = self._derive_constraint_domain(constraint_id)
-
-            # Build statement from question context
-            question_text = inv.get("text", "")
-            statement = self._build_invariant_statement(
-                constraint_id, question_text, answer_label, binding_source
-            )
-
-            pgc_invariants.append({
-                "invariant_id": invariant_id,
-                "source_constraint_id": source_constraint_id,
-                "statement": statement,
-                "domain": domain,
-                "binding": True,
-                "origin": "pgc",
-                "change_policy": "explicit_renegotiation_only",
-                "pgc_question_id": constraint_id,
-                "user_answer": inv.get("user_answer"),
-                "user_answer_label": answer_label,
-            })
-
-        doc_content["pgc_invariants"] = pgc_invariants
-        logger.info(
-            f"ADR-042: Promoted {len(pgc_invariants)} PGC invariants to document structure"
+    def _promote_pgc_invariants_to_document(self, doc_content, state):
+        invariant_processor.promote_pgc_invariants_to_document(
+            doc_content, state, self._derive_constraint_domain, self._build_invariant_statement
         )
 
-    def _embed_pgc_clarifications(
-        self,
-        doc_content: Dict[str, Any],
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Embed PGC clarifications (questions + answers) into document.
+    def _embed_pgc_clarifications(self, doc_content, state):
+        invariant_processor.embed_pgc_clarifications(doc_content, state)
 
-        If the workflow included a PGC gate, the full set of clarification
-        questions and operator answers are embedded in the final document
-        for traceability. Only resolved clarifications are included.
+    def _derive_constraint_domain(self, constraint_id):
+        return invariant_processor.derive_constraint_domain(constraint_id)
 
-        Args:
-            doc_content: The document content dict (mutated in place)
-            state: The workflow state containing pgc_clarifications
-        """
-        clarifications = state.context_state.get("pgc_clarifications", [])
-        if not clarifications:
-            return
+    def _build_invariant_statement(self, constraint_id, question_text, answer_label, binding_source):
+        return invariant_processor.build_invariant_statement(
+            constraint_id, question_text, answer_label, binding_source
+        )
 
-        embedded = []
-        for c in clarifications:
-            if not c.get("resolved"):
-                continue
-            entry = {
-                "question_id": c.get("id", ""),
-                "question": c.get("text", ""),
-                "why_it_matters": c.get("why_it_matters"),
-                "answer": c.get("user_answer_label") or str(c.get("user_answer", "")),
-                "binding": c.get("binding", False),
-            }
-            embedded.append(entry)
+    # -- Child document manager --
+    async def _spawn_child_documents(self, state, doc_content, parent_id, parent_title, execution_id=None):
+        await child_document_manager.spawn_child_documents(
+            state, doc_content, parent_id, parent_title, self._db_session, execution_id
+        )
 
-        if embedded:
-            doc_content["pgc_clarifications"] = embedded
-            logger.info(
-                f"Embedded {len(embedded)} PGC clarifications in document"
-            )
+    async def _upsert_child_document(self, spec, existing_children, state, parent_id):
+        return await child_document_manager.upsert_child_document(
+            spec, existing_children, state, parent_id, self._db_session
+        )
 
-    def _derive_constraint_domain(self, constraint_id: str) -> str:
-        """Derive semantic domain from constraint ID.
+    def _mark_stale_children(self, existing_children, spawned_ids):
+        return child_document_manager.mark_stale_children(existing_children, spawned_ids)
 
-        Args:
-            constraint_id: The PGC question ID (e.g., TARGET_PLATFORM)
+    async def _load_existing_children(self, parent_id, child_specs, Document):
+        return await child_document_manager.load_existing_children(
+            parent_id, child_specs, Document, self._db_session
+        )
 
-        Returns:
-            Domain string (e.g., "platform", "user", "scope")
-        """
-        # Map common patterns to domains
-        domain_patterns = {
-            "PLATFORM": "platform",
-            "TARGET": "platform",
-            "USER": "user",
-            "PRIMARY": "user",
-            "DEPLOYMENT": "deployment",
-            "CONTEXT": "deployment",
-            "SCOPE": "scope",
-            "MATH": "scope",
-            "CAPABILITY": "capability",
-            "TRACKING": "capability",
-            "STANDARD": "compliance",
-            "EDUCATIONAL": "compliance",
-            "SYSTEM": "integration",
-            "EXISTING": "integration",
-        }
+    async def _run_upsert_loop(self, child_specs, existing_children, state, parent_id):
+        return await child_document_manager.run_upsert_loop(
+            child_specs, existing_children, state, parent_id, self._db_session
+        )
 
-        constraint_upper = constraint_id.upper()
-        for pattern, domain in domain_patterns.items():
-            if pattern in constraint_upper:
-                return domain
+    async def _commit_and_notify_children(self, created_count, updated_count, superseded_count,
+                                           state, parent_id, child_specs, existing_children,
+                                           spawned_ids, build_children_event_payload):
+        await child_document_manager.commit_and_notify_children(
+            created_count, updated_count, superseded_count,
+            state, parent_id, child_specs, existing_children, spawned_ids,
+            build_children_event_payload, self._db_session,
+        )
 
-        return "general"
+    # -- Execution event emitter --
+    async def _emit_stations_declared(self, plan, state):
+        await execution_event_emitter.emit_stations_declared(plan, state)
 
-    def _build_invariant_statement(
-        self,
-        constraint_id: str,
-        question_text: str,
-        answer_label: str,
-        binding_source: str,
-    ) -> str:
-        """Build human-readable invariant statement.
+    async def _emit_station_changed(self, plan, state, node_id, station_state, phase=None):
+        await execution_event_emitter.emit_station_changed(plan, state, node_id, station_state, phase)
 
-        Args:
-            constraint_id: The PGC question ID
-            question_text: The original question text
-            answer_label: The user's answer label
-            binding_source: How binding was derived (priority, exclusion, etc.)
+    async def _emit_internal_step(self, plan, state, node, phase_key):
+        await execution_event_emitter.emit_internal_step(plan, state, node, phase_key)
 
-        Returns:
-            Statement string describing the invariant
-        """
-        # Handle exclusions specially
-        if binding_source == "exclusion":
-            return f"{answer_label} is explicitly excluded"
+    # -- Execution recorder --
+    async def _persist_conversation(self, result, node, state, context):
+        await execution_recorder.persist_conversation(result, node, state, context, self._thread_manager)
 
-        # Build statement based on constraint type
-        if "PLATFORM" in constraint_id.upper():
-            return f"Application must be deployed as {answer_label}"
-        elif "USER" in constraint_id.upper():
-            return f"Primary users are {answer_label}"
-        elif "DEPLOYMENT" in constraint_id.upper() or "CONTEXT" in constraint_id.upper():
-            return f"Deployment context is {answer_label}"
-        elif "SCOPE" in constraint_id.upper():
-            return f"Scope includes {answer_label}"
-        elif "TRACKING" in constraint_id.upper():
-            return f"System will provide {answer_label}"
-        elif "STANDARD" in constraint_id.upper():
-            return f"Educational standards: {answer_label}"
-        else:
-            # Generic statement
-            return f"{constraint_id}: {answer_label}"
+    async def _sync_thread_status(self, state):
+        await execution_recorder.sync_thread_status(state, self._thread_manager)
 
-    async def _persist_produced_documents(
-        self,
-        state: DocumentWorkflowState,
-        plan: WorkflowPlan,
-    ) -> None:
-        """Persist produced documents to the documents table.
+    async def _record_governance_outcome(self, state, plan, result):
+        await execution_recorder.record_governance_outcome(state, plan, result, self._outcome_recorder)
 
-        Called on successful workflow completion (stabilized).
-        Delegates pure data assembly to document_assembly module.
-        """
+    # -- PGC processor --
+    async def _handle_pgc_user_answers(self, execution_id, current_node, state, plan, user_input):
+        return await pgc_processor.handle_pgc_user_answers(
+            execution_id, current_node, state, plan, user_input,
+            self._ops_service, self._operation_executor, self._persistence, self._db_session,
+            self._emit_internal_step, self.execute_step,
+        )
+
+    async def _get_pgc_questions_for_merge(self, state):
+        return await pgc_processor.get_pgc_questions_for_merge(state, self._db_session)
+
+    async def _load_pgc_answers_for_qa(self, state, context):
+        await pgc_processor.load_pgc_answers_for_qa(state, context, self._db_session, self._ops_service, self._operation_executor)
+
+    # =========================================================================
+    # Document persistence (kept in core - touches multiple DB concerns)
+    # =========================================================================
+
+    async def _persist_produced_documents(self, state, plan):
         if not self._db_session:
             logger.warning("No db_session - skipping document persistence")
             return
-
-        from app.api.models.document import Document
-        from uuid import UUID
-        from app.domain.workflow.document_assembly import (
-            enforce_system_meta,
-            derive_document_title,
-            promote_pgc_invariants_to_document,
-            embed_pgc_clarifications,
+        await document_persistence.persist_produced_documents(
+            state, plan, self._db_session, self._persistence,
+            self._derive_constraint_domain, self._build_invariant_statement,
+            self._spawn_child_documents,
         )
-
-        doc_key = f"document_{state.document_type}"
-        produced_doc = state.context_state.get(doc_key)
-
-        if not produced_doc:
-            logger.warning(f"No produced document found at {doc_key}")
-            return
-
-        try:
-            # Pure: enforce system-owned meta fields
-            doc_content, meta_warnings = enforce_system_meta(
-                produced_doc,
-                execution_id=state.execution_id,
-                document_type=state.document_type,
-                workflow_id=state.workflow_id,
-            )
-            for w in meta_warnings:
-                logger.warning(w)
-
-            system_artifact_id = doc_content["meta"]["artifact_id"]
-
-            # Pure: promote PGC invariants into document structure (ADR-042)
-            context_invariants = state.context_state.get("pgc_invariants", [])
-            inv_result = promote_pgc_invariants_to_document(
-                doc_content,
-                context_invariants,
-                derive_domain_fn=self._derive_constraint_domain,
-                build_statement_fn=self._build_invariant_statement,
-            )
-            if inv_result:
-                logger.info(
-                    f"ADR-042: Promoted {len(inv_result)} PGC invariants to document structure"
-                )
-
-            # Pure: embed PGC clarifications for traceability
-            clarifications = state.context_state.get("pgc_clarifications", [])
-            embedded = embed_pgc_clarifications(doc_content, clarifications)
-            if embedded:
-                logger.info(
-                    f"Embedded {len(embedded)} PGC clarifications in document"
-                )
-
-            # Derive title -- may need DB lookups for fallback
-            doc_title = doc_content.get("title") or doc_content.get("project_name")
-            project_name = None
-            doc_type_name = None
-            if not doc_title:
-                from app.api.models.project import Project as ProjectModel
-                from app.api.models.document_type import DocumentType as DocTypeModel
-                proj_result = await self._db_session.execute(
-                    select(ProjectModel.name).where(
-                        ProjectModel.id == UUID(state.project_id)
-                    )
-                )
-                project_name = proj_result.scalar_one_or_none()
-                dt_result = await self._db_session.execute(
-                    select(DocTypeModel.name).where(
-                        DocTypeModel.doc_type_id == state.document_type
-                    )
-                )
-                doc_type_name = dt_result.scalar_one_or_none()
-
-            doc_title = derive_document_title(
-                doc_content,
-                state.document_type,
-                project_name=project_name,
-                doc_type_display_name=doc_type_name,
-            )
-
-            # ADR-063: Check for existing document of this type (even stale)
-            # If found, reuse its display_id and increment version
-            from sqlalchemy import func as sa_func
-            existing_result = await self._db_session.execute(
-                select(Document.display_id, sa_func.max(Document.version))
-                .where(
-                    Document.space_type == "project",
-                    Document.space_id == UUID(state.project_id),
-                    Document.doc_type_id == state.document_type,
-                )
-                .group_by(Document.display_id)
-                .order_by(sa_func.max(Document.version).desc())
-                .limit(1)
-            )
-            existing = existing_result.first()
-
-            if existing:
-                # Reuse existing display_id, increment version
-                did = existing[0]
-                new_version = existing[1] + 1
-                # Mark any current/latest docs as superseded
-                await self._db_session.execute(
-                    update(Document)
-                    .where(
-                        Document.space_type == "project",
-                        Document.space_id == UUID(state.project_id),
-                        Document.doc_type_id == state.document_type,
-                        Document.is_latest == True,
-                    )
-                    .values(is_latest=False, status="superseded")
-                )
-            else:
-                # First document of this type — mint new display_id
-                from app.domain.services.display_id_service import mint_display_id
-                did = await mint_display_id(self._db_session, UUID(state.project_id), state.document_type)
-                new_version = 1
-
-            # Create the document record (I/O)
-            document = Document(
-                space_type="project",
-                space_id=UUID(state.project_id),
-                doc_type_id=state.document_type,
-                title=doc_title,
-                content=doc_content,
-                version=new_version,
-                is_latest=True,
-                status="draft",
-                created_by=None,
-                display_id=did,
-            )
-            document.update_revision_hash()
-
-            self._db_session.add(document)
-            await self._db_session.commit()
-
-            # Update context_state with system-corrected document
-            doc_key = f"document_{state.document_type}"
-            state.context_state[doc_key] = doc_content
-            await self._persistence.save(state)
-
-            logger.info(
-                f"Persisted {state.document_type} document to database "
-                f"(id={document.id}, artifact_id={system_artifact_id}, project={state.project_id})"
-            )
-
-            # Spawn child documents if the handler defines them
-            await self._spawn_child_documents(
-                state, doc_content, document.id, document.title,
-                execution_id=state.execution_id,
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to persist document: {e}")
-            # Don't fail the workflow - document is still in context_state
-            await self._db_session.rollback()
-
-    async def _spawn_child_documents(
-        self,
-        state: DocumentWorkflowState,
-        doc_content: Dict[str, Any],
-        parent_id: "UUID",  # noqa: F821
-        parent_title: str,
-        execution_id: str = None,
-    ) -> None:
-        """Spawn child documents using the handler's get_child_documents().
-
-        Idempotent: if a child with the same (parent_id, doc_type_id, identifier)
-        already exists, it is updated rather than duplicated.
-
-        Drift-aware: children from a previous run that are no longer in the
-        current spec are marked stale (superseded), not deleted.
-
-        WS-CRAP-009: Thinned dispatcher — delegates to pure helpers and
-        sub-methods for envelope unwrap, lineage injection, upsert, stale
-        marking, and event payload construction.
-        """
-        from app.domain.handlers.registry import handler_exists, get_handler
-        from app.api.models.document import Document
-        from app.domain.workflow.child_document_helpers import (
-            unwrap_raw_envelope,
-            inject_execution_id_into_lineage,
-            build_children_event_payload,
-        )
-
-        if not handler_exists(state.document_type):
-            return
-
-        handler = get_handler(state.document_type)
-        unwrapped = unwrap_raw_envelope(doc_content)
-        child_specs = handler.get_child_documents(unwrapped, parent_title or "")
-
-        if not child_specs:
-            return
-
-        inject_execution_id_into_lineage(child_specs, execution_id)
-
-        existing_children = await self._load_existing_children(
-            parent_id, child_specs, Document,
-        )
-
-        spawned_ids, created_count, updated_count = await self._run_upsert_loop(
-            child_specs, existing_children, state, parent_id,
-        )
-
-        superseded_count = self._mark_stale_children(existing_children, spawned_ids)
-
-        await self._commit_and_notify_children(
-            created_count, updated_count, superseded_count,
-            state, parent_id, child_specs, existing_children, spawned_ids,
-            build_children_event_payload,
-        )
-
-    async def _upsert_child_document(
-        self,
-        spec: dict,
-        existing_children: dict,
-        state: DocumentWorkflowState,
-        parent_id: "UUID",  # noqa: F821
-    ) -> str:
-        """Upsert a single child document. Returns 'created', 'updated', or 'skipped'."""
-        from app.api.models.document import Document
-        from uuid import UUID
-
-        identifier = spec.get("identifier", "")
-        if not identifier:
-            logger.error(
-                f"Child spec for {spec.get('doc_type_id')} missing identifier - "
-                f"skipping (would violate multi-instance uniqueness)"
-            )
-            return "skipped"
-
-        existing = existing_children.get(identifier)
-        if existing:
-            # ADR-063: Create new version instead of mutating in place
-            new_version = existing.version + 1
-            # Mark old version as superseded
-            existing.is_latest = False
-            existing.status = "superseded"
-
-            from app.domain.services.display_id_service import mint_display_id
-            # Reuse existing display_id for the new version
-            child_doc = Document(
-                space_type="project",
-                space_id=UUID(state.project_id),
-                doc_type_id=spec["doc_type_id"],
-                title=spec["title"],
-                content=spec["content"],
-                version=new_version,
-                is_latest=True,
-                status="draft",
-                created_by=None,
-                parent_document_id=parent_id,
-                instance_id=identifier,
-                display_id=existing.display_id,
-            )
-            child_doc.update_revision_hash()
-            self._db_session.add(child_doc)
-            logger.debug(f"Created new version {new_version} for child: {identifier}")
-            return "versioned"
-        else:
-            # Mint a human-readable display_id for the child (ADR-055)
-            from app.domain.services.display_id_service import mint_display_id
-            did = await mint_display_id(self._db_session, UUID(state.project_id), spec["doc_type_id"])
-
-            child_doc = Document(
-                space_type="project",
-                space_id=UUID(state.project_id),
-                doc_type_id=spec["doc_type_id"],
-                title=spec["title"],
-                content=spec["content"],
-                version=1,
-                is_latest=True,
-                status="draft",
-                created_by=None,
-                parent_document_id=parent_id,
-                instance_id=identifier,
-                display_id=did,
-            )
-            child_doc.update_revision_hash()
-            self._db_session.add(child_doc)
-            logger.debug(f"Created child: {identifier} (instance_id={identifier})")
-            return "created"
-
-    def _mark_stale_children(
-        self,
-        existing_children: dict,
-        spawned_ids: set[str],
-    ) -> int:
-        """Mark children no longer in spec as stale. Returns count."""
-        count = 0
-        for child_id, child_doc in existing_children.items():
-            if child_id not in spawned_ids:
-                child_doc.is_latest = False
-                if hasattr(child_doc, 'mark_stale'):
-                    child_doc.mark_stale()
-                else:
-                    child_doc.lifecycle_state = "stale"
-                count += 1
-                logger.info(f"Superseded child: {child_id} (no longer in parent)")
-        return count
-
-    async def _load_existing_children(
-        self,
-        parent_id: "UUID",  # noqa: F821
-        child_specs: list[dict],
-        Document,
-    ) -> dict:
-        """Load existing children for idempotency check, keyed by instance_id."""
-        existing_result = await self._db_session.execute(
-            select(Document).where(
-                Document.parent_document_id == parent_id,
-                Document.doc_type_id.in_([s["doc_type_id"] for s in child_specs]),
-                Document.is_latest == True,
-            )
-        )
-        return {
-            doc.instance_id: doc
-            for doc in existing_result.scalars().all()
-            if doc.instance_id
-        }
-
-    async def _run_upsert_loop(
-        self,
-        child_specs: list[dict],
-        existing_children: dict,
-        state: DocumentWorkflowState,
-        parent_id: "UUID",  # noqa: F821
-    ) -> tuple[set, int, int]:
-        """Run upsert for each child spec. Returns (spawned_ids, created, updated)."""
-        spawned_ids = set()
-        created_count = updated_count = 0
-        for spec in child_specs:
-            try:
-                result = await self._upsert_child_document(
-                    spec, existing_children, state, parent_id,
-                )
-                if result == "created":
-                    created_count += 1
-                elif result == "updated":
-                    updated_count += 1
-                if spec.get("identifier"):
-                    spawned_ids.add(spec["identifier"])
-            except Exception as e:
-                logger.error(
-                    f"Failed to upsert child document "
-                    f"{spec.get('doc_type_id')}/{spec.get('identifier')}: {e}"
-                )
-        return spawned_ids, created_count, updated_count
-
-    async def _commit_and_notify_children(
-        self,
-        created_count: int,
-        updated_count: int,
-        superseded_count: int,
-        state: DocumentWorkflowState,
-        parent_id: "UUID",  # noqa: F821
-        child_specs: list[dict],
-        existing_children: dict,
-        spawned_ids: set,
-        build_children_event_payload,
-    ) -> None:
-        """Commit DB changes and publish SSE event if anything changed."""
-        if not (created_count or updated_count or superseded_count):
-            return
-
-        await self._db_session.commit()
-        logger.info(
-            f"Spawned children from {state.document_type} (parent={parent_id}): "
-            f"created={created_count}, updated={updated_count}, "
-            f"superseded={superseded_count}"
-        )
-
-        payload = build_children_event_payload(
-            child_specs, set(existing_children.keys()), spawned_ids,
-        )
-        try:
-            await publish_event(state.project_id, "children_updated", {
-                "parent_document_type": state.document_type,
-                "child_doc_type": "work_package",
-                **payload,
-            })
-        except Exception as e:
-            logger.warning(f"Failed to publish children_updated event: {e}")
 
     # =========================================================================
-    # WS-STATION-DATA-001 Phase 2: Station Event Emission
+    # Query methods
     # =========================================================================
 
-    async def _emit_stations_declared(
-        self,
-        plan: WorkflowPlan,
-        state: DocumentWorkflowState,
-    ) -> None:
-        """Emit stations_declared event on workflow start.
+    async def get_execution_status(self, execution_id):
+        return await execution_queries.get_execution_status(self._persistence, execution_id)
 
-        Broadcasts the full station list for this workflow so UI can
-        render station dots immediately, including phases (sub-steps) per station.
-
-        Args:
-            plan: The workflow plan (contains station metadata)
-            state: The workflow state (for project_id, execution_id)
-        """
-        try:
-            stations = plan.get_stations()
-            if not stations:
-                logger.debug(f"No stations defined in plan {plan.workflow_id}")
-                return
-
-            # Collect phases (internals) per station
-            phases_by_station: Dict[str, List[str]] = {}
-            for node in plan.nodes:
-                if node.station and node.internals:
-                    station_id = node.station.id
-                    if station_id not in phases_by_station:
-                        phases_by_station[station_id] = []
-                    # Add internal keys as phases (preserves dict order from Python 3.7+)
-                    for phase_key in node.internals.keys():
-                        if phase_key not in phases_by_station[station_id]:
-                            phases_by_station[station_id].append(phase_key)
-
-            # All stations start as pending, include phases if any
-            station_data = [
-                {
-                    "id": s["id"],
-                    "label": s["label"],
-                    "order": s["order"],
-                    "state": "pending",
-                    "phases": phases_by_station.get(s["id"], []),
-                }
-                for s in stations
-            ]
-
-            await publish_event(
-                state.project_id,
-                "stations_declared",
-                {
-                    "document_type": state.document_type,
-                    "execution_id": state.execution_id,
-                    "stations": station_data,
-                },
-            )
-            logger.debug(
-                f"Emitted stations_declared for {state.document_type}: "
-                f"{[s['id'] for s in station_data]}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to emit stations_declared: {e}")
-
-    async def _emit_station_changed(
-        self,
-        plan: WorkflowPlan,
-        state: DocumentWorkflowState,
-        node_id: str,
-        station_state: str,
-        phase: Optional[str] = None,
-    ) -> None:
-        """Emit station_changed event when station state changes.
-
-        Args:
-            plan: The workflow plan
-            state: The workflow state
-            node_id: The node causing the change
-            station_state: New station state (pending, active, complete, blocked)
-            phase: Optional sub-phase (pass_a, entry, merge, etc.)
-        """
-        try:
-            station = plan.get_node_station(node_id)
-            if not station:
-                logger.debug(f"No station for node {node_id}")
-                return
-
-            data = {
-                "document_type": state.document_type,
-                "execution_id": state.execution_id,
-                "station_id": station.id,
-                "state": station_state,
-            }
-            if phase:
-                data["phase"] = phase
-
-            await publish_event(state.project_id, "station_changed", data)
-            logger.debug(
-                f"Emitted station_changed: {station.id} -> {station_state}"
-                f"{f' (phase: {phase})' if phase else ''}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to emit station_changed: {e}")
-
-    async def _emit_internal_step(
-        self,
-        plan: WorkflowPlan,
-        state: DocumentWorkflowState,
-        node: Node,
-        phase_key: str,
-    ) -> None:
-        """Emit internal_step event when entering an internal phase.
-        
-        Broadcasts detailed step information for UI display:
-        - Station context
-        - Internal step details (key, name, type)
-        - Progress (step number, total steps)
-        
-        Args:
-            plan: The workflow plan
-            state: The workflow state
-            node: The node being executed
-            phase_key: The internal phase key (e.g., 'pass_a', 'entry', 'merge')
-        """
-        try:
-            station = plan.get_node_station(node.node_id)
-            if not station or not node.internals:
-                return
-            
-            # Get internal details
-            internal = node.internals.get(phase_key, {})
-            internal_name = internal.get("name", phase_key)
-            internal_type = internal.get("internal_type", "UNKNOWN")
-            
-            # Calculate step position
-            internal_keys = list(node.internals.keys())
-            step_number = internal_keys.index(phase_key) + 1 if phase_key in internal_keys else 1
-            total_steps = len(internal_keys)
-            
-            data = {
-                "document_type": state.document_type,
-                "execution_id": state.execution_id,
-                "station_id": station.id,
-                "node_id": node.node_id,
-                "step": {
-                    "key": phase_key,
-                    "name": internal_name,
-                    "type": internal_type,
-                    "number": step_number,
-                    "total": total_steps,
-                },
-            }
-            
-            await publish_event(state.project_id, "internal_step", data)
-            logger.debug(
-                f"Emitted internal_step: {station.id}.{phase_key} "
-                f"({step_number}/{total_steps}: {internal_name})"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to emit internal_step: {e}")
-
-    async def get_execution_status(
-        self,
-        execution_id: str,
-    ) -> Optional[Dict[str, Any]]:
-        """Get current execution status.
-
-        Args:
-            execution_id: The execution ID
-
-        Returns:
-            Status dict or None if not found
-        """
-        state = await self._persistence.load(execution_id)
-        if not state:
-            return None
-
-        return {
-            "execution_id": state.execution_id,
-            "project_id": state.project_id,
-            "document_type": state.document_type,
-            "workflow_id": state.workflow_id,
-            "status": state.status.value,
-            "current_node_id": state.current_node_id,
-            "terminal_outcome": state.terminal_outcome,
-            "gate_outcome": state.gate_outcome,
-            "pending_user_input": state.pending_user_input,
-            "pending_user_input_rendered": state.pending_user_input_rendered,
-            "pending_choices": state.pending_choices,
-            "pending_user_input_payload": state.pending_user_input_payload,
-            "pending_user_input_schema_ref": state.pending_user_input_schema_ref,
-            "escalation_active": state.escalation_active,
-            "escalation_options": state.escalation_options,
-            "step_count": len(state.node_history),
-            "created_at": state.created_at.isoformat(),
-            "updated_at": state.updated_at.isoformat(),
-            "produced_documents": {k: v for k, v in state.context_state.items() if k.startswith("document_")},
-        }
-
-    async def list_executions(
-        self,
-        status_filter: Optional[List[str]] = None,
-        limit: int = 100,
-    ) -> List[Dict[str, Any]]:
-        """List workflow executions.
-
-        Args:
-            status_filter: Optional list of status values to filter by
-                          (e.g., ["running", "paused"])
-            limit: Maximum number of executions to return
-
-        Returns:
-            List of execution status dicts, sorted by most recent first
-        """
-        # Convert string statuses to enum if provided
-        enum_filter = None
-        if status_filter:
-            enum_filter = [DocumentWorkflowStatus(s) for s in status_filter]
-
-        states = await self._persistence.list_executions(
-            status_filter=enum_filter,
-            limit=limit,
-        )
-
-        return [
-            {
-                "execution_id": state.execution_id,
-                "project_id": state.project_id,
-                "document_type": state.document_type,
-                "workflow_id": state.workflow_id,
-                "status": state.status.value,
-                "current_node_id": state.current_node_id,
-                "terminal_outcome": state.terminal_outcome,
-                "pending_user_input": state.pending_user_input,
-                "step_count": len(state.node_history),
-                "created_at": state.created_at.isoformat(),
-                "updated_at": state.updated_at.isoformat(),
-            }
-            for state in states
-        ]
+    async def list_executions(self, status_filter=None, limit=100):
+        return await execution_queries.list_executions(self._persistence, status_filter, limit)

@@ -2,8 +2,12 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from app.api.models.project import Project
 
 from app.domain.workflow import (
     WorkflowRegistry,

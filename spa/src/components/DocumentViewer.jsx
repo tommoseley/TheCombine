@@ -56,7 +56,7 @@ export default function DocumentViewer({
                         return;
                     }
                 } catch (rmErr) {
-                    console.log('RenderModel not available, falling back to raw document:', rmErr.message);
+                    // RenderModel not available, fall back to raw document
                 }
 
                 // Fall back to raw document content

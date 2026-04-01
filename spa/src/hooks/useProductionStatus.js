@@ -59,13 +59,11 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('connected', () => {
             setConnected(true);
             setError(null);
-            console.log(`SSE connected for project ${projectId}`);
         });
 
         eventSource.addEventListener('station_transition', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Station transition:', data);
                 // Refresh status on state changes
                 fetchStatus();
             } catch (err) {
@@ -76,7 +74,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('line_stopped', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Line stopped:', data);
                 setLineState('stopped');
                 fetchStatus();
             } catch (err) {
@@ -87,7 +84,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('production_complete', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Production complete:', data);
                 setLineState('complete');
                 fetchStatus();
             } catch (err) {
@@ -98,7 +94,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('interrupt_resolved', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Interrupt resolved:', data);
                 fetchStatus();
             } catch (err) {
                 console.error('Failed to parse interrupt_resolved:', err);
@@ -108,7 +103,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('track_started', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Track started:', data);
                 setLineState('active');
                 fetchStatus();
             } catch (err) {
@@ -119,21 +113,10 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('track_stabilized', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Track stabilized:', data);
                 // Refresh to get the final state
                 fetchStatus();
             } catch (err) {
                 console.error('Failed to parse track_stabilized:', err);
-            }
-        });
-
-        eventSource.addEventListener('track_cancelled', (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log('Track cancelled:', data);
-                fetchStatus();
-            } catch (err) {
-                console.error('Failed to parse track_cancelled:', err);
             }
         });
 
@@ -142,7 +125,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('children_updated', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Children updated:', data);
                 fetchStatus();
             } catch (err) {
                 console.error('Failed to parse children_updated:', err);
@@ -154,12 +136,10 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('stations_declared', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Stations declared:', eventData);
                 const { document_type, stations } = eventData;
                 
                 setData(prev => {
                     const exists = prev.some(item => item.id === document_type);
-                    console.log('stations_declared raw stations:', stations);
                     const stationData = stations.map(s => ({
                         id: s.id,
                         label: s.label,
@@ -167,8 +147,7 @@ export function useProductionStatus(projectId) {
                         phases: s.phases || [],
                         phase: null,  // Current active phase (set by station_changed)
                     }));
-                    console.log('stations_declared processed:', stationData);
-                    
+
                     if (exists) {
                         // Update existing track - set state to in_production so stations render
                         return prev.map(item => 
@@ -196,7 +175,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('station_changed', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Station changed:', eventData);
                 const { document_type, station_id, state: newState } = eventData;
                 
                 setData(prev => prev.map(item => {
@@ -219,7 +197,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('internal_step', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Internal step:', eventData);
                 const { document_type, station_id, step } = eventData;
                 
                 setData(prev => prev.map(item => {
@@ -250,7 +227,6 @@ export function useProductionStatus(projectId) {
 
             // Auto-reconnect after 3 seconds
             reconnectTimeoutRef.current = setTimeout(() => {
-                console.log('Attempting SSE reconnect...');
                 connectSSE();
             }, 3000);
         };
@@ -289,10 +265,7 @@ export function useProductionStatus(projectId) {
             setNotification(null);
             await api.startProduction(projectId, documentType);
             setLineState('active');
-            // Fetch status after production call returns — the execution may have
-            // paused for PGC input, creating an interrupt that needs to be picked up.
-            // SSE events update station data but don't signal new interrupts.
-            fetchStatus();
+            // Don't fetch immediately - SSE will provide updates as production progresses
         } catch (err) {
             console.error('Failed to start production:', err);
             // Show user-friendly notification
@@ -310,21 +283,6 @@ export function useProductionStatus(projectId) {
             setLineState('idle');
             // Also fetch full status for accuracy
             fetchStatus();
-            throw err;
-        }
-    }, [projectId, fetchStatus]);
-
-    // Cancel production for a document type
-    const cancelProduction = useCallback(async (documentType) => {
-        try {
-            setNotification(null);
-            await api.cancelProduction(projectId, documentType);
-            // SSE track_cancelled will update state; also fetch for accuracy
-            fetchStatus();
-        } catch (err) {
-            console.error('Failed to cancel production:', err);
-            const message = err.data?.message || err.message || 'Failed to cancel production';
-            setNotification({ type: 'error', message });
             throw err;
         }
     }, [projectId, fetchStatus]);
@@ -353,6 +311,5 @@ export function useProductionStatus(projectId) {
         refresh: fetchStatus,
         resolveInterrupt,
         startProduction,
-        cancelProduction,
     };
 }

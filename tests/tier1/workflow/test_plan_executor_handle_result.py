@@ -157,6 +157,10 @@ def executor():
     pe._find_generating_node = MagicMock(return_value=None)
     pe._extract_qa_feedback = MagicMock(return_value=None)
 
+    # Store reference to qa_retry_handler for test patching
+    import app.domain.workflow.qa_retry_handler as _qa_mod
+    pe._qa_retry_handler_mod = _qa_mod
+
     return pe
 
 
@@ -415,11 +419,13 @@ class TestHandleQaRetryFeedback:
         state.generating_node_id = "gen-1"
         node = FakeNode(node_type="qa")
         result = FakeNodeResult(outcome="failed", metadata={})
-        executor._extract_qa_feedback = MagicMock(
-            return_value={"issues": ["Bad structure"]},
-        )
 
-        executor._handle_qa_retry_feedback(result, node, state)
+        with patch.object(
+            executor._qa_retry_handler_mod,
+            "extract_qa_feedback",
+            return_value={"issues": ["Bad structure"]},
+        ):
+            executor._handle_qa_retry_feedback(result, node, state)
 
         assert state._retry_counts["gen-1"] == 1
         assert "qa_feedback" in state.context_state

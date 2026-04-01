@@ -14,9 +14,11 @@ import logging
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
 
-from app.api.services.document_definition_service import DocumentDefinitionService
-from app.api.services.component_registry_service import ComponentRegistryService
-from app.api.services.schema_registry_service import SchemaRegistryService
+from app.domain.services.registry_ports import (
+    DocumentDefinitionPort,
+    ComponentRegistryPort,
+    SchemaRegistryPort,
+)
 from app.domain.services.prompt_assembler_pure import (
     collect_ordered_component_ids,
     dedupe_bullets,
@@ -79,9 +81,9 @@ class PromptAssembler:
     
     def __init__(
         self,
-        docdef_service: DocumentDefinitionService,
-        component_service: ComponentRegistryService,
-        schema_service: Optional[SchemaRegistryService] = None,
+        docdef_service: DocumentDefinitionPort,
+        component_service: ComponentRegistryPort,
+        schema_service: Optional[SchemaRegistryPort] = None,
     ):
         self.docdef_service = docdef_service
         self.component_service = component_service
