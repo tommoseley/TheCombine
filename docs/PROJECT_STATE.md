@@ -19,7 +19,9 @@
 - WPC import: version-bumps after rewind (unique constraint fix)
 - propose_work_statements v1.1.0: sibling WP awareness eliminates infrastructure duplication
 - Active versions: TA workflow v6.0.0, TA task v1.4.0, propose_ws v1.1.0
-- 4766 tests passing
+- 4857 tests passing
+- Domain event bus extracted (circular import eliminated)
+- CRAP top 4 offenders covered (446→covered, 83→covered, 59→covered, 49→covered)
 
 **COMPLETE:** PGC Ask-vs-Infer + Production Fixes (2026-03-26)
 - PGC prompt v1.1.0 for IP and TA: ask-vs-infer rule, stage appropriateness
@@ -78,18 +80,22 @@
 - External CC critique: 6/11 findings now mechanically detectable
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
-**Next priorities (CRAP remediation sequence per Codex):**
-1. **`_complete_llm_logging`** (CRAP 59.2, CC=8, 7% cov) — add tests, cheapest risk reduction
-2. **`_calculate_final_status`** (CRAP 49.2, CC=9, 21% cov) — add tests
-3. **`_repair_truncated_json`** (CRAP 446.5, CC=33, 28% cov) — add tests to drop below 100
-4. **PlanExecutor helper extraction** — extract `_load_pgc_answers_for_qa` (CRAP 83.1) and add tests
-5. **Domain/API boundary cleanup** — extract `publish_event` to domain event bus, kill circular import
+**Next priorities (architectural cleanup per Codex):**
+1. **Domain/API boundary leakage** — PlanExecutor still imports `mechanical_ops_service` and `mech_handlers` from API layer. Extract these into domain-level protocols/interfaces.
+2. **Auth stack unification** — `AuthService` (service.py) vs `SessionService` (services.py) dual abstraction. Pick canonical path, remove the other.
+3. **Oversized module decomposition:**
+   - `plan_executor.py` (2423 LOC) — extract helper methods into focused sub-modules
+   - `workspace_service.py` (2134 LOC) — split by responsibility (lifecycle, git, scaffolding, preview)
+   - `projects.py` (2071 LOC) — split into sub-routers (render-model, evaluator, pipeline-status)
+   - `NodePropertiesPanel.jsx` (1698 LOC) — extract editor sections into sub-components
+   - `FullDocumentViewer.jsx` (1051 LOC) — extract sub-components to separate files
+4. **Debug logging cleanup** — remove console.log from SPA hooks/components, replace print() with logger in backend
 
 **Next priorities (feature):**
-6. propose_ws prompt tuning — binder 6 is baseline (3 duplicates), add retry rule next
-7. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
-8. Cross-stage PGC contradiction check (TA answers vs IP out_of_scope)
-9. Replace execution_id surrogate with true lineage_path_id
+5. propose_ws prompt tuning — binder 6 is baseline (3 duplicates), add retry rule next
+6. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
+7. Cross-stage PGC contradiction check (TA answers vs IP out_of_scope)
+8. Replace execution_id surrogate with true lineage_path_id
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -311,7 +317,7 @@
 
 ## Test Suite
 
-- **4766 Tier-1/2 tests** passing as of 2026-03-28
+- **4857 Tier-1/2 tests** passing as of 2026-03-28
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
