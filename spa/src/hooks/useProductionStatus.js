@@ -198,22 +198,28 @@ export function useProductionStatus(projectId) {
             try {
                 const eventData = JSON.parse(event.data);
                 const { document_type, station_id, step } = eventData;
-                
+
                 setData(prev => prev.map(item => {
                     if (item.id !== document_type) return item;
                     if (!item.stations) return item;
                     return {
                         ...item,
-                        stations: item.stations.map(s => 
-                            s.id === station_id 
-                                ? { 
-                                    ...s, 
+                        stations: item.stations.map(s =>
+                            s.id === station_id
+                                ? {
+                                    ...s,
                                     currentStep: step,  // { key, name, type, number, total }
                                   }
                                 : s
                         ),
                     };
                 }));
+
+                // When a UI step arrives (PGC operator input), re-fetch to get
+                // interrupts and questions that the execution just created
+                if (step?.type === 'UI') {
+                    fetchStatus();
+                }
             } catch (err) {
                 console.error('Failed to parse internal_step:', err);
             }
