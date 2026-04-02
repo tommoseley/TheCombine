@@ -1,0 +1,6 @@
+name: "Technical Architecture"
+version: "1.5.0"
+intent: "ADR-068 — optional mockup context input for UX-aware architecture"
+parent_version: "1.4.0"
+defect_targeted: "Mockup images injected silently by executor — ADR-049 black box violation"
+tags: [governance, component-authority, ownership-paths, ip-alignment, adr-066, mockup-context, adr-068]

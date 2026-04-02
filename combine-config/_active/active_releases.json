@@ -54,7 +54,7 @@
     "concierge_intake": "1.4.0",
     "project_discovery": "2.0.0",
     "software_product_development": "1.0.0",
-    "technical_architecture": "6.0.0",
+    "technical_architecture": "7.0.0",
     "implementation_plan": "4.0.0",
     "work_package": "1.0.0",
     "work_statement": "1.0.0"
@@ -67,7 +67,7 @@
     "intake_document_generation": "1.0.0",
     "task_prompt_certification_checklist": "1.0.0",
     "project_discovery": "1.4.0",
-    "technical_architecture": "1.4.0",
+    "technical_architecture": "1.5.0",
     "technical_architecture_questions": "1.0.0",
     "intake_gate": "1.0.0",
     "pm_discovery_qa": "1.0.0",

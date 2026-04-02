@@ -138,11 +138,6 @@ export const api = {
         return request(`/production/start?${query}`, { method: 'POST' });
     },
 
-    cancelProduction: (projectId, documentType) => {
-        const query = new URLSearchParams({ project_id: projectId, document_type: documentType });
-        return request(`/production/cancel?${query}`, { method: 'POST' });
-    },
-
     // Interrupts (operator questions)
     getProjectInterrupts: (projectId) =>
         request(`/projects/${projectId}/interrupts`),
@@ -152,23 +147,6 @@ export const api = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
-
-    // Repair proposals (ADR-065)
-    getRepairProposals: (artifactId, status = null) => {
-        const query = new URLSearchParams({ artifact_id: artifactId });
-        if (status) query.set('status', status);
-        return request(`/repair/proposals?${query}`);
-    },
-
-    requestRepair: (artifactId, componentName) => {
-        const query = new URLSearchParams({ artifact_id: artifactId, component_name: componentName });
-        return request(`/repair/request?${query}`, { method: 'POST' });
-    },
-
-    decideProposal: (proposalId, decision) => {
-        const query = new URLSearchParams({ decision });
-        return request(`/repair/proposals/${proposalId}/decide?${query}`, { method: 'POST' });
-    },
 
     // Executions (admin monitoring)
     getExecutions: () =>
@@ -365,23 +343,6 @@ export const api = {
     getIntent: (intentId) =>
         request(`/intents/${intentId}`),
 
-    // ---- Timeline & Lineage (ADR-067) ----
-
-    getProjectTimeline: (projectId) =>
-        request(`/projects/${projectId}/timeline`),
-
-    restoreCheckpoint: (projectId, checkpointId, reason) =>
-        request(`/projects/${projectId}/restore`, {
-            method: 'POST',
-            body: JSON.stringify({ checkpoint_id: checkpointId, reason }),
-        }),
-
-    archiveThread: (projectId, threadEventId, reason) =>
-        request(`/projects/${projectId}/archive-thread`, {
-            method: 'POST',
-            body: JSON.stringify({ event_id: threadEventId, reason }),
-        }),
-
     // ---- Pipeline Rewind (ADR-063) ----
 
     rewindPipeline: (projectId, stage, reason, actor = 'user') =>
@@ -408,6 +369,42 @@ export const api = {
 
     getPipelineStatus: (projectId) =>
         request(`/projects/${projectId}/pipeline-status`),
+
+    // Artifacts (project mockups/attachments)
+    uploadArtifact: (projectId, file, label) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('label', label);
+        return fetch(`${API_BASE}/projects/${projectId}/artifacts`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData,
+        }).then(async (res) => {
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new ApiError(
+                    data.detail || data.message || `Upload failed: ${res.status}`,
+                    res.status,
+                    data
+                );
+            }
+            return res.json();
+        });
+    },
+
+    listArtifacts: (projectId) =>
+        request(`/projects/${projectId}/artifacts`),
+
+    deleteArtifact: (projectId, artifactId) =>
+        request(`/projects/${projectId}/artifacts/${artifactId}`, {
+            method: 'DELETE',
+        }),
+
+    updateArtifact: (projectId, artifactId, updates) =>
+        request(`/projects/${projectId}/artifacts/${artifactId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(updates),
+        }),
 };
 
 /**

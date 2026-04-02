@@ -51,6 +51,10 @@ SCOPE_KIND_PATHS = {
 FRAGMENT_PATHS = {
     ("role", "content"): "prompts/roles/{frag_id}/releases/{version}/role.prompt.txt",
     ("role", "meta"): "prompts/roles/{frag_id}/releases/{version}/meta.yaml",
+    ("task", "content"): "prompts/tasks/{frag_id}/releases/{version}/task.prompt.txt",
+    ("task", "meta"): "prompts/tasks/{frag_id}/releases/{version}/meta.yaml",
+    ("pgc", "content"): "prompts/pgc/{frag_id}/releases/{version}/pgc_context.prompt.txt",
+    ("pgc", "meta"): "prompts/pgc/{frag_id}/releases/{version}/meta.yaml",
 }
 
 # Doctype-prompt fragment kinds that share the same path pattern.

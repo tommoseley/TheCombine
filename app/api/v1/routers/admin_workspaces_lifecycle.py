@@ -54,42 +54,6 @@ async def get_current_workspace(
     return state_to_response(state)
 
 
-@router.post(
-    "/",
-    response_model=CreateWorkspaceResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create workspace",
-    description="Create a new workspace for the authenticated user.",
-    responses={
-        409: {"description": "User already has an active workspace"},
-    },
-)
-async def create_workspace(
-    request: Request,
-    service: WorkspaceService = Depends(get_workspace_service),
-) -> CreateWorkspaceResponse:
-    """Create a new workspace."""
-    user_info = get_user_info(request)
-    user_id = user_info["user_id"]
-
-    try:
-        state = service.create_workspace(user_id)
-    except WorkspaceError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error_code": "WORKSPACE_EXISTS",
-                "message": str(e),
-            },
-        )
-
-    return CreateWorkspaceResponse(
-        workspace_id=state.workspace_id,
-        branch=state.branch,
-        base_commit=state.base_commit,
-    )
-
-
 @router.get(
     "/{workspace_id}/state",
     response_model=WorkspaceStateResponse,

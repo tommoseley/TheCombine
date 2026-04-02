@@ -207,12 +207,13 @@ class DiffResponse(BaseModel):
 
 def get_user_info(request: Request) -> Dict[str, Any]:
     """
-    Extract user info from request.
+    Extract user info from request for workspace attribution.
 
-    Raises HTTPException 401 if no authenticated user is present.
+    Uses authenticated user if available (via request.state.user),
+    otherwise falls back to operator identity. Admin workspace routes
+    do not currently require authentication — when auth is added to
+    these routes, the fallback should be removed.
     """
-    from fastapi import HTTPException, status
-
     user = getattr(request.state, "user", None)
     if user:
         return {
@@ -220,10 +221,11 @@ def get_user_info(request: Request) -> Dict[str, Any]:
             "user_name": user.name if hasattr(user, "name") else "Admin User",
         }
 
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentication required for admin workspace operations",
-    )
+    # No auth on admin routes yet — attribute to operator
+    return {
+        "user_id": "operator",
+        "user_name": "Operator (unauthenticated)",
+    }
 
 
 def state_to_response(state) -> WorkspaceStateResponse:

@@ -101,6 +101,47 @@ class TaskNodeExecutor(NodeExecutor):
             # Build messages from context
             messages = self._build_messages(task_prompt, context)
 
+            # ADR-068: Resolve {{mockup_context}} in prompt if declared by workflow.
+            # The executor only attaches mockup images when the task prompt
+            # explicitly contains the {{mockup_context}} template variable.
+            # This ensures mockup consumption is governed (ADR-049 No Black Boxes).
+            mockup_artifact_ids = []
+            if "{{mockup_context}}" in task_prompt:
+                db_session = context.extra.get("db_session")
+                if db_session:
+                    try:
+                        from app.domain.services.mockup_context_builder import (
+                            load_mockup_content_blocks,
+                        )
+                        mockup_blocks, mockup_artifact_ids = await load_mockup_content_blocks(
+                            project_id=context.project_id,
+                            stage=context.document_type,
+                            db_session=db_session,
+                        )
+                        if mockup_blocks:
+                            # Replace {{mockup_context}} placeholder with text note
+                            mockup_text = f"[{len(mockup_artifact_ids)} mockup image(s) attached below]"
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                    msg["content"] = msg["content"].replace("{{mockup_context}}", mockup_text)
+                            # Append image blocks to the last user message
+                            last_msg = messages[-1]
+                            if isinstance(last_msg.get("content"), str):
+                                last_msg["content"] = [
+                                    {"type": "text", "text": last_msg["content"]},
+                                    *mockup_blocks,
+                                ]
+                        else:
+                            # No mockups available — replace placeholder with empty note
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                    msg["content"] = msg["content"].replace("{{mockup_context}}", "[No mockups provided for this project]")
+                    except Exception as e:
+                        logger.warning(f"Failed to load mockups for prompt: {e}")
+                        for msg in messages:
+                            if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                msg["content"] = msg["content"].replace("{{mockup_context}}", "[Mockup loading failed]")
+
             # Execute LLM completion with execution tracking
             execution_id = context.extra.get("execution_id")
             node_type = node_config.get("type", "task")
@@ -122,10 +163,16 @@ class TaskNodeExecutor(NodeExecutor):
                 node_id=node_id,
                 project_id=context.project_id,
                 prompt_sources=prompt_sources,
+                mockup_artifact_ids=mockup_artifact_ids or None,
             )
 
             # Parse and store produced document
             produced_document = self._parse_response(response, produces)
+
+            # ADR-068: Stamp consumed mockup artifact IDs into document meta for traceability
+            if mockup_artifact_ids and isinstance(produced_document, dict):
+                meta = produced_document.setdefault("meta", {})
+                meta["mockup_artifact_ids"] = mockup_artifact_ids
 
             # Debug: log what we got back
             logger.debug(f"Task node {node_id}: Response length={len(response)}, keys={list(produced_document.keys()) if isinstance(produced_document, dict) else 'not-dict'}")

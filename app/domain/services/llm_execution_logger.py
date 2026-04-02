@@ -102,10 +102,10 @@ class LLMExecutionLogger:
         self,
         run_id: UUID,
         kind: str,
-        content: str,
+        content,
         redacted: bool = False
     ) -> None:
-        """Store input reference. Commits on success."""
+        """Store input reference. Commits on success. Content can be str or list (multimodal)."""
         try:
             content_ref, content_hash = await self._store_content(content)
             
@@ -240,13 +240,42 @@ class LLMExecutionLogger:
             logger.error(f"Failed to complete run: {e}")
             raise
     
-    async def _store_content(self, content: str) -> tuple[str, str]:
+    def _normalize_content(self, content) -> str:
+        """Normalize content to a loggable string.
+
+        Handles both plain text (str) and multimodal content blocks (list).
+        For multimodal, serializes to JSON with base64 image data replaced
+        by placeholders to avoid bloating the content store.
+        """
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            import json
+            sanitized = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "image":
+                    source = block.get("source", {})
+                    sanitized.append({
+                        "type": "image",
+                        "source": {
+                            "type": source.get("type"),
+                            "media_type": source.get("media_type"),
+                            "data": "[base64 image content omitted for logging]",
+                        },
+                    })
+                else:
+                    sanitized.append(block)
+            return json.dumps(sanitized, ensure_ascii=False)
+        return str(content)
+
+    async def _store_content(self, content) -> tuple[str, str]:
         """
         Store content with deduplication. Does NOT commit (caller commits).
-        
+
         Returns (content_ref, content_hash).
         """
-        content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+        normalized = self._normalize_content(content)
+        content_hash = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
         
         existing = await self.repo.get_content_by_hash(content_hash)
         
@@ -259,8 +288,8 @@ class LLMExecutionLogger:
         record = LLMContentRecord(
             id=content_id,
             content_hash=content_hash,
-            content_text=content,
-            content_size=len(content.encode('utf-8')),
+            content_text=normalized,
+            content_size=len(normalized.encode('utf-8')),
             created_at=datetime.now(timezone.utc),
             accessed_at=datetime.now(timezone.utc),
         )

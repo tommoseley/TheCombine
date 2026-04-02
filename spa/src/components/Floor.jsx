@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import ContentPanel from './ContentPanel';
+import MockupPanel from './MockupPanel';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -417,6 +418,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
     // Production callbacks used by ContentPanel
     const handleStartProduction = useCallback(async (docTypeId) => {
+        console.log('Starting production for:', docTypeId);
+
         // Optimistic update: immediately show as in_production
         setData(prev => prev.map(item => {
             if (item.id === docTypeId) {
@@ -442,6 +445,8 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     }, [startProduction]);
 
     const handleSubmitQuestions = useCallback(async (id, answers) => {
+        console.log('Submitted:', id, answers);
+
         // Optimistically update local state - mark PGC complete, ASM active
         setData(prev => {
             const update = (items) => items.map(item => {
@@ -545,17 +550,31 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             />
 
             {/* Station Workspace — full width below the line */}
-            <div className="flex-1 overflow-hidden">
-                <ContentPanel
-                    step={selectedStep}
-                    projectId={projectId}
-                    projectCode={projectCode}
-                    onStartProduction={handleStartProduction}
-                    onSubmitQuestions={handleSubmitQuestions}
-                    pipelineData={data}
-                    onProduceNext={handleProduceNext}
-                    autoImport={autoImport}
-                />
+            <div className="flex-1 overflow-hidden flex">
+                <div className="flex-1 overflow-hidden">
+                    <ContentPanel
+                        step={selectedStep}
+                        projectId={projectId}
+                        projectCode={projectCode}
+                        onStartProduction={handleStartProduction}
+                        onSubmitQuestions={handleSubmitQuestions}
+                        pipelineData={data}
+                        onProduceNext={handleProduceNext}
+                        autoImport={autoImport}
+                    />
+                </div>
+                <div
+                    className="flex-shrink-0 overflow-y-auto border-l"
+                    style={{
+                        width: 280,
+                        borderColor: 'var(--border-panel)',
+                        background: 'var(--bg-canvas)',
+                    }}
+                >
+                    <div className="p-3">
+                        <MockupPanel projectId={projectId} />
+                    </div>
+                </div>
             </div>
 
             {/* Notification Toast */}

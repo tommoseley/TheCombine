@@ -1,7 +1,7 @@
 """LLM domain models."""
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
 
@@ -14,27 +14,46 @@ class MessageRole(str, Enum):
 
 @dataclass
 class Message:
-    """A message in an LLM conversation."""
+    """A message in an LLM conversation.
+
+    Content can be a plain string (text-only) or a list of content blocks
+    for multimodal messages (text + images). The Anthropic Messages API
+    accepts both forms natively.
+    """
     role: MessageRole
-    content: str
-    
+    content: Union[str, List[Dict[str, Any]]]
+
     @classmethod
     def system(cls, content: str) -> "Message":
         """Create a system message."""
         return cls(role=MessageRole.SYSTEM, content=content)
-    
+
     @classmethod
     def user(cls, content: str) -> "Message":
-        """Create a user message."""
+        """Create a user message (text-only)."""
         return cls(role=MessageRole.USER, content=content)
-    
+
+    @classmethod
+    def user_multimodal(cls, content_blocks: List[Dict[str, Any]]) -> "Message":
+        """Create a user message with multimodal content blocks.
+
+        Each block is a dict with 'type' key:
+        - {"type": "text", "text": "..."}
+        - {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+        """
+        return cls(role=MessageRole.USER, content=content_blocks)
+
     @classmethod
     def assistant(cls, content: str) -> "Message":
         """Create an assistant message."""
         return cls(role=MessageRole.ASSISTANT, content=content)
-    
-    def to_dict(self) -> Dict[str, str]:
-        """Convert to dictionary for API calls."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for API calls.
+
+        Returns content as-is — string for text-only, list for multimodal.
+        The Anthropic Messages API accepts both forms.
+        """
         return {"role": self.role.value, "content": self.content}
 
 

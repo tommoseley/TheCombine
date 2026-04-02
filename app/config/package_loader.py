@@ -75,14 +75,8 @@ class PackageLoader:
         self._pgc_path = self.config_path / "prompts" / "pgc"
         self._schemas_path = self.config_path / "schemas"
 
-        # Caches
+        # Active releases config (re-read on invalidate)
         self._active_releases: Optional[ActiveReleases] = None
-        self._package_cache: Dict[str, DocumentTypePackage] = {}
-        self._role_cache: Dict[str, RolePrompt] = {}
-        self._template_cache: Dict[str, Template] = {}
-        self._task_cache: Dict[str, TaskPrompt] = {}
-        self._pgc_cache: Dict[str, PgcContext] = {}
-        self._schema_cache: Dict[str, StandaloneSchema] = {}
 
     def get_active_releases(self) -> ActiveReleases:
         """Load and return the active releases configuration."""
@@ -97,14 +91,8 @@ class PackageLoader:
         return self._active_releases
 
     def invalidate_cache(self) -> None:
-        """Invalidate all caches. Call after config changes."""
+        """Re-read active releases on next access."""
         self._active_releases = None
-        self._package_cache.clear()
-        self._role_cache.clear()
-        self._template_cache.clear()
-        self._task_cache.clear()
-        self._pgc_cache.clear()
-        self._schema_cache.clear()
         logger.info("Package loader cache invalidated")
 
     # =========================================================================
@@ -139,12 +127,6 @@ class PackageLoader:
                     f"No active release for document type: {doc_type_id}"
                 )
 
-        # Check cache
-        cache_key = f"{doc_type_id}:{version}"
-        if cache_key in self._package_cache:
-            return self._package_cache[cache_key]
-
-        # Load package
         package_path = self._document_types_path / doc_type_id / "releases" / version
         if not package_path.exists():
             raise VersionNotFoundError(
@@ -158,8 +140,6 @@ class PackageLoader:
             )
 
         package = DocumentTypePackage.from_yaml(manifest_path)
-        self._package_cache[cache_key] = package
-
         logger.debug(f"Loaded document type package: {doc_type_id} v{version}")
         return package
 
@@ -216,11 +196,6 @@ class PackageLoader:
                     f"No active release for role: {role_id}"
                 )
 
-        # Check cache
-        cache_key = f"{role_id}:{version}"
-        if cache_key in self._role_cache:
-            return self._role_cache[cache_key]
-
         # Load role
         role_path = self._roles_path / role_id / "releases" / version
         if not role_path.exists():
@@ -229,7 +204,6 @@ class PackageLoader:
             )
 
         role = RolePrompt.from_path(role_path, role_id, version)
-        self._role_cache[cache_key] = role
 
         logger.debug(f"Loaded role prompt: {role_id} v{version}")
         return role
@@ -276,11 +250,6 @@ class PackageLoader:
                     f"No active release for template: {template_id}"
                 )
 
-        # Check cache
-        cache_key = f"{template_id}:{version}"
-        if cache_key in self._template_cache:
-            return self._template_cache[cache_key]
-
         # Load template
         template_path = self._templates_path / template_id / "releases" / version
         if not template_path.exists():
@@ -289,7 +258,6 @@ class PackageLoader:
             )
 
         template = Template.from_path(template_path, template_id, version)
-        self._template_cache[cache_key] = template
 
         logger.debug(f"Loaded template: {template_id} v{version}")
         return template
@@ -336,11 +304,6 @@ class PackageLoader:
                     f"No active release for task: {task_id}"
                 )
 
-        # Check cache
-        cache_key = f"{task_id}:{version}"
-        if cache_key in self._task_cache:
-            return self._task_cache[cache_key]
-
         # Load task
         task_path = self._tasks_path / task_id / "releases" / version
         if not task_path.exists():
@@ -349,7 +312,6 @@ class PackageLoader:
             )
 
         task = TaskPrompt.from_path(task_path, task_id, version)
-        self._task_cache[cache_key] = task
 
         logger.debug(f"Loaded task prompt: {task_id} v{version}")
         return task
@@ -396,11 +358,6 @@ class PackageLoader:
                     f"No active release for PGC: {pgc_id}"
                 )
 
-        # Check cache
-        cache_key = f"{pgc_id}:{version}"
-        if cache_key in self._pgc_cache:
-            return self._pgc_cache[cache_key]
-
         # Load PGC
         pgc_path = self._pgc_path / pgc_id / "releases" / version
         if not pgc_path.exists():
@@ -409,7 +366,6 @@ class PackageLoader:
             )
 
         pgc = PgcContext.from_path(pgc_path, pgc_id, version)
-        self._pgc_cache[cache_key] = pgc
 
         logger.debug(f"Loaded PGC context: {pgc_id} v{version}")
         return pgc
@@ -456,11 +412,6 @@ class PackageLoader:
                     f"No active release for schema: {schema_id}"
                 )
 
-        # Check cache
-        cache_key = f"{schema_id}:{version}"
-        if cache_key in self._schema_cache:
-            return self._schema_cache[cache_key]
-
         # Load schema
         schema_path = self._schemas_path / schema_id / "releases" / version
         if not schema_path.exists():
@@ -469,7 +420,6 @@ class PackageLoader:
             )
 
         schema = StandaloneSchema.from_path(schema_path, schema_id, version)
-        self._schema_cache[cache_key] = schema
 
         logger.debug(f"Loaded standalone schema: {schema_id} v{version}")
         return schema
