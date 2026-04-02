@@ -1,9 +1,40 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-28
-**Updated By:** Claude (evaluator gates, repair system, ADR-066 TA→IP, pipeline integrity, propose_ws v1.1.0)
+**Last Updated:** 2026-04-02
+**Updated By:** Claude (Codex cleanup, ADR-068 mockup attachments, PGC fix, workbench fixes)
 
 ## Current Focus
+
+**COMPLETE:** Codex Cleanup + ADR-068 Mockup Attachments (2026-04-01/02)
+- WS-CLEANUP-001 through WS-CLEANUP-007: Full structural cleanup wave
+  - Debug logging removed, auth stack unified, domain/API boundary fixed with protocol extraction
+  - 7 backend modules + 3 frontend modules decomposed into ~45 focused sub-modules
+  - Domain registry ports extracted, module second-pass reductions
+  - Net -1,500 lines while adding focused sub-modules
+- ADR-068: Project mockup attachments — full implementation
+  - project_artifacts table (bytea), MockupStorageService, artifact API (6 endpoints)
+  - Concierge upload (client-side buffering), workbench MockupPanel
+  - Multimodal Message support (Union[str, List])
+  - Governed injection: TA workflow v7.0.0 optional_inputs, task prompt v1.5.0 {{mockup_context}}
+  - Durable audit: LLMRunInputRef kind=mockup_artifact, meta.mockup_artifact_ids
+  - Cross-project access scoping, project validation on upload
+- PGC question rendering fix: fetchStatus on UI internal_step
+- PackageLoader cache removed (40ms cold load, eliminates stale content)
+- Standalone fragment ID fix (fragment:task: instead of doctype:null:)
+- Admin workspace fixes: operator auth fallback, create_workspace path fix
+- Active versions: TA workflow v7.0.0, TA task v1.5.0
+- 4876 tests passing
+- Migration 20260402_001 applied to DEV
+
+**Next priorities (product):**
+1. **Operator-injected binding corrections** — rewind flow as insertion point for constraints PGC didn't ask (ADR needed)
+2. **Binder renderer mockup traceability** — display consumed mockup_artifact_ids in binder output
+3. **MSA-001 TA regeneration** — add server-side deployment boundary constraint, regenerate TA/IP/WPs
+4. **TA component coverage check** — every TA component must be owned by a WP or marked out-of-scope
+
+**Next priorities (architectural cleanup):**
+5. Domain/API boundary: remaining `app.api.models.*` imports in `app/domain/` (ORM model references — lower priority)
+6. Pre-existing lint/typecheck cleanup (12 ruff errors, 1 mypy truthy-function)
 
 **COMPLETE:** Pipeline Integrity + Repair System + WS Dedup (2026-03-27/28)
 - ADR-065: Component-Scoped LLM Repair Proposals — full WP implemented (persistence, LLM interaction, review UI, mutation)
