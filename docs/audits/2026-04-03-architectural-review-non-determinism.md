@@ -249,14 +249,141 @@ This is "governed iteration" as distinct from both waterfall (no iteration) and 
 
 ---
 
+## The Convergence Illusion
+
+A subtle failure mode was identified during the MSA-001 review cycle: **alignment of outputs mimics learning.**
+
+When the operator rewinds and regenerates, the new output sometimes looks better. The natural conclusion is "we're converging." But nothing in the system changed. The LLM is stateless (ADR-040). The prompt is the same or slightly modified. The improvement is a different sample from the same distribution — not evidence of learning.
+
+This is dangerous because:
+
+- Later outputs look better than earlier ones, creating a sense of progress
+- The operator's corrections feel impactful, reinforcing trust in the loop
+- Plausible-looking output suppresses the skepticism that would otherwise catch errors
+
+**The clean test:** After a correction, can the system still produce the same bad output? If yes, nothing was learned. If the failure mode has been mechanically eliminated (as with the schema v1.2.0 fix), learning occurred. If it was only addressed via prompt text, it was a suggestion, not a constraint.
+
+---
+
+## The Three-Layer Model
+
+The original architecture implicitly placed intelligence in the pipeline — the expectation that LLM generation, given enough structure, would produce correct output. This is where the hypothesis broke.
+
+The revised model separates three layers, each doing what it is actually good at:
+
+| Layer | Role | Nature |
+|-------|------|--------|
+| **Pipeline** | Drafting | Stochastic. Produces raw material for review. Does not need to be smart — needs to produce something the Chorus can react to. |
+| **Chorus** | Intelligence | Human + multiple AIs (Claude, GPT, others) reviewing, judging, correcting, deciding. This is where understanding lives. The Chorus is the system's intelligence — not the pipeline's LLM calls. |
+| **Governance** | Memory and enforcement | Deterministic. Schemas, constraints, authority records, lineage. Preserves what the Chorus decided. Does not need judgment — the Chorus provides that. |
+
+**The mistake was trying to put intelligence in the pipeline.** The pipeline is a drafting tool. It produces something for the Chorus to react to. That's all it needs to do.
+
+The Chorus doesn't need to remember everything — the governance layer remembers for it. The governance layer doesn't need judgment — the Chorus provides that. Each layer does what it's good at.
+
+**How this played out on 2026-04-03:** The pipeline produced MSA-001's binder. The Chorus (operator + GPT + Claude) reviewed it, found five findings, diagnosed the root cause (schema gap + semantic errors), and decided what to fix. The governance layer (schema v1.2.0, authority records, correction gate) encodes those decisions so they persist. The pipeline never got smarter. The Chorus did the thinking. The governance layer made it stick.
+
+---
+
+## Revised Scope: Personal AI Factory
+
+The viability analysis (see conditions list below) reveals that The Combine's economics change fundamentally based on who the operator is.
+
+**As a general-purpose product**, the system faces hard unsolved problems: operator qualification (condition 4), market fit (conditions 16-17), false confidence risk (condition 19), and the requirement that generated output be executable without significant rework (condition 18).
+
+**As a personal system** — where the operator is the domain expert, the Chorus includes the operator + multiple AI collaborators, and the output serves the operator's own projects — most of the hard problems resolve:
+
+| Condition | As Product | As Personal System |
+|-----------|-----------|-------------------|
+| Operator qualified to judge output | Must be assumed; risky | True by definition — operator is the expert |
+| Market/product fit | Unvalidated | Irrelevant — operator is the customer |
+| False confidence risk | High — polished output suppresses skepticism | Low — operator just spent months proving they don't trust the output |
+| Cost tolerance | Must justify to customer | Personal decision |
+| Generation quality bar | Must exceed "hire an architect" | Must exceed "me working alone" |
+
+**The revised scope:** The Combine is a personal AI factory where the Chorus (operator + AI collaborators) is the intelligence, the pipeline is a drafting tool, and the governance layer is the memory. The operator reviews, corrects, and decides. The system remembers corrections and enforces them on regeneration. The output serves the operator's own projects.
+
+**The long view:** As AI reasoning improves and partial determinism emerges, the boundary between Chorus and pipeline may shift — more judgment moves into the pipeline, less operator intervention required. The architecture supports this migration: the governance layer doesn't care whether a constraint came from a human correction or a mechanical rule. But this shift is not required for the system to be useful today.
+
+---
+
+## Viability Conditions
+
+Twenty conditions that must be true for the system to be worth operating. Scored against current state.
+
+### Generation Economics
+
+1. **Correcting a generated draft must be faster than writing from scratch.** If it isn't, the system is negative value. *Status: Likely true for structural output; unvalidated for semantic quality.*
+
+2. **The first draft must be structurally valid almost every time.** Schema compliance, required fields, correct format. *Status: True after v1.2.0 fix for WS documents. Other document types need audit.*
+
+3. **Semantic errors must be visible, not hidden.** A wrong answer the operator catches is fine. A plausible-sounding wrong answer the operator accepts is catastrophic. *Status: Partially true — binder review surfaced errors, but the convergence illusion works against this.*
+
+### Operator Model
+
+4. **The operator must be qualified to judge the output.** *Status: True in personal-system scope — operator is the domain expert.*
+
+5. **The correction loop must converge.** Each round must make output measurably better, not just different. *Status: Unknown — no measurement exists.*
+
+6. **Total operator time must be less than manual equivalent.** *Status: Unmeasured.*
+
+### Constraint Accumulation
+
+7. **Corrections must become mechanical constraints, not just prompt suggestions.** *Status: Not true — corrections are prompt-level text (ADR-069). Verifiable post-conditions not yet implemented.*
+
+8. **Upstream corrections must cascade downstream reliably.** *Status: Partially true — pipeline regenerates downstream stages, but correction propagation is via prompt injection, not mechanical.*
+
+9. **The constraint set must grow monotonically.** *Status: True for schema rules (v1.2.0 fix persists). Not true for semantic corrections (prompt text, may be ignored).*
+
+### Cost Model
+
+10. **LLM cost per project must be bounded.** *Status: No circuit breaker on rewind cycles.*
+
+11. **Infrastructure cost must be justified by throughput.** *Status: Resolved in personal-system scope.*
+
+12. **Marginal cost of next project must be lower than the first.** *Status: True for schema/governance improvements. Unknown for semantic quality.*
+
+### Pipeline Mechanics
+
+13. **Generation must be fast enough that iteration isn't painful.** *Status: Acceptable — full pipeline runs in minutes.*
+
+14. **Partial regeneration must be possible.** *Status: Not implemented — rewind regenerates from the target stage forward.*
+
+15. **Validation must be mostly mechanical.** *Status: Mixed — schema validation is mechanical, QA gate is stochastic.*
+
+### Product/Market (deprioritized in personal scope)
+
+16. **Someone must value governed planning documents enough to pay.** *Status: N/A in personal scope.*
+
+17. **The alternative must be worse.** *Status: Personal test — "faster than me alone."*
+
+18. **The output must be executable.** *Status: Not yet validated — MSA-001 binder had execution-blocking findings.*
+
+### Intellectual Honesty
+
+19. **The system must not create false confidence.** *Status: Active risk — convergence illusion identified in this review.*
+
+20. **The system must know when it's failing.** *Status: No success/failure metrics exist per project.*
+
+---
+
 ## Conclusion
 
 The Combine's industrial metaphor is valid but was applied at the wrong layer. Manufacturing principles do not make the machine tool (LLM) deterministic — they make the production line (pipeline) reliable despite the tool's variability. The system's strength is in selection, constraint, and accumulation. Its weakness is in treating generation quality as a governance problem solvable through prompt engineering and retry.
 
+The revised architecture places intelligence in the Chorus (operator + AI collaborators), not in the pipeline. The pipeline drafts. The Chorus judges. The governance layer remembers. Each layer does what it is good at.
+
 The immediate fix (WS schema v1.2.0) demonstrates the correct pattern: convert a class of errors into a mechanical rule that prevents recurrence. The longer-term direction is to extend this pattern to semantic errors through verifiable post-conditions on corrections.
 
-The core hypothesis — that AI-driven knowledge work can be made reliable through industrial principles — survives, but with a critical refinement: **reliability comes from controlling what is accepted, not from controlling what is generated.**
+The revised scope — a personal AI factory — resolves the hardest viability conditions (operator qualification, market fit, false confidence) and creates a controlled environment for validating the remaining conditions (correction convergence, constraint accumulation, cost bounds) against real projects.
+
+The core hypothesis — that AI-driven knowledge work can be made reliable through industrial principles — survives, but with two critical refinements:
+
+1. **Reliability comes from controlling what is accepted, not from controlling what is generated.**
+2. **Intelligence lives in the Chorus, not in the pipeline. The pipeline is a drafting tool. The governance layer is the memory.**
+
+As AI matures and reasoning becomes more reliable, the boundary between Chorus and pipeline may shift. The architecture supports this migration. But it is not required for the system to be useful today.
 
 ---
 
-*This document is a living architectural review. It captures a design insight, not a committed implementation plan. Implementation of verifiable post-conditions would require a separate ADR and Work Statement process.*
+*This document is a living architectural review. It captures design insights and revised scope, not a committed implementation plan. Implementation of verifiable post-conditions would require a separate ADR and Work Statement process.*
