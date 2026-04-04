@@ -31,7 +31,13 @@ router = APIRouter(prefix="/projects", tags=["rewind"])
 
 
 class RewindRequestBody(BaseModel):
-    """Request body for pipeline rewind."""
+    """Request body for pipeline rewind.
+
+    ADR-069: The reason field is the living correction brief.
+    It serves as both the audit narrative AND the binding authority
+    for regeneration. Dual-written to lineage event + authority record.
+    Pre-populated from authority store on subsequent rewinds.
+    """
 
     rewind_to_stage: str = Field(
         ...,
@@ -39,11 +45,17 @@ class RewindRequestBody(BaseModel):
     )
     reason: str = Field(
         ...,
-        description="Reason for the rewind",
+        description="Correction brief — what's wrong and what must change. "
+        "Dual-written: audit log + binding authority for regeneration.",
     )
     actor: str = Field(
         default="user",
         description="Who initiated the rewind",
+    )
+    applies_to_stages: Optional[List[str]] = Field(
+        default=None,
+        description="Pipeline stages this correction applies to (default: rewound-to stage only). "
+        "Accepts both short codes (TA) and doc_type_ids (technical_architecture).",
     )
 
 
@@ -56,6 +68,7 @@ class RewindResponseBody(BaseModel):
     affected_document_count: int
     stale_document_ids: List[str]
     lineage_event_id: str
+    correction_record_id: str
 
 
 class RegenerateValidateBody(BaseModel):
@@ -87,6 +100,16 @@ class LineageEventResponse(BaseModel):
     reason: str
     actor: str
     affected_document_count: int
+    created_at: str
+
+
+class CorrectionResponse(BaseModel):
+    """Response for current correction at a stage (ADR-069 pre-population)."""
+
+    stage: str
+    text: str
+    applies_to_stages: List[str]
+    authority_record_id: str
     created_at: str
 
 
@@ -186,6 +209,59 @@ async def rewind_pipeline(
             )
         await db.commit()
 
+    # ADR-069: Reason is the living correction brief — always dual-written
+    # to both lineage event (audit) and authority record (binding for regeneration).
+    from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+    from app.domain.services.authority_service import AuthorityService
+
+    auth_repo = PostgresAuthorityRepository(db)
+    auth_service = AuthorityService(auth_repo)
+
+    # Normalize applies_to_stages: accept doc_type_ids and convert to canonical stage names
+    raw_applies_to = body.applies_to_stages or [stage.name]
+    applies_to = []
+    invalid_stages = []
+    for s in raw_applies_to:
+        try:
+            applies_to.append(PipelineStage[s.upper()].name)
+        except KeyError:
+            try:
+                applies_to.append(PipelineStage.from_doc_type_id(s).name)
+            except ValueError:
+                invalid_stages.append(s)
+    if invalid_stages:
+        valid = [f"{ps.name} ({ps.doc_type_id})" for ps in PipelineStage]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid applies_to_stages: {invalid_stages}. Valid: {valid}",
+        )
+    # Deduplicate (e.g., if client sends both 'TA' and 'technical_architecture')
+    applies_to = list(dict.fromkeys(applies_to))
+    if not applies_to:
+        applies_to = [stage.name]
+
+    correction_record = await auth_service.record_authority(
+        project_id=project_id,
+        authority_type="operator_correction",
+        stage=stage.name,
+        key=f"correction:{stage.name}",
+        value={
+            "text": body.reason.strip(),
+            "applies_to_stages": applies_to,
+            "rewind_event_id": str(result.lineage_event_id),
+        },
+        source_execution_id=result.lineage_event_id,
+        lineage_path_id=result.lineage_event_id,
+        actor="operator",
+    )
+    correction_record_id = str(correction_record.id)
+    await db.commit()
+
+    logger.info(
+        "Rewind correction brief persisted: project=%s, stage=%s, record=%s",
+        project_id, stage.name, correction_record_id,
+    )
+
     return RewindResponseBody(
         success=result.success,
         rewind_to_stage=result.rewind_to_stage,
@@ -193,6 +269,146 @@ async def rewind_pipeline(
         affected_document_count=result.affected_document_count,
         stale_document_ids=[str(d) for d in result.stale_document_ids],
         lineage_event_id=str(result.lineage_event_id),
+        correction_record_id=correction_record_id,
+    )
+
+
+@router.get(
+    "/{project_id}/corrections/{stage}",
+    response_model=CorrectionResponse,
+)
+async def get_correction(
+    project_id: UUID,
+    stage: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current correction for a (project, stage) pair.
+
+    Used by the UI to pre-populate the correction field on subsequent
+    rewinds (ADR-069 §3.2). Returns 404 if no correction exists.
+
+    Accepts both short stage names (TA) and doc_type_ids (technical_architecture).
+    """
+    from app.domain.models.pipeline_stage import PipelineStage
+    from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+    from app.domain.services.authority_service import AuthorityService
+
+    # Normalize: accept both short name (TA) and doc_type_id (technical_architecture)
+    canonical_stage = stage.upper()
+    try:
+        PipelineStage[canonical_stage]
+    except KeyError:
+        try:
+            canonical_stage = PipelineStage.from_doc_type_id(stage).name
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid stage '{stage}'")
+
+    auth_repo = PostgresAuthorityRepository(db)
+    auth_service = AuthorityService(auth_repo)
+
+    record = await auth_service.get_current_correction(project_id, canonical_stage)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"No correction for stage '{stage}'")
+
+    value = record.value if isinstance(record.value, dict) else {}
+    return CorrectionResponse(
+        stage=record.stage,
+        text=value.get("text", ""),
+        applies_to_stages=value.get("applies_to_stages", [record.stage]),
+        authority_record_id=str(record.id),
+        created_at=record.created_at.isoformat() if record.created_at else "",
+    )
+
+
+class CorrectionUpdateBody(BaseModel):
+    """Request body for updating a pending correction before regeneration."""
+
+    text: str = Field(..., description="Updated correction brief text")
+    applies_to_stages: Optional[List[str]] = Field(
+        default=None, description="Updated stage applicability"
+    )
+
+
+@router.patch(
+    "/{project_id}/corrections/{stage}",
+    response_model=CorrectionResponse,
+)
+async def update_correction(
+    project_id: UUID,
+    stage: str,
+    body: CorrectionUpdateBody,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a pending correction before regeneration (ADR-069).
+
+    Allows the operator to refine the correction brief without
+    triggering another rewind. Creates a new authority record
+    (superseding the current one) for audit traceability.
+
+    Accepts both short stage names (TA) and doc_type_ids.
+    """
+    from app.domain.models.pipeline_stage import PipelineStage
+    from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+    from app.domain.services.authority_service import AuthorityService
+
+    # Normalize stage
+    canonical_stage = stage.upper()
+    try:
+        PipelineStage[canonical_stage]
+    except KeyError:
+        try:
+            canonical_stage = PipelineStage.from_doc_type_id(stage).name
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid stage '{stage}'")
+
+    auth_repo = PostgresAuthorityRepository(db)
+    auth_service = AuthorityService(auth_repo)
+
+    # Must have an existing correction to update
+    existing = await auth_service.get_current_correction(project_id, canonical_stage)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"No correction for stage '{stage}' to update")
+
+    # Preserve rewind_event_id from the original correction
+    existing_value = existing.value if isinstance(existing.value, dict) else {}
+    rewind_event_id = existing_value.get("rewind_event_id", str(existing.source_execution_id))
+
+    # Normalize applies_to_stages
+    raw_applies_to = body.applies_to_stages or existing_value.get("applies_to_stages", [canonical_stage])
+    applies_to = []
+    for s in raw_applies_to:
+        try:
+            applies_to.append(PipelineStage[s.upper()].name)
+        except KeyError:
+            try:
+                applies_to.append(PipelineStage.from_doc_type_id(s).name)
+            except ValueError:
+                pass  # drop invalid values silently on update
+    applies_to = list(dict.fromkeys(applies_to)) or [canonical_stage]
+
+    # Create new record (supersedes existing via record_authority)
+    new_record = await auth_service.record_authority(
+        project_id=project_id,
+        authority_type="operator_correction",
+        stage=canonical_stage,
+        key=f"correction:{canonical_stage}",
+        value={
+            "text": body.text.strip(),
+            "applies_to_stages": applies_to,
+            "rewind_event_id": rewind_event_id,
+        },
+        source_execution_id=existing.source_execution_id,
+        lineage_path_id=existing.lineage_path_id,
+        actor="operator",
+    )
+    await db.commit()
+
+    return CorrectionResponse(
+        stage=new_record.stage,
+        text=new_record.value.get("text", ""),
+        applies_to_stages=new_record.value.get("applies_to_stages", [canonical_stage]),
+        authority_record_id=str(new_record.id),
+        created_at=new_record.created_at.isoformat() if new_record.created_at else "",
     )
 
 
@@ -382,7 +598,7 @@ async def get_project_timeline(
     timeline = []
 
     for doc in docs:
-        timeline.append({
+        entry = {
             "type": "document",
             "id": str(doc.id),
             "doc_type_id": doc.doc_type_id,
@@ -393,7 +609,13 @@ async def get_project_timeline(
             "is_stale": doc.is_stale,
             "lifecycle_state": doc.lifecycle_state,
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
-        })
+            "parent_document_id": str(doc.parent_document_id) if doc.parent_document_id else None,
+        }
+        # WS/WP hierarchy: include parent_wp_id for grouping in timeline graph
+        content = doc.content if isinstance(doc.content, dict) else {}
+        if doc.doc_type_id == "work_statement" and content.get("parent_wp_id"):
+            entry["parent_wp_id"] = content["parent_wp_id"]
+        timeline.append(entry)
 
     for evt in events:
         timeline.append({
@@ -404,6 +626,7 @@ async def get_project_timeline(
             "reason": evt.reason,
             "actor": evt.actor,
             "affected_document_count": len(evt.affected_document_ids or []),
+            "affected_document_ids": [str(aid) for aid in (evt.affected_document_ids or [])],
             "created_at": evt.created_at.isoformat() if evt.created_at else None,
         })
 

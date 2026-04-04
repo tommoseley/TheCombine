@@ -306,6 +306,49 @@ def _render_duplicate_summary(binder_docs: List[Dict[str, Any]]) -> str | None:
     return "\n".join(sections)
 
 
+def _render_corrections_summary(binder_docs: List[Dict[str, Any]], db=None) -> str | None:
+    """Render operator corrections audit section for the binder (ADR-069).
+
+    Reads correction_authority_record_ids from each document's meta and
+    displays which corrections were active at generation time.
+    """
+    # Collect all correction record IDs referenced by binder documents
+    doc_corrections = []
+    for entry in binder_docs:
+        content = entry.get("content", {})
+        if not isinstance(content, dict):
+            continue
+        meta = content.get("meta", {})
+        if not isinstance(meta, dict):
+            continue
+        record_ids = meta.get("correction_authority_record_ids", [])
+        if record_ids:
+            doc_corrections.append({
+                "display_id": entry.get("display_id", entry.get("doc_type_id", "")),
+                "record_ids": record_ids,
+            })
+
+    if not doc_corrections:
+        return None
+
+    sections = [
+        "---",
+        "## Operator Corrections Audit (ADR-069)",
+        "",
+        "Documents generated with active operator corrections:",
+        "",
+    ]
+
+    for dc in doc_corrections:
+        ids_str = ", ".join(str(rid)[:8] + "..." for rid in dc["record_ids"])
+        sections.append(
+            f"- **{dc['display_id']}**: {len(dc['record_ids'])} correction(s) active "
+            f"(record IDs: {ids_str})"
+        )
+
+    return "\n".join(sections)
+
+
 def _load_governance_policies() -> List[Dict[str, str]]:
     """Read policy files from combine-config/policies/ and return as data.
 
@@ -807,6 +850,11 @@ async def render_project_binder(
     duplicate_section = _render_duplicate_summary(binder_docs)
     if duplicate_section:
         markdown += "\n\n" + duplicate_section
+
+    # Operator corrections audit (ADR-069): append summary
+    corrections_section = _render_corrections_summary(binder_docs)
+    if corrections_section:
+        markdown += "\n\n" + corrections_section
 
     suffix = "-evidence" if mode == "evidence" else ""
     filename = f"{project.project_id}-binder{suffix}.md"

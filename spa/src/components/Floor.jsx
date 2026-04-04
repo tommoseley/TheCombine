@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import ContentPanel from './ContentPanel';
 import MockupPanel from './MockupPanel';
+import TimelineViewer from './TimelineViewer';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -394,9 +395,20 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [productionData]);
 
-    // Auto-select node: prefer autoExpandNodeId (deep linking), then first node
+    // Auto-select node: prefer hash stage param (rewind return), then autoExpandNodeId, then first node
     useEffect(() => {
         if (data.length > 0 && !selectedNodeId) {
+            // Check URL hash for stage=... (set by rewind return)
+            const hashMatch = window.location.hash.match(/stage=([^&]+)/);
+            if (hashMatch) {
+                const stageId = hashMatch[1];
+                const target = data.find(d => d.id === stageId);
+                if (target) {
+                    setSelectedNodeId(target.id);
+                    window.location.hash = ''; // clear after consuming
+                    return;
+                }
+            }
             if (autoExpandNodeId) {
                 const target = data.find(d => d.id === autoExpandNodeId);
                 if (target) { setSelectedNodeId(target.id); return; }
@@ -479,6 +491,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
     // Auto-import flag for Work Binder (set when navigating from "Produce Next")
     const [autoImport, setAutoImport] = useState(false);
+
+    // Sidebar panel tab (ADR-067/069)
+    const [sidebarTab, setSidebarTab] = useState('mockups');
 
     // Navigate to a step and immediately start production (or import for Work Binder)
     const handleProduceNext = useCallback(async (docTypeId) => {
@@ -564,15 +579,52 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     />
                 </div>
                 <div
-                    className="flex-shrink-0 overflow-y-auto border-l"
+                    className="flex-shrink-0 overflow-y-auto border-l flex flex-col"
                     style={{
                         width: 280,
                         borderColor: 'var(--border-panel)',
                         background: 'var(--bg-canvas)',
                     }}
                 >
-                    <div className="p-3">
-                        <MockupPanel projectId={projectId} />
+                    {/* Sidebar tabs */}
+                    <div className="flex border-b flex-shrink-0" style={{ borderColor: 'var(--border-panel)' }}>
+                        {[
+                            { id: 'mockups', label: 'Mockups' },
+                            { id: 'timeline', label: 'Timeline' },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setSidebarTab(tab.id)}
+                                className="flex-1 text-[10px] font-medium py-2 transition-colors"
+                                style={{
+                                    color: sidebarTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    borderBottom: sidebarTab === tab.id ? '2px solid var(--accent-primary, #3b82f6)' : '2px solid transparent',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Sidebar content */}
+                    <div className="flex-1 overflow-y-auto p-3">
+                        {sidebarTab === 'mockups' && (
+                            <MockupPanel projectId={projectId} />
+                        )}
+                        {sidebarTab === 'timeline' && (
+                            <TimelineViewer
+                                projectId={projectId}
+                                onRestore={async (checkpointId) => {
+                                    await api.restoreCheckpoint(projectId, checkpointId, 'Operator restore from timeline');
+                                    window.location.reload();
+                                }}
+                                onArchive={async (eventId) => {
+                                    if (!window.confirm('Archive this thread? Its documents will be hidden from the timeline.')) return;
+                                    await api.archiveThread(projectId, eventId, 'Operator archive from timeline');
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

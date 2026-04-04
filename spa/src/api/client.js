@@ -345,13 +345,32 @@ export const api = {
 
     // ---- Pipeline Rewind (ADR-063) ----
 
-    rewindPipeline: (projectId, stage, reason, actor = 'user') =>
+    rewindPipeline: (projectId, stage, reason, actor = 'user', appliesTo = null) =>
         request(`/projects/${projectId}/rewind`, {
             method: 'POST',
             body: JSON.stringify({
                 rewind_to_stage: stage,
                 reason,
                 actor,
+                ...(appliesTo ? { applies_to_stages: appliesTo } : {}),
+            }),
+        }),
+
+    getCorrection: (projectId, stage) =>
+        request(`/projects/${projectId}/corrections/${stage}`).catch(err => {
+            // 404 is expected when no correction exists
+            if (err?.status === 404 || err?.message?.includes('404') || err?.message?.includes('No correction')) return null;
+            // Don't throw on other errors — pre-population is best-effort
+            console.warn('getCorrection failed:', err);
+            return null;
+        }),
+
+    updateCorrection: (projectId, stage, text, appliesTo = null) =>
+        request(`/projects/${projectId}/corrections/${stage}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                text,
+                ...(appliesTo ? { applies_to_stages: appliesTo } : {}),
             }),
         }),
 
@@ -369,6 +388,24 @@ export const api = {
 
     getPipelineStatus: (projectId) =>
         request(`/projects/${projectId}/pipeline-status`),
+
+    getTimeline: (projectId) =>
+        request(`/projects/${projectId}/timeline`),
+
+    getProjectTimeline: (projectId) =>
+        request(`/projects/${projectId}/timeline`),
+
+    restoreCheckpoint: (projectId, checkpointId, reason = 'Operator restore') =>
+        request(`/projects/${projectId}/restore`, {
+            method: 'POST',
+            body: JSON.stringify({ checkpoint_id: checkpointId, reason }),
+        }),
+
+    archiveThread: (projectId, eventId, reason = 'Operator archive') =>
+        request(`/projects/${projectId}/archive-thread`, {
+            method: 'POST',
+            body: JSON.stringify({ event_id: eventId, reason }),
+        }),
 
     // Artifacts (project mockups/attachments)
     uploadArtifact: (projectId, file, label) => {

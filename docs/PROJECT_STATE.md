@@ -1,40 +1,49 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-04-02
-**Updated By:** Claude (Codex cleanup, ADR-068 mockup attachments, PGC fix, workbench fixes)
+**Last Updated:** 2026-04-03
+**Updated By:** Claude (ADR-069 correction gate, timeline graph, stabilize fix, binder review)
 
 ## Current Focus
 
-**COMPLETE:** Codex Cleanup + ADR-068 Mockup Attachments (2026-04-01/02)
-- WS-CLEANUP-001 through WS-CLEANUP-007: Full structural cleanup wave
-  - Debug logging removed, auth stack unified, domain/API boundary fixed with protocol extraction
-  - 7 backend modules + 3 frontend modules decomposed into ~45 focused sub-modules
-  - Domain registry ports extracted, module second-pass reductions
-  - Net -1,500 lines while adding focused sub-modules
-- ADR-068: Project mockup attachments — full implementation
-  - project_artifacts table (bytea), MockupStorageService, artifact API (6 endpoints)
-  - Concierge upload (client-side buffering), workbench MockupPanel
-  - Multimodal Message support (Union[str, List])
-  - Governed injection: TA workflow v7.0.0 optional_inputs, task prompt v1.5.0 {{mockup_context}}
-  - Durable audit: LLMRunInputRef kind=mockup_artifact, meta.mockup_artifact_ids
-  - Cross-project access scoping, project validation on upload
-- PGC question rendering fix: fetchStatus on UI internal_step
-- PackageLoader cache removed (40ms cold load, eliminates stale content)
-- Standalone fragment ID fix (fragment:task: instead of doctype:null:)
-- Admin workspace fixes: operator auth fallback, create_workspace path fix
-- Active versions: TA workflow v7.0.0, TA task v1.5.0
-- 4876 tests passing
-- Migration 20260402_001 applied to DEV
+**COMPLETE:** ADR-069 Rewind as Correction Gate (2026-04-02/03)
+- ADR-069: Full implementation — operator-injected binding corrections at rewind time
+  - Single-field design: rewind reason IS the correction brief, dual-written to lineage event + authority record
+  - AuthorityService extended: get_corrections_for_stage(), get_current_correction(), bundle includes operator_corrections
+  - Rewind endpoint always persists correction as authority record (supersession per ADR-064)
+  - Pre-population: correction brief loaded from authority store on subsequent rewinds
+  - PATCH /corrections/{stage} for editing corrections before regeneration
+  - correction_context_builder.py: renders numbered list with [From {stage} rewind] provenance
+  - Task node: {{operator_corrections}} template variable — strips conditional block when absent, renders text when present
+  - correction_authority_record_ids stamped in document meta for binder audit
+  - Binder audit: _render_corrections_summary() shows generation-time corrections
+  - Stage normalization: accepts doc_type_ids, rejects unknown values, deduplicates
+- Prompt/workflow version bumps: TA v1.6.0/v8.0.0, IP v1.3.0/v5.0.0, PD v1.5.0/v3.0.0
+- All three rewind entry points unified to use RewindControl (PipelineRail, DocumentHeader, ConfigDrivenDocViewer)
+- ReadyState shows inline editable correction brief with "Restart Production" when stage was rewound
+- Post-rewind navigation: hash-based stage selection returns to rewound stage
+- Timeline git-style graph: SVG lanes, branch curves, collapsible branches, WP→WS nesting
+- Sidebar tabs: Mockups | Timeline (TimelineViewer restored from ADR-068 removal)
+- Stabilize Package bug fixed: missing db.commit() in both stabilize endpoints
+- Document.project_id → Document.space_id fix in stabilize blocking unknowns gate
+- Active versions: TA workflow v8.0.0, TA task v1.6.0, IP workflow v5.0.0, PD workflow v3.0.0
+- 4919 tests passing (43 new)
 
-**Next priorities (product):**
-1. **Operator-injected binding corrections** — rewind flow as insertion point for constraints PGC didn't ask (ADR needed)
+**Next priorities (product — MSA-001 binder quality):**
+1. **MSA-001 binder findings** — 5 findings from binder review, 3 High:
+   - High: WS schema non-compliance — missing Verification Mode, Allowed Paths, Preconditions, Verification Checklist, Definition of Done per POL-WS-001
+   - High: Hybrid AI gap — only cloud/Anthropic path implemented, local Core ML excluded but stated as MVP requirement
+   - High: Duplicate scope — WS-069/WS-070 (WP-013) vs WS-074/WS-075 (WP-014) overlap
+   - Medium: Missing search baseline — WS-081 assumes existing Search Controller that no WS creates
+   - Medium: Siri vs Speech Framework inconsistency — plan says Siri, WSs say Speech Framework only
+   - These are LLM-generated content quality issues — address via TA rewind with correction brief, then regeneration
 2. **Binder renderer mockup traceability** — display consumed mockup_artifact_ids in binder output
-3. **MSA-001 TA regeneration** — add server-side deployment boundary constraint, regenerate TA/IP/WPs
-4. **TA component coverage check** — every TA component must be owned by a WP or marked out-of-scope
+3. **TA component coverage check** — every TA component must be owned by a WP or marked out-of-scope
 
 **Next priorities (architectural cleanup):**
-5. Domain/API boundary: remaining `app.api.models.*` imports in `app/domain/` (ORM model references — lower priority)
-6. Pre-existing lint/typecheck cleanup (12 ruff errors, 1 mypy truthy-function)
+4. Domain/API boundary: remaining `app.api.models.*` imports in `app/domain/` (ORM model references — lower priority)
+5. Pre-existing lint/typecheck cleanup (12 ruff errors, 1 mypy truthy-function)
+6. WS up/down buttons in Work Binder reorder instead of navigate — consider drag handles
+7. WP-007 shows WPC-001 as source linkage instead of WPC-007 (data issue from promotion)
 
 **COMPLETE:** Pipeline Integrity + Repair System + WS Dedup (2026-03-27/28)
 - ADR-065: Component-Scoped LLM Repair Proposals — full WP implemented (persistence, LLM interaction, review UI, mutation)

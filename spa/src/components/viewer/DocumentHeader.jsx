@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../api/client';
+import RewindControl from '../RewindControl';
 
 /**
  * DownloadDropdown — small button with dropdown for standard/evidence download.
@@ -177,25 +178,17 @@ export default function DocumentHeader({ title, projectId, projectCode, adminUrl
                     )}
                 </div>
                 <div className="flex items-center gap-2" style={{ flexShrink: 0, marginLeft: 12 }}>
-                    {/* ADR-063: Rewind control — inline button */}
+                    {/* ADR-063/069: Rewind control with correction pre-population */}
                     {projectId && docTypeId && (
-                        <button
-                            onClick={() => {
-                                const reason = prompt(`Rewind pipeline to ${docTypeId}?\n\nEnter reason:`);
-                                if (!reason) return;
-                                api.rewindPipeline(projectId, docTypeId, reason)
-                                    .then(r => { alert(`Rewound to ${r.rewind_to_stage}. ${r.affected_document_count} documents marked stale.`); window.location.reload(); })
-                                    .catch(e => alert(`Rewind failed: ${e.message}`));
+                        <RewindControl
+                            projectId={projectId}
+                            stageName={docTypeId}
+                            displayName={docTypeId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                            onRewindComplete={() => {
+                                window.location.hash = `stage=${docTypeId}`;
+                                window.location.reload();
                             }}
-                            className="text-[9px] px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 transition-opacity"
-                            style={{
-                                color: 'var(--text-secondary)',
-                                border: '1px solid var(--border-primary, #d1d5db)',
-                            }}
-                            title="Rewind pipeline to this stage"
-                        >
-                            ↩ Rewind
-                        </button>
+                        />
                     )}
                     {/* Produce next document CTA */}
                     {nextStepLabel && onProduceNext && (

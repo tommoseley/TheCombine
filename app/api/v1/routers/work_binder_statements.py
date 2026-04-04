@@ -536,6 +536,7 @@ async def stabilize_work_statement(
 
     ws_doc.content = ws_content
     await db.flush()
+    await db.commit()
 
     # --- Audit trail (WS-WB-008) ---
     audit_evt = build_wb_audit_event(
@@ -647,7 +648,8 @@ async def stabilize_work_package(
         pd_result = await db.execute(
             select(Document).where(
                 Document.doc_type_id == "project_discovery",
-                Document.project_id == project_id,
+                Document.space_type == "project",
+                Document.space_id == space_id,
             ).order_by(Document.updated_at.desc()).limit(1)
         )
         pd_doc = pd_result.scalar_one_or_none()
@@ -706,6 +708,7 @@ async def stabilize_work_package(
         stabilized_ids.append(ws_content.get("ws_id", str(doc.id)))
 
     await db.flush()
+    await db.commit()
 
     # --- Audit trail ---
     audit_evt = build_wb_audit_event(
