@@ -33,7 +33,7 @@ WS_SCHEMA_PATH = (
     / "document_types"
     / "work_statement"
     / "releases"
-    / "1.1.0"
+    / "1.2.0"
     / "schemas"
     / "output.schema.json"
 )
@@ -143,7 +143,7 @@ class TestActiveReleasesVersions:
         assert active_releases["document_types"]["work_package"] == "1.1.1"
 
     def test_document_types_ws_version(self, active_releases):
-        assert active_releases["document_types"]["work_statement"] == "1.1.0"
+        assert active_releases["document_types"]["work_statement"] == "1.2.0"
 
     def test_document_types_wpc_version(self, active_releases):
         assert (
@@ -155,7 +155,7 @@ class TestActiveReleasesVersions:
         assert active_releases["schemas"]["work_package"] == "1.1.0"
 
     def test_schemas_ws_version(self, active_releases):
-        assert active_releases["schemas"]["work_statement"] == "1.1.0"
+        assert active_releases["schemas"]["work_statement"] == "1.2.0"
 
     def test_schemas_wpc_version(self, active_releases):
         assert (
@@ -278,7 +278,7 @@ WP_ONLY_FIELDS = {
     "source_candidate_ids",
     "transformation",
     "transformation_notes",
-    "definition_of_done",
+    # definition_of_done removed: POL-WS-001 Section 4 requires it on WSs too
     "dependencies",
 }
 
@@ -289,6 +289,28 @@ class TestWsSchema:
 
     def test_revision_in_properties(self, ws_schema):
         assert "revision" in ws_schema["properties"]
+
+    def test_verification_mode_in_properties(self, ws_schema):
+        assert "verification_mode" in ws_schema["properties"]
+        assert ws_schema["properties"]["verification_mode"]["enum"] == ["A", "B"]
+
+    def test_preconditions_in_properties(self, ws_schema):
+        assert "preconditions" in ws_schema["properties"]
+
+    def test_definition_of_done_in_properties(self, ws_schema):
+        assert "definition_of_done" in ws_schema["properties"]
+
+    def test_pol_ws_001_fields_required(self, ws_schema):
+        """POL-WS-001 Section 4: verification_mode, allowed_paths, preconditions, definition_of_done required."""
+        required = set(ws_schema["required"])
+        pol_fields = {"verification_mode", "allowed_paths", "preconditions", "definition_of_done"}
+        missing = pol_fields - required
+        assert not missing, f"POL-WS-001 fields not in required: {missing}"
+
+    def test_policy_refs_required_in_governance_pins(self, ws_schema):
+        """POL-WS-001: policy_refs must be required within governance_pins."""
+        gp = ws_schema["properties"]["governance_pins"]
+        assert "policy_refs" in gp["required"]
 
     def test_no_wp_level_fields(self, ws_schema):
         ws_props = set(ws_schema["properties"].keys())
@@ -385,8 +407,29 @@ class TestBackwardCompatibility:
         }
         jsonschema.validate(doc, wp_schema)
 
-    def test_v100_ws_validates_against_v110(self, ws_schema):
-        """A minimal v1.0.0 WS doc should still validate against v1.1.0."""
+    def test_v120_ws_validates_with_all_required_fields(self, ws_schema):
+        """A v1.2.0 WS doc with all POL-WS-001 fields validates."""
+        doc = {
+            "ws_id": "WS-TEST-001",
+            "parent_wp_id": "test_wp",
+            "title": "Test WS",
+            "objective": "Test objective",
+            "verification_mode": "A",
+            "scope_in": ["item"],
+            "scope_out": [],
+            "allowed_paths": ["app/domain/"],
+            "preconditions": ["Parent WP accepted"],
+            "procedure": ["step 1"],
+            "verification_criteria": ["criterion 1"],
+            "definition_of_done": ["All verification criteria pass"],
+            "prohibited_actions": [],
+            "governance_pins": {"ta_version_id": "v1.0.0", "policy_refs": ["POL-WS-001"]},
+            "state": "DRAFT",
+        }
+        jsonschema.validate(doc, ws_schema)
+
+    def test_v100_ws_missing_new_fields_rejected(self, ws_schema):
+        """A v1.0.0-style WS doc without POL-WS-001 fields is rejected by v1.2.0 schema."""
         doc = {
             "ws_id": "WS-TEST-001",
             "parent_wp_id": "test_wp",
@@ -400,7 +443,8 @@ class TestBackwardCompatibility:
             "governance_pins": {"ta_version_id": "v1.0.0"},
             "state": "DRAFT",
         }
-        jsonschema.validate(doc, ws_schema)
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(doc, ws_schema)
 
 
 # =========================================================================

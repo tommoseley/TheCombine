@@ -1,0 +1,246 @@
+# Task: Propose Work Statements
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Decompose a committed Work Package into a set of draft Work Statement documents.
+Each Work Statement defines a discrete, independently-executable scope of work
+with clear procedure, verification criteria, file-path constraints, and governance pins.
+
+The output is a JSON array of Work Statement objects. Each object conforms to
+the work_statement schema. All Work Statements carry state "DRAFT".
+
+## Inputs Provided
+
+You will receive exactly three inputs:
+
+* Work Package - the parent WP containing wp_id, scope_in, scope_out,
+  dependencies, governance_pins, and definition_of_done. Every produced
+  WS must reference this WP's wp_id as its parent_wp_id.
+
+* Technical Architecture - the governing TA document that provides structural
+  constraints, allowed patterns, module boundaries, and ADR references.
+  The TA informs allowed_paths and governance_pins for each WS.
+
+* Sibling Work Packages - summaries of other WPs in the same project,
+  including their scope_in. These define capabilities that already have
+  dedicated owners and MUST NOT be recreated in this WP's Work Statements.
+
+These are the ONLY sources of requirements. No other context may be assumed.
+
+### Work Package
+
+{{work_package}}
+
+### Technical Architecture
+
+{{technical_architecture}}
+
+### Sibling Work Packages
+
+{{sibling_work_packages}}
+
+{{#operator_corrections}}
+## Operator Corrections (Binding)
+
+The following corrections were injected by the operator during pipeline rewind.
+These are binding constraints — they override default LLM judgment where they apply.
+
+{{operator_corrections}}
+{{/operator_corrections}}
+
+## Upstream Consumption Rule (Critical)
+
+Downstream WPs MUST consume shared infrastructure capabilities, not recreate them.
+
+When proposing Work Statements for a WP that depends on an upstream WP:
+
+- Do NOT create WSs that implement capabilities already owned by a sibling WP
+- Instead, create WSs that INTEGRATE WITH those upstream capabilities
+- "Integrate with" means: import, configure, and use — not reimplement
+
+Ownership transfer test: if a capability could logically be moved to a sibling
+WP without changing behavior, it must not be implemented here.
+
+Common violations to avoid:
+
+- Do not create a "Configuration Manager" WS if a sibling WP already owns configuration
+- Do not create a "Logging Framework" WS if a sibling WP already owns logging
+- Do not create a "CSV Persistence" WS if a sibling WP already owns data persistence
+- Do not create an "Error Handling" WS if a sibling WP already owns error handling patterns
+- Do not create an "Orchestration" WS if a sibling WP owns cross-package workflow orchestration
+
+When a WS needs to persist domain-specific data (e.g., indicator CSVs, decision CSVs):
+
+- Create a WS that defines the SCHEMA and FORMAT for the domain data
+- Reference the upstream persistence capability for the actual file operations
+- You MUST define domain-specific schemas, formats, or contracts even when using upstream persistence
+- Do not reimplement CSV reading/writing utilities
+
+When a WS needs orchestration within a domain WP:
+
+- Create a WS for INTERNAL COMPONENT INTEGRATION (connecting this WP's own parts)
+- Do NOT create a WS for cross-WP workflow orchestration (that belongs to the orchestration WP)
+
+## Output Format
+
+Output a JSON array of Work Statement objects. Example structure:
+
+```json
+[
+  { "ws_id": "WS-MY_WP-001", ... },
+  { "ws_id": "WS-MY_WP-002", ... }
+]
+```
+
+The output MUST be a JSON array (not wrapped in an object, not a single object).
+No commentary, markdown fencing, or explanation outside the JSON array.
+
+## Work Statement Structure
+
+Each Work Statement object in the array must contain all required fields:
+
+* ws_id - unique identifier. Format: WS-{PARENT_WP_ID}-{NNN} where NNN is
+  a zero-padded 3-digit sequential number starting at 001.
+  Example: if parent_wp_id is "WB_002", then ws_id values are
+  "WS-WB_002-001", "WS-WB_002-002", etc.
+* parent_wp_id - the wp_id of the input Work Package (required, non-empty,
+  must exactly match the WP's wp_id)
+* title - human-readable Work Statement title
+* objective - what this Work Statement achieves (clear, measurable)
+* verification_mode - "A" (all criteria verified) or "B" (declared exceptions).
+  Use "A" unless the WS explicitly defines exception conditions.
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* allowed_paths - file/directory paths this WS may modify (array of strings,
+  minimum 1 entry). Directory paths should end with /. Paths are relative to
+  the project root. Informed by the Technical Architecture's structural
+  constraints. An empty allowed_paths is invalid — every WS must declare its
+  containment boundary.
+* preconditions - required artifacts, system state, approvals, or inputs that
+  must be satisfied before execution begins (array of strings). Examples:
+  "Parent WP accepted", "Technical Architecture v1.0 stabilized",
+  "Upstream WS-XXX-001 complete". May be empty if no preconditions exist.
+* procedure - ordered steps to execute (array of strings, minimum 1)
+* verification_criteria - measurable completion criteria (array of strings, minimum 1)
+* definition_of_done - conditions under which the work is considered complete
+  (array of strings, minimum 1). This is distinct from verification_criteria:
+  verification_criteria are individual checks; definition_of_done is the
+  composite acceptance threshold. Example: ["All verification criteria pass",
+  "Tier 0 passes with --ws --scope from allowed_paths",
+  "No new lint or type errors introduced"]
+* prohibited_actions - actions the executor MUST NOT take (array of strings)
+* governance_pins - governance references from the parent WP and TA:
+  * ta_version_id - Technical Architecture version (required, non-empty,
+    sourced from the parent WP's governance_pins.ta_version_id)
+  * adr_refs - applicable ADR IDs (array, may be empty)
+  * policy_refs - applicable policy IDs (array, minimum: ["POL-WS-001"])
+* upstream_dependencies - sibling WP capabilities this WS consumes (array of
+  strings). Each entry names a specific capability from a sibling WP.
+  Example: ["WP-016 Configuration Manager", "WP-016 Logging Framework",
+  "WP-017 Data Persistence Manager"]. May be empty for infrastructure WPs
+  that have no upstream dependencies.
+* state - MUST be "DRAFT" for every Work Statement produced
+
+## Decomposition Rules
+
+When decomposing the Work Package into Work Statements:
+
+1. Each WS must be independently executable by a developer agent
+2. Each WS must have a clear, testable objective
+3. WS scope must not overlap - no two WSs address the same concern
+4. The union of all WS scopes must cover the WP's scope_in completely
+5. Procedure steps must be concrete, ordered, and actionable
+6. Verification criteria must be measurable without human judgment
+7. WSs should be ordered by dependency - earlier WSs (lower NNN) should
+   be prerequisites for later ones where dependencies exist
+8. Each WS's scope must stay within the parent WP's scope_in boundaries
+9. Each WS's allowed_paths must be informed by the TA's module boundaries
+10. No WS may reimplement a capability that a sibling WP already owns
+
+## Governance Pin Requirements
+
+Every Work Statement MUST carry governance_pins:
+
+1. ta_version_id MUST be non-empty and sourced from the parent WP's
+   governance_pins.ta_version_id
+2. adr_refs SHOULD reference any ADRs that constrain or govern this
+   specific WS's execution
+3. policy_refs MUST include at minimum ["POL-WS-001"] since all Work
+   Statements are governed by this policy. Propagate additional policy_refs
+   from the parent Work Package.
+
+These pins create traceability from execution back to architectural decisions.
+
+## What You MUST NOT Do
+
+* Do not produce Work Statements that exceed the parent WP's scope_in
+* Do not assign estimates, timelines, or ownership
+* Do not modify or fabricate governance_pins - source them from the WP and TA
+* Do not add scope items not derivable from the parent WP
+* Do not create circular dependencies between Work Statements
+* Do not reference prior executions, time, or external state
+* Do not combine unrelated concerns into a single WS
+* Do not emit WP-level fields (definition_of_done, rationale, dependencies)
+  in Work Statement objects
+* Do not manage or mutate ws_index - the caller handles persistence and
+  ws_index update separately
+* Do not claim execution status or stabilization - these are DRAFT artifacts
+* Do not add routing logic or selection logic - the caller selects this
+  prompt explicitly
+* Do not recreate capabilities owned by sibling Work Packages
+* Do not leave allowed_paths empty - every WS must declare its containment boundary
+* Do not leave policy_refs empty - every WS is governed by at least POL-WS-001
+
+## Self-Check Before Output
+
+Before emitting the JSON array, verify:
+
+1. Output is a valid JSON array of objects
+2. All required fields present on every WS object
+3. Every ws_id follows the format WS-{PARENT_WP_ID}-{NNN}
+4. Every parent_wp_id matches the input WP's wp_id exactly
+5. Every state is "DRAFT"
+6. Every verification_mode is "A" or "B"
+7. Every allowed_paths has at least one entry
+8. Every definition_of_done has at least one entry
+9. preconditions is an array on every WS (may be empty)
+10. governance_pins.ta_version_id is non-empty on every WS
+11. governance_pins.policy_refs includes "POL-WS-001" on every WS
+12. procedure has at least one step per WS
+13. verification_criteria has at least one criterion per WS
+14. scope_in and scope_out are arrays (may be empty)
+15. prohibited_actions is an array (may be empty)
+16. No WS exceeds the parent WP's scope_in
+17. WS scopes do not overlap
+18. The union of all WS scopes covers the WP's scope_in
+19. ws_id numbering is sequential starting at 001
+20. No WS reimplements a capability owned by a sibling WP
+21. Integration WSs reference upstream capabilities, not reimplement them
+22. upstream_dependencies names specific capabilities consumed from sibling WPs
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* Output is not a JSON array
+* Any WS is missing a required field
+* Any parent_wp_id does not match the input WP's wp_id
+* governance_pins.ta_version_id is empty or missing on any WS
+* governance_pins.policy_refs is empty or missing on any WS
+* verification_mode is missing or not "A"/"B" on any WS
+* allowed_paths is empty or missing on any WS
+* definition_of_done is empty or missing on any WS
+* procedure is empty on any WS
+* verification_criteria is empty on any WS
+* Any WS's scope exceeds the parent WP's scope_in
+* Any state is not "DRAFT"
+* ws_id format is incorrect or non-sequential
+* Role identity or authority is restated or altered
+* Output depends on unstated context or prior runs
+* WP-level fields appear in any WS object
+* Any WS reimplements a capability explicitly owned by a sibling WP

@@ -7,7 +7,7 @@
     "technical_architecture": "1.0.0",
     "implementation_plan": "1.0.0",
     "work_package": "1.1.1",
-    "work_statement": "1.1.0",
+    "work_statement": "1.2.0",
     "work_package_candidate": "1.0.0",
     "intent_packet": "1.0.0",
     "execution_plan": "1.0.0",
@@ -33,7 +33,7 @@
     "technical_architecture": "1.0.0",
     "implementation_plan": "1.0.0",
     "work_package": "1.1.0",
-    "work_statement": "1.1.0",
+    "work_statement": "1.2.0",
     "work_package_candidate": "1.0.0",
     "intent_packet": "1.0.0",
     "execution_plan": "1.0.0",
@@ -57,7 +57,7 @@
     "technical_architecture": "8.0.0",
     "implementation_plan": "5.0.0",
     "work_package": "1.0.0",
-    "work_statement": "1.0.0"
+    "work_statement": "2.0.0"
   },
   "tasks": {
     "task_prompt_auditor": "1.0.0",
@@ -77,8 +77,8 @@
     "project_discovery_qa": "1.2.0",
     "implementation_plan": "1.3.0",
     "work_package": "1.1.1",
-    "work_statement": "1.1.0",
-    "propose_work_statements": "1.1.0"
+    "work_statement": "1.2.0",
+    "propose_work_statements": "1.2.0"
   },
   "pgc": {
     "project_discovery.v1": "1.0.0",
