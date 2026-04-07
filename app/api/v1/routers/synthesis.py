@@ -4,6 +4,7 @@ Binder Synthesis endpoints (ADR-070).
 POST /{project_id}/synthesis — trigger synthesis analysis
 GET  /{project_id}/synthesis — get latest synthesis delta
 PATCH /{project_id}/synthesis/findings/{finding_id} — operator decision
+POST /{project_id}/synthesis/apply — apply accepted actions via correction gate
 """
 
 from __future__ import annotations
@@ -262,4 +263,86 @@ async def record_finding_decision(
         note=body.note,
         decided_at=decided_at,
         decided_by="operator",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Apply accepted actions via correction gate (WS-SYNTHESIS-005)
+# ---------------------------------------------------------------------------
+
+
+class ApplyResponse(BaseModel):
+    applied_count: int
+    corrections: list[dict]
+    skipped_count: int
+
+
+@router.post("/{project_id}/synthesis/apply")
+async def apply_accepted_actions(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> ApplyResponse:
+    """Apply all accepted mechanical actions as correction briefs.
+
+    Reads the synthesis delta, finds accepted actions, converts each
+    to a correction brief via synthesis_action_applier, and returns
+    the correction briefs ready for rewind.
+
+    Does NOT auto-rewind — the operator triggers rewind separately
+    with the generated correction briefs.
+    """
+    from sqlalchemy import select, and_
+    from app.domain.services.synthesis_action_applier import action_to_correction
+
+    stmt = (
+        select(Document)
+        .where(
+            and_(
+                Document.space_id == project_id,
+                Document.doc_type_id == "synthesis_delta",
+                Document.is_latest == True,  # noqa: E712
+            )
+        )
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="No synthesis delta found")
+
+    content = doc.content or {}
+    decisions = content.get("_operator_decisions", {})
+    actions = content.get("actions", [])
+
+    corrections = []
+    skipped = 0
+
+    for action in actions:
+        # Build finding ID to check decision
+        finding_id = f"{action.get('action_type')}-{','.join(action.get('targets', []))}"
+        decision = decisions.get(finding_id, {})
+
+        if decision.get("decision") != "accept":
+            skipped += 1
+            continue
+
+        try:
+            brief = action_to_correction(action)
+            corrections.append({
+                "rewind_to_stage": brief.rewind_to_stage,
+                "reason": brief.reason,
+                "applies_to_stages": brief.applies_to_stages,
+                "post_condition": brief.post_condition,
+                "source_action_type": brief.source_action_type,
+                "source_targets": brief.source_targets,
+            })
+        except ValueError as e:
+            logger.warning("Skipping invalid action: %s", e)
+            skipped += 1
+
+    return ApplyResponse(
+        applied_count=len(corrections),
+        corrections=corrections,
+        skipped_count=skipped,
     )
