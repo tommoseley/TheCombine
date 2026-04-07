@@ -127,7 +127,7 @@ TECHNICAL_ARCHITECTURE_CONTENT = {
         "style": "Script",
         "key_decisions": ["Python", "Single file"],
     },
-    "components": [{"name": "main", "purpose": "Entry point"}],
+    "components": [{"name": "main", "purpose": "Entry point", "owns": ["src/"]}],
     "data_models": [{"name": "Config", "fields": []}],
     "api_interfaces": [{"name": "CLI", "type": "command-line"}],
     "quality_attributes": {
@@ -269,14 +269,14 @@ WORK_STATEMENT_CONTENT = {
 _DOC_TYPE_FIXTURES = {
     "concierge_intake": ("1.0.0", CONCIERGE_INTAKE_CONTENT),
     "project_discovery": ("1.4.0", PROJECT_DISCOVERY_CONTENT),
-    "technical_architecture": ("1.0.0", TECHNICAL_ARCHITECTURE_CONTENT),
+    "technical_architecture": ("1.1.0", TECHNICAL_ARCHITECTURE_CONTENT),
     "implementation_plan": ("1.0.0", IMPLEMENTATION_PLAN_CONTENT),
     "work_package": ("1.1.0", WORK_PACKAGE_CONTENT),
 }
 
 _NO_IA_FIXTURES = {
     "work_package_candidate": ("1.0.0", WORK_PACKAGE_CANDIDATE_CONTENT),
-    "work_statement": ("1.1.0", WORK_STATEMENT_CONTENT),
+    "work_statement": ("1.2.0", WORK_STATEMENT_CONTENT),
     "execution_plan": ("1.0.0", {}),
     "pipeline_run": ("1.0.0", {}),
     "intent_packet": ("1.0.0", {}),

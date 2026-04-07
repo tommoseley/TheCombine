@@ -4,7 +4,7 @@
   "document_types": {
     "concierge_intake": "1.0.0",
     "project_discovery": "1.4.0",
-    "technical_architecture": "1.0.0",
+    "technical_architecture": "1.1.0",
     "implementation_plan": "1.0.0",
     "work_package": "1.1.1",
     "work_statement": "1.2.0",
@@ -30,7 +30,7 @@
   "schemas": {
     "concierge_intake": "1.0.0",
     "project_discovery": "1.4.0",
-    "technical_architecture": "1.0.0",
+    "technical_architecture": "1.1.0",
     "implementation_plan": "1.0.0",
     "work_package": "1.1.0",
     "work_statement": "1.2.0",
@@ -54,7 +54,7 @@
     "concierge_intake": "1.4.0",
     "project_discovery": "3.0.0",
     "software_product_development": "1.0.0",
-    "technical_architecture": "8.0.0",
+    "technical_architecture": "9.0.0",
     "implementation_plan": "5.0.0",
     "work_package": "1.0.0",
     "work_statement": "2.0.0"
