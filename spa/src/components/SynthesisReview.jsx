@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import api from '../api/client.js';
+import { api } from '../api/client.js';
 
 const SEVERITY_COLORS = {
   blocking: 'var(--error, #e53935)',

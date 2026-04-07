@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ContentPanel from './ContentPanel';
 import MockupPanel from './MockupPanel';
 import TimelineViewer from './TimelineViewer';
+import SynthesisReview from './SynthesisReview';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -591,6 +592,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                         {[
                             { id: 'mockups', label: 'Mockups' },
                             { id: 'timeline', label: 'Timeline' },
+                            { id: 'synthesis', label: 'Synthesis' },
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -624,6 +626,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                                     await api.archiveThread(projectId, eventId, 'Operator archive from timeline');
                                 }}
                             />
+                        )}
+                        {sidebarTab === 'synthesis' && (
+                            <SynthesisReview projectId={projectId} />
                         )}
                     </div>
                 </div>
