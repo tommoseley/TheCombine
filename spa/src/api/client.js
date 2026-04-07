@@ -442,6 +442,19 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify(updates),
         }),
+
+    // --- Synthesis (ADR-070) ---
+    triggerSynthesis: (projectId) =>
+        request(`/projects/${projectId}/synthesis`, { method: 'POST' }),
+
+    getSynthesisDelta: (projectId) =>
+        request(`/projects/${projectId}/synthesis`).catch(() => null),
+
+    recordFindingDecision: (projectId, findingId, decision, note = null) =>
+        request(`/projects/${projectId}/synthesis/findings/${findingId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ decision, note }),
+        }),
 };
 
 /**

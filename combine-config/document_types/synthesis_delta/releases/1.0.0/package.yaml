@@ -1,0 +1,108 @@
+# Synthesis Delta Document Type Package
+# Version 1.0.0 - ADR-070 Binder Synthesis
+
+doc_type_id: synthesis_delta
+display_name: "Synthesis Delta"
+version: "1.0.0"
+description: >
+  Post-binder composition analysis output. Contains mechanical actions
+  (5-type restricted DSL with post-conditions) and judgment questions
+  (4-lens, operator-routed). Produced by dual-instance LLM analysis
+  of a complete Work Binder. Per ADR-070.
+
+# Classification
+authority_level: descriptive  # Proposes changes, does not authorize them
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+cardinality: single
+display_prefix: SD
+
+# Dependencies
+required_inputs:
+  - binder_content
+optional_inputs: []
+creates_children: []
+parent_doc_type: null
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:quality_assurance:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:synthesis_delta:1.0.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: false
+  accepted_by: []
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: summary
+      label: Synthesis Summary
+      binds:
+        - path: binder_document_count
+          render_as: paragraph
+        - path: instance_a_finding_count
+          render_as: paragraph
+        - path: instance_b_finding_count
+          render_as: paragraph
+        - path: agreement_count
+          render_as: paragraph
+
+    - id: actions
+      label: Mechanical Actions
+      binds:
+        - path: actions
+          render_as: card-list
+          card:
+            title: action_type
+            fields:
+              - path: targets
+                render_as: list
+              - path: rationale
+                render_as: paragraph
+              - path: post_condition
+                render_as: paragraph
+              - path: confidence
+                render_as: paragraph
+
+    - id: questions
+      label: Judgment Questions
+      binds:
+        - path: questions
+          render_as: card-list
+          card:
+            title: lens
+            fields:
+              - path: severity
+                render_as: paragraph
+              - path: artifacts
+                render_as: list
+              - path: question
+                render_as: paragraph
+              - path: confidence
+                render_as: paragraph
+
+# UI configuration
+ui:
+  icon: filter
+  category: quality
+  display_order: 50
