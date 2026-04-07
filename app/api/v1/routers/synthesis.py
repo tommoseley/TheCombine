@@ -99,7 +99,7 @@ async def trigger_synthesis(
 
     binder_docs = []
     for doc in docs:
-        version = active.get(doc.doc_type_id, "1.0.0")
+        version = active.get_doc_type_version(doc.doc_type_id) or "1.0.0"
         try:
             pkg = loader.get_document_type(doc.doc_type_id, version)
             ia = pkg.information_architecture if pkg else None
@@ -126,11 +126,25 @@ async def trigger_synthesis(
         documents=binder_docs,
     )
 
-    # 5. Execute synthesis
+    # 5. Create LLM client and execute synthesis
+    import os
+    from app.llm.providers.anthropic import AnthropicProvider
+    from app.domain.workflow.nodes.llm_executors import LoggingLLMService
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    llm_client = LoggingLLMService(
+        provider=AnthropicProvider(api_key=api_key),
+        default_max_tokens=16384,
+    )
+
     delta = await execute_synthesis(
         project_id=project_id,
         binder_content=binder_content,
         binder_document_count=len(binder_docs),
+        llm_client=llm_client,
     )
 
     # 6. Persist as document

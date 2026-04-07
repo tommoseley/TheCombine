@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 SYNTHESIS_TASK_ID = "binder_synthesis"
-SYNTHESIS_TASK_VERSION = "1.0.0"
+SYNTHESIS_TASK_VERSION = "1.1.0"
 SYNTHESIS_SCHEMA_ID = "synthesis_delta"
 
 VALID_ACTION_TYPES = frozenset(
