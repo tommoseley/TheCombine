@@ -35,7 +35,21 @@ export function useProductionStatus(projectId) {
 
             setInterrupts(projectInterrupts);
             setLineState(status.line_state);
-            setData(transformProductionStatus(status, projectInterrupts));
+            const transformed = transformProductionStatus(status, projectInterrupts);
+
+            // Append synthesis node (ADR-070) — virtual pipeline step after Work Binder
+            const synthesisDelta = await api.getSynthesisDelta(projectId);
+            transformed.push({
+                id: 'synthesis_delta',
+                name: 'Synthesis',
+                desc: 'Post-binder composition review',
+                state: synthesisDelta ? 'produced' : 'ready_for_production',
+                level: 1,
+                stations: null,
+                docTypeId: 'synthesis_delta',
+            });
+
+            setData(transformed);
         } catch (err) {
             setError(err.message);
             console.error('Failed to fetch production status:', err);
@@ -271,7 +285,10 @@ export function useProductionStatus(projectId) {
             setNotification(null);
             await api.startProduction(projectId, documentType);
             setLineState('active');
-            // Don't fetch immediately - SSE will provide updates as production progresses
+            // Fetch after start completes — the execution may already be paused
+            // for PGC input by the time the POST returns, and SSE-triggered
+            // refetches during the POST can be overwritten by concurrent setData calls
+            fetchStatus();
         } catch (err) {
             console.error('Failed to start production:', err);
             // Show user-friendly notification

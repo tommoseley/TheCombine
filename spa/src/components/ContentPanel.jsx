@@ -14,6 +14,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import FullDocumentViewer from './FullDocumentViewer';
 import WorkBinder from './WorkBinder';
+import SynthesisReview from './SynthesisReview';
 import QuestionTray from './QuestionTray';
 import StationDots from './StationDots';
 
@@ -522,6 +523,15 @@ export default function ContentPanel({
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
                 <WorkBinder projectId={projectId} projectCode={projectCode} autoImport={autoImport} />
+            </div>
+        );
+    }
+
+    // Synthesis — post-binder composition review (ADR-070)
+    if (step.id === 'synthesis_delta') {
+        return (
+            <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
+                <SynthesisReview projectId={projectId} />
             </div>
         );
     }

@@ -111,6 +111,7 @@ const DOC_TYPE_NAMES = {
     implementation_plan: 'Implementation Plan',
     technical_architecture: 'Technical Architecture',
     work_package: 'Work Binder',
+    synthesis_delta: 'Synthesis',
 };
 
 function docName(id) {
