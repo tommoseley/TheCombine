@@ -434,6 +434,30 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     const handleStartProduction = useCallback(async (docTypeId) => {
         console.log('Starting production for:', docTypeId);
 
+        // ADR-070: Synthesis triggers via its own API, not normal production
+        if (docTypeId === 'synthesis_delta') {
+            setData(prev => prev.map(item =>
+                item.id === 'synthesis_delta'
+                    ? { ...item, _prevState: item.state, state: 'in_production' }
+                    : item
+            ));
+            try {
+                await api.triggerSynthesis(projectId);
+                setData(prev => prev.map(item =>
+                    item.id === 'synthesis_delta'
+                        ? { ...item, state: 'produced' }
+                        : item
+                ));
+            } catch (err) {
+                setData(prev => prev.map(item =>
+                    item.id === 'synthesis_delta'
+                        ? { ...item, state: item._prevState || 'ready_for_production' }
+                        : item
+                ));
+            }
+            return;
+        }
+
         // Optimistic update: immediately show as in_production
         setData(prev => prev.map(item => {
             if (item.id === docTypeId) {

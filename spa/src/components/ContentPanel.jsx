@@ -51,6 +51,8 @@ const DOC_TYPE_DESCRIPTIONS = {
         'Unit of planned work with scope, governance pins, and completion criteria. Tracks dependencies, state, and child Work Statement references.',
     work_statement:
         'Unit of authorized execution within a Work Package. Defines objective, scope, procedure, verification criteria, prohibited actions, and allowed file paths.',
+    synthesis_delta:
+        'Post-binder composition review. Dual-instance analysis identifies scope overlaps, missing coverage, platform concerns, and boundary misalignments across the complete binder.',
 };
 
 /**
@@ -528,7 +530,9 @@ export default function ContentPanel({
     }
 
     // Synthesis — post-binder composition review (ADR-070)
-    if (step.id === 'synthesis_delta') {
+    // If a delta exists (produced state), show the review UI.
+    // Otherwise, fall through to normal ReadyState rendering.
+    if (step.id === 'synthesis_delta' && getArtifactState(step.state) === 'stabilized') {
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
                 <SynthesisReview projectId={projectId} />
