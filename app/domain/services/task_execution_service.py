@@ -221,6 +221,34 @@ async def execute_task(
     parsed_output = parse_result.data
 
     # --- 5. Schema validation ---
+    # Fill in default empty arrays/objects for required fields that the LLM
+    # may omit when the value would be empty (common LLM behavior).
+    schema_props = schema.get("properties", {})
+    schema_required = set(schema.get("required", []))
+
+    def _fill_defaults(item):
+        """Fill missing required fields with safe defaults.
+
+        LLMs commonly omit fields when the value would be empty or when
+        they are unfamiliar with the full schema.  Rather than failing
+        validation, supply the obvious zero-value so the output is usable.
+        """
+        if not isinstance(item, dict):
+            return item
+        for field in schema_required:
+            if field not in item and field in schema_props:
+                prop = schema_props[field]
+                prop_type = prop.get("type")
+                if prop_type == "array":
+                    item[field] = []
+                elif prop_type == "object":
+                    item[field] = {}
+                elif prop_type == "string" and "enum" in prop:
+                    item[field] = prop["enum"][0]
+                elif prop_type == "string":
+                    item[field] = ""
+        return item
+
     # When the LLM returns a JSON array but the schema expects an object,
     # validate each item individually (e.g., propose_work_statements returns
     # an array of WS objects, each validated against the work_statement schema).
@@ -230,8 +258,10 @@ async def execute_task(
             and schema.get("type") == "object"
         ):
             for i, item in enumerate(parsed_output):
+                _fill_defaults(item)
                 jsonschema.validate(item, schema)
         else:
+            _fill_defaults(parsed_output)
             jsonschema.validate(parsed_output, schema)
     except jsonschema.ValidationError as exc:
         logger.error(
