@@ -4,6 +4,7 @@ import ContentPanel from './ContentPanel';
 import MockupPanel from './MockupPanel';
 import TimelineViewer from './TimelineViewer';
 import SynthesisReview from './SynthesisReview';
+import { ProjectProvider } from './ProjectContext';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -591,6 +592,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             />
 
             {/* Station Workspace — full width below the line */}
+            <ProjectProvider projectId={projectId}>
             <div className="flex-1 overflow-hidden flex">
                 <div className="flex-1 overflow-hidden">
                     <ContentPanel
@@ -658,6 +660,7 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
                     </div>
                 </div>
             </div>
+            </ProjectProvider>
 
             {/* Notification Toast */}
             {notification && (

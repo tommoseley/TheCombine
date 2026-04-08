@@ -435,8 +435,54 @@ def _resolve_answer_label(question: Dict[str, Any], user_answer: Any) -> Optiona
 
 
 # =============================================================================
+# Document Reference Resolution (ADR-071)
+# =============================================================================
+
+
+@router.get("/{project_id}/documents/resolve")
+async def resolve_document_references(
+    project_id: str,
+    refs: str = Query(..., description="Comma-separated display_ids or document UUIDs"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Resolve document references to their metadata.
+
+    Accepts a comma-separated list of display_ids (e.g., WS-142,TA-001)
+    or document UUIDs and returns resolved metadata for each.
+
+    Per ADR-071 s3.4: links display human-readable titles and resolve
+    to governed documents.
+    """
+    from app.domain.services.document_reference_resolver import resolve_batch
+
+    project = await resolve_project(project_id, db)
+    ref_list = [r.strip() for r in refs.split(",") if r.strip()]
+
+    if not ref_list:
+        return {"resolved": {}}
+
+    results = await resolve_batch(db, ref_list, str(project.id))
+
+    resolved = {}
+    for ref, res in results.items():
+        if res:
+            resolved[ref] = {
+                "id": res.id,
+                "display_id": res.display_id,
+                "title": res.title,
+                "doc_type_id": res.doc_type_id,
+                "version": res.version,
+            }
+        else:
+            resolved[ref] = None
+
+    return {"resolved": resolved}
+
+
+# =============================================================================
 # Document Endpoints
 # =============================================================================
+
 
 @router.get("/{project_id}/documents/{identifier}")
 async def get_project_document(

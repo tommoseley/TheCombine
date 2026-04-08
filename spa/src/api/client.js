@@ -443,6 +443,10 @@ export const api = {
             body: JSON.stringify(updates),
         }),
 
+    // --- Document Reference Resolution (ADR-071) ---
+    resolveReferences: (projectId, refs) =>
+        request(`/projects/${projectId}/documents/resolve?refs=${encodeURIComponent(refs.join(','))}`),
+
     // --- Synthesis (ADR-070) ---
     triggerSynthesis: (projectId) =>
         request(`/projects/${projectId}/synthesis`, { method: 'POST' }),

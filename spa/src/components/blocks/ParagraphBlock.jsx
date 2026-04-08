@@ -1,7 +1,10 @@
 /**
  * Paragraph block renderer
- * Displays text content with optional detail link
+ * Displays text content with optional detail link.
+ * Auto-links document references (ADR-071).
  */
+import LinkedText from '../LinkedText';
+
 export default function ParagraphBlock({ block }) {
     const { data } = block;
     const content = data.content || data.value || '';
@@ -19,7 +22,7 @@ export default function ParagraphBlock({ block }) {
                     whiteSpace: 'pre-line',
                 }}
             >
-                {content}
+                <LinkedText text={content} />
             </p>
             {data.detail_ref && (
                 <a
