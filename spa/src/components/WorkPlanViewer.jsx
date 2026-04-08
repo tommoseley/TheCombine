@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client.js';
 import DocumentLink from './DocumentLink.jsx';
+import DocumentModal from './DocumentModal.jsx';
 import { useProjectId } from './ProjectContext.jsx';
 
 export default function WorkPlanViewer({ projectId: propProjectId }) {
@@ -23,6 +24,12 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
     const [plan, setPlan] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [modalDisplayId, setModalDisplayId] = useState(null);
+
+    const scrollToSection = (id) => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     const loadPlan = useCallback(async () => {
         if (!projectId) return;
@@ -96,9 +103,13 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
                         </p>
                     )}
                     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        <Stat label="Components" value={summary.component_count} href="#project-documents" />
-                        <Stat label="Work Packages" value={summary.work_package_count} href="#work-structure" />
-                        <Stat label="Work Statements" value={summary.work_statement_count} href="#work-structure" />
+                        <Stat label="Components" value={summary.component_count} onClick={() => {
+                            // Find TA display_id from refs
+                            const taRef = refs.find(r => r.doc_type_id === 'technical_architecture');
+                            if (taRef) setModalDisplayId(taRef.display_id);
+                        }} />
+                        <Stat label="Work Packages" value={summary.work_package_count} onClick={() => scrollToSection('work-structure')} />
+                        <Stat label="Work Statements" value={summary.work_statement_count} onClick={() => scrollToSection('work-structure')} />
                     </div>
                 </Section>
             )}
@@ -165,6 +176,15 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
                     <ProjectDocumentIndex refs={refs} groups={groups} projectId={projectId} />
                 </Section>
             )}
+
+            {/* Modal for document links */}
+            {modalDisplayId && (
+                <DocumentModal
+                    projectId={projectId}
+                    displayId={modalDisplayId}
+                    onClose={() => setModalDisplayId(null)}
+                />
+            )}
         </div>
     );
 }
@@ -192,25 +212,21 @@ function Section({ title, id, children }) {
     );
 }
 
-function Stat({ label, value, href }) {
+function Stat({ label, value, onClick }) {
     if (value == null) return null;
-    const handleClick = href ? () => {
-        const el = document.querySelector(href);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-    } : undefined;
     return (
         <div
-            onClick={handleClick}
+            onClick={onClick}
             style={{
                 padding: '10px 20px',
                 background: 'var(--bg-canvas, #0f0f23)',
                 border: '1px solid var(--border, #333)',
                 borderRadius: 6, textAlign: 'center', minWidth: 100,
-                cursor: href ? 'pointer' : 'default',
+                cursor: onClick ? 'pointer' : 'default',
                 transition: 'border-color 0.15s',
             }}
-            onMouseEnter={href ? (e) => { e.currentTarget.style.borderColor = 'var(--accent-primary, #3b82f6)'; } : undefined}
-            onMouseLeave={href ? (e) => { e.currentTarget.style.borderColor = 'var(--border, #333)'; } : undefined}
+            onMouseEnter={onClick ? (e) => { e.currentTarget.style.borderColor = 'var(--accent-primary, #3b82f6)'; } : undefined}
+            onMouseLeave={onClick ? (e) => { e.currentTarget.style.borderColor = 'var(--border, #333)'; } : undefined}
         >
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent-primary, #3b82f6)' }}>{value}</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted, #888)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
@@ -295,17 +311,11 @@ function WorkPackageCard({ wp, projectId }) {
     );
 }
 
-const DOC_TYPE_LABELS = {
-    concierge_intake: 'Intake', project_discovery: 'Discovery',
-    technical_architecture: 'Architecture', implementation_plan: 'Impl. Plan',
-    work_package: 'Work Package', work_statement: 'Work Statement',
-    work_package_candidate: 'Candidate',
-};
-
 const GROUP_LABELS = {
     intake: 'Intake', discovery: 'Project Discovery', architecture: 'Architecture',
     planning: 'Implementation Planning', candidates: 'Candidates',
     work_packages: 'Work Packages', work_statements: 'Work Statements',
+    other: 'Other Documents',
 };
 
 function ProjectDocumentIndex({ refs, groups, projectId }) {
