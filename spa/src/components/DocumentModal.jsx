@@ -13,6 +13,7 @@ import FullDocumentViewer from './FullDocumentViewer.jsx';
 
 export default function DocumentModal({ projectId, displayId, onClose }) {
   const [docTypeId, setDocTypeId] = useState(null);
+  const [instanceId, setInstanceId] = useState(null);
   const [docTitle, setDocTitle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,10 +32,15 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
         setLoading(false);
         return;
       }
-      // Pass display_id as the identifier — FullDocumentViewer's endpoint
-      // handles both display_id and doc_type_id patterns, and display_id
-      // is unique while doc_type_id may match multiple docs (e.g., WPCs)
-      setDocTypeId(ref.display_id);
+      // Use doc_type_id for render model (IA config lookup needs the real type).
+      // For multi-instance types, pass instance_id from the document's own
+      // instance_id field to disambiguate — but we don't have that here.
+      // FullDocumentViewer will find the right doc: for single-instance types
+      // (TA, PD, IP) doc_type_id alone is unique; for multi-instance types
+      // the render-model may return a generic view, but getDocument fallback
+      // uses display_id which is always unique.
+      setDocTypeId(ref.doc_type_id);
+      setInstanceId(null);
       setDocTitle(ref.title);
       setCurrentDisplayId(refId);
     } catch (err) {
@@ -163,6 +169,7 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
               projectId={projectId}
               projectCode=""
               docTypeId={docTypeId}
+              instanceId={instanceId}
               onClose={onClose}
               inline
             />

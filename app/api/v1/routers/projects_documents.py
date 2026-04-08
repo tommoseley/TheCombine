@@ -538,6 +538,7 @@ async def get_project_document(
         )
         if instance_id:
             query = query.where(Document.instance_id == instance_id)
+        query = query.order_by(Document.created_at.desc()).limit(1)
         doc_result = await db.execute(query)
         document = doc_result.scalar_one_or_none()
 
@@ -972,6 +973,7 @@ async def get_document_render_model(
     )
     if instance_id:
         doc_query = doc_query.where(Document.instance_id == instance_id)
+    doc_query = doc_query.order_by(Document.created_at.desc()).limit(1)
     doc_result = await db.execute(doc_query)
     document = doc_result.scalar_one_or_none()
 
