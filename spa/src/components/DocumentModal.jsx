@@ -1,27 +1,29 @@
 /**
  * DocumentModal — ADR-071 modal document viewer.
  *
- * Opens a document in a modal overlay using the existing RenderModelViewer.
+ * Opens a document in a modal overlay using the existing FullDocumentViewer,
+ * which handles all rendering paths (IA config, render model, raw fallback).
  * Preserves the user's navigation context — closing returns them to where
- * they were. Internal links replace modal content (no stacking).
+ * they were.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/client.js';
-import RenderModelViewer from './RenderModelViewer.jsx';
+import FullDocumentViewer from './FullDocumentViewer.jsx';
 
 export default function DocumentModal({ projectId, displayId, onClose }) {
-  const [renderModel, setRenderModel] = useState(null);
+  const [docTypeId, setDocTypeId] = useState(null);
+  const [docTitle, setDocTitle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentDisplayId, setCurrentDisplayId] = useState(displayId);
-  const [history, setHistory] = useState([]);
 
-  const loadDocument = useCallback(async (refId) => {
+  const resolveDoc = useCallback(async (refId) => {
     setLoading(true);
     setError(null);
+    setDocTypeId(null);
+    setDocTitle(null);
     try {
-      // First resolve the display_id to get doc_type_id
       const resolved = await api.resolveReferences(projectId, [refId]);
       const ref = resolved.resolved?.[refId];
       if (!ref) {
@@ -29,35 +31,19 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
         setLoading(false);
         return;
       }
-
-      // Fetch render model using doc_type_id
-      const rm = await api.getDocumentRenderModel(projectId, ref.doc_type_id);
-      setRenderModel(rm);
+      setDocTypeId(ref.doc_type_id);
+      setDocTitle(ref.title);
       setCurrentDisplayId(refId);
     } catch (err) {
-      setError(err.message || 'Failed to load document');
+      setError(err.message || 'Failed to resolve document');
     } finally {
       setLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    loadDocument(displayId);
-  }, [displayId, loadDocument]);
-
-  // Navigate to a different document within the modal (no stacking)
-  const navigateToRef = useCallback((refId) => {
-    setHistory(prev => [...prev, currentDisplayId]);
-    loadDocument(refId);
-  }, [currentDisplayId, loadDocument]);
-
-  const navigateBack = useCallback(() => {
-    if (history.length > 0) {
-      const prev = history[history.length - 1];
-      setHistory(h => h.slice(0, -1));
-      loadDocument(prev);
-    }
-  }, [history, loadDocument]);
+    resolveDoc(displayId);
+  }, [displayId, resolveDoc]);
 
   // Close on Escape
   useEffect(() => {
@@ -87,7 +73,7 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '90%',
-          maxWidth: 1000,
+          maxWidth: 1100,
           maxHeight: 'calc(100vh - 80px)',
           background: 'var(--bg-surface, #1a1a2e)',
           border: '1px solid var(--border, #333)',
@@ -102,29 +88,12 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
+          padding: '10px 16px',
           borderBottom: '1px solid var(--border, #333)',
           background: 'var(--bg-canvas, #0f0f23)',
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {history.length > 0 && (
-              <button
-                onClick={navigateBack}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid var(--border, #444)',
-                  borderRadius: 4,
-                  color: 'var(--text-muted, #888)',
-                  cursor: 'pointer',
-                  padding: '2px 8px',
-                  fontSize: 12,
-                }}
-                title="Go back"
-              >
-                &larr;
-              </button>
-            )}
             <span style={{
               fontSize: 11,
               fontWeight: 700,
@@ -133,13 +102,13 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
             }}>
               {currentDisplayId}
             </span>
-            {renderModel && (
+            {docTitle && (
               <span style={{
                 fontSize: 14,
                 fontWeight: 600,
                 color: 'var(--text-primary, #eee)',
               }}>
-                {renderModel.title}
+                {docTitle}
               </span>
             )}
           </div>
@@ -164,7 +133,6 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          padding: '16px 20px',
         }}>
           {loading && (
             <div style={{
@@ -187,48 +155,17 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
             </div>
           )}
 
-          {!loading && !error && renderModel && (
-            <RenderModelViewer
-              renderModel={renderModel}
-              variant="full"
-              hideHeader={true}
+          {!loading && !error && docTypeId && (
+            <FullDocumentViewer
+              projectId={projectId}
+              projectCode=""
+              docTypeId={docTypeId}
+              onClose={onClose}
+              inline
             />
-          )}
-
-          {!loading && !error && !renderModel && (
-            <div style={{
-              padding: 40,
-              textAlign: 'center',
-              color: 'var(--text-muted, #888)',
-              fontSize: 13,
-            }}>
-              No render model available for this document.
-            </div>
           )}
         </div>
       </div>
     </div>
   );
 }
-
-/**
- * Context for document link navigation within modals.
- * Components can use this to trigger modal navigation.
- */
-export const DocumentModalContext = {
-  _navigateFn: null,
-
-  setNavigate(fn) {
-    this._navigateFn = fn;
-  },
-
-  navigate(displayId) {
-    if (this._navigateFn) {
-      this._navigateFn(displayId);
-    }
-  },
-
-  clear() {
-    this._navigateFn = null;
-  },
-};
