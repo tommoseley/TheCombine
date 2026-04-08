@@ -29,6 +29,10 @@ import IntakeConstraintsBlock from './IntakeConstraintsBlock';
 import IntakeOpenGapsBlock from './IntakeOpenGapsBlock';
 import IntakeOutcomeBlock from './IntakeOutcomeBlock';
 
+// Binder composition blocks (ADR-071)
+import DocumentReferenceListBlock from './DocumentReferenceListBlock';
+import GroupedDocumentsBlock from './GroupedDocumentsBlock';
+
 /**
  * Registry mapping schema IDs to React components
  */
@@ -68,6 +72,10 @@ const BLOCK_REGISTRY = {
     'schema:IntakeConstraintsBlockV1': IntakeConstraintsBlock,
     'schema:IntakeOpenGapsBlockV1': IntakeOpenGapsBlock,
     'schema:IntakeOutcomeBlockV1': IntakeOutcomeBlock,
+
+    // Binder composition blocks (ADR-071)
+    'schema:DocumentReferenceListBlockV1': DocumentReferenceListBlock,
+    'schema:GroupedDocumentsBlockV1': GroupedDocumentsBlock,
 };
 
 /**

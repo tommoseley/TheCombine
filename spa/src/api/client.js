@@ -443,6 +443,13 @@ export const api = {
             body: JSON.stringify(updates),
         }),
 
+    // --- Binder Assembly (ADR-071) ---
+    assembleWorkBinder: (projectId) =>
+        request(`/work-binder/${projectId}/assemble`, { method: 'POST' }),
+
+    getWorkBinder: (projectId) =>
+        request(`/work-binder/${projectId}/binder`).catch(() => null),
+
     // --- Document Reference Resolution (ADR-071) ---
     resolveReferences: (projectId, refs) =>
         request(`/projects/${projectId}/documents/resolve?refs=${encodeURIComponent(refs.join(','))}`),

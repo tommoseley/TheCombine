@@ -1,0 +1,75 @@
+# Work Binder Document Type Package
+# Version 1.0.0 - ADR-071 Binder Management & Presentation
+
+doc_type_id: work_binder
+display_name: "Work Binder"
+version: "1.0.0"
+description: >
+  Composition document that references and organizes all project documents
+  with version-pinned links. Provides grouped navigation and context for
+  the complete project plan. Per ADR-071.
+
+# Classification
+authority_level: descriptive
+creation_mode: mechanical
+production_mode: assemble
+scope: project
+cardinality: single
+display_prefix: WB
+
+# Dependencies
+required_inputs: []
+optional_inputs: []
+creates_children: []
+parent_doc_type: null
+
+# Schema reference
+schema_ref: "schema:work_binder:1.0.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: null
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: false
+  accepted_by: []
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 1
+
+  sections:
+    - id: summary
+      label: Binder Summary
+      binds:
+        - path: project_id
+          render_as: paragraph
+        - path: assembled_at
+          render_as: paragraph
+        - path: document_count
+          render_as: paragraph
+
+    - id: documents
+      label: Project Documents
+      binds:
+        - path: referenced_documents
+          render_as: grouped-documents
+          group_by: group
+
+# UI configuration
+ui:
+  icon: book
+  category: composition
+  display_order: 60

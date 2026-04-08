@@ -69,3 +69,113 @@ router = APIRouter(prefix="/work-binder", tags=["work-binder"])
 router.include_router(candidates_router)
 router.include_router(statements_router)
 router.include_router(proposals_router)
+
+
+# ---------------------------------------------------------------------------
+# Binder assembly (ADR-071)
+# ---------------------------------------------------------------------------
+
+from fastapi import Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, update
+from uuid import uuid4
+from datetime import datetime, timezone
+
+from app.core.database import get_db
+from app.api.models.document import Document
+
+
+@router.post("/{project_id}/assemble")
+async def assemble_work_binder(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Assemble a work binder from current project documents.
+
+    Creates (or replaces) the work_binder document with version-pinned
+    references to all project documents. Per ADR-071.
+    """
+    from app.domain.services.binder_assembly_service import assemble_binder
+    from app.api.v1.routers.work_binder_common import _resolve_space_id
+
+    space_id = await _resolve_space_id(project_id, db)
+
+    binder_content = await assemble_binder(db, str(space_id))
+
+    # Mark any prior work_binder as not latest
+    await db.execute(
+        update(Document)
+        .where(
+            and_(
+                Document.space_id == space_id,
+                Document.doc_type_id == "work_binder",
+                Document.is_latest == True,  # noqa: E712
+            )
+        )
+        .values(is_latest=False)
+    )
+
+    # Create new binder document
+    binder_doc = Document(
+        id=uuid4(),
+        space_type="project",
+        space_id=space_id,
+        doc_type_id="work_binder",
+        display_id=f"WB-{str(uuid4())[:6].upper()}",
+        title="Work Binder",
+        content=binder_content.to_dict(),
+        version=1,
+        is_latest=True,
+        lifecycle_state="complete",
+        status="active",
+        builder_metadata={
+            "generator": "binder_assembly_service",
+            "adr": "ADR-071",
+            "assembled_at": binder_content.assembled_at,
+        },
+    )
+
+    db.add(binder_doc)
+    await db.commit()
+
+    return {
+        "status": "assembled",
+        "document_id": str(binder_doc.id),
+        "document_count": binder_content.document_count,
+        "groups": binder_content.groups,
+    }
+
+
+@router.get("/{project_id}/binder")
+async def get_work_binder(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the latest assembled work binder for a project."""
+    from app.api.v1.routers.work_binder_common import _resolve_space_id
+
+    space_id = await _resolve_space_id(project_id, db)
+
+    stmt = (
+        select(Document)
+        .where(
+            and_(
+                Document.space_id == space_id,
+                Document.doc_type_id == "work_binder",
+                Document.is_latest == True,  # noqa: E712
+            )
+        )
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="No work binder found")
+
+    return {
+        "document_id": str(doc.id),
+        "project_id": project_id,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        "content": doc.content,
+    }
