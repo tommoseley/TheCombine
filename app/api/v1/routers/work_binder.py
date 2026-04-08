@@ -179,3 +179,67 @@ async def get_work_binder(
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "content": doc.content,
     }
+
+
+@router.post("/{project_id}/assemble-plan")
+async def assemble_work_plan_endpoint(
+    project_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Assemble the final Work Plan from project state.
+
+    Creates (or replaces) the work_plan document with executive summary,
+    decision log, dependency summary, and version-pinned document references.
+    Per ADR-071 s3.8.
+    """
+    from app.domain.services.work_plan_assembly_service import assemble_work_plan
+    from app.api.v1.routers.work_binder_common import _resolve_space_id
+
+    space_id = await _resolve_space_id(project_id, db)
+
+    plan_content = await assemble_work_plan(db, str(space_id))
+
+    # Mark any prior work_plan as not latest
+    await db.execute(
+        update(Document)
+        .where(
+            and_(
+                Document.space_id == space_id,
+                Document.doc_type_id == "work_plan",
+                Document.is_latest == True,  # noqa: E712
+            )
+        )
+        .values(is_latest=False)
+    )
+
+    # Create new Work Plan document
+    plan_doc = Document(
+        id=uuid4(),
+        space_type="project",
+        space_id=space_id,
+        doc_type_id="work_plan",
+        display_id=f"PLAN-{str(uuid4())[:6].upper()}",
+        title="Work Plan",
+        content=plan_content.to_dict(),
+        version=1,
+        is_latest=True,
+        lifecycle_state="complete",
+        status="active",
+        builder_metadata={
+            "generator": "work_plan_assembly_service",
+            "adr": "ADR-071",
+            "assembled_at": plan_content.assembled_at,
+        },
+    )
+
+    db.add(plan_doc)
+    await db.commit()
+
+    return {
+        "status": "assembled",
+        "document_id": str(plan_doc.id),
+        "document_count": plan_content.document_count,
+        "executive_summary": plan_content.executive_summary,
+        "decision_count": len(plan_content.decision_log),
+        "dependency_count": len(plan_content.dependency_summary),
+    }

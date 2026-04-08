@@ -111,8 +111,9 @@ const DOC_TYPE_NAMES = {
     project_discovery: 'Project Discovery',
     implementation_plan: 'Implementation Plan',
     technical_architecture: 'Technical Architecture',
-    work_package: 'Work Binder',
-    synthesis_delta: 'Synthesis',
+    work_package: 'Work Items',
+    synthesis_delta: 'Review & Resolve',
+    work_plan: 'Work Plan',
 };
 
 function docName(id) {
@@ -452,6 +453,33 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             } catch (err) {
                 setData(prev => prev.map(item =>
                     item.id === 'synthesis_delta'
+                        ? { ...item, state: item._prevState || 'ready_for_production' }
+                        : item
+                ));
+            }
+            return;
+        }
+
+        // ADR-071: Work Plan triggers binder assembly + work plan assembly
+        if (docTypeId === 'work_plan') {
+            setData(prev => prev.map(item =>
+                item.id === 'work_plan'
+                    ? { ...item, _prevState: item.state, state: 'in_production' }
+                    : item
+            ));
+            try {
+                await api.assembleWorkBinder(projectId);
+                // Work Plan assembly endpoint (reuses binder assembly internally)
+                const response = await fetch(`/api/v1/work-binder/${projectId}/assemble-plan`, { method: 'POST' });
+                if (!response.ok) throw new Error('Work Plan assembly failed');
+                setData(prev => prev.map(item =>
+                    item.id === 'work_plan'
+                        ? { ...item, state: 'produced' }
+                        : item
+                ));
+            } catch (err) {
+                setData(prev => prev.map(item =>
+                    item.id === 'work_plan'
                         ? { ...item, state: item._prevState || 'ready_for_production' }
                         : item
                 ));

@@ -33,6 +33,11 @@ import IntakeOutcomeBlock from './IntakeOutcomeBlock';
 import DocumentReferenceListBlock from './DocumentReferenceListBlock';
 import GroupedDocumentsBlock from './GroupedDocumentsBlock';
 
+// Work Plan blocks (ADR-071)
+import ExecutiveSummaryBlock from './ExecutiveSummaryBlock';
+import DecisionLogBlock from './DecisionLogBlock';
+import DependencySummaryBlock from './DependencySummaryBlock';
+
 /**
  * Registry mapping schema IDs to React components
  */
@@ -76,6 +81,11 @@ const BLOCK_REGISTRY = {
     // Binder composition blocks (ADR-071)
     'schema:DocumentReferenceListBlockV1': DocumentReferenceListBlock,
     'schema:GroupedDocumentsBlockV1': GroupedDocumentsBlock,
+
+    // Work Plan blocks (ADR-071)
+    'schema:ExecutiveSummaryBlockV1': ExecutiveSummaryBlock,
+    'schema:DecisionLogBlockV1': DecisionLogBlock,
+    'schema:DependencySummaryBlockV1': DependencySummaryBlock,
 };
 
 /**

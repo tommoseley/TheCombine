@@ -53,6 +53,8 @@ const DOC_TYPE_DESCRIPTIONS = {
         'Unit of authorized execution within a Work Package. Defines objective, scope, procedure, verification criteria, prohibited actions, and allowed file paths.',
     synthesis_delta:
         'Post-binder composition review. Dual-instance analysis identifies scope overlaps, missing coverage, platform concerns, and boundary misalignments across the complete binder.',
+    work_plan:
+        'Final project plan combining all documents, decisions, and dependencies into a single readable artifact. Ready for review and handoff.',
 };
 
 /**

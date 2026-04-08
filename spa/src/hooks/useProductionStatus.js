@@ -37,16 +37,31 @@ export function useProductionStatus(projectId) {
             setLineState(status.line_state);
             const transformed = transformProductionStatus(status, projectInterrupts);
 
-            // Append synthesis node (ADR-070) — virtual pipeline step after Work Binder
+            // Append virtual pipeline steps (ADR-070, ADR-071)
             const synthesisDelta = await api.getSynthesisDelta(projectId);
             transformed.push({
                 id: 'synthesis_delta',
-                name: 'Synthesis',
-                desc: 'Post-binder composition review',
+                name: 'Review & Resolve',
+                desc: 'Identify and resolve conflicts across the plan',
                 state: synthesisDelta ? 'produced' : 'ready_for_production',
                 level: 1,
                 stations: null,
                 docTypeId: 'synthesis_delta',
+            });
+
+            // Work Plan — final deliverable (ADR-071)
+            const workPlan = await api.getWorkBinder(projectId);
+            const workPlanReady = synthesisDelta != null;
+            transformed.push({
+                id: 'work_plan',
+                name: 'Work Plan',
+                desc: 'Final project plan — ready for review and handoff',
+                state: workPlan && workPlan.content?.executive_summary
+                    ? 'produced'
+                    : workPlanReady ? 'ready_for_production' : 'requirements_not_met',
+                level: 1,
+                stations: null,
+                docTypeId: 'work_plan',
             });
 
             setData(transformed);

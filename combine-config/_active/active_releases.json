@@ -13,7 +13,8 @@
     "execution_plan": "1.0.0",
     "pipeline_run": "1.0.0",
     "synthesis_delta": "1.1.0",
-    "work_binder": "1.0.0"
+    "work_binder": "1.0.0",
+    "work_plan": "1.0.0"
   },
   "roles": {
     "technical_architect": "1.0.0",
@@ -52,7 +53,8 @@
     "clarification_question_set": "1.0.0",
     "synthesis_delta": "1.1.0",
     "synthesis_advisor": "1.0.0",
-    "work_binder": "1.0.0"
+    "work_binder": "1.0.0",
+    "work_plan": "1.0.0"
   },
   "workflows": {
     "intake_and_route": "1.0.0",
