@@ -37,6 +37,7 @@ class WorkPlanContent:
     executive_summary: dict[str, Any]
     decision_log: list[dict[str, Any]]
     dependency_summary: list[dict[str, Any]]
+    work_structure: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -48,6 +49,7 @@ class WorkPlanContent:
             "executive_summary": self.executive_summary,
             "decision_log": self.decision_log,
             "dependency_summary": self.dependency_summary,
+            "work_structure": self.work_structure,
         }
 
 
@@ -77,6 +79,9 @@ async def assemble_work_plan(
     # 4. Build dependency summary from WP content
     dependency_summary = await _build_dependency_summary(db, project_id)
 
+    # 5. Build work structure (WPs with child WSs)
+    work_structure = await _build_work_structure(db, project_id)
+
     return WorkPlanContent(
         project_id=project_id,
         assembled_at=datetime.now(timezone.utc).isoformat(),
@@ -86,6 +91,7 @@ async def assemble_work_plan(
         executive_summary=executive_summary,
         decision_log=decision_log,
         dependency_summary=dependency_summary,
+        work_structure=work_structure,
     )
 
 
@@ -256,3 +262,73 @@ async def _build_dependency_summary(
                 })
 
     return deps
+
+
+async def _build_work_structure(
+    db: AsyncSession,
+    project_id: str,
+) -> list[dict[str, Any]]:
+    """Build work structure: WPs with their child WSs and descriptions."""
+    # Get all WPs
+    wp_stmt = select(Document).where(
+        and_(
+            Document.space_id == project_id,
+            Document.doc_type_id == "work_package",
+            Document.is_latest == True,  # noqa: E712
+        )
+    )
+    wp_result = await db.execute(wp_stmt)
+    wps = wp_result.scalars().all()
+
+    # Get all WSs
+    ws_stmt = select(Document).where(
+        and_(
+            Document.space_id == project_id,
+            Document.doc_type_id == "work_statement",
+            Document.is_latest == True,  # noqa: E712
+        )
+    )
+    ws_result = await db.execute(ws_stmt)
+    wss = ws_result.scalars().all()
+
+    # Index WSs by parent
+    ws_by_parent = {}
+    for ws in wss:
+        parent_id = str(ws.parent_document_id) if ws.parent_document_id else None
+        if parent_id:
+            ws_by_parent.setdefault(parent_id, []).append(ws)
+
+    structure = []
+    for wp in sorted(wps, key=lambda w: w.display_id or ""):
+        wp_content = wp.content or {}
+
+        # Get WS ordering from ws_index if available
+        ws_index = wp_content.get("ws_index", [])
+        ws_order = {item.get("ws_id"): item.get("order_key", "z") for item in ws_index}
+
+        child_wss = ws_by_parent.get(str(wp.id), [])
+        # Sort by ws_index order, then display_id
+        child_wss.sort(key=lambda w: (
+            ws_order.get((w.content or {}).get("ws_id"), "z"),
+            w.display_id or "",
+        ))
+
+        work_statements = []
+        for ws in child_wss:
+            ws_content = ws.content or {}
+            work_statements.append({
+                "display_id": ws.display_id,
+                "title": ws.title or ws.display_id,
+                "objective": ws_content.get("objective") or ws_content.get("title") or "",
+            })
+
+        structure.append({
+            "display_id": wp.display_id,
+            "title": wp.title or wp.display_id,
+            "rationale": wp_content.get("rationale") or "",
+            "scope_summary": ", ".join(wp_content.get("scope_in", [])[:3]) if wp_content.get("scope_in") else "",
+            "work_statements": work_statements,
+            "ws_count": len(work_statements),
+        })
+
+    return structure

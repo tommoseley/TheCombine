@@ -50,13 +50,13 @@ export function useProductionStatus(projectId) {
             });
 
             // Work Plan — final deliverable (ADR-071)
-            const workPlan = await api.getWorkBinder(projectId);
+            const workPlan = await api.getDocument(projectId, 'work_plan').catch(() => null);
             const workPlanReady = synthesisDelta != null;
             transformed.push({
                 id: 'work_plan',
                 name: 'Work Plan',
                 desc: 'Final project plan — ready for review and handoff',
-                state: workPlan && workPlan.content?.executive_summary
+                state: workPlan?.content?.executive_summary
                     ? 'produced'
                     : workPlanReady ? 'ready_for_production' : 'requirements_not_met',
                 level: 1,
