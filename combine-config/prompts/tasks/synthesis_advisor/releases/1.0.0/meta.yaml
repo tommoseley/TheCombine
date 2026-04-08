@@ -1,0 +1,3 @@
+name: "Synthesis Decision Advisor"
+version: "1.0.0"
+intent: "Explain a synthesis finding to a non-expert operator so they can make an informed decision. Non-authoritative — explains but does not recommend."

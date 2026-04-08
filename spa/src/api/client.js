@@ -455,6 +455,11 @@ export const api = {
             method: 'PATCH',
             body: JSON.stringify({ decision, note }),
         }),
+
+    explainFinding: (projectId, findingId) =>
+        request(`/projects/${projectId}/synthesis/findings/${findingId}/explain`, {
+            method: 'POST',
+        }),
 };
 
 /**

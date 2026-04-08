@@ -4,6 +4,7 @@ Binder Synthesis endpoints (ADR-070).
 POST /{project_id}/synthesis — trigger synthesis analysis
 GET  /{project_id}/synthesis — get latest synthesis delta
 PATCH /{project_id}/synthesis/findings/{finding_id} — operator decision
+POST /{project_id}/synthesis/findings/{finding_id}/explain — advisor context
 POST /{project_id}/synthesis/apply — apply accepted actions via correction gate
 """
 
@@ -269,6 +270,8 @@ async def record_finding_decision(
     }
 
     doc.content = content
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(doc, "content")
     await db.commit()
 
     return FindingDecisionResponse(
@@ -277,6 +280,191 @@ async def record_finding_decision(
         note=body.note,
         decided_at=decided_at,
         decided_by="operator",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Advisor — explain a finding to help operator decide
+# ---------------------------------------------------------------------------
+
+
+class AdvisorResponse(BaseModel):
+    finding_id: str
+    whats_happening: str
+    what_the_plan_says: str
+    whats_missing: str
+    options_and_tradeoffs: str
+    impact: str
+    consulted_at: str
+
+
+@router.post("/{project_id}/synthesis/findings/{finding_id}/explain")
+async def explain_finding(
+    project_id: str,
+    finding_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> AdvisorResponse:
+    """Get advisor context for a synthesis finding.
+
+    Calls the synthesis_advisor task prompt with the finding's question,
+    evidence, and binder context. Returns structured explanation to help
+    the operator make an informed decision. Non-authoritative — explains
+    but does not recommend.
+
+    The consultation is recorded as a timestamp on the finding for
+    traceability, but the advisory content itself is not persisted.
+    """
+    from sqlalchemy import select, and_
+    from app.domain.services.task_execution_service import execute_task
+
+    # 1. Load synthesis delta
+    stmt = (
+        select(Document)
+        .where(
+            and_(
+                Document.space_id == project_id,
+                Document.doc_type_id == "synthesis_delta",
+                Document.is_latest == True,  # noqa: E712
+            )
+        )
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    doc = result.scalar_one_or_none()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="No synthesis delta found")
+
+    content = doc.content or {}
+
+    # 2. Find the specific finding
+    finding = None
+    for action in content.get("actions", []):
+        aid = f"{action.get('action_type')}-{','.join(action.get('targets', []))}"
+        if aid == finding_id:
+            finding = action
+            break
+
+    if not finding:
+        for question in content.get("questions", []):
+            if question.get("finding_id") == finding_id:
+                finding = question
+                break
+
+    if not finding:
+        raise HTTPException(status_code=404, detail=f"Finding {finding_id} not found")
+
+    # 3. Build advisor inputs
+    decision_question = finding.get("question") or finding.get("headline") or finding.get("rationale", "")
+    severity = finding.get("severity", "advisory")
+
+    evidence_lines = []
+    for ev in finding.get("evidence", []):
+        evidence_lines.append(
+            f"{ev.get('artifact_title', 'Unknown')} ({ev.get('artifact_id', '?')}):\n"
+            f"  {ev.get('excerpt', '')}"
+        )
+    evidence_text = "\n\n".join(evidence_lines) if evidence_lines else "No evidence excerpts available."
+
+    artifact_lines = []
+    for ev in finding.get("evidence", []):
+        artifact_lines.append(f"- {ev.get('artifact_title', 'Unknown')} ({ev.get('artifact_id', '?')})")
+    artifacts_text = "\n".join(artifact_lines) if artifact_lines else "None specified."
+
+    # 4. Render binder for context (reuse trigger logic)
+    from app.config.package_loader import PackageLoader
+    from pathlib import Path
+
+    config_path = Path(__file__).parent.parent.parent.parent.parent / "combine-config"
+    loader = PackageLoader(config_path)
+    active = loader.get_active_releases()
+
+    docs_stmt = select(Document).where(
+        and_(
+            Document.space_id == project_id,
+            Document.is_latest == True,  # noqa: E712
+        )
+    )
+    docs_result = await db.execute(docs_stmt)
+    all_docs = docs_result.scalars().all()
+
+    binder_docs = []
+    for d in all_docs:
+        if d.doc_type_id == "synthesis_delta":
+            continue
+        version = active.get_doc_type_version(d.doc_type_id) or "1.0.0"
+        try:
+            pkg = loader.get_document_type(d.doc_type_id, version)
+            ia = pkg.information_architecture if pkg else None
+        except Exception:
+            ia = None
+        binder_docs.append({
+            "display_id": d.display_id or d.doc_type_id,
+            "doc_type_id": d.doc_type_id,
+            "title": d.title or d.doc_type_id,
+            "content": d.content or {},
+            "ia": ia,
+            "id": str(d.id),
+            "parent_document_id": str(d.parent_document_id) if d.parent_document_id else None,
+        })
+
+    from app.domain.services.binder_renderer import render_project_binder
+    binder_context = render_project_binder(
+        project_id=project_id,
+        project_title=project_id,
+        documents=binder_docs,
+    )
+
+    # 5. Execute advisor task
+    import os
+    from app.llm.providers.anthropic import AnthropicProvider
+    from app.domain.workflow.nodes.llm_executors import LoggingLLMService
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    llm_client = LoggingLLMService(
+        provider=AnthropicProvider(api_key=api_key),
+        default_max_tokens=4096,
+    )
+
+    advisor_result = await execute_task(
+        task_id="synthesis_advisor",
+        version="1.0.0",
+        inputs={
+            "decision_question": decision_question,
+            "severity": severity,
+            "evidence_excerpts": evidence_text,
+            "artifacts": artifacts_text,
+            "binder_context": binder_context,
+        },
+        expected_schema_id="synthesis_advisor",
+        llm_client=llm_client,
+    )
+
+    output = advisor_result["output"]
+    consulted_at = datetime.now(timezone.utc).isoformat()
+
+    # 6. Record consultation timestamp on finding (traceability)
+    decisions = content.setdefault("_operator_decisions", {})
+    finding_meta = decisions.setdefault(finding_id, {})
+    finding_meta["advisor_consulted_at"] = consulted_at
+    doc.content = dict(content)
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(doc, "content")
+    await db.commit()
+
+    logger.info("Advisor consulted for finding %s in project %s", finding_id, project_id)
+
+    return AdvisorResponse(
+        finding_id=finding_id,
+        whats_happening=output.get("whats_happening", ""),
+        what_the_plan_says=output.get("what_the_plan_says", ""),
+        whats_missing=output.get("whats_missing", ""),
+        options_and_tradeoffs=output.get("options_and_tradeoffs", ""),
+        impact=output.get("impact", ""),
+        consulted_at=consulted_at,
     )
 
 
