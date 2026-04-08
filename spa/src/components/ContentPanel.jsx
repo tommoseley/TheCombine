@@ -15,6 +15,7 @@ import { api } from '../api/client';
 import FullDocumentViewer from './FullDocumentViewer';
 import WorkBinder from './WorkBinder';
 import SynthesisReview from './SynthesisReview';
+import WorkPlanViewer from './WorkPlanViewer';
 import QuestionTray from './QuestionTray';
 import StationDots from './StationDots';
 
@@ -538,6 +539,16 @@ export default function ContentPanel({
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
                 <SynthesisReview projectId={projectId} />
+            </div>
+        );
+    }
+
+    // Work Plan — final deliverable (ADR-071)
+    // When produced, show the dedicated Work Plan viewer.
+    if (step.id === 'work_plan' && getArtifactState(step.state) === 'stabilized') {
+        return (
+            <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
+                <WorkPlanViewer projectId={projectId} />
             </div>
         );
     }
