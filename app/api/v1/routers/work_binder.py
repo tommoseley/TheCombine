@@ -98,7 +98,7 @@ async def assemble_work_binder(
     from app.domain.services.binder_assembly_service import assemble_binder
     from app.api.v1.routers.work_binder_common import _resolve_space_id
 
-    space_id = await _resolve_space_id(project_id, db)
+    space_id = await _resolve_space_id(db, project_id)
 
     binder_content = await assemble_binder(db, str(space_id))
 
@@ -154,7 +154,7 @@ async def get_work_binder(
     """Get the latest assembled work binder for a project."""
     from app.api.v1.routers.work_binder_common import _resolve_space_id
 
-    space_id = await _resolve_space_id(project_id, db)
+    space_id = await _resolve_space_id(db, project_id)
 
     stmt = (
         select(Document)
@@ -195,7 +195,7 @@ async def assemble_work_plan_endpoint(
     from app.domain.services.work_plan_assembly_service import assemble_work_plan
     from app.api.v1.routers.work_binder_common import _resolve_space_id
 
-    space_id = await _resolve_space_id(project_id, db)
+    space_id = await _resolve_space_id(db, project_id)
 
     plan_content = await assemble_work_plan(db, str(space_id))
 
