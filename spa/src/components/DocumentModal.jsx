@@ -31,7 +31,10 @@ export default function DocumentModal({ projectId, displayId, onClose }) {
         setLoading(false);
         return;
       }
-      setDocTypeId(ref.doc_type_id);
+      // Pass display_id as the identifier — FullDocumentViewer's endpoint
+      // handles both display_id and doc_type_id patterns, and display_id
+      // is unique while doc_type_id may match multiple docs (e.g., WPCs)
+      setDocTypeId(ref.display_id);
       setDocTitle(ref.title);
       setCurrentDisplayId(refId);
     } catch (err) {

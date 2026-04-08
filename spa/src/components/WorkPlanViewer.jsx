@@ -96,9 +96,9 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
                         </p>
                     )}
                     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        <Stat label="Components" value={summary.component_count} />
-                        <Stat label="Work Packages" value={summary.work_package_count} />
-                        <Stat label="Work Statements" value={summary.work_statement_count} />
+                        <Stat label="Components" value={summary.component_count} href="#project-documents" />
+                        <Stat label="Work Packages" value={summary.work_package_count} href="#work-structure" />
+                        <Stat label="Work Statements" value={summary.work_statement_count} href="#work-structure" />
                     </div>
                 </Section>
             )}
@@ -129,7 +129,7 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
 
             {/* 4. Work Structure */}
             {workStructure.length > 0 && (
-                <Section title="Work Structure">
+                <Section title="Work Structure" id="work-structure">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {workStructure.map((wp, i) => (
                             <WorkPackageCard key={wp.display_id || i} wp={wp} projectId={projectId} />
@@ -161,7 +161,7 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
 
             {/* 6. Project Documents */}
             {refs.length > 0 && (
-                <Section title="Project Documents">
+                <Section title="Project Documents" id="project-documents">
                     <ProjectDocumentIndex refs={refs} groups={groups} projectId={projectId} />
                 </Section>
             )}
@@ -173,9 +173,10 @@ export default function WorkPlanViewer({ projectId: propProjectId }) {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function Section({ title, children }) {
+function Section({ title, id, children }) {
+    const anchorId = id || title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     return (
-        <div style={{ marginBottom: 28 }}>
+        <div id={anchorId} style={{ marginBottom: 28, scrollMarginTop: 20 }}>
             <h3 style={{
                 fontSize: 13, fontWeight: 600,
                 color: 'var(--text-muted, #888)',
@@ -191,15 +192,26 @@ function Section({ title, children }) {
     );
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, href }) {
     if (value == null) return null;
+    const handleClick = href ? () => {
+        const el = document.querySelector(href);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+    } : undefined;
     return (
-        <div style={{
-            padding: '10px 20px',
-            background: 'var(--bg-canvas, #0f0f23)',
-            border: '1px solid var(--border, #333)',
-            borderRadius: 6, textAlign: 'center', minWidth: 100,
-        }}>
+        <div
+            onClick={handleClick}
+            style={{
+                padding: '10px 20px',
+                background: 'var(--bg-canvas, #0f0f23)',
+                border: '1px solid var(--border, #333)',
+                borderRadius: 6, textAlign: 'center', minWidth: 100,
+                cursor: href ? 'pointer' : 'default',
+                transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={href ? (e) => { e.currentTarget.style.borderColor = 'var(--accent-primary, #3b82f6)'; } : undefined}
+            onMouseLeave={href ? (e) => { e.currentTarget.style.borderColor = 'var(--border, #333)'; } : undefined}
+        >
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent-primary, #3b82f6)' }}>{value}</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted, #888)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
         </div>
