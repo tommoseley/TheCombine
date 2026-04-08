@@ -31,7 +31,7 @@ const GROUP_LABELS = {
     work_statements: 'Work Statements',
 };
 
-function DocCard({ ref, projectId, indent = false }) {
+function DocCard({ docRef, projectId, indent = false }) {
     return (
         <div style={{
             display: 'flex',
@@ -54,8 +54,8 @@ function DocCard({ ref, projectId, indent = false }) {
                 flexShrink: 0,
             }}>
                 <DocumentLink
-                    displayId={ref.display_id}
-                    title={ref.title}
+                    displayId={docRef.display_id}
+                    title={docRef.title}
                     projectId={projectId}
                 />
             </span>
@@ -64,7 +64,7 @@ function DocCard({ ref, projectId, indent = false }) {
                 color: 'var(--text-primary, #eee)',
                 flex: 1,
             }}>
-                {ref.title}
+                {docRef.title}
             </span>
             <span style={{
                 fontSize: 10,
@@ -74,15 +74,15 @@ function DocCard({ ref, projectId, indent = false }) {
                 borderRadius: 10,
                 flexShrink: 0,
             }}>
-                {DOC_TYPE_LABELS[ref.doc_type_id] || ref.doc_type_id}
+                {DOC_TYPE_LABELS[docRef.doc_type_id] || docRef.doc_type_id}
             </span>
-            {ref.version && (
+            {docRef.version && (
                 <span style={{
                     fontSize: 10,
                     color: 'var(--text-muted, #666)',
                     flexShrink: 0,
                 }}>
-                    v{ref.version}
+                    v{docRef.version}
                 </span>
             )}
         </div>
@@ -144,11 +144,11 @@ export default function GroupedDocumentsBlock({ block }) {
                                     : [];
                                 return (
                                     <div key={ref.document_id || i}>
-                                        <DocCard ref={ref} projectId={projectId} />
+                                        <DocCard docRef={ref} projectId={projectId} />
                                         {childWs.map((ws, j) => (
                                             <DocCard
                                                 key={ws.document_id || j}
-                                                ref={ws}
+                                                docRef={ws}
                                                 projectId={projectId}
                                                 indent={true}
                                             />
