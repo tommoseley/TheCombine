@@ -1,9 +1,33 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-04-03
-**Updated By:** Claude (ADR-069 correction gate, timeline graph, stabilize fix, binder review)
+**Last Updated:** 2026-04-08
+**Updated By:** Claude (ADR-071 binder management, synthesis advisor, Work Plan viewer)
 
 ## Current Focus
+
+**COMPLETE:** ADR-071 Binder Management & Presentation (2026-04-08)
+- IP-BINDER-001: 3 WPs, 9 WSs — all implemented
+- WP-BINDER-001: Document link resolution, modal viewer, inline linking (14 tests)
+- WP-BINDER-002: Binder composition via IA + blocks, assembly service (12 tests)
+- WP-BINDER-003: Work Plan viewer, pipeline renames, executive summary (5 tests)
+- Pipeline renamed: Work Items -> Review & Resolve -> Work Plan
+- Work Plan: narrative layout with executive summary, key decisions, constraints, work structure, dependencies
+- All document references clickable with modal display using FullDocumentViewer
+- 31 new tests, 16 commits
+
+**COMPLETE:** Synthesis Advisor + UX Improvements (2026-04-08)
+- "Need more info" button: 5-section advisor context (what's happening, plan says, missing, options, impact)
+- Structured radio option selection when advisor provides options
+- "Acknowledge" -> "Resolve" with text input, "Dismiss" -> "Mark as Intentional"
+- JSONB mutation tracking fix for decision persistence
+
+**Next priorities:**
+1. Work Plan governance docs not showing — verify doc types in DOC_TYPE_GROUPS mapping
+2. Multi-instance modal routing (WPCs show most recent, not specific instance) — needs instance_id passthrough
+3. Server-side binder renderer consuming IA definitions (ADR-071 s3.7 dual rendering contract)
+4. Pre-existing _fill_defaults in task_execution_service.py defeating minItems constraints
+5. Domain/API boundary cleanup (lower priority)
+6. Pre-existing lint/typecheck cleanup
 
 **COMPLETE:** ADR-069 Rewind as Correction Gate (2026-04-02/03)
 - ADR-069: Full implementation — operator-injected binding corrections at rewind time
