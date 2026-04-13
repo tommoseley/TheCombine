@@ -44,6 +44,7 @@ recycle/
 *.ps1
 *.bat
 *.sh
+!entrypoint.sh
 
 # Text files except requirements
 *.txt
