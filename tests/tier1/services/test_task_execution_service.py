@@ -135,14 +135,16 @@ async def test_schema_violation_raises_task_output_validation_error():
             "summary": {"type": "string"},
         },
     }
-    # LLM returns valid JSON but missing required fields
+    # LLM returns JSON with a type violation (title is int, not string).
+    # _fill_defaults only fills *missing* fields — it does not overwrite
+    # existing ones, so a type mismatch still raises TaskOutputValidationError.
     with pytest.raises(TaskOutputValidationError):
         await execute_task(
             task_id="some_task",
             version="1.0.0",
             inputs={"user_input": "hello"},
             expected_schema_id="strict_schema",
-            llm_client=make_llm_client(response_text='{"wrong_field": "value"}'),
+            llm_client=make_llm_client(response_text='{"title": 123, "summary": "hello"}'),
             prompt_loader=make_prompt_loader(),
             schema_resolver=make_schema_resolver(schema=strict_schema),
         )

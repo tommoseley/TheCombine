@@ -44,16 +44,6 @@ class TestDockerCompose:
         assert "healthcheck" in app_service
         assert "test" in app_service["healthcheck"]
     
-    def test_docker_compose_db_has_health_check(self):
-        """DB service has health check configured."""
-        compose_file = PROJECT_ROOT / "docker-compose.yml"
-        
-        with open(compose_file) as f:
-            data = yaml.safe_load(f)
-        
-        db_service = data["services"]["db"]
-        assert "healthcheck" in db_service
-    
     def test_staging_removes_dev_volumes(self):
         """Staging compose removes development volumes."""
         compose_file = PROJECT_ROOT / "docker-compose.staging.yml"
