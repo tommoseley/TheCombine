@@ -26,8 +26,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.drop_index('idx_documents_latest_single', table_name='documents')
-    op.drop_index('idx_documents_latest_multi', table_name='documents')
+    op.execute("DROP INDEX IF EXISTS idx_documents_latest_single")
+    op.execute("DROP INDEX IF EXISTS idx_documents_latest_multi")
 
 
 def downgrade() -> None:
