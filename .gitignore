@@ -63,3 +63,6 @@ ai.md
 
 # Codex
 .codex
+
+# Test coverage output
+coverage.json
