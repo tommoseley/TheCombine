@@ -35,6 +35,7 @@ class ProductionMode(str, Enum):
     AUTHORIZE = "authorize"
     CONSTRUCT = "construct"
     INTAKE = "intake"
+    ASSEMBLE = "assemble"
 
 
 class Scope(str, Enum):
