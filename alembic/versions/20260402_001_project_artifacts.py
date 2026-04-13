@@ -7,6 +7,7 @@ Create Date: 2026-04-02
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 revision = "20260402_001"
@@ -16,6 +17,10 @@ depends_on = None
 
 
 def upgrade():
+    bind = op.get_bind()
+    if "project_artifacts" in inspect(bind).get_table_names():
+        return
+
     op.create_table(
         "project_artifacts",
         sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
