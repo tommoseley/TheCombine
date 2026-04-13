@@ -345,13 +345,32 @@ export const api = {
 
     // ---- Pipeline Rewind (ADR-063) ----
 
-    rewindPipeline: (projectId, stage, reason, actor = 'user') =>
+    rewindPipeline: (projectId, stage, reason, actor = 'user', appliesTo = null) =>
         request(`/projects/${projectId}/rewind`, {
             method: 'POST',
             body: JSON.stringify({
                 rewind_to_stage: stage,
                 reason,
                 actor,
+                ...(appliesTo ? { applies_to_stages: appliesTo } : {}),
+            }),
+        }),
+
+    getCorrection: (projectId, stage) =>
+        request(`/projects/${projectId}/corrections/${stage}`).catch(err => {
+            // 404 is expected when no correction exists
+            if (err?.status === 404 || err?.message?.includes('404') || err?.message?.includes('No correction')) return null;
+            // Don't throw on other errors — pre-population is best-effort
+            console.warn('getCorrection failed:', err);
+            return null;
+        }),
+
+    updateCorrection: (projectId, stage, text, appliesTo = null) =>
+        request(`/projects/${projectId}/corrections/${stage}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                text,
+                ...(appliesTo ? { applies_to_stages: appliesTo } : {}),
             }),
         }),
 
@@ -369,6 +388,89 @@ export const api = {
 
     getPipelineStatus: (projectId) =>
         request(`/projects/${projectId}/pipeline-status`),
+
+    getTimeline: (projectId) =>
+        request(`/projects/${projectId}/timeline`),
+
+    getProjectTimeline: (projectId) =>
+        request(`/projects/${projectId}/timeline`),
+
+    restoreCheckpoint: (projectId, checkpointId, reason = 'Operator restore') =>
+        request(`/projects/${projectId}/restore`, {
+            method: 'POST',
+            body: JSON.stringify({ checkpoint_id: checkpointId, reason }),
+        }),
+
+    archiveThread: (projectId, eventId, reason = 'Operator archive') =>
+        request(`/projects/${projectId}/archive-thread`, {
+            method: 'POST',
+            body: JSON.stringify({ event_id: eventId, reason }),
+        }),
+
+    // Artifacts (project mockups/attachments)
+    uploadArtifact: (projectId, file, label) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('label', label);
+        return fetch(`${API_BASE}/projects/${projectId}/artifacts`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData,
+        }).then(async (res) => {
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new ApiError(
+                    data.detail || data.message || `Upload failed: ${res.status}`,
+                    res.status,
+                    data
+                );
+            }
+            return res.json();
+        });
+    },
+
+    listArtifacts: (projectId) =>
+        request(`/projects/${projectId}/artifacts`),
+
+    deleteArtifact: (projectId, artifactId) =>
+        request(`/projects/${projectId}/artifacts/${artifactId}`, {
+            method: 'DELETE',
+        }),
+
+    updateArtifact: (projectId, artifactId, updates) =>
+        request(`/projects/${projectId}/artifacts/${artifactId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(updates),
+        }),
+
+    // --- Binder Assembly (ADR-071) ---
+    assembleWorkBinder: (projectId) =>
+        request(`/work-binder/${projectId}/assemble`, { method: 'POST' }),
+
+    getWorkBinder: (projectId) =>
+        request(`/work-binder/${projectId}/binder`).catch(() => null),
+
+    // --- Document Reference Resolution (ADR-071) ---
+    resolveReferences: (projectId, refs) =>
+        request(`/projects/${projectId}/documents/resolve?refs=${encodeURIComponent(refs.join(','))}`),
+
+    // --- Synthesis (ADR-070) ---
+    triggerSynthesis: (projectId) =>
+        request(`/projects/${projectId}/synthesis`, { method: 'POST' }),
+
+    getSynthesisDelta: (projectId) =>
+        request(`/projects/${projectId}/synthesis`).catch(() => null),
+
+    recordFindingDecision: (projectId, findingId, decision, note = null) =>
+        request(`/projects/${projectId}/synthesis/findings/${findingId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ decision, note }),
+        }),
+
+    explainFinding: (projectId, findingId) =>
+        request(`/projects/${projectId}/synthesis/findings/${findingId}/explain`, {
+            method: 'POST',
+        }),
 };
 
 /**

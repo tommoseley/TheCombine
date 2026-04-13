@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_statement.v1.2.json",
+  "type": "object",
+  "title": "Work Statement v1.2.0",
+  "description": "A governed unit of authorized execution with POL-WS-001 full compliance: verification mode, preconditions, definition of done, and allowed paths required.",
+  "required": [
+    "ws_id",
+    "parent_wp_id",
+    "title",
+    "objective",
+    "scope_in",
+    "scope_out",
+    "allowed_paths",
+    "preconditions",
+    "verification_mode",
+    "procedure",
+    "verification_criteria",
+    "definition_of_done",
+    "prohibited_actions",
+    "governance_pins"
+  ],
+  "properties": {
+    "ws_id": { "type": "string", "minLength": 1 },
+    "parent_wp_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string", "minLength": 1 },
+    "scope_in": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "scope_out": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "allowed_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "File-path prefixes that define the containment boundary. Passed to Tier 0 as --scope arguments."
+    },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Required artifacts, system state, approvals, or inputs that must be satisfied before execution."
+    },
+    "verification_mode": {
+      "type": "string",
+      "enum": ["A", "B"],
+      "description": "A = all verification criteria must pass. B = declared exceptions permitted."
+    },
+    "procedure": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "verification_criteria": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "definition_of_done": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Conditions under which the work is considered complete per POL-WS-001 Section 8."
+    },
+    "prohibited_actions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "governance_pins": {
+      "type": "object",
+      "required": ["ta_version_id", "policy_refs"],
+      "properties": {
+        "ta_version_id": { "type": "string", "minLength": 1 },
+        "adr_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_refs": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "upstream_dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sibling WP capabilities this WS consumes."
+    },
+    "contradiction_notes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Noted contradictions between inputs. Empty array if none found."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["DRAFT", "READY", "IN_PROGRESS", "ACCEPTED", "REJECTED", "BLOCKED"]
+    },
+    "order_key": {
+      "type": "string",
+      "description": "Lexicographic ordering key within parent WP (e.g., a0, a1, b0).",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "object",
+      "description": "Edition tracking. Independent of parent WP revision.",
+      "required": ["edition"],
+      "properties": {
+        "edition": { "type": "integer", "minimum": 1 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "updated_by": { "type": "string" }
+      }
+    },
+    "_lineage": {
+      "type": "object",
+      "properties": {
+        "parent_document_type": { "type": "string" },
+        "parent_execution_id": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

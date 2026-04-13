@@ -27,8 +27,10 @@ env/
 htmlcov/
 tests/
 
-# Operations (never in runtime image)
+# Operations (never in runtime image — except schema bootstrap)
 ops/
+!ops/db/
+!ops/db/schema.sql
 docs/
 recycle/
 

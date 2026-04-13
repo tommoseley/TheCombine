@@ -1,0 +1,6 @@
+name: "Technical Architecture"
+version: "1.4.0"
+intent: "TA consumes IP as authoritative decomposition context (ADR-066)"
+parent_version: "1.3.0"
+defect_targeted: "TA/IP independence causes structural misalignment — WP ownership overlap and duplication"
+tags: [governance, component-authority, ownership-paths, ip-alignment, adr-066]

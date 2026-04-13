@@ -60,3 +60,6 @@ task-*.json
 
 # Claude.AI project knowledge bootstrap (managed outside git)
 ai.md
+
+# Codex
+.codex

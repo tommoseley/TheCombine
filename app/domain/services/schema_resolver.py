@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 
-from app.api.services.schema_registry_service import SchemaRegistryService
+from app.domain.services.registry_ports import SchemaRegistryPort
 
 
 class CircularSchemaReferenceError(Exception):
@@ -64,7 +64,7 @@ class SchemaResolver:
     # Pattern to match schema references: $ref: "schema:SomeSchemaId"
     SCHEMA_REF_PATTERN = re.compile(r'^schema:([A-Za-z0-9_]+)$')
     
-    def __init__(self, registry: SchemaRegistryService):
+    def __init__(self, registry: SchemaRegistryPort):
         self.registry = registry
     
     async def resolve_bundle(

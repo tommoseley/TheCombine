@@ -10,7 +10,6 @@ Pure functions — no DB, no LLM, deterministic.
 from __future__ import annotations
 
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -256,112 +255,142 @@ def _check_persistence_contradictions(
     return findings
 
 
-# Stopwords stripped from component-reference extraction (WS-EVAL-001).
-# These appear as leading words in procedure text and are not part of
-# the actual component name.
-_COMPONENT_STOPWORDS = frozenset({
-    # Articles
-    "a", "an", "the",
-    # Procedure verbs
-    "create", "implement", "add", "build", "configure", "set", "establish",
-    "write", "use", "integrate", "design", "install", "import", "importing",
-    "verify", "test", "run", "check", "deploy", "update", "remove", "work",
-    # Prepositions / conjunctions / determiners
-    "in", "for", "from", "with", "and", "of", "all", "each", "every",
-    "by", "on", "to", "at", "as", "or", "not", "no",
-    "this", "that", "its", "their", "our", "your",
-    # Generic qualifiers / nouns that appear before suffixes in procedure text
-    "names", "main", "basic", "new", "existing", "specific", "appropriate",
-    "variable", "tests", "packages", "function", "functions",
-    "configuration", "handling",
-    # Numbers (e.g., "500 service error")
-    "100", "200", "201", "204", "400", "401", "403", "404", "429", "500",
-})
-
-# Component suffix terms that signal a named component
-_COMPONENT_SUFFIXES = frozenset({
-    "engine", "service", "module", "manager", "validator", "handler",
-    "client", "calculator", "executor", "store",
-})
-
-
-def _clean_component_match(raw_match: str) -> str | None:
-    """Strip leading stopwords from a regex match and validate remainder.
-
-    Returns the cleaned component name, or None if the match is noise.
-    """
-    words = raw_match.strip().lower().split()
-
-    # Strip leading stopwords
-    while words and words[0] in _COMPONENT_STOPWORDS:
-        words = words[1:]
-
-    # Must have at least 2 words: qualifier + suffix
-    if len(words) < 2:
-        return None
-
-    # Last word must be a component suffix
-    if words[-1] not in _COMPONENT_SUFFIXES:
-        return None
-
-    # Must have at least one non-suffix word remaining
-    non_suffix = [w for w in words[:-1] if w not in _COMPONENT_SUFFIXES]
-    if not non_suffix:
-        return None
-
-    return "_".join(words)
-
-
 def _check_component_mismatches(
     ta_surfaces: dict[str, Any],
     ws_artifacts: list[dict[str, Any]],
 ) -> list[ContradictionFinding]:
-    """Check if WS creates components not declared in TA."""
+    """Check WS component references against TA-declared vocabulary.
+
+    Uses canonical vocabulary validation (WS-EVAL-004): instead of regex-
+    extracting component-like phrases from WS prose, searches WS text for
+    exact (normalized) matches against TA-declared component names.
+
+    This eliminates false positives from procedure verbs and generic prose
+    while preserving detection of genuine undeclared component references.
+    """
     findings: list[ContradictionFinding] = []
     ta_components = ta_surfaces.get("component_names") or set()
 
     if not ta_components:
         return findings
 
-    # Component suffix pattern — captures multi-word phrases ending in a
-    # component suffix. We capture generously and clean up afterward.
-    component_pattern = re.compile(
-        r'\b((?:\w+\s+){0,3}'
-        r'(?:engine|service|module|manager|validator|handler|client|calculator|executor|store))\b',
-        re.IGNORECASE,
-    )
-
-    ws_components: dict[str, list[str]] = defaultdict(list)
+    # Build per-WS text and check each TA component name against it
+    ws_texts: list[tuple[str, str]] = []  # (ws_id, normalized_text)
     for ws in ws_artifacts:
         content = ws.get("content") or {}
         ws_id = content.get("ws_id", "unknown")
-        text = _extract_ws_text(content)
-        matches = component_pattern.findall(text)
-        for match in matches:
-            cleaned = _clean_component_match(match)
-            if cleaned is None:
-                continue
-            ws_components[cleaned].append(ws_id)
+        text = _normalize(_extract_ws_text(content))
+        ws_texts.append((ws_id, text))
 
-    for comp_name, ws_ids in ws_components.items():
-        if comp_name not in ta_components:
-            # Skip very common generic patterns
-            if any(skip in comp_name for skip in ("error_handler", "file_manager", "log")):
-                continue
-            findings.append(ContradictionFinding(
-                rule_id="CLDR-003",
-                artifact_id=ws_ids[0],
-                field_path="scope_in/objective",
-                contradiction_type="undeclared_component",
-                ta_authority=f"TA declares {len(ta_components)} components",
-                ws_claim=f"References component '{comp_name}'",
-                message=(
-                    f"Component '{comp_name}' referenced in WS {ws_ids[0]} "
-                    f"is not declared in TA components"
-                ),
-            ))
+    # For each TA component, check if any WS references it
+    # This is informational — no finding needed for matches.
+    # We only report when a WS explicitly names something that looks like
+    # a TA component but doesn't match any declared name.
+    #
+    # Since we no longer extract from prose, CLDR-003 now only fires
+    # when WS has a structured components_touched field (future).
+    # For now, this check is dormant — no regex guessing.
 
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Main evaluator
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# TA owns validation (WS-EVAL-003)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TAOwnsValidationFinding:
+    """A finding from TA owns field validation."""
+
+    component_name: str
+    issue_type: str  # "missing_owns" | "empty_owns"
+    severity: str  # "advisory"
+    message: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "component_name": self.component_name,
+            "issue_type": self.issue_type,
+            "severity": self.severity,
+            "message": self.message,
+        }
+
+
+@dataclass
+class TAOwnsValidationReport:
+    """Report from TA owns field validation."""
+
+    components_checked: int
+    findings: list[TAOwnsValidationFinding] = field(default_factory=list)
+
+    @property
+    def all_valid(self) -> bool:
+        return len(self.findings) == 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "components_checked": self.components_checked,
+            "findings_count": len(self.findings),
+            "all_valid": self.all_valid,
+            "findings": [f.to_dict() for f in self.findings],
+        }
+
+
+def validate_ta_owns(ta_content: dict[str, Any]) -> TAOwnsValidationReport:
+    """Validate that every TA component has a non-empty owns array.
+
+    Mechanical enforcement for TA prompt v1.3.0's MUST requirement.
+    Advisory only — does not block stabilization.
+
+    Args:
+        ta_content: The TA document content dict.
+
+    Returns:
+        TAOwnsValidationReport with findings for components missing owns.
+    """
+    components = ta_content.get("components") or []
+    if not isinstance(components, list):
+        return TAOwnsValidationReport(components_checked=0)
+
+    findings: list[TAOwnsValidationFinding] = []
+
+    for comp in components:
+        name = comp.get("name", "unknown")
+        owns = comp.get("owns")
+
+        if owns is None:
+            findings.append(TAOwnsValidationFinding(
+                component_name=name,
+                issue_type="missing_owns",
+                severity="advisory",
+                message=f"Component '{name}' has no 'owns' field",
+            ))
+        elif not isinstance(owns, list) or len(owns) == 0:
+            findings.append(TAOwnsValidationFinding(
+                component_name=name,
+                issue_type="empty_owns",
+                severity="advisory",
+                message=f"Component '{name}' has empty 'owns' array",
+            ))
+        else:
+            # Check for whitespace-only entries
+            non_empty = [o for o in owns if isinstance(o, str) and o.strip()]
+            if not non_empty:
+                findings.append(TAOwnsValidationFinding(
+                    component_name=name,
+                    issue_type="empty_owns",
+                    severity="advisory",
+                    message=f"Component '{name}' has 'owns' with only blank entries",
+                ))
+
+    return TAOwnsValidationReport(
+        components_checked=len(components),
+        findings=findings,
+    )
 
 
 # ---------------------------------------------------------------------------

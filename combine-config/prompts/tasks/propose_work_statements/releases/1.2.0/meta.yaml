@@ -1,0 +1,5 @@
+name: "Propose Work Statements"
+version: "1.2.0"
+parent_version: "1.1.0"
+intent: "POL-WS-001 full compliance — add verification_mode, preconditions, definition_of_done, require allowed_paths"
+defect_targeted: "MSA-001-F1"

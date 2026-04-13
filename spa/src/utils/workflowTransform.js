@@ -63,7 +63,14 @@ export function workflowToReactFlow(workflowJson) {
     const entryNodeIds = workflowJson.entry_node_ids || [];
 
     const rfNodes = workflowJson.nodes.map(node => {
-        const baseConfig = NODE_TYPE_CONFIG[node.type] || NODE_TYPE_CONFIG.task;
+        // Gate subtypes: map gate_kind to specific visual config (pgc → cyan, qa → purple)
+        let effectiveType = node.type;
+        if (node.type === 'gate' && node.gate_kind) {
+            if (NODE_TYPE_CONFIG[node.gate_kind]) {
+                effectiveType = node.gate_kind;
+            }
+        }
+        const baseConfig = NODE_TYPE_CONFIG[effectiveType] || NODE_TYPE_CONFIG.task;
         const isNegativeEnd = node.type === 'end' &&
             ['blocked', 'abandoned'].includes(node.terminal_outcome);
         const config = isNegativeEnd ? NEGATIVE_END_CONFIG : baseConfig;
@@ -237,13 +244,59 @@ export function createDefaultNode(type, position = { x: 100, y: 100 }) {
     if (type === 'end') {
         node.terminal_outcome = 'stabilized';
     }
-    if (type === 'task' || type === 'pgc') {
-        node.task_ref = '';
-        node.includes = {};
+    if (type === 'pgc') {
+        // PGC gates use type: 'gate' + gate_kind: 'pgc' in definitions
+        node.type = 'gate';
+        node.gate_kind = 'pgc';
+        node.produces = '';
+        node.internals = {
+            pass_a: {
+                internal_type: 'LLM',
+                name: 'Question Generation',
+                template_ref: '',
+                includes: {
+                    ROLE_PROMPT: '',
+                    TASK_PROMPT: '',
+                    PGC_CONTEXT: '',
+                },
+                output_schema_ref: '',
+            },
+            entry: {
+                internal_type: 'UI',
+                name: 'Operator Answers',
+                op_ref: '',
+            },
+            merge: {
+                internal_type: 'MECH',
+                name: 'Merge Clarifications',
+                op_ref: '',
+            },
+        };
     }
     if (type === 'qa') {
-        node.requires_qa = true;
-        node.qa_mode = 'semantic';
+        // QA gates use type: 'gate' + gate_kind: 'qa' in definitions
+        node.type = 'gate';
+        node.gate_kind = 'qa';
+        node.internals = {
+            evaluate: {
+                internal_type: 'LLM',
+                name: 'QA Evaluation',
+                task_ref: '',
+                includes: {
+                    ROLE_PROMPT: '',
+                },
+                qa_mode: 'semantic',
+            },
+        };
+        node.remediation = {
+            enabled: true,
+            max_attempts: 2,
+            feedback_to: 'remediation',
+        };
+    }
+    if (type === 'task') {
+        node.task_ref = '';
+        node.includes = {};
     }
 
     return node;

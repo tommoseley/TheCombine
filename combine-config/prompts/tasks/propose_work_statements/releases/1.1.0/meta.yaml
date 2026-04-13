@@ -1,0 +1,6 @@
+name: "Propose Work Statements"
+version: "1.1.0"
+intent: "Eliminate infrastructure duplication in downstream WPs by injecting upstream WP awareness"
+parent_version: "1.0.0"
+defect_targeted: "APAM-003 WS layer duplicated config, logging, CSV persistence, and orchestration across every WP"
+tags: [governance, ws-proposal, deduplication, upstream-awareness]

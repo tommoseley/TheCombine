@@ -89,9 +89,35 @@ class TestGetAffectedDocTypeIds:
 
     def test_ci_rewind_returns_all_doc_types(self):
         result = get_affected_doc_type_ids(PipelineStage.CI)
-        assert len(result) == 6
+        assert len(result) == 7  # 6 stages + work_package_candidate
         assert result[0] == "concierge_intake"
 
     def test_ws_rewind_returns_single(self):
         result = get_affected_doc_type_ids(PipelineStage.WS)
         assert result == ["work_statement"]
+
+    def test_ip_rewind_includes_work_package_candidate(self):
+        """WPCs are derived from IP — must be invalidated when IP is affected."""
+        result = get_affected_doc_type_ids(PipelineStage.IP)
+        assert "work_package_candidate" in result
+        assert "implementation_plan" in result
+
+    def test_pd_rewind_includes_work_package_candidate(self):
+        """PD rewind cascades through IP, so WPCs are also invalidated."""
+        result = get_affected_doc_type_ids(PipelineStage.PD)
+        assert "work_package_candidate" in result
+
+    def test_ci_rewind_includes_work_package_candidate(self):
+        """Full pipeline rewind includes WPCs."""
+        result = get_affected_doc_type_ids(PipelineStage.CI)
+        assert "work_package_candidate" in result
+
+    def test_ta_rewind_does_not_include_work_package_candidate(self):
+        """TA rewind does not invalidate WPCs — they come from IP, not TA."""
+        result = get_affected_doc_type_ids(PipelineStage.TA)
+        assert "work_package_candidate" not in result
+
+    def test_wp_rewind_does_not_include_work_package_candidate(self):
+        """WP rewind does not invalidate WPCs."""
+        result = get_affected_doc_type_ids(PipelineStage.WP)
+        assert "work_package_candidate" not in result

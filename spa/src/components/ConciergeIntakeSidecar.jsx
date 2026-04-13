@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import yaml from 'js-yaml';
 import { useConciergeIntake } from '../hooks';
+import { api } from '../api/client';
 import MessageList from './concierge/MessageList';
 import ChatInput from './concierge/ChatInput';
 import CompletionCard from './concierge/CompletionCard';
@@ -36,6 +37,30 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
 
     // Intro content loaded from YAML
     const [introData, setIntroData] = useState(null);
+
+    // Buffered mockup files (uploaded after project creation)
+    const [bufferedFiles, setBufferedFiles] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const uploadedRef = useRef(false);
+
+    // Upload buffered files when project becomes available
+    useEffect(() => {
+        if (project && bufferedFiles.length > 0 && !uploadedRef.current) {
+            uploadedRef.current = true;
+            setUploadingFiles(true);
+            (async () => {
+                for (const bf of bufferedFiles) {
+                    try {
+                        await api.uploadArtifact(project.id, bf.file, bf.label);
+                    } catch (err) {
+                        console.error('Failed to upload mockup:', bf.label, err);
+                    }
+                }
+                setUploadingFiles(false);
+                setBufferedFiles([]);
+            })();
+        }
+    }, [project, bufferedFiles]);
 
     // Start intake and load intro content on mount
     useEffect(() => {
@@ -216,6 +241,9 @@ export default function ConciergeIntakeSidecar({ onClose, onComplete }) {
                             onSubmit={submitMessage}
                             disabled={submitting}
                             placeholder="Describe what you want to build..."
+                            enableAttachments
+                            bufferedFiles={bufferedFiles}
+                            onFilesChange={setBufferedFiles}
                         />
                     </>
                 );

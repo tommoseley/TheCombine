@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/synthesis_advisor.v1.0.json",
+  "type": "object",
+  "title": "Synthesis Advisor Response v1.0.0",
+  "description": "Structured decision context for a synthesis finding. Five required sections, no recommendations.",
+  "required": [
+    "whats_happening",
+    "what_the_plan_says",
+    "whats_missing",
+    "options_and_tradeoffs",
+    "impact"
+  ],
+  "properties": {
+    "whats_happening": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this decision exists and why the pipeline is blocked or uncertain."
+    },
+    "what_the_plan_says": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relevant binder excerpts or summaries grounding the decision."
+    },
+    "whats_missing": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The exact gap preventing execution or clarity."
+    },
+    "options_and_tradeoffs": {
+      "type": "string",
+      "minLength": 1,
+      "description": "2-4 realistic approaches with pros and cons."
+    },
+    "impact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What changes depending on the choice — unblocked items, scope effects, DoD changes."
+    }
+  },
+  "additionalProperties": false
+}

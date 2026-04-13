@@ -8,16 +8,14 @@ Supports two modes:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
     NodeExecutor,
     NodeResult,
 )
-
-if TYPE_CHECKING:
-    from app.api.services.mechanical_ops_service import MechanicalOpsService
+from app.domain.workflow.operations import OperationProvider, OperationExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +42,13 @@ class GateNodeExecutor(NodeExecutor):
         self,
         llm_service=None,
         prompt_loader=None,
-        ops_service: Optional["MechanicalOpsService"] = None,
+        ops_service: Optional[OperationProvider] = None,
+        operation_executor: Optional[OperationExecutor] = None,
     ):
         self.llm_service = llm_service
         self.prompt_loader = prompt_loader
         self._ops_service = ops_service
+        self._operation_executor = operation_executor
         self._profile_executor = None  # Lazy initialization
 
     def get_supported_node_type(self) -> str:
@@ -247,6 +247,7 @@ class GateNodeExecutor(NodeExecutor):
                 llm_service=self.llm_service,
                 prompt_loader=self.prompt_loader,
                 ops_service=self._ops_service,
+                operation_executor=self._operation_executor,
             )
 
         logger.info(f"Gate {node_id}: Delegating to Intake Gate Profile executor")

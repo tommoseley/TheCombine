@@ -11,8 +11,11 @@
  * WS-PIPELINE-002: Replaces modal document viewing with inline content panel.
  */
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { api } from '../api/client';
 import FullDocumentViewer from './FullDocumentViewer';
 import WorkBinder from './WorkBinder';
+import SynthesisReview from './SynthesisReview';
+import WorkPlanViewer from './WorkPlanViewer';
 import QuestionTray from './QuestionTray';
 import StationDots from './StationDots';
 
@@ -49,13 +52,90 @@ const DOC_TYPE_DESCRIPTIONS = {
         'Unit of planned work with scope, governance pins, and completion criteria. Tracks dependencies, state, and child Work Statement references.',
     work_statement:
         'Unit of authorized execution within a Work Package. Defines objective, scope, procedure, verification criteria, prohibited actions, and allowed file paths.',
+    synthesis_delta:
+        'Post-binder composition review. Dual-instance analysis identifies scope overlaps, missing coverage, platform concerns, and boundary misalignments across the complete binder.',
+    work_plan:
+        'Final project plan combining all documents, decisions, and dependencies into a single readable artifact. Ready for review and handoff.',
 };
 
 /**
- * Empty state — document doesn't exist yet, can be produced
+ * Empty state — document doesn't exist yet, can be produced.
+ * ADR-069: If a correction brief exists for this stage (from a prior rewind),
+ * it is shown inline and editable above the action button.
+ * The button reads "Restart Production" when a correction is active.
  */
-function ReadyState({ step, onStartProduction }) {
+function ReadyState({ step, onStartProduction, projectId }) {
     const description = DOC_TYPE_DESCRIPTIONS[step.id];
+    const [correction, setCorrection] = useState(null);
+    const [wasRewound, setWasRewound] = useState(false);
+    const [editText, setEditText] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+
+    // Fetch existing correction AND check if stage has stale docs (rewound)
+    useEffect(() => {
+        if (!projectId || !step.id) return;
+
+        const fetchCorrection = api.getCorrection(projectId, step.id)
+            .then(data => {
+                if (data) {
+                    setCorrection(data);
+                    setEditText(data.text || '');
+                    setWasRewound(true);
+                }
+            })
+            .catch(() => {});
+
+        // Also check pipeline-status for stale docs at this stage
+        // (detects rewinds that happened before authority records existed)
+        const fetchPipelineStatus = api.getPipelineStatus(projectId)
+            .then(status => {
+                if (status?.stages) {
+                    const stageInfo = status.stages.find(s =>
+                        s.doc_type_id === step.id || s.stage === step.id?.toUpperCase()
+                    );
+                    if (stageInfo?.has_stale) {
+                        setWasRewound(true);
+                    }
+                }
+            })
+            .catch(() => {});
+
+        Promise.all([fetchCorrection, fetchPipelineStatus])
+            .finally(() => setLoaded(true));
+    }, [projectId, step.id]);
+
+    const showCorrectionArea = wasRewound;
+    const hasExistingCorrection = correction !== null;
+    const textChanged = editText.trim() !== (correction?.text || '').trim() && editText.trim() !== '';
+
+    const handleSaveCorrection = async () => {
+        if (!textChanged) return;
+        setSaving(true);
+        try {
+            if (hasExistingCorrection) {
+                // Update existing correction
+                const updated = await api.updateCorrection(projectId, step.id, editText);
+                setCorrection(updated);
+            } else {
+                // No existing correction — create one via a lightweight rewind
+                // that doesn't re-mark docs stale (they already are).
+                // For now, use updateCorrection which will 404, so we use rewindPipeline
+                // with the text as reason. This is a first-time correction on a pre-069 rewind.
+                await api.rewindPipeline(projectId, step.id, editText);
+                // Re-fetch to get the authority record
+                const data = await api.getCorrection(projectId, step.id);
+                if (data) {
+                    setCorrection(data);
+                }
+            }
+        } catch (err) {
+            // silently fail — user can still proceed
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <div className="flex flex-col items-center justify-center h-full gap-6">
             <div className="text-center max-w-md">
@@ -83,9 +163,53 @@ function ReadyState({ step, onStartProduction }) {
                     </p>
                 )}
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                    Ready to be produced. All prerequisite inputs are available.
+                    {showCorrectionArea
+                        ? 'This stage was rewound. Describe what\u2019s wrong and what must change \u2014 this becomes a binding constraint for regeneration.'
+                        : 'Ready to be produced. All prerequisite inputs are available.'}
                 </p>
             </div>
+
+            {/* ADR-069: Inline correction brief (editable before regeneration) */}
+            {loaded && showCorrectionArea && (
+                <div className="w-full max-w-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--state-blocked-text, #92400e)' }}>
+                            Correction Brief
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                            — editable until regeneration
+                        </span>
+                    </div>
+                    <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        rows={4}
+                        className="w-full text-[12px] px-3 py-2 rounded border"
+                        style={{
+                            borderColor: 'var(--state-blocked-bg, #fbbf24)',
+                            backgroundColor: 'var(--surface-secondary, var(--bg-canvas, #1a1a2e))',
+                            color: 'var(--text-primary)',
+                            resize: 'vertical',
+                            lineHeight: 1.5,
+                        }}
+                    />
+                    {textChanged && (
+                        <button
+                            onClick={handleSaveCorrection}
+                            disabled={saving}
+                            className="mt-1 text-[10px] px-2 py-1 rounded"
+                            style={{
+                                backgroundColor: 'var(--accent-primary, #3b82f6)',
+                                color: '#fff',
+                                opacity: saving ? 0.5 : 1,
+                            }}
+                        >
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    )}
+                </div>
+            )}
+
             <button
                 className="px-5 py-2.5 rounded-lg font-semibold transition-all hover:brightness-110"
                 style={{
@@ -93,9 +217,16 @@ function ReadyState({ step, onStartProduction }) {
                     backgroundColor: 'var(--state-ready-bg)',
                     color: 'white',
                 }}
-                onClick={() => onStartProduction(step.id)}
+                onClick={() => {
+                    // Save pending edits before starting production
+                    if (textChanged && editText.trim()) {
+                        handleSaveCorrection().then(() => onStartProduction(step.id));
+                    } else {
+                        onStartProduction(step.id);
+                    }
+                }}
             >
-                Start Production
+                {showCorrectionArea ? 'Restart Production' : 'Start Production'}
             </button>
         </div>
     );
@@ -218,7 +349,7 @@ function RotatingTip() {
 /**
  * In-progress state — document is being produced
  */
-function InProgressState({ step, onSubmitQuestions }) {
+function InProgressState({ step, onSubmitQuestions, onCancelProduction }) {
     const hasQuestions = step.questions?.length > 0;
     const needsInput = step.stations?.some(s => s.state === 'active' && s.needs_input);
 
@@ -312,6 +443,25 @@ function InProgressState({ step, onSubmitQuestions }) {
                 </div>
             )}
 
+            {/* Cancel button */}
+            {onCancelProduction && (
+                <button
+                    className="px-4 py-1.5 rounded-md text-xs font-medium transition-colors hover:opacity-90"
+                    style={{
+                        background: 'transparent',
+                        color: 'var(--text-muted)',
+                        border: '1px solid var(--border-node)',
+                    }}
+                    onClick={() => {
+                        if (window.confirm(`Cancel production for ${formatDocTypeName(step.id)}?`)) {
+                            onCancelProduction(step.id);
+                        }
+                    }}
+                >
+                    Cancel Production
+                </button>
+            )}
+
             {/* Rotating tips — shown while LLM is working (not during user input) */}
             {!needsInput && <RotatingTip />}
 
@@ -333,6 +483,7 @@ export default function ContentPanel({
     projectId,
     projectCode,
     onStartProduction,
+    onCancelProduction,
     onSubmitQuestions,
     pipelineData = [],
     onProduceNext,
@@ -381,6 +532,27 @@ export default function ContentPanel({
         );
     }
 
+    // Synthesis — post-binder composition review (ADR-070)
+    // If a delta exists (produced state), show the review UI.
+    // Otherwise, fall through to normal ReadyState rendering.
+    if (step.id === 'synthesis_delta' && getArtifactState(step.state) === 'stabilized') {
+        return (
+            <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
+                <SynthesisReview projectId={projectId} />
+            </div>
+        );
+    }
+
+    // Work Plan — final deliverable (ADR-071)
+    // When produced, show the dedicated Work Plan viewer.
+    if (step.id === 'work_plan' && getArtifactState(step.state) === 'stabilized') {
+        return (
+            <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
+                <WorkPlanViewer projectId={projectId} />
+            </div>
+        );
+    }
+
     // Determine document state
     const artifactState = getArtifactState(step.state || 'ready_for_production');
 
@@ -406,7 +578,7 @@ export default function ContentPanel({
     if (artifactState === 'in_progress') {
         return (
             <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
-                <InProgressState step={step} onSubmitQuestions={onSubmitQuestions} />
+                <InProgressState step={step} onSubmitQuestions={onSubmitQuestions} onCancelProduction={onCancelProduction} />
             </div>
         );
     }
@@ -423,7 +595,7 @@ export default function ContentPanel({
     // Ready (default) — show "Start Production"
     return (
         <div className="flex-1 h-full overflow-y-auto" style={{ background: 'var(--bg-canvas)' }}>
-            <ReadyState step={step} onStartProduction={onStartProduction} />
+            <ReadyState step={step} onStartProduction={onStartProduction} projectId={projectId} />
         </div>
     );
 }

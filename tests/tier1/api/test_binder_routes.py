@@ -81,7 +81,7 @@ class TestBinderParamValidation:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=document&format=md"
@@ -95,7 +95,7 @@ class TestBinderParamValidation:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=project&format=pdf"
@@ -110,7 +110,7 @@ class TestBinderParamValidation:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?format=md"
@@ -128,7 +128,7 @@ class TestBinderEndToEnd:
         mock_db = _setup_db_with_docs([doc])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
 
             mock_pkg = MagicMock()
@@ -156,7 +156,7 @@ class TestBinderEndToEnd:
         mock_db = _setup_db_with_docs([])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=project&format=md"
@@ -172,7 +172,7 @@ class TestBinderEndToEnd:
         mock_db = _setup_db_with_docs([])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=project&format=md"
@@ -188,7 +188,7 @@ class TestBinderEndToEnd:
         mock_db = _setup_db_with_docs([])
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/render?scope=project&format=md"

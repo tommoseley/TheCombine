@@ -11,7 +11,7 @@ Gate Profile that uses LLM classification + operator confirmation.
 """
 
 import logging
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional
 
 from app.domain.workflow.nodes.base import (
     DocumentWorkflowContext,
@@ -20,8 +20,7 @@ from app.domain.workflow.nodes.base import (
 )
 from app.llm.models import LLMOperationalError
 
-if TYPE_CHECKING:
-    from app.api.services.mechanical_ops_service import MechanicalOpsService
+from app.domain.workflow.operations import OperationProvider, OperationExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +48,13 @@ class IntakeGateProfileExecutor(NodeExecutor):
         self,
         llm_service=None,
         prompt_loader=None,
-        ops_service: Optional["MechanicalOpsService"] = None,
+        ops_service: Optional["OperationProvider"] = None,
+        operation_executor: Optional[OperationExecutor] = None,
     ):
         self.llm_service = llm_service
         self.prompt_loader = prompt_loader
         self._ops_service = ops_service
+        self._operation_executor = operation_executor
 
     def get_supported_node_type(self) -> str:
         """Return the node type this executor handles."""
@@ -381,11 +382,9 @@ class IntakeGateProfileExecutor(NodeExecutor):
             return classification
 
         try:
-            from app.api.services.mech_handlers import execute_operation
-
-            op = self._ops_service.get_operation_by_ref(op_ref)
-            if op:
-                result = await execute_operation(
+            op = self._ops_service.get_operation_by_ref(op_ref) if self._ops_service else None
+            if op and self._operation_executor:
+                result = await self._operation_executor.execute(
                     operation=op,
                     inputs={"source_document": classification},
                 )
@@ -410,11 +409,9 @@ class IntakeGateProfileExecutor(NodeExecutor):
             return
 
         try:
-            from app.api.services.mech_handlers import execute_operation
-
-            op = self._ops_service.get_operation_by_ref(op_ref)
-            if op:
-                await execute_operation(
+            op = self._ops_service.get_operation_by_ref(op_ref) if self._ops_service else None
+            if op and self._operation_executor:
+                await self._operation_executor.execute(
                     operation=op,
                     inputs={
                         "confirmation": confirmation,

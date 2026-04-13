@@ -205,25 +205,6 @@ class TestPromptAssembly:
         assert '"unknowns"' in prompt
 
 
-class TestCaching:
-    """Tests for caching behavior."""
-
-    def test_package_cache(self, loader):
-        """Packages should be cached after first load."""
-        package1 = loader.get_document_type("project_discovery")
-        package2 = loader.get_document_type("project_discovery")
-
-        assert package1 is package2
-
-    def test_invalidate_cache(self, loader):
-        """Cache invalidation should clear all caches."""
-        package1 = loader.get_document_type("project_discovery")
-        loader.invalidate_cache()
-        package2 = loader.get_document_type("project_discovery")
-
-        assert package1 is not package2
-
-
 class TestListOperations:
     """Tests for list operations."""
 

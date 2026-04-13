@@ -203,20 +203,17 @@ export function useConciergeIntake() {
 
         eventSource.addEventListener('started', (e) => {
             if (!mountedRef.current) return;
-            const data = JSON.parse(e.data);
-            console.log('Intake started:', data);
+            JSON.parse(e.data);
         });
 
         eventSource.addEventListener('progress', (e) => {
             if (!mountedRef.current) return;
-            const data = JSON.parse(e.data);
-            console.log('Intake progress:', data.current_node);
+            JSON.parse(e.data);
         });
 
         eventSource.addEventListener('complete', async (e) => {
             if (!mountedRef.current) return;
             const data = JSON.parse(e.data);
-            console.log('Intake complete:', data);
 
             eventSource.close();
             sseRef.current = null;

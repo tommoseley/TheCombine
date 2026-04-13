@@ -409,7 +409,7 @@ if __name__ == "__main__":
     async def main():
         async with get_db_session() as db:
             count = await seed_document_types(db)
-            print(f"Seeded {count} document types")
+            logger.info(f"Seeded {count} document types")
     
     asyncio.run(main())
 

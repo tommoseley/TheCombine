@@ -1,0 +1,158 @@
+# Work Statement Document Type Package
+# Version 1.2.0 - POL-WS-001 full compliance: verification_mode, preconditions, definition_of_done, allowed_paths required
+
+doc_type_id: work_statement
+display_name: "Work Statement"
+version: "1.2.0"
+description: >
+  Unit of authorized execution within a Work Package.
+  Defines objective, scope, procedure, verification criteria,
+  prohibited actions, and allowed file paths. v1.2.0 adds
+  verification_mode (A/B), preconditions, and definition_of_done
+  per POL-WS-001 Section 4 full compliance. allowed_paths is now required.
+
+# Classification
+authority_level: constructive  # Derived from upstream decision artifacts (WP + TA)
+creation_mode: llm_generated
+production_mode: generate
+scope: project
+cardinality: multi
+display_prefix: WS
+
+# Dependencies
+required_inputs:
+  - work_package
+  - technical_architecture
+optional_inputs: []
+creates_children: []
+parent_doc_type: work_package
+
+# Shared artifact references
+role_prompt_ref: "prompt:role:project_manager:1.0.0"
+template_ref: "prompt:template:document_generator:1.0.0"
+schema_ref: "schema:work_statement:1.2.0"
+
+# Packaged artifacts
+artifacts:
+  task_prompt: "prompts/task.prompt.txt"
+  qa_prompt: null
+  pgc_context: null
+  questions_prompt: null
+  schema: "schemas/output.schema.json"
+
+# Tests
+tests:
+  fixtures: []
+  golden_traces: []
+
+# Gating rules
+gating_rules:
+  lifecycle_states: []
+  design_status: []
+  acceptance_required: true
+  accepted_by:
+    - stakeholder
+    - technical_lead
+
+# Information Architecture (ADR-054)
+information_architecture:
+  version: 3
+
+  sections:
+    - id: header
+      label: Work Statement
+      binds:
+        - path: ws_id
+          render_as: paragraph
+        - path: title
+          render_as: paragraph
+        - path: state
+          render_as: paragraph
+        - path: order_key
+          render_as: paragraph
+
+    - id: objective
+      label: Objective
+      binds:
+        - path: objective
+          render_as: paragraph
+
+    - id: verification_mode
+      label: Verification Mode
+      binds:
+        - path: verification_mode
+          render_as: paragraph
+
+    - id: scope
+      label: Scope
+      binds:
+        - path: scope_in
+          render_as: list
+        - path: scope_out
+          render_as: list
+
+    - id: allowed_paths
+      label: Allowed Paths
+      binds:
+        - path: allowed_paths
+          render_as: list
+
+    - id: preconditions
+      label: Preconditions
+      binds:
+        - path: preconditions
+          render_as: list
+
+    - id: procedure
+      label: Procedure
+      binds:
+        - path: procedure
+          render_as: ordered-list
+
+    - id: verification
+      label: Verification Criteria
+      binds:
+        - path: verification_criteria
+          render_as: ordered-list
+
+    - id: definition_of_done
+      label: Definition of Done
+      binds:
+        - path: definition_of_done
+          render_as: list
+
+    - id: prohibited
+      label: Prohibited Actions
+      binds:
+        - path: prohibited_actions
+          render_as: list
+
+    - id: governance
+      label: Governance
+      binds:
+        - path: governance_pins
+          render_as: nested-object
+          fields:
+            - path: ta_version_id
+              render_as: paragraph
+            - path: adr_refs
+              render_as: list
+            - path: policy_refs
+              render_as: list
+        - path: parent_wp_id
+          render_as: paragraph
+
+    - id: revision
+      label: Revision
+      binds:
+        - path: revision
+          render_as: nested-object
+          fields:
+            - path: edition
+              render_as: paragraph
+
+# UI configuration
+ui:
+  icon: file-check
+  category: planning
+  display_order: 39

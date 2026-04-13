@@ -257,7 +257,6 @@ export default function AdminWorkbench() {
     // Handle successful commit
     const handleCommit = useCallback((result) => {
         // State will refresh automatically
-        console.log('Committed:', result.commit_hash);
     }, []);
 
     // Handle discard

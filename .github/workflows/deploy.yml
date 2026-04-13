@@ -1,6 +1,6 @@
 # The Combine - CI/CD Pipeline (ECS Fargate + ALB)
 # Uses GitHub OIDC to assume AWS role - no stored credentials
-# ALB handles HTTPS termination and routing
+# Multi-container task: app + postgres sidecar (EFS-backed)
 
 name: Deploy to AWS
 
@@ -33,7 +33,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -48,23 +48,23 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov ruff
-      
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_combine
@@ -73,7 +73,7 @@ jobs:
           ENVIRONMENT: test
         run: |
           pytest tests/ -v --cov=app --cov-report=xml
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         if: github.event_name == 'push'
@@ -89,22 +89,22 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       # OIDC authentication - no stored credentials!
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      
+
       - name: Build, tag, and push image to ECR
         id: build-image
         env:
@@ -114,58 +114,67 @@ jobs:
           # Build with commit SHA tag
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
+
           # Also tag as latest
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
+
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-      
-      - name: Download current task definition
+
+      - name: Download and update task definition
+        env:
+          ANTHROPIC_SECRET_ARN: ${{ vars.ANTHROPIC_SECRET_ARN }}
+          NEW_IMAGE: ${{ steps.build-image.outputs.image }}
         run: |
-          # Use secret ARN from GitHub variable (avoids needing secretsmanager:DescribeSecret permission)
-          ANTHROPIC_SECRET_ARN="${{ vars.ANTHROPIC_SECRET_ARN }}"
-          echo "ANTHROPIC_SECRET_ARN=$ANTHROPIC_SECRET_ARN" >> $GITHUB_ENV
-          
+          # Download current task definition
           aws ecs describe-task-definition \
             --task-definition ${{ env.ECS_TASK_FAMILY }} \
             --query 'taskDefinition' \
             > task-definition.json
-          
-          # Use secret ARN for prod database (injected as DATABASE_URL from JSON key)
-          DB_SECRET_ARN="${{ vars.DB_PROD_SECRET_ARN }}"
 
-          # Remove fields that can't be re-registered AND ensure secrets are set
+          # Clean non-reregisterable fields, update app image, ensure secrets
           cat task-definition.json | jq \
-            --arg anthropic_arn "$ANTHROPIC_SECRET_ARN" \
-            --arg db_arn "$DB_SECRET_ARN" '
+            --arg image "$NEW_IMAGE" \
+            --arg anthropic_arn "$ANTHROPIC_SECRET_ARN" '
             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-            .containerDefinitions[0].secrets = [
-              {"name": "ANTHROPIC_API_KEY", "valueFrom": $anthropic_arn},
-              {"name": "DATABASE_URL", "valueFrom": ($db_arn + ":DATABASE_URL::")}
-            ] |
-            .containerDefinitions[0].environment |= map(select(.name != "DATABASE_URL"))
+            .containerDefinitions |= map(
+              if .name == "the-combine" then
+                .image = $image |
+                .secrets = [
+                  {"name": "ANTHROPIC_API_KEY", "valueFrom": $anthropic_arn}
+                ]
+              else .
+              end
+            )
           ' > cleaned-task-definition.json
           mv cleaned-task-definition.json task-definition.json
 
-          echo "Task definition prepared with secrets"
-      
-      - name: Update task definition with new image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
-      
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
-      
+          echo "Task definition prepared"
+          echo "Containers: $(cat task-definition.json | jq '[.containerDefinitions[].name]')"
+
+      - name: Register and deploy task definition
+        run: |
+          # Register the updated task definition
+          TASK_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          echo "Registered: $TASK_ARN"
+
+          # Update the service to use the new task definition
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --task-definition "$TASK_ARN" \
+            --force-new-deployment
+
+          echo "Deployment initiated, waiting for stability..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
+
+          echo "Service stable"
+
       - name: Deployment summary
         run: |
           echo "Deployment complete!"
@@ -183,17 +192,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+
     steps:
       - name: Wait for ALB to register new task
         run: |
           echo "Waiting 30s for ALB health checks..."
           sleep 30
-      
+
       - name: Health check via ALB
         run: |
           echo "Testing health at https://${{ env.DOMAIN_NAME }}/health"
-          
+
           # Retry health check a few times
           for i in {1..5}; do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ env.DOMAIN_NAME }}/health" --max-time 10 || echo "000")
@@ -205,7 +214,7 @@ jobs:
             echo "Attempt $i: HTTP $HTTP_CODE, waiting 30s..."
             sleep 30
           done
-          
+
           echo "Health check failed after 5 attempts"
           exit 1
 
@@ -217,7 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy, smoke-test]
     if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+
     steps:
       - name: Deployment status
         run: |

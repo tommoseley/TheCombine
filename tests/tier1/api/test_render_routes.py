@@ -105,7 +105,7 @@ class TestRenderFormatValidation:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/documents/PD-001/render?format=html"
@@ -120,7 +120,7 @@ class TestRenderFormatValidation:
         project = _mock_project()
         app, _ = _create_test_app()
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project):
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.get(
                     "/api/v1/projects/HWCA-001/documents/project_discovery/render?format=md"
@@ -142,7 +142,7 @@ class TestRenderEndToEnd:
         mock_db = _setup_db_with_document(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
 
@@ -170,7 +170,7 @@ class TestRenderEndToEnd:
         mock_db = _setup_db_with_document(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
 
@@ -194,7 +194,7 @@ class TestRenderEndToEnd:
         mock_db = _setup_db_with_document(document)
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
 
@@ -217,7 +217,7 @@ class TestRenderEndToEnd:
         mock_db = _setup_db_with_document(None)  # No document found
         app, _ = _create_test_app(mock_db)
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"):
 
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

@@ -35,7 +35,36 @@ export function useProductionStatus(projectId) {
 
             setInterrupts(projectInterrupts);
             setLineState(status.line_state);
-            setData(transformProductionStatus(status, projectInterrupts));
+            const transformed = transformProductionStatus(status, projectInterrupts);
+
+            // Append virtual pipeline steps (ADR-070, ADR-071)
+            const synthesisDelta = await api.getSynthesisDelta(projectId);
+            transformed.push({
+                id: 'synthesis_delta',
+                name: 'Review & Resolve',
+                desc: 'Identify and resolve conflicts across the plan',
+                state: synthesisDelta ? 'produced' : 'ready_for_production',
+                level: 1,
+                stations: null,
+                docTypeId: 'synthesis_delta',
+            });
+
+            // Work Plan — final deliverable (ADR-071)
+            const workPlan = await api.getDocument(projectId, 'work_plan').catch(() => null);
+            const workPlanReady = synthesisDelta != null;
+            transformed.push({
+                id: 'work_plan',
+                name: 'Work Plan',
+                desc: 'Final project plan — ready for review and handoff',
+                state: workPlan?.content?.executive_summary
+                    ? 'produced'
+                    : workPlanReady ? 'ready_for_production' : 'requirements_not_met',
+                level: 1,
+                stations: null,
+                docTypeId: 'work_plan',
+            });
+
+            setData(transformed);
         } catch (err) {
             setError(err.message);
             console.error('Failed to fetch production status:', err);
@@ -59,13 +88,11 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('connected', () => {
             setConnected(true);
             setError(null);
-            console.log(`SSE connected for project ${projectId}`);
         });
 
         eventSource.addEventListener('station_transition', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Station transition:', data);
                 // Refresh status on state changes
                 fetchStatus();
             } catch (err) {
@@ -76,7 +103,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('line_stopped', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Line stopped:', data);
                 setLineState('stopped');
                 fetchStatus();
             } catch (err) {
@@ -87,7 +113,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('production_complete', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Production complete:', data);
                 setLineState('complete');
                 fetchStatus();
             } catch (err) {
@@ -98,7 +123,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('interrupt_resolved', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Interrupt resolved:', data);
                 fetchStatus();
             } catch (err) {
                 console.error('Failed to parse interrupt_resolved:', err);
@@ -108,7 +132,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('track_started', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Track started:', data);
                 setLineState('active');
                 fetchStatus();
             } catch (err) {
@@ -119,7 +142,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('track_stabilized', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Track stabilized:', data);
                 // Refresh to get the final state
                 fetchStatus();
             } catch (err) {
@@ -132,7 +154,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('children_updated', (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('Children updated:', data);
                 fetchStatus();
             } catch (err) {
                 console.error('Failed to parse children_updated:', err);
@@ -144,12 +165,10 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('stations_declared', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Stations declared:', eventData);
                 const { document_type, stations } = eventData;
                 
                 setData(prev => {
                     const exists = prev.some(item => item.id === document_type);
-                    console.log('stations_declared raw stations:', stations);
                     const stationData = stations.map(s => ({
                         id: s.id,
                         label: s.label,
@@ -157,8 +176,7 @@ export function useProductionStatus(projectId) {
                         phases: s.phases || [],
                         phase: null,  // Current active phase (set by station_changed)
                     }));
-                    console.log('stations_declared processed:', stationData);
-                    
+
                     if (exists) {
                         // Update existing track - set state to in_production so stations render
                         return prev.map(item => 
@@ -186,7 +204,6 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('station_changed', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Station changed:', eventData);
                 const { document_type, station_id, state: newState } = eventData;
                 
                 setData(prev => prev.map(item => {
@@ -209,24 +226,29 @@ export function useProductionStatus(projectId) {
         eventSource.addEventListener('internal_step', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
-                console.log('Internal step:', eventData);
                 const { document_type, station_id, step } = eventData;
-                
+
                 setData(prev => prev.map(item => {
                     if (item.id !== document_type) return item;
                     if (!item.stations) return item;
                     return {
                         ...item,
-                        stations: item.stations.map(s => 
-                            s.id === station_id 
-                                ? { 
-                                    ...s, 
+                        stations: item.stations.map(s =>
+                            s.id === station_id
+                                ? {
+                                    ...s,
                                     currentStep: step,  // { key, name, type, number, total }
                                   }
                                 : s
                         ),
                     };
                 }));
+
+                // When a UI step arrives (PGC operator input), re-fetch to get
+                // interrupts and questions that the execution just created
+                if (step?.type === 'UI') {
+                    fetchStatus();
+                }
             } catch (err) {
                 console.error('Failed to parse internal_step:', err);
             }
@@ -240,7 +262,6 @@ export function useProductionStatus(projectId) {
 
             // Auto-reconnect after 3 seconds
             reconnectTimeoutRef.current = setTimeout(() => {
-                console.log('Attempting SSE reconnect...');
                 connectSSE();
             }, 3000);
         };
@@ -279,7 +300,10 @@ export function useProductionStatus(projectId) {
             setNotification(null);
             await api.startProduction(projectId, documentType);
             setLineState('active');
-            // Don't fetch immediately - SSE will provide updates as production progresses
+            // Fetch after start completes — the execution may already be paused
+            // for PGC input by the time the POST returns, and SSE-triggered
+            // refetches during the POST can be overwritten by concurrent setData calls
+            fetchStatus();
         } catch (err) {
             console.error('Failed to start production:', err);
             // Show user-friendly notification

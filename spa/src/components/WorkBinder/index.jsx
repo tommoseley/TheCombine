@@ -257,6 +257,59 @@ export default function WorkBinder({ projectId, projectCode, autoImport }) {
         }
     }, [projectId, refresh]);
 
+    // WS-WB-041: Batch propose — sequentially call propose-ws for eligible WPs
+    // proposingWpIds tracks which WPs are currently being proposed (for per-WP spinners)
+    const [batchProgress, setBatchProgress] = useState(null); // { current, total, results }
+    const [proposingWpIds, setProposingWpIds] = useState(new Set());
+    const handleProposeAll = useCallback(async () => {
+        const eligible = wps;
+        if (eligible.length === 0) return;
+
+        const results = { succeeded: 0, skipped: 0, failed: 0, failedIds: [] };
+        setBatchProgress({ current: 0, total: eligible.length, results });
+
+        for (let i = 0; i < eligible.length; i++) {
+            const wp = eligible[i];
+            setBatchProgress(prev => ({ ...prev, current: i + 1 }));
+            // Mark this WP as proposing (shows spinner in sidebar)
+            setProposingWpIds(prev => new Set(prev).add(wp.id));
+            try {
+                await api.proposeWorkStatements(projectId, wp.wp_id);
+                results.succeeded++;
+            } catch (e) {
+                const status = e.status || e.response?.status;
+                if (status === 409 || status === 400) {
+                    results.skipped++;
+                } else {
+                    results.failed++;
+                    results.failedIds.push(wp.wp_id || wp.title || `WP-${i + 1}`);
+                }
+            }
+            // Clear spinner for this WP
+            setProposingWpIds(prev => {
+                const next = new Set(prev);
+                next.delete(wp.id);
+                return next;
+            });
+            setBatchProgress(prev => ({ ...prev, results: { ...results } }));
+        }
+
+        // Authoritative refresh after batch completes
+        await refresh();
+
+        // Show end-of-run summary
+        const summary = [];
+        if (results.succeeded > 0) summary.push(`${results.succeeded} proposed`);
+        if (results.skipped > 0) summary.push(`${results.skipped} skipped`);
+        if (results.failed > 0) summary.push(`${results.failed} failed: ${results.failedIds.join(', ')}`);
+        if (summary.length > 0 && results.failed > 0) {
+            setError(`Batch complete: ${summary.join(', ')}`);
+        }
+
+        // Clear progress after brief display
+        setTimeout(() => setBatchProgress(null), 3000);
+    }, [wps, projectId, refresh]);
+
     // WS-WB-030: Lifted WS action callbacks
     const loadStatements = useCallback(async (wpContentId) => {
         setStatementsLoading(true);
@@ -395,6 +448,9 @@ export default function WorkBinder({ projectId, projectCode, autoImport }) {
                     importAvailable={importAvailable}
                     onImportCandidates={handleImportCandidates}
                     onPromoteAll={handlePromoteAll}
+                    onProposeAll={handleProposeAll}
+                    batchProgress={batchProgress}
+                    proposingWpIds={proposingWpIds}
                     statements={statements}
                     selectedWsId={selectedWsId}
                     onSelectWs={handleSelectWs}

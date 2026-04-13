@@ -1,0 +1,262 @@
+# Task: Binder Synthesis Analysis
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Analyze a complete Work Binder and produce a Synthesis Delta: a structured set
+of mechanical actions and judgment questions that identify compositional defects
+across the binder's documents.
+
+You are looking for problems that exist BETWEEN documents, not within them.
+Individual documents have already passed structural validation and QA.
+Your job is to find where individually valid documents do not compose into
+a coherent, executable plan.
+
+**Audience:** Your output will be shown to a project operator who may not
+understand the internal workings of this system. Every finding must be
+understandable by someone who has never seen a Work Statement ID, a
+post-condition expression, or a pipeline diagram. Lead with plain language.
+Technical details are secondary.
+
+## Input
+
+You receive the complete Work Binder as a single Markdown document containing:
+- Concierge Intake (CI)
+- Project Discovery (PD)
+- Implementation Plan (IP)
+- Technical Architecture (TA)
+- Work Packages (WPs) with nested Work Statements (WSs)
+
+This is the ONLY input. No other context may be assumed.
+
+### Binder Content
+
+{{binder_content}}
+
+## What You Are Looking For
+
+You are looking for COMPOSITIONAL defects across five fixed lenses.
+Do not perform open-ended critique. Do not suggest improvements.
+Only surface findings that match the lenses below.
+
+### Mechanical Findings (produce actions)
+
+These are defects where a bounded, verifiable transformation would fix the problem:
+
+1. **Scope overlap between WSs** — Two or more WSs across different WPs address
+   the same concern, modify the same files, or implement the same capability.
+   Action: MERGE_WS or NORMALIZE_BOUNDARY.
+
+2. **TA component without WP execution coverage** — A component exists in the TA
+   with owns[] paths and interfaces, but no WP or WS delivers it.
+   Action: DEFER_COMPONENT (mark as not-MVP) or flag as question if unclear.
+
+3. **WS with no execution value** — A WS whose scope is entirely covered by
+   another WS, or whose objective is unreachable given its preconditions.
+   Action: REMOVE_WS.
+
+4. **WS mixing unrelated concerns** — A single WS that addresses two or more
+   distinct responsibilities that should be independently executable.
+   Action: SPLIT_WS.
+
+5. **Boundary misalignment** — WSs whose scope_in, scope_out, or allowed_paths
+   overlap in ways that would cause conflicts during parallel execution.
+   Action: NORMALIZE_BOUNDARY.
+
+### Judgment Findings (produce questions)
+
+These are concerns that require human judgment to resolve. You MUST NOT
+propose actions for these — only emit questions.
+
+1. **Platform realism** — The binder assumes platform capabilities that may
+   not exist or may work differently than described.
+
+2. **MVP discipline** — The binder includes scope that appears premature or
+   overbuilt for an MVP.
+
+3. **Authority hygiene** — A TA component owns responsibilities that should
+   be split.
+
+4. **Execution readiness** — A WS assumes a prerequisite that no prior WS
+   creates, or depends on an artifact that does not exist in the plan.
+
+## Restricted Action Set (Mandatory)
+
+You may ONLY propose these 5 action types. No other transformations are permitted.
+
+| Action Type | When To Use |
+|-------------|-------------|
+| MERGE_WS | Two WSs have >50% scope overlap and address the same concern |
+| SPLIT_WS | One WS mixes two independently executable responsibilities |
+| DEFER_COMPONENT | TA component has no WP execution coverage |
+| REMOVE_WS | WS scope is entirely redundant with another WS |
+| NORMALIZE_BOUNDARY | WS scope_in/allowed_paths overlap would cause execution conflicts |
+
+### Action Constraints
+
+- Every action MUST include a `post_condition` — a machine-checkable assertion
+  that can verify the action was applied correctly after regeneration.
+- If you cannot write a concrete post_condition, the finding is a QUESTION,
+  not an action. Reclassify it.
+- NORMALIZE_BOUNDARY may only adjust: scope_in, scope_out, allowed_paths,
+  dependencies, upstream_dependencies. It may NOT modify objective, procedure,
+  or definition_of_done. You must specify which fields in `normalize_fields`.
+
+### Question Constraints
+
+- Every question uses exactly one of the 4 lenses: platform_realism,
+  mvp_discipline, authority_hygiene, execution_readiness.
+- Severity: advisory (informational), should_fix (recommended before execution),
+  blocking (execution should not proceed without resolution).
+
+## Operator-Legible Output (Critical)
+
+Every finding — both actions and questions — MUST include these operator-facing
+fields that can be understood without any system knowledge:
+
+### headline (required)
+A short, plain-language title describing the problem.
+- NO artifact IDs (not "WS-138/WS-145 overlap")
+- NO system jargon (not "MERGE_WS action required")
+- YES plain description ("Duplicate storage logic detected" or "ML model source undefined")
+
+### impact (required)
+One sentence explaining why this matters to the project — what goes wrong if
+this is not addressed. Written for someone who understands the project domain
+but not the planning system.
+
+### severity (required)
+- `blocking` — execution should not proceed until resolved
+- `should_fix` — recommended to fix before execution but not a hard stop
+- `advisory` — informational, operator may choose to ignore
+
+### evidence (required for actions, recommended for questions)
+An array of evidence excerpts from the affected documents. Each entry has:
+- `artifact_id` — the document ID (for internal linking)
+- `artifact_title` — the human-readable document title
+- `excerpt` — the relevant text from that document (1-3 sentences)
+
+For MERGE_WS actions: include excerpts from BOTH work statements showing the
+overlapping content so the operator can see the duplication side-by-side.
+
+For DEFER_COMPONENT: include the TA component description and a note that
+no work statement delivers this component.
+
+For questions: include the excerpts that create the tension or gap.
+
+### suggested_fix (required for actions)
+A plain-language description of what will change if the operator accepts.
+Example: "Merge these into a single storage task covering both journal entries
+and extracted entities."
+
+## Output Format
+
+Output a JSON object conforming to the synthesis_delta schema v1.1:
+
+```json
+{
+  "project_id": "<from binder>",
+  "binder_document_count": 23,
+  "instance_a_finding_count": 4,
+  "instance_b_finding_count": 0,
+  "agreement_count": 0,
+  "actions": [
+    {
+      "action_type": "MERGE_WS",
+      "targets": ["WS-138", "WS-145"],
+      "headline": "Duplicate storage logic detected",
+      "impact": "Two separate work statements both create Core Data persistence models and CRUD operations, risking duplicated implementation and data inconsistency.",
+      "severity": "blocking",
+      "rationale": "Both WSs implement Core Data entity models and storage managers with overlapping CRUD operations for the same persistence layer.",
+      "post_condition": "count(ws_id in ['WS-138','WS-145']) == 0 AND exists(merged_ws)",
+      "suggested_fix": "Merge these into a single storage task that covers both journal entry persistence and extracted entity persistence in one cohesive work statement.",
+      "evidence": [
+        {
+          "artifact_id": "WS-138",
+          "artifact_title": "Core Data Models and Entry Storage",
+          "excerpt": "Implement Core Data models for journal entries and establish entry storage management with persistence operations"
+        },
+        {
+          "artifact_id": "WS-145",
+          "artifact_title": "Entity Storage Manager with Core Data Integration",
+          "excerpt": "Create the Entity Storage Manager component that persists extracted entities with linkage to original journal entries using Core Data"
+        }
+      ],
+      "confidence": "moderate"
+    }
+  ],
+  "questions": [
+    {
+      "finding_id": "F-001",
+      "lens": "execution_readiness",
+      "severity": "blocking",
+      "artifacts": ["WS-142", "TA-001"],
+      "headline": "ML model source undefined",
+      "impact": "The plan requires local Core ML models for entity extraction but does not specify where these models come from or whether they already exist.",
+      "question": "Which Core ML models will be used for local entity extraction, and do they need to be acquired, trained, or bundled with the app?",
+      "evidence": [
+        {
+          "artifact_id": "WS-142",
+          "artifact_title": "Implement Local Entity Extractor with Core ML Models",
+          "excerpt": "Build the local entity extraction component using Core ML and iOS Natural Language Framework"
+        },
+        {
+          "artifact_id": "TA-001",
+          "artifact_title": "Technical Architecture",
+          "excerpt": "Local Entity Extractor: Performs basic entity extraction using local Core ML models for privacy-sensitive content"
+        }
+      ],
+      "confidence": "moderate"
+    }
+  ]
+}
+```
+
+Note: `instance_b_finding_count` and `agreement_count` are set by the caller
+after comparing with the other instance. Set them to 0 in your output.
+
+## What You MUST NOT Do
+
+- Do not propose actions outside the 5 restricted types
+- Do not propose actions for judgment findings — emit questions instead
+- Do not suggest "improvements" or "enhancements"
+- Do not re-evaluate individual document quality (that was done in QA)
+- Do not propose changes to objective, procedure, or definition_of_done via NORMALIZE_BOUNDARY
+- Do not invent new WPs, WSs, or TA components
+- Do not reference prior executions, time, or external state
+- Do not emit free-form recommendations
+- Do not use system jargon in headline, impact, or suggested_fix fields
+- Do not lead with artifact IDs in any operator-facing text
+
+## Self-Check Before Output
+
+1. JSON parses correctly
+2. Every action has action_type from the restricted set
+3. Every action has a non-empty post_condition
+4. Every action has headline, impact, severity, evidence, suggested_fix
+5. Every question has headline, impact, severity, evidence
+6. Every NORMALIZE_BOUNDARY has normalize_fields from the allowed set
+7. Every question has a lens from the 4 allowed lenses
+8. No headline contains artifact IDs or system jargon
+9. No impact statement requires system knowledge to understand
+10. Evidence excerpts are actual text from the binder, not paraphrased
+11. All artifact references exist in the binder
+12. Finding count matches actual findings emitted
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+- Output is not valid JSON
+- Any action_type is not in the restricted set
+- Any action is missing post_condition
+- Any finding is missing headline or impact
+- Any headline contains artifact IDs (e.g., "WS-138")
+- Any NORMALIZE_BOUNDARY includes prohibited fields
+- Any question lens is not in the allowed set
+- Output contains free-form recommendations
+- Role identity or authority is restated or altered

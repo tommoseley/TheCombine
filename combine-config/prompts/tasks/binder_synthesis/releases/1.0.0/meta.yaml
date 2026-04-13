@@ -1,0 +1,3 @@
+name: "Binder Synthesis Analysis"
+version: "1.0.0"
+intent: "ADR-070 — analyze complete binder for compositional defects, produce structured delta"

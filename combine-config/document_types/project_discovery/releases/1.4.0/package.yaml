@@ -17,7 +17,7 @@ production_mode: generate
 scope: project
 
 # Rendering
-view_docdef: ProjectDiscovery
+view_docdef: null  # Rendering uses IA config (ADR-054), not DB-backed docdef
 
 # Dependencies
 required_inputs: []  # First document in workflow - no dependencies

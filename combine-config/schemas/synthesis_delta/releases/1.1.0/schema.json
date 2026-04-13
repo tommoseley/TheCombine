@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/synthesis_delta.v1.1.json",
+  "type": "object",
+  "title": "Synthesis Delta v1.1.0",
+  "description": "Post-binder composition analysis. v1.1.0: operator-legible fields (headline, impact, severity, evidence) on all findings.",
+  "required": [
+    "project_id",
+    "binder_document_count",
+    "instance_a_finding_count",
+    "instance_b_finding_count",
+    "agreement_count",
+    "actions",
+    "questions"
+  ],
+  "properties": {
+    "project_id": { "type": "string", "minLength": 1 },
+    "binder_document_count": { "type": "integer", "minimum": 0 },
+    "instance_a_finding_count": { "type": "integer", "minimum": 0 },
+    "instance_b_finding_count": { "type": "integer", "minimum": 0 },
+    "agreement_count": { "type": "integer", "minimum": 0 },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action_type", "targets", "headline", "impact", "rationale", "post_condition", "severity"],
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "enum": ["MERGE_WS", "SPLIT_WS", "DEFER_COMPONENT", "REMOVE_WS", "NORMALIZE_BOUNDARY"]
+          },
+          "targets": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "headline": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Operator-readable title. No IDs, no jargon. Example: 'Duplicate Storage Logic Detected'"
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One sentence on why this matters to the project."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["advisory", "should_fix", "blocking"]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "post_condition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["artifact_id", "artifact_title", "excerpt"],
+              "properties": {
+                "artifact_id": { "type": "string", "minLength": 1 },
+                "artifact_title": { "type": "string", "minLength": 1 },
+                "excerpt": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            },
+            "description": "Side-by-side evidence excerpts from affected documents"
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "Plain-language description of the proposed change"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "moderate"]
+          },
+          "normalize_fields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["scope_in", "scope_out", "allowed_paths", "dependencies", "upstream_dependencies"]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "lens", "severity", "artifacts", "headline", "impact", "question", "confidence"],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lens": {
+            "type": "string",
+            "enum": ["platform_realism", "mvp_discipline", "authority_hygiene", "execution_readiness"]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["advisory", "should_fix", "blocking"]
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "headline": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Operator-readable title. Example: 'ML Model Source Undefined'"
+          },
+          "impact": {
+            "type": "string",
+            "minLength": 1,
+            "description": "One sentence on why this matters."
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The decision the operator needs to make, in plain language"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["artifact_id", "artifact_title", "excerpt"],
+              "properties": {
+                "artifact_id": { "type": "string", "minLength": 1 },
+                "artifact_title": { "type": "string", "minLength": 1 },
+                "excerpt": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "moderate"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

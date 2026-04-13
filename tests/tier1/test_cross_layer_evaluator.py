@@ -1,13 +1,15 @@
 """Tier-1 tests for cross-layer contradiction evaluator (ADR-061).
 
 Pure unit tests — no DB, no LLM.
-Tests TA surface extraction, contradiction detection, and report structure.
+Tests TA surface extraction, contradiction detection, report structure,
+and TA owns validation (WS-EVAL-003).
 """
 
 from app.domain.services.cross_layer_evaluator import (
     ContradictionFinding,
     evaluate_cross_layer,
     extract_ta_surfaces,
+    validate_ta_owns,
 )
 
 
@@ -174,28 +176,30 @@ class TestPersistenceContradictions:
 
 
 # ---------------------------------------------------------------------------
-# Component mismatches (CLDR-003)
+# Component mismatches (CLDR-003) — vocabulary-based (WS-EVAL-004)
 # ---------------------------------------------------------------------------
 
 class TestComponentMismatches:
-    def test_ws_references_declared_component(self):
-        """WS references a component that IS in TA — no finding."""
-        ta = _ta(components=[_ta_component("Daily Indicator Engine")])
-        ws = _ws("WS-005", objective="Integrate Daily Indicator Engine")
-        report = evaluate_cross_layer(ta, [ws])
-        comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
-        assert len(comp_findings) == 0
-
-    def test_ws_references_undeclared_component(self):
-        """WS references a component NOT in TA — finding."""
+    def test_no_findings_without_regex_extraction(self):
+        """CLDR-003 no longer extracts component names from prose.
+        Without a components_touched field on WS, no findings are produced."""
         ta = _ta(components=[_ta_component("Daily Indicator Engine")])
         ws = _ws("WS-023", objective="Implement Email Notification Service")
         report = evaluate_cross_layer(ta, [ws])
         comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
-        assert len(comp_findings) >= 1
-        assert any("notification_service" in f.ws_claim.lower() or
-                    "email" in f.ws_claim.lower()
-                    for f in comp_findings)
+        assert len(comp_findings) == 0
+
+    def test_no_false_positives_from_prose(self):
+        """Procedure verbs and generic prose never produce CLDR-003 findings."""
+        ta = _ta(components=[_ta_component("Real Engine")])
+        ws = _ws("WS-003", scope_in=[
+            "Create scoring module structure",
+            "Verify all packages by importing each module",
+            "Ensure clean script termination importing sys module",
+        ])
+        report = evaluate_cross_layer(ta, [ws])
+        comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
+        assert len(comp_findings) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -235,90 +239,138 @@ class TestReportStructure:
 
 
 # ---------------------------------------------------------------------------
-# CLDR-003 false positive elimination (WS-EVAL-001)
+# TA owns validation (WS-EVAL-003)
 # ---------------------------------------------------------------------------
 
-class TestComponentExtractionCalibration:
-    """WS-EVAL-001: procedure verbs and articles must not produce false components."""
+class TestTAOwnsValidation:
+    """WS-EVAL-003: mechanical validation that TA components have non-empty owns."""
 
-    def _run(self, ws_text, ta_components=None):
-        """Helper: evaluate a single WS against TA with given components."""
-        comps = ta_components or [_ta_component("Real Engine")]
-        ta = _ta(components=comps)
-        ws = _ws("WS-TEST", scope_in=[ws_text] if isinstance(ws_text, str) else ws_text)
-        report = evaluate_cross_layer(ta, [ws])
-        return [f for f in report.findings if f.rule_id == "CLDR-003"]
+    def test_all_components_have_owns(self):
+        """All components have valid owns — no findings."""
+        content = {"components": [
+            {"name": "API Gateway", "owns": ["src/api/"]},
+            {"name": "Data Store", "owns": ["src/storage/", "src/models/"]},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.components_checked == 2
+        assert report.all_valid
+        assert len(report.findings) == 0
 
-    def test_procedure_verb_create_stripped(self):
-        """'Create scoring module' should not produce 'create_scoring_module'."""
-        findings = self._run("Create scoring module structure in src/")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("create_scoring" in c for c in comp_names)
+    def test_missing_owns_field(self):
+        """Component without owns field — missing_owns finding."""
+        content = {"components": [
+            {"name": "API Gateway"},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.components_checked == 1
+        assert not report.all_valid
+        assert len(report.findings) == 1
+        assert report.findings[0].issue_type == "missing_owns"
+        assert report.findings[0].component_name == "API Gateway"
+        assert report.findings[0].severity == "advisory"
 
-    def test_procedure_verb_implement_stripped(self):
-        """'Implement Email Notification Service' should match 'email_notification_service'."""
-        findings = self._run("Implement Email Notification Service to alert users")
-        comp_names = [f.ws_claim for f in findings]
-        # Should find email_notification_service, NOT implement_email_notification_service
-        assert not any("implement_" in c for c in comp_names)
+    def test_empty_owns_array(self):
+        """Component with empty owns array — empty_owns finding."""
+        content = {"components": [
+            {"name": "API Gateway", "owns": []},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.findings[0].issue_type == "empty_owns"
 
-    def test_article_a_stripped(self):
-        """'a validation service' should not produce 'a_validation_service'."""
-        findings = self._run("Create a validation service for input checking")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("a_validation" in c for c in comp_names)
+    def test_null_owns(self):
+        """Component with owns: null — treated as missing."""
+        content = {"components": [
+            {"name": "API Gateway", "owns": None},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.findings[0].issue_type == "missing_owns"
 
-    def test_preposition_in_stripped(self):
-        """'in the service layer' should not produce 'in_the_service'."""
-        findings = self._run("Work in the service layer architecture")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("in_the_service" in c for c in comp_names)
+    def test_whitespace_only_owns(self):
+        """Component with owns containing only blank strings — empty_owns."""
+        content = {"components": [
+            {"name": "API Gateway", "owns": ["  ", ""]},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.findings[0].issue_type == "empty_owns"
+        assert "blank" in report.findings[0].message
 
-    def test_apam005_importing_each_module(self):
-        """'importing each module' should not be a component reference."""
-        findings = self._run("Verify all packages by importing each module")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("importing_each_module" in c or "importing_each" in c for c in comp_names)
+    def test_mixed_valid_and_invalid(self):
+        """Some components valid, some missing — only invalid flagged."""
+        content = {"components": [
+            {"name": "API Gateway", "owns": ["src/api/"]},
+            {"name": "Data Store"},
+            {"name": "Cache Layer", "owns": []},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.components_checked == 3
+        assert len(report.findings) == 2
+        names = {f.component_name for f in report.findings}
+        assert names == {"Data Store", "Cache Layer"}
 
-    def test_apam005_names_configuration_module(self):
-        """'names configuration module' should not be a component reference."""
-        findings = self._run("Environment variable names configuration module loads")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("names_configuration" in c for c in comp_names)
+    def test_empty_components_list(self):
+        """No components — report is valid with 0 checked."""
+        report = validate_ta_owns({"components": []})
+        assert report.components_checked == 0
+        assert report.all_valid
 
-    def test_apam005_all_decision_engine(self):
-        """'all decision engine' should not be a component reference."""
-        findings = self._run("Integrate all decision engine components")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("all_decision" in c for c in comp_names)
+    def test_no_components_key(self):
+        """TA content without components key — 0 checked."""
+        report = validate_ta_owns({})
+        assert report.components_checked == 0
+        assert report.all_valid
 
-    def test_apam005_for_api_client(self):
-        """'for API client' should not be a component reference."""
-        findings = self._run("Write unit tests for API client initialization")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("for_api" in c for c in comp_names)
-
-    def test_apam005_and_500_service(self):
-        """'and 500 service' should not be a component reference."""
-        findings = self._run("Error handling for 403, 429, and 500 Service Error")
-        comp_names = [f.ws_claim for f in findings]
-        assert not any("and_500" in c or "500_service" in c for c in comp_names)
-
-    def test_true_positive_preserved(self):
-        """Genuine undeclared component still detected."""
-        ta = _ta(components=[_ta_component("Daily Indicator Engine")])
-        ws = _ws("WS-023", objective="The Email Notification Service handles alerts")
-        report = evaluate_cross_layer(ta, [ws])
-        comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
-        assert len(comp_findings) >= 1
-        assert any("notification_service" in f.ws_claim.lower() or
-                    "email_notification" in f.ws_claim.lower()
-                    for f in comp_findings)
+    def test_report_to_dict(self):
+        """Report serialization includes all fields."""
+        content = {"components": [{"name": "X"}]}
+        report = validate_ta_owns(content)
+        d = report.to_dict()
+        assert "components_checked" in d
+        assert "findings_count" in d
+        assert "all_valid" in d
+        assert "findings" in d
+        assert d["findings_count"] == 1
 
 
 # ---------------------------------------------------------------------------
 # APAM-like scenario
 # ---------------------------------------------------------------------------
+
+class TestTAOwnsInBinderContext:
+    """WS-EVAL-005A: validate_ta_owns produces correct findings for binder rendering."""
+
+    def test_real_ta_with_owns(self):
+        """TA with components that all have owns — clean report."""
+        content = {"components": [
+            {"name": "Main Execution Handler", "owns": ["src/main.py"]},
+            {"name": "Output Handler", "owns": ["src/output.py"]},
+        ]}
+        report = validate_ta_owns(content)
+        assert report.all_valid
+        assert report.components_checked == 2
+
+    def test_real_ta_missing_owns(self):
+        """TA with components missing owns — findings for binder."""
+        content = {"components": [
+            {"name": "Main Execution Handler"},
+            {"name": "Output Handler"},
+        ]}
+        report = validate_ta_owns(content)
+        assert not report.all_valid
+        assert len(report.findings) == 2
+        # Each finding has the fields needed for binder rendering
+        for f in report.findings:
+            d = f.to_dict()
+            assert "component_name" in d
+            assert "issue_type" in d
+            assert "severity" in d
+            assert d["severity"] == "advisory"
+
+    def test_no_ta_in_binder(self):
+        """No components key — 0 checked, all_valid (no findings section shown)."""
+        report = validate_ta_owns({})
+        assert report.all_valid
+        assert report.components_checked == 0
+
 
 class TestAPAMScenario:
     def test_apam_macd_bollinger_mismatch(self):
@@ -349,3 +401,19 @@ class TestAPAMScenario:
         # RSI and SMA should NOT be flagged (they're in TA)
         assert not any("rsi_14" in t for t in flagged_terms)
         assert not any("sma_20" in t for t in flagged_terms)
+
+    def test_chwa005_no_false_positives(self):
+        """CHWA-005 binder: 'termination_importing_sys_module' must not be flagged."""
+        ta = _ta(components=[
+            _ta_component("Main Execution Handler"),
+            _ta_component("Output Handler"),
+        ])
+        ws = _ws("WS-003", scope_in=[
+            "Ensure clean script termination",
+        ], prohibited_actions=[
+            "Adding explicit sys.exit() calls unless required for error handling",
+            "Importing sys module unless specifically needed",
+        ])
+        report = evaluate_cross_layer(ta, [ws])
+        comp_findings = [f for f in report.findings if f.rule_id == "CLDR-003"]
+        assert len(comp_findings) == 0

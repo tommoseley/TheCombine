@@ -1,0 +1,4 @@
+name: "Binder Synthesis Analysis"
+version: "1.1.0"
+parent_version: "1.0.0"
+intent: "Operator-legible output — headline, impact, evidence, suggested_fix fields. No jargon in operator-facing text."

@@ -89,6 +89,9 @@ class AuthorityService:
         and WS-AUTH-006 (QA):
         - pgc_answers: {key: value} for pgc_answer records
         - pgc_questions: [key] for pgc_answer records
+        - operator_corrections: [{origin_stage, text, authority_record_id}]
+          All current corrections, project-scoped (no stage filtering).
+          Sorted by pipeline order of origin stage, then created_at.
         - authority_record_ids: [UUID] for audit citation
         - authority_source: "durable_store" | "none"
         """
@@ -98,18 +101,90 @@ class AuthorityService:
             return {
                 "pgc_answers": {},
                 "pgc_questions": [],
+                "operator_corrections": [],
                 "authority_record_ids": [],
                 "authority_source": "none",
             }
 
         pgc_records = [r for r in records if r.authority_type == "pgc_answer"]
+        correction_records = [r for r in records if r.authority_type == "operator_correction"]
+
+        # Sort corrections by pipeline order, then created_at
+        sorted_corrections = self._sort_corrections(correction_records)
 
         return {
             "pgc_answers": {r.key: r.value for r in pgc_records},
             "pgc_questions": [r.key for r in pgc_records],
+            "operator_corrections": [
+                {
+                    "origin_stage": r.stage,
+                    "text": r.value.get("text", "") if isinstance(r.value, dict) else "",
+                    "authority_record_id": r.id,
+                }
+                for r in sorted_corrections
+            ],
             "authority_record_ids": [r.id for r in records],
             "authority_source": "durable_store",
         }
+
+    async def get_corrections_for_stage(
+        self, project_id: UUID, stage: str
+    ) -> List[AuthorityRecordDTO]:
+        """Return current operator corrections applicable to a generated stage.
+
+        A correction applies to a stage if:
+        1. The correction's origin stage matches (record.stage == stage), OR
+        2. The stage appears in the correction's applies_to_stages list
+
+        Returns corrections sorted by pipeline order of origin stage,
+        then by created_at. This is the stage-aware query — used by
+        task node and binder (ADR-069 §3.4).
+        """
+        records = await self.get_current_authority(project_id)
+        corrections = [r for r in records if r.authority_type == "operator_correction"]
+
+        # Filter to applicable corrections
+        applicable = []
+        for r in corrections:
+            applies_to = []
+            if isinstance(r.value, dict):
+                applies_to = r.value.get("applies_to_stages", [])
+            if r.stage == stage or stage in applies_to:
+                applicable.append(r)
+
+        return self._sort_corrections(applicable)
+
+    async def get_current_correction(
+        self, project_id: UUID, stage: str
+    ) -> Optional[AuthorityRecordDTO]:
+        """Return the current correction for a specific originating stage.
+
+        Looks up by key='correction:{stage}'. Used for pre-populating
+        the rewind dialog on subsequent rewinds (ADR-069 §3.2).
+
+        Returns None if no correction exists for this stage.
+        """
+        return await self._repo.get_current_by_project_type_key(
+            project_id, "operator_correction", f"correction:{stage}"
+        )
+
+    @staticmethod
+    def _sort_corrections(
+        corrections: List[AuthorityRecordDTO],
+    ) -> List[AuthorityRecordDTO]:
+        """Sort corrections by pipeline order of origin stage, then created_at.
+
+        Unknown stages sort after all known stages.
+        """
+        from app.domain.models.pipeline_stage import PipelineStage
+
+        stage_order = {s.name: s.order for s in PipelineStage}
+
+        def sort_key(r: AuthorityRecordDTO):
+            order = stage_order.get(r.stage, 999)
+            return (order, r.created_at)
+
+        return sorted(corrections, key=sort_key)
 
     async def supersede_record(
         self, old_record_id: UUID, new_record_id: UUID

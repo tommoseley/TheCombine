@@ -37,7 +37,7 @@ class WorkflowRegistry:
 
         # Or list all available
         for wf_id in registry.list_ids():
-            print(wf_id)
+            ...  # process wf_id
     """
 
     def __init__(

@@ -41,7 +41,7 @@ from app.domain.handlers import (
 )
 from app.domain.services.llm_response_parser import LLMResponseParser
 from app.domain.services.llm_execution_logger import LLMExecutionLogger  # ADR-010
-from app.api.services.document_service import DocumentService
+from app.domain.services.registry_ports import DocumentServicePort
 from app.domain.services.document_builder_pure import (
     resolve_model_params,
     build_user_message as pure_build_user_message,
@@ -154,7 +154,7 @@ class DocumentBuilder:
         self,
         db,  # AsyncSession
         prompt_service: PromptServiceProtocol,
-        document_service: Optional[DocumentService] = None,
+        document_service: DocumentServicePort,
         model: Optional[str] = None,
         correlation_id: Optional[UUID] = None,  # ADR-010: UUID from middleware
         llm_logger: Optional[LLMExecutionLogger] = None,  # ADR-010: Injected logger
@@ -172,7 +172,7 @@ class DocumentBuilder:
         """
         self.db = db
         self.prompt_service = prompt_service
-        self.document_service = document_service or DocumentService(db)
+        self.document_service = document_service
         self.model = model or "claude-sonnet-4-20250514"
         self.correlation_id = correlation_id  # Stored as UUID
         self.llm_logger = llm_logger  # ADR-010: Injected, not created here

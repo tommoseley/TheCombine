@@ -68,8 +68,15 @@ Each Work Statement object in the array must contain all required fields:
 * allowed_paths - file/directory paths this WS may modify (array of strings).
   Directory paths should end with /. Paths are relative to the project root.
   Informed by the Technical Architecture's structural constraints.
+* preconditions - required artifacts, system state, approvals, or inputs that
+  must be satisfied before execution (array of strings, may be empty)
+* verification_mode - "A" (all criteria must pass) or "B" (declared exceptions
+  permitted). Use "A" unless the WS explicitly requires exception handling.
 * procedure - ordered steps to execute (array of strings, minimum 1)
 * verification_criteria - measurable completion criteria (array of strings, minimum 1)
+* definition_of_done - conditions under which the work is considered complete
+  (array of strings, minimum 1). Derived from verification_criteria and WP-level
+  completion requirements.
 * prohibited_actions - actions the executor MUST NOT take (array of strings)
 * governance_pins - governance references from the parent WP and TA:
   * ta_version_id - Technical Architecture version (required, non-empty,
@@ -138,10 +145,13 @@ Before emitting the JSON array, verify:
 9. scope_in and scope_out are arrays (may be empty)
 10. allowed_paths is an array (may be empty)
 11. prohibited_actions is an array (may be empty)
-12. No WS exceeds the parent WP's scope_in
-13. WS scopes do not overlap
-14. The union of all WS scopes covers the WP's scope_in
-15. ws_id numbering is sequential starting at 001
+12. preconditions is an array (may be empty) on every WS
+13. verification_mode is "A" or "B" on every WS
+14. definition_of_done has at least one item per WS
+15. No WS exceeds the parent WP's scope_in
+16. WS scopes do not overlap
+17. The union of all WS scopes covers the WP's scope_in
+18. ws_id numbering is sequential starting at 001
 
 ## Failure Conditions (Automatic Reject)
 

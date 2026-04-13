@@ -390,7 +390,49 @@ class AdminWorkbenchService:
                 except PackageLoaderError as e:
                     logger.warning(f"Could not load role {role_id}: {e}")
 
-        # 2. Task/QA/PGC/Questions/Reflection fragments from document types
+        # 2. Standalone task fragments from prompts/tasks/
+        if kind_filter is None or kind_filter == PromptFragmentKind.TASK:
+            task_ids = self._loader.list_tasks()
+
+            for task_id in sorted(task_ids):
+                try:
+                    task = self._loader.get_task(task_id)
+                    fragment = PromptFragment.from_task(task)
+                    fragments.append(build_fragment_dict(
+                        fragment_id=fragment.fragment_id,
+                        kind=fragment.kind.value,
+                        version=fragment.version,
+                        name=fragment.name,
+                        intent=fragment.intent,
+                        tags=fragment.tags,
+                        content=fragment.content,
+                        source_doc_type=None,
+                    ))
+                except PackageLoaderError as e:
+                    logger.warning(f"Could not load standalone task {task_id}: {e}")
+
+        # 3. Standalone PGC fragments from prompts/pgc/
+        if kind_filter is None or kind_filter == PromptFragmentKind.PGC:
+            pgc_ids = self._loader.list_pgc()
+
+            for pgc_id in sorted(pgc_ids):
+                try:
+                    pgc = self._loader.get_pgc(pgc_id)
+                    fragment = PromptFragment.from_pgc(pgc)
+                    fragments.append(build_fragment_dict(
+                        fragment_id=fragment.fragment_id,
+                        kind=fragment.kind.value,
+                        version=fragment.version,
+                        name=fragment.name,
+                        intent=fragment.intent,
+                        tags=fragment.tags,
+                        content=fragment.content,
+                        source_doc_type=None,
+                    ))
+                except PackageLoaderError as e:
+                    logger.warning(f"Could not load standalone PGC {pgc_id}: {e}")
+
+        # 4. Task/QA/PGC/Questions/Reflection fragments from document types
         doc_type_ids = self._loader.list_document_types()
         _active = self._loader.get_active_releases()
 

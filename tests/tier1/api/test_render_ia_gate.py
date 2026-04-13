@@ -171,7 +171,7 @@ class TestSingleDocRenderGate:
             {"path": "summary", "render_as": "paragraph"}
         )
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
@@ -197,7 +197,7 @@ class TestSingleDocRenderGate:
             {"path": "summary", "render_as": "paragraph"}
         )
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
@@ -223,7 +223,7 @@ class TestSingleDocRenderGate:
         mock_pkg = MagicMock()
         mock_pkg.information_architecture = None  # No IA
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.domain.services.display_id_service.resolve_display_id", new_callable=AsyncMock, return_value="project_discovery"), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
@@ -255,7 +255,7 @@ class TestBinderRenderGate:
             {"path": "summary", "render_as": "paragraph"}
         )
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -280,7 +280,7 @@ class TestBinderRenderGate:
             {"path": "summary", "render_as": "paragraph"}
         )
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -305,7 +305,7 @@ class TestBinderRenderGate:
         mock_pkg = MagicMock()
         mock_pkg.information_architecture = None  # No IA
 
-        with patch("app.api.v1.routers.projects._resolve_project", new_callable=AsyncMock, return_value=project), \
+        with patch("app.api.v1.routers.projects_documents.resolve_project", new_callable=AsyncMock, return_value=project), \
              patch("app.config.package_loader.get_package_loader") as mock_loader:
             mock_loader.return_value.get_document_type.return_value = mock_pkg
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

@@ -101,6 +101,107 @@ class TaskNodeExecutor(NodeExecutor):
             # Build messages from context
             messages = self._build_messages(task_prompt, context)
 
+            # ADR-068: Resolve {{mockup_context}} in prompt if declared by workflow.
+            # The executor only attaches mockup images when the task prompt
+            # explicitly contains the {{mockup_context}} template variable.
+            # This ensures mockup consumption is governed (ADR-049 No Black Boxes).
+            mockup_artifact_ids = []
+            if "{{mockup_context}}" in task_prompt:
+                db_session = context.extra.get("db_session")
+                if db_session:
+                    try:
+                        from app.domain.services.mockup_context_builder import (
+                            load_mockup_content_blocks,
+                        )
+                        mockup_blocks, mockup_artifact_ids = await load_mockup_content_blocks(
+                            project_id=context.project_id,
+                            stage=context.document_type,
+                            db_session=db_session,
+                        )
+                        if mockup_blocks:
+                            # Replace {{mockup_context}} placeholder with text note
+                            mockup_text = f"[{len(mockup_artifact_ids)} mockup image(s) attached below]"
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                    msg["content"] = msg["content"].replace("{{mockup_context}}", mockup_text)
+                            # Append image blocks to the last user message
+                            last_msg = messages[-1]
+                            if isinstance(last_msg.get("content"), str):
+                                last_msg["content"] = [
+                                    {"type": "text", "text": last_msg["content"]},
+                                    *mockup_blocks,
+                                ]
+                        else:
+                            # No mockups available — replace placeholder with empty note
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                    msg["content"] = msg["content"].replace("{{mockup_context}}", "[No mockups provided for this project]")
+                    except Exception as e:
+                        logger.warning(f"Failed to load mockups for prompt: {e}")
+                        for msg in messages:
+                            if isinstance(msg.get("content"), str) and "{{mockup_context}}" in msg["content"]:
+                                msg["content"] = msg["content"].replace("{{mockup_context}}", "[Mockup loading failed]")
+
+            # ADR-069: Resolve {{operator_corrections}} in prompt if declared by workflow.
+            # Governed injection: only resolves when the task prompt explicitly
+            # contains the {{operator_corrections}} template variable.
+            # If no corrections apply, the entire conditional block is stripped
+            # (section absent, not replaced with a note — per ADR-069 §3.5).
+            correction_authority_record_ids = []
+            if "{{operator_corrections}}" in task_prompt:
+                db_session = context.extra.get("db_session")
+                if db_session:
+                    try:
+                        from app.domain.services.correction_context_builder import (
+                            build_correction_text,
+                        )
+                        from app.domain.repositories.authority_repository import PostgresAuthorityRepository
+                        from app.domain.services.authority_service import AuthorityService
+
+                        auth_repo = PostgresAuthorityRepository(db_session)
+                        auth_service = AuthorityService(auth_repo)
+
+                        # Map doc_type_id to stage name for authority lookup
+                        stage_name = context.document_type
+                        try:
+                            from app.domain.models.pipeline_stage import PipelineStage
+                            ps = PipelineStage.from_doc_type_id(context.document_type)
+                            stage_name = ps.name
+                        except (ValueError, KeyError):
+                            pass
+
+                        correction_text, correction_authority_record_ids = await build_correction_text(
+                            project_id=context.project_id,
+                            stage=stage_name,
+                            authority_service=auth_service,
+                        )
+                        if correction_text:
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{operator_corrections}}" in msg["content"]:
+                                    # Replace placeholder with rendered text
+                                    msg["content"] = msg["content"].replace("{{operator_corrections}}", correction_text)
+                                    # Strip Mustache conditional wrappers (content is kept)
+                                    msg["content"] = msg["content"].replace("{{#operator_corrections}}", "")
+                                    msg["content"] = msg["content"].replace("{{/operator_corrections}}", "")
+                        else:
+                            # No corrections — strip the entire conditional block
+                            import re
+                            pattern = r'\{\{#operator_corrections\}\}.*?\{\{/operator_corrections\}\}'
+                            for msg in messages:
+                                if isinstance(msg.get("content"), str) and "{{operator_corrections}}" in msg["content"]:
+                                    # Strip Mustache-style conditional block if present
+                                    msg["content"] = re.sub(pattern, '', msg["content"], flags=re.DOTALL)
+                                    # Also strip bare placeholder if no conditional wrapper
+                                    msg["content"] = msg["content"].replace("{{operator_corrections}}", "")
+                    except Exception as e:
+                        logger.warning(f"Failed to load corrections for prompt: {e}")
+                        for msg in messages:
+                            if isinstance(msg.get("content"), str) and "{{operator_corrections}}" in msg["content"]:
+                                import re
+                                pattern = r'\{\{#operator_corrections\}\}.*?\{\{/operator_corrections\}\}'
+                                msg["content"] = re.sub(pattern, '', msg["content"], flags=re.DOTALL)
+                                msg["content"] = msg["content"].replace("{{operator_corrections}}", "")
+
             # Execute LLM completion with execution tracking
             execution_id = context.extra.get("execution_id")
             node_type = node_config.get("type", "task")
@@ -122,10 +223,21 @@ class TaskNodeExecutor(NodeExecutor):
                 node_id=node_id,
                 project_id=context.project_id,
                 prompt_sources=prompt_sources,
+                mockup_artifact_ids=mockup_artifact_ids or None,
             )
 
             # Parse and store produced document
             produced_document = self._parse_response(response, produces)
+
+            # ADR-068: Stamp consumed mockup artifact IDs into document meta for traceability
+            if mockup_artifact_ids and isinstance(produced_document, dict):
+                meta = produced_document.setdefault("meta", {})
+                meta["mockup_artifact_ids"] = mockup_artifact_ids
+
+            # ADR-069: Stamp consumed correction authority record IDs for binder audit
+            if correction_authority_record_ids and isinstance(produced_document, dict):
+                meta = produced_document.setdefault("meta", {})
+                meta["correction_authority_record_ids"] = correction_authority_record_ids
 
             # Debug: log what we got back
             logger.debug(f"Task node {node_id}: Response length={len(response)}, keys={list(produced_document.keys()) if isinstance(produced_document, dict) else 'not-dict'}")

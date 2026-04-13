@@ -1,9 +1,91 @@
 # PROJECT_STATE.md
 
-**Last Updated:** 2026-03-26
-**Updated By:** Claude (PGC ask-vs-infer, rewind fixes, JSON repair, admin workbench)
+**Last Updated:** 2026-04-08
+**Updated By:** Claude (ADR-071 binder management, synthesis advisor, Work Plan viewer)
 
 ## Current Focus
+
+**COMPLETE:** ADR-071 Binder Management & Presentation (2026-04-08)
+- IP-BINDER-001: 3 WPs, 9 WSs — all implemented
+- WP-BINDER-001: Document link resolution, modal viewer, inline linking (14 tests)
+- WP-BINDER-002: Binder composition via IA + blocks, assembly service (12 tests)
+- WP-BINDER-003: Work Plan viewer, pipeline renames, executive summary (5 tests)
+- Pipeline renamed: Work Items -> Review & Resolve -> Work Plan
+- Work Plan: narrative layout with executive summary, key decisions, constraints, work structure, dependencies
+- All document references clickable with modal display using FullDocumentViewer
+- 31 new tests, 16 commits
+
+**COMPLETE:** Synthesis Advisor + UX Improvements (2026-04-08)
+- "Need more info" button: 5-section advisor context (what's happening, plan says, missing, options, impact)
+- Structured radio option selection when advisor provides options
+- "Acknowledge" -> "Resolve" with text input, "Dismiss" -> "Mark as Intentional"
+- JSONB mutation tracking fix for decision persistence
+
+**Next priorities:**
+1. Work Plan governance docs not showing — verify doc types in DOC_TYPE_GROUPS mapping
+2. Multi-instance modal routing (WPCs show most recent, not specific instance) — needs instance_id passthrough
+3. Server-side binder renderer consuming IA definitions (ADR-071 s3.7 dual rendering contract)
+4. Pre-existing _fill_defaults in task_execution_service.py defeating minItems constraints
+5. Domain/API boundary cleanup (lower priority)
+6. Pre-existing lint/typecheck cleanup
+
+**COMPLETE:** ADR-069 Rewind as Correction Gate (2026-04-02/03)
+- ADR-069: Full implementation — operator-injected binding corrections at rewind time
+  - Single-field design: rewind reason IS the correction brief, dual-written to lineage event + authority record
+  - AuthorityService extended: get_corrections_for_stage(), get_current_correction(), bundle includes operator_corrections
+  - Rewind endpoint always persists correction as authority record (supersession per ADR-064)
+  - Pre-population: correction brief loaded from authority store on subsequent rewinds
+  - PATCH /corrections/{stage} for editing corrections before regeneration
+  - correction_context_builder.py: renders numbered list with [From {stage} rewind] provenance
+  - Task node: {{operator_corrections}} template variable — strips conditional block when absent, renders text when present
+  - correction_authority_record_ids stamped in document meta for binder audit
+  - Binder audit: _render_corrections_summary() shows generation-time corrections
+  - Stage normalization: accepts doc_type_ids, rejects unknown values, deduplicates
+- Prompt/workflow version bumps: TA v1.6.0/v8.0.0, IP v1.3.0/v5.0.0, PD v1.5.0/v3.0.0
+- All three rewind entry points unified to use RewindControl (PipelineRail, DocumentHeader, ConfigDrivenDocViewer)
+- ReadyState shows inline editable correction brief with "Restart Production" when stage was rewound
+- Post-rewind navigation: hash-based stage selection returns to rewound stage
+- Timeline git-style graph: SVG lanes, branch curves, collapsible branches, WP→WS nesting
+- Sidebar tabs: Mockups | Timeline (TimelineViewer restored from ADR-068 removal)
+- Stabilize Package bug fixed: missing db.commit() in both stabilize endpoints
+- Document.project_id → Document.space_id fix in stabilize blocking unknowns gate
+- Active versions: TA workflow v8.0.0, TA task v1.6.0, IP workflow v5.0.0, PD workflow v3.0.0
+- 4919 tests passing (43 new)
+
+**Next priorities (product — MSA-001 binder quality):**
+1. **MSA-001 binder findings** — 5 findings from binder review, 3 High:
+   - High: WS schema non-compliance — missing Verification Mode, Allowed Paths, Preconditions, Verification Checklist, Definition of Done per POL-WS-001
+   - High: Hybrid AI gap — only cloud/Anthropic path implemented, local Core ML excluded but stated as MVP requirement
+   - High: Duplicate scope — WS-069/WS-070 (WP-013) vs WS-074/WS-075 (WP-014) overlap
+   - Medium: Missing search baseline — WS-081 assumes existing Search Controller that no WS creates
+   - Medium: Siri vs Speech Framework inconsistency — plan says Siri, WSs say Speech Framework only
+   - These are LLM-generated content quality issues — address via TA rewind with correction brief, then regeneration
+2. **Binder renderer mockup traceability** — display consumed mockup_artifact_ids in binder output
+3. **TA component coverage check** — every TA component must be owned by a WP or marked out-of-scope
+
+**Next priorities (architectural cleanup):**
+4. Domain/API boundary: remaining `app.api.models.*` imports in `app/domain/` (ORM model references — lower priority)
+5. Pre-existing lint/typecheck cleanup (12 ruff errors, 1 mypy truthy-function)
+6. WS up/down buttons in Work Binder reorder instead of navigate — consider drag handles
+7. WP-007 shows WPC-001 as source linkage instead of WPC-007 (data issue from promotion)
+
+**COMPLETE:** Pipeline Integrity + Repair System + WS Dedup (2026-03-27/28)
+- ADR-065: Component-Scoped LLM Repair Proposals — full WP implemented (persistence, LLM interaction, review UI, mutation)
+- ADR-066: TA Consumes IP as Authoritative Input — TA prompt v1.4.0 + workflow v6.0.0
+- WS-EVAL-003: validate_ta_owns() mechanical gate
+- WS-EVAL-004: CLDR-003 regex extraction eliminated, vocabulary-based (dormant until components_touched field)
+- WS-EVAL-005A: TA ownership findings in binder evaluation
+- PostgresLineageRepository wired (migration applied to DEV)
+- RepairProposal table + migration applied to DEV
+- Cancel/abandon UI for stuck executions
+- "Propose All WSs" batch button with per-WP spinners
+- Rewind cascade: IP rewind now invalidates WPCs
+- WPC import: version-bumps after rewind (unique constraint fix)
+- propose_work_statements v1.1.0: sibling WP awareness eliminates infrastructure duplication
+- Active versions: TA workflow v6.0.0, TA task v1.4.0, propose_ws v1.1.0
+- 4857 tests passing
+- Domain event bus extracted (circular import eliminated)
+- CRAP top 4 offenders covered (446→covered, 83→covered, 59→covered, 49→covered)
 
 **COMPLETE:** PGC Ask-vs-Infer + Production Fixes (2026-03-26)
 - PGC prompt v1.1.0 for IP and TA: ask-vs-infer rule, stage appropriateness
@@ -62,13 +144,22 @@
 - External CC critique: 6/11 findings now mechanically detectable
 - ~130 new tests that session, 2953 total passing, Tier 0: PASS
 
-**Next priorities:**
-1. **Admin Workbench: full DCW visibility** — PGC prompt bindings must be visible/editable in workflow nodes (ADR-049 black box violation)
-2. Rerun APAM-003 with PGC v1.1.0 to verify ask-vs-infer reduces question duplication
-3. Resolve APAM-003 holiday handling contradiction (PD says "alert and wait", WS-035 says "silent skip")
-4. TA `owns` output validation gate — LLM ignores prompt instruction, needs mechanical post-generation check
-5. Refactor CLDR-003 to validate against TA-declared component vocabulary instead of regex extraction
-6. Wire PostgresLineageRepository (enables true lineage_path_id, replaces MVP surrogate)
+**Next priorities (architectural cleanup per Codex):**
+1. **Domain/API boundary leakage** — PlanExecutor still imports `mechanical_ops_service` and `mech_handlers` from API layer. Extract these into domain-level protocols/interfaces.
+2. **Auth stack unification** — `AuthService` (service.py) vs `SessionService` (services.py) dual abstraction. Pick canonical path, remove the other.
+3. **Oversized module decomposition:**
+   - `plan_executor.py` (2423 LOC) — extract helper methods into focused sub-modules
+   - `workspace_service.py` (2134 LOC) — split by responsibility (lifecycle, git, scaffolding, preview)
+   - `projects.py` (2071 LOC) — split into sub-routers (render-model, evaluator, pipeline-status)
+   - `NodePropertiesPanel.jsx` (1698 LOC) — extract editor sections into sub-components
+   - `FullDocumentViewer.jsx` (1051 LOC) — extract sub-components to separate files
+4. **Debug logging cleanup** — remove console.log from SPA hooks/components, replace print() with logger in backend
+
+**Next priorities (feature):**
+5. propose_ws prompt tuning — binder 6 is baseline (3 duplicates), add retry rule next
+6. Resolve APAM-003 holiday handling contradiction (PD vs WS-035)
+7. Cross-stage PGC contradiction check (TA answers vs IP out_of_scope)
+8. Replace execution_id surrogate with true lineage_path_id
 
 **COMPLETE:** Measured Prompt Tuning Loop + Semantic Evaluators (2026-03-18, session 3)
 - WP baseline: 5 synthetic scenarios, 0 structural defects with v1.1.0
@@ -290,7 +381,7 @@
 
 ## Test Suite
 
-- **4712 Tier-1/2 tests** passing as of 2026-03-26
+- **4857 Tier-1/2 tests** passing as of 2026-03-28
 - Tier 0: pytest PASS, lint PASS, typecheck PASS, frontend PASS, registry PASS
 - SPA: builds clean
 - Mode B debt: SPA component tests use grep-based source inspection (no React test harness)
@@ -315,6 +406,11 @@
 | stabilization_gate | app/domain/services/ws_crud_service.py | 4-gate certification spine at WP stabilization |
 | authority_service | app/domain/services/authority_service.py | Durable authority records: type-scoped supersession, bundle hydration, path-historical (ADR-064) |
 | authority_repository | app/domain/repositories/authority_repository.py | Protocol + InMemory + Postgres for authority record persistence |
+| lineage_repository | app/domain/services/lineage_service.py | Protocol + InMemory + Postgres for lineage event persistence (ADR-063) |
+| repair_service | app/domain/services/repair_service.py | Component-scoped LLM repair proposal generation (ADR-065) |
+| repair_mutation | app/domain/services/repair_mutation.py | Pre-stabilization component replacement + reevaluation |
+| repair_repository | app/domain/repositories/repair_proposal_repository.py | Protocol + InMemory + Postgres for repair proposals |
+| validate_ta_owns | app/domain/services/cross_layer_evaluator.py | Mechanical TA component ownership validation (WS-EVAL-003) |
 
 ---
 
@@ -423,6 +519,20 @@ All previous decisions (1-46) plus:
 
 ## Handoff Notes
 
+### Recent Work (2026-03-27/28)
+- ADR-065 (Repair Proposals) + ADR-066 (TA→IP) filed and implemented
+- Full repair system: proposal persistence, LLM repair interaction, review UI, mutation + reevaluation
+- Pipeline integrity: rewind cascade includes WPCs, WPC import version-bumps after rewind
+- TA v1.4.0 + workflow v6.0.0: TA consumes IP as authoritative decomposition context
+- propose_work_statements v1.1.0: sibling WP awareness, ownership transfer test, upstream_dependencies field
+- Cancel/abandon UI for stuck executions (SSE + SPA)
+- "Propose All WSs" batch button with per-WP spinners
+- validate_ta_owns() mechanical gate + binder rendering
+- CLDR-003 regex eliminated, vocabulary-based (dormant)
+- PostgresLineageRepository wired + migrated to DEV
+- APAM-003 WSs cleared for fresh re-proposal
+- 54 new tests, 4766 total
+
 ### Recent Work (2026-03-26)
 - PGC prompt v1.1.0: ask-vs-infer rule prevents IP from asking implementation details, TA infers by default
 - Authority suppression promoted from buried JSON to first-class "DO NOT RE-ASK" section
@@ -473,8 +583,9 @@ All previous decisions (1-46) plus:
 | Priority | Feature | Status |
 |----------|---------|--------|
 | Tier 1 | Rewind history viewer — timeline of pipeline steps, branch nodes, what changed | Open |
-| Tier 1 | Cancel/abandon stuck execution — Andon cord for stuck workflows | Open |
-| Tier 2 | "Propose All WSs" button — batch WS generation in Work Binder | Open |
+| Done | Cancel/abandon stuck execution — Andon cord for stuck workflows | Complete (2026-03-27) |
+| Done | "Propose All WSs" button — batch WS generation in Work Binder | Complete (2026-03-27) |
+| Done | Rewind history viewer — timeline with threads, restore, archive | Complete (2026-03-28, ADR-067) |
 | Tier 2 | File upload for mockups/documents — governed project artifacts with lineage | Open |
 | Tier 3 | File viewer — inline rendering of uploaded files (images, PDFs, text) | Open |
 | Done | Pipeline rewind button | Complete (ADR-063, 2026-03-22) |

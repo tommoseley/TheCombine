@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://thecombine.dev/schemas/work_binder.v1.0.json",
+  "type": "object",
+  "title": "Work Binder v1.0.0",
+  "description": "Composition document that references and organizes project documents with version-pinned links. Per ADR-071.",
+  "required": [
+    "project_id",
+    "assembled_at",
+    "document_count",
+    "referenced_documents"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "description": "Project identifier"
+    },
+    "assembled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the binder was assembled"
+    },
+    "document_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of referenced documents"
+    },
+    "referenced_documents": {
+      "type": "array",
+      "description": "Version-pinned references to project documents",
+      "items": {
+        "type": "object",
+        "required": ["document_id", "version", "display_id", "title", "doc_type_id"],
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "description": "UUID of the referenced document"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version of the document at assembly time"
+          },
+          "display_id": {
+            "type": "string",
+            "description": "Human-readable display identifier (e.g., WS-142)"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title at assembly time"
+          },
+          "doc_type_id": {
+            "type": "string",
+            "description": "Document type identifier"
+          },
+          "group": {
+            "type": "string",
+            "description": "Logical grouping for display (e.g., Architecture, Work Packages)"
+          },
+          "parent_display_id": {
+            "type": ["string", "null"],
+            "description": "Display ID of parent document (e.g., WP for a WS)"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "groups": {
+      "type": "array",
+      "description": "Ordered list of document groups for display",
+      "items": {
+        "type": "object",
+        "required": ["id", "label"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

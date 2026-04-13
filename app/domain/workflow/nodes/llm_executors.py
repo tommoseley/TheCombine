@@ -177,6 +177,16 @@ class LoggingLLMService:
                         f"message_{i}_{msg['role']}",
                         msg["content"],
                     )
+
+                # ADR-068: Log mockup artifact references for durable audit trail
+                mockup_ids = kwargs.get("mockup_artifact_ids")
+                if mockup_ids:
+                    for art_id in mockup_ids:
+                        await self._logger.add_input(
+                            run_id,
+                            "mockup_artifact",
+                            f"artifact:{art_id}",
+                        )
             except Exception as e:
                 logger.warning(f"Failed to start LLM logging: {e}")
                 run_id = None

@@ -13,9 +13,11 @@ import logging
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
-from app.api.services.document_definition_service import DocumentDefinitionService
-from app.api.services.component_registry_service import ComponentRegistryService
-from app.api.services.schema_registry_service import SchemaRegistryService
+from app.domain.services.registry_ports import (
+    DocumentDefinitionPort,
+    ComponentRegistryPort,
+    SchemaRegistryPort,
+)
 from app.domain.services.render_model_pure import (
     resolve_pointer,
     compute_schema_bundle_hash,
@@ -299,9 +301,9 @@ class RenderModelBuilder:
     
     def __init__(
         self,
-        docdef_service: DocumentDefinitionService,
-        component_service: ComponentRegistryService,
-        schema_service: Optional[SchemaRegistryService] = None,
+        docdef_service: DocumentDefinitionPort,
+        component_service: ComponentRegistryPort,
+        schema_service: Optional[SchemaRegistryPort] = None,
     ):
         self.docdef_service = docdef_service
         self.component_service = component_service

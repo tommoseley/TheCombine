@@ -10,9 +10,6 @@ from uuid import UUID
 
 from app.tasks.registry import TaskStatus, update_task
 from app.domain.services.document_builder import DocumentBuilder
-from app.api.services.document_service import DocumentService
-from app.api.services.role_prompt_service import RolePromptService
-from app.api.routers.documents import PromptServiceAdapter
 from app.domain.repositories.postgres_llm_log_repository import PostgresLLMLogRepository
 from app.domain.services.llm_execution_logger import LLMExecutionLogger
 from app.core.database import async_session_factory
@@ -47,7 +44,11 @@ async def run_document_build(
         try:
             update_task(task_id, status=TaskStatus.RUNNING, progress=5, message="Initializing...")
             
-            # Create dependencies
+            # Create dependencies (lazy imports keep task layer free of top-level API deps)
+            from app.api.services.document_service import DocumentService
+            from app.api.services.role_prompt_service import RolePromptService
+            from app.api.routers.documents import PromptServiceAdapter
+
             llm_repo = PostgresLLMLogRepository(db)
             llm_logger = LLMExecutionLogger(llm_repo)
             prompt_service = RolePromptService(db)
@@ -261,7 +262,8 @@ async def run_workflow_build(
                     update_task(task_id, progress=80, message="Saving document...")
                     
                     # Create the document record
-                    doc_service = DocumentService(db)
+                    from app.api.services.document_service import DocumentService as _DocService
+                    doc_service = _DocService(db)
                     new_doc = await doc_service.create_document(
                         space_type="project",
                         space_id=project_id,

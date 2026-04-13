@@ -30,6 +30,7 @@ export default function WPIndex({
     wps, selectedWpId, onSelectWp,
     candidates = [], selectedCandidateId, onSelectCandidate,
     importAvailable = false, onImportCandidates, onPromoteAll,
+    onProposeAll, batchProgress, proposingWpIds = new Set(),
     statements = [], selectedWsId, onSelectWs,
     statementsLoading = false,
 }) {
@@ -166,6 +167,11 @@ export default function WPIndex({
                                     <span className="wb-index-item-id">{formatWpId(wp)}</span>
                                     <span className="wb-index-item-title">{wp.title || 'Untitled'}</span>
                                 </div>
+                                {proposingWpIds.has(wp.id) && (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--state-active-bg)" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                                        <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                                    </svg>
+                                )}
                             </button>
 
                             {/* WS-WB-030: Nested WS summary rows under selected WP */}
@@ -200,6 +206,30 @@ export default function WPIndex({
                     );
                 })}
             </div>
+
+            {/* WS-WB-041: Propose All WSs — batch LLM proposal */}
+            {wps.length > 0 && onProposeAll && (
+                <div className="wb-index-import" style={{ marginTop: 8 }}>
+                    <button
+                        className="wb-btn wb-btn--primary"
+                        onClick={onProposeAll}
+                        disabled={!!batchProgress}
+                        style={{ width: '100%' }}
+                    >
+                        {batchProgress
+                            ? `PROPOSING ${batchProgress.current}/${batchProgress.total}...`
+                            : 'PROPOSE ALL WSs'
+                        }
+                    </button>
+                    {batchProgress?.results && batchProgress.current === batchProgress.total && (
+                        <div className="wb-batch-summary" style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, textAlign: 'center' }}>
+                            {batchProgress.results.succeeded > 0 && <span>{batchProgress.results.succeeded} proposed </span>}
+                            {batchProgress.results.skipped > 0 && <span>{batchProgress.results.skipped} skipped </span>}
+                            {batchProgress.results.failed > 0 && <span style={{ color: '#ef4444' }}>{batchProgress.results.failed} failed</span>}
+                        </div>
+                    )}
+                </div>
+            )}
 
         </div>
     );

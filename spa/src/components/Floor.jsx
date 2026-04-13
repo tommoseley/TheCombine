@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import ContentPanel from './ContentPanel';
+import MockupPanel from './MockupPanel';
+import TimelineViewer from './TimelineViewer';
+import SynthesisReview from './SynthesisReview';
+import { ProjectProvider } from './ProjectContext';
 import { api } from '../api/client';
 import { THEMES } from '../utils/constants';
 import { useProductionStatus } from '../hooks';
@@ -107,7 +111,9 @@ const DOC_TYPE_NAMES = {
     project_discovery: 'Project Discovery',
     implementation_plan: 'Implementation Plan',
     technical_architecture: 'Technical Architecture',
-    work_package: 'Work Binder',
+    work_package: 'Work Items',
+    synthesis_delta: 'Review & Resolve',
+    work_plan: 'Work Plan',
 };
 
 function docName(id) {
@@ -393,9 +399,20 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
         }
     }, [productionData]);
 
-    // Auto-select node: prefer autoExpandNodeId (deep linking), then first node
+    // Auto-select node: prefer hash stage param (rewind return), then autoExpandNodeId, then first node
     useEffect(() => {
         if (data.length > 0 && !selectedNodeId) {
+            // Check URL hash for stage=... (set by rewind return)
+            const hashMatch = window.location.hash.match(/stage=([^&]+)/);
+            if (hashMatch) {
+                const stageId = hashMatch[1];
+                const target = data.find(d => d.id === stageId);
+                if (target) {
+                    setSelectedNodeId(target.id);
+                    window.location.hash = ''; // clear after consuming
+                    return;
+                }
+            }
             if (autoExpandNodeId) {
                 const target = data.find(d => d.id === autoExpandNodeId);
                 if (target) { setSelectedNodeId(target.id); return; }
@@ -418,6 +435,57 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
     // Production callbacks used by ContentPanel
     const handleStartProduction = useCallback(async (docTypeId) => {
         console.log('Starting production for:', docTypeId);
+
+        // ADR-070: Synthesis triggers via its own API, not normal production
+        if (docTypeId === 'synthesis_delta') {
+            setData(prev => prev.map(item =>
+                item.id === 'synthesis_delta'
+                    ? { ...item, _prevState: item.state, state: 'in_production' }
+                    : item
+            ));
+            try {
+                await api.triggerSynthesis(projectId);
+                setData(prev => prev.map(item =>
+                    item.id === 'synthesis_delta'
+                        ? { ...item, state: 'produced' }
+                        : item
+                ));
+            } catch (err) {
+                setData(prev => prev.map(item =>
+                    item.id === 'synthesis_delta'
+                        ? { ...item, state: item._prevState || 'ready_for_production' }
+                        : item
+                ));
+            }
+            return;
+        }
+
+        // ADR-071: Work Plan triggers binder assembly + work plan assembly
+        if (docTypeId === 'work_plan') {
+            setData(prev => prev.map(item =>
+                item.id === 'work_plan'
+                    ? { ...item, _prevState: item.state, state: 'in_production' }
+                    : item
+            ));
+            try {
+                await api.assembleWorkBinder(projectId);
+                // Work Plan assembly endpoint (reuses binder assembly internally)
+                const response = await fetch(`/api/v1/work-binder/${projectId}/assemble-plan`, { method: 'POST' });
+                if (!response.ok) throw new Error('Work Plan assembly failed');
+                setData(prev => prev.map(item =>
+                    item.id === 'work_plan'
+                        ? { ...item, state: 'produced' }
+                        : item
+                ));
+            } catch (err) {
+                setData(prev => prev.map(item =>
+                    item.id === 'work_plan'
+                        ? { ...item, state: item._prevState || 'ready_for_production' }
+                        : item
+                ));
+            }
+            return;
+        }
 
         // Optimistic update: immediately show as in_production
         setData(prev => prev.map(item => {
@@ -478,6 +546,9 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
 
     // Auto-import flag for Work Binder (set when navigating from "Produce Next")
     const [autoImport, setAutoImport] = useState(false);
+
+    // Sidebar panel tab (ADR-067/069)
+    const [sidebarTab, setSidebarTab] = useState('mockups');
 
     // Navigate to a step and immediately start production (or import for Work Binder)
     const handleProduceNext = useCallback(async (docTypeId) => {
@@ -549,18 +620,75 @@ export default function Floor({ projectId, projectCode, projectName, isArchived,
             />
 
             {/* Station Workspace — full width below the line */}
-            <div className="flex-1 overflow-hidden">
-                <ContentPanel
-                    step={selectedStep}
-                    projectId={projectId}
-                    projectCode={projectCode}
-                    onStartProduction={handleStartProduction}
-                    onSubmitQuestions={handleSubmitQuestions}
-                    pipelineData={data}
-                    onProduceNext={handleProduceNext}
-                    autoImport={autoImport}
-                />
+            <ProjectProvider projectId={projectId}>
+            <div className="flex-1 overflow-hidden flex">
+                <div className="flex-1 overflow-hidden">
+                    <ContentPanel
+                        step={selectedStep}
+                        projectId={projectId}
+                        projectCode={projectCode}
+                        onStartProduction={handleStartProduction}
+                        onSubmitQuestions={handleSubmitQuestions}
+                        pipelineData={data}
+                        onProduceNext={handleProduceNext}
+                        autoImport={autoImport}
+                    />
+                </div>
+                <div
+                    className="flex-shrink-0 overflow-y-auto border-l flex flex-col"
+                    style={{
+                        width: 280,
+                        borderColor: 'var(--border-panel)',
+                        background: 'var(--bg-canvas)',
+                    }}
+                >
+                    {/* Sidebar tabs */}
+                    <div className="flex border-b flex-shrink-0" style={{ borderColor: 'var(--border-panel)' }}>
+                        {[
+                            { id: 'mockups', label: 'Mockups' },
+                            { id: 'timeline', label: 'Timeline' },
+                            { id: 'synthesis', label: 'Synthesis' },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setSidebarTab(tab.id)}
+                                className="flex-1 text-[10px] font-medium py-2 transition-colors"
+                                style={{
+                                    color: sidebarTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    borderBottom: sidebarTab === tab.id ? '2px solid var(--accent-primary, #3b82f6)' : '2px solid transparent',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Sidebar content */}
+                    <div className="flex-1 overflow-y-auto p-3">
+                        {sidebarTab === 'mockups' && (
+                            <MockupPanel projectId={projectId} />
+                        )}
+                        {sidebarTab === 'timeline' && (
+                            <TimelineViewer
+                                projectId={projectId}
+                                onRestore={async (checkpointId) => {
+                                    await api.restoreCheckpoint(projectId, checkpointId, 'Operator restore from timeline');
+                                    window.location.reload();
+                                }}
+                                onArchive={async (eventId) => {
+                                    if (!window.confirm('Archive this thread? Its documents will be hidden from the timeline.')) return;
+                                    await api.archiveThread(projectId, eventId, 'Operator archive from timeline');
+                                }}
+                            />
+                        )}
+                        {sidebarTab === 'synthesis' && (
+                            <SynthesisReview projectId={projectId} />
+                        )}
+                    </div>
+                </div>
             </div>
+            </ProjectProvider>
 
             {/* Notification Toast */}
             {notification && (

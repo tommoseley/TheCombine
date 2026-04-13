@@ -1,7 +1,10 @@
 /**
  * String list block renderer
  * Displays a list of items with smart field extraction for structured objects.
+ * Auto-links document references (ADR-071).
  */
+import LinkedText from '../LinkedText';
+
 export default function StringListBlock({ block }) {
     const { data } = block;
     const items = data.items || [];
@@ -51,7 +54,7 @@ export default function StringListBlock({ block }) {
                             <span style={{ color: '#10b981' }}>&#10003;</span>
                         )}
                         {typeof item === 'string' ? (
-                            item
+                            <LinkedText text={item} />
                         ) : typeof item === 'object' && item !== null ? (
                             <StringListItem item={item} />
                         ) : (
@@ -90,7 +93,7 @@ function StringListItem({ item }) {
             {item.id && (
                 <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-dim)', marginRight: 6 }}>{item.id}</span>
             )}
-            {text}
+            <LinkedText text={text} />
             {item.constraint_type && (
                 <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', background: 'var(--bg-button)', borderRadius: 4, color: 'var(--text-muted)' }}>{item.constraint_type}</span>
             )}

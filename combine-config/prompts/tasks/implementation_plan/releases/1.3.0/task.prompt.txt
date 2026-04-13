@@ -1,0 +1,202 @@
+# Task: Implementation Plan
+
+Triggering Instruction
+
+You are operating under a certified role prompt.
+This task prompt defines only the current task.
+Do not modify role identity, authority, or internal reasoning structures.
+
+## Task Objective
+
+Produce the Implementation Plan containing Work Package Candidates (WPC-###),
+informed by discovery outputs and any available Technical Architecture context.
+
+This document captures candidate Work Packages at the planning stage.
+Candidates are advisory — they become governed Work Packages later through
+the Work Binder promotion process after Technical Architecture review.
+
+## Inputs Provided
+
+You will receive input documents from the discovery and/or architecture phases.
+These are the ONLY sources of requirements. No other context may be assumed.
+
+{{#operator_corrections}}
+## Operator Corrections (Binding) (ADR-069)
+
+The following corrections were provided by the operator during pipeline review.
+These are BINDING constraints — they override any prior assumptions.
+Each correction is numbered and tagged with its originating stage.
+
+{{operator_corrections}}
+{{/operator_corrections}}
+
+## Output Structure
+
+The output is a single JSON object conforming to the Implementation Plan schema
+(schema_version: "3.0"). The top-level required fields are:
+
+* meta - provenance block
+* plan_summary - high-level plan overview
+* work_package_candidates - array of candidate Work Packages (WPC-###)
+* cross_cutting_concerns - concerns spanning multiple candidates
+* risk_summary - aggregated risks with affected candidate references
+
+## meta Block
+
+The meta block must include:
+* schema_version: "3.0" (required, must be exactly "3.0")
+* artifact_id - system-assigned identifier (system will overwrite)
+* created_at - ISO 8601 timestamp (system will overwrite)
+* source: "combine_generated"
+* correlation_id - execution correlation identifier (optional)
+
+System will overwrite meta.created_at and meta.artifact_id with system values.
+Do not add any fields beyond those listed above.
+
+## plan_summary
+
+The plan_summary must include:
+* overall_intent - what this plan aims to achieve
+* mvp_definition - what constitutes MVP
+* key_constraints - constraints shaping the plan (array of strings)
+* sequencing_rationale - why candidates are ordered this way
+
+Optional fields:
+* assumptions - planning assumptions (array of strings)
+* out_of_scope - explicit exclusions from the plan (array of strings)
+
+## Work Package Candidates
+
+Each item in work_package_candidates must include:
+* candidate_id - unique identifier in WPC-### format (e.g., "WPC-001", "WPC-002")
+* title - human-readable name
+* rationale - why this candidate is needed
+* scope_in - explicit scope items (array of strings)
+* scope_out - explicit exclusions (array of strings)
+* dependencies - references to other WPC-### candidates with dependency_type and notes
+* definition_of_done - measurable completion criteria (array of strings, at least one)
+
+Optional fields:
+* sequencing_hint - integer ordering hint (not a commitment)
+* notes_for_work_binder - advisory notes for later WP promotion/binding after TA
+
+Candidate dependencies must use:
+* dependency_type: one of "must_complete_first", "can_start_after", "soft"
+* depends_on_candidate_id: WPC-### reference to another candidate (or)
+* depends_on_external: external prerequisite description
+* notes: explanation of the dependency
+
+Do NOT include on candidates:
+* wp_id (candidates are not committed WPs)
+* governance_pins (governance is assigned during Work Binder promotion after TA)
+* source_candidate_ids (this is a WP-level field, not a candidate field)
+* transformation or transformation_notes (these are WP-level lineage fields)
+
+## Cross-Cutting Concern Isolation (Decomposition Discipline)
+
+Each capability MUST be owned by exactly one WPC. When decomposing work into candidates:
+
+1. INFRASTRUCTURE FIRST: If multiple candidates need configuration management, logging, error handling, or shared utilities, create ONE infrastructure candidate that owns these. Downstream candidates MUST NOT recreate them — they consume them via dependency.
+
+2. SINGLE OWNERSHIP: Each functional area (data collection, indicator calculation, decision logic, execution) belongs to exactly one candidate. If two candidates describe the same functional area, merge them or clarify the boundary.
+
+3. NO SCOPE DUPLICATION: If a scope_in item appears in multiple candidates, that is a decomposition defect. Move the shared item to the candidate that owns it and add a dependency from the others.
+
+4. CROSS-CUTTING ≠ DUPLICATED: Cross-cutting concerns (logging format, error handling patterns, CSV schema conventions) are listed in the cross_cutting_concerns section. They are NOT scope_in items on multiple candidates. The infrastructure candidate implements them; other candidates consume them.
+
+5. ADJACENT BOUNDARY PRECISION: If two candidates both claim the same functional action over the same business object (e.g., both "compute indicators", both "size positions", both "persist to CSV"), they must not both implement it. One candidate MUST own the capability; the adjacent candidate may only consume its outputs, validate them, or orchestrate them — never re-implement.
+
+Before finalizing candidates, perform this isolation self-check:
+- Does any scope_in item appear in more than one candidate? If yes → move to owning candidate
+- Does any candidate re-create configuration, logging, or error handling that another candidate already owns? If yes → remove and add dependency
+- Could a reader confuse which candidate owns indicator calculation, or decision logic, or order execution? If yes → sharpen boundaries
+- For each pair of adjacent candidates, check for repeated verbs over the same domain object (fetch data, compute indicators, size positions, persist decisions). If both candidates implement the same verb, merge them or rewrite one so it consumes the other's output rather than re-implementing the capability
+
+## cross_cutting_concerns
+
+Array of strings describing concerns spanning multiple candidate Work Packages.
+
+## risk_summary
+
+Array of risk objects. Each must include:
+* risk - description of the risk
+* affected_candidates - array of WPC-### candidate IDs affected by this risk
+* overall_impact - one of: "low", "medium", "high", "critical"
+* mitigation_strategy - how to address the risk
+
+## Optional Top-Level Sections
+
+* recommendations_for_architecture - questions or focus areas for the TA phase (array of strings)
+* open_questions - unresolved planning questions, each with:
+  * question - the question text
+  * why_it_matters - impact of not answering
+  * who_needs_to_answer - responsible party
+  * desired_by - target date (optional)
+  * status - one of: "open", "answered", "deferred" (optional)
+
+## Output Rules
+
+* Output valid JSON only
+* Follow the Implementation Plan schema exactly (schema_version "3.0")
+* All arrays must be present even if empty
+* Never output null
+* No commentary, markdown, or explanation outside JSON
+* additionalProperties is false at every level - do not add extra fields
+* Use WPC-### format for all candidate identifiers
+* Use WPC-### format in risk_summary affected_candidates references
+
+## Scope Rules
+
+You MUST:
+* Define candidates based on discovered requirements and constraints
+* Preserve traceability between inputs and candidates
+* Include risk assessment for each significant risk area
+* Reference affected WPC-### candidates in risk_summary items
+* Ensure each capability is owned by exactly one candidate (no duplication)
+
+You MUST NOT:
+* Create committed Work Packages (that happens later in Work Binder)
+* Assign governance pins (that happens after TA review)
+* Decompose candidates into features, stories, tasks, or implementation detail
+* Assign estimates, timelines, or ownership
+* Imply delivery commitment beyond scope definition
+* Introduce solution design beyond what inputs provide
+* Duplicate scope items across multiple candidates
+
+## Determinism & Replay Readiness
+
+Given identical inputs, the task should:
+* Produce equivalent candidates with equivalent scope and intent
+* Preserve semantic meaning across runs
+* Maintain stable candidate_ids when input meaning is preserved
+* Avoid stylistic variance that alters interpretation
+* Contain no references to time, prior executions, or external state
+
+## Final Self-Check Before Output
+
+1. JSON parses correctly
+2. All required fields present at every level
+3. meta block present with schema_version "3.0"
+4. Every candidate has candidate_id in WPC-### format
+5. Dependencies reference valid WPC-### candidate IDs or external prerequisites
+6. risk_summary affected_candidates reference valid WPC-### IDs
+7. No additional properties at any level (additionalProperties: false)
+8. No wp_id, governance_pins, source_candidate_ids, or transformation fields
+9. cross_cutting_concerns array present (may be empty)
+10. No scope_in item appears in more than one candidate
+11. Infrastructure concerns (config, logging, error handling) are owned by exactly one candidate
+
+## Failure Conditions (Automatic Reject)
+
+This task fails if:
+* Output contains work_packages[] instead of work_package_candidates[]
+* Any candidate uses wp_id instead of candidate_id
+* Any candidate contains governance_pins, source_candidate_ids, or transformation
+* risk_summary uses affected_wps instead of affected_candidates
+* meta.schema_version is not "3.0"
+* Output contains candidate_reconciliation (not part of this schema)
+* Role identity or authority is restated or altered
+* Stories, tasks, features, or implementation detail appear
+* Estimation, scheduling, or ownership is introduced
+* Output depends on unstated context or prior runs
+* The same functional scope appears in multiple candidates (decomposition duplication)

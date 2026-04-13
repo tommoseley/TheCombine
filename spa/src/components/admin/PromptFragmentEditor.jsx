@@ -68,11 +68,14 @@ export default function PromptFragmentEditor({
 
     // Build artifact IDs based on fragment type
     // Role fragments: fragment:role:{id}:{version}:content
+    // Standalone task/pgc fragments: fragment:{kind}:{id}:{version}:content
     // DCW-derived fragments use doctype scope
     const contentArtifactId = fragment
         ? fragmentKind === 'role'
             ? `fragment:role:${fragmentName}:${fragment.version}:content`
-            : `doctype:${fragment.source_doc_type}:${fragment.version}:${fragmentKind}_prompt`
+            : fragment.source_doc_type
+                ? `doctype:${fragment.source_doc_type}:${fragment.version}:${fragmentKind}_prompt`
+                : `fragment:${fragmentKind}:${fragmentName}:${fragment.version}:content`
         : null;
 
     const metadataArtifactId = fragment

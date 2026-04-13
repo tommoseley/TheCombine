@@ -293,11 +293,11 @@ class TestSpawnChildDocuments:
         mock_result.scalars.return_value.all.return_value = [existing_alpha]
         executor._db_session.execute = AsyncMock(return_value=mock_result)
 
-        # Patch publish_event in the actual module globals loaded by the fixture
-        mod_globals = type(executor)._spawn_child_documents.__globals__
-        original_publish = mod_globals.get("publish_event")
+        # Patch publish_event in child_document_manager module globals
+        import app.domain.workflow.child_document_manager as _cdm
+        original_publish = getattr(_cdm, "publish_event", None)
         mock_publish = AsyncMock()
-        mod_globals["publish_event"] = mock_publish
+        _cdm.publish_event = mock_publish
 
         try:
             with patch("app.domain.handlers.registry.handler_exists", return_value=True), \
@@ -309,7 +309,8 @@ class TestSpawnChildDocuments:
                     state, {}, parent_id, "Test Plan", execution_id="exec-sse"
                 )
         finally:
-            mod_globals["publish_event"] = original_publish
+            if original_publish is not None:
+                _cdm.publish_event = original_publish
 
         mock_publish.assert_called_once()
         call_args = mock_publish.call_args
@@ -325,10 +326,10 @@ class TestSpawnChildDocuments:
     @pytest.mark.asyncio
     async def test_no_sse_event_when_nothing_changes(self, executor):
         """No SSE event when handler returns empty specs."""
-        mod_globals = type(executor)._spawn_child_documents.__globals__
-        original_publish = mod_globals.get("publish_event")
+        import app.domain.workflow.child_document_manager as _cdm
+        original_publish = getattr(_cdm, "publish_event", None)
         mock_publish = AsyncMock()
-        mod_globals["publish_event"] = mock_publish
+        _cdm.publish_event = mock_publish
 
         state = FakeState()
         parent_id = uuid4()
@@ -342,7 +343,8 @@ class TestSpawnChildDocuments:
                     state, {}, parent_id, "Test Plan"
                 )
         finally:
-            mod_globals["publish_event"] = original_publish
+            if original_publish is not None:
+                _cdm.publish_event = original_publish
 
         mock_publish.assert_not_called()
 
