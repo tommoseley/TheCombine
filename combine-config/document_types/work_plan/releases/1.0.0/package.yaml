@@ -11,7 +11,7 @@ description: >
 
 # Classification
 authority_level: descriptive
-creation_mode: mechanical
+creation_mode: constructed
 production_mode: assemble
 scope: project
 cardinality: single
