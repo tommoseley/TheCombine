@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -90,8 +90,7 @@ async def trigger_synthesis(
     project_title = project_id
 
     # 3. Build binder docs list for renderer
-    from app.config.package_loader import PackageLoader, reset_package_loader
-    from app.domain.services.ia_gate import verify_document_ia
+    from app.config.package_loader import PackageLoader
     from pathlib import Path
 
     config_path = Path(__file__).parent.parent.parent.parent.parent / "combine-config"
@@ -339,8 +338,8 @@ async def explain_finding(
 
     # 2. Find the specific finding
     finding = None
-    for action in content.get("actions", []):
-        aid = f"{action.get('action_type')}-{','.join(action.get('targets', []))}"
+    for i, action in enumerate(content.get("actions", [])):
+        aid = f"{action.get('action_type')}-{','.join(action.get('targets', []))}-{i}"
         if aid == finding_id:
             finding = action
             break
@@ -520,9 +519,10 @@ async def apply_accepted_actions(
     corrections = []
     skipped = 0
 
-    for action in actions:
-        # Build finding ID to check decision
-        finding_id = f"{action.get('action_type')}-{','.join(action.get('targets', []))}"
+    for i, action in enumerate(actions):
+        # Build finding ID to check decision (indexed to prevent collisions between
+        # actions with the same action_type and targets)
+        finding_id = f"{action.get('action_type')}-{','.join(action.get('targets', []))}-{i}"
         decision = decisions.get(finding_id, {})
 
         if decision.get("decision") != "accept":

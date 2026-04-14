@@ -240,7 +240,7 @@ function parseAdvisorOptions(text) {
 // Finding card
 // ---------------------------------------------------------------------------
 
-function FindingCard({ finding, type, decision, onDecide, projectId }) {
+function FindingCard({ finding, type, decision, onDecide, projectId, findingId }) {
   const isAction = type === 'action';
   const sev = SEVERITY[finding.severity] || SEVERITY.advisory;
   const [expanded, setExpanded] = useState(true);
@@ -252,9 +252,7 @@ function FindingCard({ finding, type, decision, onDecide, projectId }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [refineText, setRefineText] = useState('');
 
-  const id = isAction
-    ? `${finding.action_type}-${finding.targets?.join(',')}`
-    : finding.finding_id;
+  const id = findingId;
 
   const decided = decision != null;
 
@@ -841,15 +839,16 @@ export default function SynthesisReview({ projectId }) {
                 Proposed Changes ({actions.length})
               </h3>
               {actions.map((action, i) => {
-                const id = `${action.action_type}-${action.targets?.join(',')}`;
+                const id = `${action.action_type}-${action.targets?.join('') ?? ''}-${i}`;
                 return (
                   <FindingCard
-                    key={i}
+                    key={id}
                     finding={action}
                     type="action"
                     decision={decisions[id]}
                     onDecide={handleDecide}
                     projectId={projectId}
+                    findingId={id}
                   />
                 );
               })}
@@ -869,16 +868,20 @@ export default function SynthesisReview({ projectId }) {
               }}>
                 Decisions Needed ({questions.length})
               </h3>
-              {questions.map((question, i) => (
-                <FindingCard
-                  key={i}
-                  finding={question}
-                  type="question"
-                  decision={decisions[question.finding_id]}
-                  onDecide={handleDecide}
-                  projectId={projectId}
-                />
-              ))}
+              {questions.map((question, i) => {
+                const id = question.finding_id || `question-${i}`;
+                return (
+                  <FindingCard
+                    key={id}
+                    finding={question}
+                    type="question"
+                    decision={decisions[id]}
+                    onDecide={handleDecide}
+                    projectId={projectId}
+                    findingId={id}
+                  />
+                );
+              })}
             </div>
           )}
 

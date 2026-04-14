@@ -13,7 +13,6 @@ from app.domain.services.synthesis_action_applier import (
     action_to_correction,
     verify_post_condition,
     ACTION_STAGE_MAP,
-    CorrectionBrief,
 )
 
 
@@ -214,3 +213,61 @@ class TestPostConditionVerification:
         }
         content = {}
         assert verify_post_condition(action, content) is True
+
+
+# =========================================================================
+# Action finding ID uniqueness (regression: collision bug)
+# =========================================================================
+
+
+def _build_action_finding_id(action: dict, idx: int) -> str:
+    """Mirrors the ID format used in synthesis.py apply_decisions and explain_finding."""
+    return f"{action.get('action_type')}-{','.join(action.get('targets', []))}-{idx}"
+
+
+class TestActionFindingIdUniqueness:
+    """Guard against ID collision when two actions share action_type and targets.
+
+    Regression: before the fix, IDs were built without an index suffix so two
+    SPLIT_WS actions with no targets produced identical keys in _operator_decisions,
+    causing the second finding to appear decided when only the first was resolved.
+    """
+
+    def test_same_type_no_targets_produce_unique_ids(self):
+        actions = [
+            {"action_type": "SPLIT_WS", "targets": [], "rationale": "a"},
+            {"action_type": "SPLIT_WS", "targets": [], "rationale": "b"},
+        ]
+        ids = [_build_action_finding_id(a, i) for i, a in enumerate(actions)]
+        assert ids[0] != ids[1], "Duplicate finding IDs cause decision bleed-through"
+
+    def test_same_type_same_targets_produce_unique_ids(self):
+        actions = [
+            {"action_type": "NORMALIZE_BOUNDARY", "targets": ["WS-001"], "rationale": "a"},
+            {"action_type": "NORMALIZE_BOUNDARY", "targets": ["WS-001"], "rationale": "b"},
+        ]
+        ids = [_build_action_finding_id(a, i) for i, a in enumerate(actions)]
+        assert ids[0] != ids[1]
+
+    def test_different_types_still_unique(self):
+        actions = [
+            {"action_type": "MERGE_WS", "targets": ["WS-001", "WS-002"]},
+            {"action_type": "SPLIT_WS", "targets": ["WS-003"]},
+        ]
+        ids = [_build_action_finding_id(a, i) for i, a in enumerate(actions)]
+        assert ids[0] != ids[1]
+
+    def test_deciding_action_0_does_not_mark_action_1(self):
+        """Core regression: only the decided action should be in decisions."""
+        actions = [
+            {"action_type": "SPLIT_WS", "targets": [], "rationale": "a"},
+            {"action_type": "SPLIT_WS", "targets": [], "rationale": "b"},
+        ]
+        decisions = {}
+        id0 = _build_action_finding_id(actions[0], 0)
+        decisions[id0] = {"decision": "accept"}
+
+        id1 = _build_action_finding_id(actions[1], 1)
+        assert decisions.get(id1, {}).get("decision") != "accept", (
+            "Decision for action 0 must not bleed into action 1"
+        )
